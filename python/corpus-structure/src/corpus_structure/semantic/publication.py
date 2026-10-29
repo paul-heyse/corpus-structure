@@ -5,7 +5,8 @@ checks identities, exact batch bytes and semantic constraints; these Python rows
 """
 from __future__ import annotations
 
-from dataclasses import astuple, dataclass, fields
+import json
+from dataclasses import asdict, astuple, dataclass, fields
 from decimal import Decimal
 from hashlib import sha256
 from typing import Any
@@ -175,6 +176,15 @@ class PublicationBatch:
             rows = getattr(self, name)
             if not isinstance(rows, tuple) or any(type(row) is not row_type for row in rows):
                 raise TypeError(f"{name} must be an immutable tuple of {row_type.__name__}")
+            for row in rows:
+                for column in fields(row):
+                    value = getattr(row, column.name)
+                    if type(value) not in {str, int, bool, Decimal, type(None)}:
+                        raise TypeError(f"{name}.{column.name} must be an immutable scalar")
+                    if isinstance(value, Decimal) and not value.is_finite():
+                        raise ValueError("non-finite decimal projection")
+                    if column.name == "opaque_payload" and value is not None:
+                        raise ValueError("opaque payload has no admitted semantic lowering")
 
     @property
     def content(self) -> bytes:
@@ -202,15 +212,47 @@ class PublicationConflict(ValueError):
     """An existing batch identity has different exact contents."""
 
 
-def admit_release(prepared: PreparedRelease) -> None:
-    """Refuse required semantics outside the currently implemented native lowering."""
+def native_constraints(prepared: PreparedRelease) -> dict[tuple[str, str], dict[str, Any]]:
+    """Prepare native datatype and exact bound lowerings once per release projection."""
     primitives = {"string", "integer", "decimal", "boolean", "date", "datetime", "float", "double", "uri", "uriorcurie"}
     classes = {d.name for d in prepared.definitions}
     enums = {v.enum for v in prepared.vocabularies}
+    definitions = {row.name: json.loads(row.body) for row in prepared.registry_rows if row.kind == "type"}
+    resolved = {name: name for name in primitives | classes | enums}
+    def resolve(name: str, path: frozenset[str] = frozenset()) -> str:
+        if name in resolved:
+            return resolved[name]
+        if name in path or name not in definitions:
+            raise ValueError(f"unsupported native range {name}")
+        definition = definitions[name]
+        parent = definition.get("typeof") or definition.get("base") or "string"
+        parent = {"str": "string", "int": "integer", "bool": "boolean", "Decimal": "decimal"}.get(parent, parent)
+        resolved[name] = resolve(parent, path | {name})
+        return resolved[name]
+    result = {}
     for definition in prepared.definitions:
         for prop in definition.properties:
-            if prop.range not in primitives | classes | enums:
-                raise ValueError(f"unsupported native range {definition.name}/{prop.name}: {prop.range}")
+            constraints = asdict(prop)
+            constraints["native_range"] = resolve(prop.range)
+            for bound in ("minimum", "maximum"):
+                raw = getattr(prop, bound)
+                if raw is not None:
+                    value = Decimal(raw)
+                    if not value.is_finite():
+                        raise ValueError("non-finite native bound")
+                    lexical = format(value, "f") if value else "0"
+                    if "." in lexical:
+                        lexical = lexical.rstrip("0").rstrip(".")
+                    constraints["native_" + bound] = lexical
+            result[definition.iri, prop.iri] = constraints
+    return result
+
+
+def admit_release(prepared: PreparedRelease) -> None:
+    """Refuse required semantics outside the currently implemented native lowering."""
+    native_constraints(prepared)
+    for definition in prepared.definitions:
+        for prop in definition.properties:
             if prop.constraint_scope not in {"shape", "accepted_value"}:
                 raise ValueError(f"unsupported native constraint scope {prop.constraint_scope}")
             if prop.pattern or prop.patterns:

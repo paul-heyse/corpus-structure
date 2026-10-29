@@ -157,3 +157,126 @@ def test_connection_api_never_commits_and_requires_serializable(semantic_db_engi
             conn.rollback()
     with semantic_db_engine.connect() as conn:
         assert conn.scalar(text('SELECT count(*) FROM data.batch'))==0
+
+
+def test_serialization_retry_restages_same_immutable_batches(semantic_db_engine,semantic_writer_engine,monkeypatch):
+    from corpus_structure.semantic import publication
+    from sqlalchemy import event
+    seed(semantic_db_engine)
+    barrier=Barrier(2)
+    original=publication.stage_batch
+    seen=[]
+    states=[]
+    def staged(conn,candidate):
+        seen.append((id(candidate),candidate.batch_id,candidate.content))
+        original(conn,candidate)
+        if sum(item[1]==candidate.batch_id for item in seen)==1:
+            barrier.wait(timeout=10)
+    def failed(context):
+        states.append(getattr(context.original_exception,'sqlstate',None))
+    monkeypatch.setattr(publication,'stage_batch',staged)
+    event.listen(semantic_writer_engine,'handle_error',failed)
+    candidates=(batch('a',entity='a'),batch('b',entity='b'))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results=list(pool.map(lambda candidate:publish_batch(semantic_writer_engine,candidate),candidates))
+    assert {receipt.data_revision for receipt in results}=={1,2}
+    assert '40001' in states
+    assert len(seen)>=3
+    for candidate in candidates:
+        assert all(item==(id(candidate),candidate.batch_id,candidate.content) for item in seen if item[1]==candidate.batch_id)
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(text('SELECT count(*) FROM data.batch'))==2
+        assert conn.scalar(text('SELECT count(*) FROM data.occurrence'))==4
+
+
+def test_ambiguous_committed_connection_loss_resolves_exact_receipt(semantic_db_engine,semantic_writer_engine,monkeypatch):
+    import psycopg
+    seed(semantic_db_engine)
+    original=semantic_writer_engine.dialect.do_commit
+    commits=[]
+    def committed_then_lost(driver):
+        original(driver)
+        commits.append(1)
+        if len(commits)==1:
+            raise psycopg.OperationalError('injected connection loss after server commit')
+    monkeypatch.setattr(semantic_writer_engine.dialect,'do_commit',committed_then_lost)
+    candidate=batch()
+    assert publish_batch(semantic_writer_engine,candidate).data_revision==1
+    assert len(commits)==1
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(text('SELECT count(*) FROM data.batch'))==1
+        assert conn.scalar(text('SELECT count(*) FROM data.occurrence'))==2
+
+
+def test_native_recursive_record_shape_and_entity_reference(semantic_db_engine,semantic_writer_engine):
+    seed(semantic_db_engine)
+    record='https://example/Record'
+    with semantic_db_engine.begin() as conn:
+        conn.execute(insert(table('sem.class_definition')).values(release_id=R,class_id=record,name='Record',iri=record))
+        conn.execute(insert(table('sem.property_definition')).values(release_id=R,property_id='https://example/target',name='target',iri='https://example/target'))
+        conn.execute(insert(table('sem.property_applicability')).values(release_id=R,class_id=record,property_id='https://example/target',range_name='Thing',required=True,multivalued=False,constraint_scope='shape',constraints={'name':'target','inlined':False}))
+        conn.execute(table('sem.property_applicability').update().where(table('sem.property_applicability').c.class_id==C).values(range_name='Record',constraints={'name':'label','inlined':True}))
+    candidate=batch()
+    key=fact_key(R,Z,'e',P,{'target':'e'},{})
+    candidate=replace(candidate,typed_value=(ValueRow('record','record',datatype=record),ValueRow('ref','entity',entity_id='e')),value_role=(RoleRow('record','target',0,'ref'),),fact=(FactRow(key,'e',P,'record'),),occurrence=(),support=(),selection=(SelectionRow(key),))
+    assert publish_batch(semantic_writer_engine,candidate).data_revision==1
+    for value in (ValueRow('bad','string',text_value='e',datatype=record),ValueRow('bad','record',datatype=record)):
+        bad=replace(candidate,batch_id='bad',typed_value=(value,),value_role=(),fact=(FactRow('forged','e',P,'bad'),),selection=())
+        with pytest.raises(DBAPIError):
+            publish_batch(semantic_writer_engine,bad)
+
+
+def test_native_identity_vectors_scalars_unicode_and_exact_decimals(semantic_db_engine,semantic_writer_engine):
+    import json
+    from datetime import UTC, date, datetime
+    from corpus_structure.semantic.identity import _meaning, canonical_bytes
+    seed(semantic_db_engine)
+    values=(
+        ('unicode',ValueRow('unicode','string',text_value='é𝄞\n\t\\"\u2028'), 'é𝄞\n\t\\"\u2028'),
+        ('integer',ValueRow('integer','integer',text_value='9'*4000), int('9'*4000)),
+        ('decimal',ValueRow('decimal','decimal',decimal_lexical='0.'+'0'*17000+'1'), Decimal('0.'+'0'*17000+'1')),
+        ('date',ValueRow('date','date',text_value='2026-10-29'),date(2026,10,29)),
+        ('datetime',ValueRow('datetime','datetime',text_value='2026-10-29T12:34:56.123456+00:00'),datetime(2026,10,29,12,34,56,123456,tzinfo=UTC)),
+        ('float',ValueRow('float','float',text_value=(1.5).hex()),1.5),
+        ('subnormal',ValueRow('subnormal','float',text_value=float.fromhex('0x0.0000000000001p-1022').hex()),float.fromhex('0x0.0000000000001p-1022')),
+        ('negative-zero',ValueRow('negative-zero','float',text_value=(-0.0).hex()),-0.0),
+        ('boolean',ValueRow('boolean','boolean',boolean_value=False),False),
+    )
+    candidate=PublicationBatch(R,Z,'vectors',typed_value=tuple(row for _,row,_ in values))
+    publish_batch(semantic_writer_engine,candidate)
+    with semantic_db_engine.begin() as conn:
+        conn.execute(text('SET LOCAL ROLE corpus_sem_publisher'))
+        for value_id,_,semantic in values:
+            actual=conn.scalar(text('SELECT data.canonical_json(data.value_meaning(:r,:z,:v))'),{'r':R,'z':Z,'v':value_id})
+            assert actual.encode()==canonical_bytes(_meaning(semantic))
+            assert json.loads(actual)==_meaning(semantic)
+    for value in (ValueRow('bad','float',text_value='0x1.0000000000000p+1024'),ValueRow('bad','float',text_value='0x0.0000000000000p-1022'),ValueRow('bad','datetime',text_value='2026-10-29T12:34:56.000000+00:00'),ValueRow('bad','datetime',text_value='2026-10-29T24:00:00+00:00'),ValueRow('bad','decimal',decimal_lexical='1.0')):
+        with pytest.raises(DBAPIError):
+            publish_batch(semantic_writer_engine,PublicationBatch(R,Z,'bad',typed_value=(value,)))
+
+
+def test_native_bound_comparison_is_lossless_beyond_numeric_capacity(semantic_db_engine,semantic_writer_engine):
+    seed(semantic_db_engine)
+    huge='9'*150000
+    with semantic_db_engine.begin() as conn:
+        conn.execute(table('sem.property_applicability').update().values(range_name='decimal',constraints={'name':'label','native_minimum':huge,'native_maximum':huge}))
+    candidate=batch()
+    fact=fact_key(R,Z,'e',P,Decimal(huge),{})
+    candidate=replace(candidate,typed_value=(ValueRow('huge','decimal',decimal_lexical=huge),),fact=(FactRow(fact,'e',P,'huge'),),occurrence=(),support=(),selection=(SelectionRow(fact),))
+    assert publish_batch(semantic_writer_engine,candidate).data_revision==1
+    with semantic_db_engine.begin() as conn:
+        conn.execute(text('SET LOCAL ROLE corpus_sem_publisher'))
+        assert conn.scalar(text("SELECT data.compare_decimal(:a,:b)"),{'a':huge,'b':'1'+huge})==-1
+        assert conn.scalar(text("SELECT data.compare_decimal(:a,:b)"),{'a':'-'+huge,'b':'-1'+huge})==1
+
+
+def test_native_constraints_prepares_datatype_aliases_and_scientific_bounds():
+    import yaml
+    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.publication import admit_release, native_constraints
+    source={'id':'https://example/alias','name':'alias','prefixes':{'ex':'https://example/'},'default_prefix':'ex','types':{'decimal':{'base':'Decimal'},'Amount':{'typeof':'decimal'},'Cost':{'typeof':'Amount'}},'classes':{'Thing':{'attributes':{'cost':{'range':'Cost','minimum_value':'1e10'}}}}}
+    prepared=prepare_release(SourceBundle('alias',(SourceArtifact('alias',yaml.safe_dump(source).encode()),)))
+    admit_release(prepared)
+    constraints=native_constraints(prepared)
+    assert constraints['https://example/Thing','https://example/cost']['native_range']=='decimal'
+    assert constraints['https://example/Thing','https://example/cost']['native_minimum']=='10000000000'

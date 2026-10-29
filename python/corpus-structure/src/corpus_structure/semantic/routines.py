@@ -6,6 +6,7 @@ identifiers are data, never SQL identifiers. Deploy this with the bootstrap migr
 from __future__ import annotations
 
 from dataclasses import fields
+from unicodedata import unidata_version
 
 from sqlalchemy import Connection
 
@@ -14,14 +15,14 @@ from .publication import STAGE_TYPES
 
 _CANONICAL = r'''
 CREATE OR REPLACE FUNCTION data.canonical_json(p jsonb) RETURNS text
-LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog AS $fn$
+LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $fn$
  SELECT CASE jsonb_typeof(p)
  WHEN 'array' THEN '[' || COALESCE((SELECT string_agg(data.canonical_json(value), ',' ORDER BY ord) FROM jsonb_array_elements(p) WITH ORDINALITY x(value,ord)), '') || ']'
  WHEN 'object' THEN '{' || COALESCE((SELECT string_agg(to_json(key)::text || ':' || data.canonical_json(value), ',' ORDER BY key COLLATE "C") FROM jsonb_each(p)), '') || '}'
  ELSE p::text END
 $fn$;
 CREATE OR REPLACE FUNCTION data.compare_decimal(a text,b text) RETURNS integer
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog AS $fn$
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE ai text; bi text; af text; bf text; sign integer:=1; result integer;
 BEGIN
  IF a::text LIKE '-%' AND b::text NOT LIKE '-%' THEN RETURN -1; END IF;
@@ -37,7 +38,7 @@ BEGIN
  RETURN result*sign;
 END $fn$;
 CREATE OR REPLACE FUNCTION data.value_meaning(r text,z text,v text,path text[] DEFAULT '{}',qual boolean DEFAULT false) RETURNS jsonb
-LANGUAGE plpgsql STABLE SET search_path=pg_catalog AS $fn$
+LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE x data.typed_value%ROWTYPE; result jsonb; child jsonb;
 BEGIN
  IF v=ANY(path) THEN RAISE EXCEPTION 'cyclic typed value' USING ERRCODE='23514'; END IF;
@@ -66,7 +67,7 @@ BEGIN
  RAISE EXCEPTION 'unsupported typed value kind %',x.kind USING ERRCODE='23514';
 END $fn$;
 CREATE OR REPLACE FUNCTION data.value_matches(r text,z text,v text,rng text,inlined boolean) RETURNS boolean
-LANGUAGE plpgsql STABLE SET search_path=pg_catalog AS $fn$
+LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE x data.typed_value%ROWTYPE;
 BEGIN
  SELECT * INTO STRICT x FROM data.typed_value WHERE release_id=r AND realization_id=z AND value_id=v;
@@ -79,7 +80,7 @@ BEGIN
  ELSIF EXISTS(SELECT FROM sem.vocabulary_member WHERE release_id=r AND vocabulary_id=rng) THEN
  RETURN x.kind='string' AND EXISTS(SELECT FROM sem.vocabulary_member WHERE release_id=r AND vocabulary_id=rng AND value=x.text_value);
  ELSIF EXISTS(SELECT FROM sem.class_definition WHERE release_id=r AND name=rng) THEN
- IF inlined THEN RETURN x.datatype IS NOT NULL AND (x.datatype=(SELECT class_id FROM sem.class_definition WHERE release_id=r AND name=rng) OR EXISTS(SELECT FROM sem.class_hierarchy WHERE release_id=r AND class_id=x.datatype AND ancestor_id=(SELECT class_id FROM sem.class_definition WHERE release_id=r AND name=rng))); END IF;
+ IF inlined THEN RETURN x.kind IN ('record','mapping','interval','expression','missing') AND x.datatype IS NOT NULL AND (x.datatype=(SELECT class_id FROM sem.class_definition WHERE release_id=r AND name=rng) OR EXISTS(SELECT FROM sem.class_hierarchy WHERE release_id=r AND class_id=x.datatype AND ancestor_id=(SELECT class_id FROM sem.class_definition WHERE release_id=r AND name=rng))); END IF;
  RETURN x.kind='entity' AND EXISTS(SELECT FROM data.membership m WHERE m.release_id=r AND m.realization_id=z AND m.entity_id=x.entity_id AND (m.class_id=(SELECT class_id FROM sem.class_definition WHERE release_id=r AND name=rng) OR EXISTS(SELECT FROM sem.class_hierarchy WHERE release_id=r AND class_id=m.class_id AND ancestor_id=(SELECT class_id FROM sem.class_definition WHERE release_id=r AND name=rng))));
  END IF;
  RETURN false;
@@ -88,12 +89,14 @@ END $fn$;
 
 _VALIDATOR = r'''
 CREATE OR REPLACE FUNCTION data.validate_state(r text,z text) RETURNS void
-LANGUAGE plpgsql STABLE SET search_path=pg_catalog AS $fn$
-DECLARE a record; x record; n bigint; primitive text; lexical text; value_count bigint;
+LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE a record; x record; n bigint; primitive text; lexical text; value_count bigint; accepted_values text[]; enforce boolean;
 BEGIN
  IF EXISTS(SELECT FROM data.membership m WHERE m.release_id=r AND m.realization_id=z AND (m.establishment='' OR NOT EXISTS(SELECT FROM data.membership_support ms WHERE (ms.release_id,ms.realization_id,ms.entity_id,ms.class_id)=(m.release_id,m.realization_id,m.entity_id,m.class_id)))) THEN RAISE EXCEPTION 'membership requires establishment and support' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM data.derivation d LEFT JOIN data.derivation_premise dp ON (dp.release_id,dp.realization_id,dp.derivation_id)=(d.release_id,d.realization_id,d.derivation_id) WHERE d.release_id=r AND d.realization_id=z GROUP BY d.derivation_id HAVING count(dp.position)=0 OR min(dp.position)<>0 OR max(dp.position)<>count(dp.position)-1) THEN RAISE EXCEPTION 'derivation requires ordered premises' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM data.fact f WHERE f.release_id=r AND f.realization_id=z AND EXISTS(SELECT FROM sem.class_definition WHERE release_id=r AND name='Qualification') AND NOT EXISTS(SELECT FROM data.typed_value v JOIN sem.class_definition c ON c.release_id=r AND c.class_id=v.datatype AND c.name='Qualification' WHERE v.release_id=r AND v.realization_id=z AND v.value_id=f.qualification_value_id)) THEN RAISE EXCEPTION 'fact requires typed qualification' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM data.membership m JOIN sem.class_definition c ON c.release_id=m.release_id AND c.class_id=m.class_id WHERE m.release_id=r AND m.realization_id=z AND c.abstract) THEN RAISE EXCEPTION 'direct membership of abstract class' USING ERRCODE='23514'; END IF;
+ WITH RECURSIVE accepted(v) AS (SELECT f.object_value_id FROM data.fact f JOIN data.selection s ON (s.release_id,s.realization_id,s.fact_id)=(f.release_id,f.realization_id,f.fact_id) WHERE f.release_id=r AND f.realization_id=z UNION SELECT vr.child_value_id FROM data.value_role vr JOIN accepted ac ON ac.v=vr.parent_value_id WHERE vr.release_id=r AND vr.realization_id=z) SELECT array_agg(v) INTO accepted_values FROM accepted;
  -- Every value is interpreted, including disconnected nested nodes. No caller digest is trusted.
  FOR x IN SELECT * FROM data.typed_value WHERE release_id=r AND realization_id=z LOOP
  PERFORM data.value_meaning(r,z,x.value_id);
@@ -108,27 +111,28 @@ BEGIN
  IF lexical IS NULL OR lexical !~ '^(0|-?[1-9][0-9]*|-?(0|[1-9][0-9]*)\.[0-9]*[1-9])$' OR (x.numeric_value IS NOT NULL AND lexical::numeric<>x.numeric_value) THEN RAISE EXCEPTION 'invalid exact decimal' USING ERRCODE='23514'; END IF;
  END IF;
  IF x.kind='boolean' AND x.boolean_value IS NULL THEN RAISE EXCEPTION 'missing boolean' USING ERRCODE='23514'; END IF;
- IF x.kind='float' AND x.text_value !~ '^-?0x(0\.0p\+0|[01]\.[0-9a-f]{13}p[+-][0-9]+)$' THEN RAISE EXCEPTION 'invalid finite float hex' USING ERRCODE='23514'; END IF;
+ IF x.kind='float' AND (x.text_value !~ '^-?0x(0\.0p\+0|1\.[0-9a-f]{13}p([+]0|[+][1-9][0-9]*|-[1-9][0-9]*)|0\.[0-9a-f]{13}p-1022)$' OR (x.text_value ~ '0x1\.' AND split_part(x.text_value,'p',2)::integer NOT BETWEEN -1022 AND 1023) OR x.text_value ~ '0x0\.0000000000000p-1022') THEN RAISE EXCEPTION 'invalid finite float hex' USING ERRCODE='23514'; END IF;
  IF x.kind='date' AND (x.text_value !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' OR to_char(x.text_value::date,'YYYY-MM-DD')<>x.text_value) THEN RAISE EXCEPTION 'invalid canonical date' USING ERRCODE='23514'; END IF;
- IF x.kind='datetime' AND (x.text_value !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{6})?\+00:00$' OR extract(year FROM x.text_value::timestamptz) NOT BETWEEN 1 AND 9999) THEN RAISE EXCEPTION 'invalid canonical UTC datetime' USING ERRCODE='23514'; END IF;
+ IF x.kind='datetime' AND (x.text_value !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{6})?\+00:00$' OR extract(year FROM x.text_value::timestamptz) NOT BETWEEN 1 AND 9999 OR to_char(x.text_value::timestamptz AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS')||CASE WHEN extract(microseconds FROM x.text_value::timestamptz)::bigint % 1000000=0 THEN '' ELSE to_char(x.text_value::timestamptz AT TIME ZONE 'UTC','.US') END||'+00:00' <> x.text_value) THEN RAISE EXCEPTION 'invalid canonical UTC datetime' USING ERRCODE='23514'; END IF;
  IF x.kind NOT IN ('sequence','mapping','record','interval','expression','missing') AND EXISTS(SELECT FROM data.value_role WHERE release_id=r AND realization_id=z AND parent_value_id=x.value_id) THEN RAISE EXCEPTION 'scalar has child roles' USING ERRCODE='23514'; END IF;
  IF x.kind='sequence' AND EXISTS(SELECT FROM data.value_role WHERE release_id=r AND realization_id=z AND parent_value_id=x.value_id GROUP BY parent_value_id HAVING min(position)<>0 OR max(position)<>count(*)-1 OR count(DISTINCT position)<>count(*) OR bool_or(role<>'item')) THEN RAISE EXCEPTION 'invalid ordered sequence' USING ERRCODE='23514'; END IF;
  IF x.kind IN ('mapping','record','interval','expression','missing') AND EXISTS(SELECT FROM data.value_role WHERE release_id=r AND realization_id=z AND parent_value_id=x.value_id GROUP BY role HAVING count(*)<>1 OR min(position)<>0) THEN RAISE EXCEPTION 'duplicate mapping role' USING ERRCODE='23514'; END IF;
  IF x.kind IN ('record','interval','expression','missing') OR (x.kind='mapping' AND x.datatype IS NOT NULL) THEN
- IF x.datatype IS NULL OR NOT EXISTS(SELECT FROM sem.class_definition WHERE release_id=r AND class_id=x.datatype) THEN RAISE EXCEPTION 'undeclared record class' USING ERRCODE='23514'; END IF;
+ IF x.datatype IS NULL OR NOT EXISTS(SELECT FROM sem.class_definition WHERE release_id=r AND class_id=x.datatype AND NOT abstract) THEN RAISE EXCEPTION 'undeclared record class' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM data.value_role vr WHERE vr.release_id=r AND vr.realization_id=z AND vr.parent_value_id=x.value_id AND NOT EXISTS(SELECT FROM sem.property_applicability pa WHERE pa.release_id=r AND pa.class_id=x.datatype AND pa.constraints->>'name'=vr.role)) THEN RAISE EXCEPTION 'undeclared record property' USING ERRCODE='23514'; END IF;
  FOR a IN SELECT * FROM sem.property_applicability WHERE release_id=r AND class_id=x.datatype LOOP
+ enforce:=a.constraint_scope='shape' OR COALESCE(x.value_id=ANY(accepted_values),false);
  SELECT count(*) INTO n FROM data.value_role WHERE release_id=r AND realization_id=z AND parent_value_id=x.value_id AND role=a.constraints->>'name';
- IF n=0 AND (a.required OR COALESCE(a.minimum_cardinality,0)>0) THEN RAISE EXCEPTION 'missing required record property %',a.property_id USING ERRCODE='23514'; END IF;
+ IF enforce AND n=0 AND (a.required OR COALESCE(a.minimum_cardinality,0)>0) THEN RAISE EXCEPTION 'missing required record property %',a.property_id USING ERRCODE='23514'; END IF;
  FOR primitive IN SELECT child_value_id FROM data.value_role WHERE release_id=r AND realization_id=z AND parent_value_id=x.value_id AND role=a.constraints->>'name' LOOP
  IF a.multivalued THEN
  IF NOT EXISTS(SELECT FROM data.typed_value WHERE release_id=r AND realization_id=z AND value_id=primitive AND kind='sequence') THEN RAISE EXCEPTION 'multivalue requires sequence' USING ERRCODE='23514'; END IF;
  SELECT count(*) INTO value_count FROM data.value_role WHERE release_id=r AND realization_id=z AND parent_value_id=primitive;
- IF value_count<COALESCE(a.minimum_cardinality,CASE WHEN a.required THEN 1 ELSE 0 END) OR (a.maximum_cardinality IS NOT NULL AND value_count>a.maximum_cardinality) THEN RAISE EXCEPTION 'record cardinality' USING ERRCODE='23514'; END IF;
+ IF enforce AND (value_count<COALESCE(a.minimum_cardinality,CASE WHEN a.required THEN 1 ELSE 0 END) OR (a.maximum_cardinality IS NOT NULL AND value_count>a.maximum_cardinality)) THEN RAISE EXCEPTION 'record cardinality' USING ERRCODE='23514'; END IF;
  FOR lexical IN SELECT child_value_id FROM data.value_role WHERE release_id=r AND realization_id=z AND parent_value_id=primitive LOOP
- PERFORM data.validate_property(r,z,lexical,a.range_name,a.constraints);
+ PERFORM data.validate_property(r,z,lexical,COALESCE(a.constraints->>'native_range',a.range_name),CASE WHEN enforce THEN a.constraints ELSE a.constraints-'minimum'-'maximum'-'native_minimum'-'native_maximum' END);
  END LOOP;
- ELSE PERFORM data.validate_property(r,z,primitive,a.range_name,a.constraints);
+ ELSE PERFORM data.validate_property(r,z,primitive,COALESCE(a.constraints->>'native_range',a.range_name),CASE WHEN enforce THEN a.constraints ELSE a.constraints-'minimum'-'maximum'-'native_minimum'-'native_maximum' END);
  END IF;
  END LOOP;
  END LOOP;
@@ -136,7 +140,7 @@ BEGIN
  END LOOP;
  -- Range/applicability reads include the complete admitted state plus this candidate.
  IF EXISTS(SELECT FROM data.fact f WHERE f.release_id=r AND f.realization_id=z AND NOT EXISTS(SELECT FROM data.membership m JOIN sem.property_applicability pa ON pa.release_id=m.release_id AND pa.class_id=m.class_id WHERE m.release_id=r AND m.realization_id=z AND m.entity_id=f.subject_id AND pa.property_id=f.property_id)) THEN RAISE EXCEPTION 'fact property is not applicable to subject class' USING ERRCODE='23514'; END IF;
- FOR a IN SELECT f.object_value_id,pa.range_name,pa.constraints FROM data.fact f JOIN data.membership m ON (m.release_id,m.realization_id,m.entity_id)=(f.release_id,f.realization_id,f.subject_id) JOIN sem.property_applicability pa ON pa.release_id=r AND pa.class_id=m.class_id AND pa.property_id=f.property_id WHERE f.release_id=r AND f.realization_id=z LOOP
+ FOR a IN SELECT f.object_value_id,COALESCE(pa.constraints->>'native_range',pa.range_name) AS range_name,CASE WHEN pa.constraint_scope='shape' OR EXISTS(SELECT FROM data.selection s WHERE (s.release_id,s.realization_id,s.fact_id)=(f.release_id,f.realization_id,f.fact_id)) THEN pa.constraints ELSE pa.constraints-'minimum'-'maximum'-'native_minimum'-'native_maximum'-'native_minimum'-'native_maximum' END AS constraints FROM data.fact f JOIN data.membership m ON (m.release_id,m.realization_id,m.entity_id)=(f.release_id,f.realization_id,f.subject_id) JOIN sem.property_applicability pa ON pa.release_id=r AND pa.class_id=m.class_id AND pa.property_id=f.property_id WHERE f.release_id=r AND f.realization_id=z LOOP
  PERFORM data.validate_property(r,z,a.object_value_id,a.range_name,a.constraints);
  END LOOP;
  -- Cardinality counts semantic values, never evidence occurrences.
@@ -150,7 +154,7 @@ BEGIN
  IF EXISTS(
  WITH key_parts AS (
  SELECT m.entity_id,m.class_id,i.group_id,i.position,
- count(DISTINCT f.fact_id) AS count_values,
+ count(DISTINCT data.canonical_json(data.value_meaning(r,z,f.object_value_id))) AS count_values,
  min(data.canonical_json(CASE WHEN pa.constraints->>'case_policy'='casefold' AND tv.kind='string' THEN jsonb_build_array('string',casefold(tv.text_value COLLATE pg_catalog.pg_unicode_fast)) ELSE data.value_meaning(r,z,f.object_value_id) END)) AS part
  FROM data.membership m JOIN sem.identity_slot i ON i.release_id=r AND i.class_id=m.class_id
  JOIN sem.property_applicability pa ON pa.release_id=r AND pa.class_id=i.class_id AND pa.property_id=i.property_id
@@ -162,15 +166,15 @@ BEGIN
  ) THEN RAISE EXCEPTION 'missing, multivalued or nonunique entity identity' USING ERRCODE='23514'; END IF;
 END $fn$;
 CREATE OR REPLACE FUNCTION data.validate_property(r text,z text,v text,rng text,c jsonb) RETURNS void
-LANGUAGE plpgsql STABLE SET search_path=pg_catalog AS $fn$
+LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE x data.typed_value%ROWTYPE;
 BEGIN
  IF NOT data.value_matches(r,z,v,rng,COALESCE((c->>'inlined')::boolean,false)) THEN RAISE EXCEPTION 'value violates declared range %',rng USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT x FROM data.typed_value WHERE release_id=r AND realization_id=z AND value_id=v;
  IF c->>'equals_string' IS NOT NULL AND (x.kind<>'string' OR x.text_value<>c->>'equals_string') THEN RAISE EXCEPTION 'value violates equals_string' USING ERRCODE='23514'; END IF;
- IF c->>'minimum' IS NOT NULL OR c->>'maximum' IS NOT NULL THEN
+ IF COALESCE(c->>'native_minimum',c->>'minimum') IS NOT NULL OR COALESCE(c->>'native_maximum',c->>'maximum') IS NOT NULL THEN
  IF x.kind NOT IN ('integer','decimal','number') THEN RAISE EXCEPTION 'unsupported numeric constraint kind' USING ERRCODE='23514'; END IF;
- IF (c->>'minimum' IS NOT NULL AND data.compare_decimal(COALESCE(x.decimal_lexical,x.text_value,x.integer_value::text),c->>'minimum')<0) OR (c->>'maximum' IS NOT NULL AND data.compare_decimal(COALESCE(x.decimal_lexical,x.text_value,x.integer_value::text),c->>'maximum')>0) THEN RAISE EXCEPTION 'numeric bound' USING ERRCODE='23514'; END IF;
+ IF (COALESCE(c->>'native_minimum',c->>'minimum') IS NOT NULL AND data.compare_decimal(COALESCE(x.decimal_lexical,x.text_value,x.integer_value::text),COALESCE(c->>'native_minimum',c->>'minimum'))<0) OR (COALESCE(c->>'native_maximum',c->>'maximum') IS NOT NULL AND data.compare_decimal(COALESCE(x.decimal_lexical,x.text_value,x.integer_value::text),COALESCE(c->>'native_maximum',c->>'maximum'))>0) THEN RAISE EXCEPTION 'numeric bound' USING ERRCODE='23514'; END IF;
  END IF;
 END $fn$;
 '''
@@ -203,6 +207,8 @@ def deploy_routines(connection: Connection, *, publisher_role: str = "corpus_sem
     connection = connection.execution_options(no_parameters=True)
     quote = connection.dialect.identifier_preparer.quote
     publisher, writer, reader = map(quote, (publisher_role, writer_role, reader_role))
+    if unidata_version != "16.0.0" or connection.exec_driver_sql("SELECT pg_catalog.unicode_version()").scalar_one() != "16.0":
+        raise ValueError("native semantic casefold requires qualified Unicode 16 in Python and PostgreSQL")
     database = quote(connection.exec_driver_sql("SELECT current_database()").scalar_one())
     for statement in (
         f"REVOKE TEMP ON DATABASE {database} FROM PUBLIC",
@@ -211,7 +217,7 @@ def deploy_routines(connection: Connection, *, publisher_role: str = "corpus_sem
         f"GRANT USAGE ON SCHEMA sem TO {publisher}",
         f"GRANT SELECT ON ALL TABLES IN SCHEMA sem TO {publisher}",
         f"GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA data TO {publisher}",
-        f"REVOKE ALL ON ALL TABLES IN SCHEMA data FROM {writer},{reader},PUBLIC",
+        f"REVOKE ALL ON ALL TABLES IN SCHEMA data,sem FROM {writer},{reader},PUBLIC",
         f"GRANT USAGE ON SCHEMA data,sem TO {writer},{reader}",
         f"GRANT SELECT ON ALL TABLES IN SCHEMA data,sem TO {reader}",
         f"GRANT SELECT ON data.batch TO {writer}",
@@ -221,12 +227,12 @@ def deploy_routines(connection: Connection, *, publisher_role: str = "corpus_sem
     connection.exec_driver_sql(_VALIDATOR)
     create, verify, content, insert = _transport_sql(writer)
     connection.exec_driver_sql(f'''
-CREATE OR REPLACE FUNCTION data.begin_stage() RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $fn$
+CREATE OR REPLACE FUNCTION data.begin_stage() RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' THEN RAISE EXCEPTION 'publication requires SERIALIZABLE'; END IF;
  {create}
 END $fn$;
-CREATE OR REPLACE FUNCTION data.publish_batch(r text,z text,b text,p_content bytea) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $fn$
+CREATE OR REPLACE FUNCTION data.publish_batch(r text,z text,b text,p_content bytea) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE actual bytea; old data.batch%ROWTYPE; rev bigint; f record; expected text;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' THEN RAISE EXCEPTION 'publication requires SERIALIZABLE'; END IF;
