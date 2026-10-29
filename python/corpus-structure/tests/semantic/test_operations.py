@@ -74,11 +74,12 @@ classes:
     dependencies = ResolvedDependencies()
     if observations:
         from corpus_structure.semantic.metrics import observation_dependencies
+        from corpus_structure.semantic.metrics import METRIC_INPUT
         import yaml
-
-        declarations = yaml.safe_load((Path(__file__).parents[2] / "src/corpus_structure/model/semantic/metrics.yaml").read_bytes())
-        declarations["metrics"].append(dict(id="count",value_type="SourceNumberOrNull",subject_kind="run",detail_schema="SourceObject",description="Test method count"))
-        dependencies = observation_dependencies(dependencies, yaml.safe_dump(declarations).encode())
+        packaged = observation_dependencies(dependencies)
+        declared = yaml.safe_load(next(a.content for a in packaged.artifacts if a.name == METRIC_INPUT))
+        declared["metrics"].append(dict(id="count", value_type="SourceNumberOrNull", subject_kind="run", detail_schema="SourceObject", description="Test method count"))
+        dependencies = observation_dependencies(dependencies, yaml.safe_dump(declared).encode())
     p = prepare_release(bundle, dependencies)
     with engine.begin() as c:
         if archive or observations:
@@ -331,7 +332,7 @@ def test_source_rendition_fidelity_and_original_change(
 
 
 def test_recognizer_terminal_source_boundary_and_coverage(
-    semantic_db_engine, semantic_writer_engine
+    semantic_db_engine, semantic_writer_engine, semantic_reader_engine
 ):
     from pydantic import BaseModel
 
@@ -440,6 +441,11 @@ def test_recognizer_terminal_source_boundary_and_coverage(
             .receipt == ids.receipt
         )
         assert len(c.execute(select(table("ops.measurement"))).all()) == 1
+        for changes in ({"metric": "undeclared"}, {"run_id": run + 10000}, {"detail": []}):
+            with pytest.raises(DBAPIError), c.begin_nested():
+                forged = dict(run_id=run, task_id=task, metric="count", scope_type="run", value=2, detail={})
+                forged.update(changes)
+                c.execute(insert(table("ops.measurement")).values(**forged))
     from dataclasses import replace
 
     changed = replace(
@@ -458,6 +464,31 @@ def test_recognizer_terminal_source_boundary_and_coverage(
             configuration_hash="config",
             source="file:source",
         )
+
+
+    from corpus_structure.semantic.arrow_publication import SnapshotDerivedPublication, publish_arrow_on_connection
+    from corpus_structure.semantic.publication import PublicationBatch
+    from corpus_structure.semantic.query import SnapshotBinding, read_session
+    with e.connect().execution_options(isolation_level="SERIALIZABLE") as c, c.begin():
+        cut = seal_cut(c, run, "measurement-final", final=True)
+        c.execute(text("SELECT data.begin_evaluation(:cut,:output)"), {"cut": cut, "output": "measurement-output"})
+        batch = PublicationBatch(p.release_id, "measurement-output", "measurement-result")
+        publish_arrow_on_connection(c, SnapshotDerivedPublication.from_rows(batch,
+            source=SnapshotBinding(p.release_id, "z", 0, "cut:" + str(cut)),
+            operation_id="consolidate_cut", projection_id="candidate"))
+        c.execute(text("SELECT data.finish_evaluation(:cut,:output,:batch)"),
+                  {"cut": cut, "output": "measurement-output", "batch": batch.batch_id})
+    with read_session(semantic_reader_engine, "measurement-output") as session:
+        measurements = [m.model_dump(mode="python") for m in session.measurements("count")]
+    assert len(measurements) == 1
+    measurement = measurements[0]
+    assert measurement["metric"]["id"] == "count"
+    assert measurement["subject"]["kind"] == "run"
+    assert measurement["producer"]["run_id"] == run
+    assert measurement["producer"]["task_id"] == task
+    assert measurement["producer"]["method"] == "read"
+    assert measurement["producer"]["operation_version"] == "1"
+    assert source_python(measurement["value"]) == 2
 
 
 @pytest.mark.parametrize(

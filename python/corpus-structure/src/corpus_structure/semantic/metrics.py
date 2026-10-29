@@ -1,6 +1,7 @@
 """Explicit acquisition and release-bound metric declarations; no inferred metric names."""
 from pathlib import Path
 import json
+import math
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact
 
 METRIC_INPUT = "operation/metric-definitions.yaml"
@@ -25,3 +26,11 @@ def validate_measurement(prepared: PreparedRelease, measurement) -> None:
         raise ValueError("measurement subject differs from metric definition")
     if measurement.value is not None and type(measurement.value) not in (int, float):
         raise ValueError("measurement value differs from declared numeric source profile")
+    if measurement.value is not None:
+        try:
+            finite = math.isfinite(float(measurement.value))
+        except OverflowError:
+            finite = False
+        if not finite:
+            raise ValueError("measurement requires a finite float-compatible source number")
+

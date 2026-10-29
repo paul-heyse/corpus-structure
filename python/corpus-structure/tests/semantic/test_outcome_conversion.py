@@ -17,3 +17,21 @@ def test_source_coverage_preserves_original_domain(source, semantic):
 def test_unknown_source_outcomes_refuse(value):
     with pytest.raises(ValueError, match='unknown source coverage'):
         lower_source_coverage(value)
+
+
+def test_composed_coverage_consumes_exact_compiled_translation():
+    from types import SimpleNamespace
+    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
+    from corpus_structure.semantic.types import RegistryRow
+    from corpus_structure.semantic.outcomes import PreparedCoverageLowerer
+    product = compile_execution_model(trusted_execution_inputs())
+    prepared = SimpleNamespace(execution_model_id=product.model_id, registry_rows=(
+        RegistryRow('execution_model', product.model_id, product.content),))
+    lowerer = PreparedCoverageLowerer.from_release(prepared)
+    unknown = lowerer.lower('unknown', 'not inspected', 'parser.symbolic')
+    assert unknown.outcome == 'unanalysed'
+    assert unknown.source_outcome == 'unknown'
+    assert unknown.reason == 'not inspected'
+    assert unknown.required_capability == 'parser.symbolic'
+    with pytest.raises(ValueError, match='exact execution products'):
+        PreparedCoverageLowerer.from_release(SimpleNamespace(execution_model_id=product.model_id, registry_rows=()))

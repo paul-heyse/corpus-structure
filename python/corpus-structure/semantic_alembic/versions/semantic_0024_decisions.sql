@@ -28,10 +28,16 @@ DECLARE bound_release text; task_run bigint;
 BEGIN
  SELECT r.release_id,t.run_id INTO bound_release,task_run FROM ops.task t JOIN ops.run r ON r.id=t.run_id WHERE t.id=NEW.task_id;
  IF task_run IS DISTINCT FROM NEW.run_id THEN RAISE EXCEPTION 'measurement producer run differs from task' USING ERRCODE='23514'; END IF;
+ IF bound_release IS NOT NULL AND jsonb_typeof(NEW.detail)<>'object' THEN
+ RAISE EXCEPTION 'measurement detail requires source object' USING ERRCODE='23514'; END IF;
  IF bound_release IS NOT NULL AND NEW.value IS NOT NULL THEN
  IF NEW.value::text IN ('NaN','Infinity','-Infinity') THEN RAISE EXCEPTION 'measurement requires finite source value' USING ERRCODE='23514'; END IF;
  PERFORM NEW.value::double precision;
  END IF;
+ IF bound_release IS NOT NULL AND NEW.scope_type='run' AND NEW.scope_id IS NOT NULL AND NOT EXISTS (SELECT FROM ops.run target JOIN ops.run producer ON producer.id=NEW.run_id WHERE target.id=NEW.scope_id AND target.release_id=bound_release AND target.project_id=producer.project_id) THEN
+ RAISE EXCEPTION 'measurement run subject is outside bound project/release' USING ERRCODE='23514'; END IF;
+ IF bound_release IS NOT NULL AND NEW.scope_type='segment' AND NOT EXISTS (SELECT FROM kb.segment s JOIN kb.rendition rd ON rd.id=s.rendition_id JOIN kb.document doc ON doc.id=rd.document_id JOIN ops.run producer ON producer.id=NEW.run_id WHERE doc.project_id=producer.project_id AND (NEW.scope_id IS NOT NULL OR NEW.scope_key IS NOT NULL) AND (NEW.scope_id IS NULL OR s.id=NEW.scope_id) AND (NEW.scope_key IS NULL OR s.segment_key=NEW.scope_key)) THEN
+ RAISE EXCEPTION 'measurement segment subject is outside bound project' USING ERRCODE='23514'; END IF;
  IF bound_release IS NOT NULL AND NOT EXISTS (SELECT FROM sem.metric_definition d WHERE d.release_id=bound_release AND d.metric_id=NEW.metric AND d.subject_kind=NEW.scope_type) THEN
  RAISE EXCEPTION 'unresolved metric or incompatible measurement subject' USING ERRCODE='23514'; END IF;
  RETURN NEW;
@@ -41,4 +47,4 @@ CREATE TRIGGER validate_measurement_definition BEFORE INSERT OR UPDATE ON ops.me
 
 ALTER FUNCTION ops.validate_measurement_definition() OWNER TO corpus_sem_publisher;
 
-GRANT SELECT ON data.occurrence_context,data.occurrence_evidence_role,data.membership_support TO corpus_sem_reader;
+GRANT SELECT ON data.occurrence_context,data.occurrence_evidence_role,data.membership_support TO corpus_sem_reader,corpus_sem_writer;

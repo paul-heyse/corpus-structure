@@ -951,10 +951,11 @@ def _project_cut(
                 "failed" if task["status"] == "failed" else "unanalysed",
                 str(task["status"]),
             )
+    from .outcomes import PreparedCoverageLowerer
+    coverage_lowerer = PreparedCoverageLowerer.from_release(prepared)
     for envelope in envelopes:
         for c in envelope["body"].get("coverage", ()):
-            from .outcomes import lower_source_coverage
-            converted = lower_source_coverage(c["outcome"], c.get("reason"), c.get("required_capability"))
+            converted = coverage_lowerer.lower(c["outcome"], c.get("reason"), c.get("required_capability"))
             coverage_row(c["family"], c["scope"], converted.outcome, converted.reason,
                          converted.source_outcome, converted.required_capability)
     for observation in observations:
@@ -2272,7 +2273,7 @@ class ReleasedRulesPolicy:
                         VERSION,
                         outcome,
                         occurrence_id=c.occurrence_id,
-                        reason=reason if reason is not None else f"{tier} comparison: {outcome}",
+                        reason=reason or f"{tier} comparison: {outcome}",
                         uncertainty=reason if outcome == "undecided" else None,
                         counterpart_fact_id=other.fact_id,
                         counterpart_occurrence_id=other.occurrence_id,

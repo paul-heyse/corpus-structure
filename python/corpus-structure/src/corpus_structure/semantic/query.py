@@ -678,11 +678,13 @@ class ReadSession:
                 for name in ("scope_id", "scope_key"):
                     if name in measurement:
                         subject[name] = measurement[name]
+                if subject["kind"] == "run" and "scope_id" not in subject:
+                    subject["scope_id"] = row["run_id"]
                 producer = {name: body[name] for name in ("release_id", "invocation_key", "method", "operation_version", "configuration_hash", "input_hash", "unit_key")}
                 producer.update(run_id=row["run_id"], task_id=row["task_id"])
-                records.append(self.prepared.validate_python("SourceBoundMeasurement", {
+                records.append(self.prepared.validate_json("SourceBoundMeasurement", json.dumps({
                     "metric": definition, "subject": subject, "producer": producer,
-                    "value": measurement["value"], "detail": measurement["detail"]}))
+                    "value": measurement["value"], "detail": measurement["detail"]})))
         return tuple(records)
 
     def _occurrence_contexts(
