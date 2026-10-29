@@ -1,17 +1,24 @@
 """Independent semantic matching expectations; no published expected results are reused."""
 import copy
 from decimal import Decimal
-from types import SimpleNamespace
-from corpus_structure.semantic.types import ClassDefinition,PropertyDefinition,PreparedArtifact
+from dataclasses import dataclass
+from typing import Any
+from corpus_structure.semantic.types import ClassDefinition,PropertyDefinition,PreparedArtifact,RegistryRow
 from corpus_structure.evaluate.semantic_alignment import SemanticSide,align_semantic,equivalent
+
+@dataclass
+class AlignmentFixture:
+    definitions:tuple[ClassDefinition,...]
+    registry_rows:tuple[RegistryRow,...]=()
+    artifacts:tuple[PreparedArtifact,...]=()
 
 P='https://example.org/Person';NAME='https://example.org/name'
 def prepared():
     entity=ClassDefinition('Entity','https://example.org/Entity',(),(),('id',),(('id',),))
     person=ClassDefinition('Person',P,('Entity',),(),('id',),(('id',),))
-    return SimpleNamespace(definitions=(entity,person),registry_rows=(),artifacts=())
+    return AlignmentFixture((entity,person))
 
-def batch(label='Alice',polarity=True,evidence=True):
+def batch(label='Alice',polarity=True,evidence=True)->dict[str,Any]:
     return {'entities':[{'id':'p','class_iri':P,'label':label}], 'claims':[{'id':'c','subject':'p','predicate':NAME,'object':{'kind':'text','text':'Alice'},'qualification':{'modality':'asserted','polarity':polarity},'establishment':'stated','evidence':[{'role':'primary','outcome':'located','start':0,'end':5}] if evidence else []}]}
 
 def side(value,**kwargs):return SemanticSide('source#unit',value,**kwargs)
@@ -70,3 +77,44 @@ def test_symbolic_math_and_explicit_undecided():
     assert result.equal and result.outcome=='symbolic'
     unknown=equivalent({**a,'language':'unimplemented'},{**b,'language':'unimplemented'}, {})
     assert unknown.outcome=='undecided' and not unknown.equal
+
+
+def test_external_known_endpoints_need_no_redeclared_entity_or_label():
+    a,b=batch(),batch();a['entities']=[];b['entities']=[]
+    a['claims'][0]['subject']='known:alice';b['claims'][0]['subject']='known:alice'
+    known={'known:alice':'known:alice'}
+    result=align_semantic(side(a,known_ids=known),side(b,known_ids=known),prepared())
+    assert result.counts['full'].matched==1
+    assert align_semantic(side(a),side(b),prepared()).counts['core'].matched==0
+
+
+def test_scalar_declared_identity_attributes_align_without_a_label():
+    p=prepared()
+    prop=PropertyDefinition('name',NAME,'string',False,False,None,None,None,None,None,False)
+    p.definitions=(p.definitions[0],ClassDefinition('Person',P,('Entity',),(prop,),('id',),(('id',),('name',))))
+    a,b=batch(),batch()
+    for value in (a,b):
+        value['entities'][0].pop('label')
+        value['entities'][0]['attributes']=[{'predicate':NAME,'value':{'kind':'text','text':'Alice'}}]
+    result=align_semantic(side(a),side(b),p)
+    assert result.entity_pairs==[('p','p','declared_identity_keys')]
+    assert result.counts['full'].matched==1
+
+
+def test_release_qualification_provenance_does_not_change_meaning_and_statement_is_required():
+    p=prepared()
+    field=PropertyDefinition('confidence','https://example.org/confidence','string',False,False,None,None,None,None,None,False,key_role='provenance')
+    p.definitions=(*p.definitions,ClassDefinition('Qualification','https://example.org/Qualification',(),(field,),()))
+    a,b=batch(),batch()
+    a['claims'][0]['qualification']['confidence']='source-A'
+    b['claims'][0]['qualification']['confidence']='source-B'
+    assert align_semantic(side(a),side(b),p).counts['full'].matched==1
+    a['claims'][0]['statement']='unmatched-reference-statement'
+    assert align_semantic(side(a),side(b),p).counts['full'].matched==0
+
+
+def test_located_evidence_in_the_same_source_sentence_matches_without_quote_overlap():
+    a,b=batch(),batch()
+    a['claims'][0]['evidence'][0]['locator']='source#sentence'
+    b['claims'][0]['evidence'][0].update(locator='source#sentence',start=8,end=10)
+    assert align_semantic(side(a),side(b),prepared()).counts['evidence'].matched==1

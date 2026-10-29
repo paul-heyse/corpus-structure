@@ -23,6 +23,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(semant
             response=await client.call_tool('propose_claims',{'task_id':task,'batch':{
                 'unit_ref':locator,'entities':[{'id':'prediction_person','class_iri':'https://example.org/Person','label':'Alice'}],
                 'claims':[{'id':'prediction_name','subject':'prediction_person','predicate':'https://example.org/name','object':{'kind':'text','text':'Alice'},'qualification':{'modality':'asserted','polarity':True},'establishment':'stated','evidence':[{'sentence':unit['sentences'][0]['id'],'quote':'Alice is here.','role':'primary'}]}]}})
+            assert response.structured_content is not None
             assert response.structured_content['submission_disposition']=='completed_accepted'
     anyio.run(source)
     finalize_bound_run(semantic_writer_engine,run,"reference-result")
