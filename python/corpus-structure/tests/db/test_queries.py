@@ -93,3 +93,22 @@ def test_serialized_response_character_bound_counts_envelope(db,world,helpers):
         assert len(page.model_dump_json())<=bound
         found+=page.rows
     assert [r['i'] for r in found]==list(range(5))
+
+
+def test_unresolved_external_premise_edge_is_a_served_gap(ready):
+    import json
+    from sqlalchemy import select,insert
+    from corpus_structure.core.db import metadata
+    e,c,er=(metadata.tables[n] for n in ('kb.entity','kb.claim','kb.claim_entity_ref'))
+    reg=build_registry(GENERIC,DOMAINS/'statistics')
+    with ready.engine.begin() as conn:
+        ref=conn.execute(select(e.c.id,e.c.key).where(e.c.run_id==ready.run,e.c.type=='core:ExternalReference',e.c.resolved_to_id.is_(None))).one()
+        source=conn.execute(select(c.c.id,c.c.key).where(c.c.run_id==ready.run,c.c.status=='accepted',c.c.object_entity_id.is_(None)).order_by(c.c.key)).first()
+        assert source is not None
+        conn.execute(c.update().where(c.c.id==source.id).values(qualifiers={'core:conditions':{'op':'claim','ref':ref.key}}))
+        conn.execute(insert(er).values(run_id=ready.run,claim_id=source.id,role='condition_premise',path='/qualifiers/core:conditions/ref',entity_id=ref.id))
+        answer=serve_query(conn,reg,'claims',{'predicate':conn.execute(select(c.c.predicate).where(c.c.id==source.id)).scalar_one()},run=ready.run)
+        row=next(r for r in answer.rows if r['key']==source.key)
+        external=next(x for x in row['entity_references'] if x['role']=='condition_premise')
+        assert external['entity']['descriptor'] and external['entity']['citation']['locator']
+        assert row['conditional'] is True

@@ -84,6 +84,7 @@ class Reader:
         row = self._entities[id_]
         out = {k: row[k] for k in ('key', 'type', 'label', 'kind', 'identity')}
         out['scope'] = row['scope']
+        out['statement_ordinal'] = row.get('statement_ordinal')
         if row.get('scope_segment_id'):
             anchor = self._anchors[row['scope_segment_id']]
             idx, segments = self.index(anchor['rendition_id'])
