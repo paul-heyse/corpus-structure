@@ -274,6 +274,17 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
+**Accepted consumer target (2026-10-29).** Independent-reference grades use separate protected
+LinkML reference/pass/frame/evaluation definitions; completed knowledge output retains its existing
+meaning. A project selects an immutable completed result separately from its active interpretation,
+with the same generation CAS. Queries, explanations and qualified columnar exports bind that
+result's archived release and revision. Purpose-specific authentication shares one declared storage
+endpoint. Regeneration uses actual sources and a fresh restricted automated MCP extractor, with
+archived-run resumption and no reference inputs. Existing databases and running MCP processes
+are not migrated in place. The pivot coordinator owns native/provider acceptance and limitations.
+
+> Decision: ADR-0030
+
 **Accepted target refinement (2026-10-29).** Typed evidence-backed identity exclusions constrain
 existing key/label resolution and protected publication. Exclusions retain their scoped source and
 input lineage; mandatory-key conflicts refuse atomically. D5 owns the detailed contract.

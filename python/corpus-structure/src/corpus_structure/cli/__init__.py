@@ -10,14 +10,16 @@ from collections.abc import Callable
 
 import typer
 
-from corpus_structure.cli import db, explain, export, golden, mcp, orchestrate, query, schema, status
+from corpus_structure.cli import db, explain, export, golden, mcp, orchestrate, query, regenerate, schema, status
 from corpus_structure.cli.planned import Planned
+from corpus_structure.cli import eval as evaluation
 
 _F, _S, _I, _O = "foundations", "schema and rules", "ingest and math", "orchestration"
 _C, _E, _A = "consolidation and queries", "evaluation and goldens", "agent interface"
 
 REGISTRY: tuple[Callable[[typer.Typer], None], ...] = (
     db.register,
+    regenerate.register,
     schema.register,
     Planned("ingest", "Run M01-M03 over a slice or paths.", f"{_I}, P0-I-1b").register,
     orchestrate.register,
@@ -26,7 +28,7 @@ REGISTRY: tuple[Callable[[typer.Typer], None], ...] = (
     explain.register,
     export.register,
     golden.register,
-    Planned("eval", "Score a run.", f"{_E}, P0-E-2b").register,
+    evaluation.register,
     Planned("digest", "The operator digest.", _E).register,
     Planned("promote", "Promote a run.", f"{_E}, P0-E-2b").register,
     Planned("experiment", "Experiments (phase 1).", _E).register,
