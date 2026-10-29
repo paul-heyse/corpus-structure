@@ -42,6 +42,7 @@ def approved_implementations() -> Mapping[str, Any]:
         domain_operations,
         inference,
         observations,
+        ontology,
         operations,
         prepare,
         proposals,
@@ -52,6 +53,8 @@ def approved_implementations() -> Mapping[str, Any]:
 
     return MappingProxyType(
         {
+            "graph_project": ontology.qualified_validation_graph,
+            "graph_validate": ontology.validate_projected_graph,
             "prepare": prepare.prepare_release,
             "archive": releases.persist_release,
             "reload": releases.load_release,

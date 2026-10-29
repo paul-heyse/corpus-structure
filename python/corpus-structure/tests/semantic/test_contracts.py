@@ -353,3 +353,16 @@ def test_product_conversion_never_coerces_integer_fields(value):
             {"role": "subject", "concept": "Fact", "minimum": value, "ordered": False, "unresolved": False},
             EndpointRole,
         )
+
+
+def test_named_graph_operations_are_resolved_and_qualified(products):
+    projections = {p.id: p for p in products.projections}
+    graph = projections["graph_validation"]
+    assert graph.implementation == "graph_project"
+    assert graph.lifetime == "snapshot"
+    assert "bare_triple_entailment" in graph.omissions
+    operations = {o.id: o for o in products.operations}
+    assert operations["graph_validate"].inputs == ("QualifiedGraphProjection", "QualifiedGraphShapes")
+    assert operations["graph_validate"].outcomes == ("conformant", "nonconformant", "invalid")
+    assert approved_implementations()["graph_project"].__name__ == "qualified_validation_graph"
+    assert approved_implementations()["graph_validate"].__name__ == "validate_projected_graph"

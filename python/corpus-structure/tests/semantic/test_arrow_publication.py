@@ -433,4 +433,5 @@ def test_derived_publication_requires_explicit_intent_and_keeps_it_disjoint():
         SnapshotDerivedPublication.from_rows(batch(), source=source,
                     operation_id="", projection_id="captured")
     with pytest.raises(TypeError):
-        AppendPublication.from_rows(batch(), expected_data_revision=0)
+        from typing import Any, cast
+        cast(Any, AppendPublication.from_rows)(batch(), expected_data_revision=0)
