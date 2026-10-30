@@ -300,12 +300,19 @@ def test_native_request_uses_prior_source_definition_with_qualified_basis(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
 ):
     _, _, root, text, _ = source_build(
-        semantic_db_engine, semantic_writer_engine, tmp_path,
-        canonical="f(t)=t^2 f(x)", ranges=[(0, 8), (9, 13)],
+        semantic_db_engine,
+        semantic_writer_engine,
+        tmp_path,
+        canonical="f(t)=t^2 f(x)",
+        ranges=[(0, 8), (9, 13)],
     )
     result = request_parsing(
-        semantic_writer_engine, root=root, text_product=text,
-        demand="interpretation", math_index=1, code_commit="request-source-definition",
+        semantic_writer_engine,
+        root=root,
+        text_product=text,
+        demand="interpretation",
+        math_index=1,
+        code_commit="request-source-definition",
     )
     assert result.status == "source_ready", result.diagnostic
     with semantic_reader_engine.begin() as conn:
@@ -322,8 +329,9 @@ def test_native_request_uses_prior_source_definition_with_qualified_basis(
     assert (declaration["declaration_start"], declaration["declaration_end"]) == (0, 8)
     assert (declaration["head_start"], declaration["head_end"]) == (0, 4)
     assert declaration["source_view_node_id"] == "view:0"
-    endpoints = [e for e in product["endpoints"]
-                 if e["relationship_id"] == declaration["relationship_id"]]
+    endpoints = [
+        e for e in product["endpoints"] if e["relationship_id"] == declaration["relationship_id"]
+    ]
     source = next(e for e in endpoints if e["role"] == "source")
     assert source["node_id"] == "view:0"
     assert source["target_task_id"] == text.task_id

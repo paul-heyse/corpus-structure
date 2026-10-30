@@ -306,18 +306,23 @@ def _products(
             constants=section.get("constants", ()),
             source_id=source_id,
             seconds=config.seconds,
-            through_offset=b,
+            through_offset=a,
             demand="scientific" if config.demand == "assessment" else config.demand,
             source_views={
                 (node["start_offset"], node["end_offset"]): node["node_id"]
-                for node in text_payload["nodes"] if node["kind"] == "parse_view"
+                for node in text_payload["nodes"]
+                if node["kind"] == "parse_view"
             },
         )
-        matches = [op for op in source_math.operands
-                   if op.parse_start == a and op.parse_start + len(op.latex) == b]
+        matches = [
+            op
+            for op in source_math.operands
+            if op.parse_start == a and op.parse_start + len(op.latex) == b
+        ]
         if len(matches) != 1:
             raise ParsingRequestUnavailable(
-                "selector_invalid", "selected parse view does not identify one archived source expression"
+                "selector_invalid",
+                "selected parse view does not identify one archived source expression",
             )
         operand = matches[0]
     selected_text = text_reference
@@ -449,7 +454,9 @@ def request_parsing(
         _selected_views(text_payload, config)
         renditions = table("kb.rendition")
         content = RenditionContent.model_validate(
-            conn.scalar(select(renditions.c.content).where(renditions.c.id == origin["rendition_id"]))
+            conn.scalar(
+                select(renditions.c.content).where(renditions.c.id == origin["rendition_id"])
+            )
         )
         source_binding = binding_of(conn, origin["id"])
         section = _math_section(source_binding.dependencies)
