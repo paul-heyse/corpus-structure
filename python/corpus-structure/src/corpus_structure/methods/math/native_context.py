@@ -15,10 +15,23 @@ from sympy.assumptions import AssumptionsContext
 
 from .transform import bare
 
-PREDICATES = frozenset({
-    "real", "integer", "positive", "negative", "nonzero", "nonnegative", "nonpositive",
-    "finite", "complex", "rational", "zero", "even", "odd",
-})
+PREDICATES = frozenset(
+    {
+        "real",
+        "integer",
+        "positive",
+        "negative",
+        "nonzero",
+        "nonnegative",
+        "nonpositive",
+        "finite",
+        "complex",
+        "rational",
+        "zero",
+        "even",
+        "odd",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -35,13 +48,17 @@ class NativePremises:
 
     @cached_property
     def unsupported(self) -> tuple[Any, ...]:
-        return tuple(record for record in self.records if not (
-            isinstance(record, dict)
-            and set(record) <= {"symbol", "predicate", "value"}
-            and isinstance(record.get("symbol"), str)
-            and record.get("predicate") in PREDICATES
-            and isinstance(record.get("value", True), bool)
-        ))
+        return tuple(
+            record
+            for record in self.records
+            if not (
+                isinstance(record, dict)
+                and set(record) <= {"symbol", "predicate", "value"}
+                and isinstance(record.get("symbol"), str)
+                and record.get("predicate") in PREDICATES
+                and isinstance(record.get("value", True), bool)
+            )
+        )
 
     def symbol(self, name: str):
         name = bare(name)
@@ -89,8 +106,9 @@ class NativePremises:
         )
         for name, function in vars(native).items():
             if isinstance(function, FunctionType) and function.__module__ == native.__name__:
-                clone = FunctionType(function.__code__, namespace, name, function.__defaults__,
-                                     function.__closure__)
+                clone = FunctionType(
+                    function.__code__, namespace, name, function.__defaults__, function.__closure__
+                )
                 clone.__kwdefaults__ = function.__kwdefaults__
                 namespace[name] = clone
         handlers = {}
@@ -100,10 +118,18 @@ class NativePremises:
             else:
                 # Native matrix handlers live in their expression modules. Give
                 # those functions the same isolated ask boundary as scalar handlers.
-                external = {**handler.__globals__, "ask": namespace["ask"],
-                            "refine": namespace["refine"]}
-                handlers[name] = FunctionType(handler.__code__, external, handler.__name__,
-                                              handler.__defaults__, handler.__closure__)
+                external = {
+                    **handler.__globals__,
+                    "ask": namespace["ask"],
+                    "refine": namespace["refine"],
+                }
+                handlers[name] = FunctionType(
+                    handler.__code__,
+                    external,
+                    handler.__name__,
+                    handler.__defaults__,
+                    handler.__closure__,
+                )
         namespace["handlers_dict"] = handlers
         return namespace["refine"](expression, self.predicate)
 

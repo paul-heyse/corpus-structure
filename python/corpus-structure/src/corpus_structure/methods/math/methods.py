@@ -201,7 +201,9 @@ def _content_digest(unit: UnitView) -> str:
 
 def _source_product_digest(unit: UnitView) -> dict[str, Any]:
     """Whole-result reuse includes source custody; pure values have their own stage keys."""
-    selected = unit.run.reader.layered_products(_rendition_id(unit), kind="text", product_key="text")
+    selected = unit.run.reader.layered_products(
+        _rendition_id(unit), kind="text", product_key="text"
+    )
     if len(selected) != 1:
         raise ValueError("mathematical task requires one selected source-bound text product")
     return {"rendition": _content_digest(unit), "text_product": selected[0].reference.values()}
@@ -277,13 +279,18 @@ def _math_products(ren: _Rendition, readings, reader: Reader, method: str):
         if not isinstance(reading.prepared, PreparedMathInput):
             raise ValueError("mathematical extraction lost its operation-owned preparation")
         payload = interpretation_product_payload(
-            reading.prepared, root=text.root, text_product=text.reference,
+            reading.prepared,
+            root=text.root,
+            text_product=text.reference,
             source_node_id=f"view:{index}",
             product_key=f"math:{method}:{reading.span.segment.start}:{reading.span.segment.end}:"
-                        + reading.prepared.context.stage_key("interpretation")[:16], symbolic=True,
+            + reading.prepared.context.stage_key("interpretation")[:16],
+            symbolic=True,
         )
         products.append(reader.prepare_layered_product(payload))
-    return PreparedParsingProductSet(products=tuple(products), required=tuple(p.product_key for p in products))
+    return PreparedParsingProductSet(
+        products=tuple(products), required=tuple(p.product_key for p in products)
+    )
 
 
 def _result(
@@ -294,8 +301,13 @@ def _result(
     products=None,
 ) -> UnitResult:
     outcome = ObservationOutcome.PRODUCED if drafts else ObservationOutcome.EMPTY
-    return UnitResult(ref=unit.ref, outcome=outcome, observations=tuple(drafts), coverage=coverage,
-                      parsing_products=products)
+    return UnitResult(
+        ref=unit.ref,
+        outcome=outcome,
+        observations=tuple(drafts),
+        coverage=coverage,
+        parsing_products=products,
+    )
 
 
 def _rendition_id(unit: UnitView) -> int:
@@ -450,8 +462,12 @@ class ExtractMath(_PerRendition):
                 for reading in readings
             )
             out.append(
-                _result(unit, math_drafts(ren, found.mentions, found.relations), coverage=coverage,
-                        products=_math_products(ren, readings, ctx.reader, M09))
+                _result(
+                    unit,
+                    math_drafts(ren, found.mentions, found.relations),
+                    coverage=coverage,
+                    products=_math_products(ren, readings, ctx.reader, M09),
+                )
             )
         return out
 

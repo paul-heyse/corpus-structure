@@ -727,9 +727,13 @@ class _Resolver:
             return node
         binder = None
         if node.data in {"summation", "product", "set_builder"} and len(node.children) > 1:
-            binder = next((t for t in _tree.leaves(node.children[1]) if t.type in _SYMBOL_TOKENS), None)
+            binder = next(
+                (t for t in _tree.leaves(node.children[1]) if t.type in _SYMBOL_TOKENS), None
+            )
         elif node.data == "limit" and len(node.children) > 2:
-            binder = next((t for t in _tree.leaves(node.children[2]) if t.type in _SYMBOL_TOKENS), None)
+            binder = next(
+                (t for t in _tree.leaves(node.children[2]) if t.type in _SYMBOL_TOKENS), None
+            )
         elif node.data == "normal_integral" and any(
             isinstance(child, Token) and str(child) in {"_", "^"} for child in node.children
         ):
@@ -800,8 +804,12 @@ class _SymbolicResolver(_Resolver):
             if key not in self._values:
                 try:
                     self._values[key] = transform(
-                        reading, self.source, self.macros, self.sets, self.ops,
-                        conventions=self.conventions
+                        reading,
+                        self.source,
+                        self.macros,
+                        self.sets,
+                        self.ops,
+                        conventions=self.conventions,
                     )
                 except Exception:
                     self._values[key] = None
@@ -978,8 +986,11 @@ def _syntax_reading(base: MathResult, parser: Parser) -> MathResult:
         return dataclasses.replace(base, failure=failure)
     return dataclasses.replace(
         base,
-        status=ParseOutcome.AMBIGUOUS if any(t.data == "_ambig" for t in tree.iter_subtrees())
-        else ParseOutcome.PARTIAL if tail else ParseOutcome.OK,
+        status=ParseOutcome.AMBIGUOUS
+        if any(t.data == "_ambig" for t in tree.iter_subtrees())
+        else ParseOutcome.PARTIAL
+        if tail
+        else ParseOutcome.OK,
         kind=_detect(tree) if kind == "any_value" else kind,
         tree=tree,
         failure=failure if tail else None,
@@ -1023,8 +1034,9 @@ def interpret(
         with _deadline(seconds):
             return _interpret_reading(base, symbolic=symbolic)
     except _Expired:
-        return dataclasses.replace(base, status=ParseOutcome.FAILED, tree=None,
-                                   failure=Failure("timeout", "Timeout"))
+        return dataclasses.replace(
+            base, status=ParseOutcome.FAILED, tree=None, failure=Failure("timeout", "Timeout")
+        )
 
 
 def _interpret_reading(base: MathResult, *, symbolic: bool = False) -> MathResult:
@@ -1043,8 +1055,11 @@ def _interpret_reading(base: MathResult, *, symbolic: bool = False) -> MathResul
             raise TypeError("a reading resolved to a token")
         found = occurrences(node, source, base.macros, constants)
     except Exception as error:  # a crash after parsing is reported, not raised
-        return dataclasses.replace(base, status=ParseOutcome.FAILED,
-                                   failure=_failure(error, source, parser_for(base.classes)))
+        return dataclasses.replace(
+            base,
+            status=ParseOutcome.FAILED,
+            failure=_failure(error, source, parser_for(base.classes)),
+        )
     notes = list(resolver.notes)
     residual = resolver.residual_products(node) if not resolver.unresolved else set()
     if residual:

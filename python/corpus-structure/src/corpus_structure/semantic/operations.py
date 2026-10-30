@@ -966,9 +966,10 @@ class BoundReader:
         reference does not pretend to be a literal offset in a YAML file.
         """
         import json
+        from types import MappingProxyType
+
         from corpus_structure.core.evidence import MacroDef
 
-        from types import MappingProxyType
         cached = getattr(self, "_parsing_fallback", None)
         if cached is not None:
             return cached
@@ -980,10 +981,15 @@ class BoundReader:
             if section is not None:
                 sections.append(section.get("macros", {}))
         if sections and any(section != sections[0] for section in sections[1:]):
-            raise OperationConflict("source capture has competing fallback macro contexts; select one admitted configuration")
+            raise OperationConflict(
+                "source capture has competing fallback macro contexts; select one admitted configuration"
+            )
         macros = sections[0] if sections else {}
         reference = f"run:{self.run_id}:dependencies:{binding.dependency_digest}:math"
-        self._parsing_fallback = (reference, MappingProxyType({name: MacroDef(body=body) for name, body in macros.items()}))
+        self._parsing_fallback = (
+            reference,
+            MappingProxyType({name: MacroDef(body=body) for name, body in macros.items()}),
+        )
         return self._parsing_fallback
 
     def prepare_layered_product(self, payload):

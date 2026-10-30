@@ -911,7 +911,9 @@ def parse(raw: bytes) -> tuple[Any, ParseDetail]:
     return root, detail
 
 
-def _macro_table(root: Any, walker: _Walker) -> tuple[dict[str, MacroDef], list[str], tuple[MacroSource, ...]]:
+def _macro_table(
+    root: Any, walker: _Walker
+) -> tuple[dict[str, MacroDef], list[str], tuple[MacroSource, ...]]:
     table: dict[str, MacroDef] = {}
     notes: list[str] = []
     sources: list[MacroSource] = []
@@ -927,8 +929,14 @@ def _macro_table(root: Any, walker: _Walker) -> tuple[dict[str, MacroDef], list[
             value = getattr(node, name) or ""
             pieces.append(value)
             for contribution in walker.capture.slot(node, name):
-                fragments.append(MacroFragment(position, position + contribution.length,
-                                 tuple((s.start, s.end) for s in contribution.sources), contribution.reason))
+                fragments.append(
+                    MacroFragment(
+                        position,
+                        position + contribution.length,
+                        tuple((s.start, s.end) for s in contribution.sources),
+                        contribution.reason,
+                    )
+                )
                 position += contribution.length
 
         def collect(node: Any) -> None:
@@ -946,9 +954,12 @@ def _macro_table(root: Any, walker: _Walker) -> tuple[dict[str, MacroDef], list[
                 if table[name] != definition:
                     notes.append(f"{name} defined again by a later macro block; the later is kept")
                 for index, prior in enumerate(sources):
-                    events = tuple(replace(event, status="replaced")
-                                   if event.name == name and event.status == "accepted" else event
-                                   for event in prior.read.events)
+                    events = tuple(
+                        replace(event, status="replaced")
+                        if event.name == name and event.status == "accepted"
+                        else event
+                        for event in prior.read.events
+                    )
                     sources[index] = replace(prior, read=replace(prior.read, events=events))
             table[name] = definition
         notes.extend(read.notes)

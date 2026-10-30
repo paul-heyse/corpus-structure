@@ -105,7 +105,7 @@ def _range(
     if canonical and row["kind"] != "canonical":
         raise ValueError("mapping trace requires an explicitly pinned canonical representation")
 
-    return dict(extent_length=row["extent_length"],kind=row["kind"],unit=row["unit"])
+    return dict(extent_length=row["extent_length"], kind=row["kind"], unit=row["unit"])
 
 
 def _validated(
@@ -348,7 +348,9 @@ def trace_origins(
     _bound(max_depth)
     context = _guard(conn, task_id, context)
     initial_rep = _range(conn, task_id, representation_id, start, end, canonical=canonical_only)
-    initial = MappedExtent("target", 0, task_id, None, representation_id, initial_rep["unit"], start, end)
+    initial = MappedExtent(
+        "target", 0, task_id, None, representation_id, initial_rep["unit"], start, end
+    )
     queue: deque[tuple[MappedExtent, tuple[OriginStep, ...]]] = deque([(initial, ())])
     result: list[OriginContribution] = []
     outcome = "complete"
@@ -481,7 +483,12 @@ def trace_origins(
 
 
 def trace_layered_origins(
-    conn: Connection, *, reference, representation_id: str, start: int, end: int,
+    conn: Connection,
+    *,
+    reference,
+    representation_id: str,
+    start: int,
+    end: int,
     limit: int = 1000,
 ) -> dict[str, Any]:
     """Trace qualified immutable product mappings to original or named artifact custody.
@@ -492,11 +499,21 @@ def trace_layered_origins(
     from collections import deque
     from dataclasses import asdict
     from hashlib import sha256
+
     from pydantic_core import to_jsonable_python
-    from .parsing_products import ProductReference, PreparedParsingProduct, read_layered_product, representation_text, _covers
+
+    from .parsing_products import (
+        PreparedParsingProduct,
+        ProductReference,
+        _covers,
+        read_layered_product,
+        representation_text,
+    )
 
     _bound(limit)
-    queue: deque[tuple[Any, str, int, int, tuple[dict[str, Any], ...], tuple[tuple[Any, str, int, int], ...]]] = deque([(reference, representation_id, start, end, (), ())])
+    queue: deque[
+        tuple[Any, str, int, int, tuple[dict[str, Any], ...], tuple[tuple[Any, str, int, int], ...]]
+    ] = deque([(reference, representation_id, start, end, (), ())])
     cache = {}
     contributions = []
     outcome = "complete"
@@ -511,73 +528,171 @@ def trace_layered_origins(
             if product is None:
                 raise ValueError("retained origin dependency is unavailable")
             cache[ref] = product
-        extent = dict(product=ref.values(), representation_id=rep_id, start_offset=first, end_offset=last)
+        extent = dict(
+            product=ref.values(), representation_id=rep_id, start_offset=first, end_offset=last
+        )
         if isinstance(product, PreparedParsingProduct):
-            remaining = limit-examined
+            remaining = limit - examined
             if remaining <= 0:
-                return dict(outcome="limit", contributions=contributions, examined_mappings=examined)
-            traced = trace_origins(conn, task_id=ref.task_id, representation_id=rep_id,
-                                   start=first, end=last, mapping_limit=remaining,
-                                   endpoint_limit=max(1,limit-len(contributions)),
-                                   canonical_only=False)
+                return dict(
+                    outcome="limit", contributions=contributions, examined_mappings=examined
+                )
+            traced = trace_origins(
+                conn,
+                task_id=ref.task_id,
+                representation_id=rep_id,
+                start=first,
+                end=last,
+                mapping_limit=remaining,
+                endpoint_limit=max(1, limit - len(contributions)),
+                canonical_only=False,
+            )
             examined += traced.examined_mappings
-            if traced.outcome != "complete": outcome = traced.outcome
+            if traced.outcome != "complete":
+                outcome = traced.outcome
             for item in traced.contributions:
-                entry=to_jsonable_python(asdict(item))
-                entry["path"]=[*path,*[{**step,"product_key":"source"} for step in entry["path"]]]
+                entry = to_jsonable_python(asdict(item))
+                entry["path"] = [
+                    *path,
+                    *[{**step, "product_key": "source"} for step in entry["path"]],
+                ]
                 if len(contributions) >= limit or examined > limit:
-                    return dict(outcome="limit", contributions=contributions, examined_mappings=examined)
+                    return dict(
+                        outcome="limit", contributions=contributions, examined_mappings=examined
+                    )
                 contributions.append(entry)
             continue
-        values=product.values()
-        reps={row["representation_id"]:row for row in values["representations"]}
-        rep=reps.get(rep_id)
+        values = product.values()
+        reps = {row["representation_id"]: row for row in values["representations"]}
+        rep = reps.get(rep_id)
         if rep is None or not 0 <= first <= last <= rep["extent_length"]:
             raise ValueError("origin extent is outside its qualified representation")
-        if first == last: continue
-        signature=(ref,rep_id,first,last)
+        if first == last:
+            continue
+        signature = (ref, rep_id, first, last)
         if signature in visited:
-            outcome="cycle"
-            contributions.append(dict(kind="cycle",extent=extent,path=list(path),reason="mapping dependency cycle"))
+            outcome = "cycle"
+            contributions.append(
+                dict(
+                    kind="cycle", extent=extent, path=list(path), reason="mapping dependency cycle"
+                )
+            )
             continue
-        extent["unit"]=rep["unit"]
-        text_value=representation_text(rep)
-        digest=sha256(text_value.encode("utf8")).hexdigest()
-        artifacts={d["artifact_digest"] for d in values["dependencies"] if d["kind"]=="artifact"}
+        extent["unit"] = rep["unit"]
+        text_value = representation_text(rep)
+        digest = sha256(text_value.encode("utf8")).hexdigest()
+        artifacts = {
+            d["artifact_digest"] for d in values["dependencies"] if d["kind"] == "artifact"
+        }
         if digest in artifacts:
-            contributions.append(dict(kind="artifact",extent={**extent,"artifact_digest":digest},path=list(path),reason="named immutable artifact representation"))
+            contributions.append(
+                dict(
+                    kind="artifact",
+                    extent={**extent, "artifact_digest": digest},
+                    path=list(path),
+                    reason="named immutable artifact representation",
+                )
+            )
             continue
-        mappings={row["mapping_id"]:row for row in values["mappings"]}
-        selected={row["mapping_id"] for row in values["mapping_endpoints"]
-                  if row["side"]=="target" and row.get("target_task_id") is None
-                  and row["representation_id"]==rep_id and row["start_offset"]<last and row["end_offset"]>first}
-        covered=[]
+        mappings = {row["mapping_id"]: row for row in values["mappings"]}
+        selected = {
+            row["mapping_id"]
+            for row in values["mapping_endpoints"]
+            if row["side"] == "target"
+            and row.get("target_task_id") is None
+            and row["representation_id"] == rep_id
+            and row["start_offset"] < last
+            and row["end_offset"] > first
+        }
+        covered = []
         for mapping_id in sorted(selected):
             if examined >= limit or len(contributions) >= limit:
-                return dict(outcome="limit", contributions=contributions, examined_mappings=examined)
-            mapping=mappings[mapping_id]
-            examined+=1
-            step=dict(product=ref.values(),mapping_id=mapping_id,operation=mapping["operation"],fidelity=mapping["fidelity"])
-            endpoints=[e for e in values["mapping_endpoints"] if e["mapping_id"]==mapping_id]
-            targets=[e for e in endpoints if e["side"]=="target" and e.get("target_task_id") is None and e["representation_id"]==rep_id]
-            covered.extend((max(first,e["start_offset"])-first,min(last,e["end_offset"])-first) for e in targets if e["start_offset"]<last and e["end_offset"]>first)
-            if mapping["fidelity"]=="unknown":
-                outcome="partial"
-                contributions.append(dict(kind="unavailable",extent=extent,path=[*path,step],reason=mapping["reason"]))
+                return dict(
+                    outcome="limit", contributions=contributions, examined_mappings=examined
+                )
+            mapping = mappings[mapping_id]
+            examined += 1
+            step = dict(
+                product=ref.values(),
+                mapping_id=mapping_id,
+                operation=mapping["operation"],
+                fidelity=mapping["fidelity"],
+            )
+            endpoints = [e for e in values["mapping_endpoints"] if e["mapping_id"] == mapping_id]
+            targets = [
+                e
+                for e in endpoints
+                if e["side"] == "target"
+                and e.get("target_task_id") is None
+                and e["representation_id"] == rep_id
+            ]
+            covered.extend(
+                (max(first, e["start_offset"]) - first, min(last, e["end_offset"]) - first)
+                for e in targets
+                if e["start_offset"] < last and e["end_offset"] > first
+            )
+            if mapping["fidelity"] == "unknown":
+                outcome = "partial"
+                contributions.append(
+                    dict(
+                        kind="unavailable",
+                        extent=extent,
+                        path=[*path, step],
+                        reason=mapping["reason"],
+                    )
+                )
                 continue
-            sources=sorted((e for e in endpoints if e["side"]=="source"),key=lambda e:e["ordinal"])
+            sources = sorted(
+                (e for e in endpoints if e["side"] == "source"), key=lambda e: e["ordinal"]
+            )
             if not sources:
-                if mapping["operation"]!="synthetic":
-                    outcome="partial"
-                contributions.append(dict(kind="synthetic" if mapping["operation"]=="synthetic" else "unavailable",extent=extent,path=[*path,step],reason=mapping["reason"]))
+                if mapping["operation"] != "synthetic":
+                    outcome = "partial"
+                contributions.append(
+                    dict(
+                        kind="synthetic" if mapping["operation"] == "synthetic" else "unavailable",
+                        extent=extent,
+                        path=[*path, step],
+                        reason=mapping["reason"],
+                    )
+                )
             for source in sources:
-                source_ref=ref if source.get("target_task_id") is None else ProductReference(source["target_task_id"],source["target_product_key"],source["target_content_digest"])
-                if len(queue)+len(contributions) >= limit:
-                    return dict(outcome="limit", contributions=contributions, examined_mappings=examined)
-                queue.append((source_ref,source["representation_id"],source["start_offset"],source["end_offset"],(*path,step),(*visited,signature)))
-        if not _covers(covered,last-first):
-            if outcome != "cycle": outcome="partial"
+                source_ref = (
+                    ref
+                    if source.get("target_task_id") is None
+                    else ProductReference(
+                        source["target_task_id"],
+                        source["target_product_key"],
+                        source["target_content_digest"],
+                    )
+                )
+                if len(queue) + len(contributions) >= limit:
+                    return dict(
+                        outcome="limit", contributions=contributions, examined_mappings=examined
+                    )
+                queue.append(
+                    (
+                        source_ref,
+                        source["representation_id"],
+                        source["start_offset"],
+                        source["end_offset"],
+                        (*path, step),
+                        (*visited, signature),
+                    )
+                )
+        if not _covers(covered, last - first):
+            if outcome != "cycle":
+                outcome = "partial"
             if len(contributions) >= limit:
-                return dict(outcome="limit", contributions=contributions, examined_mappings=examined)
-            contributions.append(dict(kind="unavailable",extent=extent,path=list(path),reason="no qualified mapping covers this extent"))
-    return dict(outcome=outcome,contributions=contributions,examined_mappings=examined)
+                return dict(
+                    outcome="limit", contributions=contributions, examined_mappings=examined
+                )
+            contributions.append(
+                dict(
+                    kind="unavailable",
+                    extent=extent,
+                    path=list(path),
+                    reason="no qualified mapping covers this extent",
+                )
+            )
+    return dict(outcome=outcome, contributions=contributions, examined_mappings=examined)

@@ -208,7 +208,9 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                     "implement text/alignment recipes before admitting changed policy",
                 )
             policy = profile.placement_policy
-            if policy is None or policy.recipe != ("citation-cascade-2" if profile.version == "6" else "citation-cascade-1"):
+            if policy is None or policy.recipe != (
+                "citation-cascade-2" if profile.version == "6" else "citation-cascade-1"
+            ):
                 _fail("unsupported_placement_policy", location, "declare citation-cascade-1")
             from decimal import Decimal, InvalidOperation
 
@@ -238,19 +240,30 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 or values[3] <= 0
             ):
                 _fail("unsupported_placement_policy", location, "invalid cutoff/window/timeout")
-        if profile.version in {"4", "5", "6"} and profile.capture_policy != _supported_capture_policy():
+        if (
+            profile.version in {"4", "5", "6"}
+            and profile.capture_policy != _supported_capture_policy()
+        ):
             _fail(
                 "unsupported_capture_policy",
                 location,
                 "implement capture representation/hash/lifetime support before admission",
             )
         if profile.version == "6" and profile.mathematical_conventions != (
-            "naturals-zero-1", "set-builder-real-domain-1"
+            "naturals-zero-1",
+            "set-builder-real-domain-1",
         ):
-            _fail("unsupported_mathematical_convention", location,
-                  "qualify native convention construction before changing its admitted meaning")
+            _fail(
+                "unsupported_mathematical_convention",
+                location,
+                "qualify native convention construction before changing its admitted meaning",
+            )
         demands = {d.id: d for d in profile.demands}
-        if len(demands) != len(profile.demands) or set(demands) != (set(_REQUIRED_COMPONENTS) if profile.version == "6" else set(_REQUIRED_COMPONENTS) - {"structure", "syntax"}):
+        if len(demands) != len(profile.demands) or set(demands) != (
+            set(_REQUIRED_COMPONENTS)
+            if profile.version == "6"
+            else set(_REQUIRED_COMPONENTS) - {"structure", "syntax"}
+        ):
             _fail(
                 "analysis_demands",
                 location,

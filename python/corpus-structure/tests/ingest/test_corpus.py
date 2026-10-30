@@ -267,3 +267,53 @@ def test_corpus_source_products_reach_the_trusted_partition_and_origin_boundary(
         values = prepared.values()
         assert values["provenance_universe"] == "canonical_output", page.path
         assert values["provenance_state"] == "complete", page.path
+
+
+def test_corpus_text_products_reach_the_shared_capture_boundary(pages: list[Page]) -> None:
+    """Actual all-page producer composition; independent lexical cases live beside adapters."""
+    from hashlib import sha256
+
+    import yaml
+
+    from corpus_structure.core.text_structure import TextComponent
+    from corpus_structure.ingest.text_product import text_product_payload
+    from corpus_structure.methods.math.methods import MathSection
+    from corpus_structure.semantic.parsing_products import prepare_layered_product
+
+    methods = REPO / "domains/statistics/methods.yaml"
+    methods_bytes = methods.read_bytes()
+    section = MathSection.model_validate(yaml.safe_load(methods_bytes)["math"])
+
+    def delimiter(node: Segment, name: str) -> str | None:
+        value = node.attrs.get(name)
+        return value if isinstance(value, str) else None
+
+    for index, page in enumerate(pages, 1):
+        source = page.result.parsing_product
+        assert source is not None
+        payload = text_product_payload(
+            page.result.content.canonical_text,
+            root={
+                "task_id": index,
+                "product_key": "source",
+                "content_digest": sha256(source.payload).hexdigest(),
+            },
+            math_ranges=[
+                (node.start, node.end, delimiter(node, "open"), delimiter(node, "close"))
+                for node in page.segments
+                if node.kind in {K.MATH_INLINE, K.MATH_DISPLAY}
+            ],
+            canonical_regions=tuple(
+                TextComponent(c["category"], c["start_offset"], c["end_offset"])
+                for c in source.values()["components"]
+                if c["representation_id"] == "canonical"
+            ),
+            macro_sources=page.result.macro_sources,
+            fallback_macros=section.macro_table(),
+            fallback_source_ref=f"sha256:{sha256(methods_bytes).hexdigest()}#/math",
+        )
+        accepted = prepare_layered_product(payload).values()
+        assert accepted["lifecycle"] == "available", page.path
+        assert all(r["partition_state"] == "complete" for r in accepted["representations"]), (
+            page.path
+        )

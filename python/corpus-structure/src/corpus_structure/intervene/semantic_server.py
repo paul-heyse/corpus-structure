@@ -21,8 +21,8 @@ from corpus_structure.semantic.operations import OperationConflict
 from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
 from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.semantic.types import PreparedRelease
-from corpus_structure.settings import Settings
 from corpus_structure.serve.source import SourceRequest, SourceResponse
+from corpus_structure.settings import Settings
 
 
 class SemanticUnitPart(BaseModel):

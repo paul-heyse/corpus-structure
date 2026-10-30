@@ -129,8 +129,12 @@ def read_spans(
     readings = []
     for span in math_spans(content):
         prepared = PreparedMathInput(
-            prepared_context, span.latex, "any_value", seconds,
-            source_text=content.text(span.segment), source_start=span.segment.start,
+            prepared_context,
+            span.latex,
+            "any_value",
+            seconds,
+            source_text=content.text(span.segment),
+            source_start=span.segment.start,
             parse_start=span.offset,
         )
         result = prepared.symbolic_reading()

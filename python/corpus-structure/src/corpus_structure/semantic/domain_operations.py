@@ -2795,7 +2795,6 @@ class ReleasedRulesPolicy:
         return tuple(rows), tuple(links), view_members, incomplete
 
     def evaluate(self, inputs: CutInput, scope: AnalysisScope, fused: pa.Table) -> PolicyDecision:
-        from corpus_structure.methods.math import grammar
 
         from .grammar_profile import GRAMMAR_KINDS
         from .rule_views import (
@@ -3025,7 +3024,13 @@ class ReleasedRulesPolicy:
 
                         result = PreparedMathInput(context, latex).symbolic_reading()
                         context.validate_result(
-                            produced=("lexical", "syntax", "occurrences", "interpretation", "symbolic"),
+                            produced=(
+                                "lexical",
+                                "syntax",
+                                "occurrences",
+                                "interpretation",
+                                "symbolic",
+                            ),
                             interpretation=result.status.value,
                             completeness="failed" if result.failure else "complete",
                         )

@@ -20,8 +20,8 @@ from corpus_structure.cli import (
     query,
     regenerate,
     schema,
-    status,
     source,
+    status,
 )
 from corpus_structure.cli import eval as evaluation
 from corpus_structure.cli.planned import Planned

@@ -55,14 +55,15 @@ from corpus_structure.core.method import (
     UnitView,
 )
 from corpus_structure.core.payloads import AuthorMarkupPayload
+from corpus_structure.core.text_structure import TextComponent
 from corpus_structure.core.vocab import (
     ConfidenceSource,
     MethodFamily,
     MethodTier,
     ObservationKind,
     ObservationOutcome,
-    TaskUnitType,
     SegmentKind,
+    TaskUnitType,
 )
 from corpus_structure.ingest.html import IngestResult, build_rendition
 from corpus_structure.ingest.profile import CompiledProfile, SourceProfile, compile_profile
@@ -211,7 +212,9 @@ def _failed(unit: UnitView, error: str) -> UnitResult:
     return UnitResult(ref=unit.ref, outcome=ObservationOutcome.FAILED, error=error)
 
 
-def _result(unit: UnitView, built: IngestResult, reader: Reader, *, structure: bool = True) -> UnitResult:
+def _result(
+    unit: UnitView, built: IngestResult, reader: Reader, *, structure: bool = True
+) -> UnitResult:
     drafts = tuple(
         ObservationDraft(
             kind=ObservationKind.AUTHOR_MARKUP,
@@ -223,23 +226,44 @@ def _result(unit: UnitView, built: IngestResult, reader: Reader, *, structure: b
         for d in built.markup
     )
     if built.parsing_product is None or unit.ref.unit_id is None:
-        raise MethodRefused("ingest text preparation requires original source custody and document id")
-    source = reader.prepare_parsing_product(built.parsing_product.values(), built.parsing_product.original)
+        raise MethodRefused(
+            "ingest text preparation requires original source custody and document id"
+        )
+    source = reader.prepare_parsing_product(
+        built.parsing_product.values(), built.parsing_product.original
+    )
     reference = reader.source_product_reference(unit.ref.unit_id, source.digest)
     fallback_source_ref, fallback = reader.parsing_fallback_macros()
     math_ranges: list[tuple[int, int, str | None, str | None]] = []
     for segment in built.content.document.walk():
         if segment.kind in {SegmentKind.MATH_INLINE, SegmentKind.MATH_DISPLAY}:
             opener, closer = segment.attrs.get("open"), segment.attrs.get("close")
-            math_ranges.append((segment.start, segment.end,
-                                opener if isinstance(opener, str) else None,
-                                closer if isinstance(closer, str) else None))
-    payload = text_product_payload(built.content.canonical_text,
-        root=dict(task_id=reference.task_id, product_key=reference.product_key,
-                  content_digest=reference.content_digest),
+            math_ranges.append(
+                (
+                    segment.start,
+                    segment.end,
+                    opener if isinstance(opener, str) else None,
+                    closer if isinstance(closer, str) else None,
+                )
+            )
+    payload = text_product_payload(
+        built.content.canonical_text,
+        root=dict(
+            task_id=reference.task_id,
+            product_key=reference.product_key,
+            content_digest=reference.content_digest,
+        ),
         math_ranges=math_ranges,
-        macro_sources=built.macro_sources, fallback_macros=fallback,
-        fallback_source_ref=fallback_source_ref, structure=structure)
+        canonical_regions=tuple(
+            TextComponent(row["category"], row["start_offset"], row["end_offset"])
+            for row in source.values()["components"]
+            if row["representation_id"] == "canonical"
+        ),
+        macro_sources=built.macro_sources,
+        fallback_macros=fallback,
+        fallback_source_ref=fallback_source_ref,
+        structure=structure,
+    )
     prepared_text = reader.prepare_layered_product(payload)
     return UnitResult(
         ref=unit.ref,
@@ -249,7 +273,9 @@ def _result(unit: UnitView, built: IngestResult, reader: Reader, *, structure: b
         parse_detail=built.parse_detail.to_json(),
         text_layouts=built.text_layouts,
         parsing_product=source,
-        parsing_products=PreparedParsingProductSet((prepared_text,), required=("text",), artifacts=text_product_artifacts(payload)),
+        parsing_products=PreparedParsingProductSet(
+            (prepared_text,), required=("text",), artifacts=text_product_artifacts(payload)
+        ),
     )
 
 

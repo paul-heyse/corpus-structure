@@ -3,13 +3,14 @@
 Coordinates are code points in the named representation. Native parser objects are local to a
 single call; only immutable ranges escape. Lexical completeness never asserts syntax support.
 """
+
 from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
 from types import MappingProxyType
+from typing import Any
 
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.tex import Expansion, MacroBinding, Token, TokenKind, expand, tokens
@@ -19,10 +20,17 @@ IMPLEMENTATION_REVISION = "text-structure-1"
 FRONTEND_REVISION = "pylatexenc-3.0b2"
 
 
-TEX_COMPONENT_CATEGORIES: Mapping[TokenKind, str] = MappingProxyType({
-    "word": "control_word", "symbol": "control_symbol", "open": "group_open",
-    "close": "group_close", "param": "parameter", "space": "whitespace", "char": "character",
-})
+TEX_COMPONENT_CATEGORIES: Mapping[TokenKind, str] = MappingProxyType(
+    {
+        "word": "control_word",
+        "symbol": "control_symbol",
+        "open": "group_open",
+        "close": "group_close",
+        "param": "parameter",
+        "space": "whitespace",
+        "char": "character",
+    }
+)
 _PROSE_RUNS = re.compile(r"\s+|[^\s]+")
 
 
@@ -33,8 +41,9 @@ class TextComponent:
     end: int
 
 
-def canonical_partition(text: str, math_ranges: Sequence[tuple[int, int]], *,
-                        regions: Sequence[TextComponent] = ()) -> tuple[TextComponent, ...]:
+def canonical_partition(
+    text: str, math_ranges: Sequence[tuple[int, int]], *, regions: Sequence[TextComponent] = ()
+) -> tuple[TextComponent, ...]:
     """Partition canonical prose into uninterpreted runs and declared math into TeX tokens.
 
     Supplied disjoint regions preserve their boundaries and explicit non-prose categories.
@@ -54,9 +63,11 @@ def canonical_partition(text: str, math_ranges: Sequence[tuple[int, int]], *,
 
     def runs(a: int, b: int, category: str = "text") -> None:
         for match in _PROSE_RUNS.finditer(text, a, b):
-            kind = ("whitespace" if match.group().isspace() else "text") if category in {
-                "text", "whitespace", "math"
-            } else category
+            kind = (
+                ("whitespace" if match.group().isspace() else "text")
+                if category in {"text", "whitespace", "math"}
+                else category
+            )
             out.append(TextComponent(kind, match.start(), match.end()))
 
     def prose(a: int, b: int) -> None:
@@ -78,8 +89,10 @@ def canonical_partition(text: str, math_ranges: Sequence[tuple[int, int]], *,
     position = 0
     for a, b in mathematical:
         prose(position, a)
-        out.extend(TextComponent(TEX_COMPONENT_CATEGORIES[t.kind], a + t.start, a + t.end)
-                   for t in tokens(text[a:b]))
+        out.extend(
+            TextComponent(TEX_COMPONENT_CATEGORIES[t.kind], a + t.start, a + t.end)
+            for t in tokens(text[a:b])
+        )
         position = b
     prose(position, len(text))
     return tuple(out)
@@ -94,13 +107,20 @@ class ParseView:
     text: str
 
 
-def parse_view(text: str, *, start: int = 0, opener: str | None = None,
-               closer: str | None = None) -> ParseView:
+def parse_view(
+    text: str, *, start: int = 0, opener: str | None = None, closer: str | None = None
+) -> ParseView:
     """An explicit inner slice; retain environment wrappers and ordinary dollar characters."""
     a, b = 0, len(text)
-    if (opener and closer and not opener.startswith(r"\begin") and opener != "$"
-            and text.startswith(opener) and text.endswith(closer)
-            and len(text) >= len(opener) + len(closer)):
+    if (
+        opener
+        and closer
+        and not opener.startswith(r"\begin")
+        and opener != "$"
+        and text.startswith(opener)
+        and text.endswith(closer)
+        and len(text) >= len(opener) + len(closer)
+    ):
         a, b = len(opener), len(text) - len(closer)
     while a < b and text[a].isspace():
         a += 1
@@ -134,11 +154,18 @@ class TextCapture:
     expansion: Expansion | None = None
 
 
-def capture_text(text: str, *, start: int = 0, representation_id: str = "canonical",
-                 structure: bool = False, opener: str | None = None,
-                 closer: str | None = None, macros: Mapping[str, MacroDef] | None = None,
-                 bindings: Mapping[str, MacroBinding] | None = None,
-                 expand_macros: bool = True) -> TextCapture:
+def capture_text(
+    text: str,
+    *,
+    start: int = 0,
+    representation_id: str = "canonical",
+    structure: bool = False,
+    opener: str | None = None,
+    closer: str | None = None,
+    macros: Mapping[str, MacroDef] | None = None,
+    bindings: Mapping[str, MacroBinding] | None = None,
+    expand_macros: bool = True,
+) -> TextCapture:
     """Capture every source token; only an explicit structure demand calls pylatexenc.
 
     ``macros`` supplies declared structural arguments. Unless ``expand_macros=False``, an
@@ -149,26 +176,55 @@ def capture_text(text: str, *, start: int = 0, representation_id: str = "canonic
 
     lexical = tuple(replace(t, start=t.start + start, end=t.end + start) for t in tokens(text))
     view = parse_view(text, start=start, opener=opener, closer=closer)
-    expansion = expand(lexical, macros, source_ref=representation_id, bindings=bindings) if macros is not None and expand_macros else None
-    nodes, outcome, issues = _structure(view, macros or {}) if structure else ((), "not_requested", ())
-    return TextCapture(representation_id, start, start + len(text), lexical, view,
-                       nodes, outcome, issues, expansion)
+    expansion = (
+        expand(lexical, macros, source_ref=representation_id, bindings=bindings)
+        if macros is not None and expand_macros
+        else None
+    )
+    nodes, outcome, issues = (
+        _structure(view, macros or {}) if structure else ((), "not_requested", ())
+    )
+    return TextCapture(
+        representation_id,
+        start,
+        start + len(text),
+        lexical,
+        view,
+        nodes,
+        outcome,
+        issues,
+        expansion,
+    )
 
 
-def _structure(view: ParseView, macros: Mapping[str, MacroDef]) -> tuple[tuple[StructureNode, ...], str, tuple[str, ...]]:
+def _structure(
+    view: ParseView, macros: Mapping[str, MacroDef]
+) -> tuple[tuple[StructureNode, ...], str, tuple[str, ...]]:
     from pylatexenc.latexnodes import ParsingState
     from pylatexenc.latexnodes.parsers import LatexGeneralNodesParser
-    from pylatexenc.latexwalker import LatexWalker, LatexWalkerParseError, get_default_latex_context_db
+    from pylatexenc.latexwalker import (
+        LatexWalker,
+        LatexWalkerParseError,
+        get_default_latex_context_db,
+    )
     from pylatexenc.macrospec import MacroSpec
 
     context = get_default_latex_context_db()
-    context.add_context_category("effective-macros", macros=[
-        MacroSpec(name[1:], ("[" if definition.default is not None else "")
-                  + "{" * (definition.nargs - (definition.default is not None)))
-        for name, definition in macros.items()
-    ], prepend=True)
-    state = ParsingState(latex_context=context, enable_comments=False,
-                         enable_math=False, in_math_mode=True)
+    context.add_context_category(
+        "effective-macros",
+        macros=[
+            MacroSpec(
+                name[1:],
+                ("[" if definition.default is not None else "")
+                + "{" * (definition.nargs - (definition.default is not None)),
+            )
+            for name, definition in macros.items()
+        ],
+        prepend=True,
+    )
+    state = ParsingState(
+        latex_context=context, enable_comments=False, enable_math=False, in_math_mode=True
+    )
     walker = LatexWalker(view.text, default_parsing_state=state, tolerant_parsing=False)
     try:
         native, _ = walker.parse_content(LatexGeneralNodesParser())
@@ -179,20 +235,38 @@ def _structure(view: ParseView, macros: Mapping[str, MacroDef]) -> tuple[tuple[S
     out: list[StructureNode] = []
     issues: list[str] = []
 
-    def visit(node: Any, parent: str | None = None, role: str = "content",
-              argument_index: int | None = None) -> None:
+    def visit(
+        node: Any,
+        parent: str | None = None,
+        role: str = "content",
+        argument_index: int | None = None,
+    ) -> None:
         if node is None:
             return
         kind = type(node).__name__.removeprefix("Latex").removesuffix("Node").lower()
-        name = getattr(node, "macroname", getattr(node, "environmentname", getattr(node, "specials_chars", None)))
+        name = getattr(
+            node,
+            "macroname",
+            getattr(node, "environmentname", getattr(node, "specials_chars", None)),
+        )
         if kind == "specials" and name in {"_", "^"}:
             kind = "subscript" if name == "_" else "superscript"
         if kind == "macro" and not getattr(node.spec, "macroname", None):
             kind = "unknown_macro"
             issues.append("unknown macro: \\" + str(name))
         key = f"s{len(out)}"
-        out.append(StructureNode(key, kind, view.start + node.pos, view.start + node.pos_end,
-                                 parent, role, name, argument_index))
+        out.append(
+            StructureNode(
+                key,
+                kind,
+                view.start + node.pos,
+                view.start + node.pos_end,
+                parent,
+                role,
+                name,
+                argument_index,
+            )
+        )
         args = getattr(node, "nodeargd", None)
         if args is not None:
             for index, argument in enumerate(args.argnlist):
@@ -205,11 +279,11 @@ def _structure(view: ParseView, macros: Mapping[str, MacroDef]) -> tuple[tuple[S
     return tuple(out), "partial" if issues else "available", tuple(issues)
 
 
-def source_atoms(length: int, math: tuple[tuple[int, int], ...],
-                 references: tuple[tuple[int, int], ...]) -> tuple[tuple[int, int, str], ...]:
+def source_atoms(
+    length: int, math: tuple[tuple[int, int], ...], references: tuple[tuple[int, int], ...]
+) -> tuple[tuple[int, int, str], ...]:
     """Source-bound atom projection shared with consumer-owned sentence layouts."""
-    rows = sorted([(a, b, "math") for a, b in math]
-                  + [(a, b, "reference") for a, b in references])
+    rows = sorted([(a, b, "math") for a, b in math] + [(a, b, "reference") for a, b in references])
     out: list[tuple[int, int, str]] = []
     position = 0
     for a, b, role in rows:

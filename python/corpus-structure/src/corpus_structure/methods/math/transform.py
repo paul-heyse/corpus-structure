@@ -115,10 +115,14 @@ def _expr(*operands: Any) -> None:
 class ToSympy(TransformToSymPyExpr):
     """The extension-aware transformer; `sets` and `ops` are the macro classification's."""
 
-    def __init__(self, sets: Mapping[str, str], ops: Mapping[str, str],
-                 symbol_factory: Callable[[str], Any] = sympy.Symbol,
-                 bound_symbols: Mapping[str, Any] | None = None,
-                 conventions: tuple[str, ...] = ("naturals-zero-1", "set-builder-real-domain-1")) -> None:
+    def __init__(
+        self,
+        sets: Mapping[str, str],
+        ops: Mapping[str, str],
+        symbol_factory: Callable[[str], Any] = sympy.Symbol,
+        bound_symbols: Mapping[str, Any] | None = None,
+        conventions: tuple[str, ...] = ("naturals-zero-1", "set-builder-real-domain-1"),
+    ) -> None:
         super().__init__()
         self.sets = sets
         self.ops = ops
@@ -366,8 +370,12 @@ def _source_binders(tree: _tree.Node) -> tuple[_tree.Node, dict[str, Any]]:
         elif node.data == "limit" and len(node.children) >= 4:
             declaration = variable(node.children[2])
             body_indexes = {len(node.children) - 1}
-        elif node.data == "normal_integral" and len(node.children) >= 3 and any(
-            isinstance(child, Token) and str(child) in {"_", "^"} for child in node.children
+        elif (
+            node.data == "normal_integral"
+            and len(node.children) >= 3
+            and any(
+                isinstance(child, Token) and str(child) in {"_", "^"} for child in node.children
+            )
         ):
             candidate = node.children[-1]
             if isinstance(candidate, Token) and candidate.type == "NAMED_SYMBOL":
@@ -402,14 +410,17 @@ def _source_binders(tree: _tree.Node) -> tuple[_tree.Node, dict[str, Any]]:
                     if isinstance(part, Tree):
                         return Tree(part.data, [limits(c) for c in part.children], part.meta)
                     return walk(part, environment)
+
                 children.append(limits(child))
             elif declaration is not None and index == 1 and node.data == "set_builder":
+
                 def head(part):
                     if part is declaration:
                         return walk(part, local)
                     if isinstance(part, Tree):
                         return Tree(part.data, [head(c) for c in part.children], part.meta)
                     return walk(part, environment)
+
                 children.append(head(child))
             else:
                 children.append(walk(child, local if index in body_indexes else environment))

@@ -46,15 +46,24 @@ def test_symbolic_equivalence_is_an_explicit_stronger_request():
     assert value.interpretation().status is ParseOutcome.AMBIGUOUS
     assert value.symbolic_reading().status is ParseOutcome.OK
     assert value.interpretation().status is ParseOutcome.AMBIGUOUS
-    assert value.symbolic_value() == sympy.Mul(sympy.Symbol("a"), sympy.Symbol("b"), sympy.Pow(sympy.Symbol("c"), -1))
+    assert value.symbolic_value() == sympy.Mul(
+        sympy.Symbol("a"), sympy.Symbol("b"), sympy.Pow(sympy.Symbol("c"), -1)
+    )
 
 
 def test_original_delimiters_and_exact_occurrence_offsets_remain_separate():
     context = prepare_interpretation_context(macros={}, kind="formula")
-    value = PreparedMathInput(context, "x+x", source_text="$ x+x $", source_start=10, parse_start=12)
+    value = PreparedMathInput(
+        context, "x+x", source_text="$ x+x $", source_start=10, parse_start=12
+    )
     assert [(t.text, t.start, t.end) for t in value.lexical()] == [
-        ("$", 10, 11), (" ", 11, 12), ("x", 12, 13), ("+", 13, 14),
-        ("x", 14, 15), (" ", 15, 16), ("$", 16, 17),
+        ("$", 10, 11),
+        (" ", 11, 12),
+        ("x", 12, 13),
+        ("+", 13, 14),
+        ("x", 14, 15),
+        (" ", 15, 16),
+        ("$", 16, 17),
     ]
     assert [(o.start, o.end) for o in value.reading().occurrences] == [(0, 1), (2, 3)]
     assert value.symbolic_value() == sympy.Mul(2, sympy.Symbol("x"))
@@ -70,7 +79,7 @@ def test_ask_and_refine_do_not_read_ambient_assumptions():
         assert plain.symbolic_value().is_real is None
         square_root = operand(r"\sqrt{x^2}")
         assert square_root.assess("refine").value != x
-        admitted = operand(r"\sqrt{x^2}", assumptions=[{"symbol":"x", "predicate":"positive"}])
+        admitted = operand(r"\sqrt{x^2}", assumptions=[{"symbol": "x", "predicate": "positive"}])
         assert admitted.assess("refine").value == x
         assert global_assumptions == before | {sympy.Q.positive(x)}
     finally:
@@ -79,10 +88,15 @@ def test_ask_and_refine_do_not_read_ambient_assumptions():
 
 
 def test_unsupported_and_contradictory_premises_remain_typed():
-    unsupported = operand("x", assumptions=[{"source_condition":"x > 0"}])
+    unsupported = operand("x", assumptions=[{"source_condition": "x > 0"}])
     assert unsupported.assess("predicate", predicate="positive").outcome == "unsupported"
-    invalid = operand("x", assumptions=[{"symbol":"x", "predicate":"positive"},
-                                         {"symbol":"x", "predicate":"negative"}])
+    invalid = operand(
+        "x",
+        assumptions=[
+            {"symbol": "x", "predicate": "positive"},
+            {"symbol": "x", "predicate": "negative"},
+        ],
+    )
     assert invalid.assess("predicate", predicate="positive").outcome == "invalid"
 
 
@@ -90,7 +104,9 @@ def test_native_cancellation_retains_source_denominator_exclusion():
     value = operand("x/x")
     assert value.symbolic_value() == 1
     conditions = value.definedness()
-    assert [(c.start, c.end, c.expression, c.requirement) for c in conditions] == [(2, 3, "x", "nonzero")]
+    assert [(c.start, c.end, c.expression, c.requirement) for c in conditions] == [
+        (2, 3, "x", "nonzero")
+    ]
     assert value.assess("refine").conditions == conditions
 
 
@@ -104,10 +120,22 @@ def test_binders_are_distinct_from_same_spelling_free_occurrences():
 
 def test_scoped_declarations_create_distinct_native_identity():
     def scoped(scope):
-        return operand("x", source_id="document", scope=scope, declarations=[{
-            "symbol":"x", "role":"variable", "authority":"source", "evidence":"declaration",
-            "source_id":"document", "scope":scope,
-        }])
+        return operand(
+            "x",
+            source_id="document",
+            scope=scope,
+            declarations=[
+                {
+                    "symbol": "x",
+                    "role": "variable",
+                    "authority": "source",
+                    "evidence": "declaration",
+                    "source_id": "document",
+                    "scope": scope,
+                }
+            ],
+        )
+
     left, right = scoped("left"), scoped("right")
     assert left.symbolic_value() != right.symbolic_value()
     assert left.symbolic_value() == scoped("left").symbolic_value()
@@ -135,11 +163,13 @@ def test_outer_deadline_cannot_be_extended_by_inner_stage():
 def test_native_demand_refuses_off_main_thread():
     value = operand("x")
     failures = []
+
     def run():
         try:
             value.symbolic_value()
         except BaseException as error:
             failures.append(error)
+
     worker = threading.Thread(target=run)
     worker.start()
     worker.join()
@@ -150,11 +180,13 @@ def test_timeout_attempt_does_not_poison_a_later_native_request(monkeypatch):
     value = operand("x")
     original = grammar.to_sympy
     calls = []
+
     def transient(reading, **options):
         calls.append(None)
         if len(calls) == 1:
             raise grammar.Expired()
         return original(reading, **options)
+
     monkeypatch.setattr(grammar, "to_sympy", transient)
     with pytest.raises(grammar.Expired):
         value.symbolic_value()
@@ -186,10 +218,22 @@ def test_unavailable_source_does_not_assert_empty_definedness():
 
 def test_scoped_function_declarations_have_distinct_native_identity():
     def scoped(scope):
-        return operand("f(x)", source_id="document", scope=scope, declarations=[{
-            "symbol":"f", "role":"function", "authority":"source", "evidence":"declaration",
-            "source_id":"document", "scope":scope,
-        }])
+        return operand(
+            "f(x)",
+            source_id="document",
+            scope=scope,
+            declarations=[
+                {
+                    "symbol": "f",
+                    "role": "function",
+                    "authority": "source",
+                    "evidence": "declaration",
+                    "source_id": "document",
+                    "scope": scope,
+                }
+            ],
+        )
+
     assert scoped("left").symbolic_value() != scoped("right").symbolic_value()
     assert scoped("left").symbolic_value() == scoped("left").symbolic_value()
 
@@ -269,11 +313,19 @@ def test_direct_assessment_does_not_retry_failed_interpretation(monkeypatch):
 
     def timed_out(self):
         calls.append(1)
-        return grammar.MathResult("x+x", "formula", ParseOutcome.FAILED,
-                                  failure=grammar.Failure("timeout", "budget expired"))
+        return grammar.MathResult(
+            "x+x",
+            "formula",
+            ParseOutcome.FAILED,
+            failure=grammar.Failure("timeout", "budget expired"),
+        )
 
     monkeypatch.setattr(PreparedMathInput, "interpretation", timed_out)
-    monkeypatch.setattr(PreparedMathInput, "definedness_result", lambda self: pytest.fail("failed source was retried"))
+    monkeypatch.setattr(
+        PreparedMathInput,
+        "definedness_result",
+        lambda self: pytest.fail("failed source was retried"),
+    )
     result = value.assess("definedness")
     assert result.outcome == "timeout" and result.coverage == "partial"
     assert calls == [1]

@@ -337,7 +337,9 @@ class Cascade:
         hits = self._exact(quote, others)
         if hits:
             best = min(hits, key=lambda h: (abs(h[0] - anchor), h[0]))
-            return self._explained(self._found(best, Step.EXACT_FRAME, len(hits)), hits, len(others))
+            return self._explained(
+                self._found(best, Step.EXACT_FRAME, len(hits)), hits, len(others)
+            )
         timeouts: list[Step] = []
         steps: list[tuple[Step, Mapping[str, str] | None]] = [(Step.SPACING, None)]
         if self._macro_bodies:
@@ -356,7 +358,11 @@ class Cascade:
                     timeouts.append(step)
                 if hits:
                     best = min(hits, key=lambda h: (abs(h[0] - anchor), h[0]))
-                    return self._explained(self._found(best, step, len(hits), timeouts=tuple(timeouts)), hits, len(scope))
+                    return self._explained(
+                        self._found(best, step, len(hits), timeouts=tuple(timeouts)),
+                        hits,
+                        len(scope),
+                    )
         if cited is not None:
             fuzzy = self._fuzzy(quote, cited, timeouts)
             if fuzzy is not None:
@@ -367,7 +373,8 @@ class Cascade:
             # Native cutoff retrieval examines this explicitly selected frame universe.
             choices = sorted(
                 process.extract_iter(
-                    quote, texts,
+                    quote,
+                    texts,
                     scorer=cast(_PartialRatioScorer, fuzz.partial_ratio),
                     score_cutoff=float(self.policy.pick_cutoff),
                 ),
@@ -375,25 +382,33 @@ class Cascade:
             )
             candidates = tuple(
                 PlacementCandidate(pool[i].id, pool[i].start, pool[i].end, float(score))
-                for _, score, i in choices[:self.policy.candidate_limit]
+                for _, score, i in choices[: self.policy.candidate_limit]
             )
             for _, _, i in choices:
                 fuzzy = self._fuzzy(quote, pool[i], timeouts, picked=True)
                 if fuzzy is not None:
                     return dataclasses.replace(
-                        fuzzy, candidates=candidates, examined_sentences=len(pool),
-                        eligible_candidates=len(choices), omitted_candidates=max(0, len(choices)-self.policy.candidate_limit),
+                        fuzzy,
+                        candidates=candidates,
+                        examined_sentences=len(pool),
+                        eligible_candidates=len(choices),
+                        omitted_candidates=max(0, len(choices) - self.policy.candidate_limit),
                     )
         return Located(timeouts=tuple(timeouts))
 
-    def _explained(self, located: Located, hits: list[tuple[int, int, FrameSentence]], examined: int) -> Located:
+    def _explained(
+        self, located: Located, hits: list[tuple[int, int, FrameSentence]], examined: int
+    ) -> Located:
         ordered = sorted(hits, key=lambda hit: (hit[0], hit[1], hit[2].id))
         return dataclasses.replace(
             located,
-            candidates=tuple(PlacementCandidate(sentence.id, a, b) for a, b, sentence in ordered[:self.policy.candidate_limit]),
+            candidates=tuple(
+                PlacementCandidate(sentence.id, a, b)
+                for a, b, sentence in ordered[: self.policy.candidate_limit]
+            ),
             examined_sentences=examined,
             eligible_candidates=len(hits),
-            omitted_candidates=max(0, len(hits)-self.policy.candidate_limit),
+            omitted_candidates=max(0, len(hits) - self.policy.candidate_limit),
         )
 
     def _exact(
@@ -437,7 +452,15 @@ class Cascade:
         a, b, s = hit
         a, b = snap(self.text, a, b, s.start, s.end)
         return Located(
-            a, b, step, s.id, matches, score, fuzzy_counts, picked, timeouts,
+            a,
+            b,
+            step,
+            s.id,
+            matches,
+            score,
+            fuzzy_counts,
+            picked,
+            timeouts,
             fidelity="exact" if step in (Step.EXACT_CITED, Step.EXACT_FRAME) else "heuristic",
         )
 
@@ -447,24 +470,34 @@ class Cascade:
         span = self._tokens(quote, s)
         if span is not None:
             a, b, score, edits = span
-            return dataclasses.replace(self._found(
-                (a, b, s), Step.TOKENS, 1, score=score, picked=picked, timeouts=tuple(timeouts)
-            ), alignment=edits, examined_sentences=1)
+            return dataclasses.replace(
+                self._found(
+                    (a, b, s), Step.TOKENS, 1, score=score, picked=picked, timeouts=tuple(timeouts)
+                ),
+                alignment=edits,
+                examined_sentences=1,
+            )
         refined = self._characters(quote, s, timeouts)
         if refined is not None:
             a, b, score, counts, edits = refined
-            return dataclasses.replace(self._found(
-                (a, b, s),
-                Step.CHARACTERS,
-                1,
-                score=score,
-                fuzzy_counts=counts,
-                picked=picked,
-                timeouts=tuple(timeouts),
-            ), alignment=edits, examined_sentences=1)
+            return dataclasses.replace(
+                self._found(
+                    (a, b, s),
+                    Step.CHARACTERS,
+                    1,
+                    score=score,
+                    fuzzy_counts=counts,
+                    picked=picked,
+                    timeouts=tuple(timeouts),
+                ),
+                alignment=edits,
+                examined_sentences=1,
+            )
         return None
 
-    def _tokens(self, quote: str, s: FrameSentence) -> tuple[int, int, float, tuple[AlignmentEdit, ...]] | None:
+    def _tokens(
+        self, quote: str, s: FrameSentence
+    ) -> tuple[int, int, float, tuple[AlignmentEdit, ...]] | None:
         normalized = quote.rstrip(TRAILING) or quote
         needle = self._quote_tokens.get(normalized)
         if needle is None:
@@ -500,10 +533,17 @@ class Cascade:
             AlignmentEdit(
                 o.tag,
                 needle[o.src_start][1] if o.src_start < len(needle) else len(normalized),
-                needle[o.src_end-1][2] if o.src_end > o.src_start else (needle[o.src_start][1] if o.src_start < len(needle) else len(normalized)),
-                hay[min(w0+o.dest_start, len(hay)-1)][1] if w0+o.dest_start < len(hay) else s.end,
-                hay[w0+o.dest_end-1][2] if o.dest_end > o.dest_start else (hay[w0+o.dest_start][1] if w0+o.dest_start < len(hay) else s.end),
-            ) for o in ops
+                needle[o.src_end - 1][2]
+                if o.src_end > o.src_start
+                else (needle[o.src_start][1] if o.src_start < len(needle) else len(normalized)),
+                hay[min(w0 + o.dest_start, len(hay) - 1)][1]
+                if w0 + o.dest_start < len(hay)
+                else s.end,
+                hay[w0 + o.dest_end - 1][2]
+                if o.dest_end > o.dest_start
+                else (hay[w0 + o.dest_start][1] if w0 + o.dest_start < len(hay) else s.end),
+            )
+            for o in ops
         )
         return hay[a][1], hay[b - 1][2], round(window.score, 1), edits
 
@@ -534,7 +574,9 @@ class Cascade:
             return None
         counts = m.fuzzy_counts
         edits = tuple(
-            AlignmentEdit(o.tag, o.src_start, o.src_end, m.start()+o.dest_start, m.start()+o.dest_end)
-            for o in Levenshtein.opcodes(needle, self.text[m.start():m.end()])
+            AlignmentEdit(
+                o.tag, o.src_start, o.src_end, m.start() + o.dest_start, m.start() + o.dest_end
+            )
+            for o in Levenshtein.opcodes(needle, self.text[m.start() : m.end()])
         )
         return m.start(), m.end(), round(window.score, 1), (counts[0], counts[1], counts[2]), edits

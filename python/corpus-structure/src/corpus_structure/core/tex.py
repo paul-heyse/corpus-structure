@@ -159,6 +159,7 @@ class TokenOrigin:
 @dataclass(frozen=True, slots=True)
 class MacroBinding:
     """Definition artifact custody; body/default tokens retain artifact offsets."""
+
     source_ref: str
     start: int
     end: int
@@ -191,7 +192,9 @@ class Expansion:
     invocations: tuple[MacroInvocation, ...] = ()
 
 
-Item = tuple[str, int, tuple[TokenOrigin, ...], tuple[int, ...]]  # a token's text and its expansion depth
+Item = tuple[
+    str, int, tuple[TokenOrigin, ...], tuple[int, ...]
+]  # a token's text and its expansion depth
 
 
 class _Input:
@@ -268,8 +271,11 @@ class _Input:
 
 
 def expand(
-    source: Sequence[str] | Sequence[Token], table: Mapping[str, MacroDef],
-    drop: frozenset[str] = frozenset(), *, source_ref: str = "input",
+    source: Sequence[str] | Sequence[Token],
+    table: Mapping[str, MacroDef],
+    drop: frozenset[str] = frozenset(),
+    *,
+    source_ref: str = "input",
     bindings: Mapping[str, MacroBinding] | None = None,
 ) -> Expansion:
     """Expand macros by whole name, re-reading each expansion as TeX does, to depth 16.
@@ -317,7 +323,9 @@ def expand(
                 # its generated offsets are never mislabeled as literal artifact offsets.
                 origin = TokenOrigin(source, binding.start, binding.end, "derived-" + role)
             else:
-                origin = TokenOrigin(source + ":" + role, token.start, token.end, "unavailable-" + role)
+                origin = TokenOrigin(
+                    source + ":" + role, token.start, token.end, "unavailable-" + role
+                )
             result.append((piece, depth, (origin,), ()))
         return result
 
@@ -333,10 +341,20 @@ def expand(
             if definition is not None:
                 unexpanded.append(text)
                 binding = (bindings or {}).get(text)
-                invocations.append(MacroInvocation(text, origins, TokenOrigin(
-                    binding.source_ref if binding else "macro-table:" + text,
-                    binding.start if binding else 0, binding.end if binding else len(definition.body),
-                    "definition"), (), "depth_bound"))
+                invocations.append(
+                    MacroInvocation(
+                        text,
+                        origins,
+                        TokenOrigin(
+                            binding.source_ref if binding else "macro-table:" + text,
+                            binding.start if binding else 0,
+                            binding.end if binding else len(definition.body),
+                            "definition",
+                        ),
+                        (),
+                        "depth_bound",
+                    )
+                )
             continue
         stream.consumed = []
         arguments: list[list[Item]] = []
@@ -352,30 +370,52 @@ def expand(
         if body is None:
             body = bodies[text] = artifact_items(text, definition.body, "body", depth)
         binding = (bindings or {}).get(text)
-        definition_origin = TokenOrigin(binding.source_ref if binding else "macro-table:" + text,
-                                        binding.start if binding else 0,
-                                        binding.end if binding else len(definition.body), "definition")
+        definition_origin = TokenOrigin(
+            binding.source_ref if binding else "macro-table:" + text,
+            binding.start if binding else 0,
+            binding.end if binding else len(definition.body),
+            "definition",
+        )
         invocation = len(invocations)
-        argument_origins = tuple(tuple(dict.fromkeys(o for item in arg for o in item[2])) for arg in arguments)
-        invocation_origins = tuple(dict.fromkeys((*origins, *(origin for item in stream.consumed for origin in item[2]))))
-        invocations.append(MacroInvocation(text, invocation_origins, definition_origin, argument_origins, "expanded"))
+        argument_origins = tuple(
+            tuple(dict.fromkeys(o for item in arg for o in item[2])) for arg in arguments
+        )
+        invocation_origins = tuple(
+            dict.fromkeys((*origins, *(origin for item in stream.consumed for origin in item[2])))
+        )
+        invocations.append(
+            MacroInvocation(
+                text, invocation_origins, definition_origin, argument_origins, "expanded"
+            )
+        )
         replacement: list[Item] = []
         for piece, _, body_origins, body_calls in body:
             if piece[0] == "#" and len(piece) == 2 and piece[1].isdigit():
                 n = int(piece[1])
                 if 1 <= n <= len(arguments):
-                    replacement.extend((t, depth + 1, tuple(dict.fromkeys((*source, *body_origins))), tuple(dict.fromkeys((*calls, *prior, invocation))))
-                                       for t, _, source, prior in arguments[n - 1])
+                    replacement.extend(
+                        (
+                            t,
+                            depth + 1,
+                            tuple(dict.fromkeys((*source, *body_origins))),
+                            tuple(dict.fromkeys((*calls, *prior, invocation))),
+                        )
+                        for t, _, source, prior in arguments[n - 1]
+                    )
                     continue
             replacement.append((piece, depth + 1, body_origins, (*calls, *body_calls, invocation)))
         if len(out) + len(stream.stack) + len(replacement) > MAX_TOKENS:
             stream.stack.extend(reversed(stream.consumed))  # leave the arguments in place
             emit(text, origins, calls)
-            invocations[-1] = MacroInvocation(text, invocation_origins, definition_origin, argument_origins, "token_bound")
+            invocations[-1] = MacroInvocation(
+                text, invocation_origins, definition_origin, argument_origins, "token_bound"
+            )
             unexpanded.append(text)
             continue
         stream.stack.extend(reversed(replacement))
-    return Expansion(tuple(out), tuple(dict.fromkeys(unexpanded)), tuple(pieces), tuple(invocations))
+    return Expansion(
+        tuple(out), tuple(dict.fromkeys(unexpanded)), tuple(pieces), tuple(invocations)
+    )
 
 
 # --- The token form ------------------------------------------------------------------------------

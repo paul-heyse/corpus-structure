@@ -544,7 +544,9 @@ class MathematicalEvidence:
                         produced=("lexical", "syntax", "occurrences", "interpretation", "symbolic"),
                         interpretation=result.status.value,
                     )
-                    reading = MathReading(value, result.status.value, definedness=operand.unproved_definedness())
+                    reading = MathReading(
+                        value, result.status.value, definedness=operand.unproved_definedness()
+                    )
                     self._readings[key] = reading
                     return reading
                 except grammar.Expired:
@@ -581,7 +583,9 @@ class MathematicalEvidence:
             why = f"no SymPy value: {ra.error or ''} {rb.error or ''}".strip()
             return self._undecided(t, fa, fb, why, status)
         if ra.definedness != rb.definedness:
-            return self._undecided(t, fa, fb, "source definedness differs; discharge denominator restrictions", status)
+            return self._undecided(
+                t, fa, fb, "source definedness differs; discharge denominator restrictions", status
+            )
         ea, eb = ra.expr, rb.expr
         if t == "set":
             try:
@@ -1145,8 +1149,11 @@ class ReferenceComparisonScope:
         key = canonical_bytes(value)
         if key not in self._operands:
             restrictions = []
-            reading = read_reference_operand(value, prepared=self.prepared,
-                capture=lambda operand: restrictions.extend(operand.unproved_definedness()))
+            reading = read_reference_operand(
+                value,
+                prepared=self.prepared,
+                capture=lambda operand: restrictions.extend(operand.unproved_definedness()),
+            )
             if reading[0] is not None:
                 self._operands[key] = reading
                 self._definedness[key] = tuple(restrictions)
@@ -1232,8 +1239,12 @@ def reference_evidence(
     y, why_b = scope.read(b)
     if x is None or y is None:
         return result(False, "undecided", why_a + "; " + why_b)
-    if scope._definedness.get(canonical_bytes(a), ()) != scope._definedness.get(canonical_bytes(b), ()):
-        return result(False, "undecided", "source definedness differs; discharge denominator restrictions")
+    if scope._definedness.get(canonical_bytes(a), ()) != scope._definedness.get(
+        canonical_bytes(b), ()
+    ):
+        return result(
+            False, "undecided", "source definedness differs; discharge denominator restrictions"
+        )
     try:
         with grammar.deadline(float(scope.computation.simplify_seconds)):
             if isinstance(x, sympy.Equality) and isinstance(y, sympy.Equality):

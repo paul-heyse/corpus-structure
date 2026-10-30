@@ -3,14 +3,15 @@ from __future__ import annotations
 import pytest
 
 from corpus_structure.core.evidence import MacroDef
-from corpus_structure.core.text_structure import capture_text, parse_view
 from corpus_structure.core.tex import expand, tokens
+from corpus_structure.core.text_structure import capture_text, parse_view
 from corpus_structure.ingest.macros import read_macros
 
 
 def test_complete_capture_and_explicit_inner_view(monkeypatch: pytest.MonkeyPatch) -> None:
     def forbidden(*args, **kwargs):
         raise AssertionError("lexical demand entered native structure")
+
     monkeypatch.setattr("corpus_structure.core.text_structure._structure", forbidden)
     source = "  \\(  x % $prose \\)  "
     result = capture_text(source, start=10, opener=r"\(", closer=r"\)")
@@ -31,9 +32,9 @@ def test_native_groups_arguments_environments_and_literal_percent_dollar() -> No
     args = [n for n in result.nodes if n.parent == frac.node_id]
     assert [(n.start, n.end, n.argument_index) for n in args] == [(5, 8, 0), (8, 11, 1)]
     env = next(n for n in result.nodes if n.kind == "environment")
-    assert source[env.start:env.end] == r"\begin{align}x_1\end{align}"
+    assert source[env.start : env.end] == r"\begin{align}x_1\end{align}"
     assert any(n.kind == "subscript" for n in result.nodes)
-    assert any(source[n.start:n.end] == " % $prose " for n in result.nodes)
+    assert any(source[n.start : n.end] == " % $prose " for n in result.nodes)
     assert result.structure_outcome == "available"
 
 
@@ -46,20 +47,28 @@ def test_unknown_and_invalid_keep_the_total_partition() -> None:
 
 
 def test_optional_multiple_arguments_are_declared_from_effective_table() -> None:
-    result = capture_text(r"\foo[y]{x}", structure=True,
-                          macros={r"\foo": MacroDef(nargs=2, default="D", body="#1+#2")})
-    assert [(n.argument_index, n.start, n.end) for n in result.nodes if n.role == "argument"] == [(0, 4, 7), (1, 7, 10)]
+    result = capture_text(
+        r"\foo[y]{x}",
+        structure=True,
+        macros={r"\foo": MacroDef(nargs=2, default="D", body="#1+#2")},
+    )
+    assert [(n.argument_index, n.start, n.end) for n in result.nodes if n.role == "argument"] == [
+        (0, 4, 7),
+        (1, 7, 10),
+    ]
     assert result.structure_outcome == "available"
 
 
 def test_definition_events_and_repeated_argument_default_derivation() -> None:
-    source = r"\newcommand{\f}[2][D]{#1+#2+#2}\providecommand{\f}{bad}\renewcommand{\f}[2][Q]{#1+#2+#2}"
+    source = (
+        r"\newcommand{\f}[2][D]{#1+#2+#2}\providecommand{\f}{bad}\renewcommand{\f}[2][Q]{#1+#2+#2}"
+    )
     read = read_macros(source, source_ref="page:defs")
     assert [event.status for event in read.events] == ["replaced", "ignored", "accepted"]
     event = read.events[-1]
-    assert source[event.command.start:event.command.end] == r"\renewcommand"
+    assert source[event.command.start : event.command.end] == r"\renewcommand"
     assert "".join(t.text for t in event.body_tokens) == "#1+#2+#2"
-    assert source[event.default_tokens[0].start:event.default_tokens[0].end] == "Q"
+    assert source[event.default_tokens[0].start : event.default_tokens[0].end] == "Q"
     result = expand(tokens(r"\f{x}"), read.table, source_ref="canonical", bindings=read.bindings)
     assert "".join(result.tokens) == "Q+x+x"
     q, _, x1, _, x2 = result.pieces
@@ -67,7 +76,9 @@ def test_definition_events_and_repeated_argument_default_derivation() -> None:
     assert q.origins[0].start == source.index("Q")
     assert [(x.start, x.end) for x in (x1, x2)] == [(2, 3), (4, 5)]
     assert x1.origins[0] == x2.origins[0]
-    assert [(o.source_ref, o.start, o.end) for o in x1.origins if o.source_ref == "canonical"] == [("canonical", 3, 4)]
+    assert [(o.source_ref, o.start, o.end) for o in x1.origins if o.source_ref == "canonical"] == [
+        ("canonical", 3, 4)
+    ]
     assert result.invocations[0].definition is not None
     assert result.invocations[0].definition.source_ref == "page:defs"
 
@@ -77,8 +88,11 @@ def test_generated_operator_is_derived_from_definition_not_fake_body_offsets() -
     read = read_macros(source, source_ref="page:defs")
     result = expand(tokens(r"\op"), read.table, bindings=read.bindings)
     assert "".join(result.tokens) == r"\operatorname{name}"
-    assert all(o.role == "derived-body" and (o.start, o.end) == (0, len(source))
-               for piece in result.pieces for o in piece.origins)
+    assert all(
+        o.role == "derived-body" and (o.start, o.end) == (0, len(source))
+        for piece in result.pieces
+        for o in piece.origins
+    )
 
 
 def test_expansion_bound_retains_invocation_and_arguments() -> None:
@@ -90,6 +104,7 @@ def test_expansion_bound_retains_invocation_and_arguments() -> None:
 
 def test_native_missing_node_list_is_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
     from pylatexenc.latexwalker import LatexWalker
+
     monkeypatch.setattr(LatexWalker, "parse_content", lambda *args, **kwargs: (None, None))
     result = capture_text("x", structure=True)
     assert result.structure_outcome == "invalid"

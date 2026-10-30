@@ -19,8 +19,8 @@ forms expand by it (D1 §6.2).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, replace
 from collections.abc import Iterator
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from corpus_structure.core.evidence import MACRO_NAME, MacroDef
@@ -92,9 +92,13 @@ class MacroRead:
 
     @property
     def bindings(self) -> dict[str, MacroBinding]:
-        return {event.name: MacroBinding(event.source_ref, event.start, event.end,
-                                        event.body_tokens, event.default_tokens)
-                for event in self.events if event.status == "accepted"}
+        return {
+            event.name: MacroBinding(
+                event.source_ref, event.start, event.end, event.body_tokens, event.default_tokens
+            )
+            for event in self.events
+            if event.status == "accepted"
+        }
 
     def __iter__(self) -> Iterator[dict[str, MacroDef] | list[str]]:
         # Existing consumers retain their table/notes projection.
@@ -125,7 +129,21 @@ def read_macros(source: str, *, source_ref: str = "macro-source") -> MacroRead:
         if command not in DEFINERS and command != OPERATOR:
             if command in UNREAD:
                 notes.append(f"{command} is not read")
-                events.append(MacroEvent(source_ref, retained[i], "", (), (), (), (), retained[i].start, retained[i].end, "unsupported", None))
+                events.append(
+                    MacroEvent(
+                        source_ref,
+                        retained[i],
+                        "",
+                        (),
+                        (),
+                        (),
+                        (),
+                        retained[i].start,
+                        retained[i].end,
+                        "unsupported",
+                        None,
+                    )
+                )
             i += 1
             continue
         j = _skip(t, i + 1)
@@ -170,10 +188,19 @@ def read_macros(source: str, *, source_ref: str = "macro-source") -> MacroRead:
                 definition = (int(text or 0), default, "".join(body_tokens))
         command_at = i
         i = j
-        event = MacroEvent(source_ref, retained[command_at], name, name_extent,
-                           parts(body_at, j), default_extent, count_extent,
-                           retained[command_at].start, retained[j - 1].end,
-                           "invalid", None)
+        event = MacroEvent(
+            source_ref,
+            retained[command_at],
+            name,
+            name_extent,
+            parts(body_at, j),
+            default_extent,
+            count_extent,
+            retained[command_at].start,
+            retained[j - 1].end,
+            "invalid",
+            None,
+        )
         events.append(event)
         event_index = len(events) - 1
         if definition is None:
@@ -183,10 +210,18 @@ def read_macros(source: str, *, source_ref: str = "macro-source") -> MacroRead:
             continue
         nargs, default, body = definition
         if command == r"\providecommand" and name in table:
-            events[-1] = replace(event, status="ignored", definition=MacroDef(nargs=nargs, default=default, body=body))
+            events[-1] = replace(
+                event,
+                status="ignored",
+                definition=MacroDef(nargs=nargs, default=default, body=body),
+            )
             continue
         if command in (r"\newcommand", OPERATOR) and name in table:
-            events[-1] = replace(event, status="ignored", definition=MacroDef(nargs=nargs, default=default, body=body))
+            events[-1] = replace(
+                event,
+                status="ignored",
+                definition=MacroDef(nargs=nargs, default=default, body=body),
+            )
             notes.append(f"{name} redefined by {command} (TeX error; the first is kept)")
             continue
         if command == r"\renewcommand" and name not in table:

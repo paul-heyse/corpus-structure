@@ -100,8 +100,9 @@ def read_values(knowledge: Knowledge, inputs: Inputs) -> dict[tuple[str, tuple],
         ):
             ident = (token_form(value["latex"], page.macros), table, value["t"])
             if ident not in cache:
-                context = prepare_interpretation_context(macros=page.macros, kind=START[value["t"]],
-                                                         demand="symbolic")
+                context = prepare_interpretation_context(
+                    macros=page.macros, kind=START[value["t"]], demand="symbolic"
+                )
                 result = PreparedMathInput(context, value["latex"]).symbolic_reading()
                 names = sorted({o.name for o in result.occurrences if not o.constant})
                 kind = GRAMMAR_KINDS.get(result.kind or "")
