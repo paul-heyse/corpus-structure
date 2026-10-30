@@ -809,8 +809,13 @@ Original packages do not become complete merely because additional remediation i
 | SP-I08 | [Qualification](semantic-model-pivot/qualification-infrastructure.md#SP-I08): session native preparation and posture | PR-03 and actual role/workspace contract from SP-I03; cold fixture/consumer contract preparation can proceed earlier. |
 | SP-I09 | [Qualification](semantic-model-pivot/qualification-infrastructure.md#SP-I09): streamed outcome/watchdog/required-union accounting | Existing test route, independent of product corrections. Supplies actionable final qualification, not a substitute for real native/provider tests. |
 
-SP-I01–SP-I03 are **implemented with scoped verification**; SP-I04–SP-I09 remain planned except the explicitly brought-forward compiler-10 read dependency.
-The [execution checkpoint](semantic-model-pivot/model-execution-closure.md#execution-checkpoint--2026-10-29) owns current bounded implementation and verification. Semantic definitions, generated declarations and manifests retain
+SP-I01–SP-I03 retain their scoped verification. SP-I04–SP-I07 are **implemented with scoped
+qualification**: [release/consumer checkpoint](semantic-model-pivot/release-and-consumer-consolidation.md#execution-checkpoint--2026-10-29)
+records the 697-case affected union, concrete library mechanisms and preserved failed/interrupted
+receipts. SP-I08–SP-I09 remain planned; operational SP-09 and complete SP-10 qualification remain
+separate. The 28 whole-repository Ruff diagnostics are in untouched files; changed-file Ruff and
+whole-tree Pyrefly passed.
+The [model-execution checkpoint](semantic-model-pivot/model-execution-closure.md#execution-checkpoint--2026-10-29) retains SP-I01–SP-I03 foundation evidence. Semantic definitions, generated declarations and manifests retain
 one writer per integrated slice; logical readiness does not imply safe parallel edits. One root
 author/integrator reconciles shared changes. Focused source/library/design advice is used only
 for actual open contracts, not a fixed recurring role sequence or another broad audit.

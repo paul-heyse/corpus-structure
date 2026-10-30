@@ -1,6 +1,6 @@
 # Release products and consumer consolidation
 
-**Status:** Planned · **Created/Revised:** 2026-10-29. Consumes improvement review
+**Status:** Implemented with scoped qualification · **Created/Revised:** 2026-10-29. Consumes improvement review
 [I04–I09](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I04) and its
 CBO judgments, with [model-execution closure](model-execution-closure.md) products.
 [Coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
@@ -186,3 +186,71 @@ lifetimes qualitatively. No cost model, benchmark campaign, lakehouse, generic q
 second authority is required. Concrete APIs, version limits, rationale and primary references
 remain in review I04–I09 and the linked library investigations; refresh only consequential changed
 premises rather than rediscover those selections.
+
+## Execution checkpoint — 2026-10-29
+
+**Implemented; scoped Tested, 2026-10-29; source commit `b1e23ed`.** Compiler 12,
+archive 3 and boundary 12 form one transition with semantic-domain-3 and rule-view ABI 1.
+ADR-0031 already supplies the opening/verification decision; no duplicate successor is needed.
+Compiler-10/11 reads retain explicit historical boundaries and analytical-4 capture recipes.
+
+| Package | Implemented mechanism and actual consumer |
+|---|---|
+| SP-I04 | Immutable `PackInputs` acquires trusted modules/execution inputs; pure composition performs one final preparation. Public LinkML `importmap`, contextual induction and isolated generators feed a shared boundary recipe. `ReleaseIndex` and demand-loaded boundary closures avoid repeated interpretation. Store-lifetime bounded opening caches only finalized immutable products; source verification remains at persistence, activation/run start and explicit requests. One determinant owner separates boundary compatibility from compiler provenance, including Python/Pydantic-core and SymPy/rule-engine/NumPy/Lark/regex. |
+| SP-I05 | Public semantic snapshot binders own SQLAlchemy REPEATABLE READ/read-only options, scoped selection and strict batched hydration. Exact object predicates reuse native canonical value meaning. Required coverage consumes its archived universe/producer recipe. Evaluation/proposals reuse validated release-derived reference positions; typed refusals and DBAPI failure classes reach actual Typer/FastMCP dispatch. |
+| SP-I06 | One semantic scientific kernel preserves both sampling and decision policies. Archived profile recipes include the typed scientific assessment envelope schema; persisted explanations retain mechanisms, numerical status, operands and context. LinkML-owned logical views drive rule-engine OBJECT/accessors, NULLABLE/ARRAY/MAPPING and strict accessor validation. |
+| SP-I07 | Single-input kernels use DuckDB `relation.query`; six-input views use one scoped TEMP macro with `query_table`. Candidate tables bind the complete support universe and distinct decision occurrence subset. Finite projection policies drive actual inputs; derived publication v2 enforces operation, projection, cut, profile, source/target and proof-bearing accepted output. Core subqueries preserve global identity candidates, then retained support/exclusion links determine carried evidence. |
+
+`semantic_0032` is a frozen forward routine delta over 0031; no historical revision is edited.
+The physical table model is unchanged. The publication intent's existing text field stores a
+versioned canonical binding envelope distinguishing semantic contract, compiled projection,
+cut and arithmetic profile. Old intent ABI permits exact historical replay, not new unbound writes.
+Operation contracts declare `policy_version`; actual policy construction and the native identity
+exclusion guard consume that archived value. Version mismatch has its own diagnostic, separate
+from source custody. This replaces the retained version-2 literal without weakening custody.
+The native keyed-collection guard now follows the same mapping/sequence contract as the lowerer,
+including key/member identity; it no longer mistakes every multivalued field for a sequence.
+
+Current semantic/serving/MCP/CLI imports no longer reach old run/queue writers or pool kernels.
+Useful configuration, provenance, errors, grammar and analytical helpers have explicit owners.
+Retained historical database consumers import `legacy_metadata` explicitly; historical/oracle
+source remains isolated, rather than being treated as an active bypass solely because it exists.
+PyArrow physical export, schema metadata, immutable IPC copies, exact codecs and imported ADBC
+snapshot lifetimes retain their owners. Streaming/delta/backends remain deferred.
+
+Focused receipts include 48 release/compiler checks, 60 analytical/Arrow/inference checks,
+27 domain-operation checks, 43 scientific/rule/alignment checks and 9 native resubmission/map
+checks. These overlap and are not added together. An interim assembled run was interrupted after
+it exposed stale fixtures, archive/deployment expectations and the keyed-map guard defect;
+its failures are retained and have no assembled acceptance credit. Final scope, commands and outcomes follow.
+
+### Qualification receipt
+
+**passed, 2026-10-29:** the final affected functional union covers **697 distinct collected cases**
+with passing native/pure receipts and no missing or skipped obligations in that selected union.
+This is a union of applicable passing results, not a claim that the first assembled invocation
+passed. XML, raw outputs, exact remainder commands, collection and `qualification.json` are in
+`build/test-receipts/sp-i04-i07/` in the main checkout.
+
+- Broad scope: `uv run pytest python/corpus-structure/tests/semantic python/corpus-structure/tests/evaluate python/corpus-structure/tests/schema/test_rules.py python/corpus-structure/tests/db/test_overlay.py -q --tb=short --maxfail=5`.
+- The two bounded assembled continuations retain their failures. Corrections were verified by
+  complete affected-file runs recorded in `native-closure.xml`, `known-reference.xml`,
+  `exclusion-reader.xml`, `occurrence-context.xml`, `operations.xml`, `reference-evaluation.xml`,
+  `release-cli.xml`, `statistics-cut.xml` and `runtime-determinants.xml`; the remaining scopes
+  are recorded in `assembled.xml`, `remaining.xml` and `remaining-final.xml`. Duplicate cases
+  are counted once. The exact commands for remainder selections are beside those receipts.
+- **passed:** retained legacy metadata/interchange controls (`retained-metadata.xml`, 76 cases; overlaps are not added to the 697-case required count).
+- **passed:** `uv run pyrefly check --min-severity warn --summary=none`, zero errors/warnings;
+  no suppressions added. Changed-file `uv run ruff check`, `git diff --check`, `just turn-end`
+  and `just docs-check` passed. Formatting did not invalidate typing/functional evidence.
+- **failed, outside changed files:** full `uv run ruff check` reports 28 pre-existing diagnostics
+  in untouched files. Full repository hygiene and complete pivot/provider qualification remain
+  **not_run**; SP-I08/SP-I09 and SP-09/SP-10 retain their own obligations.
+
+Integration corrected genuine contract defects: native keyed-map validation, operation policy
+version/custody diagnostics, forward finalization replay, explicit Alembic plugin registration,
+mutable evaluation output sequences, expected compiler refusals, exact reference object filters,
+missing producer fates and continuation-page knowledge. Old test interfaces were migrated to
+real atomic evaluation/inference, captured Arrow snapshots and generated source locators while
+retaining independent expected rows. Historical compiler-10 bytes/IDs and frozen migrations
+were preserved; operational regeneration, selected runs and reference grades were not changed.
