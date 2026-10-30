@@ -22,6 +22,7 @@ from linkml_runtime.utils.schemaview import SchemaView
 from pydantic import AwareDatetime
 
 from .types import (
+    BOUNDARY_ABI_VERSION,
     ClassDefinition,
     Diagnostic,
     PreparationProfile,
@@ -199,11 +200,16 @@ def reconstruct_release(
     if profile.compiler_version == "10":
         aliases, descendants = _v10_aliases(bundle, definitions)
         primitive_types = _v10_primitives(rows)
-    elif profile.compiler_version in {"11", "12"}:
+    elif profile.compiler_version in {"11", "12", "13"}:
         recipe = json.loads(artifact_map["boundary_recipe.json"].content)
-        if (
-            set(recipe) != {"abi", "primitives", "aliases", "descendants", "conditional_scope"}
-            or recipe["abi"] != f"semantic-boundary-{profile.compiler_version}"
+        if set(recipe) != {
+            "abi",
+            "primitives",
+            "aliases",
+            "descendants",
+            "conditional_scope",
+        } or recipe["abi"] != "semantic-boundary-" + (
+            "11" if profile.compiler_version == "11" else BOUNDARY_ABI_VERSION
         ):
             raise ValueError("unsupported archived boundary ABI")
         if recipe["conditional_scope"] != profile.constraint_scope:
@@ -219,7 +225,7 @@ def reconstruct_release(
         raise ValueError(f"unsupported archived compiler {profile.compiler_version}")
     models = {}
 
-    def build(class_names=None):
+    def build(class_names=None, target_models=None):
         return build_boundary_adapters(
             definitions,
             vocabularies,
@@ -228,13 +234,13 @@ def reconstruct_release(
             conditional_fragments=fragments,
             conditional_scope=profile.constraint_scope,
             legacy_v10=profile.compiler_version == "10",
-            finite_fields=profile.compiler_version == "12",
+            finite_fields=profile.compiler_version in {"12", "13"},
             descendant_order=descendants,
-            models_out=models,
+            models_out=models if target_models is None else target_models,
             class_names=class_names,
         )
 
-    adapters = () if profile.compiler_version == "12" else build()
+    adapters = () if profile.compiler_version in {"12", "13"} else build()
 
     def check_schema(name, adapter):
         actual_schema = json.loads(canonical_bytes(adapter.json_schema()))
@@ -263,9 +269,11 @@ def reconstruct_release(
         check_schema(name, adapter)
 
     def load_adapter(name):
-        built = dict(build((name,)))
+        staged_models = dict(models)
+        built = dict(build((name,), staged_models))
         adapter = built[name]
         check_schema(name, adapter)
+        models.update(staged_models)
         return adapter
 
     return PreparedRelease(
@@ -283,7 +291,7 @@ def reconstruct_release(
         _adapters=adapters,
         execution_model_id=products.get("execution_model_id"),
         _boundary_models=models,
-        _adapter_loader=load_adapter if profile.compiler_version == "12" else None,
+        _adapter_loader=load_adapter if profile.compiler_version in {"12", "13"} else None,
     )
 
 
@@ -446,6 +454,10 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
         else:
             with _CACHE_LOCK:
                 cache = _OPEN_CACHE.setdefault(conn.engine, OrderedDict())
+                if cache_key in cache:
+                    # A concurrent cold opener may already have published this owner.
+                    cache.move_to_end(cache_key)
+                    return cache[cache_key]
                 cache[cache_key] = prepared
                 cache.move_to_end(cache_key)
                 while len(cache) > 8:

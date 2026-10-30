@@ -111,7 +111,8 @@ def build_boundary_adapters(
     """
     classes = {definition.name: definition for definition in definitions}
     enums = {v.enum: _LITERAL[tuple(m.value for m in v.members)] for v in vocabularies}
-    models: dict[str, Any] = {}
+    models: dict[str, Any] = dict(models_out or {})
+    added: list[type[BaseModel]] = []
 
     def concrete(name: str) -> tuple[str, ...]:
         if descendant_order is not None and name in descendant_order:
@@ -129,7 +130,7 @@ def build_boundary_adapters(
             selected.add(dependency)
             pending.append(dependency)
     for definition in definitions:
-        if definition.name not in selected:
+        if definition.name not in selected or definition.name in models:
             continue
         fields: dict[str, Any] = {}
         for prop in definition.properties:
@@ -201,15 +202,17 @@ def build_boundary_adapters(
         models[definition.name] = create_model(
             definition.name,
             __namespace__=namespace,
-            __config__=ConfigDict(frozen=True, extra="forbid", strict=True, allow_inf_nan=False),
+            __config__=ConfigDict(
+                frozen=True, extra="forbid", strict=True, allow_inf_nan=False, defer_build=True
+            ),
             **fields,
         )
-    for model in models.values():
+        added.append(models[definition.name])
+    for model in added:
         model.model_rebuild(_types_namespace=models)
-    if models_out is not None:
-        models_out.update(models)
     adapters = []
-    for name, model in sorted(models.items()):
+    for name in sorted(selected if class_names is None else class_names):
+        model = models[name]
         if classes[name].abstract and "kind" in model.model_fields:
             members = concrete(name)
             if not members:
@@ -226,4 +229,8 @@ def build_boundary_adapters(
             )
         else:
             adapters.append((name, TypeAdapter(model)))
+    for _, adapter in adapters:
+        adapter.rebuild(_types_namespace=models)
+    if models_out is not None:
+        models_out.update(models)
     return tuple(adapters)

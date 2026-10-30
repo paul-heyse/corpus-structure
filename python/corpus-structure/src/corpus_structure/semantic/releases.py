@@ -86,7 +86,7 @@ def _archive_bytes(
         {
             "format": (
                 "semantic-release-archive-3"
-                if json.loads(prepared.manifest)["profile"]["compiler_version"] == "12"
+                if json.loads(prepared.manifest)["profile"]["compiler_version"] in {"12", "13"}
                 else "semantic-release-archive-2"
                 if prepared.execution_model_id is not None
                 else "semantic-release-archive-1"
@@ -110,7 +110,9 @@ def _validate_manifest(
         "profile": asdict(profile),
         "libraries": {
             name: determinant_version(name)
-            for name in (_LIBRARIES if profile.compiler_version == "12" else BYTE_LIBRARIES_V11)
+            for name in (
+                _LIBRARIES if profile.compiler_version in {"12", "13"} else BYTE_LIBRARIES_V11
+            )
         },
         "sources": sorted((s.name, s.digest) for s in bundle.sources),
         "dependencies": sorted((s.name, s.digest) for s in dependencies.artifacts),
@@ -305,7 +307,7 @@ def persist_release(
     and never recompiles while writing projection rows. The caller commits or rolls back.
     """
     _validate_manifest(bundle, dependencies, profile, prepared)
-    if profile.compiler_version == "12":
+    if profile.compiler_version in {"12", "13"}:
         derived = prepare_release(bundle, dependencies, profile)
         if _archive_bytes(bundle, dependencies, derived) != _archive_bytes(
             bundle, dependencies, prepared

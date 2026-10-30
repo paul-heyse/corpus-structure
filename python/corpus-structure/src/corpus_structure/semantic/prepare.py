@@ -30,6 +30,7 @@ from .determinants import BYTE_LIBRARIES as _LIBRARIES
 from .determinants import determinant_version
 from .identity import canonical_bytes
 from .types import (
+    BOUNDARY_ABI_VERSION,
     SEMANTIC_COMPILER_VERSION,
     ClassDefinition,
     ClassPreview,
@@ -735,7 +736,7 @@ def _prepare_release_uncached(
             conditional_fragments=rule_fragments,
             conditional_scope=profile.constraint_scope,
             legacy_v10=profile.compiler_version == "10",
-            finite_fields=profile.compiler_version == "12",
+            finite_fields=profile.compiler_version in {"12", "13"},
             descendant_order=descendants,
             models_out=boundary_models,
         )
@@ -752,7 +753,7 @@ def _prepare_release_uncached(
     from .coverage_contract import coverage_recipe
 
     boundary_recipe = {
-        "abi": "semantic-boundary-12",
+        "abi": "semantic-boundary-" + BOUNDARY_ABI_VERSION,
         "primitives": {name: primitive_tokens[typ] for name, typ in primitives.items()},
         "aliases": {
             d.name: {p.name: aliases[d.name, p.name] for p in d.properties} for d in definitions

@@ -14,7 +14,8 @@ from pydantic import BaseModel, TypeAdapter
 
 from .refusals import SemanticRefusal
 
-SEMANTIC_COMPILER_VERSION = "12"
+SEMANTIC_COMPILER_VERSION = "13"
+BOUNDARY_ABI_VERSION = "12"
 
 
 @dataclass(frozen=True)
@@ -194,6 +195,7 @@ class ReleaseIndex:
     properties: Mapping[tuple[str, str], PropertyDefinition]
     properties_by_class: Mapping[str, Mapping[str, PropertyDefinition]]
     adapters: Mapping[str, TypeAdapter[BaseModel]]
+    property_roles: Mapping[tuple[str, str], frozenset[str]]
 
 
 @dataclass(frozen=True)
@@ -236,6 +238,8 @@ class PreparedRelease:
 
     @cached_property
     def index(self) -> ReleaseIndex:
+        from .property_roles import property_roles
+
         return ReleaseIndex(
             MappingProxyType({d.name: d for d in self.definitions}),
             MappingProxyType({d.iri: d for d in self.definitions}),
@@ -249,6 +253,7 @@ class PreparedRelease:
             _AdapterLookup(self)
             if self._adapter_loader is not None
             else MappingProxyType(dict(self._adapters)),
+            property_roles(self),
         )
 
     def expand_name(self, name: str) -> str:
@@ -372,23 +377,26 @@ class PreparedRelease:
     ) -> TypeAdapter[Any]:
         """Strict output boundary derived from the prepared field, including its constraints."""
         key = (class_name, property_name, item)
-        if key in self._property_adapters:
-            return self._property_adapters[key]
-        self.adapter(class_name)
-        model = self._boundary_models.get(class_name)
-        if model is None:
-            raise KeyError(f"prepared boundary model unavailable: {class_name}")
-        field = model.model_fields[property_name]
-        annotation = field.rebuild_annotation()
-        if item:
-            from typing import get_origin
+        with self._adapter_lock:
+            if key in self._property_adapters:
+                return self._property_adapters[key]
+            self.adapter(class_name)
+            model = self._boundary_models.get(class_name)
+            if model is None:
+                raise KeyError(f"prepared boundary model unavailable: {class_name}")
+            field = model.model_fields[property_name]
+            annotation = field.rebuild_annotation()
+            if item:
+                from typing import get_origin
 
-            annotation = get_args(field.annotation)[
-                -1 if get_origin(field.annotation) is dict else 0
-            ]
-        adapter = TypeAdapter(annotation)
-        self._property_adapters[key] = adapter
-        return adapter
+                annotation = get_args(field.annotation)[
+                    -1 if get_origin(field.annotation) is dict else 0
+                ]
+            adapter = TypeAdapter(annotation)
+            # Complete deferred schemas while holding the same registry lock.
+            adapter.rebuild()
+            self._property_adapters[key] = adapter
+            return adapter
 
     def validate_python(self, class_name: str, data: object) -> BaseModel:
         """Validate reconstructed native values without JSON's numeric/date conversions."""

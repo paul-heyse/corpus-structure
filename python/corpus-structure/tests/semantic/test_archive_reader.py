@@ -298,3 +298,101 @@ classes:
         with pytest.raises(ValidationError):
             item.validate_python(value, strict=True)
     assert item.validate_python(1.5, strict=True) == 1.5
+
+
+@pytest.mark.parametrize("order", [("B", "A"), ("A", "B"), ("C", "B", "A")])
+def test_overlapping_lazy_boundaries_keep_validated_instances_and_field_adapters(order):
+    prepared = _overlapping_archive()
+    c = prepared.validate_python("C", {"id": "c"})
+    c_type = type(c)
+    adapter = prepared.adapter("C")
+    item = prepared.property_adapter("B", "children", item=True)
+    for name in order:
+        prepared.adapter(name)
+    assert prepared.adapter("C") is adapter
+    assert prepared._boundary_models["C"] is c_type
+    assert prepared.property_adapter("B", "children", item=True) is item
+    a = prepared.validate_python("A", {"id": "a", "b": {"id": "b", "c": c}})
+    assert a.b.c is c
+    assert item.validate_python(c, strict=True) is c
+    assert "Unrelated" not in prepared._boundary_models
+
+
+def _overlapping_archive(*, corrupt_a=False):
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.releases import _products
+
+    source = SourceBundle(
+        "overlap",
+        (
+            SourceArtifact(
+                "overlap",
+                b"""id: https://example.org/overlap
+name: overlap
+types:
+  string: {base: str, uri: xsd:string}
+classes:
+  C:
+    attributes:
+      id: {identifier: true}
+  B:
+    attributes:
+      id: {identifier: true}
+      c: {range: C, inlined: true}
+      children: {range: C, inlined: true, multivalued: true, inlined_as_list: true}
+  A:
+    attributes:
+      id: {identifier: true}
+      b: {range: B, inlined: true}
+  Unrelated:
+    attributes:
+      id: {identifier: true}
+""",
+            ),
+        ),
+    )
+    current = prepare_release(source)
+    products = _products(current)
+    artifacts = current.artifacts
+    if corrupt_a:
+        artifacts = tuple(
+            PreparedArtifact(item.kind, b"{}") if item.kind == "json_schema/A" else item
+            for item in artifacts
+        )
+        for artifact in products["artifacts"]:
+            if artifact["kind"] == "json_schema/A":
+                artifact["digest"] = next(a.digest for a in artifacts if a.kind == "json_schema/A")
+    return reconstruct_release(products, current.manifest, source, PreparationProfile(), artifacts)
+
+
+def test_concurrent_overlapping_lazy_requests_share_one_registry():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    prepared = _overlapping_archive()
+    barrier = Barrier(4)
+
+    def demand(name):
+        barrier.wait()
+        if name == "item":
+            return prepared.property_adapter("B", "children", item=True)
+        return prepared.adapter(name)
+
+    with ThreadPoolExecutor(max_workers=4) as workers:
+        adapters = list(workers.map(demand, ("A", "B", "C", "item")))
+    c = prepared.validate_python("C", {"id": "c"})
+    assert adapters[2].validate_python(c, strict=True) is c
+    assert adapters[3].validate_python(c, strict=True) is c
+    a = prepared.validate_python("A", {"id": "a", "b": {"id": "b", "c": c}})
+    assert a.b.c is c
+    assert "Unrelated" not in prepared._boundary_models
+
+
+def test_failed_lazy_schema_check_does_not_publish_partial_models():
+    prepared = _overlapping_archive(corrupt_a=True)
+    c = prepared.validate_python("C", {"id": "c"})
+    before = dict(prepared._boundary_models)
+    with pytest.raises(ValueError, match="schema differs for A"):
+        prepared.adapter("A")
+    assert prepared._boundary_models == before
+    assert prepared.validate_python("C", c) is c
