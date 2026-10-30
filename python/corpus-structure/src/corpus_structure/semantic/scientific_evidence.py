@@ -1177,7 +1177,7 @@ def read_reference_operand(value, *, prepared=None, capture=None):
     context = prepare_interpretation_context(
         prepared, macros=env, bindings=tuple(bindings), demand="symbolic"
     )
-    from corpus_structure.methods.math.prepared import PreparedMathInput
+    from corpus_structure.methods.math.prepared import IncompleteDefinedness, PreparedMathInput
 
     for kind in ("set_expr",) if value["kind"] == "set" else ("formula", "relation", "member"):
         operand = PreparedMathInput(context, value["expression"], kind=kind)
@@ -1196,6 +1196,8 @@ def read_reference_operand(value, *, prepared=None, capture=None):
                 return result, parsed.status.value
             except grammar.Expired:
                 return None, "symbolic conversion timeout"
+            except IncompleteDefinedness as error:
+                return None, str(error)
             except ValueError, TypeError, NotImplementedError:
                 pass
     return None, "expression grammar did not produce a mathematical value"

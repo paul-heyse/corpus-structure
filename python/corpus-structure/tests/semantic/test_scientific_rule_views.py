@@ -460,3 +460,26 @@ def test_cancelled_denominator_holes_do_not_establish_partial_function_equality(
     reference = reference_evidence(expression("x/x"), expression("1"))
     assert reference.tier is EvidenceTier.UNDECIDED
     assert "definedness" in reference.detail
+
+
+@pytest.mark.parametrize("source", [r"x^{-1}x", r"x^{-2}x^2", r"x^{-\frac{1}{2}}\sqrt{x}"])
+def test_negative_power_cancellation_cannot_prove_total_function_equality(source):
+    from corpus_structure.semantic.scientific_evidence import reference_evidence
+
+    decision = SemanticComparator({}).compare(expression(source), expression("1"))
+    assert decision.tier is EvidenceTier.UNDECIDED
+    assert "definedness" in decision.detail
+    reference = reference_evidence(expression(source), expression("1"))
+    assert reference.tier is EvidenceTier.UNDECIDED
+    assert "definedness" in reference.detail
+
+
+def test_unknown_power_domain_cannot_become_empty_domain_proof():
+    from corpus_structure.semantic.scientific_evidence import reference_evidence
+
+    decision = SemanticComparator({}).compare(expression(r"x^{-n}x^n"), expression("1"))
+    assert decision.tier is EvidenceTier.UNDECIDED
+    assert "definedness incomplete" in decision.detail
+    reference = reference_evidence(expression(r"x^{-n}x^n"), expression("1"))
+    assert reference.tier is EvidenceTier.UNDECIDED
+    assert "definedness incomplete" in reference.detail

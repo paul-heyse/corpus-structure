@@ -201,3 +201,52 @@ def test_binder_role_conflict_cannot_silently_adopt_outer_constant_meaning():
     assert any("binder role conflicts" in note for note in reading.notes)
     with pytest.raises(grammar.Ambiguous):
         value.symbolic_value()
+
+
+@pytest.mark.parametrize("text", [r"x^{-1}x", r"x^{-2}x^2", r"x^{-\frac{1}{2}}\sqrt{x}"])
+def test_negative_power_exclusions_survive_native_cancellation(text):
+    value = operand(text)
+    assert value.symbolic_value() == 1
+    captured = value.definedness_result()
+    assert captured.coverage == "complete"
+    assert any(c.expression == "x" and c.start == 0 and c.end == 1 for c in captured.conditions)
+    assert value.unproved_definedness() == ("x",)
+
+
+@pytest.mark.parametrize("text", [r"x^{-n}x^n", "x^0", "x^{1/2}", r"x^{-2}_i", r"\log{x}-\log{x}"])
+def test_unsupported_source_domains_are_explicitly_incomplete(text):
+    from corpus_structure.methods.math.prepared import IncompleteDefinedness
+
+    value = operand(text)
+    captured = value.definedness_result()
+    assert captured.coverage == "partial"
+    assert captured.diagnostics
+    answer = value.assess("definedness")
+    assert answer.outcome == "unknown"
+    assert answer.coverage == "partial"
+    with pytest.raises(IncompleteDefinedness, match="source definedness incomplete"):
+        value.unproved_definedness()
+
+
+def test_positive_integer_powers_have_no_new_exclusion():
+    value = operand("x^2")
+    captured = value.definedness_result()
+    assert captured.coverage == "complete"
+    assert captured.conditions == ()
+    assert value.unproved_definedness() == ()
+
+
+def test_definedness_preparation_is_operation_owned_and_shared():
+    value = operand(r"x^{-1}x")
+    first = value.definedness_result()
+    assert value.definedness_result() is first
+    value.symbolic_value()
+    assert value.definedness_result() is first
+
+
+def test_unavailable_definedness_has_partial_work_state():
+    value = operand("x/")
+    answer = value.assess("definedness")
+    assert answer.coverage == "partial"
+    assert value.state("scientific").work == "available"
+    assert value.state("scientific").coverage == "partial"

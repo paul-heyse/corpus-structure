@@ -85,3 +85,14 @@ def test_unsupported_symbolic_transport_retains_source_capture():
     assert p["semantic_state"] == "unsupported"
     assert p["coverage"] == "partial"
     assert p["representations"][0]["text_content"] == r"x \pm y"
+
+
+def test_unknown_definedness_transport_cannot_claim_complete_empty_conditions():
+    operand = value(r"x^{-n}x^n")
+    p = prepare_layered_product(assessment_product_payload(operand, operand.assess("definedness"),
+        root=ROOT, interpretation_product=dict(task_id=8, product_key="math", content_digest="c" * 64))).values()
+    assert p["semantic_state"] == "unknown"
+    assert p["coverage"] == "partial"
+    assert '"coverage":"partial"' in p["nodes"][0]["value"]
+    assert 'unsupported source power domain' in p["nodes"][0]["value"]
+    assert p["assessments"][0]["algorithm_revision"] == "native-assessment-2"

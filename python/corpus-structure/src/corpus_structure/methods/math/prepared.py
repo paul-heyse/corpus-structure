@@ -7,6 +7,7 @@ stronger stage, and a timeout never becomes a reusable semantic conclusion.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from fractions import Fraction
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -17,12 +18,12 @@ from corpus_structure.core import tex
 from corpus_structure.core.vocab import ParseOutcome
 
 from . import _tree, grammar
-from .native_context import NativePremises, PREDICATES
-from .transform import NotRepresentable, transform
+from .native_context import PREDICATES, NativePremises
+from .transform import NotRepresentable
 
 if TYPE_CHECKING:
-    from corpus_structure.semantic.analysis_contracts import PreparedInterpretationContext
     from corpus_structure.core.text_structure import TextCapture
+    from corpus_structure.semantic.analysis_contracts import PreparedInterpretationContext
 
 _UNSET = object()
 
@@ -44,12 +45,69 @@ class DefinednessCondition:
 
 
 @dataclass(frozen=True)
+class DefinednessResult:
+    conditions: tuple[DefinednessCondition, ...] = ()
+    coverage: Literal["complete", "partial"] = "complete"
+    diagnostics: tuple[str, ...] = ()
+
+
+class IncompleteDefinedness(NotRepresentable):
+    """Native equality cannot discharge source domains this adapter has not captured."""
+
+
+def _literal_exponent(node: _tree.Node) -> Fraction | None:
+    """Read exact finite rational syntax without constructing or evaluating a native Pow."""
+    if isinstance(node, Token):
+        try:
+            return Fraction(str(node)) if node.type == "DIGIT" else None
+        except (ValueError, ZeroDivisionError):
+            return None
+    parts = [child for child in node.children if isinstance(child, Tree)]
+    if node.data == "number" and len(node.children) == 1:
+        try:
+            return Fraction(str(node.children[0]))
+        except (ValueError, ZeroDivisionError):
+            return None
+    if node.data in {"group_curly_parentheses", "group_round_parentheses", "group_square_brackets", "script_group"}:
+        return _literal_exponent(parts[0]) if len(parts) == 1 else None
+    if node.data == "sub" and len(node.children) == 2:
+        value = _literal_exponent(node.children[1])
+        return -value if value is not None else None
+    if node.data not in {"add", "sub", "mul", "div", "fraction"} or len(parts) != 2:
+        return None
+    left, right = (_literal_exponent(child) for child in parts)
+    if left is None or right is None or (node.data in {"div", "fraction"} and right == 0):
+        return None
+    if node.data == "add":
+        result = left + right
+    elif node.data == "sub":
+        result = left - right
+    elif node.data == "mul":
+        result = left * right
+    else:
+        result = left / right
+    # This finite literal reader does not expand arbitrary exponent arithmetic.
+    return result if max(result.numerator.bit_length(), result.denominator.bit_length()) <= 8192 else None
+
+
+# Their exact source domains/convergence are not part of the supported arithmetic
+# restriction projection. Preserve native structures without claiming complete domains.
+_UNSUPPORTED_DOMAIN_RULES = frozenset({
+    "log", "tan", "csc", "sec", "cot", "coth", "csch", "sech", "factorial",
+    "asin", "acos", "atan", "acot", "acsc", "asec", "asinh", "acosh", "atanh",
+    "function_applied", "op_applied", "normal_integral", "integral_with_special_fraction",
+    "summation", "product", "limit",
+})
+
+
+@dataclass(frozen=True)
 class MathAssessment:
     question: str
     outcome: Literal["resolved", "unknown", "unsupported", "invalid", "timeout"]
     value: Any = None
     conditions: tuple[DefinednessCondition, ...] = ()
     diagnostic: str | None = None
+    coverage: Literal["complete", "partial"] = "complete"
 
 
 @dataclass(frozen=True)
@@ -68,6 +126,7 @@ class PreparedMathInput:
     _symbolic_reading: grammar.MathResult | None = field(default=None, init=False, repr=False, compare=False)
     _value: Any = field(default=_UNSET, init=False, repr=False, compare=False)
     _unrepresentable: str | None = field(default=None, init=False, repr=False, compare=False)
+    _definedness: DefinednessResult | None = field(default=None, init=False, repr=False, compare=False)
     _states: dict[str, StageState] = field(default_factory=dict, init=False, repr=False, compare=False)
     _assessments: dict[Any, MathAssessment] = field(default_factory=dict, init=False, repr=False, compare=False)
 
@@ -189,27 +248,65 @@ class PreparedMathInput:
         object.__setattr__(self, "_value", value)
         return value
 
-    def definedness(self) -> tuple[DefinednessCondition, ...]:
-        """Retain source denominator exclusions before native cancellation (x/x -> 1)."""
+    def definedness_result(self) -> DefinednessResult:
+        """Capture supported source restrictions before any native cancellation.
+
+        Negative exact rational powers require nonzero bases. Positive integer
+        powers are total on the supported scalar field. Symbolic/zero/other power
+        conventions and unsupported domain-bearing forms remain explicitly partial.
+        """
+        if self._definedness is not None:
+            return self._definedness
         result = self.interpretation()
         if result.tree is None:
-            return ()
-        found = set()
+            captured = DefinednessResult(coverage="partial", diagnostics=("source interpretation unavailable",))
+            if result.failure is None or result.failure.category != "timeout":
+                object.__setattr__(self, "_definedness", captured)
+            return captured
+        found: set[DefinednessCondition] = set()
+        diagnostics: set[str] = set()
+
+        def restriction(node):
+            where = _tree.span(node)
+            if where is None:
+                diagnostics.add("restriction has no source extent")
+                return
+            found.add(DefinednessCondition(self.parse_start + where[0],
+                                           self.parse_start + where[1],
+                                           self.latex[where[0]:where[1]]))
+
         for node in result.tree.iter_subtrees():
-            denominator = None
             if node.data in {"div", "fraction"} and len(node.children) >= 3:
-                denominator = node.children[2]
-            if denominator is not None and (where := _tree.span(denominator)) is not None:
-                found.add(DefinednessCondition(self.parse_start + where[0],
-                                              self.parse_start + where[1],
-                                              self.latex[where[0]:where[1]]))
-        return tuple(sorted(found, key=lambda item: (item.start, item.end, item.expression)))
+                restriction(node.children[2])
+            elif node.data in {"superscript", "sup_sub"}:
+                exponent = _literal_exponent(node.children[2]) if len(node.children) > 2 else None
+                if exponent is not None and exponent < 0 and node.data == "superscript":
+                    restriction(node.children[0])
+                elif exponent is None or exponent <= 0 or exponent.denominator != 1:
+                    diagnostics.add(f"unsupported source power domain: {node.data} at {_tree.span(node)}")
+            elif str(node.data).endswith("_power") or node.data in _UNSUPPORTED_DOMAIN_RULES:
+                diagnostics.add(f"unsupported source domain: {node.data} at {_tree.span(node)}")
+            elif node.data == "square_root" and len(node.children) > 2:
+                diagnostics.add(f"unsupported indexed-root domain at {_tree.span(node)}")
+        captured = DefinednessResult(
+            tuple(sorted(found, key=lambda item: (item.start, item.end, item.expression))),
+            "partial" if diagnostics else "complete", tuple(sorted(diagnostics)),
+        )
+        object.__setattr__(self, "_definedness", captured)
+        return captured
+
+    def definedness(self) -> tuple[DefinednessCondition, ...]:
+        """Source conditions only; completeness is owned by definedness_result()."""
+        return self.definedness_result().conditions
 
     def unproved_definedness(self) -> tuple[str, ...]:
         """Restrictions still required after native facts, before comparison policies."""
+        captured = self.definedness_result()
+        if captured.coverage != "complete":
+            raise IncompleteDefinedness("source definedness incomplete: " + "; ".join(captured.diagnostics))
         required = set()
         with grammar.deadline(self.seconds):
-            for condition in self.definedness():
+            for condition in captured.conditions:
                 denominator = PreparedMathInput(self.context, condition.expression, kind="formula",
                                                 seconds=self.seconds).symbolic_value()
                 if self.premises.ask(sympy.Q.nonzero(denominator)) is not True:
@@ -221,11 +318,15 @@ class PreparedMathInput:
         if key in self._assessments:
             return self._assessments[key]
         reading = self.interpretation()
-        conditions = self.definedness()
+        definedness = self.definedness_result()
+        conditions = definedness.conditions
         if reading.tree is None:
             timeout = reading.failure is not None and reading.failure.category == "timeout"
-            return MathAssessment(question, "timeout" if timeout else "invalid", conditions=conditions,
-                                  diagnostic="source interpretation is unavailable; definedness is incomplete")
+            outcome = "timeout" if timeout else "invalid"
+            diagnostic = "source interpretation is unavailable; definedness is incomplete"
+            self._states["scientific"] = StageState("failed" if timeout else "available", "partial", outcome, diagnostic)
+            return MathAssessment(question, outcome, conditions=conditions,
+                                  diagnostic=diagnostic, coverage="partial")
         try:
             with grammar.deadline(self.seconds):
                 if self.premises.unsupported:
@@ -233,8 +334,9 @@ class PreparedMathInput:
                                             diagnostic="unsupported source assumptions")
                 elif question == "definedness":
                     result = MathAssessment(question,
-                        "unknown" if reading.status is ParseOutcome.AMBIGUOUS else "resolved",
-                        conditions, conditions)
+                        "unknown" if reading.status is ParseOutcome.AMBIGUOUS or definedness.coverage != "complete" else "resolved",
+                        conditions, conditions,
+                        "; ".join(definedness.diagnostics) or None, definedness.coverage)
                 else:
                     value = self.symbolic_value()
                     if question == "predicate" and predicate in PREDICATES:
@@ -257,7 +359,10 @@ class PreparedMathInput:
             result = MathAssessment(question, "unsupported", conditions=conditions, diagnostic=str(error))
         except ValueError as error:
             result = MathAssessment(question, "invalid", conditions=conditions, diagnostic=str(error))
-        self._states["scientific"] = StageState("available", "complete", result.outcome, result.diagnostic)
+        if definedness.coverage != "complete":
+            result = replace(result, coverage="partial", diagnostic=result.diagnostic or
+                             "source definedness incomplete: " + "; ".join(definedness.diagnostics))
+        self._states["scientific"] = StageState("available", result.coverage, result.outcome, result.diagnostic)
         self._assessments[key] = result
         return result
 

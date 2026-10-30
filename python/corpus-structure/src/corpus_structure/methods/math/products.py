@@ -112,6 +112,7 @@ def interpretation_product_payload(
                    declarations=[dataclasses.asdict(d) for d in reading.declarations],
                    failure=None if reading.failure is None else dataclasses.asdict(reading.failure),
                    definedness=[] if stage == "syntax" else [dataclasses.asdict(c) for c in operand.definedness()],
+                   definedness_result=None if stage == "syntax" else dataclasses.asdict(operand.definedness_result()),
                    conventions=operand.context.profile.mathematical_conventions,
                    requested_native_equivalence=symbolic)
     p["nodes"] = [dict(node_id="interpretation:0", kind="math", origin="literal", name=reading.kind or reading.requested,
@@ -156,6 +157,7 @@ def assessment_product_payload(
 ) -> dict[str, Any]:
     """Publish named evidence against one exact selected mathematical interpretation."""
     coverage = "partial" if (assessment.outcome in {"unsupported", "invalid", "timeout"}
+        or assessment.coverage != "complete"
         or operand.interpretation().status.value != "ok") else "complete"
     p = _envelope("assessment", root, product_key, _meaning(assessment.outcome), coverage)
     dependency = _dependency("interpretation", interpretation_product)
@@ -174,6 +176,7 @@ def assessment_product_payload(
     details = dict(question=assessment.question, outcome=assessment.outcome, evidence=explanation,
                    conditions=[dataclasses.asdict(c) for c in assessment.conditions],
                    diagnostic=assessment.diagnostic,
+                   definedness_result=dataclasses.asdict(operand.definedness_result()),
                    assumption_records=json.loads(operand.context.assumptions))
     p["nodes"] = [dict(node_id="evidence:0", kind="math", origin="derived",
                        origin_reason="named native mathematical assessment; not source spelling",
@@ -184,8 +187,8 @@ def assessment_product_payload(
                                          role="source", node_id=interpretation_id)]
     p["assessments"] = [dict(assessment_id="assessment:0", product_id=product_key,
         interpretation_ids=[interpretation_id], question=assessment.question,
-        conditions_digest=sha256(canonical_bytes(details["conditions"])).hexdigest(),
-        algorithm_revision="native-assessment-1", policy_id=operand.context.profile.id + "/" + operand.context.profile.version,
+        conditions_digest=sha256(canonical_bytes(details["definedness_result"])).hexdigest(),
+        algorithm_revision="native-assessment-2", policy_id=operand.context.profile.id + "/" + operand.context.profile.version,
         outcome=p["semantic_state"], coverage=coverage, evidence_ids=["evidence:0"])]
     if assessment.outcome == "timeout":
         p["lifecycle"] = "failed"

@@ -20,6 +20,7 @@ grammar's `to_sympy` unwraps them.
 
 from __future__ import annotations
 
+import hashlib
 import warnings
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -172,7 +173,8 @@ class ToSympy(TransformToSymPyExpr):
         # Source-scoped declarations have deterministic native identity. Preserve it
         # for callable construction as well as variable construction.
         if isinstance(head, sympy.Dummy):
-            name = f"{name}@{head.dummy_index}"
+            identity = hashlib.sha256(sympy.srepr(head).encode()).hexdigest()[:24]
+            name = f"{name}@{identity}"
         known = KNOWN_FUNCTIONS.get(name)
         if known is not None:
             return known(*_args(tokens[2]))
