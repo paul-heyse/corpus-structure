@@ -74,6 +74,34 @@ The [execution package](../plans/semantic-model-pivot/model-execution-closure.md
 
 > Decision: ADR-0031
 
+## Release-scoped execution projections
+
+**Implemented, 2026-10-29; complete qualification remains owned by the pivot coordinator.**
+The trusted physical LinkML model defines fixed `sem.execution_operation`,
+`sem.execution_transition`, `sem.execution_edge`, `sem.operation_effect`, `sem.transition_effect`,
+`sem.operation_property_role` and `sem.scientific_decision_rule` relations. The existing complete
+archive publication projects immutable release-scoped rows and compares them exactly with the
+archived execution, role and scientific products. Effect requirements retain identity and version;
+independent owned implementation profiles govern admission. Unknown, moved or incompatible effects
+refuse before descriptor rebasing. Descriptor/body hashes establish custody, not semantic meaning.
+
+Current lifecycle guards query release-scoped edges and operation bindings. Protected complete
+operations retain atomic publication, attempt/holder and source/proof fences. Set-based claim and
+protected run-lock helpers replace writer lifecycle UPDATE authority without per-item calls.
+Effective property-role rows feed Core filtering before hydration; scientific decision rows enforce
+persisted reference evidence-to-policy mappings. Owned Python operations consume their bound recipe;
+detached analytical inputs carry it and check open/close contracts before acquiring resources.
+
+`schema derive` emits Core physical/view DDL, retained complete transport/publication products,
+stable row consumers, candidate row products and ordered deployment metadata into new output only.
+A transport shape without physical targets refuses before output. Frozen `semantic_0033` introduces
+the seven tables once; subsequent supported finite variation becomes release rows. Compiler 13,
+execution compiler 4, boundary ABI 12 and archive envelope 3 are separate compatibility decisions.
+Historical migration bytes, finalized archive contents and supported reader ABIs remain unchanged;
+old read success never authorizes current writes or activation.
+
+> Decision: ADR-0033
+
 ## Native test deployment equivalence
 
 **Partially implemented; scoped Tested, 2026-10-29; implementation/verification belongs to

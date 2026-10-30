@@ -237,7 +237,13 @@ batch identity across retry and commit uncertainty. The regenerable-data asynchr
 policy does not promise crash-durable acknowledgements. [D3](D3-database.md) owns the route and
 the [pivot package](../plans/semantic-model-pivot/postgresql-and-publication.md) owns acceptance.
 
-> Decision: ADR-0031
+**Implemented relational execution realization (2026-10-29; qualification remains scoped).**
+Fixed release-scoped operation, transition, edge and effect requirements feed stable protected
+kernels; property-role and scientific-decision projections feed their real consumers. The shared
+Core model and complete retained authoring route emit frozen forward products. [D3](D3-database.md#release-scoped-execution-projections)
+owns the detailed compatibility and authority boundaries.
+
+> Decision: ADR-0031, ADR-0033
 
 **Native test contract with partial implementation (2026-10-29; scoped verification owned by SP-I08).**
 Fresh consumer databases clone a session-built frozen semantic deployment, with explicit
@@ -333,7 +339,12 @@ compares parent plus generation, performs required native/authored-SQL admission
 existing realization bindings intact. Unsupported required native semantics refuse activation;
 new admitted class/property definitions change registry rows without physical DDL.
 
-> Decision: ADR-0031
+Effect requirements have authored identity and version, resolved against owned bounded
+implementation support. Exact immutable projections preserve operation/transition context;
+unknown or incompatible requirements refuse. Supported finite variation becomes additional
+release rows, while archived read compatibility remains separate from new write admission.
+
+> Decision: ADR-0031, ADR-0033
 
 **Proposed · accepted target, 2026-10-29.** Local LinkML and pinned external ontology dependencies
 prepare an immutable binding of types, scoped constraints, identities and operations. Dynamic

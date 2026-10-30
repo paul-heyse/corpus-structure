@@ -125,8 +125,12 @@ class OperationDescriptor:
 
 
 def record_method(
-    conn: Connection, method: Any, name: str, params: Mapping[str, Any], config_hash: str
+    conn: Connection, method: Any, name: str, params: Mapping[str, Any], config_hash: str, *,
+    prepared: PreparedRelease | None = None,
 ) -> int:
+    from .contracts import require_bound_operation
+    if prepared is not None:
+        require_bound_operation(prepared, 'configure_method')
     m = table("ops.method")
     c = table("ops.method_config")
     values = dict(
@@ -342,6 +346,8 @@ def complete_task(
     envelope: Mapping[str, Any] | None = None,
 ) -> CompletionResult:
     """Validate the bound producer envelope, then atomically fence and append source results."""
+    from .contracts import require_bound_operation
+    require_bound_operation(prepared, 'complete')
     if outcome not in {"done", "empty", "failed"}:
         raise ValueError("invalid terminal outcome")
     if (outcome == "done") != bool(observations):
@@ -447,7 +453,11 @@ def register_document(
     mime: str = "text/html",
     title: str | None = None,
     metadata: Mapping[str, Any] | None = None,
+    prepared: PreparedRelease | None = None,
 ) -> int:
+    from .contracts import require_bound_operation
+    if prepared is not None:
+        require_bound_operation(prepared, 'register_document')
     from pathlib import Path
 
     if Path(original_path).read_bytes() != original:
@@ -528,6 +538,8 @@ def store_rendition(
     parse_detail: Mapping[str, Any],
 ) -> int:
     """Preserve physical content sharing separately from method build provenance."""
+    from .contracts import require_database_operation
+    require_database_operation(conn, binding_of(conn, run_id).release_id, "store_rendition")
     payload = content.model_dump(mode="json")
     from corpus_structure.core.evidence import content_digest, rendition_key, segment_key
 
@@ -652,6 +664,8 @@ def complete_unit_result(
     source: str,
 ) -> CompletionResult:
     """The actual recognizer terminal boundary: binding, source storage and one native fence."""
+    from .contracts import require_bound_operation
+    require_bound_operation(prepared, 'complete_unit')
     from .observations import bind_result, source_python
 
     task_table = table("ops.task")

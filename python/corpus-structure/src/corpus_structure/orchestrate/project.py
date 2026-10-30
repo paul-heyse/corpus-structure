@@ -134,6 +134,7 @@ def init_bound_project(
                     original=source["original"],
                     title=source["title"],
                     metadata=source["meta"],
+                    prepared=prepared,
                 )
                 count += 1
     if not profiles:

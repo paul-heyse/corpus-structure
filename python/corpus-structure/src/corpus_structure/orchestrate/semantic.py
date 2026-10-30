@@ -213,7 +213,7 @@ def run_source_methods(
                 config = configs[name]
                 with engine.begin() as conn:
                     cid = record_method(
-                        conn, method, config.name, config.params, config.config_hash
+                        conn, method, config.name, config.params, config.config_hash, prepared=prepared
                     )
                     view = run_view(conn, rid, prepared)
                     for ref in method.select(view, config.config):
@@ -485,7 +485,7 @@ def queue_agent(
         "configuration:"
         + sha256(canonical_bytes([method.name, method.version, dict(configuration)])).hexdigest()
     )
-    config_id = record_method(conn, method, configuration_name, configuration, config_hash)
+    config_id = record_method(conn, method, configuration_name, configuration, config_hash, prepared=prepared)
     view = run_view(conn, run_id, prepared)
     binding = view.binding
     snapshot = view.options.get("agent_configs", {})

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .types import PreparedRelease
+from .refusals import SemanticRefusal
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
@@ -28,9 +29,6 @@ _NATIVE_CAPABILITIES = frozenset(
         "conditional_rules_native",
     }
 )
-
-
-from .refusals import SemanticRefusal
 
 
 class ExecutionAdmissionError(SemanticRefusal):
@@ -202,7 +200,7 @@ def require_archive_fence(connection: Connection) -> None:
 
 # Frozen from reviewed migration ASTs through semantic_0032.
 # Schema derive emits the corresponding SQL.
-_DESCRIPTOR_SHA256 = "02c5904463651e7bf448646c1cc4bfa8107134fc503146c1adb47014d2ac06a7"
+_DESCRIPTOR_SHA256 = "e2195d6163b24e6b14adce7f8319b78fd3c7b527c0b421f60395b434eb6212ad"
 _REQUIRE_SHA256 = "d4e70e27d077a8b8825f212664d3822c43e19dbd08b7f894f137a7fdae8ab32f"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

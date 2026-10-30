@@ -456,7 +456,6 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     ]
     from .effect_support import SUPPORTED_EFFECT_VERSIONS, SUPPORTED_EFFECTS
 
-    bindings = {binding.id: binding for binding in model.implementations}
     descriptor["supported_effects"] = {
         operation.id: {
             **SUPPORTED_EFFECTS[operation.id],

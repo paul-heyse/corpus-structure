@@ -381,6 +381,8 @@ def persist_release(
     This trusts the compiler's prepared product, checks its complete input manifest,
     and never recompiles while writing projection rows. The caller commits or rolls back.
     """
+    from .contracts import require_bound_operation
+    require_bound_operation(prepared, "archive")
     _validate_manifest(bundle, dependencies, profile, prepared)
     if profile.compiler_version == "13":
         derived = prepare_release(bundle, dependencies, profile)
