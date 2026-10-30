@@ -287,7 +287,4 @@ def publish_inference(
         projection_id="accepted",
     )
 
-    def publish(conn: Connection, batch: PublicationBatch) -> PublicationReceipt:
-        return publish_arrow_on_connection(conn, publication)
-
-    return _publish(engine, result.batch, publish, attempts=attempts)
+    return _publish(engine, publication, publish_arrow_on_connection, attempts=attempts)

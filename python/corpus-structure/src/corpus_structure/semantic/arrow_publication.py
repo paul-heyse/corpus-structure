@@ -268,6 +268,20 @@ class SnapshotDerivedPublication:
         cut_id: int | None = None,
         profile_digest: str | None = None,
     ) -> None:
+        self._bind(
+            AppendPublication(release_id, realization_id, batch_id, relations),
+            source=source, operation_id=operation_id, projection_id=projection_id,
+            contract_id=contract_id, cut_id=cut_id, profile_digest=profile_digest,
+        )
+
+    def _bind(
+        self, transport: AppendPublication, *, source: SnapshotBinding,
+        operation_id: str, projection_id: str, contract_id: str | None,
+        cut_id: int | None, profile_digest: str | None,
+    ) -> None:
+        if type(transport) is not AppendPublication:
+            raise ArrowPublicationError("derived composition requires an owned AppendPublication")
+        release_id, realization_id = transport.release_id, transport.realization_id
         if type(source.data_revision) is not int or source.data_revision < 0:
             raise ArrowPublicationError("derived source revision must be a nonnegative integer")
         if any(
@@ -283,9 +297,7 @@ class SnapshotDerivedPublication:
             raise ArrowPublicationError(
                 "derived publication requires operation, projection and snapshot identity"
             )
-        object.__setattr__(
-            self, "transport", AppendPublication(release_id, realization_id, batch_id, relations)
-        )
+        object.__setattr__(self, "transport", transport)
         object.__setattr__(self, "source", source)
         object.__setattr__(self, "operation_id", operation_id)
         object.__setattr__(self, "projection_id", projection_id)
@@ -322,6 +334,20 @@ class SnapshotDerivedPublication:
         object.__setattr__(self, "cut_id", cut_id)
         object.__setattr__(self, "profile_digest", profile_digest)
 
+    @classmethod
+    def from_transport(
+        cls, transport: AppendPublication, *, source: SnapshotBinding,
+        operation_id: str, projection_id: str, contract_id: str | None = None,
+        cut_id: int | None = None, profile_digest: str | None = None,
+    ) -> SnapshotDerivedPublication:
+        """Compose actual owned buffers/content; never re-freeze or recanonicalize them."""
+        result = object.__new__(cls)
+        result._bind(
+            transport, source=source, operation_id=operation_id, projection_id=projection_id,
+            contract_id=contract_id, cut_id=cut_id, profile_digest=profile_digest,
+        )
+        return result
+
     @property
     def release_id(self) -> str:
         return self.transport.release_id
@@ -355,11 +381,8 @@ class SnapshotDerivedPublication:
         profile_digest: str | None = None,
     ) -> SnapshotDerivedPublication:
         append = AppendPublication.from_rows(batch)
-        return cls(
-            append.release_id,
-            append.realization_id,
-            append.batch_id,
-            append.relations,
+        return cls.from_transport(
+            append,
             source=source,
             operation_id=operation_id,
             projection_id=projection_id,

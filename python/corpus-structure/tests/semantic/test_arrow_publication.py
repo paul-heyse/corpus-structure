@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from decimal import Decimal
 from threading import Barrier
-from typing import Any
+from typing import Any, cast
 
 import psycopg
 import pyarrow as pa
@@ -421,7 +421,7 @@ def test_derived_publication_requires_explicit_intent_and_keeps_it_disjoint():
             batch(), source=source, operation_id="", projection_id="captured"
         )
     with pytest.raises(TypeError):
-        from typing import Any, cast
+        from typing import Any, cast, cast
 
         cast(Any, AppendPublication.from_rows)(batch(), expected_data_revision=0)
 
@@ -521,3 +521,88 @@ def test_native_inference_effect_requires_staged_proof(semantic_db_engine, seman
     )
     with pytest.raises(DBAPIError, match="lacks its staged proof conclusion"):
         publish_arrow(semantic_writer_engine, derived_rows(forged))
+
+
+def test_derived_composes_actual_owned_transport_without_another_freeze(monkeypatch):
+    from corpus_structure.semantic.query import SnapshotBinding
+
+    owned = arrow.AppendPublication.from_rows(batch())
+    content = owned.content
+
+    def no_second_freeze(*args, **kwargs):
+        raise AssertionError("owned transport was frozen again")
+
+    monkeypatch.setattr(arrow.AppendPublication, "__init__", no_second_freeze)
+    derived = SnapshotDerivedPublication.from_transport(
+        owned, source=SnapshotBinding(R, Z, 0, "capture"),
+        operation_id="publish_inference", projection_id="accepted",
+    )
+    assert derived.transport is owned
+    assert derived.content is content
+    with pytest.raises(ArrowPublicationError, match="owned AppendPublication"):
+        SnapshotDerivedPublication.from_transport(
+            cast(Any, batch()), source=SnapshotBinding(R, Z, 0, "capture"),
+            operation_id="publish_inference", projection_id="accepted",
+        )
+
+
+def test_derived_row_adapter_freezes_each_stage_only_once(monkeypatch):
+    from corpus_structure.semantic.query import SnapshotBinding
+
+    original = arrow.AppendPublication.__init__
+    calls = []
+
+    def counted(self, *args, **kwargs):
+        calls.append(args)
+        original(self, *args, **kwargs)
+
+    monkeypatch.setattr(arrow.AppendPublication, "__init__", counted)
+    derived = SnapshotDerivedPublication.from_rows(
+        batch(), source=SnapshotBinding(R, Z, 0, "capture"),
+        operation_id="publish_inference", projection_id="accepted",
+    )
+    assert len(calls) == 1
+    assert derived.content == batch().content
+
+
+@pytest.mark.parametrize("lost", [False, True])
+def test_inference_retries_and_recovers_using_actual_lowered_transport(monkeypatch, lost):
+    from sqlalchemy import create_engine
+
+    from corpus_structure.semantic import inference, publication
+    from corpus_structure.semantic.publication import PublicationReceipt
+    from corpus_structure.semantic.query import SnapshotBinding
+
+    rows = PublicationBatch(
+        R, Z, "overflow",
+        typed_value=(ValueRow("huge", "decimal", decimal_lexical="9" * 39,
+                              numeric_value=Decimal("9" * 39)),),
+    )
+    result = inference.InferenceResult(SnapshotBinding(R, Z, 0, "capture"), rows)
+    seen = []
+    receipt = PublicationReceipt("overflow", 1, "receipt")
+
+    def publish(conn, transport):
+        seen.append(transport)
+        assert transport.content != rows.content
+        assert transport.relations["typed_value"]["numeric_value"].to_pylist() == [None]
+        if len(seen) == 1:
+            if lost:
+                raise psycopg.OperationalError("lost after publication")
+            raise psycopg.errors.SerializationFailure("retry")
+        return receipt
+
+    def lookup(engine, transport):
+        assert transport is seen[0]
+        assert transport.content is seen[0].content
+        return receipt
+
+    monkeypatch.setattr(arrow, "publish_arrow_on_connection", publish)
+    monkeypatch.setattr(publication, "lookup_receipt", lookup)
+    engine = create_engine("sqlite://")
+    try:
+        assert inference.publish_inference(engine, result, attempts=2) == receipt
+    finally:
+        engine.dispose()
+    assert len(seen) == (1 if lost else 2)
+    assert all(transport is seen[0] for transport in seen)
