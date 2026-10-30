@@ -782,6 +782,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact("grammar/_tree.py", math.joinpath("_tree.py").read_bytes()),
         SourceArtifact("grammar/shipped.lark", shipped.read_bytes()),
         SourceArtifact("transformer/transform.py", math.joinpath("transform.py").read_bytes()),
+        SourceArtifact("transformer/native_context.py", math.joinpath("native_context.py").read_bytes()),
         SourceArtifact(
             "text/model.json",
             canonical_bytes(
@@ -1229,6 +1230,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "grammar/_tree.py",
         "grammar/shipped.lark",
         "transformer/transform.py",
+        "transformer/native_context.py",
         "libraries.json",
     }
     if set(names) != required_implementations or len(names) != len(set(names)):
@@ -1253,7 +1255,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         _normalize(data, model_id),
         implementation_digests=tuple((item.name, item.digest) for item in inputs.implementations),
     )
-    if not products.analysis_profiles or any(p.version != "5" for p in products.analysis_profiles):
+    if not products.analysis_profiles or any(p.version != "6" for p in products.analysis_profiles):
         _fail(
             "missing_analysis_profile",
             inputs.catalog.name,
