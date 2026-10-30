@@ -42,11 +42,18 @@ def test_source_frame_deployment_drift_refuses_composed_admission(
             )
         else:
             conn.exec_driver_sql(
-                "CREATE OR REPLACE FUNCTION ops.source_statement_locator(p_task bigint,p_anchor text) RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $body$ BEGIN RETURN 'tampered'; END $body$"
+                "CREATE OR REPLACE FUNCTION "
+                "ops.source_statement_locator(p_task bigint,p_anchor text) RETURNS text "
+                "LANGUAGE plpgsql STABLE SECURITY DEFINER "
+                "SET search_path=pg_catalog,pg_temp "
+                "AS $body$ BEGIN RETURN 'tampered'; END $body$"
             )
-    with semantic_writer_engine.begin() as conn:
-        with pytest.raises(DBAPIError, match=expected), conn.begin_nested():
-            conn.execute(
-                text("SELECT data.require_execution_release(:release)"),
-                {"release": prepared.release_id},
-            )
+    with (
+        semantic_writer_engine.begin() as conn,
+        pytest.raises(DBAPIError, match=expected),
+        conn.begin_nested(),
+    ):
+        conn.execute(
+            text("SELECT data.require_execution_release(:release)"),
+            {"release": prepared.release_id},
+        )

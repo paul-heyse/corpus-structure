@@ -406,3 +406,20 @@ def test_the_engines_facts_give_the_same_views_as_the_builders_own(
     close = getattr(engine, "close", None)
     if close is not None:
         close()
+
+
+@pytest.mark.parametrize("site", ["batch", "finalize"])
+def test_rule_qualifier_defaults_equal_explicit_members(stats: CompiledSchema, site: str) -> None:
+    omitted = _claim("structural", "core:proves", "st", {"ref": "st"})
+    explicit = {**omitted, "qualifiers": {"core:modality": "asserted", "core:polarity": "positive"}}
+    outcomes = []
+    for claim in (omitted, explicit):
+        views = build_views(_set([claim]), stats, site)
+        qualifiers = views[0].qualifiers
+        # The rule language declares STRING, not Python enum objects. Native
+        # rule-engine evaluation must receive the same primitives for both forms.
+        assert type(qualifiers.modality) is str and qualifiers.modality == "asserted"
+        assert type(qualifiers.polarity) is str and qualifiers.polarity == "positive"
+        outcomes.append(run_rules(views, stats, site))
+    assert outcomes[0] == outcomes[1]
+    assert outcomes[0].findings == ()

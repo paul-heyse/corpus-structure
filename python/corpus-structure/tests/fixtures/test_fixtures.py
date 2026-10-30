@@ -56,7 +56,7 @@ def _check_frame(
     frame: CitationFrame, page: str, batch: AuthoredBatch, extra: frozenset[str] = frozenset()
 ) -> None:
     assert set(frame.keys()) == set(cited_sentences(batch)) | extra
-    for sentence in frame.keys():
+    for sentence in frame.root:
         locator = parse(frame[sentence].locator)
         assert locator.page == page
         assert str(locator) == frame[sentence].locator
@@ -114,9 +114,7 @@ def test_s0_keeps_the_v1_items(unit: str) -> None:
 
 def test_s0_standing_context_is_u12s() -> None:
     cited = {
-        u
-        for u in support.S0_UNITS
-        if any(s.startswith("c") for s in support.load_s0(u).frame.keys())
+        u for u in support.S0_UNITS if any(s.startswith("c") for s in support.load_s0(u).frame.root)
     }
     assert cited == {"U12"}
 

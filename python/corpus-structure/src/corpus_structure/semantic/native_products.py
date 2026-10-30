@@ -671,10 +671,55 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     )
 
 
+def reference_source_products(base: tuple[NativeProduct, ...]) -> tuple[NativeProduct, ...]:
+    """Author the forward source-frame reference guard and its exact native commitment."""
+    import json
+    from pathlib import Path
+
+    from .identity import canonical_bytes
+
+    kernels = Path(__file__).with_name("sql").joinpath("reference_source.sql").read_text()
+    previous = next(item for item in base if item.name == "semantic_0033_admission.sql")
+    descriptor_body = function_bodies(previous.content.decode())[
+        "data.execution_contract_descriptor"
+    ]
+    statement = parse_sql(descriptor_body)[0].stmt
+    if not isinstance(statement, ast.SelectStmt) or not statement.targetList:
+        raise ValueError("native descriptor must be a literal SELECT")
+    cast = statement.targetList[0].val
+    if not isinstance(cast, ast.TypeCast) or not isinstance(cast.arg, ast.A_Const):
+        raise ValueError("native descriptor must be a literal JSONB value")
+    if not isinstance(cast.arg.val, ast.String) or cast.arg.val.sval is None:
+        raise ValueError("native descriptor must be a literal string")
+    descriptor = json.loads(cast.arg.val.sval)
+    bodies = function_bodies(kernels)
+    updated = set()
+    for function in descriptor["functions"]:
+        name = function["signature"].split("(", 1)[0]
+        if name in bodies:
+            function["body_sha256"] = sha256(bodies[name].encode()).hexdigest()
+            updated.add(name)
+    if updated != set(bodies):
+        raise ValueError("reference source guards lack a prior native custody descriptor")
+    encoded = canonical_bytes(descriptor).decode().replace("'", "''")
+    admission = (
+        "SET LOCAL ROLE corpus_sem_publisher;\n"
+        "CREATE OR REPLACE FUNCTION data.execution_contract_descriptor() RETURNS jsonb "
+        "LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $descriptor$\n SELECT '"
+        + encoded
+        + "'::jsonb\n$descriptor$;\n"
+    )
+    return (
+        NativeProduct("semantic_0034_reference_source.sql", kernels.encode()),
+        NativeProduct("semantic_0034_admission.sql", admission.encode()),
+    )
+
+
 def consolidation_products(model=None) -> tuple[NativeProduct, ...]:
     """Complete forward authoring: fixed schema, row consumers, transport and Core view.
 
     Historical migrations execute only committed adjacent products. No physical product
     is discarded by assuming that every future model has the same tables or views.
     """
-    return closure_products(model)
+    base = closure_products(model)
+    return (*base, *reference_source_products(base))

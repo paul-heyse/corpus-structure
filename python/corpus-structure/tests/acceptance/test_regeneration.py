@@ -36,7 +36,8 @@ def test_real_source_preparation_does_not_select_partial_output(
     with semantic_db_engine.connect() as conn:
         before = conn.execute(
             text(
-                "SELECT table_schema,table_name FROM information_schema.tables WHERE table_schema IN ('data','sem','kb','ops','eval') ORDER BY 1,2"
+                "SELECT table_schema,table_name FROM information_schema.tables "
+                "WHERE table_schema IN ('data','sem','kb','ops','eval') ORDER BY 1,2"
             )
         ).all()
     args = [
@@ -69,7 +70,8 @@ def test_real_source_preparation_does_not_select_partial_output(
         assert "awaiting_agent" in states
         after = conn.execute(
             text(
-                "SELECT table_schema,table_name FROM information_schema.tables WHERE table_schema IN ('data','sem','kb','ops','eval') ORDER BY 1,2"
+                "SELECT table_schema,table_name FROM information_schema.tables "
+                "WHERE table_schema IN ('data','sem','kb','ops','eval') ORDER BY 1,2"
             )
         ).all()
         assert (

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import legacy_db_repo as repo
 import pytest
 from sqlalchemy import Connection, func, select, text
 from sqlalchemy.exc import IntegrityError
 
 from corpus_structure.core.db import legacy_metadata as store
-from corpus_structure.core.db import repo
 from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.payload_schemas import UnknownPayloadSchema
 from corpus_structure.core.payloads import MentionPayload

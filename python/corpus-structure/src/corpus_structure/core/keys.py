@@ -579,7 +579,8 @@ def expressions(value: EntityRef | Value | Condition) -> Iterator[Formula | SetV
         case (
             AuthoredAnd() | AuthoredOr() | AuthoredNot() | AuthoredForall() | StoredAnd()
             | StoredOr() | StoredNot() | StoredForall() | ClaimNode() | MemberNode() | CmpNode()
-            | PredNode() | AuthoredPhraseNode() | StoredPhraseNode() | AuthoredUnsupportedNode() | StoredUnsupportedNode()
+            | PredNode() | AuthoredPhraseNode() | StoredPhraseNode()
+            | AuthoredUnsupportedNode() | StoredUnsupportedNode()
         ):  # fmt: skip
             for node in condition_nodes(value):
                 for v in _parts(node)[1]:

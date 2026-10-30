@@ -1,6 +1,6 @@
 # D6 · Orchestration, metrics and policies
 
-**Proposed (2026-10-28).** How a run executes: the stage graph, task lifecycle, caching and
+**Earlier proposed detail (2026-10-28), qualified by the current semantic contracts below.** How a run executes: the stage graph, task lifecycle, caching and
 reuse, debug slices, GPU sharing on the RTX 5090, the metrics every stage records, and the
 policy language that decides which methods run where. Tables are in
 [D3 §4](D3-database.md#4-ops-methods-policies-runs-and-tasks); methods in [D4](D4-method-catalog.md).
@@ -23,11 +23,26 @@ coverage remains explicit. No human grading step is introduced.
 Task reuse requires the complete recorded binding, including meaning-bearing policy and
 configuration. This conservative initial profile can recompute deterministic source work after a
 policy-only change; it cannot reuse a result under changed meaning merely because document bytes
-match. Stale attempts, reopened cuts and cross-binding reuse are refused natively. The later
-sections describe the legacy selected path until SP-09; their timestamp-cut details are not a
-second authority for the semantic path.
+match. Stale attempts, reopened cuts and cross-binding reuse are refused natively. The later sections retain earlier timestamp-cut and wait-barrier proposals for reference; they
+are not the selected production path or a second authority for semantic execution.
 
 > Decision: ADR-0027
+
+## Agent supervision and current retirement boundary
+
+**Implemented, 2026-10-30.** `ci regenerate` may supervise a fresh configured model and a
+run-bound stdio MCP child. The source writer, admitter and evaluator have distinct privileges.
+Protected semantic operations own queue transitions and publication; process success cannot
+substitute for completed task state. Cancellation drains the owned group, and resumption reuses
+the recorded run. Interactive sessions can work the same queue. Current semantic runs support
+`agent_mode=complete`; the earlier wait barrier is explicitly refused.
+
+Dormant legacy `runs`, `routing`, `context`, `agent`, `queue`, `tasks` and `fates` orchestration
+modules are retired. Current source work uses `commands` → `orchestrate.semantic` → protected
+`semantic.operations`. Registry preparation, policy evaluation and pure runner algorithms stay;
+retained historical schema tests do not authorize an alternate production route.
+
+> Decision: ADR-0034
 
 ## 1. Principles
 
@@ -38,7 +53,7 @@ second authority for the semantic path.
   OPEN-D8-1 and OPEN-D9-2, design authority 2026-10-28, from the [store note](../design_review/evidence/2026-10-28_library-store/README.md) L-S7 and the
   [interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) IE-4). Claude Code starts one stdio server per session (and one per
   golden subagent, D8 §2.2), which dies with that session, while a run's agent tasks are worked
-  across sessions (§2, §7.4, ADR-0015). So `ci run` owns the orchestrator; the server only reads and writes tables and,
+  across sessions (§2, §7.4, ADR-0034). So `ci run` owns the orchestrator; the server only reads and writes tables and,
   through the agent completion primitive (§3.1), sends `NOTIFY cs_agent_task_done` inside its
   submission transaction. FastMCP background tasks are not used: they
   would duplicate `ops.task`, and Claude Code accepts MCP tasks only from the main conversation.

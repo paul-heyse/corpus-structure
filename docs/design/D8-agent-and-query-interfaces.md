@@ -2,9 +2,9 @@
 
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
 [ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
-occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below
-remain the selected runtime baseline until the [pivot series](../plans/semantic-model-pivot_2026-10-29.md)
-migrates their consumers. They do not constrain new releases or require historical compatibility.
+occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below are historical/proposed detail; current runtime contracts are
+identified in the semantic sections and the [pivot series](../plans/semantic-model-pivot_2026-10-29.md).
+They do not constrain new releases or require historical compatibility.
 SP-01 prepares logical artifacts only; persistence, SQL enforcement and consumer adoption belong
 to later packages. The decision's carried-forward clauses preserve source fidelity, qualification,
 instance authority and consolidation ownership.
@@ -15,6 +15,20 @@ instance authority and consolidation ownership.
 the system: the MCP server Opus works through, work packets and their size caps, the CLI, the
 typed query API and exports. Every write through these surfaces becomes an observation, an
 intervention or a versioned artifact; nothing writes knowledge rows directly (D1 INV-04).
+
+## Current agent process and entry-point boundary
+
+**Implemented, 2026-10-30; actual regeneration/qualification remains in SP-09/SP-10.**
+`ci regenerate` supervises the configured model in a fresh run-bound stdio MCP process;
+`ci mcp serve --semantic-run` binds its interpretation from the recorded run rather than a live
+project default. Interactive project sessions remain supported through the current semantic
+server. Both use protected queue/proposal operations. Source extraction has no builtin filesystem
+tools, inherited servers/customizations or reference credentials. The supervisor owns transport
+lifetime and process-group cancellation; native task state owns semantic completion. Independent
+reference CLI/API operations use the evaluator login. Legacy golden-server and inspection-tool
+proposals below do not establish additional implemented profiles.
+
+> Decision: ADR-0034
 
 ## Shared semantic read boundary
 

@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "id": "pivot.final",
+  "title": "Final semantic-pivot regeneration and required-union qualification",
+  "group": "semantic-model-pivot",
+  "package": "SP-10",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Are the remaining SP-09 integration and SP-10 applicable qualification obligations discharged?",
+  "answers": [
+    "SP-09",
+    "SP-10"
+  ],
+  "method": "Execute fresh authenticated source workflows; preserve historical access; verify independent automated references and actual consumers; qualify default collection with affected final-source corrections and applicable hygiene.",
+  "commands": [
+    "just test-all",
+    "scripts/test_receipts.py run --out-dir build/test-receipts/sp09-final-tail --python-only -- python/corpus-structure/tests/validate python/corpus-structure/tests/pool python/corpus-structure/tests/consolidate python/corpus-structure/tests/test_cli.py python/corpus-structure/tests/test_semantic_runtime_settings.py python/corpus-structure/tests/semantic/test_reference_evaluation.py python/corpus-structure/tests/semantic/test_source_frame_admission.py python/corpus-structure/tests/semantic/test_statement_anchors.py python/corpus-structure/tests/semantic/test_native_closure.py::test_model_products_match_frozen_forward_revision python/corpus-structure/tests/acceptance",
+    "uv run pyrefly check --min-severity warn --summary=none",
+    "just hygiene_checks='lint-agents adr-lint rules-scan rules-test ruff docs-check deps clippy' hygiene"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "Operational, failed full invocation, final correction selection and exact required-union receipts",
+      "sha256": "60d42f336bacfad1d3f48c8c67d6a450eee3c1805d118acaf4737d8973676480"
+    },
+    {
+      "path": "code",
+      "role": "Actual consumer, independent evaluation and archive re-admission commands",
+      "sha256": "ae4d212b0d2cc4ac0d00abe9c96dedc8f8b7f0076dff9b7a7f18cb36eb546e5a"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Actual completed selected provider workflows",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Final required Python nodes with applicable passing evidence",
+      "value": 2325,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Required unresolved nodes",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Original full invocation",
+      "value": "failed",
+      "of": null,
+      "unit": null,
+      "note": "2295 passed/24 failed; retained, not relabelled."
+    },
+    {
+      "name": "Final affected selection",
+      "value": 242,
+      "of": null,
+      "unit": null,
+      "note": "All passed; six new regressions included; overlaps full selection."
+    },
+    {
+      "name": "Full78-page oracle duration",
+      "value": 172.18570473103318,
+      "of": null,
+      "unit": "seconds",
+      "note": "One invocation, not a benchmark or SLA."
+    },
+    {
+      "name": "Warning-aware Pyrefly errors and warnings",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Applicable hygiene",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "Typing separately passed before functional qualification; no post-lint repetition."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "SP-09 functional integration and SP-10 required-union qualification complete. Every final required node has applicable passing phase records; actual providers and nonfunctional obligations passed. Historical0030 data/grades/run3 preserved; new0034 target selected. The original full invocation and aggregate classifier remain failed, with all named test failures corrected in the final affected selection. No single final full zero-exit invocation, Rust functional coverage, quality threshold, capacity claim or new completion audit is asserted.",
+  "consumed_by": [
+    "SP-09",
+    "SP-10",
+    "semantic-model-pivot coordinator §15"
+  ]
+}

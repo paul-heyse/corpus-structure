@@ -96,20 +96,63 @@ def _completed(conn, run_id, project_id=None):
 
 
 def _source_units(conn, run_id):
-    """Units actually represented in the completed cut, including reused origin tasks."""
+    """Frozen source frames in the completed cut, regardless of extracted answer presence.
+
+    A valid empty or refused producer report still belongs to the evaluation universe. The
+    immutable frame owns unit/rendition identity; prediction observations cannot define it.
+    Reused work follows the cut's explicit origin task rather than the continuation's new task.
+    Missing required frames refuse with an actionable recovery route instead of shrinking recall.
+    """
+    from corpus_structure.semantic.source_frames import packet_bound_source_tasks
+
+    completed, frames, renditions, documents, segments = map(
+        table,
+        ("ops.completed_result", "ops.source_frame", "kb.rendition", "kb.document", "kb.segment"),
+    )
+    cut_id = conn.execute(
+        select(completed.c.cut_id).where(completed.c.run_id == run_id)
+    ).scalar_one()
+    origins = packet_bound_source_tasks(run_id, cut_id=cut_id).subquery()
+    missing = (
+        conn.execute(
+            select(origins.c.id)
+            .outerjoin(frames, frames.c.task_id == origins.c.id)
+            .where(frames.c.task_id.is_(None))
+            .distinct()
+            .order_by(origins.c.id)
+        )
+        .scalars()
+        .all()
+    )
+    if missing:
+        raise ReferenceError(
+            f"completed run {run_id} has packet-bound source tasks without immutable frames: "
+            f"{missing}; use semantic.source_frames.backfill_source_frames"
+            f"(writer_engine, {run_id}) "
+            "to verify their original packet hashes and capture missing frames before evaluation"
+        )
     return (
         conn.execute(
-            text("""SELECT DISTINCT o.rendition_id,o.payload->>'unit_ref' AS unit_key,
-        d.source_uri,d.id AS document_id,segment.segment_key,
-        segment.kind AS segment_kind,segment.attrs AS segment_attrs
-      FROM ops.completed_result c JOIN ops.cut_task ct ON ct.cut_id=c.cut_id
-      JOIN kb.observation o ON o.task_id=ct.origin_task_id
-      JOIN kb.rendition r ON r.id=o.rendition_id JOIN kb.document d ON d.id=r.document_id
-      LEFT JOIN kb.segment segment ON segment.id=o.segment_id
-        AND segment.rendition_id=o.rendition_id
-      WHERE c.run_id=:run AND o.payload_definition='AgentStoredBatch'
-        AND o.payload->>'unit_ref' IS NOT NULL ORDER BY unit_key,o.rendition_id"""),
-            {"run": run_id},
+            select(
+                frames.c.rendition_id,
+                frames.c.unit_ref.label("unit_key"),
+                documents.c.source_uri,
+                documents.c.id.label("document_id"),
+                segments.c.segment_key,
+                segments.c.kind.label("segment_kind"),
+                segments.c.attrs.label("segment_attrs"),
+            )
+            .select_from(origins)
+            .join(frames, frames.c.task_id == origins.c.id)
+            .join(renditions, renditions.c.id == frames.c.rendition_id)
+            .join(documents, documents.c.id == renditions.c.document_id)
+            .outerjoin(
+                segments,
+                (segments.c.id == frames.c.unit_segment_id)
+                & (segments.c.rendition_id == frames.c.rendition_id),
+            )
+            .distinct()
+            .order_by(frames.c.unit_ref, frames.c.rendition_id)
         )
         .mappings()
         .all()
@@ -190,7 +233,7 @@ def _forced_slice_units(conn, release_id, pool, names):
     from corpus_structure.core.locators import parse as parse_locator
 
     if not names:
-        return ()
+        return (), ()
     content = conn.scalar(
         select(table("sem.input").c.content).where(
             table("sem.input").c.release_id == release_id,
@@ -222,11 +265,16 @@ def _forced_slice_units(conn, release_id, pool, names):
     for unit in pool:
         by_page.setdefault(parse_locator(unit["unit_key"]).page, []).append(unit)
     forced = set()
+    outside_cut = {}
     for name in names:
         for locator in expand(name):
             parsed = parse_locator(locator)
-            matched = []
-            for unit in by_page.get(parsed.page, ()):
+            page_units = by_page.get(parsed.page, ())
+            if not page_units:
+                outside_cut[locator] = "source_page_outside_completed_cut"
+                continue
+            matched = set()
+            for unit in page_units:
                 rid = unit["rendition_id"]
                 if rid not in indexes:
                     raw = conn.scalar(
@@ -238,17 +286,24 @@ def _forced_slice_units(conn, release_id, pool, names):
                 try:
                     expected = indexes[rid].resolve(locator)
                     candidate = indexes[rid].resolve(unit["unit_key"])
-                except ValueError, KeyError, LookupError:
-                    continue
+                except (ValueError, KeyError, LookupError) as error:
+                    raise ReferenceError(
+                        "forced reference locator is absent or ambiguous on its source page: "
+                        f"{locator}"
+                    ) from error
                 if (expected.start, expected.end) == (candidate.start, candidate.end):
-                    matched.append(unit["unit_key"])
-            if len(set(matched)) != 1:
+                    matched.add((unit["unit_key"], rid))
+            if len(matched) > 1:
                 raise ReferenceError(
-                    "forced reference locator is absent or ambiguous in the completed source pool: "
-                    f"{locator}"
+                    f"forced reference locator is ambiguous in the completed source pool: {locator}"
                 )
-            forced.update(matched)
-    return tuple(sorted(forced))
+            if matched:
+                forced.add(next(iter(matched))[0])
+            else:
+                outside_cut[locator] = "source_unit_outside_completed_cut"
+    return tuple(sorted(forced)), tuple(
+        {"locator": locator, "reason": reason} for locator, reason in sorted(outside_cut.items())
+    )
 
 
 def create_reference_set(
@@ -285,19 +340,16 @@ def create_reference_set(
             "no completed source units in the requested document split; "
             "assign document splits first"
         )
-    forced = tuple(
-        sorted(
-            set(forced)
-            | set(
-                _forced_slice_units(
-                    conn,
-                    release.release_id,
-                    pool,
-                    config.golden.forced_slices if split == "dev" else (),
-                )
-            )
-        )
+    # A forced slice constrains the immutable run's sample. It cannot enlarge that run's
+    # completed source cut. Preserve excluded locators explicitly instead of silently dropping
+    # policy constraints or substituting source tasks from another run.
+    policy_forced, outside_cut = _forced_slice_units(
+        conn,
+        release.release_id,
+        pool,
+        config.golden.forced_slices if split == "dev" else (),
     )
+    forced = tuple(sorted(set(forced) | set(policy_forced)))
     requested_size = config.golden.sizes[split] if size is None else size
     if requested_size <= 0:
         raise ReferenceError("reference sample size must be positive")
@@ -307,6 +359,8 @@ def create_reference_set(
         config.split.seed if seed is None else seed,
         forced,
     )
+    if outside_cut:
+        sampled.sampling["forced_outside_completed_cut"] = list(outside_cut)
     if guideline is None:
         guideline = (
             conn.scalar(

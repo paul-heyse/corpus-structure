@@ -34,7 +34,7 @@
     }
   ],
   "depends_on": [
-    "c2.query-plans"
+    "2026-10-29_c2-query-plans/c2.query-plans"
   ],
   "results": [],
   "outcome": "passed",

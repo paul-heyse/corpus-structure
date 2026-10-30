@@ -639,3 +639,280 @@ def test_duplicate_premise_fact_preserves_later_local_claim_references(
             "recall": 1.0,
             "f1": 1.0,
         }
+
+
+@pytest.mark.parametrize("empty_observations", [False, True])
+def test_empty_producer_keeps_frozen_source_in_reference_pool(
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_evaluator_engine,
+    tmp_path,
+    empty_observations,
+):
+    from corpus_structure.evaluate.semantic import _source_units
+
+    _prepared, run, task, locator = source_task(
+        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
+    )
+    session = SemanticAgentSession(semantic_writer_engine, run)
+
+    async def empty_source():
+        async with Client(build_semantic_server(session)) as client:
+            await lease_and_read(client, run, task)
+            if empty_observations:
+                from corpus_structure.semantic.operations import complete_task
+
+                active = session.active(task)
+                with semantic_writer_engine.begin() as conn:
+                    complete_task(
+                        conn,
+                        task_id=task,
+                        attempt=active.attempt,
+                        holder=session.holder,
+                        prepared=_prepared,
+                        observations=[],
+                        outcome="empty",
+                    )
+            else:
+                response = await client.call_tool(
+                    "propose_claims",
+                    {"task_id": task, "batch": {"unit_ref": locator, "entities": [], "claims": []}},
+                )
+                assert response.structured_content is not None
+                assert response.structured_content["submission_disposition"] == "completed_accepted"
+
+    anyio.run(empty_source)
+    finalize_bound_run(semantic_writer_engine, run, "empty-reference-result")
+    with semantic_evaluator_engine.begin() as conn:
+        # The completed native cut and immutable source frame retain this unit even though
+        # the producer supplied no knowledge assertions. Reference recall must expose that.
+        source = _source_units(conn, run)
+        assert [unit["unit_key"] for unit in source] == [locator]
+        if empty_observations:
+            assert (
+                conn.scalar(
+                    select(table("kb.observation").c.id).where(
+                        table("kb.observation").c.task_id == task,
+                        table("kb.observation").c.payload_definition == "AgentStoredBatch",
+                    )
+                )
+                is None
+            )
+        made = create_reference_set(
+            conn, project_id="resubmit", source_run_id=run, label="empty-producer", size=1
+        )
+        authored = {
+            "unit_ref": locator,
+            "entities": [
+                {
+                    "id": "expected_person",
+                    "class_iri": "https://example.org/Person",
+                    "label": "Alice",
+                }
+            ],
+            "claims": [
+                {
+                    "id": "expected_name",
+                    "subject": "expected_person",
+                    "predicate": "https://example.org/name",
+                    "object": {"kind": "text", "text": "Alice"},
+                    "qualification": {"modality": "asserted", "polarity": True},
+                    "establishment": "stated",
+                    "evidence": [
+                        {
+                            "sentence": "expected_sentence",
+                            "quote": "Alice is here.",
+                            "role": "primary",
+                        }
+                    ],
+                }
+            ],
+        }
+        record_pass(
+            conn,
+            unit_id=next(iter(made["units"].values())),
+            pass_kind="C",
+            actor="independent-source-only-reference",
+            authored=json.dumps(authored).encode(),
+            frame=ProposalFrame(
+                locator,
+                "Alice is here.",
+                (ProposalSentence("expected_sentence", locator, 0, 14),),
+            ),
+        )
+        grade = reference_evaluate(conn, project_id="resubmit", run_id=run, set_id=made["set_id"])
+        for tier in ("core", "full", "evidence"):
+            assert grade.result["tiers"][tier]["reference"] == 1
+            assert grade.result["tiers"][tier]["prediction"] == 0
+            assert grade.result["tiers"][tier]["matched"] == 0
+
+
+@pytest.mark.parametrize("reuse_origin", [False, True])
+def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_evaluator_engine,
+    tmp_path,
+    monkeypatch,
+    reuse_origin,
+):
+    from corpus_structure.semantic import source_frames
+    from corpus_structure.semantic.operations import (
+        binding_of,
+        claim_tasks,
+        complete_task,
+        create_run,
+        create_task,
+    )
+
+    # Reproduce an earlier producer that retained packet custody but omitted frame capture.
+    # Task creation/claim/completion and source data are still real native operations.
+    with monkeypatch.context() as earlier:
+        earlier.setattr(source_frames, "capture_source_frame", lambda conn, task_id, packet: None)
+        earlier.setattr(source_frames, "backfill_source_frames", lambda engine, run_id: 0)
+        prepared, origin_run, task, locator = source_task(
+            semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
+        )
+        with semantic_writer_engine.begin() as conn:
+            source = (
+                conn.execute(select(table("ops.task")).where(table("ops.task").c.id == task))
+                .mappings()
+                .one()
+            )
+            claim = claim_tasks(
+                conn,
+                run_id=origin_run,
+                config_id=source["method_config_id"],
+                holder="empty-source",
+                agent=True,
+            )[0]
+            complete_task(
+                conn,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="empty-source",
+                prepared=prepared,
+                observations=[],
+                outcome="empty",
+            )
+            packet_hash = source["packet_hash"]
+        finalize_bound_run(semantic_writer_engine, origin_run, "missing-source-frame-origin")
+        run = origin_run
+        if reuse_origin:
+            with semantic_writer_engine.begin() as conn:
+                original = (
+                    conn.execute(
+                        select(table("ops.run")).where(table("ops.run").c.id == origin_run)
+                    )
+                    .mappings()
+                    .one()
+                )
+                run = create_run(
+                    conn,
+                    project_id="resubmit",
+                    binding=binding_of(conn, origin_run),
+                    kind="full",
+                    options=original["options"],
+                    code_commit="source-frame-reuse",
+                )
+                originals = (
+                    conn.execute(
+                        select(table("ops.task"))
+                        .where(table("ops.task").c.run_id == origin_run)
+                        .order_by(table("ops.task").c.id)
+                    )
+                    .mappings()
+                    .all()
+                )
+                for original_task in originals:
+                    reused = create_task(
+                        conn,
+                        run_id=run,
+                        config_id=original_task["method_config_id"],
+                        stage=original_task["stage"],
+                        unit_type=original_task["unit_type"],
+                        unit_id=original_task["unit_id"],
+                        unit_key=original_task["unit_key"],
+                        input_hash=original_task["input_hash"],
+                        packet_hash=original_task["packet_hash"],
+                        agent=original_task["packet_hash"] is not None,
+                        trigger=original_task["trigger"],
+                    )
+                    assert (
+                        conn.scalar(
+                            select(table("ops.task").c.reused_task_id).where(
+                                table("ops.task").c.id == reused
+                            )
+                        )
+                        == original_task["id"]
+                    )
+            finalize_bound_run(semantic_writer_engine, run, "missing-source-frame-reused")
+
+    with (
+        pytest.raises(ReferenceError, match="backfill_source_frames"),
+        semantic_evaluator_engine.begin() as conn,
+    ):
+        create_reference_set(
+            conn, project_id="resubmit", source_run_id=run, label="missing-frame", size=1
+        )
+    assert source_frames.backfill_source_frames(semantic_writer_engine, run) == 1
+    assert source_frames.backfill_source_frames(semantic_writer_engine, run) == 0
+    with semantic_writer_engine.connect() as conn:
+        frame = (
+            conn.execute(
+                select(table("ops.source_frame")).where(table("ops.source_frame").c.task_id == task)
+            )
+            .mappings()
+            .one()
+        )
+        assert frame["packet_hash"] == packet_hash and frame["unit_ref"] == locator
+        assert (
+            conn.scalar(
+                select(table("kb.observation").c.id).where(
+                    table("kb.observation").c.task_id == task
+                )
+            )
+            is None
+        )
+    with semantic_evaluator_engine.begin() as conn:
+        made = create_reference_set(
+            conn, project_id="resubmit", source_run_id=run, label="backfilled-frame", size=1
+        )
+        assert set(made["units"]) == {locator}
+        expected = {
+            "unit_ref": locator,
+            "entities": [{"id": "expected", "class_iri": "https://example.org/Person"}],
+            "claims": [
+                {
+                    "id": "expected_name",
+                    "subject": "expected",
+                    "predicate": "https://example.org/name",
+                    "object": {"kind": "text", "text": "Alice"},
+                    "qualification": {"modality": "asserted", "polarity": True},
+                    "establishment": "stated",
+                    "evidence": [
+                        {
+                            "sentence": "expected_sentence",
+                            "quote": "Alice is here.",
+                            "role": "primary",
+                        }
+                    ],
+                }
+            ],
+        }
+        record_pass(
+            conn,
+            unit_id=next(iter(made["units"].values())),
+            pass_kind="C",
+            actor="independent-source-reference",
+            authored=json.dumps(expected).encode(),
+            frame=ProposalFrame(
+                locator,
+                "Alice is here.",
+                (ProposalSentence("expected_sentence", locator, 0, 14),),
+            ),
+        )
+        grade = reference_evaluate(conn, project_id="resubmit", run_id=run, set_id=made["set_id"])
+        assert grade.result["tiers"]["full"]["reference"] == 1
+        assert grade.result["tiers"]["full"]["prediction"] == 0
+        assert grade.result["tiers"]["full"]["matched"] == 0

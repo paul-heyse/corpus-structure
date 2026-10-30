@@ -8,15 +8,17 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+import legacy_db_repo as repo
 import pyarrow as pa
 import pytest
 from psycopg.types.json import Jsonb
 from sqlalchemy import Engine, text
 
 from corpus_structure.core.db import legacy_metadata as store
-from corpus_structure.core.db import overlay, repo
-from corpus_structure.pool.load import connect, read_tables
+from corpus_structure.core.db import overlay
 from corpus_structure.schema import interchange
+
+from .legacy_pool import connect, read_tables
 
 
 def tables_with_rows(engine: Engine) -> list[str]:

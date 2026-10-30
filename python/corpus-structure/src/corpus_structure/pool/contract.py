@@ -2,8 +2,8 @@
 Arrow relations of one run as of its cut, built by `build` from what the loader reads.
 
 `build(run, registry, observations, reference_entities, reference_aliases, kinds)` is a pure
-function: the loader (`pool/load.py`) supplies its inputs from PostgreSQL, a test supplies them as
-Arrow fixtures, and the result is the same `Pool`. No relation schema is written here: each one is
+function: the historical database-test loader supplies its inputs from PostgreSQL; tests supply
+Arrow fixtures. The result is the same `Pool`. No relation schema is written here: each one is
 M3's (`schema/interchange.py`) or a selection of M3's fields by name, failing on a missing name
 (`PoolSchemaError`), so a model change moves the pool with it.
 

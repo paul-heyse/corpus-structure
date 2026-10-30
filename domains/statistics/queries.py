@@ -129,7 +129,9 @@ class FamiliesWhere(Query):
             f.c.property_id == ctx.reader.iri(p.predicate),
             or_(f.c.subject_id.in_(families), f.c.subject_id.in_(parameters(ctx, families))),
         )
-        for batch in batched(ctx.reader.claims(statement=stmt, after=after), ctx.row_batch):
+        for batch in batched(
+            ctx.reader.claims(statement=stmt, after=after), ctx.row_batch, strict=False
+        ):
             subject_ids = {row.fact.subject.entity_id for row in batch}
             family_by_subject = {
                 row.fact.subject.entity_id: row.fact.subject
@@ -241,7 +243,9 @@ class Transformations(Query):
             )
         }
         o, c = T["occurrence"], T["occurrence_context"]
-        for batch in batched(ctx.reader.claims(statement=candidates, after=after), ctx.row_batch):
+        for batch in batched(
+            ctx.reader.claims(statement=candidates, after=after), ctx.row_batch, strict=False
+        ):
             refs_by_fact = {
                 row.fact.fact_id: condition_refs(row) & premises.keys() for row in batch
             }

@@ -40,7 +40,7 @@
     }
   ],
   "depends_on": [
-    "p0q.fk-cost"
+    "2026-10-28_phase0-model-probes/p0q.fk-cost"
   ],
   "results": [],
   "outcome": "passed",

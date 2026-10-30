@@ -2,9 +2,9 @@
 
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
 [ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
-occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below
-remain the selected runtime baseline until the [pivot series](../plans/semantic-model-pivot_2026-10-29.md)
-migrates their consumers. They do not constrain new releases or require historical compatibility.
+occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below are historical/proposed detail; current runtime contracts are
+identified in the semantic sections and the [pivot series](../plans/semantic-model-pivot_2026-10-29.md).
+They do not constrain new releases or require historical compatibility.
 SP-01 prepares logical artifacts. SP-02/SP-03 implement the new release archive, fixed physical
 schema and protected publication route; their current verification boundary is owned by the
 [PostgreSQL package](../plans/semantic-model-pivot/postgresql-and-publication.md). Consumer adoption
@@ -39,6 +39,19 @@ reference the first generated `MetaData` is compared against (a pglast-normalize
 probe Q-3 and package P0-M-2). Once the generated rendering exists, this document cites it by model
 revision and keeps only the explanatory prose. Column comments that would repeat D1 are omitted.
 > Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md), [ADR-0021](../adr/0021-instance-and-structure-authorities.md)
+
+## Current task authority and historical storage
+
+**Implemented, 2026-10-30; actual regeneration/qualification remains in SP-09/SP-10.**
+Fixed semantic relations and protected native operations own current run/task state. Agent
+supervision and interactive MCP are clients of that authority, not independent task stores.
+The old ADBC pool loader, raw legacy repository and installed-model database registration now
+live solely in test support as independent historical oracles. Pure payload artifact generation,
+Arrow pool algorithms and historical migration definitions remain; no current
+entry point selects the old installed-model knowledge path. Historical operational databases
+remain external references and are not upgraded by this retirement.
+
+> Decision: ADR-0034
 
 ## Governed derived publication
 
@@ -101,6 +114,12 @@ the seven tables once; subsequent supported finite variation becomes release row
 execution compiler 4, boundary ABI 12 and archive envelope 3 are separate compatibility decisions.
 Historical migration bytes, finalized archive contents and supported reader ABIs remain unchanged;
 old read success never authorizes current writes or activation.
+
+Forward `semantic_0034` changes reference insertion/grading routines to use immutable source
+frames from completed cuts, preserving empty producer work. It adds no tables or domain DDL.
+Pglast-derived native body/layout commitments change with the reviewed routines; exact existing
+archives must be reverified and admitted against that deployment before protected writes resume.
+This does not alter their release/result identity or authorize historical database migration.
 
 > Decision: ADR-0033
 

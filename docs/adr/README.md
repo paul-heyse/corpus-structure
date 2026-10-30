@@ -17,7 +17,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0011](0011-golden-author-and-annotator-inputs.md) | Author goldens with Sonnet from generated annotator inputs and query-assembled context | 2026-10-28 |  | Measured |  |
 | [ADR-0012](0012-math-grammar-token-keys.md) | Read math through one extended Lark grammar, key values by the token form, keep source facts as profile data, locate quotes with source offsets | 2026-10-28 |  | Tested | [ADR-0009](0009-math-grammar-authority.md) |
 | [ADR-0014](0014-observations-and-run-materialization.md) | Methods write observations; only consolidation writes knowledge, materialized per run | 2026-10-28 | [§B2](../design/DESIGN.md#section-b2) | Proposed |  |
-| [ADR-0015](0015-agent-work-queue.md) | The agent tier works a recorded queue; the pipeline never calls it | 2026-10-28 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
 | [ADR-0018](0018-policy-routed-escalation.md) | Escalation is routed by versioned policies over measurements | 2026-10-28 | [§B6](../design/DESIGN.md#section-b6) | Interface-checked |  |
 | [ADR-0024](0024-semantic-release-preparation.md) | Semantic releases govern interpretation and preserve independent assertion occurrences | 2026-10-29 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0013](0013-claim-model.md), [ADR-0019](0019-identity-follows-content.md), [ADR-0020](0020-one-model-generated-projections.md), [ADR-0021](0021-instance-and-structure-authorities.md), [ADR-0022](0022-schema-change-modelled.md), [ADR-0023](0023-declared-identity.md) |
 | [ADR-0026](0026-columnar-semantic-operations.md) | Semantic projections share snapshots and compose analytical operations in DuckDB | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
@@ -27,6 +26,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0031](0031-semantic-execution-closure.md) | Effective semantic contracts govern protected execution and archive opening | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0025](0025-semantic-publication.md) |
 | [ADR-0032](0032-native-test-deployment-equivalence.md) | Fresh native tests clone a session deployment with explicit database policy replay | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 | [ADR-0033](0033-relational-execution-products.md) | Release-scoped execution rows govern stable protected kernels | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Implemented |  |
+| [ADR-0034](0034-recorded-agent-supervision.md) | Agents execute the semantic queue through supervised or interactive MCP sessions | 2026-10-30 | [§B3](../design/DESIGN.md#section-b3) | Implemented | [ADR-0015](0015-agent-work-queue.md) |
 
 ## Superseded, still in the tree
 
@@ -34,6 +34,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 |---|---|---|---|---|---|
 | [ADR-0009](0009-math-grammar-authority.md) | Read math through one extended Lark grammar; source facts as profile data; offset-preserving quote location | 2026-10-28 |  | Tested |  |
 | [ADR-0013](0013-claim-model.md) | "Every fact is one claim form: subject, predicate, object, typed qualifiers, evidence, supports and status" | 2026-10-28 | [§B1](../design/DESIGN.md#section-b1) | Tested |  |
+| [ADR-0015](0015-agent-work-queue.md) | The agent tier works a recorded queue; the pipeline never calls it | 2026-10-28 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
 | [ADR-0016](0016-postgresql-single-authority.md) | PostgreSQL 18 is the single authority for knowledge, operations and evaluation | 2026-10-28 | [§B4](../design/DESIGN.md#section-b4) | Tested |  |
 | [ADR-0017](0017-linkml-domain-packs.md) | A domain is a LinkML pack compiled into every consumer | 2026-10-28 | [§B5](../design/DESIGN.md#section-b5) | Tested |  |
 | [ADR-0019](0019-identity-follows-content.md) | "Identity follows content: renditions are content-addressed, statements and scopes are anchored by locators, authored batches are the authority" | 2026-10-28 |  | Proposed |  |

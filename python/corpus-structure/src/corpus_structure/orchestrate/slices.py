@@ -47,7 +47,8 @@ def expand(
                 )
             elif key == "golden_set":
                 raise SliceError(
-                    "held-out reference sets cannot select extraction source units; use explicit source locators"
+                    "held-out reference sets cannot select extraction source units; "
+                    "use explicit source locators"
                 )
             else:
                 raise SliceError(f"slice {name}: unsupported selector {entry!r}")

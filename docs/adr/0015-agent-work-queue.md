@@ -1,10 +1,10 @@
 ---
 id: ADR-0015
 title: The agent tier works a recorded queue; the pipeline never calls it
-status: accepted
+status: superseded
 date: 2026-10-28
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0034
 design: [§B3]
 evidence: Proposed
 ---

@@ -15,25 +15,21 @@ method's resolved params (named `<method>/<name>` or `<name>`), a `SourceProfile
 profile, a `PackSection` to the file's section. A float becomes its canonical decimal string before
 hashing (D1 §10.1), and `cfg:` hashes the complete canonical params, defaults included.
 
-**Per run.** `resolve_all` resolves every named configuration of every registered method (a method
-the file names nothing for gets `default`, its `Config` defaults); `record` get-or-creates the
-`ops.method` rows (with the declared `ConfidenceSource` beside the family) and `ops.method_config`
-rows (with the tier). The run stores the map `<method>/<name>` → config hash in its options, and
-`RunConfigs` serves every later lookup for the run from that map and the stored rows, so editing
-`methods.yaml` never changes what an existing run resolves.
+**Per run.** `resolve_all` prepares complete named configurations. Current semantic source
+execution records release-bound configuration rows through protected operations. Historical
+installed-model recording/readback lives only in test support, not in this product registry.
 """
 
 from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import Connection, select
 
 from corpus_structure.core.canonical import decimal_of_float
 from corpus_structure.core.evidence import config_key
@@ -255,99 +251,3 @@ class MethodRegistry:
         if problems:
             raise RegistryError(problems)
         return out
-
-    def record(
-        self, conn: Connection, resolved: Mapping[str, ResolvedConfig]
-    ) -> dict[str, ResolvedConfig]:
-        """Get or create each configuration's `ops.method` and `ops.method_config` rows."""
-        from corpus_structure.core.db import repo
-        from corpus_structure.core.db.legacy_metadata import metadata
-
-        method_rows: dict[str, int] = {}
-        out = {}
-        for key, rc in resolved.items():
-            m = self.method(rc.method)
-            if rc.method not in method_rows:
-                method_rows[rc.method], _ = repo.get_or_create(
-                    conn,
-                    metadata.tables["ops.method"],
-                    {
-                        "name": m.name,
-                        "version": m.version,
-                        "family": m.family.value,
-                        "confidence_source": m.confidence_source.value
-                        if m.confidence_source
-                        else None,
-                    },
-                    ["name", "version"],
-                )
-            config_id, _ = repo.get_or_create(
-                conn,
-                metadata.tables["ops.method_config"],
-                {
-                    "method_id": method_rows[rc.method],
-                    "name": rc.name,
-                    "params": dict(rc.params),
-                    "config_hash": rc.config_hash,
-                    "tier": m.tier.value,
-                },
-                ["config_hash"],
-            )
-            out[key] = replace(rc, method_config_id=config_id)
-        return out
-
-
-def artifact_hashes(conn: Connection, schema_version_id: int) -> dict[tuple[str, str], str]:
-    """The schema version's artifacts by (compiler, kind), at the installed compiler versions."""
-    from corpus_structure.core.db.legacy_metadata import metadata
-    from corpus_structure.schema.compile import COMPILERS, compiler_version
-
-    table = metadata.tables["meta.compiled_artifact"]
-    rows = conn.execute(
-        select(table.c.compiler, table.c.compiler_version, table.c.kind, table.c.hash).where(
-            table.c.schema_version_id == schema_version_id
-        )
-    )
-    installed = {c: compiler_version(c) for c in COMPILERS}
-    return {(r[0], r[2]): r[3] for r in rows if installed.get(r[0]) == r[1]}
-
-
-class RunConfigs:
-    """A run's configurations, from its recorded map and the stored rows: every lookup for the run
-    after creation (a policy action, a pass-C task days later) reads these."""
-
-    def __init__(self, registry: MethodRegistry, conn: Connection, configs: Mapping[str, str]):
-        from corpus_structure.core.db.legacy_metadata import metadata
-
-        table = metadata.tables["ops.method_config"]
-        hashes = sorted(set(configs.values()))
-        rows = {
-            r.config_hash: r
-            for r in conn.execute(
-                select(table.c.id, table.c.config_hash, table.c.params).where(
-                    table.c.config_hash.in_(hashes)
-                )
-            )
-        }
-        self.registry = registry
-        self._by_key: dict[str, ResolvedConfig] = {}
-        for key, config_hash in configs.items():
-            method, name = key.split("/", 1)
-            row = rows[config_hash]
-            cfg = registry.method(method).Config.model_validate(row.params)
-            self._by_key[key] = ResolvedConfig(method, name, cfg, row.params, config_hash, row.id)
-
-    def config(self, method: str, name: str) -> ResolvedConfig:
-        key = f"{method}/{name}"
-        if key not in self._by_key:
-            raise RegistryError([f"{key}: not a configuration this run recorded"])
-        return self._by_key[key]
-
-    def method(self, name: str) -> Method[Any]:
-        return self.registry.method(name)
-
-    def methods(self) -> Sequence[Method[Any]]:
-        return self.registry.methods()
-
-    def items(self) -> Iterable[tuple[str, ResolvedConfig]]:
-        return self._by_key.items()

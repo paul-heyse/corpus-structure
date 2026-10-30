@@ -209,14 +209,19 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 <a id="section-b3"></a>
 
-### §B3 The agent tier works a recorded queue; the pipeline never calls it
+### §B3 Agents work the semantic queue through supervised or interactive MCP sessions
 
-**Proposed** (accepted, not yet built). Policies create `awaiting_agent` tasks; the session pulls
-bounded packets and submits through MCP tools; runs wait at a barrier or finish with those items
-unresolved; golden passes go through the same tools by Sonnet subagents
-([D6](D6-orchestration-metrics-policies.md), [D8](D8-agent-and-query-interfaces.md)).
+**Implemented, 2026-10-30; full SP-09/SP-10 qualification remains separately owned.** A supervisor
+may invoke the configured model in a fresh run-bound stdio MCP session. PostgreSQL owns the
+recorded release, tasks, leases, attempts and completion; provider exit does not imply semantic
+success. Interactive sessions use the same bounded packets and protected proposal operations.
+Source extraction has no reference access; independent automated authoring/grading uses evaluator
+credentials. No human grading is required. Current semantic execution refuses the unimplemented
+legacy wait barrier rather than implying that every old option is supported.
+([D6](D6-orchestration-metrics-policies.md), [D7](D7-evaluation-goldens-outer-loop.md),
+[D8](D8-agent-and-query-interfaces.md)).
 
-> Decision: ADR-0015
+> Decision: ADR-0034
 
 <a id="section-b4"></a>
 

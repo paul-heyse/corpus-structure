@@ -31,12 +31,15 @@ import typing
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
+from enum import StrEnum
 from functools import cached_property
 from typing import Any, NamedTuple
 
 import pyarrow as pa
+from pydantic import MISSING
 
 from corpus_structure.core import tex
+from corpus_structure.core._model.qualifiers import CORE_QUALIFIERS
 from corpus_structure.core.candidates import (
     CandidateClaim,
     CandidateEntity,
@@ -507,14 +510,17 @@ class ClaimView:
     def qualifiers(self) -> QualifiersView:
         b = self._b
         q = self._c.qualifiers
-        dumped = self._qualifiers
+        dumped = dict(self._qualifiers)
+        # Compact stored dumps omit defaults. Restore them from the generated model
+        # declarations, then project defaults and explicit values through one path.
+        for spec in CORE_QUALIFIERS:
+            if spec.default is not MISSING:
+                dumped.setdefault(spec.name, getattr(q, spec.local_name))
         values: dict[str, Any] = {}
         for prefixed, attr in b.identifiers.items():
             info = b.qualifiers.get(prefixed)
             raw = dumped.get(prefixed)
             values[attr] = _qualifier_value(info.object_kind if info else "", prefixed, raw)
-        values[b.identifiers["core:modality"]] = q.modality
-        values[b.identifiers["core:polarity"]] = str(q.polarity)
         return QualifiersView(values)
 
     @cached_property
@@ -615,7 +621,11 @@ def _qualifier_value(kind: str, prefixed: str, raw: Any) -> Any:
         return Decimal(str(raw.get("v")))
     if kind == "bool" and isinstance(raw, dict):
         return bool(raw.get("v"))
-    if isinstance(raw, str | bool):
+    if isinstance(raw, StrEnum):
+        return raw.value
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, bool):
         return raw
     return canonical_json(raw)
 

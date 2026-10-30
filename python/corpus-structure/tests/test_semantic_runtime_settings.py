@@ -28,15 +28,16 @@ def test_restricted_defaults_and_purpose_credentials(monkeypatch):
     monkeypatch.delenv("CORPUS_RUNTIME__DEFAULT_PROJECT", raising=False)
     settings = Settings()
     assert settings.runtime.default_project == "semantic-pivot"
-    assert "corpus_sem_writer@/corpus_semantic" in settings.database.url
+    assert "corpus_sem_writer@/corpus_semantic_pivot_20261030" in settings.database.url
     assert (
-        "corpus_sem_reader@/corpus_semantic" in connection_settings(settings, "read").database.url
+        "corpus_sem_reader@/corpus_semantic_pivot_20261030"
+        in connection_settings(settings, "read").database.url
     )
     assert connection_settings(settings).database.url == settings.database.url
     explicit = Settings(database={"evaluator_url": "postgresql://evaluator:password@"})
     evaluator = make_url(connection_settings(explicit, "evaluate").database.url)
     assert evaluator.username == "evaluator" and evaluator.password == "password"
-    assert evaluator.database == "corpus_semantic" and evaluator.host is None
+    assert evaluator.database == "corpus_semantic_pivot_20261030" and evaluator.host is None
     assert evaluator.query == {"host": "/var/run/postgresql", "port": "5434"}
     report = settings_report(explicit, {})
     assert "password" not in report.model_dump_json()
@@ -154,3 +155,9 @@ def test_new_purpose_passwords_are_masked():
     )
     report = settings_report(settings, {}).model_dump_json()
     assert "reader-secret" not in report and "admitter-secret" not in report
+
+
+@pytest.mark.parametrize("url", ["postgresql:///t", "postgresql:///t?host=%2Ftmp&port=5434"])
+def test_report_preserves_explicit_socket_url_authority(url):
+    settings = Settings(database={"url": url})
+    assert settings_report(settings, {}).resolved["database.url"] == url

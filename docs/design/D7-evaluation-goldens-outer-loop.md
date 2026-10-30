@@ -5,6 +5,28 @@ versioned guideline, blind two-pass golden authoring by Sonnet with adjudication
 leakage rules, alignment and scoring, witnesses that do not depend on the golden author, experiments and
 promotion, and the operator's outer loop of direction. Tables: [D3 §7](D3-database.md#7-eval-goldens-and-results).
 
+## Current automated reference boundary
+
+**Implemented, 2026-10-30; actual regeneration/qualification remains in SP-09/SP-10.**
+Source extraction is supervised or interactive against the semantic queue. Independent reference
+authoring, adjudication and grading are automated, with no human grading step. The evaluator
+principal owns reference operations under ADR-0030; extraction receives neither reference answers
+nor evaluator credentials. Source-only independent fixtures may be bound to the frozen frame and
+graded through the same evaluator contract. Existing historical grades remain immutable; actual
+scores, including zero, are retained without a quality threshold. The earlier proposed model-tier,
+two-pass and experiment details below are not claims that all such profiles are implemented.
+
+Reference membership follows the completed cut through effective origin tasks and immutable
+source frames. An empty producer remains a reference unit even when no `AgentStoredBatch`
+observation exists; prediction presence cannot select the evaluation universe. Python sampling
+and protected native insertion/grading enforce the same project, split, rendition and unit
+binding. Forced slices constrain that frozen cut; out-of-cut locators are recorded explicitly,
+while absent/ambiguous locators on acquired pages and undersized in-cut samples refuse.
+Canonical boundary adapters serialize dates, instants and exact decimals through their declared
+JSON field serializers before reference rewriting/revalidation.
+
+> Decision: ADR-0034
+
 ## 1. The problem and the answer
 
 Goldens are written by **Sonnet 5.5** subagents (ADR-0011); the pipeline escalates to Opus, the

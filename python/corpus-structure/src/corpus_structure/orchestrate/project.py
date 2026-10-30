@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import hashlib
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -16,19 +15,6 @@ from corpus_structure.orchestrate.registry import MethodRegistry
 
 class ProjectError(ValueError):
     """A project or pack that cannot be registered as it stands."""
-
-
-@dataclass(frozen=True)
-class PackVersions:
-    """The versions a pack upsert registered or found."""
-
-    schema_version_id: int
-    schema_version: str
-    model_revision_id: int
-    model_revision: str
-    guideline_version_id: int | None
-    policy_version_id: int
-    created: tuple[str, ...] = ()
 
 
 def source_documents(corpus: Path, profile: Any, profile_name: str):

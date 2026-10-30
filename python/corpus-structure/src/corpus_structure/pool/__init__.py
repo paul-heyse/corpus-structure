@@ -2,7 +2,8 @@
 
 - `contract`: the pool's model-typed Arrow relations, their metadata and determinism rules, and
   `build`, the pure function from what the loader reads to a `Pool`;
-- `load`: the ADBC loader of one run's pool as of its cut;
+- Historical ADBC pool loading lives only in database-test support; current production uses
+  the release-bound semantic snapshot and analytics owners.
 - `hydrate`: T3, the pool's candidates as keyed candidate sets, one per proposal observation;
 - `steps`: the set-step interface, its schemas and the Python reference implementation;
 - `duckdb_engine`: the in-process DuckDB 2.0 implementation of the same steps;

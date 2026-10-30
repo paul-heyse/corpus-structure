@@ -1,4 +1,7 @@
-"""The current named-query plugin registry; native serving journeys live in semantic/test_serving."""
+"""The current named-query plugin registry.
+
+Native serving journeys live in semantic/test_serving.
+"""
 
 from pathlib import Path
 

@@ -2,8 +2,12 @@
   "schema_version": 1,
   "id": "sp06.execution-fit",
   "title": "SP06 native statistics-cut release preparation repair",
+  "group": null,
   "package": "SP-06",
-  "finalized": "2026-10-29",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
   "question": "Does the slow native statistics test reveal avoidable repeated release preparation and graph canonicalization?",
   "answers": [
     "SP-06",
@@ -13,42 +17,55 @@
   "commands": [
     "uv run --no-sync python docs/design_review/evidence/2026-10-29_sp06-execution-fit/profile_test.py"
   ],
+  "agents": [],
   "inputs": [
     {
       "path": "profile_test.py",
-      "role": "scoped timing wrapper"
+      "role": "scoped timing wrapper",
+      "sha256": "09847c05c9659f9c5832e94062acc8beb79f3dbd0b39b617a34cc43b4bd9ac20"
     },
     {
       "path": "library/canonicalization_probe.py",
-      "role": "small RDF semantics probe"
+      "role": "small RDF semantics probe",
+      "sha256": "8992fd8d7349a3772a175ec4d4834ee1a75226651ebe5e793edf5a11db9ed008"
     }
   ],
   "outputs": [
     {
       "path": "raw",
-      "role": "baseline and repaired timings, logs and native RDF observations"
+      "role": "baseline and repaired timings, logs and native RDF observations",
+      "sha256": "85a7dcf3239fd88d399a67e2ffef52017c12789a3ca0c34e18b83d48d3272037"
     }
   ],
+  "depends_on": [],
   "results": [
     {
       "name": "baseline_test_body",
       "value": 98.3806,
-      "unit": "seconds"
+      "of": null,
+      "unit": "seconds",
+      "note": null
     },
     {
       "name": "repaired_test_body",
       "value": 2.68625745002646,
-      "unit": "seconds"
+      "of": null,
+      "unit": "seconds",
+      "note": null
     },
     {
       "name": "baseline_process",
       "value": 101.331,
-      "unit": "seconds"
+      "of": null,
+      "unit": "seconds",
+      "note": null
     },
     {
       "name": "repaired_process",
       "value": 4.740963759017177,
-      "unit": "seconds"
+      "of": null,
+      "unit": "seconds",
+      "note": null
     }
   ],
   "outcome": "passed",

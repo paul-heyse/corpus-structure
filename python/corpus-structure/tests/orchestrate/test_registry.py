@@ -23,6 +23,8 @@ from corpus_structure.core.method import (
 from corpus_structure.core.vocab import ConfidenceSource, MethodFamily, MethodTier, TaskUnitType
 from corpus_structure.orchestrate import registry as reg
 
+from .legacy_registry import RunConfigs, record
+
 REPO = Path(__file__).resolve().parents[4]
 
 
@@ -184,8 +186,8 @@ def test_the_loader_ignores_the_environment(
 
 def test_recorded_rows_and_the_runs_map(db: Connection, tmp_path: Path) -> None:
     registry = reg.MethodRegistry(METHODS, methods_file(tmp_path, FILE))
-    recorded = registry.record(db, registry.resolve_all(ARTIFACTS))
-    again = registry.record(db, registry.resolve_all(ARTIFACTS))
+    recorded = record(registry, db, registry.resolve_all(ARTIFACTS))
+    again = record(registry, db, registry.resolve_all(ARTIFACTS))
     assert {k: v.method_config_id for k, v in recorded.items()} == {
         k: v.method_config_id for k, v in again.items()
     }
@@ -205,7 +207,7 @@ def test_recorded_rows_and_the_runs_map(db: Connection, tmp_path: Path) -> None:
         **FILE,
         "configs": {**FILE["configs"], "agent.opus": {"adjudicate": {"packet_cap_chars": 1}}},
     }
-    later = reg.RunConfigs(reg.MethodRegistry(METHODS, methods_file(tmp_path, edited)), db, run_map)
+    later = RunConfigs(reg.MethodRegistry(METHODS, methods_file(tmp_path, edited)), db, run_map)
     recorded_config = later.config("agent.opus", "adjudicate").config
     assert isinstance(recorded_config, AgentConfig)
     assert recorded_config.packet_cap_chars == 9000

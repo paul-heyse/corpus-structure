@@ -1,0 +1,415 @@
+[
+  {
+    "unit_ref": "special/LocationScale.html@p:As usual,",
+    "entities": [
+      {
+        "id": "expected-Z",
+        "class_iri": "https://corpus-structure.dev/domains/statistics/RandomVariable",
+        "label": "Z",
+        "attributes": [
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/symbol",
+            "value": {
+              "kind": "text",
+              "text": "Z"
+            }
+          },
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/scope_locator",
+            "value": {
+              "kind": "text",
+              "text": "special/LocationScale.html@p:As usual,"
+            }
+          }
+        ],
+        "scope": {
+          "extent": "statement",
+          "locator": "special/LocationScale.html@p:As usual,"
+        }
+      }
+    ],
+    "claims": [
+      {
+        "id": "expected-real-valued",
+        "subject": "expected-Z",
+        "predicate": "https://corpus-structure.dev/domains/statistics/takes_values_in",
+        "object": {
+          "kind": "set",
+          "language": "latex",
+          "expression": "\\R",
+          "bindings": []
+        },
+        "qualification": {
+          "modality": "supposed",
+          "polarity": true
+        },
+        "establishment": "stated",
+        "evidence": [
+          {
+            "sentence": "expected-real-valued-sentence",
+            "quote": "In this section, we assume that we fixed random variable \\( Z \\) defined on the probability space, with values in \\( \\R \\).",
+            "role": "primary"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "unit_ref": "special/LocationScale.html#dfn1",
+    "entities": [
+      {
+        "id": "expected-X",
+        "class_iri": "https://corpus-structure.dev/domains/statistics/RandomVariable",
+        "label": "X",
+        "attributes": [
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/symbol",
+            "value": {
+              "kind": "text",
+              "text": "X"
+            }
+          },
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/scope_locator",
+            "value": {
+              "kind": "text",
+              "text": "special/LocationScale.html#dfn1"
+            }
+          }
+        ],
+        "scope": {
+          "extent": "statement",
+          "locator": "special/LocationScale.html#dfn1"
+        }
+      },
+      {
+        "id": "expected-base-Z",
+        "class_iri": "https://corpus-structure.dev/domains/statistics/RandomVariable",
+        "label": "Z",
+        "attributes": [
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/symbol",
+            "value": {
+              "kind": "text",
+              "text": "Z"
+            }
+          },
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/scope_locator",
+            "value": {
+              "kind": "text",
+              "text": "special/LocationScale.html#dfn1"
+            }
+          }
+        ],
+        "scope": {
+          "extent": "statement",
+          "locator": "special/LocationScale.html#dfn1"
+        }
+      }
+    ],
+    "claims": [
+      {
+        "id": "expected-affine-definition",
+        "subject": "expected-X",
+        "predicate": "https://corpus-structure.dev/domains/statistics/defined_as",
+        "object": {
+          "kind": "formula",
+          "language": "latex",
+          "expression": "a + b \\, Z",
+          "bindings": [
+            {
+              "kind": "free",
+              "symbol": "a"
+            },
+            {
+              "kind": "free",
+              "symbol": "b"
+            },
+            {
+              "kind": "variable",
+              "symbol": "Z",
+              "entity": "expected-base-Z"
+            }
+          ]
+        },
+        "qualification": {
+          "modality": "defined",
+          "polarity": true
+        },
+        "establishment": "stated",
+        "evidence": [
+          {
+            "sentence": "expected-affine-definition-sentence",
+            "quote": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\), let \\(X = a + b \\, Z\\).",
+            "role": "primary"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "unit_ref": "special/Normal.html@p:Suppose again",
+    "entities": [
+      {
+        "id": "expected-X",
+        "class_iri": "https://corpus-structure.dev/domains/statistics/RandomVariable",
+        "label": "X",
+        "attributes": [
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/symbol",
+            "value": {
+              "kind": "text",
+              "text": "X"
+            }
+          },
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/scope_locator",
+            "value": {
+              "kind": "text",
+              "text": "special/Normal.html@p:Suppose again"
+            }
+          }
+        ],
+        "scope": {
+          "extent": "statement",
+          "locator": "special/Normal.html@p:Suppose again"
+        }
+      },
+      {
+        "id": "expected-normal",
+        "class_iri": "https://corpus-structure.dev/domains/statistics/DistributionFamily",
+        "label": "normal distribution"
+      }
+    ],
+    "claims": [
+      {
+        "id": "expected-normal-setup",
+        "subject": "expected-X",
+        "predicate": "https://corpus-structure.dev/domains/statistics/has_distribution",
+        "object": {
+          "kind": "entity",
+          "target": "expected-normal"
+        },
+        "qualification": {
+          "modality": "supposed",
+          "polarity": true,
+          "param_values": {
+            "location": {
+              "key": "location",
+              "value": {
+                "kind": "formula",
+                "language": "latex",
+                "expression": "\\mu",
+                "bindings": [
+                  {
+                    "kind": "free",
+                    "symbol": "\\mu"
+                  }
+                ]
+              }
+            },
+            "scale": {
+              "key": "scale",
+              "value": {
+                "kind": "formula",
+                "language": "latex",
+                "expression": "\\sigma",
+                "bindings": [
+                  {
+                    "kind": "free",
+                    "symbol": "\\sigma"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "establishment": "stated",
+        "evidence": [
+          {
+            "sentence": "expected-normal-setup-sentence",
+            "quote": "Suppose again that \\( X \\) has the normal distribution with location parameter \\( \\mu \\in \\R \\) and scale parameter \\( \\sigma \\in (0, \\infty) \\).",
+            "role": "primary"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "unit_ref": "special/Normal.html#rel1",
+    "entities": [
+      {
+        "id": "expected-X",
+        "class_iri": "https://corpus-structure.dev/domains/statistics/RandomVariable",
+        "label": "X",
+        "attributes": [
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/symbol",
+            "value": {
+              "kind": "text",
+              "text": "X"
+            }
+          },
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/scope_locator",
+            "value": {
+              "kind": "text",
+              "text": "special/Normal.html#rel1"
+            }
+          }
+        ],
+        "scope": {
+          "extent": "statement",
+          "locator": "special/Normal.html#rel1"
+        }
+      },
+      {
+        "id": "expected-normal",
+        "class_iri": "https://corpus-structure.dev/domains/statistics/DistributionFamily",
+        "label": "normal distribution"
+      }
+    ],
+    "claims": [
+      {
+        "id": "expected-normal-premise",
+        "subject": "expected-X",
+        "predicate": "https://corpus-structure.dev/domains/statistics/has_distribution",
+        "object": {
+          "kind": "entity",
+          "target": "expected-normal"
+        },
+        "qualification": {
+          "modality": "supposed",
+          "polarity": true,
+          "param_values": {
+            "mean": {
+              "key": "mean",
+              "value": {
+                "kind": "formula",
+                "language": "latex",
+                "expression": "\\mu",
+                "bindings": [
+                  {
+                    "kind": "free",
+                    "symbol": "\\mu"
+                  }
+                ]
+              }
+            },
+            "variance": {
+              "key": "variance",
+              "value": {
+                "kind": "formula",
+                "language": "latex",
+                "expression": "\\sigma^2",
+                "bindings": [
+                  {
+                    "kind": "free",
+                    "symbol": "\\sigma"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "establishment": "stated",
+        "evidence": [
+          {
+            "sentence": "expected-normal-premise-sentence",
+            "quote": "Suppose that \\(X\\) is normally distributed with mean \\(\\mu\\) and variance \\(\\sigma^2\\).",
+            "role": "primary"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "unit_ref": "special/LogNormal.html#dfn",
+    "entities": [
+      {
+        "id": "expected-Y",
+        "class_iri": "https://corpus-structure.dev/domains/statistics/RandomVariable",
+        "label": "Y",
+        "attributes": [
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/symbol",
+            "value": {
+              "kind": "text",
+              "text": "Y"
+            }
+          },
+          {
+            "predicate": "https://corpus-structure.dev/domains/statistics/scope_locator",
+            "value": {
+              "kind": "text",
+              "text": "special/LogNormal.html#dfn"
+            }
+          }
+        ],
+        "scope": {
+          "extent": "statement",
+          "locator": "special/LogNormal.html#dfn"
+        }
+      },
+      {
+        "id": "expected-normal",
+        "class_iri": "https://corpus-structure.dev/domains/statistics/DistributionFamily",
+        "label": "normal distribution"
+      }
+    ],
+    "claims": [
+      {
+        "id": "expected-normal-base",
+        "subject": "expected-Y",
+        "predicate": "https://corpus-structure.dev/domains/statistics/has_distribution",
+        "object": {
+          "kind": "entity",
+          "target": "expected-normal"
+        },
+        "qualification": {
+          "modality": "supposed",
+          "polarity": true,
+          "param_values": {
+            "mean": {
+              "key": "mean",
+              "value": {
+                "kind": "formula",
+                "language": "latex",
+                "expression": "\\mu",
+                "bindings": [
+                  {
+                    "kind": "free",
+                    "symbol": "\\mu"
+                  }
+                ]
+              }
+            },
+            "standard_deviation": {
+              "key": "standard_deviation",
+              "value": {
+                "kind": "formula",
+                "language": "latex",
+                "expression": "\\sigma",
+                "bindings": [
+                  {
+                    "kind": "free",
+                    "symbol": "\\sigma"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "establishment": "stated",
+        "evidence": [
+          {
+            "sentence": "expected-normal-base-sentence",
+            "quote": "Suppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in (0, \\infty)\\).",
+            "role": "primary"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -32,7 +32,7 @@ class _Section(BaseModel):
 class DatabaseSettings(_Section):
     """One libpq URL (peer authentication; no password belongs here) and the template database."""
 
-    url: str = "postgresql://corpus_sem_writer@/corpus_semantic?host=/var/run/postgresql&port=5434"
+    url: str = "postgresql://corpus_sem_writer@/corpus_semantic_pivot_20261030?host=/var/run/postgresql&port=5434"
     maintenance_url: str = "postgresql:///"
     reader_url: str | None = None
     admission_url: str | None = None
@@ -160,9 +160,15 @@ def _mask_url_credentials(url: str) -> str:
                 for key, value in parse_qsl(parts.query, keep_blank_values=True)
             ]
         )
-        return urlunsplit(
+        rendered = urlunsplit(
             parts._replace(netloc=netloc, query=query, fragment=MASK if parts.fragment else "")
         )
+        # urllib drops an explicitly empty authority for schemes outside its registry.
+        # Libpq uses that authority for peer/socket URLs; retain the declared delimiter.
+        prefix = parts.scheme + "://"
+        if not netloc and url.startswith(prefix) and not rendered.startswith(prefix):
+            rendered = prefix + rendered[len(parts.scheme) + 1 :]
+        return rendered
     except ValueError:
         return MASK
 

@@ -136,41 +136,45 @@ def load_source_frame(conn: Connection, task_id: int) -> ProposalFrame:
     )
 
 
+def packet_bound_source_tasks(run_id: int, *, cut_id: int | None = None):
+    """Source-frame obligations follow packet-bound, non-skipped origin tasks.
+
+    Skipped tasks may carry a precomputed packet hash, but their explicit lifecycle outcome
+    excludes them from the acquired source universe. Empty and failed reports do not.
+    """
+    tasks, members, cuts = map(table, ("ops.task", "ops.cut_task", "ops.input_cut"))
+    origin = tasks.alias("packet_bound_origin")
+    query = select(origin).where(origin.c.packet_hash.is_not(None), origin.c.status != "skipped")
+    if cut_id is not None:
+        return (
+            query.join(members, members.c.origin_task_id == origin.c.id)
+            .join(cuts, cuts.c.id == members.c.cut_id)
+            .where(cuts.c.id == cut_id, cuts.c.run_id == run_id)
+        )
+    return query.join(
+        tasks, origin.c.id == func.coalesce(tasks.c.reused_task_id, tasks.c.id)
+    ).where(tasks.c.run_id == run_id)
+
+
 def backfill_source_frames(engine: Engine, run_id: int) -> int:
     """Append missing origin frames after rebuilding and verifying their original packet hash."""
     from corpus_structure.orchestrate.semantic import agent_packet
 
     from .releases import open_release
 
-    tasks, observations, cuts, members, frames = map(
-        table, ("ops.task", "kb.observation", "ops.input_cut", "ops.cut_task", "ops.source_frame")
-    )
+    tasks, cuts, frames = map(table, ("ops.task", "ops.input_cut", "ops.source_frame"))
     with engine.begin() as conn:
         cut = conn.execute(
             select(cuts.c.id).where(cuts.c.run_id == run_id, cuts.c.final)
         ).scalar_one_or_none()
-        origin = tasks.alias("source_frame_origin")
-        query = (
-            select(observations.c.task_id)
-            .join(origin, origin.c.id == observations.c.task_id)
-            .where(
-                observations.c.payload_definition == "AgentStoredBatch",
-                origin.c.packet_hash.is_not(None),
-            )
-        )
-        if cut is not None:
-            query = query.join(members, members.c.origin_task_id == observations.c.task_id).where(
-                members.c.cut_id == cut
-            )
-        else:
-            query = query.join(
-                tasks, observations.c.task_id == func.coalesce(tasks.c.reused_task_id, tasks.c.id)
-            ).where(tasks.c.run_id == run_id)
+        origin = packet_bound_source_tasks(run_id, cut_id=cut).subquery()
         missing = (
             conn.execute(
-                query.outerjoin(frames, frames.c.task_id == observations.c.task_id)
+                select(origin.c.id)
+                .outerjoin(frames, frames.c.task_id == origin.c.id)
                 .where(frames.c.task_id.is_(None))
                 .distinct()
+                .order_by(origin.c.id)
             )
             .scalars()
             .all()

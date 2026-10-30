@@ -8,6 +8,7 @@ import shutil
 import signal
 import subprocess
 import tempfile
+from contextlib import suppress
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
@@ -81,10 +82,14 @@ def extract_run(
         )
     ]
     prompt = (
-        f"Complete all pending extraction work for semantic run {run_id} using only corpus MCP tools. "
-        "Read server instructions, lease one unit at a time, read ALL instruction pages and unit parts, "
-        "and submit a source-grounded authored batch matching the exact supplied schema. Correct held "
-        "submissions from their feedback. Preserve negative statements, missingness, qualifications, "
+        f"Complete all pending extraction work for semantic run {run_id} "
+        "using only corpus MCP tools. "
+        "Read server instructions, lease one unit at a time, "
+        "read ALL instruction pages and unit parts, "
+        "and submit a source-grounded authored batch matching the exact supplied schema. "
+        "Correct held "
+        "submissions from their feedback. "
+        "Preserve negative statements, missingness, qualifications, "
         "exact values and cited sentence anchors. Do not invent facts or read reference answers. "
         "Continue until queue_next returns no tasks; report any refusal honestly."
     )
@@ -171,19 +176,15 @@ def extract_run(
             ) from error
         finally:
             # The fresh provider and all stdio MCP descendants belong to this process group.
-            try:
+            with suppress(ProcessLookupError):
                 os.killpg(process.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
             try:
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 os.killpg(process.pid, signal.SIGKILL)
                 process.wait()
-            try:
+            with suppress(ProcessLookupError):
                 os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
     if process.returncode:
         raise OperationConflict(
             f"automated provider failed for run {run_id}: {stderr[-2000:] or stdout[-2000:]}"

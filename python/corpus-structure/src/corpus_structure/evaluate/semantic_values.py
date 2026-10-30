@@ -71,14 +71,14 @@ def rewrite_references(
         prepared, type(model).__name__, model, classes=entities, facts=claims, collision="reject"
     )
 
-    def mutable_sequences(item: Any) -> Any:
-        if isinstance(item, (tuple, list)):
-            return [mutable_sequences(member) for member in item]
-        if isinstance(item, Mapping):
-            return {key: mutable_sequences(member) for key, member in item.items()}
-        return item
-
-    return mutable_sequences(rewritten)
+    # The visitor returns schema-native Python records (dates, Decimals and tuples included).
+    # Evaluation combines and reopens these records at the producer JSON boundary, so cross
+    # that boundary through its canonical Pydantic model rather than an identity encoder or
+    # generic string conversion. Field-specific serializers retain exact lexical values.
+    boundary = prepared.adapter(type(model).__name__).validate_python(
+        rewritten, strict=True, by_name=True, context={"validation_purpose": "structural"}
+    )
+    return boundary.model_dump(mode="json", by_alias=False, exclude_unset=True)
 
 
 def entity_references(prepared: PreparedRelease, range_name: str, value: Any) -> frozenset[str]:

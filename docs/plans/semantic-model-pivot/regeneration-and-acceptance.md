@@ -1,6 +1,52 @@
 # Regeneration, retirement and integrated acceptance
 
-**Status:** SP-09 partial; SP-10 qualification incomplete; whole-series completion audit performed below · **Created/Revised:** 2026-10-29.
+**Status:** SP-09 functional integration complete; SP-10 qualified by applicable required union; whole-series completion audit performed below · **Created/Revised:** 2026-10-29.
+
+## Current execution — 2026-10-30
+
+**SP-09 functionally complete; SP-10 required-union qualified (Tested),2026-10-30.** Fresh owned
+`corpus_semantic_pivot_20261030` on `18/corpus:5434` bootstrapped at0033, then applied forward
+revision0034. Actual authenticated statistics run1, transfer run2 and source-frame run3 completed.
+All three selected generation2 through completed replay without another extraction. Current
+query/explanation/JSONL/Parquet consumers passed for all three; the transfer query preserves
+`12.3400`. Independent automated reference grades persisted for transfer and all five statistics
+trace units. Scores are retained without quality tuning or human grading. Runtime defaults now
+select this fresh target and the existing canonical statistics project.
+
+Revision0034 repairs Python/native reference custody to use immutable source frames from the
+completed cut, including empty producer work. Both reference insertion and grading enforce that
+same authority. Pglast-derived native commitments changed accordingly; exact unchanged archives
+were reverified and re-admitted under the admitter after the reviewed physical revision. No
+release, source, observation or result identity was replaced, and no per-domain DDL was added.
+Original failed date/source-pool/native-guard grading attempts remain alongside passing retries.
+
+The old0030 database is unchanged. Frozen source/lock at `ad4593f` proved read-only historical
+query/explanation/JSONL export. Historical run3 is preserved; its continuation obligation is
+explicitly replaced by the completed fresh current-model source-frame run3. No old-row migration,
+write bridge, re-extraction or historical regrading is scheduled.
+
+ADR-0034 supersedes ADR-0015; B3/D3/D6/D7/D8 describe the supervised persistent queue. Superseded
+production orchestration and legacy repository/registration/pool-loading routes were removed or
+moved to explicit historical test support. Independent native controls passed 34 tests. Spawned
+math workers passed 7 focused controls. The full 78-page oracle remains part of final qualification.
+[Operational evidence and commands](../../design_review/evidence/2026-10-30_semantic-pivot-final/README.md)
+retain the precise context; coordinator§13 owns finding disposition. Final default collection is2325 nodes. The full invocation retained2295 passed/24 failed;
+a final affected selection passed242, including every failed node and six new regressions.
+All2325 required nodes have applicable passing setup/call/teardown evidence with none unresolved.
+The aggregate classifier remains failed because the original invocation remains failed; this is
+complete applicable-union qualification, not one final full zero-exit command. Rust discovery is
+empty and supplies no functional coverage. Warning-aware Pyrefly passed with zero errors/warnings;
+all remaining hygiene checks passed without rerunning typing after lint.
+
+The final corrections affect URL reporting, model-default projection into rule-engine primitives,
+and missing-frame diagnostics/backfill. Existing source frames, valid publication/read paths,
+math parsing and generated schema behavior retain their earlier applicable evidence. The final
+selection covers validate/pool/consolidate, CLI/settings, reference/source-frame/anchor operations,
+frozen native-product authoring and acceptance regeneration. Missing frames now refuse before
+sampling with a hash-verified backfill route; packet-bound effective origins are enumerated through
+one shared Core query, independently of prediction presence and excluding declared skips.
+The full78-page oracle passed172.1857 seconds in this invocation, with its independent checks intact.
+No benchmark/SLA claim follows. Earlier failed/interrupted records and scoped passes retain their meanings.
 
 ## Completeness contracts and verification timing
 

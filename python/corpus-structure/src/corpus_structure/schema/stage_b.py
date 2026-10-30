@@ -909,7 +909,8 @@ class Emitter:
             body.extend(
                 [
                     "    @classmethod",
-                    "    def __get_pydantic_core_schema__(cls, source: Any, handler: GetCoreSchemaHandler) -> CoreSchema:",
+                    "    def __get_pydantic_core_schema__(cls, source: Any, "
+                    "handler: GetCoreSchemaHandler) -> CoreSchema:",
                     "        return json_extras_schema(source, handler)",
                 ]
             )

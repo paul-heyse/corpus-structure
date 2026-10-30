@@ -12,13 +12,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import legacy_schema_registry as registry
 import pytest
 from sqlalchemy import Connection, Engine, text
 
 from corpus_structure.core._model.revision import CONTENT_HASH
 from corpus_structure.core.vocab import ObservationKind
 from corpus_structure.schema import compile as compile_module
-from corpus_structure.schema import registry
 from corpus_structure.schema.model import read_log
 
 REPO = Path(__file__).resolve().parents[4]

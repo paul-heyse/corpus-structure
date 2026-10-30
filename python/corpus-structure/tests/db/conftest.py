@@ -12,13 +12,14 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+import legacy_schema_registry as registry
 import pytest
 from sqlalchemy import Connection, insert, select
 
 from corpus_structure.core._model.revision import CONTENT_HASH, LABEL
 from corpus_structure.core.db import legacy_metadata as store
 from corpus_structure.core.vocab import ClaimModality, StatementKind
-from corpus_structure.schema import model, registry
+from corpus_structure.schema import model
 
 T = store.metadata.tables
 PREDICATES = ("stat:has_distribution", "stat:defined_as", "core:proves")

@@ -7,15 +7,16 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
+import legacy_db_repo as repo
 import pyarrow as pa
 import pytest
 from sqlalchemy import Engine, update
 
 from corpus_structure.core.db import legacy_metadata as store
-from corpus_structure.core.db import repo
 from corpus_structure.core.payloads import validate_payload
 from corpus_structure.pool import contract, hydrate
-from corpus_structure.pool.load import CutMismatch, RunNotFound, connect, load
+
+from .legacy_pool import CutMismatch, RunNotFound, connect, load
 
 T = store.metadata.tables
 CUT = datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
