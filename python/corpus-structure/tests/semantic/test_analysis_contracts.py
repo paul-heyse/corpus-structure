@@ -392,7 +392,7 @@ def test_current_compilation_and_preparation_refuse_retained_analysis_profile():
     )
     # Relabeling the current stage graph is invalid before the historical-read-only
     # preparation guard: profile 1 does not declare syntax/structure demands.
-    with pytest.raises(PreparationError, match="declare .*demands"):
+    with pytest.raises(PreparationError, match=r"declare .*demands"):
         prepare_interpretation_context(altered, macros={})
 
 

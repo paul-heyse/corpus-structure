@@ -46,9 +46,9 @@ from corpus_structure.core.batch import CitationFrame
 from corpus_structure.core.canonical import canonical_json
 from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
 from corpus_structure.core.keys import symbol_form
-from corpus_structure.core.method import CoverageDraft, SourceCoverageReading
 from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.locators import parse as parse_locator
+from corpus_structure.core.method import CoverageDraft, SourceCoverageReading
 from corpus_structure.core.payloads import MentionAt, MentionPayload, ScopePayload
 from corpus_structure.core.vocab import SegmentKind
 from corpus_structure.methods.llm.parts import hint_of
@@ -113,8 +113,13 @@ class _CoverageIndex:
     @classmethod
     def prepare(cls, content, rows):
         from corpus_structure.methods.math.spans import math_spans
-        located = tuple(sorted((row for row in rows if row.start is not None and row.end is not None),
-                               key=lambda row: (row.start, row.end, row.task_id, row.position)))
+
+        located = tuple(
+            sorted(
+                (row for row in rows if row.start is not None and row.end is not None),
+                key=lambda row: (row.start, row.end, row.task_id, row.position),
+            )
+        )
         starts, ends = [], []
         for row in located:
             starts.append(row.start)
@@ -123,10 +128,16 @@ class _CoverageIndex:
         math_ends = []
         for _, end in math_ranges:
             math_ends.append(max(math_ends[-1] if math_ends else 0, end))
-        return cls(located, tuple(starts), tuple(ends),
-                   tuple(row for row in rows if row.start is None or row.end is None),
-                   math_ranges, tuple(a for a, _ in math_ranges), tuple(math_ends),
-                   tuple(sorted({(row.task_id, row.release_id) for row in rows})))
+        return cls(
+            located,
+            tuple(starts),
+            tuple(ends),
+            tuple(row for row in rows if row.start is None or row.end is None),
+            math_ranges,
+            tuple(a for a, _ in math_ranges),
+            tuple(math_ends),
+            tuple(sorted({(row.task_id, row.release_id) for row in rows})),
+        )
 
     def for_unit(self, key, unit, context):
         regions = [(part.start, part.end) for part in unit]
@@ -147,22 +158,39 @@ class _CoverageIndex:
         counts = Counter(row.coverage.outcome for row in rows)
         missing = bool(expected - covered)
         incomplete = missing or any(row.coverage.outcome != "complete" for row in rows)
-        if not expected and not rows:
-            outcome, reason = "complete", None
-        elif not incomplete and rows:
+        if (not expected and not rows) or (not incomplete and rows):
             outcome, reason = "complete", None
         else:
-            outcome = "partial" if counts["complete"] or counts["partial"] else "unsupported" if counts["unsupported"] and not missing else "unknown"
+            outcome = (
+                "partial"
+                if counts["complete"] or counts["partial"]
+                else "unsupported"
+                if counts["unsupported"] and not missing
+                else "unknown"
+            )
             reasons = sorted({row.coverage.reason for row in rows if row.coverage.reason})
             if missing:
                 reasons.insert(0, "required scope coverage unavailable")
             reason = "; ".join(reasons[:3]) or "scope coverage unavailable"
-        basis = {"expected": sorted(expected), "rows": [asdict(row) for row in rows],
-                 "sources": self.source_tasks if not rows else sorted({(row.task_id, row.release_id) for row in rows})}
+        basis = {
+            "expected": sorted(expected),
+            "rows": [asdict(row) for row in rows],
+            "sources": self.source_tasks
+            if not rows
+            else sorted({(row.task_id, row.release_id) for row in rows}),
+        }
         digest = hashlib.sha256(canonical_json(basis)).hexdigest()
-        return StandingContextCoverage(CoverageDraft(family=SCOPE_METHOD, scope=key,
-            outcome=outcome, reason=reason, required_capability="interpretation"), digest,
-            tuple(basis["sources"]))
+        return StandingContextCoverage(
+            CoverageDraft(
+                family=SCOPE_METHOD,
+                scope=key,
+                outcome=outcome,
+                reason=reason,
+                required_capability="interpretation",
+            ),
+            digest,
+            tuple(basis["sources"]),
+        )
 
 
 @dataclass(frozen=True)
@@ -196,7 +224,9 @@ def _id_order(sentence_id: str) -> tuple[str, int]:
     return sentence_id[0], int(sentence_id[1:])
 
 
-def packet_hash(parts: Sequence[str], source_coverage: StandingContextCoverage | None = None) -> str:
+def packet_hash(
+    parts: Sequence[str], source_coverage: StandingContextCoverage | None = None
+) -> str:
     value = list(parts) if source_coverage is None else [list(parts), asdict(source_coverage)]
     return hashlib.sha256(canonical_json(value)).hexdigest()
 
@@ -279,7 +309,9 @@ def render(
     if source_coverage is not None and source_coverage.coverage.outcome != "complete":
         coverage = source_coverage.coverage
         diagnostic = f"scope coverage {coverage.outcome}: {coverage.reason}"
-        shared += [f"[{c.id}] {c.text}" for c in context] or [f"(no established context; {diagnostic})"]
+        shared += [f"[{c.id}] {c.text}" for c in context] or [
+            f"(no established context; {diagnostic})"
+        ]
         if context:
             shared.append(f"Context may be incomplete; {diagnostic}.")
     else:
@@ -307,7 +339,14 @@ def render(
     whole = assemble(head, [line for _, line in lines])
     if cap is None or len(whole) <= cap:
         ids = tuple(i for i, _ in lines if i is not None)
-        return Packet(unit_key, (whole,), packet_hash([whole], source_coverage), tuple(entries), (ids,), source_coverage=source_coverage)
+        return Packet(
+            unit_key,
+            (whole,),
+            packet_hash([whole], source_coverage),
+            tuple(entries),
+            (ids,),
+            source_coverage=source_coverage,
+        )
     room_head = f"{head}  ·  part 999 of 999"
     base = len(assemble(room_head, []))
     if base > cap:
@@ -333,7 +372,15 @@ def render(
         for i, g in enumerate(groups)
     )
     part_ids = tuple(tuple(sid for sid, _ in g if sid is not None) for g in groups)
-    return Packet(unit_key, parts, packet_hash(parts, source_coverage), tuple(entries), part_ids, tuple(oversize), source_coverage)
+    return Packet(
+        unit_key,
+        parts,
+        packet_hash(parts, source_coverage),
+        tuple(entries),
+        part_ids,
+        tuple(oversize),
+        source_coverage,
+    )
 
 
 # --- Stored scopes (the adapter) --------------------------------------------------------------
@@ -502,10 +549,17 @@ class UnitInputs:
 
     def packet(self, cap: int | None) -> Packet:
         coverage = self.source_coverage or _CoverageIndex.prepare(self.content, ()).for_unit(
-            self.unit_key, self.unit, self.context)
+            self.unit_key, self.unit, self.context
+        )
         return render(
-            self.content, self.page, self.unit_key, self.unit, self.context, self.known, cap,
-            source_coverage=coverage
+            self.content,
+            self.page,
+            self.unit_key,
+            self.unit,
+            self.context,
+            self.known,
+            cap,
+            source_coverage=coverage,
         )
 
 
@@ -530,8 +584,16 @@ def unit_inputs(
         content, page, index, macros, views, known, coverage_index = preparation[cache_key]
         unit = (index.resolve(unit_key),)
         context = tuple(context_from_stored(content, page, unit, views))
-        return UnitInputs(content, page, unit_key, unit, context, known, macros,
-                          coverage_index.for_unit(unit_key, unit, context))
+        return UnitInputs(
+            content,
+            page,
+            unit_key,
+            unit,
+            context,
+            known,
+            macros,
+            coverage_index.for_unit(unit_key, unit, context),
+        )
     content = (
         reader.content(rendition_id) if coordinate_index is None else coordinate_index.rendition
     )
@@ -553,7 +615,9 @@ def unit_inputs(
             macros,
         )
     context = tuple(context_from_stored(content, page, unit, views))
-    coverage_index = _CoverageIndex.prepare(content, reader.source_coverage(rendition_id, SCOPE_METHOD))
+    coverage_index = _CoverageIndex.prepare(
+        content, reader.source_coverage(rendition_id, SCOPE_METHOD)
+    )
     known: tuple[KnownEntity, ...] | None
     if golden:
         known = None
@@ -564,5 +628,13 @@ def unit_inputs(
         known = tuple(bootstrap_terms(content))
     if preparation is not None:
         preparation[cache_key] = (content, page, index, macros, views, known, coverage_index)
-    return UnitInputs(content, page, unit_key, unit, context, known, macros,
-                      coverage_index.for_unit(unit_key, unit, context))
+    return UnitInputs(
+        content,
+        page,
+        unit_key,
+        unit,
+        context,
+        known,
+        macros,
+        coverage_index.for_unit(unit_key, unit, context),
+    )

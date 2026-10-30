@@ -560,6 +560,7 @@ class ProposalPacket:
 
     def parts(self) -> tuple[Part, ...]:
         from dataclasses import asdict
+
         from .identity import canonical_bytes
 
         data = {
@@ -587,7 +588,11 @@ class ProposalPacket:
                     ],
                     "bootstrap_terms": self.bootstrap_terms,
                     "macros": {name: macro.model_dump(mode="json") for name, macro in self.macros},
-                    **({"source_coverage": asdict(self.source_coverage)} if self.source_coverage is not None else {}),
+                    **(
+                        {"source_coverage": asdict(self.source_coverage)}
+                        if self.source_coverage is not None
+                        else {}
+                    ),
                 }
             ).decode(),
         }

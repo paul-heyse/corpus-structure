@@ -205,8 +205,10 @@ def test_paired_methods_share_readings_only_with_compatible_configuration(monkey
     from corpus_structure.semantic.parsing_products import ProductReference
 
     selected = SimpleNamespace(reference=ProductReference(7, "text", "b" * 64))
-    reader = SimpleNamespace(math_readings_batch=methods.MathReadingsBatch(),
-                             layered_products=lambda *args, **kwargs: (selected,))
+    reader = SimpleNamespace(
+        math_readings_batch=methods.MathReadingsBatch(),
+        layered_products=lambda *args, **kwargs: (selected,),
+    )
     original = methods.read_spans
     calls = []
 

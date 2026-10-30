@@ -273,7 +273,10 @@ def _products(
 
     view = views[0]
     a, b = view["start_offset"], view["end_offset"]
-    source_id = f"text:{text_reference.task_id}:{text_reference.product_key}:{text_reference.content_digest}"
+    source_id = (
+        f"text:{text_reference.task_id}:{text_reference.product_key}:"
+        f"{text_reference.content_digest}"
+    )
     macros = effective_macros(page_table, fallback)
     if config.demand == "syntax":
         mathematical_context = prepare_interpretation_context(

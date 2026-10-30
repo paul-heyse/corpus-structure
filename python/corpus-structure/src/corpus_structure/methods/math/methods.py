@@ -249,10 +249,17 @@ def _readings(
         raise ValueError("mathematical extraction requires exactly one selected text product")
     reference = selected[0].reference
     source_id = f"text:{reference.task_id}:{reference.product_key}:{reference.content_digest}"
-    source = prepare_source_math(ren.content, prepared=getattr(reader, "prepared", None),
-        macros=macros, constants=section.constants, source_id=source_id, seconds=cfg.parse_seconds)
-    readings = read_spans(ren.content, macros, section.constants, seconds=cfg.parse_seconds,
-                         prepared_source=source)
+    source = prepare_source_math(
+        ren.content,
+        prepared=getattr(reader, "prepared", None),
+        macros=macros,
+        constants=section.constants,
+        source_id=source_id,
+        seconds=cfg.parse_seconds,
+    )
+    readings = read_spans(
+        ren.content, macros, section.constants, seconds=cfg.parse_seconds, prepared_source=source
+    )
     if batch is not None:
         batch.readings[key] = readings
     return readings
@@ -648,24 +655,43 @@ class SymbolScope(_PerRendition):
                 text_layouts={(layout.block_start, layout.block_end): layout for layout in layouts},
             )
             assessed = scope_coverage(ren.content, stored.values, stored.mentions, scopes)
-            upstream = {row.coverage.scope: row.coverage for row in ctx.reader.source_coverage(ren.id, M09)}
+            upstream = {
+                row.coverage.scope: row.coverage for row in ctx.reader.source_coverage(ren.id, M09)
+            }
             coverage = []
             for item in assessed:
                 key = ren.key_of(item.segment)
                 outcome, reason = item.outcome, item.reason
                 extraction = upstream.get(key)
-                has_mentions = any(not mention.constant and mention.segment == item.segment
-                                   for mention in stored.mentions)
+                has_mentions = any(
+                    not mention.constant and mention.segment == item.segment
+                    for mention in stored.mentions
+                )
                 if has_mentions and extraction is None:
                     outcome, reason = "unknown", "upstream symbol extraction coverage unavailable"
                 elif extraction is not None and extraction.outcome != "complete":
-                    outcome, reason = "partial", "upstream symbol extraction: " + (extraction.reason or extraction.outcome)
-                coverage.append(CoverageDraft(family=M13, scope=key, outcome=outcome,
-                    reason=reason, required_capability="interpretation"))
+                    outcome, reason = (
+                        "partial",
+                        "upstream symbol extraction: " + (extraction.reason or extraction.outcome),
+                    )
+                coverage.append(
+                    CoverageDraft(
+                        family=M13,
+                        scope=key,
+                        outcome=outcome,
+                        reason=reason,
+                        required_capability="interpretation",
+                    )
+                )
             if not coverage:
                 coverage.append(CoverageDraft(family=M13, scope=ren.key, outcome="complete"))
-            out.append(_result(unit, scope_drafts(ren, scopes, stored.refs, stored.source_refs),
-                               coverage=tuple(coverage)))
+            out.append(
+                _result(
+                    unit,
+                    scope_drafts(ren, scopes, stored.refs, stored.source_refs),
+                    coverage=tuple(coverage),
+                )
+            )
         return out
 
 

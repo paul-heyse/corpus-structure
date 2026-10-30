@@ -120,8 +120,9 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
     reference = selected[0].reference
     header = selected[0]
     if request.view == "trace":
-        rep = parsing_queries.representation_header(conn, reference=reference,
-                                                    representation_id=request.representation_id)
+        rep = parsing_queries.representation_header(
+            conn, reference=reference, representation_id=request.representation_id
+        )
         traced = parsing_queries.trace_layered_origins(
             conn,
             reference=reference,
@@ -151,8 +152,9 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
                 limit=request.limit,
             )
             return SourceResponse(**base, outcome="complete", rows=[asdict(row) for row in rows])
-        rep = parsing_queries.representation_header(conn, reference=reference,
-                                                    representation_id=request.representation_id)
+        rep = parsing_queries.representation_header(
+            conn, reference=reference, representation_id=request.representation_id
+        )
         rows = parsing_queries.components(
             conn,
             task_id=reference.task_id,
@@ -179,8 +181,9 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
             .order_by(relation.c.ordinal)
         )
     else:
-        rep = parsing_queries.representation_header(conn, reference=reference,
-                                                    representation_id=request.representation_id)
+        rep = parsing_queries.representation_header(
+            conn, reference=reference, representation_id=request.representation_id
+        )
         end = rep["extent_length"] if request.end is None else request.end
         if not 0 <= request.start <= end <= rep["extent_length"]:
             raise ValueError("inspection range is outside its representation")

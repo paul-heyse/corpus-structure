@@ -25,19 +25,34 @@ def test_extract_math_preserves_partial_read_when_no_mentions_are_emitted(
     from corpus_structure.core.evidence import RenditionContent, Segment
     from corpus_structure.core.vocab import SegmentKind
     from corpus_structure.semantic.parsing_products import (
-        ProductReference, SelectedParsingProduct, prepare_layered_product,
+        ProductReference,
+        SelectedParsingProduct,
+        prepare_layered_product,
     )
 
-    latex = {ParseOutcome.FAILED:r"\unknown", ParseOutcome.AMBIGUOUS:"(0,1)",
-             ParseOutcome.PARTIAL:"1,"}[status]
+    latex = {
+        ParseOutcome.FAILED: r"\unknown",
+        ParseOutcome.AMBIGUOUS: "(0,1)",
+        ParseOutcome.PARTIAL: "1,",
+    }[status]
     segment = Segment(kind=SegmentKind.MATH_INLINE, start=0, end=len(latex))
-    content = RenditionContent(canonical_text=latex, document=Segment(
-        kind=SegmentKind.DOCUMENT, start=0, end=len(latex), children=(segment,)))
+    content = RenditionContent(
+        canonical_text=latex,
+        document=Segment(kind=SegmentKind.DOCUMENT, start=0, end=len(latex), children=(segment,)),
+    )
     ren = methods._Rendition(1, "page", "digest", content, {})
-    selected = SelectedParsingProduct(ProductReference(7,"text","b"*64),
-        ProductReference(7,"source","a"*64), "text", "available", "ok", "complete")
-    reader = SimpleNamespace(layered_products=lambda *a, **kw:(selected,),
-                             prepare_layered_product=prepare_layered_product)
+    selected = SelectedParsingProduct(
+        ProductReference(7, "text", "b" * 64),
+        ProductReference(7, "source", "a" * 64),
+        "text",
+        "available",
+        "ok",
+        "complete",
+    )
+    reader = SimpleNamespace(
+        layered_products=lambda *a, **kw: (selected,),
+        prepare_layered_product=prepare_layered_product,
+    )
     monkeypatch.setattr(methods, "_rendition", lambda reader, identifier: ren)
     unit = UnitView(UnitRef(TaskUnitType.RENDITION, 1, "page"), SimpleNamespace())
     (result,) = methods.ExtractMath().run(

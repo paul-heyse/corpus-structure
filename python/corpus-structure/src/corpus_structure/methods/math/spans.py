@@ -124,8 +124,11 @@ def read_spans(
     if prepared_source is not None and not prepared_source.operands:
         return []
     prepared_context = prepared_context or (
-        prepared_source.operands[0].context if prepared_source is not None else
-        prepare_interpretation_context(macros=macros, constants=constants, demand="occurrences")
+        prepared_source.operands[0].context
+        if prepared_source is not None
+        else prepare_interpretation_context(
+            macros=macros, constants=constants, demand="occurrences"
+        )
     )
     from .prepared import PreparedMathInput
 
@@ -133,14 +136,18 @@ def read_spans(
     readings = []
     spans = math_spans(content) if prepared_source is None else prepared_source.spans
     for index, span in enumerate(spans):
-        prepared = prepared_source.operands[index] if prepared_source is not None else PreparedMathInput(
-            prepared_context,
-            span.latex,
-            "any_value",
-            seconds,
-            source_text=content.text(span.segment),
-            source_start=span.segment.start,
-            parse_start=span.offset,
+        prepared = (
+            prepared_source.operands[index]
+            if prepared_source is not None
+            else PreparedMathInput(
+                prepared_context,
+                span.latex,
+                "any_value",
+                seconds,
+                source_text=content.text(span.segment),
+                source_start=span.segment.start,
+                parse_start=span.offset,
+            )
         )
         result = prepared.symbolic_reading()
         prepared.context.validate_result(

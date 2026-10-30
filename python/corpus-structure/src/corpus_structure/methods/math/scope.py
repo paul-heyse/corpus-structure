@@ -458,7 +458,9 @@ def scope_coverage(
         value_by_span.setdefault((value.segment.start, value.segment.end), []).append(value)
     for mention in mentions:
         if not mention.constant:
-            mentions_by_span.setdefault((mention.segment.start, mention.segment.end), []).append(mention)
+            mentions_by_span.setdefault((mention.segment.start, mention.segment.end), []).append(
+                mention
+            )
     results = []
     for segment in content.document.walk():
         if segment.kind not in MATH_KINDS:
@@ -466,23 +468,52 @@ def scope_coverage(
         key = segment.start, segment.end
         interpretations = value_by_span.get(key, [])
         if len(interpretations) != 1:
-            results.append(ScopeCoverage(segment, "unknown" if not interpretations else "partial",
-                "mathematical interpretation unavailable" if not interpretations else "multiple mathematical interpretations"))
+            results.append(
+                ScopeCoverage(
+                    segment,
+                    "unknown" if not interpretations else "partial",
+                    "mathematical interpretation unavailable"
+                    if not interpretations
+                    else "multiple mathematical interpretations",
+                )
+            )
             continue
         value = interpretations[0]
         if value.value.parse is not ParseOutcome.OK:
             status = value.value.parse
-            unsupported = value.parse_error in {"unknown-command", "unsupported-relation", "environment", "text-in-math"}
-            outcome = "unsupported" if unsupported else "unknown" if not isinstance(status, ParseOutcome) or status is ParseOutcome.FAILED else "partial"
+            unsupported = value.parse_error in {
+                "unknown-command",
+                "unsupported-relation",
+                "environment",
+                "text-in-math",
+            }
+            outcome = (
+                "unsupported"
+                if unsupported
+                else "unknown"
+                if not isinstance(status, ParseOutcome) or status is ParseOutcome.FAILED
+                else "partial"
+            )
             description = status.value if isinstance(status, ParseOutcome) else "unavailable"
-            results.append(ScopeCoverage(segment, outcome,
-                "mathematical interpretation " + description + (": " + value.parse_error if value.parse_error else "")))
+            results.append(
+                ScopeCoverage(
+                    segment,
+                    outcome,
+                    "mathematical interpretation "
+                    + description
+                    + (": " + value.parse_error if value.parse_error else ""),
+                )
+            )
             continue
         source_mentions = mentions_by_span.get(key, [])
         if value.value.symbols and not source_mentions:
-            results.append(ScopeCoverage(segment, "unknown", "symbol occurrence extraction unavailable"))
-        elif any(id(mention) not in scope_by_mention or scope_by_mention[id(mention)].site is None
-                 for mention in source_mentions):
+            results.append(
+                ScopeCoverage(segment, "unknown", "symbol occurrence extraction unavailable")
+            )
+        elif any(
+            id(mention) not in scope_by_mention or scope_by_mention[id(mention)].site is None
+            for mention in source_mentions
+        ):
             results.append(ScopeCoverage(segment, "partial", "required symbol binding unresolved"))
         else:
             results.append(ScopeCoverage(segment, "complete"))

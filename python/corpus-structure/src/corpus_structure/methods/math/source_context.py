@@ -58,13 +58,22 @@ def _scope_key(source_id: str, segment: Segment) -> str:
 def _heads(result: grammar.MathResult):
     if result.tree is None:
         return
+
     def equations(node):
         if not isinstance(node, Tree):
             return
         if node.data in {"eq", "rel_chain"}:
             yield node
-        elif node.data in {"_ambig", "any_value", "formula", "relation", "value_list", "text_join",
-                            "group_curly_parentheses", "group_round_parentheses"}:
+        elif node.data in {
+            "_ambig",
+            "any_value",
+            "formula",
+            "relation",
+            "value_list",
+            "text_join",
+            "group_curly_parentheses",
+            "group_round_parentheses",
+        }:
             for child in node.children:
                 yield from equations(child)
 
@@ -78,7 +87,9 @@ def _heads(result: grammar.MathResult):
             if not isinstance(head, Tree) or head.data != "function_applied":
                 continue
             arguments = [token for token in _tree.leaves(head.children[2]) if token.type != "COMMA"]
-            if not arguments or any(token.type not in grammar._SYMBOL_TOKENS for token in arguments):
+            if not arguments or any(
+                token.type not in grammar._SYMBOL_TOKENS for token in arguments
+            ):
                 continue
             where = _tree.span(head)
             name = bare(symbol_name(head.children[0], result.latex, result.macros))
@@ -105,77 +116,162 @@ def prepare_source_math(
     remain unrecognized until requested. Unavailable candidates affect only subsequent
     uses in their structural scope, never earlier or outside expressions.
     """
-    base = prepare_interpretation_context(prepared, macros=macros, constants=constants,
-                                          source_id=source_id, demand=demand)
+    base = prepare_interpretation_context(
+        prepared, macros=macros, constants=constants, source_id=source_id, demand=demand
+    )
     all_spans = tuple(math_spans(content))
-    indexed = [(index, span) for index, span in enumerate(all_spans)
-               if through_offset is None or span.offset <= through_offset]
-    regions = [segment for segment in content.document.walk()
-               if segment.kind in ANNOTATION_UNIT | SECTION_LIKE]
+    indexed = [
+        (index, span)
+        for index, span in enumerate(all_spans)
+        if through_offset is None or span.offset <= through_offset
+    ]
+    regions = [
+        segment
+        for segment in content.document.walk()
+        if segment.kind in ANNOTATION_UNIT | SECTION_LIKE
+    ]
     definitions: list[EarlyFunctionDeclaration] = []
     issues: list[tuple[str, int, int, grammar.Failure]] = []
     initial: list[tuple[MathSpan, PreparedMathInput, grammar.MathResult | None]] = []
     for index, span in indexed:
-        operand = PreparedMathInput(base, span.latex, seconds=seconds,
-            source_text=content.text(span.segment), source_start=span.segment.start,
-            parse_start=span.offset)
+        operand = PreparedMathInput(
+            base,
+            span.latex,
+            seconds=seconds,
+            source_text=content.text(span.segment),
+            source_start=span.segment.start,
+            parse_start=span.offset,
+        )
         recognized = None
         # Every admitted function-definition head contains a parenthesized formal
         # argument before '='. This only selects work; the grammar supplies meaning.
-        if base.allow_local_definitions and "(" in span.latex.partition("=")[0] and "=" in span.latex:
+        if (
+            base.allow_local_definitions
+            and "(" in span.latex.partition("=")[0]
+            and "=" in span.latex
+        ):
             recognized = operand.syntax()
             if recognized.tree is None:
-                region = min((s for s in regions if s.start <= span.segment.start and span.segment.end <= s.end),
-                             key=lambda s: (s.end - s.start, -s.start))
-                failure = recognized.failure or grammar.Failure("context_unavailable", "SourceDeclarationUnavailable")
-                issues.append((_scope_key(source_id, region), span.segment.end, region.end, failure))
+                region = min(
+                    (
+                        s
+                        for s in regions
+                        if s.start <= span.segment.start and span.segment.end <= s.end
+                    ),
+                    key=lambda s: (s.end - s.start, -s.start),
+                )
+                failure = recognized.failure or grammar.Failure(
+                    "context_unavailable", "SourceDeclarationUnavailable"
+                )
+                issues.append(
+                    (_scope_key(source_id, region), span.segment.end, region.end, failure)
+                )
             for name, head in _heads(recognized):
-                region = min((s for s in regions if s.start <= span.segment.start and span.segment.end <= s.end),
-                             key=lambda s: (s.end - s.start, -s.start))
+                region = min(
+                    (
+                        s
+                        for s in regions
+                        if s.start <= span.segment.start and span.segment.end <= s.end
+                    ),
+                    key=lambda s: (s.end - s.start, -s.start),
+                )
                 start, end = span.segment.end, region.end
                 if start >= end:
                     continue
                 view_range = (span.offset, span.offset + len(span.latex))
                 node_id = f"view:{index}" if source_views is None else source_views.get(view_range)
                 if node_id is None:
-                    raise EarlyMathContextUnavailable("declaration view is missing from the selected text product")
+                    raise EarlyMathContextUnavailable(
+                        "declaration view is missing from the selected text product"
+                    )
                 key = _scope_key(source_id, region)
-                declaration = SymbolDeclaration(name, "function", "source",
+                declaration = SymbolDeclaration(
+                    name,
+                    "function",
+                    "source",
                     f"function-definition-1:{span.offset + head[0]}:{span.offset + head[1]}",
-                    source_id, key, start, end)
-                definitions.append(EarlyFunctionDeclaration(declaration, *view_range,
-                    span.offset + head[0], span.offset + head[1], start, end, key,
-                    *view_range, node_id))
+                    source_id,
+                    key,
+                    start,
+                    end,
+                )
+                definitions.append(
+                    EarlyFunctionDeclaration(
+                        declaration,
+                        *view_range,
+                        span.offset + head[0],
+                        span.offset + head[1],
+                        start,
+                        end,
+                        key,
+                        *view_range,
+                        node_id,
+                    )
+                )
         initial.append((span, operand, recognized))
     operands = []
     for span, operand, recognized in initial:
-        chain = sorted((s for s in regions if s.start <= span.segment.start and span.segment.end <= s.end),
-                       key=lambda s: (s.end - s.start, -s.start))
-        candidates = [definition for definition in definitions
-                      if definition.scope_start <= span.offset < definition.scope_end
-                      and definition.scope_key in {_scope_key(source_id, s) for s in chain}]
+        chain = sorted(
+            (s for s in regions if s.start <= span.segment.start and span.segment.end <= s.end),
+            key=lambda s: (s.end - s.start, -s.start),
+        )
+        candidates = [
+            definition
+            for definition in definitions
+            if definition.scope_start <= span.offset < definition.scope_end
+            and definition.scope_key in {_scope_key(source_id, s) for s in chain}
+        ]
         visible: dict[str, EarlyFunctionDeclaration] = {}
-        for definition in sorted(candidates, key=lambda d: (
-            next(i for i, region in enumerate(chain) if _scope_key(source_id, region) == d.scope_key),
-            -d.declaration_start)):
+        for definition in sorted(
+            candidates,
+            key=lambda d: (
+                next(
+                    i
+                    for i, region in enumerate(chain)
+                    if _scope_key(source_id, region) == d.scope_key
+                ),
+                -d.declaration_start,
+            ),
+        ):
             visible.setdefault(definition.declaration.symbol, definition)
         basis = tuple(sorted(visible.values(), key=lambda d: (d.declaration.symbol, d.head_start)))
-        context = prepare_interpretation_context(prepared, macros=macros, constants=constants,
-            source_id=source_id, scope=_scope_key(source_id, chain[0]),
+        context = prepare_interpretation_context(
+            prepared,
+            macros=macros,
+            constants=constants,
+            source_id=source_id,
+            scope=_scope_key(source_id, chain[0]),
             scope_chain=tuple(_scope_key(source_id, s) for s in chain),
-            declarations=tuple(d.declaration for d in basis), offset=span.offset, demand=demand)
-        active_issue = next((failure for key, start, end, failure in issues
-                             if start <= span.offset < end and key in {_scope_key(source_id, s) for s in chain}), None)
+            declarations=tuple(d.declaration for d in basis),
+            offset=span.offset,
+            demand=demand,
+        )
+        active_issue = next(
+            (
+                failure
+                for key, start, end, failure in issues
+                if start <= span.offset < end and key in {_scope_key(source_id, s) for s in chain}
+            ),
+            None,
+        )
         context_failure = None
         if active_issue is not None:
             context_failure = grammar.Failure(
                 "timeout" if active_issue.category == "timeout" else "context_unavailable",
-                "SourceDeclarationUnavailable", detail="earlier source declaration basis unavailable: " + source_id)
-        scoped = replace(operand, context=context, source_declarations=basis,
-                         source_context_failure=context_failure)
+                "SourceDeclarationUnavailable",
+                detail="earlier source declaration basis unavailable: " + source_id,
+            )
+        scoped = replace(
+            operand,
+            context=context,
+            source_declarations=basis,
+            source_context_failure=context_failure,
+        )
         if recognized is not None:
             # Recognition has no declaration dependencies; preserve the one successful
             # physical parse instead of parsing a candidate again under its new context.
             object.__setattr__(scoped, "_syntax", recognized)
         operands.append(scoped)
-    return PreparedSourceMath(tuple(span for _, span in indexed), tuple(definitions), tuple(operands))
+    return PreparedSourceMath(
+        tuple(span for _, span in indexed), tuple(definitions), tuple(operands)
+    )

@@ -24,6 +24,7 @@ from .transform import NotRepresentable
 if TYPE_CHECKING:
     from corpus_structure.core.text_structure import TextCapture
     from corpus_structure.semantic.analysis_contracts import PreparedInterpretationContext
+
     from .source_context import EarlyFunctionDeclaration
 
 _UNSET = object()
@@ -241,12 +242,21 @@ class PreparedMathInput:
     def interpretation(self) -> grammar.MathResult:
         """Pure contextual role filtering with correlated alternatives retained."""
         if self.source_context_failure is not None:
-            status = ParseOutcome.FAILED if self.source_context_failure.category == "timeout" else ParseOutcome.AMBIGUOUS
+            status = (
+                ParseOutcome.FAILED
+                if self.source_context_failure.category == "timeout"
+                else ParseOutcome.AMBIGUOUS
+            )
             kind = self.kind or self.context.kind
             if kind not in grammar.STARTS:
                 raise ValueError(f"unsupported mathematical kind {kind!r}")
-            result = grammar.MathResult(self.latex, kind, status,
-                failure=self.source_context_failure, macros=self.context.macros)
+            result = grammar.MathResult(
+                self.latex,
+                kind,
+                status,
+                failure=self.source_context_failure,
+                macros=self.context.macros,
+            )
             self._remember("interpretation", result)
             return result
         if self._reading is None:

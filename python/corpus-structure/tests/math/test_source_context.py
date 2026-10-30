@@ -17,6 +17,7 @@ SOURCE = "text:7:text:" + "b" * 64
 
 def content(items):
     text = ""
+
     def build(item):
         nonlocal text
         if isinstance(item, str):
@@ -29,9 +30,12 @@ def content(items):
         start = len(text)
         built = tuple(build(child) for child in children)
         return Segment(kind=kind, start=start, end=len(text), children=built)
+
     children = tuple(build(item) for item in items)
-    return RenditionContent(canonical_text=text, document=Segment(
-        kind=SegmentKind.DOCUMENT, start=0, end=len(text), children=children))
+    return RenditionContent(
+        canonical_text=text,
+        document=Segment(kind=SegmentKind.DOCUMENT, start=0, end=len(text), children=children),
+    )
 
 
 def prepare(value, **options):
@@ -42,9 +46,11 @@ def test_later_function_use_receives_only_preceding_definition_and_reuses_syntax
     value = content(["f(t)", "f(t)=t^2", "f(t)"])
     calls = []
     original = grammar.syntax
+
     def observe(*args, **kwargs):
         calls.append(args[0])
         return original(*args, **kwargs)
+
     monkeypatch.setattr(grammar, "syntax", observe)
     monkeypatch.setattr(grammar, "transform", lambda *a, **kw: pytest.fail("native prepass"))
     source = prepare(value)
@@ -56,7 +62,7 @@ def test_later_function_use_receives_only_preceding_definition_and_reuses_syntax
     assert calls.count("f(t)=t^2") == 1
     basis = source.operands[2].source_declarations[0]
     assert basis.declaration.source_id == SOURCE
-    assert value.canonical_text[basis.head_start:basis.head_end] == "f(t)"
+    assert value.canonical_text[basis.head_start : basis.head_end] == "f(t)"
     assert basis.scope_start == source.spans[1].segment.end
     assert basis.declaration.start == basis.scope_start
     assert basis.source_view_node_id == "view:1"
@@ -64,9 +70,12 @@ def test_later_function_use_receives_only_preceding_definition_and_reuses_syntax
 
 
 def test_unit_declaration_shadows_inherited_source_role_without_leaking_outside():
-    value = content(["f(t)=t", (SegmentKind.SECTION, [
-        "f(u)", (SegmentKind.UNIT, ["f(t)=t^2", "f(u)"]), "f(u)"
-    ])])
+    value = content(
+        [
+            "f(t)=t",
+            (SegmentKind.SECTION, ["f(u)", (SegmentKind.UNIT, ["f(t)=t^2", "f(u)"]), "f(u)"]),
+        ]
+    )
     source = prepare(value)
     inherited = source.operands[1]
     inner = source.operands[3]
@@ -78,8 +87,7 @@ def test_unit_declaration_shadows_inherited_source_role_without_leaking_outside(
 
 
 def test_section_definition_does_not_reach_sibling_section():
-    value = content([(SegmentKind.SECTION, ["f(t)=t", "f(t)"]),
-                     (SegmentKind.SECTION, ["f(t)"])])
+    value = content([(SegmentKind.SECTION, ["f(t)=t", "f(t)"]), (SegmentKind.SECTION, ["f(t)"])])
     source = prepare(value)
     assert source.operands[1].interpretation().status is ParseOutcome.OK
     assert source.operands[2].source_declarations == ()
@@ -100,14 +108,23 @@ def test_request_cutoff_never_recognizes_future_source_syntax(monkeypatch):
 def test_source_prepass_timeout_is_one_failed_attempt(monkeypatch):
     value = content(["f(t)=t", "f(t)"])
     calls = []
+
     def timeout(*args, **kwargs):
         calls.append(None)
-        return grammar.MathResult("f(t)=t", "any_value", ParseOutcome.FAILED,
-                                  failure=grammar.Failure("timeout", "Timeout"))
+        return grammar.MathResult(
+            "f(t)=t",
+            "any_value",
+            ParseOutcome.FAILED,
+            failure=grammar.Failure("timeout", "Timeout"),
+        )
+
     monkeypatch.setattr(grammar, "syntax", timeout)
     source = prepare(value)
-    for result in (source.operands[0].syntax(), source.operands[1].interpretation(),
-                   source.operands[1].symbolic_reading()):
+    for result in (
+        source.operands[0].syntax(),
+        source.operands[1].interpretation(),
+        source.operands[1].symbolic_reading(),
+    ):
         assert result.failure is not None and result.failure.category == "timeout"
     assert len(calls) == 1
 
@@ -135,14 +152,17 @@ def test_malformed_candidate_only_blocks_subsequent_context_in_its_own_unit():
 
 def test_production_readings_share_early_source_context(monkeypatch):
     from types import SimpleNamespace
+
     from corpus_structure.methods.math import methods
     from corpus_structure.semantic.parsing_products import ProductReference
 
     value = content(["f(t)=t", "f(t)"])
     ren = methods._Rendition(1, "rendition", "digest", value, {})
     selected = SimpleNamespace(reference=ProductReference(7, "text", "b" * 64))
-    reader = SimpleNamespace(math_readings_batch=methods.MathReadingsBatch(),
-                             layered_products=lambda *args, **kwargs: (selected,))
+    reader = SimpleNamespace(
+        math_readings_batch=methods.MathReadingsBatch(),
+        layered_products=lambda *args, **kwargs: (selected,),
+    )
     first = methods._readings(ren, methods.NormalizeFormulaConfig(), reader)
     second = methods._readings(ren, methods.ExtractMathConfig(), reader)
     assert first is second
