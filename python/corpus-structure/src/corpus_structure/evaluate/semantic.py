@@ -891,6 +891,9 @@ def reference_evaluate(
         "coverage": coverage,
         "reference_units_scored": len(reports),
     }
+    from corpus_structure.semantic.scientific_evidence import validate_reference_science
+
+    validate_reference_science(result)
     identity = _call(
         conn,
         "SELECT eval.record_reference_evaluation(:p,:run,:s,"

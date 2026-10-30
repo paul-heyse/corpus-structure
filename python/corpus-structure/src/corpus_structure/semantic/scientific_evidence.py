@@ -66,10 +66,71 @@ def decision_rules():
     return rows
 
 
+def scientific_report_layout():
+    """Derive native traversal from the very types used by report construction."""
+    model = scientific_model()
+    definitions = {definition.name: definition for definition in model.definitions}
+    comparisons, arrays = [], []
+    required = {
+        (body["class"], body["property"])
+        for row in model.registry_rows if row.kind == "operation_property"
+        for body in (json.loads(row.body),)
+        if body.get("cs:role") == "required_report_array"
+    }
+
+    def visit(name, path):
+        definition = definitions[name]
+        if name == "ComparisonAssessment" or "ComparisonAssessment" in definition.ancestors:
+            comparisons.append(path)
+            return
+        for prop in definition.properties:
+            if prop.multivalued:
+                arrays.append({"parent_path": path, "field": prop.name, "required": prop.required or (name, prop.iri) in required})
+            if prop.range in definitions:
+                visit(prop.range, path + "." + prop.name + ("[*]" if prop.multivalued else ""))
+
+    visit("ReferenceScientificReport", "$")
+    return {"comparison_paths": comparisons, "array_rules": arrays}
+
+
+def scientific_report_schema():
+    schema = scientific_model().json_schema("ReferenceScientificReport")
+    for row in scientific_model().registry_rows:
+        if row.kind != "operation_property":
+            continue
+        body = json.loads(row.body)
+        if body.get("cs:role") != "required_report_array":
+            continue
+        target = schema if body["class"] == "ReferenceScientificReport" else schema["$defs"][body["class"]]
+        target.setdefault("required", []).append(body["name"])
+    return schema
+
+
+@lru_cache(maxsize=1)
+def _scientific_report_validator():
+    from jsonschema import Draft202012Validator
+
+    return Draft202012Validator(scientific_report_schema())
+
+
+def validate_reference_science(result):
+    projection = {"units": [
+        {"comparisons": unit["comparisons"], "undecided": [
+            {"comparisons": item["comparisons"]} if "comparisons" in item else {}
+            for item in unit["undecided"]
+        ]}
+        for unit in result["units"]
+    ]}
+    _scientific_report_validator().validate(projection)
+    scientific_model().validate_json("ReferenceScientificReport", json.dumps(projection))
+
+
 def scientific_policy_recipe() -> dict[str, Any]:
     return {
         "abi": "scientific-evidence-2",
         "decision_rules": list(decision_rules()),
+        **scientific_report_layout(),
+        "report_schema": scientific_report_schema(),
         "comparison_schema": scientific_model().json_schema("ComparisonAssessment"),
         "bound_comparison_schema": scientific_model().json_schema("BoundComparisonAssessment"),
         "decision_rule_schema": scientific_model().json_schema("DecisionRule"),
@@ -106,6 +167,11 @@ def scientific_policy_recipe() -> dict[str, Any]:
     }
 
 
+@lru_cache(maxsize=1)
+def _scientific_policy_bytes():
+    return canonical_bytes(scientific_policy_recipe())
+
+
 def require_scientific_policy(prepared) -> None:
     from .contracts import bound_execution_model
     from .determinants import scientific_compatible
@@ -114,7 +180,7 @@ def require_scientific_policy(prepared) -> None:
         bound_execution_model(prepared).require_operation("scientific_policy")
 
     artifact = next((a for a in prepared.artifacts if a.kind == SCIENTIFIC_POLICY_INPUT), None)
-    if artifact is None or artifact.content != canonical_bytes(scientific_policy_recipe()):
+    if artifact is None or artifact.content != _scientific_policy_bytes():
         raise ValueError(
             "scientific evidence/policy recipe is unsupported; "
             "derive a release with the supported profiles"

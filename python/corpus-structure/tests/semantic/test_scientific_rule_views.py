@@ -327,3 +327,21 @@ def test_one_evidence_records_the_policy_that_actually_decided():
     assert reference["policy_id"] == "reference-evidence-1"
     assert reference["outcome"] == "undecided"
     assert consolidated["numeric"] == reference["numeric"] == "agreement"
+
+
+def test_scientific_report_paths_and_construction_share_linkml_shape():
+    from jsonschema import ValidationError as SchemaValidationError
+    from corpus_structure.semantic.scientific_evidence import scientific_report_layout, validate_reference_science
+
+    layout = scientific_report_layout()
+    assert set(layout["comparison_paths"]) == {
+        "$.units[*].comparisons[*]", "$.units[*].undecided[*].comparisons[*]"
+    }
+    assert {tuple(rule.values()) for rule in layout["array_rules"]} == {
+        ("$", "units", True), ("$.units[*]", "comparisons", True),
+        ("$.units[*]", "undecided", True),
+        ("$.units[*].undecided[*]", "comparisons", False),
+    }
+    validate_reference_science({"units": [{"comparisons": [], "undecided": [{"reason": "no candidate"}]}]})
+    with pytest.raises(SchemaValidationError):
+        validate_reference_science({"units": [{"comparisons": "invalid", "undecided": []}]})

@@ -48,3 +48,13 @@ classes:
       field: {required: true}
       use: {}
       alignment_basis: {}
+  UndecidedScientificComparison:
+    attributes:
+      comparisons: {range: ComparisonAssessment, inlined: true, multivalued: true}
+  ScientificReportUnit:
+    attributes:
+      comparisons: {range: BoundComparisonAssessment, inlined: true, multivalued: true, annotations: {'cs:role': required_report_array}}
+      undecided: {range: UndecidedScientificComparison, inlined: true, multivalued: true, annotations: {'cs:role': required_report_array}}
+  ReferenceScientificReport:
+    attributes:
+      units: {range: ScientificReportUnit, inlined: true, multivalued: true, annotations: {'cs:role': required_report_array}}
