@@ -34,7 +34,8 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
   coordinator §9 owns corrected selections and retained failed attempts.
 - `uv run pyrefly check --min-severity warn --summary=none`: passed, no errors/warnings.
   Maintenance: `just turn-end`, `just adr-lint`, `uv run ruff check --quiet`,
-  `just docs-check`, `git diff --check` passed. Earlier results retain their original scope.
+  `just docs-check` passed. Staged whitespace diagnostics on frozen generated SQL are retained
+  in coordinator §9; functional/type results retain their applicable scope.
 
 - **passed:** every final required node has applicable passing setup/call/teardown evidence:
   final default collection2325, required unresolved0. `required-union.json` records the reconciliation.

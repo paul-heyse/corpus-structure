@@ -203,3 +203,8 @@ stale-preparation cases; their producer/fixture corrections and affected reruns 
 This is PE-00/PE-01 acceptance, not full-series qualification, a corpus benchmark or a measured
 speedup. F01–F11 retain their later-package obligations and remain open. Next: PE-02 investigation
 and dependent PE-03 work; independent later packages retain the existing readiness conditions.
+
+Maintenance note: `git diff --cached --check` identified trailing whitespace in the newly tracked
+frozen SQLAlchemy/native SQL products. Their byte-for-byte generator correspondence is retained;
+this whitespace diagnostic supplies no functional failure and does not invalidate types/tests.
+The earlier unstaged `git diff --check` passed before new generated files were staged.
