@@ -164,45 +164,50 @@ def _restore_old_selected_result(admin, writer, admitter):
     )
 
     with admin.begin() as conn:
-        conn.exec_driver_sql("SET LOCAL session_replication_role = replica")
-        run = conn.execute(
-            insert(table("ops.run"))
-            .values(
-                project_id=project,
-                release_id=r,
-                input_realization_id="historical:source",
-                input_revision=0,
-                dependency_digest=sha256(b"{}").hexdigest(),
-                dependencies=b"{}",
-                kind="extract",
-                phase=0,
-                options={"domain": "statistics"},
-                guideline="",
-                status="finished",
-                code_commit="historical-fixture",
-                result_realization_id=z,
-                sealed=True,
+        from contextlib import ExitStack
+
+        from .snapshot_restore import restore_finished_metadata
+
+        with ExitStack() as restore:
+            for name in ("ops.run", "ops.input_cut", "ops.completed_result"):
+                restore.enter_context(restore_finished_metadata(conn, table(name)))
+            run = conn.execute(
+                insert(table("ops.run"))
+                .values(
+                    project_id=project,
+                    release_id=r,
+                    input_realization_id="historical:source",
+                    input_revision=0,
+                    dependency_digest=sha256(b"{}").hexdigest(),
+                    dependencies=b"{}",
+                    kind="extract",
+                    phase=0,
+                    options={"domain": "statistics"},
+                    guideline="",
+                    status="finished",
+                    code_commit="historical-fixture",
+                    result_realization_id=z,
+                    sealed=True,
+                )
+                .returning(table("ops.run").c.id)
+            ).scalar_one()
+            cut = conn.execute(
+                insert(table("ops.input_cut"))
+                .values(run_id=run, name="final", final=True, release_id=r, source_revision=0)
+                .returning(table("ops.input_cut").c.id)
+            ).scalar_one()
+            conn.execute(
+                insert(table("ops.completed_result")).values(
+                    run_id=run,
+                    release_id=r,
+                    output_realization_id=z,
+                    cut_id=cut,
+                    batch_id="historical-batch",
+                    dependency_digest=sha256(b"{}").hexdigest(),
+                    source_receipts=[],
+                    proof_receipts=[],
+                )
             )
-            .returning(table("ops.run").c.id)
-        ).scalar_one()
-        cut = conn.execute(
-            insert(table("ops.input_cut"))
-            .values(run_id=run, name="final", final=True, release_id=r, source_revision=0)
-            .returning(table("ops.input_cut").c.id)
-        ).scalar_one()
-        conn.execute(
-            insert(table("ops.completed_result")).values(
-                run_id=run,
-                release_id=r,
-                output_realization_id=z,
-                cut_id=cut,
-                batch_id="historical-batch",
-                dependency_digest=sha256(b"{}").hexdigest(),
-                source_receipts=[],
-                proof_receipts=[],
-            )
-        )
-        conn.exec_driver_sql("SET LOCAL session_replication_role = origin")
     with admitter.begin() as conn:
         generation = select_completed_result(conn, project, run, 0)
     assert generation == 1
@@ -400,11 +405,13 @@ def test_cache_is_database_scoped_and_rechecks_current_archive_digest(
 def test_shared_snapshot_restores_connection_state_after_failure(semantic_reader_engine):
     from corpus_structure.semantic.query import read_snapshot
 
-    with pytest.raises(RuntimeError, match="cancelled consumer"):
-        with read_snapshot(semantic_reader_engine) as conn:
-            assert conn.get_isolation_level() == "REPEATABLE READ"
-            assert conn.exec_driver_sql("SHOW transaction_read_only").scalar_one() == "on"
-            raise RuntimeError("cancelled consumer")
+    with (
+        pytest.raises(RuntimeError, match="cancelled consumer"),
+        read_snapshot(semantic_reader_engine) as conn,
+    ):
+        assert conn.get_isolation_level() == "REPEATABLE READ"
+        assert conn.exec_driver_sql("SHOW transaction_read_only").scalar_one() == "on"
+        raise RuntimeError("cancelled consumer")
     with semantic_reader_engine.connect() as conn:
         assert conn.get_isolation_level() == "READ COMMITTED"
         assert conn.exec_driver_sql("SHOW transaction_read_only").scalar_one() == "off"

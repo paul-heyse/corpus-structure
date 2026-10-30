@@ -191,12 +191,15 @@ def check_contract(
     json_: JsonOpt = False,
 ) -> None:
     """Read-only native correspondence check for one explicitly archived release."""
-    from sqlalchemy.exc import SQLAlchemyError
-
-    from corpus_structure.cli.query import refusal
-    from corpus_structure.semantic.execution_admission import admit_execution_release
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.execution_admission import (
+        ExecutionAdmissionError,
+        admit_execution_release,
+    )
     from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
-    from corpus_structure.semantic.releases import open_release
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.releases import ReleaseConflict, open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     class ContractCheck(BaseModel):
@@ -204,20 +207,18 @@ def check_contract(
         execution_model_id: str | None
         physical_id: str
 
-    with refusal(json_):
-        try:
-            with (
-                open_runtime_engine(state(ctx).settings(), "ci-db-check", purpose="read") as engine,
-                engine.connect() as conn,
-                conn.begin(),
-            ):
-                conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+    with failure_boundary(json_, expected=(ExecutionAdmissionError, ReleaseConflict)):
+        with (
+            open_runtime_engine(state(ctx).settings(), "ci-db-check", purpose="read") as engine,
+            read_snapshot(engine) as conn,
+        ):
+            try:
                 prepared = open_release(conn, release)
-                admit_execution_release(prepared, connection=conn)
-        except SQLAlchemyError as exc:
-            raise ValueError(
-                "native check refused: " + str(getattr(exc, "orig", exc)).splitlines()[0]
-            ) from exc
+            except KeyError as error:
+                if error.args != (release,):
+                    raise
+                raise SemanticRefusal(f"unknown semantic release {release}") from error
+            admit_execution_release(prepared, connection=conn)
         emit(
             ContractCheck(
                 release_id=prepared.release_id,
