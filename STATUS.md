@@ -45,15 +45,15 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 F01's recognition opportunity remains with its owning interpretation package. Current runtime
 scope is complete; assess future source/workload growth against the recorded capacity limits.
 
-## Mathematical decomposition review — 2026-10-30
+## Parsing reviews — 2026-10-30
 
-[Completed review](docs/functional_reviews/symbolic-math-decomposition_2026-10-30.md) proposes
-a complete categorized source partition with start/end ranges, explicit parse views and shared
-on-demand SymPy interpretation/assessment. It retains excluded components and distinguishes
-source occurrences from mathematical values. Adoption, plan changes and implementation remain
-separate. The review changes no audit premises or existing qualification conclusions; product
-tests were not rerun for this documentation-only inquiry.
-Review documentation: **passed** `just docs-check` and `just turn-end`.
+[Pipeline review](docs/functional_reviews/parsing-pipeline_2026-10-30.md) and its target extend
+[mathematical decomposition](docs/functional_reviews/symbolic-math-decomposition_2026-10-30.md):
+retain html5lib, model complete original/canonical decomposition and transformation relations,
+and extend current operation contracts with native adapters and on-demand interpretation.
+Exact HTML source mapping needs qualification. Recommendations remain Proposed; adoption and
+implementation are separate. No audit premises or existing qualification conclusions changed.
+Review docs: **passed** `just docs-check`, `just turn-end`; product tests not rerun (docs only).
 
 ## Test audit — 2026-10-30
 [Account](docs/design_review/test-audit/README.md) refreshed in full at `599d479`: 20 findings, unscheduled; DTA-015/016 are production causes and its open questions await the operator.
