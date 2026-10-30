@@ -21,14 +21,21 @@ validation set status. Consolidation is methods M17 and M18 of
 
 **Implemented, 2026-10-29; scoped verification belongs to [SP-I06/SP-I07](../plans/semantic-model-pivot/release-and-consumer-consolidation.md#SP-I06).**
 Semantic operands feed one scientific evidence kernel with distinct archived consolidation and
-reference sampling/decision profiles. Numeric agreement retains its existing different treatment;
+reference sampling/decision profiles. LinkML types validate decision-rule rows and comparison
+assessments; one immutable policy lookup is shared with the PostgreSQL projection. Raw numeric
+agreement is retained before either consumer decides its meaning. Numeric agreement retains its existing different treatment;
 SymPy numerical fallback is never relabeled symbolic proof. Assessments persist a typed, versioned
 reason envelope containing policy, mechanism, numerical status, operands and exact context; existing
-explanations expose that evidence. Authored LinkML logical views drive typed rule-engine OBJECT
+explanations expose that evidence. Reference reports also retain successful and undecided
+comparison evidence, the policy that actually decided it, acquisition profile and exact recursive
+operand paths; these explanations do not change scoring tiers or existing stored grades. Authored LinkML logical views drive typed rule-engine OBJECT
 accessors, nullable fields, arrays and maps; actual accessor values are validated. Rule contexts
 retain explicit decimal precision, closed vocabulary and nondeterminism restrictions.
 
-Identity resolution retains the complete global candidate context. Afterwards, only used typed
+Identity resolution retains the complete global candidate context. Effective identity, required
+and display property roles are derived once and projected as immutable release rows. Core
+membership/role predicates restrict fact/value hydration before loading; all applicable class
+facets remain eligible. Afterwards, only used typed
 reference/qualification closure, memberships, supports and retained exclusions contribute imported
 evidence. Candidate inputs distinguish all source-support occurrences from the scientific decision
 subset. DuckDB single-input kernels use relation.query; multi-input views use one owned TEMP table

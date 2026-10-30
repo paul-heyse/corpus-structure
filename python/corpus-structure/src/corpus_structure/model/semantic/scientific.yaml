@@ -30,6 +30,7 @@ classes:
       reference_path: {multivalued: true}
       prediction_path: {multivalued: true}
       evidence_tier: {range: Tier, required: true}
+      agreement: {range: Agreement, required: true}
       decision_tier: {range: Tier, required: true}
       outcome: {range: Decision, required: true}
       numeric: {range: Numeric, required: true}

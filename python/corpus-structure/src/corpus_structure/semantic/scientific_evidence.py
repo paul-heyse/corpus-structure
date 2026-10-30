@@ -262,6 +262,7 @@ def comparison_assessment(decision: ScientificDecision, *, context: Any) -> dict
         "reference_path": [],
         "prediction_path": [],
         "evidence_tier": evidence.tier.value,
+        "agreement": "unknown" if evidence.agreement is None else "agrees" if evidence.agreement else "disagrees",
         "decision_tier": decision.tier.value,
         "outcome": outcome,
         "numeric": evidence.numeric,
