@@ -23,13 +23,13 @@ def refusal(json: bool):
 
 
 def context(conn: Any, project: str | None, run: str) -> tuple[str, int, Any]:
-    from corpus_structure.serve.journey import QueryRefused, parse_run, select_run
-    from corpus_structure.serve.queries import GENERIC
-    from corpus_structure.serve.registry import build_registry
     from sqlalchemy import select
 
     from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.metadata import table
+    from corpus_structure.serve.journey import QueryRefused, parse_run, select_run
+    from corpus_structure.serve.queries import GENERIC
+    from corpus_structure.serve.registry import build_registry
 
     if run == "promoted" and not project:
         raise QueryRefused("a selected completed result needs its project")
@@ -99,8 +99,8 @@ def query(
     json: JsonOpt = False,
 ) -> None:
     from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.serve.journey import QueryRefused, parse_run, select_run, serve_query
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.journey import QueryRefused, parse_run, serve_query
 
     params = {}
     with refusal(json):

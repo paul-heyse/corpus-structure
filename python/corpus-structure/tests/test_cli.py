@@ -89,12 +89,14 @@ def test_a_mistyped_field_inside_a_section_is_refused(cli) -> None:
     assert "data_dirr" in str(result.exception)
 
 
-@pytest.mark.parametrize("arguments", [["--help"], ["schema", "--help"], ["mcp", "--help"], ["experiment"]])
+@pytest.mark.parametrize(
+    "arguments", [["--help"], ["schema", "--help"], ["mcp", "--help"], ["experiment"]]
+)
 def test_fresh_command_registration_does_not_import_unrelated_kernels(arguments) -> None:
     import subprocess
     import sys
 
-    script = '''
+    script = """
 import json
 import sys
 from typer.testing import CliRunner
@@ -107,8 +109,10 @@ result = CliRunner().invoke(app, json.loads(sys.argv[1]), obj=CliState(settings_
 assert result.exit_code == (1 if sys.argv[1] == '["experiment"]' else 0), result.output
 for name in ("sympy", "scipy", "spacy", "pyarrow", "duckdb", "corpus_structure.semantic.prepare"):
     assert name not in sys.modules, name
-'''
-    result = subprocess.run([sys.executable, "-c", script, json.dumps(arguments)], capture_output=True, text=True)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, json.dumps(arguments)], capture_output=True, text=True
+    )
     assert result.returncode == 0, result.stderr
 
 
@@ -117,8 +121,13 @@ def test_archive_opening_import_does_not_acquire_current_compiler() -> None:
     import sys
 
     result = subprocess.run(
-        [sys.executable, "-c", "from corpus_structure.semantic.releases import open_release; import sys; assert 'corpus_structure.semantic.prepare' not in sys.modules"],
-        capture_output=True, text=True,
+        [
+            sys.executable,
+            "-c",
+            "from corpus_structure.semantic.releases import open_release; import sys; assert 'corpus_structure.semantic.prepare' not in sys.modules",
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
 
@@ -127,13 +136,13 @@ def test_fresh_mcp_registration_does_not_import_analysis_or_compiler() -> None:
     import subprocess
     import sys
 
-    script = '''
+    script = """
 import sys
 from corpus_structure.intervene.semantic_server import build_semantic_server
 server = build_semantic_server()
 assert server.name == "corpus-structure"
 for name in ("sympy", "scipy", "spacy", "pyarrow", "duckdb", "corpus_structure.semantic.prepare"):
     assert name not in sys.modules, name
-'''
+"""
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr

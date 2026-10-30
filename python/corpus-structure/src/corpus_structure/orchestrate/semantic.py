@@ -400,7 +400,11 @@ def _unit(conn: Any, view: Any, ref: Any) -> UnitView:
 
 
 def _packet_for_unit(
-    conn: Any, run_id: int, prepared: Any, ref: Any, configuration: Mapping[str, Any],
+    conn: Any,
+    run_id: int,
+    prepared: Any,
+    ref: Any,
+    configuration: Mapping[str, Any],
     preparation: dict | None = None,
 ):
     """Shared queue/serve preparation including recorded M13 standing context."""
@@ -482,7 +486,9 @@ def _packet_for_unit(
     )
 
 
-def agent_packet(conn: Any, run_id: int, task_id: int, prepared: Any, *, preparation: dict | None = None):
+def agent_packet(
+    conn: Any, run_id: int, task_id: int, prepared: Any, *, preparation: dict | None = None
+):
     """Rebuild exactly the packet hashed by queue_agent; no active release lookup."""
     t, c = table("ops.task"), table("ops.method_config")
     row = (
@@ -548,7 +554,9 @@ def queue_agent(
     recorded = preparation.setdefault("configurations", {})
     key = (configuration_name, config_hash)
     if key not in recorded:
-        recorded[key] = record_method(conn, method, configuration_name, configuration, config_hash, prepared=prepared)
+        recorded[key] = record_method(
+            conn, method, configuration_name, configuration, config_hash, prepared=prepared
+        )
     config_id = recorded[key]
     if "view" not in preparation:
         preparation["view"] = run_view(conn, run_id, prepared)
@@ -570,16 +578,24 @@ def queue_agent(
             raise OperationConflict("agent unit differs from its declared method contract")
         from corpus_structure.semantic.analysis_contracts import invocation_identity
 
-        packet = None if skip_reason is not None else _packet_for_unit(
-            conn, run_id, prepared, ref, configuration, preparation)
+        packet = (
+            None
+            if skip_reason is not None
+            else _packet_for_unit(conn, run_id, prepared, ref, configuration, preparation)
+        )
         digest = invocation_identity(
-            prepared, release=binding.release_id,
-            source={"realization": binding.input_realization_id, "revision": binding.input_revision,
-                    "dependencies": binding.dependency_digest},
+            prepared,
+            release=binding.release_id,
+            source={
+                "realization": binding.input_realization_id,
+                "revision": binding.input_revision,
+                "dependencies": binding.dependency_digest,
+            },
             configuration={"method": method.name, "version": method.version, "hash": config_hash},
             policy={"trigger": dict(trigger or {}), "options": view.options},
             unit={"type": str(ref.unit_type), "id": ref.unit_id, "key": ref.unit_key},
-            skip_reason=skip_reason, packet_hash=None if packet is None else packet.hash,
+            skip_reason=skip_reason,
+            packet_hash=None if packet is None else packet.hash,
         )
         task_id = create_task(
             conn,
@@ -749,22 +765,37 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
                     "iteration": 0,
                 },
             }
-            trigger["scope_limit"] = {"scope": view.options.get("scope"), "limit": entry.entry.do.limit,
-                                       "position": counts[entry.key]}
+            trigger["scope_limit"] = {
+                "scope": view.options.get("scope"),
+                "limit": entry.entry.do.limit,
+                "position": counts[entry.key],
+            }
             decisions.append((ref, config_name, trigger, reason))
             if reason is None:
                 counts[entry.key] += 1
     for ref, config_name, trigger, reason in decisions:
-        preparation = preparations.setdefault(config_name, {"view": view, "units": unit_views,
-            "indices": {rid: pair[0] for rid, pair in indices.items()}})
+        preparation = preparations.setdefault(
+            config_name,
+            {
+                "view": view,
+                "units": unit_views,
+                "indices": {rid: pair[0] for rid, pair in indices.items()},
+            },
+        )
         task = queue_agent(
-            conn, run_id=run_id, prepared=prepared, configuration=configs[config_name],
-            units=[ref], configuration_name=config_name, trigger=trigger, skip_reason=reason,
+            conn,
+            run_id=run_id,
+            prepared=prepared,
+            configuration=configs[config_name],
+            units=[ref],
+            configuration_name=config_name,
+            trigger=trigger,
+            skip_reason=reason,
             preparation=preparation,
         )[0]
-        if reason is None and conn.execute(select(t.c.status).where(t.c.id == task)).scalar_one() in (
-            "pending", "running", "awaiting_agent"
-        ):
+        if reason is None and conn.execute(
+            select(t.c.status).where(t.c.id == task)
+        ).scalar_one() in ("pending", "running", "awaiting_agent"):
             open_count += 1
     return open_count
 

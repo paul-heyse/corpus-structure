@@ -19,9 +19,10 @@ golden_app = typer.Typer(
 
 @contextmanager
 def reference_session(ctx, project=None, *, json=False):
+    from sqlalchemy import select
+
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.semantic.metadata import table
-    from sqlalchemy import select
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     with failure_boundary(json, expected=(references.ReferenceError,)):
@@ -68,6 +69,7 @@ def split_command(
 ):
     """Assign registered source documents immutably to development/test splits."""
     from corpus_structure.evaluate import semantic as references
+
     with reference_session(ctx, project, json=json) as (conn, pid):
         result = references.split_documents(conn, pid, seed=seed)
     output(result, json)
@@ -85,9 +87,11 @@ def create_command(
     json: JsonOpt = False,
 ):
     """Sample independent reference units from a completed result's frozen source cut."""
+    from sqlalchemy import select
+
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.semantic.metadata import table
-    from sqlalchemy import select
+
     with reference_session(ctx, project, json=json) as (conn, pid):
         run = from_run or conn.scalar(
             select(table("data.project").c.selected_result_run_id).where(
@@ -107,9 +111,11 @@ def status_command(
     ctx: typer.Context, label: str | None = None, project: str | None = None, json: JsonOpt = False
 ):
     """Show counts and bindings, without exposing reference answers."""
+    from sqlalchemy import select
+
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.semantic.metadata import table
-    from sqlalchemy import select
+
     with reference_session(ctx, project, json=json) as (conn, pid):
         s = table("eval.reference_set")
         q = select(s).where(s.c.project_id == pid)

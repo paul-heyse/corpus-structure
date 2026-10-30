@@ -81,15 +81,18 @@ class SemanticAgentSession:
                     renew_claim(conn, task_id=task_id, attempt=session.attempt, holder=self.holder)
                 except OperationConflict as error:
                     raise ProposalTaskNotOpen(str(error)) from error
-                from corpus_structure.semantic.operations import lock_input_snapshot
                 from corpus_structure.semantic.metadata import table
+                from corpus_structure.semantic.operations import lock_input_snapshot
 
                 lock_input_snapshot(conn, self.run_id)
                 tasks = table("ops.task")
-                packet_hash = conn.execute(select(tasks.c.packet_hash).where(
-                    tasks.c.id == task_id, tasks.c.run_id == self.run_id,
-                    tasks.c.release_id == session.prepared.release_id,
-                )).scalar_one_or_none()
+                packet_hash = conn.execute(
+                    select(tasks.c.packet_hash).where(
+                        tasks.c.id == task_id,
+                        tasks.c.run_id == self.run_id,
+                        tasks.c.release_id == session.prepared.release_id,
+                    )
+                ).scalar_one_or_none()
                 if packet_hash != session.packet.hash:
                     raise ProposalRefused("recorded source packet changed after it was served")
             return session
@@ -147,7 +150,9 @@ class SemanticAgentSession:
                     agent=True,
                 )
                 for task in leased:
-                    packet = agent_packet(conn, self.run_id, task.task_id, prepared, preparation=preparation)
+                    packet = agent_packet(
+                        conn, self.run_id, task.task_id, prepared, preparation=preparation
+                    )
                     if packet.hash != task.packet_hash:
                         raise ProposalRefused(
                             "queued task does not match its recorded source packet"

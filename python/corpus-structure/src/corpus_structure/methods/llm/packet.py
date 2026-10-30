@@ -440,7 +440,9 @@ def unit_inputs(
         unit = (index.resolve(unit_key),)
         context = tuple(context_from_stored(content, page, unit, views))
         return UnitInputs(content, page, unit_key, unit, context, known, macros)
-    content = reader.content(rendition_id) if coordinate_index is None else coordinate_index.rendition
+    content = (
+        reader.content(rendition_id) if coordinate_index is None else coordinate_index.rendition
+    )
     page = parse_locator(unit_key).page
     index = LocatorIndex(content, page) if coordinate_index is None else coordinate_index
     unit = (index.resolve(unit_key),)

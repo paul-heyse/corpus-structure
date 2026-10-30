@@ -376,17 +376,40 @@ def test_current_compilation_and_preparation_refuse_retained_analysis_profile():
 def test_invocation_identity_is_disjoint_and_binds_complete_decisions():
     from corpus_structure.semantic.analysis_contracts import invocation_identity
 
-    dependencies = dict(source={"revision": 1},
+    dependencies = dict(
+        source={"revision": 1},
         configuration={"method": "agent.opus", "model": "declared"},
-        policy={"classification": "unknown", "limit": 1}, unit={"id": 3})
-    skipped = invocation_identity(None, release="release:one", **dependencies, skip_reason="limit", packet_hash=None)
-    executable = invocation_identity(None, release="release:one", **dependencies, skip_reason=None, packet_hash="packet:one")
+        policy={"classification": "unknown", "limit": 1},
+        unit={"id": 3},
+    )
+    skipped = invocation_identity(
+        None, release="release:one", **dependencies, skip_reason="limit", packet_hash=None
+    )
+    executable = invocation_identity(
+        None, release="release:one", **dependencies, skip_reason=None, packet_hash="packet:one"
+    )
     assert skipped != executable
-    for key, replacement in (("source", {"revision": 2}), ("configuration", {"model": "other"}),
-                             ("policy", {"classification": "known", "limit": 1}), ("unit", {"id": 4})):
-        assert invocation_identity(None, release="release:one", **{**dependencies, key: replacement},
-                                   skip_reason="limit", packet_hash=None) != skipped
+    for key, replacement in (
+        ("source", {"revision": 2}),
+        ("configuration", {"model": "other"}),
+        ("policy", {"classification": "known", "limit": 1}),
+        ("unit", {"id": 4}),
+    ):
+        assert (
+            invocation_identity(
+                None,
+                release="release:one",
+                **{**dependencies, key: replacement},
+                skip_reason="limit",
+                packet_hash=None,
+            )
+            != skipped
+        )
     with pytest.raises(ValueError, match="packet presence"):
-        invocation_identity(None, release="release:one", **dependencies, skip_reason="limit", packet_hash="forged")
+        invocation_identity(
+            None, release="release:one", **dependencies, skip_reason="limit", packet_hash="forged"
+        )
     with pytest.raises(ValueError, match="packet presence"):
-        invocation_identity(None, release="release:one", **dependencies, skip_reason=None, packet_hash=None)
+        invocation_identity(
+            None, release="release:one", **dependencies, skip_reason=None, packet_hash=None
+        )

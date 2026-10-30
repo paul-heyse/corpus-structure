@@ -293,7 +293,7 @@ def fixture(
             unit_id=document,
             unit_key="page#one",
             input_hash="input",
-            packet_hash=packet.hash if statement_packets else None,
+            packet_hash=packet.hash,
             agent=True,
         )
         lease = claim_tasks(conn, run_id=run, config_id=cid, holder="worker", agent=True)[0]
@@ -308,8 +308,7 @@ def fixture(
         )
         from corpus_structure.semantic.source_frames import capture_source_frame
 
-        if statement_packets:
-            capture_source_frame(conn, task, packet)
+        capture_source_frame(conn, task, packet)
     raw: dict[str, Any] = {
         "unit_ref": "page#one",
         "entities": [{"id": "person", "class_iri": "https://example.org/Person", "label": "Alice"}],
@@ -535,11 +534,10 @@ def fixture(
                 unit_id=document,
                 unit_key=second_unit,
                 input_hash="input-second",
-                packet_hash=second_packet.hash if statement_packets else None,
+                packet_hash=second_packet.hash,
                 agent=True,
             )
-            if statement_packets:
-                capture_source_frame(conn, second_task, second_packet)
+            capture_source_frame(conn, second_task, second_packet)
             second_lease = claim_tasks(
                 conn, run_id=run, config_id=second_config, holder="worker", agent=True
             )[0]

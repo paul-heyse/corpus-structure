@@ -21,8 +21,8 @@ def _explain(
     json: bool,
 ) -> None:
     from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.serve.explain import explain as explain_query
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.explain import explain as explain_query
 
     settings = state(ctx).settings()
     with (

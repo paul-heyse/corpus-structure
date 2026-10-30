@@ -17,6 +17,7 @@ def refusal(json):
     from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
     from corpus_structure.semantic.releases import ReleaseConflict
     from corpus_structure.semantic.types import PreparationError
+
     return failure_boundary(
         json, expected=(PreparationError, ReleaseConflict, ExecutionAdmissionError)
     )
@@ -93,6 +94,7 @@ def check_(
     """Check candidate packs or fully verify an archived release without changing it."""
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
+
     if release is None:
         return compile_(domain or ["statistics"], domains, None, json_)
     from corpus_structure.cli.output import state
@@ -128,6 +130,7 @@ def derive_(
 ):
     """Emit reviewed candidate products to a new directory; never deploy or overwrite history."""
     from corpus_structure.semantic.refusals import SemanticRefusal
+
     with refusal(json_):
         if out.exists():
             raise SemanticRefusal("derivation requires a new --out directory")

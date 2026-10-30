@@ -123,11 +123,14 @@ chains:
     )
     assert initialized.exit_code == 0, (initialized.output, initialized.exception)
     from corpus_structure.orchestrate import semantic as scheduling
+
     packet_calls = []
     original_packet = scheduling._packet_for_unit
+
     def counted_packet(*args, **kwargs):
         packet_calls.append(args[3])
         return original_packet(*args, **kwargs)
+
     monkeypatch.setattr(scheduling, "_packet_for_unit", counted_packet)
     result = runner.invoke(
         app,
