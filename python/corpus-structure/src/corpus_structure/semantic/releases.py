@@ -164,6 +164,13 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
             "conditional_rule",
             "conditional_atom",
             "metric_definition",
+            "execution_operation",
+            "execution_transition",
+            "execution_edge",
+            "operation_effect",
+            "transition_effect",
+            "operation_property_role",
+            "scientific_decision_rule",
         )
     }
     properties: dict[str, str] = {}
@@ -262,6 +269,47 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
         for row in prepared.registry_rows
         if row.kind == "metric_definition"
     ]
+    if prepared.execution_model_id is not None:
+        from .contracts import bound_execution_model
+
+        execution = bound_execution_model(prepared)
+        bindings = {binding.id: binding for binding in execution.implementations}
+        for operation in execution.operations:
+            binding = bindings[operation.implementation]
+            rows["execution_operation"].append({
+                "release_id": rid, "operation_id": operation.id,
+                "implementation_id": binding.id, "implementation_version": binding.version,
+            })
+            rows["operation_effect"].extend(
+                {"release_id": rid, "operation_id": operation.id, "effect_id": effect}
+                for effect in operation.effects
+            )
+        for transition in execution.transitions:
+            rows["execution_transition"].append({
+                "release_id": rid, "transition_id": transition.id,
+                "operation_id": transition.operation, "lifecycle": transition.lifecycle,
+            })
+            rows["execution_edge"].extend(
+                {"release_id": rid, "transition_id": transition.id,
+                 "prior_state": before, "result_state": after}
+                for before in transition.from_states for after in transition.to_states
+            )
+            rows["transition_effect"].extend(
+                {"release_id": rid, "transition_id": transition.id, "effect_id": effect}
+                for effect in transition.effects
+            )
+    # The index shares contextual role derivation with public Core property queries.
+    rows["operation_property_role"] = [
+        {"release_id": rid, "class_id": cls, "property_id": prop, "role": role}
+        for (cls, prop), roles in sorted(prepared.index.property_roles.items())
+        for role in sorted(roles)
+    ]
+    for artifact in prepared.artifacts:
+        if artifact.kind == "operation/scientific-policy.json":
+            rows["scientific_decision_rule"] = [
+                {"release_id": rid, **rule}
+                for rule in json.loads(artifact.content)["decision_rules"]
+            ]
     return rows
 
 
@@ -307,7 +355,7 @@ def persist_release(
     and never recompiles while writing projection rows. The caller commits or rolls back.
     """
     _validate_manifest(bundle, dependencies, profile, prepared)
-    if profile.compiler_version in {"12", "13"}:
+    if profile.compiler_version == "13":
         derived = prepare_release(bundle, dependencies, profile)
         if _archive_bytes(bundle, dependencies, derived) != _archive_bytes(
             bundle, dependencies, prepared

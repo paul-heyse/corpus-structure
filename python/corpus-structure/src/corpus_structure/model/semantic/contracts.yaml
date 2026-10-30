@@ -20,6 +20,11 @@ types:
     base: bool
     uri: xsd:boolean
 classes:
+  EffectDefinition:
+    attributes:
+      id: {range: string, required: true}
+      version: {range: string, required: true}
+      meaning: {range: string, required: true}
   ConceptDefinition:
     attributes:
       id:
@@ -611,6 +616,13 @@ classes:
         required: false
   ExecutionCatalog:
     attributes:
+      effect_definitions:
+        range: EffectDefinition
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
       native_guards:
         range: NativeGuardBinding
         multivalued: true

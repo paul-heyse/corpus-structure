@@ -2446,3 +2446,88 @@ classes:
     annotations:
       ph:foreign_keys: '[{"columns":["task_id","rendition_id"],"target":"ops.source_frame.task_id,rendition_id"},{"columns":["rendition_id","segment_id"],"target":"kb.segment.rendition_id,id"}]'
       ph:checks: '["sentence_id <> ''''", "locator <> ''''"]'
+
+  execution_operation:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      implementation_id: {range: string, required: true}
+      implementation_version: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, operation_id]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
+  execution_transition:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      transition_id: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      lifecycle: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, transition_id]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["release_id","operation_id"],"target":"sem.execution_operation.release_id,operation_id"}]'
+  execution_edge:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      transition_id: {range: string, required: true}
+      prior_state: {range: string, required: true}
+      result_state: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, transition_id, prior_state, result_state]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["release_id","transition_id"],"target":"sem.execution_transition.release_id,transition_id"}]'
+  operation_effect:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      effect_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, operation_id, effect_id]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["release_id","operation_id"],"target":"sem.execution_operation.release_id,operation_id"}]'
+  transition_effect:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      transition_id: {range: string, required: true}
+      effect_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, transition_id, effect_id]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["release_id","transition_id"],"target":"sem.execution_transition.release_id,transition_id"}]'
+  operation_property_role:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      class_id: {range: string, required: true}
+      property_id: {range: string, required: true}
+      role: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, class_id, property_id, role]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["release_id","class_id","property_id"],"target":"sem.property_applicability.release_id,class_id,property_id"}]'
+  scientific_decision_rule:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      policy_id: {range: string, required: true}
+      evidence_tier: {range: string, required: true}
+      agreement: {range: string, required: true}
+      decision: {range: string, required: true}
+      decision_tier: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, policy_id, evidence_tier, agreement]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'

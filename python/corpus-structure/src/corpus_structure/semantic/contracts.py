@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "3"
+EXECUTION_COMPILER_VERSION = "4"
 
 
 @lru_cache(maxsize=1)
@@ -41,6 +41,7 @@ def approved_implementations() -> Mapping[str, Any]:
         analytics,
         arrow_publication,
         consolidation,
+        continuations,
         domain_operations,
         inference,
         observations,
@@ -56,6 +57,7 @@ def approved_implementations() -> Mapping[str, Any]:
 
     return MappingProxyType(
         {
+            "validate_continuation": continuations.validate_continuation,
             "graph_project": ontology.qualified_validation_graph,
             "graph_validate": ontology.validate_projected_graph,
             "prepare": prepare.prepare_release,
@@ -197,6 +199,13 @@ class LifecycleDefinition:
             if {v.dimension: v.value for v in state.values} == dict(values):
                 return state
         _fail("invalid_composed_state", self.id, f"unsupported combination {dict(values)!r}")
+
+
+@dataclass(frozen=True)
+class EffectDefinition:
+    id: str
+    version: str
+    meaning: str
 
 
 @dataclass(frozen=True)
@@ -355,6 +364,20 @@ class ExecutionModelProducts:
     outcome_domains: tuple[OutcomeDomain, ...]
     outcome_translations: tuple[OutcomeTranslation, ...]
     native_guards: tuple[NativeGuardBinding, ...]
+    effect_definitions: tuple[EffectDefinition, ...] = ()
+
+    def operation(self, name: str) -> OperationContract:
+        """Resolve a mandatory operation from this exact release-bound model."""
+        for operation in self.operations:
+            if operation.id == name:
+                return operation
+        _fail("missing_operation", name, "required operation is absent from the bound model")
+
+    def require_operation(self, name: str) -> OperationContract:
+        """Resolve actual owned effect support; never substitute the installed model."""
+        operation = self.operation(name)
+        _validate_effect_support(self, operation)
+        return operation
 
     def lifecycle(self, name: str) -> LifecycleDefinition:
         return next(item for item in self.lifecycles if item.id == name)
@@ -369,6 +392,37 @@ class ExecutionModelProducts:
         if prior.id not in edge.from_states or result.id not in edge.to_states:
             _fail("invalid_transition", edge.id, f"unsupported edge {prior.id} -> {result.id}")
         return edge
+
+
+def _validate_effect_support(model: ExecutionModelProducts, operation: OperationContract) -> None:
+    from .effect_support import SUPPORTED_EFFECTS
+
+    supported = SUPPORTED_EFFECTS.get(operation.id)
+    actual = {
+        "effects": tuple(sorted(operation.effects)),
+        "transitions": {t.id: tuple(sorted(t.effects)) for t in model.transitions if t.operation == operation.id},
+    }
+    if supported != actual:
+        _fail("unsupported_effect_profile", operation.id,
+              "required effects differ from the owned implementation; implement the required profile before admission")
+
+
+def bound_execution_model(prepared) -> ExecutionModelProducts:
+    """Read a mandatory immutable execution product, without a current-model fallback."""
+    if prepared.execution_model_id is None:
+        _fail("missing_execution_model", prepared.release_id, "operation requires a composed execution binding")
+    rows = [row for row in prepared.registry_rows if row.kind == "execution_model"]
+    if len(rows) != 1 or rows[0].name != prepared.execution_model_id:
+        _fail("execution_binding", prepared.release_id, "exactly one matching execution model is required")
+    return _bound_execution_model(rows[0].body, prepared.execution_model_id)
+
+
+@lru_cache(maxsize=16)
+def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts:
+    data = json.loads(body)
+    if data.get("model_id") != model_id:
+        _fail("execution_binding", model_id, "execution product identity differs")
+    return _normalize({k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}}, model_id)
 
 
 def _fail(code: str, location: str, message: str) -> Never:
@@ -528,6 +582,12 @@ def _validate(products: ExecutionModelProducts) -> None:
         if _APPROVED_NATIVE_GUARDS.get(guard.id) != (guard.symbol, guard.version):
             _fail("unapproved_native_guard", guard.id, guard.symbol)
         _refs(guard.invariants, i, guard.id)
+    effects = _index(products.effect_definitions, "effect_definitions")
+    for effect in effects.values():
+        if effect.version != "1" or not effect.meaning.strip():
+            _fail("unsupported_effect", effect.id, "unsupported effect version or empty meaning")
+    for item in (*products.operations, *products.transitions, *products.implementations):
+        _refs(item.effects, effects, item.id)
     owned = approved_implementations()
     for binding in products.implementations:
         implementation = owned.get(binding.id)
@@ -617,6 +677,9 @@ def _validate(products: ExecutionModelProducts) -> None:
                 operation.id,
                 "typed input/result contract differs from implementation binding",
             )
+        if set(operation.effects) != set(binding.effects):
+            _fail("implementation_effects", operation.id, "operation and implementation effects differ")
+        _validate_effect_support(products, operation)
         for edge in operation.transitions:
             if t[edge].operation != operation.id:
                 _fail("operation_transition", operation.id, edge)

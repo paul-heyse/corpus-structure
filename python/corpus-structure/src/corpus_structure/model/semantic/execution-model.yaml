@@ -1755,15 +1755,56 @@ concepts:
   identity: Explicit scoped identifier and immutable producing binding; no display-label
     identity
   attributes:
+  - name: run_id
+    range: text
+    required: false
+    multivalued: false
   - name: snapshot_id
     range: text
     required: true
     multivalued: false
-  - name: after
+  - name: release_id
     range: text
     required: true
     multivalued: false
-  relationships: []
+  - name: realization_id
+    range: text
+    required: true
+    multivalued: false
+  - name: data_revision
+    range: text
+    required: true
+    multivalued: false
+  - name: query_identity
+    range: text
+    required: true
+    multivalued: false
+  - name: query_version
+    range: text
+    required: true
+    multivalued: false
+  - name: parameter_digest
+    range: text
+    required: true
+    multivalued: false
+  - name: projection
+    range: text
+    required: true
+    multivalued: false
+  - name: arithmetic_profile
+    range: text
+    required: true
+    multivalued: false
+  - name: order_profile
+    range: text
+    required: true
+    multivalued: false
+  - name: position
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - query_snapshot
 - id: QueryResult
   family: read
   scope: snapshot
@@ -6153,6 +6194,43 @@ operations:
   implementation: select_result
   transitions: []
   projections: []
+- id: validate_continuation
+  inputs:
+  - Continuation
+  - SnapshotBinding
+  - QueryDefinition
+  results:
+  - Continuation
+  applicability:
+  - same_snapshot
+  universe: Exact bound query, parameters, projection, version and snapshot revision
+  effects: []
+  outcomes:
+  - continued
+  - invalid_token
+  - wrong_query
+  - wrong_parameters
+  - wrong_release
+  - wrong_realization
+  - wrong_projection
+  - wrong_profile
+  - stale_revision
+  - stale_version
+  - unavailable_result
+  outcome_domain: continuation
+  result_dimensions:
+  - id: reason
+    field: reason
+    outcome_domain: continuation
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact query-owned continuation position
+  implementation: validate_continuation
+  transitions: []
+  projections: []
 implementations:
 - id: resolve_identity
   owner: semantic.domain_operations
@@ -6828,6 +6906,22 @@ implementations:
   - generation_cas_select_completed_output
   required_capabilities:
   - execution.selected_result.v1
+- id: validate_continuation
+  owner: semantic.continuations
+  symbol: validate_continuation
+  version: '1'
+  placement: python
+  input_concepts:
+  - Continuation
+  - SnapshotBinding
+  - QueryDefinition
+  result_concepts:
+  - Continuation
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
 projections:
 - id: occurrence
   sources:
@@ -8358,6 +8452,20 @@ outcome_domains:
 - id: selection
   authority: code
   values: [accepted, rejected, candidate, ambiguous]
+- id: continuation
+  authority: code
+  values:
+  - continued
+  - invalid_token
+  - wrong_query
+  - wrong_parameters
+  - wrong_release
+  - wrong_realization
+  - wrong_projection
+  - wrong_profile
+  - stale_revision
+  - stale_version
+  - unavailable_result
 outcome_translations:
 - source_domain: source_coverage
   source: complete
@@ -8435,3 +8543,133 @@ native_guards:
   version: '1'
   invariants:
   - selected_result_binding
+effect_definitions:
+- id: atomic_attempt_holder_deadline_change
+  version: "1"
+  meaning: atomic attempt holder deadline change
+- id: atomic_native_publication
+  version: "1"
+  meaning: atomic native publication
+- id: atomic_parent_generation_cas
+  version: "1"
+  meaning: atomic parent generation cas
+- id: atomic_protected_insert
+  version: "1"
+  meaning: atomic protected insert
+- id: atomic_source_proof_result_publication
+  version: "1"
+  meaning: atomic source proof result publication
+- id: atomic_terminal_result_and_reports
+  version: "1"
+  meaning: atomic terminal result and reports
+- id: attempt_every_owned_teardown
+  version: "1"
+  meaning: attempt every owned teardown
+- id: capture_final_cut
+  version: "1"
+  meaning: capture final cut
+- id: construct_new_run
+  version: "1"
+  meaning: construct new run
+- id: coordinated_run_and_task_terminalization
+  version: "1"
+  meaning: coordinated run and task terminalization
+- id: durable_checked_progress
+  version: "1"
+  meaning: durable checked progress
+- id: final_cut_seals_source_atomically
+  version: "1"
+  meaning: final cut seals source atomically
+- id: freeze_method_configuration
+  version: "1"
+  meaning: freeze method configuration
+- id: generation_cas_select_completed_output
+  version: "1"
+  meaning: generation cas select completed output
+- id: immutable_cut
+  version: "1"
+  meaning: immutable cut
+- id: initialize_project_and_empty_writable_realization
+  version: "1"
+  meaning: initialize project and empty writable realization
+- id: invalidate_borrowed_handles
+  version: "1"
+  meaning: invalidate borrowed handles
+- id: materialize_same_snapshot_before_source_close
+  version: "1"
+  meaning: materialize same snapshot before source close
+- id: monotone_revision
+  version: "1"
+  meaning: monotone revision
+- id: own_engine_readers_registrations_scratch
+  version: "1"
+  meaning: own engine readers registrations scratch
+- id: persist_exact_archive
+  version: "1"
+  meaning: persist exact archive
+- id: persist_typed_source_and_measurement_reports
+  version: "1"
+  meaning: persist typed source and measurement reports
+- id: preserve_exact_authored_and_context_bytes
+  version: "1"
+  meaning: preserve exact authored and context bytes
+- id: preserve_failure_and_cancellation
+  version: "1"
+  meaning: preserve failure and cancellation
+- id: preserve_identity_exclusions
+  version: "1"
+  meaning: preserve identity exclusions
+- id: preserve_independently_detached_values
+  version: "1"
+  meaning: preserve independently detached values
+- id: preserve_original_bytes
+  version: "1"
+  meaning: preserve original bytes
+- id: preserve_original_normalized_distinction
+  version: "1"
+  meaning: preserve original normalized distinction
+- id: private_canonical_assembly
+  version: "1"
+  meaning: private canonical assembly
+- id: private_compute
+  version: "1"
+  meaning: private compute
+- id: private_finite_positive_proof
+  version: "1"
+  meaning: private finite positive proof
+- id: protected_copy_same_transaction
+  version: "1"
+  meaning: protected copy same transaction
+- id: protected_independent_reference_operation
+  version: "1"
+  meaning: protected independent reference operation
+- id: protected_proof_publication
+  version: "1"
+  meaning: protected proof publication
+- id: publish_receipts_and_completed_result_atomically
+  version: "1"
+  meaning: publish receipts and completed result atomically
+- id: release_current_attempt_preserving_held_progress
+  version: "1"
+  meaning: release current attempt preserving held progress
+- id: release_owned_resources
+  version: "1"
+  meaning: release owned resources
+- id: renew_current_attempt_deadline
+  version: "1"
+  meaning: renew current attempt deadline
+- id: renew_deadline
+  version: "1"
+  meaning: renew deadline
+- id: retain_held_diagnostics
+  version: "1"
+  meaning: retain held diagnostics
+- id: schedule_pending_or_reused_or_skipped
+  version: "1"
+  meaning: schedule pending or reused or skipped
+- id: seal_source_production
+  version: "1"
+  meaning: seal source production
+- id: source_execution
+  version: "1"
+  meaning: source execution
