@@ -14,7 +14,9 @@ default:
 check: test py-test
 
 # Everything functional (end-of-scope acceptance, not the design loop)
-test-all: check
+[positional-arguments]
+test-all *args:
+    @uv run python scripts/test_receipts.py run --out-dir "build/test-receipts/qualification/$(date -u +%Y%m%dT%H%M%SZ)-$$" -- "$@"
 
 turn_end_steps := "adr-index fmt"
 ready_steps := "doctor-check"
@@ -59,7 +61,7 @@ clippy:
 # Rust tests share the release profile with shipped binaries, so repeated runs execute cached
 # optimized test binaries. Snapshots never auto-accept (INSTA_UPDATE=no).
 test *args:
-    INSTA_UPDATE=no cargo nextest run --release --workspace --no-tests=pass {{args}}
+    INSTA_UPDATE=no cargo nextest run --release --workspace --no-tests=warn {{args}}
 
 # Every registry dependency pinned exactly (`=x.y.z`) and every git one by its rev; one version
 # per declared family; cargo-deny bans and sources (licences are never a rejection reason)

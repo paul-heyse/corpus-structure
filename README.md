@@ -16,7 +16,10 @@ Builds a highly structured representation of a set of documents
 
 Tools: `just`, `uv`, `git` with Git LFS, the Rust toolchain in `rust-toolchain.toml` with cargo-nextest, cargo-deny, sccache, clang and mold, ast-grep. `just doctor` lists what is
 present. During implementation, run compile checks and targeted tests; once all functional scope
-is implemented, run `just test-all` and `just hygiene` (the non-functional checks). `just turn-end` formats and
+is implemented, run `just test-all` and `just hygiene` (the non-functional checks). The functional
+qualification route retains streamed outcomes, command context and interrupted-run diagnostics
+under `build/test-receipts/qualification/`; `just check` and `just py-test` remain developer routes.
+`just turn-end` formats and
 regenerates at the end of a turn; `just ready` re-checks the environment after a change.
 
 After the scaffold lockfiles exist, run `bash scripts/setup-env` to prepare this checkout's

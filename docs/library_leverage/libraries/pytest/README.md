@@ -42,14 +42,16 @@ pytest-timeout installed.
 **Streaming alternative (pytest-reportlog, from upstream source; not installed).**
 - `--report-log=<path>` writes one JSON line per `TestReport` and `CollectReport`, flushes after each
   write, and ends with a `SessionFinish` record.
-- Combined with faulthandler-exit, a hang keeps every completed outcome and the collection manifest.
-  If the hang is in the call phase, it also keeps the hung item's setup record.
+- Combined with faulthandler-exit, a hang keeps every flushed completed outcome. A call-phase
+  hang also keeps the item's setup report. It does not supply a collected-node manifest or
+  phase-start events: pytest serializes `CollectReport.result` as null. Public collection and
+  runtest hooks must supply exact selection and execution attribution where needed.
 - A missing `SessionFinish` marks an interrupted run.
 - This removes the limit that a missing JUnit file loses every outcome.
 
 **What remains with the caller:**
 - Mapping outcomes to a qualification vocabulary.
-- Treating a missing report as a failure.
+- Distinguishing process failure, incomplete phases, collected unexecuted cases and missing reports.
 - Recording the provider context of the run.
 
 ## Applicability at source `d739b88`
@@ -61,8 +63,9 @@ pytest-timeout installed.
 **Opportunity:** [CBO-011](../../codebase/engineering-workflows.md#cbo-011) (diagnosis:
 [DTA-003](../../../design_review/test-audit/execution-and-qualification.md#dta-003)).
 
-- **Outcomes.** `--junitxml` with `-rA` records per-test outcomes and skip reasons faithfully. A
-  route can map `skipped` entries that carry the `blocked:` prefix to `blocked`.
+- **Outcomes.** `--junitxml` with `-rA` records per-test outcomes and skip reasons faithfully.
+  Qualification needs explicit prerequisite/applicability metadata; a reason prefix alone is
+  insufficient. Preserve raw skips and never turn a skipped required obligation into a pass.
 - **Hangs.** Built-in `faulthandler_exit_on_timeout` makes a hang observable, but loses the JUnit
   file and every later outcome.
   - pytest-timeout's `signal` method **conflicts with the math grammar's `SIGALRM` deadline**

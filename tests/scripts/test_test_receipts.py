@@ -1,0 +1,497 @@
+"""Independent event fixtures and bounded real child processes for qualification reporting."""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import sys
+import uuid
+from pathlib import Path
+
+import pytest
+
+from test_receipts import classify, classify_receipt, classify_rust, run_process, run_python
+
+
+def stream(path: Path, events: list[dict[str, object]]) -> None:
+    path.write_text("".join(json.dumps(event) + "\n" for event in events))
+
+
+def receipt(
+    tmp_path: Path,
+    reports: list[dict[str, object]],
+    *,
+    finish: bool = True,
+    selected: tuple[str, ...] = ("a", "b"),
+    returncode: int = 0,
+) -> Path:
+    events: list[dict[str, object]] = [{"$report_type": "SessionStart"}, *reports]
+    if finish:
+        events.append({"$report_type": "SessionFinish", "exitstatus": returncode})
+    stream(tmp_path / "reportlog.jsonl", events)
+    stream(
+        tmp_path / "events-controller-12.jsonl",
+        [
+            {"event": "collection_finish", "selected": selected, "pid": 12, "worker": "controller"},
+            {"event": "logstart", "nodeid": "a", "pid": 12, "worker": "controller"},
+            {"event": "logfinish", "nodeid": "a", "pid": 12, "worker": "controller"},
+        ],
+    )
+    (tmp_path / "pytest.process.json").write_text(json.dumps({"returncode": returncode}))
+    return tmp_path
+
+
+def report(phase: str, outcome: str = "passed", **extra: object) -> dict[str, object]:
+    return {"$report_type": "TestReport", "nodeid": "a", "when": phase, "outcome": outcome, **extra}
+
+
+def test_teardown_failure_overrides_call_and_keeps_unstarted(tmp_path: Path) -> None:
+    result = classify_receipt(
+        receipt(
+            tmp_path, [report("setup"), report("call"), report("teardown", "failed")], returncode=1
+        )
+    )
+    assert result["status"] == "failed"
+    assert result["nodes"]["a"]["status"] == "failed"
+    assert result["nodes"]["b"]["status"] == "not_run"
+    assert len(result["nodes"]["a"]["reports"]) == 3
+
+
+def test_missing_finish_keeps_completed_pass(tmp_path: Path) -> None:
+    result = classify_receipt(
+        receipt(
+            tmp_path,
+            [report("setup"), report("call"), report("teardown")],
+            finish=False,
+            returncode=-9,
+        )
+    )
+    assert result["status"] == "incomplete"
+    assert result["process_failed"]
+    assert result["nodes"]["a"]["status"] == "passed"
+    assert result["nodes"]["b"]["status"] == "not_run"
+
+
+@pytest.mark.parametrize("optional,expected", [(False, "blocked"), (True, "inapplicable")])
+def test_skip_requires_explicit_applicability(
+    tmp_path: Path, optional: bool, expected: str
+) -> None:
+    properties = [("qualification_reason", "provider is absent")]
+    if optional:
+        properties.append(("qualification_optional", "outside selected scope"))
+    result = classify_receipt(
+        receipt(tmp_path, [report("setup", "skipped", user_properties=properties)], selected=("a",))
+    )
+    assert result["nodes"]["a"]["status"] == expected
+    assert result["nodes"]["a"]["reason"] == "provider is absent"
+
+
+def test_prerequisite_does_not_hide_teardown_failure(tmp_path: Path) -> None:
+    result = classify_receipt(
+        receipt(
+            tmp_path,
+            [
+                report(
+                    "setup",
+                    "failed",
+                    user_properties=[
+                        ("qualification_prerequisite", "postgresql"),
+                        ("qualification_reason", "missing socket"),
+                    ],
+                ),
+                report("teardown", "failed"),
+            ],
+            selected=("a",),
+            returncode=1,
+        )
+    )
+    assert result["nodes"]["a"]["status"] == "failed"
+
+
+def test_xfail_metadata_is_retained_and_unresolved(tmp_path: Path) -> None:
+    result = classify_receipt(receipt(tmp_path, [report("call", "skipped", wasxfail="known bug")]))
+    assert result["nodes"]["a"]["status"] == "blocked"
+    assert result["nodes"]["a"]["reports"][0]["wasxfail"] == "known bug"
+
+
+def test_truncated_stream_exit_disagreement_and_worker_loss(tmp_path: Path) -> None:
+    receipt(tmp_path, [report("call")], selected=("a",))
+    with (tmp_path / "reportlog.jsonl").open("a") as handle:
+        handle.write('{"bad":')
+    with (tmp_path / "events-controller-12.jsonl").open("a") as handle:
+        handle.write(
+            json.dumps({"event": "worker_down", "lost_worker": "gw2", "error": "lost"}) + "\n"
+        )
+    (tmp_path / "pytest.process.json").write_text('{"returncode": 2}')
+    result = classify_receipt(tmp_path)
+    assert result["status"] == "incomplete"
+    assert result["worker_loss"][0]["lost_worker"] == "gw2"
+    assert any("disagrees" in error for error in result["stream_errors"])
+    assert any("truncated" in error for error in result["stream_errors"])
+
+
+def test_required_union_uses_explicit_manifest(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    run.mkdir()
+    receipt(run, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    required = tmp_path / "required.json"
+    required.write_text('{"selected": ["a", "other"]}')
+    result = classify([run], [required])
+    assert result["status"] == "not_run"
+    assert result["required_unresolved"] == ["other"]
+
+
+def child(
+    tmp_path: Path,
+    source: str,
+    *,
+    timeout: float = 10,
+    test_timeout: float = 3,
+    args: tuple[str, ...] = (),
+) -> Path:
+    tests = tmp_path / "case"
+    tests.mkdir()
+    (tests / "test_case.py").write_text(source)
+    config = tests / "pytest.ini"
+    config.write_text("[pytest]\n")
+    output = tmp_path / "receipt"
+    output.mkdir()
+    run_python(
+        output,
+        ["-c", str(config), str(tests), *args],
+        cwd=tests,
+        timeout=timeout,
+        test_timeout=test_timeout,
+    )
+    retained = os.environ.get("QUALIFICATION_CONTROL_RECEIPTS")
+    if retained:
+        target = Path(retained) / uuid.uuid4().hex
+        shutil.copytree(output, target)
+    return output
+
+
+@pytest.mark.parametrize(
+    "source,phase",
+    [
+        ("def test_case():\n    assert False\n", "call"),
+        (
+            "import pytest\n@pytest.fixture\ndef fixture():\n    yield\n    assert False\n"
+            "def test_case(fixture):\n    pass\n",
+            "teardown",
+        ),
+    ],
+)
+def test_real_failures(tmp_path: Path, source: str, phase: str) -> None:
+    output = child(tmp_path, source)
+    result = classify_receipt(output)
+    assert result["status"] == "failed", (output / "pytest.stderr").read_text()
+    node = next(iter(result["nodes"].values()))
+    assert node["status"] == "failed"
+    assert any(r["when"] == phase and r["outcome"] == "failed" for r in node["reports"])
+
+
+def test_real_collection_failure(tmp_path: Path) -> None:
+    output = child(tmp_path, "raise RuntimeError('collection failure')\n")
+    result = classify_receipt(output)
+    assert result["status"] == "failed"
+    assert result["collection_errors"]
+
+
+@pytest.mark.parametrize("phase", ["setup", "call", "teardown"])
+def test_real_hang_retains_active_phase(tmp_path: Path, phase: str) -> None:
+    source = "import pytest, time\n"
+    if phase == "call":
+        source += "def test_hang():\n    time.sleep(30)\n"
+    else:
+        source += "@pytest.fixture\ndef fixture():\n"
+        source += (
+            "    time.sleep(30)\n    yield\n"
+            if phase == "setup"
+            else ("    yield\n    time.sleep(30)\n")
+        )
+        source += "def test_hang(fixture):\n    pass\n"
+    source += "def test_z_unstarted():\n    pass\n"
+    output = child(tmp_path, source, test_timeout=0.2)
+    result = classify_receipt(output)
+    assert result["status"] == "incomplete", (output / "pytest.stderr").read_text()
+    assert result["active_phases"][0]["phase"] == phase
+    hanging = next(value for key, value in result["nodes"].items() if key.endswith("test_hang"))
+    assert hanging["status"] == "incomplete"
+    assert any(value["status"] == "not_run" for value in result["nodes"].values())
+    if phase == "teardown":
+        assert any(r["when"] == "call" and r["outcome"] == "passed" for r in hanging["reports"])
+
+
+def test_parent_timeout_covers_collection(tmp_path: Path) -> None:
+    output = child(tmp_path, "import time\ntime.sleep(30)\n", timeout=1, test_timeout=20)
+    result = classify_receipt(output)
+    assert result["status"] == "incomplete"
+    assert result["process"]["interruption"] == "TimeoutExpired"
+    assert not result["nodes"]  # No collection-order attribution.
+
+
+def test_completed_report_survives_forced_exit(tmp_path: Path) -> None:
+    output = child(
+        tmp_path, "import os\ndef test_a_pass():\n    pass\ndef test_b_exit():\n    os._exit(17)\n"
+    )
+    result = classify_receipt(output)
+    assert result["status"] == "incomplete"
+    assert result["process"]["returncode"] == 17
+    assert (
+        next(v for k, v in result["nodes"].items() if k.endswith("test_a_pass"))["status"]
+        == "passed"
+    )
+    assert (
+        next(v for k, v in result["nodes"].items() if k.endswith("test_b_exit"))["status"]
+        == "incomplete"
+    )
+
+
+def test_external_kill_and_launch_failure(tmp_path: Path) -> None:
+    if os.name != "posix":
+        pytest.skip("owned process-group signal control requires POSIX")
+    process = run_process(
+        [sys.executable, "-c", "import os,signal; os.kill(os.getpid(),signal.SIGKILL)"],
+        tmp_path,
+        "kill",
+        timeout=3,
+    )
+    assert process["returncode"] == -9
+    failure = run_process(["/nonexistent/qualification-test"], tmp_path, "missing", timeout=3)
+    assert failure["launch_error"]
+
+
+def test_real_prerequisite_annotation_and_native_context(tmp_path: Path) -> None:
+    output = child(
+        tmp_path,
+        "import pytest\n"
+        "from test_prerequisites import PrerequisiteUnavailable\n"
+        "from qualification_plugin import record_native_context\n"
+        "@pytest.fixture\ndef fixture():\n"
+        "    record_native_context({'server': 'fixture-server'})\n"
+        "    raise PrerequisiteUnavailable('postgresql', 'missing native socket')\n"
+        "def test_case(fixture):\n    pass\n",
+    )
+    result = classify_receipt(output)
+    assert result["status"] == "blocked"
+    assert result["process"]["returncode"] == 1  # Raw pytest setup error remains an error.
+    node = next(iter(result["nodes"].values()))
+    assert node["reason"] == "missing native socket"
+    assert node["reports"][0]["outcome"] == "failed"
+    assert result["native_contexts"][0]["context"] == {"server": "fixture-server"}
+
+
+def test_real_skip_and_deselection(tmp_path: Path) -> None:
+    output = child(
+        tmp_path,
+        "import pytest\n"
+        "def test_required(request):\n"
+        "    request.node.user_properties += [('qualification_prerequisite', 'corpus'),"
+        " ('qualification_reason', 'no corpus')]\n"
+        "    pytest.skip('no corpus')\n"
+        "def test_optional(request):\n"
+        "    request.node.user_properties += [('qualification_optional', 'scope exclusion')]\n"
+        "    pytest.skip('scope exclusion')\n"
+        "def test_excluded():\n    assert False\n",
+        args=("-k", "not excluded"),
+    )
+    result = classify_receipt(output)
+    assert result["status"] == "blocked"
+    assert len(result["selected"]) == 2
+    assert len(result["deselected"]) == 1
+    assert not result["native_contexts"]
+    assert result["session_contexts"][0]["hypothesis_profile"] == "ci"
+    states = {k.rsplit("::", 1)[-1]: v["status"] for k, v in result["nodes"].items()}
+    assert states == {"test_required": "blocked", "test_optional": "inapplicable"}
+
+
+def test_rust_zero_tests_and_missing_junit_are_not_coverage(tmp_path: Path) -> None:
+    (tmp_path / "nextest.process.json").write_text('{"returncode": 0}')
+    (tmp_path / "nextest-list.stdout").write_text('{"test-count": 0}')
+    assert classify_rust(tmp_path)["status"] == "not_run"
+    (tmp_path / "nextest-list.stdout").write_text('{"test-count": 1}')
+    assert classify_rust(tmp_path)["status"] == "incomplete"
+    (tmp_path / "nextest.junit.xml").write_text(
+        '<testsuites><testsuite><testcase name="native"/></testsuite></testsuites>'
+    )
+    assert classify_rust(tmp_path)["status"] == "passed"
+
+
+def test_run_refuses_existing_invocation(tmp_path: Path) -> None:
+    from test_receipts import main
+
+    sentinel = tmp_path / "original"
+    sentinel.write_text("preserved")
+    with pytest.raises(FileExistsError):
+        main(["run", "--out-dir", str(tmp_path), "--python-only", "--", "invalid"])
+    assert list(tmp_path.iterdir()) == [sentinel]
+
+
+def test_empty_rust_selection_does_not_fail_python_coverage(tmp_path: Path) -> None:
+    receipt(tmp_path, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    (tmp_path / "nextest.process.json").write_text('{"returncode": 0}')
+    (tmp_path / "nextest-list.stdout").write_text('{"test-count": 0}')
+    result = classify([tmp_path])
+    assert result["status"] == "passed"
+    assert result["rust"][0]["status"] == "not_run"
+    assert result["rust"][0]["applicability"] == "empty-selection"
+    assert not result["rust"][0]["functional_coverage"]
+
+
+def test_union_surfaces_source_context_differences(tmp_path: Path) -> None:
+    directories = [tmp_path / "one", tmp_path / "two"]
+    for index, directory in enumerate(directories):
+        directory.mkdir()
+        receipt(directory, [report("setup"), report("call"), report("teardown")], selected=("a",))
+        (directory / "invocation.json").write_text(json.dumps({"source": {"head": str(index)}}))
+    result = classify(directories)
+    assert result["status"] == "passed"  # Owner judges applicability; identity is not a gate.
+    assert result["source_contexts_differ"]
+    assert result["contexts"][0]["invocation"]["source"]["head"] == "0"
+
+
+@pytest.mark.parametrize("cancel", [False, True])
+def test_cli_watchdog_overrides_and_cancellation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cancel: bool
+) -> None:
+    import test_receipts
+
+    observed: dict[str, object] = {}
+
+    def python_child(
+        directory: Path, args: list[str], *, timeout: float, test_timeout: float
+    ) -> dict[str, object]:
+        observed["python"] = (args, timeout, test_timeout)
+        receipt(directory, [report("setup"), report("call"), report("teardown")], selected=("a",))
+        return {"interruption": "KeyboardInterrupt"} if cancel else {"returncode": 0}
+
+    def rust_child(directory: Path, *, timeout: float) -> None:
+        observed["rust"] = timeout
+        (directory / "rust-state.json").write_text(
+            json.dumps(
+                {
+                    "status": "not_run",
+                    "applicability": "empty-selection",
+                    "functional_coverage": False,
+                }
+            )
+        )
+
+    monkeypatch.setattr(test_receipts, "run_python", python_child)
+    monkeypatch.setattr(test_receipts, "run_rust", rust_child)
+    monkeypatch.setattr(test_receipts, "source_identity", lambda: {"head": "fixture"})
+    output = tmp_path / "new"
+    code = test_receipts.main(
+        [
+            "run",
+            "--out-dir",
+            str(output),
+            "--test-timeout",
+            "7",
+            "--command-timeout",
+            "11",
+            "--",
+            "case.py",
+        ]
+    )
+    assert observed["python"] == (["case.py"], 11, 7)
+    context = json.loads((output / "invocation.json").read_text())
+    assert context["test_timeout"] == 7
+    assert context["session_timeout"] == 11
+    if cancel:
+        assert "rust" not in observed
+        assert code == 1
+        assert json.loads((output / "rust-state.json").read_text())["status"] == "not_run"
+    else:
+        assert observed["rust"] == 11
+        assert code == 0
+
+
+def test_rust_commands_share_bound_and_cancel_before_more_work(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import test_receipts
+
+    observed: list[tuple[str, float]] = []
+
+    def process(
+        argv: list[str], directory: Path, prefix: str, **kwargs: object
+    ) -> dict[str, object]:
+        assert directory == tmp_path
+        assert argv
+        observed.append((prefix, float(str(kwargs["timeout"]))))
+        return (
+            {"interruption": "KeyboardInterrupt"} if prefix == "nextest-list" else {"returncode": 0}
+        )
+
+    monkeypatch.setattr(test_receipts, "run_process", process)
+    test_receipts.run_rust(tmp_path, timeout=17)
+    assert observed == [("rustc", 17), ("nextest-version", 17), ("nextest-list", 17)]
+    assert test_receipts.classify_rust(tmp_path)["status"] == "incomplete"
+
+
+@pytest.mark.parametrize("missing", ["setup", "call", "teardown"])
+def test_removed_whole_phase_report_stays_incomplete(tmp_path: Path, missing: str) -> None:
+    reports = [report(phase) for phase in ("setup", "call", "teardown") if phase != missing]
+    result = classify_receipt(receipt(tmp_path, reports, selected=("a",)))
+    assert result["status"] == "incomplete"
+    assert result["nodes"]["a"]["status"] == "incomplete"
+    assert result["nodes"]["a"]["reports"] == reports
+    assert result["reporting_complete"]  # Valid JSONL and finish do not imply phase completeness.
+
+
+@pytest.mark.parametrize("prefix", [None, "rustc", "nextest-list"])
+def test_requested_rust_without_final_artifact_is_incomplete(
+    tmp_path: Path, prefix: str | None
+) -> None:
+    receipt(tmp_path, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    (tmp_path / "invocation.json").write_text('{"python_only": false}')
+    if prefix is not None:
+        (tmp_path / f"{prefix}.process.json").write_text('{"returncode": -9}')
+    result = classify([tmp_path])
+    assert result["receipts"][0]["status"] == "passed"
+    assert result["status"] == "incomplete"
+    assert result["rust"][0]["status"] == "incomplete"
+    assert not result["rust"][0]["functional_coverage"]
+
+
+@pytest.mark.parametrize("exit_code", [0, 17])
+def test_non_timeout_leader_exit_settles_owned_descendant(tmp_path: Path, exit_code: int) -> None:
+    import subprocess
+    import time
+
+    descendant = tmp_path / "descendant.pid"
+    leader_source = (
+        "import os,subprocess,sys\n"
+        "from pathlib import Path\n"
+        "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)'])\n"
+        f"Path({str(descendant)!r}).write_text(str(child.pid))\n"
+        f"os._exit({exit_code})\n"
+    )
+    unrelated = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True
+    )
+    try:
+        result = run_process([sys.executable, "-c", leader_source], tmp_path, "leader", timeout=10)
+        assert result["returncode"] == exit_code
+        assert "interruption" not in result
+        cleanup = result["owned_group_cleanup"]
+        assert cleanup["descendants_after_leader_exit"]
+        assert cleanup["signals"][0] == "SIGTERM"
+        descendant_pid = int(descendant.read_text())
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            proc = Path(f"/proc/{descendant_pid}/stat")
+            if not proc.exists() or proc.read_text().split(")", 1)[1].split()[0] == "Z":
+                break
+            time.sleep(0.02)
+        else:
+            pytest.fail("owned descendant is still running after bounded cleanup")
+        assert unrelated.poll() is None
+    finally:
+        unrelated.terminate()
+        unrelated.wait(timeout=5)
+    retained = os.environ.get("QUALIFICATION_CONTROL_RECEIPTS")
+    if retained:
+        shutil.copytree(tmp_path, Path(retained) / uuid.uuid4().hex)

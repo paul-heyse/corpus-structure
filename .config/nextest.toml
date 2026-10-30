@@ -3,3 +3,8 @@ fail-fast = false
 status-level = "fail"
 final-status-level = "slow"
 slow-timeout = { period = "60s", terminate-after = 5 }
+
+# Qualification keeps the normal watchdog and writes a fresh native result.
+[profile.qualification.junit]
+path = "junit.xml"
+report-skipped = "all"

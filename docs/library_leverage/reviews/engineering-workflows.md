@@ -104,10 +104,12 @@ separate logins.
   CBO-010 template.
 
 **Comparison.**
-- **A survives a hang.** It keeps every completed test's record, the collected manifest and the hung
-  item's setup record. Execution order is collection order. So the classifier marks the hung item
-  `failed (hang)`, using faulthandler's dump; later items `not_run`; earlier items as reported. A
-  missing `SessionFinish` record marks an interrupted run
+- **A preserves completed reports through a hang.** The reporting plugin does not itself provide
+  the selected-node manifest or phase-start events (`CollectReport.result` serializes as null).
+  A small public-hook companion must supply collection, worker/node and active-phase identity;
+  collection order cannot identify the hung node. Preserve actual reports, identify interrupted
+  phases without inventing assertions, and classify collected unstarted cases as `not_run`. A
+  missing `SessionFinish` record marks an incomplete run
   ([LOP-X011](../assessment-patterns.md#lop-x011)).
 - **faulthandler** uses a watchdog thread, so it does not collide with SIGALRM.
 
@@ -126,7 +128,7 @@ separate logins.
   |---|---|
   | passed | passed |
   | failed or error | failed |
-  | skipped | blocked, with the reason |
+  | skipped | Retain reason; required known missing prerequisite is blocked; intentional inapplicability is explicit; unexplained required skips remain open |
   | collected but unreported | not_run |
   | hang | failed (hang) |
 

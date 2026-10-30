@@ -67,7 +67,7 @@ permission, concurrent-work and testing constraints, and follow discovered depen
 | When | Run |
 |---|---|
 | During a design/implementation phase | Compile checks and targeted tests or probes for the scope just implemented. No integrated gate after a slice or commit. |
-| After all functional scope in the plan is implemented | `just test-all`: the functional tests (`just check`). Then applicable `just hygiene` checks; fix what fails and re-run a single check with `just <id>`. Qualification cites both passing for the same tree |
+| After all functional scope in the plan is implemented | `just test-all`: classified Python/Rust functional results in `build/test-receipts/qualification/`; `just check` remains the developer route. Then applicable `just hygiene` checks; fix what fails and re-run a single check with `just <id>`. Qualification accounts for the same source/context and required union |
 | End of a turn that changed files | The root agent runs `just turn-end` (ADR index, formatting with ruff's safe auto-fixes). Subagents don't |
 | After a dependency, toolchain or process-skill change, or an environment-shaped failure | `just ready` (tool check) |
 | Dependency policy | `just deps`, a `hygiene` check: every registry dependency is pinned exactly (`=x.y.z`) and every git dependency by its `rev`; each declared family (`[workspace.metadata.pins]` in `Cargo.toml`) resolves to one version, its members exact; cargo-deny checks bans and sources |
