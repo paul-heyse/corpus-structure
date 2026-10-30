@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json as jsonlib
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import asdict
 from typing import Any
@@ -17,7 +17,7 @@ from corpus_structure.semantic.refusals import SemanticRefusal, database_failure
 
 
 @contextmanager
-def failure_boundary(json: bool, *, expected: tuple[type[Exception], ...] = ()) -> Iterator[None]:
+def failure_boundary(json: bool, *, expected: tuple[type[Exception], ...] = ()) -> Generator[None]:
     """Report deliberate failures; programming errors and cancellation retain their identity."""
     try:
         yield
