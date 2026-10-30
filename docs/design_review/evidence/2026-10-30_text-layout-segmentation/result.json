@@ -1,0 +1,60 @@
+{
+  "pages": 4,
+  "blocks": 412,
+  "tokens": 10810,
+  "layout_json_bytes": 667164,
+  "tokenize_and_rebuild_seconds": 0.014682287990581244,
+  "serialize_seconds": 0.0020673119579441845,
+  "deserialize_seconds": 0.005047449958510697,
+  "prepared_rebuild_seconds": 0.007045146019663662,
+  "segmentation": {
+    "current": {
+      "pipeline": [
+        "tok2vec",
+        "tagger",
+        "parser",
+        "attribute_ruler"
+      ],
+      "component_problems": {
+        "tok2vec": [],
+        "tagger": [],
+        "parser": [],
+        "attribute_ruler": []
+      },
+      "seconds_median": 0.38427425897680223,
+      "blocks_differing_from_stored": 0
+    },
+    "parser-reduced": {
+      "pipeline": [
+        "tok2vec",
+        "parser"
+      ],
+      "component_problems": {
+        "tok2vec": [],
+        "parser": []
+      },
+      "seconds_median": 0.33129591296892613,
+      "blocks_differing_from_stored": 0
+    },
+    "senter": {
+      "pipeline": [
+        "senter"
+      ],
+      "component_problems": {
+        "senter": []
+      },
+      "seconds_median": 0.020881716976873577,
+      "blocks_differing_from_stored": 45
+    },
+    "rule": {
+      "pipeline": [
+        "sentencizer"
+      ],
+      "component_problems": {
+        "sentencizer": []
+      },
+      "seconds_median": 0.008549496997147799,
+      "blocks_differing_from_stored": 17
+    }
+  }
+}

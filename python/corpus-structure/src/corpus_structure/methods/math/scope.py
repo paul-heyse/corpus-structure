@@ -37,6 +37,7 @@ from __future__ import annotations
 import bisect
 import dataclasses
 import functools
+import heapq
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
@@ -55,7 +56,9 @@ from corpus_structure.core.vocab import (
     ScopeExtent,
     SegmentKind,
 )
-from corpus_structure.ingest.sentences import Block, SentenceConfig, block_of, make_doc, pipeline
+from corpus_structure.ingest.sentences import (
+    Block, SentenceConfig, TextLayout, block_of, make_doc, pipeline,
+)
 from corpus_structure.methods.math.spans import MathRelation, SpanValue, SymbolMention
 
 MAX_GAP = 3  # words allowed between a sentence-initial binder and a reopen word
@@ -167,6 +170,53 @@ def _innermost(segments: Sequence[Segment], pos: int) -> Segment | None:
     return min(inside, key=lambda s: s.end - s.start) if inside else None
 
 
+def _enclosing_at(segments: Sequence[Segment], positions: Iterable[int]) -> dict[int, Segment]:
+    """Point-stabbing sweep; width then original traversal ordinal breaks overlap ties."""
+    ordered = sorted(enumerate(segments), key=lambda item: item[1].start)
+    active: list[tuple[int, int, int, Segment]] = []
+    cursor = 0
+    out: dict[int, Segment] = {}
+    for pos in sorted(set(positions)):
+        while cursor < len(ordered) and ordered[cursor][1].start <= pos:
+            rank, segment = ordered[cursor]
+            heapq.heappush(active, (segment.end - segment.start, rank, segment.end, segment))
+            cursor += 1
+        while active and active[0][2] <= pos:
+            heapq.heappop(active)
+        if active:
+            out[pos] = active[0][3]
+    return out
+
+
+def _site_assignments(
+    sites: Sequence[BindingSite], positions: Iterable[int]
+) -> dict[int, BindingSite]:
+    """Eligible active sites, including the historical same-position self exception."""
+    ordered = sorted(enumerate(sites), key=lambda item: max(item[1].start, item[1].mention.start))
+    same: dict[int, list[tuple[int, BindingSite]]] = {}
+    for rank, site in enumerate(sites):
+        same.setdefault(site.mention.start, []).append((rank, site))
+    active: list[tuple[int, int, int, BindingSite]] = []
+    cursor = 0
+    out: dict[int, BindingSite] = {}
+    for pos in sorted(set(positions)):
+        while cursor < len(ordered):
+            rank, site = ordered[cursor]
+            if max(site.start, site.mention.start) > pos:
+                break
+            heapq.heappush(active, (site.end - site.start, rank, site.end, site))
+            cursor += 1
+        while active and active[0][2] <= pos:
+            heapq.heappop(active)
+        candidates = [(entry.end - entry.start, rank, entry) for rank, entry in same.get(pos, ())]
+        if active:
+            width, rank, _, site = active[0]
+            candidates.append((width, rank, site))
+        if candidates:
+            out[pos] = min(candidates, key=lambda item: (item[0], item[1]))[2]
+    return out
+
+
 def math_tokens(
     values: Sequence[SpanValue],
     mentions: Sequence[SymbolMention],
@@ -224,38 +274,46 @@ def resolve_scopes(
     macros: Mapping[str, MacroDef],
     binders: Binders,
     sentences: SentenceConfig,
+    *,
+    text_layouts: Mapping[tuple[int, int], TextLayout] | None = None,
 ) -> list[Scope]:
     """Every non-constant mention's scope: its binding site and the site it reopens, or none."""
+    from corpus_structure.semantic.analysis_contracts import prepare_text_policy
+
+    policy = prepare_text_policy()
     nlp = pipeline(sentences)
     matcher, phrases = _matchers(nlp, binders)
     tokens = math_tokens(values, mentions, relations)
     segments = list(content.document.walk())
     units = [s for s in segments if s.kind in ANNOTATION_UNIT]
     sections = [s for s in segments if s.kind in SECTION_LIKE]
+    positions = [m.start for m in mentions]
+    unit_at = _enclosing_at(units, positions)
+    section_at = _enclosing_at(sections, positions)
     sites: list[BindingSite] = []
     for block, block_sentences in _blocks(content):
         sites += _sites(
-            content, block, block_sentences, tokens, nlp, matcher, phrases, units, sections, macros
+            content, block, block_sentences, tokens, nlp, matcher, phrases, unit_at, section_at,
+            macros, text_layouts.get((block.start, block.end)) if text_layouts is not None else None,
+            policy.recipe
         )
     sites.sort(key=lambda s: s.mention.start)  # stable: page order, then creation
     sites = _with_reopens(sites)
     by_symbol: dict[str, list[BindingSite]] = {}
     for site in sites:
         by_symbol.setdefault(site.symbol, []).append(site)
-    out = []
-    for m in mentions:
-        if m.constant:
-            continue
-        symbol = symbol_form(content.canonical_text[m.start : m.end], macros)
-        candidates = [
-            s
-            for s in by_symbol.get(symbol, [])
-            if (s.mention.start <= m.start and s.start <= m.start < s.end)
-            or s.mention.start == m.start
-        ]
-        best = min(candidates, key=lambda s: s.end - s.start) if candidates else None
-        out.append(Scope(m, symbol, best))
-    return out
+    mention_symbols = [
+        (m, symbol_form(content.canonical_text[m.start:m.end], macros))
+        for m in mentions if not m.constant
+    ]
+    positions_by_symbol: dict[str, list[int]] = {}
+    for mention, symbol in mention_symbols:
+        positions_by_symbol.setdefault(symbol, []).append(mention.start)
+    assignments = {
+        symbol: _site_assignments(by_symbol.get(symbol, ()), points)
+        for symbol, points in positions_by_symbol.items()
+    }
+    return [Scope(m, symbol, assignments[symbol].get(m.start)) for m, symbol in mention_symbols]
 
 
 def _sites(
@@ -266,11 +324,13 @@ def _sites(
     nlp: Language,
     matcher: Matcher,
     phrases: PhraseMatcher,
-    units: list[Segment],
-    sections: list[Segment],
+    unit_at: Mapping[int, Segment],
+    section_at: Mapping[int, Segment],
     macros: Mapping[str, MacroDef],
+    layout: TextLayout | None = None,
+    recipe: str = "canonical-token-layout-1",
 ) -> list[BindingSite]:
-    doc: Doc = make_doc(nlp, segment_block(content, block))
+    doc: Doc = make_doc(nlp, segment_block(content, block), layout, start=block.start, recipe=recipe)
     starts = {s.start - block.start for s in block_sentences}
     for token in doc[1:]:
         token.is_sent_start = token.idx in starts
@@ -312,11 +372,11 @@ def _sites(
             k = bisect.bisect_right(stored_starts, at) - 1
             sentence = stored[k] if k >= 0 else stored[0]
             for m in info.bound:
-                unit = _innermost(units, m.start)
+                unit = unit_at.get(m.start)
                 if unit is not None and not section_wide:
                     extent, scope, a, b = ScopeExtent.STATEMENT, unit, unit.start, unit.end
                 else:
-                    scope = _innermost(sections, m.start) or content.document
+                    scope = section_at.get(m.start) or content.document
                     extent = (
                         ScopeExtent.DOCUMENT
                         if scope.kind is SegmentKind.DOCUMENT
@@ -334,17 +394,20 @@ def _sites(
 
 def _with_reopens(sites: Sequence[BindingSite]) -> list[BindingSite]:
     """Each reopening site with the symbol's previous section-level site."""
+    previous_by_symbol: dict[str, list[BindingSite]] = {}
+    for site in sites:
+        if site.extent is not ScopeExtent.STATEMENT:
+            previous_by_symbol.setdefault(site.symbol, []).append(site)
+    starts_by_symbol = {
+        symbol: [site.mention.start for site in previous]
+        for symbol, previous in previous_by_symbol.items()
+    }
     out = []
     for site in sites:
         if site.reopen:
-            previous = [
-                p
-                for p in sites
-                if p.symbol == site.symbol
-                and p.mention.start < site.mention.start
-                and p.extent is not ScopeExtent.STATEMENT
-            ]
-            if previous:
-                site = dataclasses.replace(site, reopens=previous[-1])
+            previous = previous_by_symbol.get(site.symbol, ())
+            index = bisect.bisect_left(starts_by_symbol.get(site.symbol, ()), site.mention.start) - 1
+            if index >= 0:
+                site = dataclasses.replace(site, reopens=previous[index])
         out.append(site)
     return out

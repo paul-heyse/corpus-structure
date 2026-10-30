@@ -75,3 +75,36 @@ def test_sentences_never_cross_a_block_in_a_rendition(profile: CompiledProfile) 
         assert all(segment.start <= s.start < s.end <= segment.end for s in sentences)
     texts = [r.content.text(s) for s in r.content.document.walk() if s.kind == "sentence"]
     assert texts == ["First item.", "It has two.", "Second", "A para.", "Ends."]
+
+
+def test_prepared_layout_roundtrips_absolute_offsets_without_retokenizing(monkeypatch: pytest.MonkeyPatch) -> None:
+    import dataclasses
+    import spacy
+    from pydantic import TypeAdapter
+    from corpus_structure.ingest.sentences import TextLayout, prepare_layout
+
+    nlp = spacy.blank("en")
+    text = " \tLet \\(x\\)  be\nreal [3].\n"
+    a = text.index("\\(")
+    b = text.index("\\)") + 2
+    c = text.index("[3]")
+    block = Block(text, [(a, b)], [], [(c, c + 3)])
+    layout = prepare_layout(nlp, block, start=100)
+    adapter = TypeAdapter(TextLayout)
+    restored = adapter.validate_json(adapter.dump_json(layout))
+    assert restored == layout
+    assert layout.tokens[0].start == 100
+    # A consumer can reconstruct even when prose tokenization is unavailable.
+    monkeypatch.setattr(nlp, "tokenizer", lambda _: pytest.fail("retokenized prepared input"))
+    first = make_doc(nlp, block, restored, start=100)
+    second = make_doc(nlp, block, restored, start=100)
+    assert first.text == second.text == text
+    assert [(t.idx + 100, t.idx + 100 + len(t.text)) for t in first] == [
+        (t.start, t.end) for t in layout.tokens
+    ]
+    first[0].tag_ = "ALTERED"
+    assert second[0].tag_ != "ALTERED"
+    with pytest.raises(ValueError, match="regenerate"):
+        make_doc(nlp, block, dataclasses.replace(layout, text_digest="wrong"), start=100)
+    with pytest.raises(ValueError, match="regenerate"):
+        make_doc(nlp, block, restored, start=0)

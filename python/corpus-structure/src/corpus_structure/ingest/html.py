@@ -666,7 +666,15 @@ def _add_sentences(root: Node, text: str, config: SentenceConfig) -> None:
         )
         for node in leaves
     ]
-    for node, extents in zip(leaves, sentences.split(blocks, config), strict=True):
+    from corpus_structure.semantic.analysis_contracts import prepare_text_policy
+
+    policy = prepare_text_policy()
+    nlp = sentences.pipeline(config)
+    layouts = tuple(
+        sentences.prepare_layout(nlp, block, start=node.start, recipe=policy.recipe)
+        for node, block in zip(leaves, blocks, strict=True)
+    )
+    for node, extents in zip(leaves, sentences.split(blocks, config, layouts=layouts), strict=True):
         node.children += [Node(K.SENTENCE, node.start + a, node.start + b) for a, b in extents]
 
 

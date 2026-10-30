@@ -203,3 +203,39 @@ def test_m13_rebuilds_the_block_m03_split(spike_pages: dict[str, Any]) -> None:
         assert split(blocks, SentenceConfig()) == stored
         checked += len(blocks)
     assert checked > 300
+
+
+def test_interval_sweep_preserves_overlap_width_and_preorder_ties() -> None:
+    from corpus_structure.core.evidence import Segment
+    from corpus_structure.methods.math.scope import _enclosing_at
+
+    outer = Segment(kind=SegmentKind.SECTION, start=0, end=100)
+    first = Segment(kind=SegmentKind.SECTION, start=10, end=40)
+    second = Segment(kind=SegmentKind.SECTION, start=20, end=50)
+    inner = Segment(kind=SegmentKind.SECTION, start=24, end=28)
+    got = _enclosing_at([outer, first, second, inner], [0, 20, 25, 28, 40, 50, 100])
+    assert got == {0: outer, 20: first, 25: inner, 28: first, 40: second, 50: outer}
+
+
+def test_site_index_preserves_same_position_exception_and_strict_reopen() -> None:
+    from corpus_structure.core.evidence import Segment
+    from corpus_structure.methods.math.scope import BindingSite, _site_assignments, _with_reopens
+    from corpus_structure.methods.math.spans import SymbolMention
+
+    sentence = Segment(kind=SegmentKind.SENTENCE, start=0, end=100)
+    def site(pos: int, start: int, end: int, *, reopen: bool = False) -> BindingSite:
+        mention = SymbolMention(sentence, pos, pos + 1, "x", "x", None, None, False, None)
+        return BindingSite(mention, "x", sentence, ScopeExtent.SECTION, sentence,
+                           start, end, (), reopen)
+
+    earlier = site(5, 5, 90)
+    same_first = site(20, 20, 60, reopen=True)
+    same_second = site(20, 20, 50, reopen=True)
+    outside_self = site(30, 31, 32)
+    sites = [earlier, same_first, same_second, outside_self]
+    got = _site_assignments(sites, [4, 5, 20, 30, 31, 32, 50, 90])
+    assert got == {5: earlier, 20: same_second, 30: outside_self, 31: outside_self,
+                   32: same_second, 50: same_first}
+    reopened = _with_reopens(sites)
+    assert reopened[1].reopens is earlier
+    assert reopened[2].reopens is earlier

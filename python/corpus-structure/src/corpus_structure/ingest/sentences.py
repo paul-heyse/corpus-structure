@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import functools
 import itertools
+import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -104,44 +105,85 @@ def block_of(
     return Block(text[start:end], inline, display, markers)
 
 
-def make_doc(nlp: Language, block: Block) -> Doc:
-    """The block's words-and-spaces Doc: inline math spans and markers are one word each."""
+@dataclass(frozen=True, slots=True)
+class TextToken:
+    """A token's absolute canonical extent and physical role, without repeated text."""
+
+    start: int
+    end: int
+    space: bool
+    role: Literal["prose", "math", "reference"] = "prose"
+
+
+@dataclass(frozen=True, slots=True)
+class TextLayout:
+    """Owned pre-pipeline layout; semantic recipe/custody is bound by the caller."""
+
+    block_start: int
+    block_end: int
+    text_digest: str
+    tokens: tuple[TextToken, ...]
+    display: tuple[tuple[int, int], ...]
+    recipe: str = "canonical-token-layout-1"
+
+
+def prepare_layout(
+    nlp: Language, block: Block, *, start: int = 0, recipe: str = "canonical-token-layout-1"
+) -> TextLayout:
+    """Tokenize prose once, preserving atom boundaries and all whitespace tokens."""
     atoms = sorted(
-        [(a, b, True) for a, b in block.inline] + [(a, b, False) for a, b in block.markers]
+        [(a, b, "math") for a, b in block.inline]
+        + [(a, b, "reference") for a, b in block.markers]
     )
-    words: list[str] = []
-    spaces: list[bool] = []
-    math_words: list[int] = []
-    marker_words: list[int] = []
+    tokens: list[TextToken] = []
     text = block.text
 
-    def prose(piece: str) -> None:
-        for token in nlp.tokenizer(piece):
-            words.append(token.text)
-            spaces.append(bool(token.whitespace_))
+    def prose(a: int, b: int) -> None:
+        for token in nlp.tokenizer(text[a:b]):
+            at = start + a + token.idx
+            tokens.append(TextToken(at, at + len(token.text), bool(token.whitespace_)))
 
     position = 0
-    for start, end, is_math in atoms:
-        if start < position:  # overlapping atoms cannot occur in M01's output; keep the first
+    for a, b, role in atoms:
+        if a < position:  # Same first-overlap rule as the original atom tokenizer.
             continue
-        prose(text[position:start])
-        (math_words if is_math else marker_words).append(len(words))
-        words.append(text[start:end])
-        follows_space = text.startswith(" ", end)
-        spaces.append(follows_space)
-        position = end + 1 if follows_space else end
-    prose(text[position:])
-    doc = Doc(nlp.vocab, words=words, spaces=spaces)
+        prose(position, a)
+        follows_space = text.startswith(" ", b)
+        tokens.append(TextToken(start + a, start + b, follows_space,
+                                "math" if role == "math" else "reference"))
+        position = b + 1 if follows_space else b
+    prose(position, len(text))
+    return TextLayout(
+        start, start + len(text), hashlib.sha256(text.encode()).hexdigest(), tuple(tokens),
+        tuple((start + a, start + b) for a, b in block.display), recipe,
+    )
+
+
+def make_doc(
+    nlp: Language, block: Block, layout: TextLayout | None = None, *, start: int = 0,
+    recipe: str = "canonical-token-layout-1",
+) -> Doc:
+    """Create a consumer-owned mutable Doc from a source-bound prepared layout."""
+    if layout is None:
+        layout = prepare_layout(nlp, block, start=start, recipe=recipe)
+    text = block.text
+    if (layout.recipe != recipe or layout.block_start != start or layout.block_end != start + len(text)
+            or layout.text_digest != hashlib.sha256(text.encode()).hexdigest()
+            or layout.display != tuple((start + a, start + b) for a, b in block.display)):
+        raise ValueError("text layout does not match its source block; regenerate the layout")
+    words = [text[t.start - start:t.end - start] for t in layout.tokens]
+    doc = Doc(nlp.vocab, words=words, spaces=[t.space for t in layout.tokens])
     if doc.text != text:
-        raise AssertionError(
-            f"the words-and-spaces Doc does not reproduce the block: {text[:80]!r}"
-        )
-    for i in math_words:
-        doc[i].tag_ = MATH_TAG
-    for i in marker_words:
-        doc[i].is_sent_start = False
-    for start, end in block.display:
-        span = doc.char_span(start, end, alignment_mode="expand")
+        raise ValueError("text layout does not reconstruct its source; regenerate the layout")
+    for token, entry in zip(doc, layout.tokens, strict=True):
+        if token.idx + start != entry.start or entry.end != entry.start + len(token.text):
+            raise ValueError("text layout has invalid offsets; regenerate the layout")
+        if entry.role == "math":
+            token.tag_ = MATH_TAG
+        elif entry.role == "reference":
+            token.is_sent_start = False
+    for a, b in layout.display:
+        span = doc.char_span(a - start, b - start, alignment_mode="expand")
         if span is not None:
             for token in span[1:]:
                 token.is_sent_start = False
@@ -164,10 +206,22 @@ def boundaries(block: Block, doc: Doc) -> list[tuple[int, int]]:
     return out
 
 
-def split(blocks: Sequence[Block], config: SentenceConfig) -> list[list[tuple[int, int]]]:
+def split(
+    blocks: Sequence[Block], config: SentenceConfig, *,
+    layouts: Sequence[TextLayout] | None = None,
+) -> list[list[tuple[int, int]]]:
     """Sentence extents of each block, relative to it, in input order."""
+    from corpus_structure.semantic.analysis_contracts import prepare_text_policy
+
+    policy = prepare_text_policy()
     nlp = pipeline(config)
-    items = ((make_doc(nlp, block), n) for n, block in enumerate(blocks))
+    if layouts is not None and len(layouts) != len(blocks):
+        raise ValueError("one text layout is required per block")
+    items = (
+        (make_doc(nlp, block, layouts[n], start=layouts[n].block_start, recipe=policy.recipe)
+         if layouts is not None else make_doc(nlp, block, recipe=policy.recipe), n)
+        for n, block in enumerate(blocks)
+    )
     out: list[list[tuple[int, int]]] = [[] for _ in blocks]
     for doc, n in nlp.pipe(items, batch_size=config.batch_size, as_tuples=True):
         out[n] = boundaries(blocks[n], doc)
