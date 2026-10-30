@@ -84,8 +84,8 @@ from corpus_structure.methods.math.spans import (
     read_spans,
 )
 
-VERSION = "3"
-PAYLOAD_VERSION = "1"
+VERSION = "4"
+PAYLOAD_VERSION = "2"
 M09, M11, M13 = "extract.math", "normalize.formula", "resolve.symbol_scope"
 _KIND_OF = {  # M11's payload `math_kind` back to the detected kind M13's rules read
     MathKind.FORMULA: "formula",
@@ -239,7 +239,7 @@ def _readings(
         macros=macros,
         constants=section.constants,
         source_id=ren.key,
-        demand="interpretation",
+        demand="symbolic",
     )
     readings = read_spans(
         ren.content, macros, section.constants, seconds=cfg.parse_seconds, prepared_context=context
@@ -552,7 +552,7 @@ def scope_drafts(
 
 
 class SymbolScope(_PerRendition):
-    version = "2"  # stable source input references and parallel reading preservation
+    version = "3"  # layered preparation and stable source input references
     """`resolve.symbol_scope` (M13; module doc)."""
 
     name = M13

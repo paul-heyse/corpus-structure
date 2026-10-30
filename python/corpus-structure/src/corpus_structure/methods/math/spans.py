@@ -65,6 +65,7 @@ class MathSpan:
 class SpanReading:
     span: MathSpan
     result: MathResult
+    prepared: object | None = None
 
 
 def _inner(text: str, segment: Segment) -> tuple[int, int]:
@@ -117,13 +118,18 @@ def read_spans(
     macros = prepared_context.macros
     readings = []
     for span in math_spans(content):
-        result = PreparedMathInput(prepared_context, span.latex, "any_value", seconds).reading()
+        prepared = PreparedMathInput(
+            prepared_context, span.latex, "any_value", seconds,
+            source_text=content.text(span.segment), source_start=span.segment.start,
+            parse_start=span.offset,
+        )
+        result = prepared.symbolic_reading()
         prepared_context.validate_result(
-            produced=("lexical", "occurrences", "interpretation"),
+            produced=("lexical", "syntax", "occurrences", "interpretation", "symbolic"),
             interpretation=result.status.value,
             completeness="failed" if result.failure else "complete",
         )
-        readings.append(SpanReading(span, result))
+        readings.append(SpanReading(span, result, prepared))
     return readings
 
 

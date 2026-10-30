@@ -535,12 +535,12 @@ class MathematicalEvidence:
             return self._readings[key]
         for kind in kinds:
             operand = PreparedMathInput(context, latex, kind=kind)
-            result = operand.reading()
+            result = operand.symbolic_reading()
             if result.status in (ParseOutcome.OK, ParseOutcome.PARTIAL):
                 try:
                     value = operand.symbolic_value()
                     context.validate_result(
-                        produced=("lexical", "occurrences", "interpretation", "symbolic"),
+                        produced=("lexical", "syntax", "occurrences", "interpretation", "symbolic"),
                         interpretation=result.status.value,
                     )
                     reading = MathReading(value, result.status.value)
@@ -1174,14 +1174,14 @@ def read_reference_operand(value, *, prepared=None):
 
     for kind in ("set_expr",) if value["kind"] == "set" else ("formula", "relation", "member"):
         operand = PreparedMathInput(context, value["expression"], kind=kind)
-        parsed = operand.reading()
+        parsed = operand.symbolic_reading()
         if parsed.status is ParseOutcome.AMBIGUOUS:
             return None, "ambiguous expression grammar"
         if parsed.status in {ParseOutcome.OK, ParseOutcome.PARTIAL}:
             try:
                 result = operand.symbolic_value()
                 context.validate_result(
-                    produced=("lexical", "occurrences", "interpretation", "symbolic"),
+                    produced=("lexical", "syntax", "occurrences", "interpretation", "symbolic"),
                     interpretation=parsed.status.value,
                 )
                 return result, parsed.status.value

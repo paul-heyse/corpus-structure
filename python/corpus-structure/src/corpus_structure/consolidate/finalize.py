@@ -86,7 +86,8 @@ def value_nodes(node: Any, path: tuple[str | int, ...] = ()) -> Iterator[tuple[t
 
 def read_values(knowledge: Knowledge, inputs: Inputs) -> dict[tuple[str, tuple], Reading]:
     """Parse each distinct value once, set its `parse` on the claims and return the readings."""
-    from corpus_structure.methods.math import grammar  # the main thread only (D4 M11)
+    from corpus_structure.methods.math.prepared import PreparedMathInput
+    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
 
     cache: dict[tuple[str, str, Any], Reading] = {}
     readings: dict[tuple[str, tuple], Reading] = {}
@@ -99,7 +100,9 @@ def read_values(knowledge: Knowledge, inputs: Inputs) -> dict[tuple[str, tuple],
         ):
             ident = (token_form(value["latex"], page.macros), table, value["t"])
             if ident not in cache:
-                result = grammar.parse(value["latex"], START[value["t"]], page.macros)
+                context = prepare_interpretation_context(macros=page.macros, kind=START[value["t"]],
+                                                         demand="symbolic")
+                result = PreparedMathInput(context, value["latex"]).symbolic_reading()
                 names = sorted({o.name for o in result.occurrences if not o.constant})
                 kind = GRAMMAR_KINDS.get(result.kind or "")
                 cache[ident] = Reading(result.status, kind, tuple(names))

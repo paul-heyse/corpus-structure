@@ -3017,18 +3017,15 @@ class ReleasedRulesPolicy:
                         constants=c.constants,
                         bindings=raw.get("bindings", ()),
                         kind="set_expr" if kind == "set" else "any_value",
-                        demand="interpretation",
+                        demand="symbolic",
                     )
                     key = (latex, kind, context.key())
                     if key not in readings:
-                        result = grammar.parse(
-                            latex,
-                            "set_expr" if kind == "set" else "any_value",
-                            context.macros,
-                            context.grammar_context,
-                        )
+                        from corpus_structure.methods.math.prepared import PreparedMathInput
+
+                        result = PreparedMathInput(context, latex).symbolic_reading()
                         context.validate_result(
-                            produced=("lexical", "occurrences", "interpretation"),
+                            produced=("lexical", "syntax", "occurrences", "interpretation", "symbolic"),
                             interpretation=result.status.value,
                             completeness="failed" if result.failure else "complete",
                         )

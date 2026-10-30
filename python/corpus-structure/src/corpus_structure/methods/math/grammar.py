@@ -53,6 +53,7 @@ import json
 import re
 import signal
 import threading
+import time
 from collections import OrderedDict
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
@@ -430,20 +431,31 @@ class _Expired(BaseException):
 
 @contextmanager
 def _deadline(seconds: float) -> Generator[None]:
-    armed = [True]
+    """Compose a stage budget with the caller's remaining real-time budget."""
+    require_main_thread()
+    if seconds <= 0:
+        raise _Expired
+    previous = signal.getsignal(signal.SIGALRM)
+    remaining, interval = signal.getitimer(signal.ITIMER_REAL)
+    started = time.monotonic()
+    outer_first = remaining > 0 and remaining <= seconds
 
     def expire(signum: int, frame: FrameType | None) -> None:
-        if armed[0]:
-            raise _Expired
+        if outer_first and callable(previous):
+            previous(signum, frame)
+        raise _Expired
 
-    previous = signal.signal(signal.SIGALRM, expire)
-    signal.setitimer(signal.ITIMER_REAL, seconds)
+    signal.signal(signal.SIGALRM, expire)
+    signal.setitimer(signal.ITIMER_REAL, min(seconds, remaining) if remaining > 0 else seconds)
     try:
         yield
     finally:
-        armed[0] = False
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous)
+        if remaining > 0:
+            # Do not refund elapsed work or accidentally disarm an enclosing timer.
+            left = remaining - (time.monotonic() - started)
+            signal.setitimer(signal.ITIMER_REAL, max(left, 1e-6), interval)
 
 
 def deadline(seconds: float) -> AbstractContextManager[None]:
@@ -685,15 +697,9 @@ class _Resolver:
         applied, multiplied = self.flags(reading)
         return applied <= self.functions and multiplied <= self.variables
 
-    def value(self, reading: _tree.Node) -> Any:
-        key = id(reading)
-        if key not in self._values:
-            try:
-                value = transform(reading, self.source, self.macros, self.sets, self.ops)
-            except Exception:  # a reading without a value is not comparable
-                value = None
-            self._values[key] = value
-        return self._values[key]
+    def equivalent(self, candidates: Sequence[_tree.Node]) -> bool:
+        """Only identical syntax collapses during contextual interpretation."""
+        return all(child == candidates[0] for child in candidates[1:])
 
     def resolve(self, node: _tree.Node) -> _tree.Node:
         if isinstance(node, Token):
@@ -732,8 +738,7 @@ class _Resolver:
         if len(keep) == 1:
             return keep[0]
         candidates = keep or children
-        values = [self.value(a) for a in candidates]
-        if all(v is not None for v in values) and all(v == values[0] for v in values[1:]):
+        if self.equivalent(candidates):
             return candidates[0]
         self.unresolved += 1
         applied: set[str] = set()
@@ -752,6 +757,26 @@ class _Resolver:
     def residual_products(self, node: _tree.Node) -> set[str]:
         """Product readings of `symbol(...)` with an undeclared symbol, left in the tree."""
         return set(self.flags(node)[1] - self.variables)
+
+
+class _SymbolicResolver(_Resolver):
+    """Explicitly requested native equivalence, after pure role filtering."""
+
+    def equivalent(self, candidates: Sequence[_tree.Node]) -> bool:
+        if super().equivalent(candidates):
+            return True
+        values = []
+        for reading in candidates:
+            key = id(reading)
+            if key not in self._values:
+                try:
+                    self._values[key] = transform(
+                        reading, self.source, self.macros, self.sets, self.ops
+                    )
+                except Exception:
+                    self._values[key] = None
+            values.append(self._values[key])
+        return all(v is not None for v in values) and all(v == values[0] for v in values[1:])
 
 
 def _detect(tree: _tree.Node) -> str | None:
@@ -894,17 +919,16 @@ def _read(
     latex: str, kind: Kind, table: Mapping[str, MacroDef], ctx: MathContext, seconds: float
 ) -> MathResult:
     classes = classify(table)
-    parser = parser_for(classes)
-    constants = frozenset(tex.token_form(c, table) for c in ctx.constants)
     base = MathResult(latex, kind, ParseOutcome.FAILED, macros=table, classes=classes, context=ctx)
     try:
         with _deadline(seconds):
-            return _reading(base, parser, constants)
+            recognized = _syntax_reading(base, parser_for(classes))
+            return _interpret_reading(recognized, symbolic=True)
     except _Expired:
         return dataclasses.replace(base, failure=Failure("timeout", "Timeout"))
 
 
-def _reading(base: MathResult, parser: Parser, constants: frozenset[str]) -> MathResult:
+def _syntax_reading(base: MathResult, parser: Parser) -> MathResult:
     source, kind = base.latex, base.requested
     tree: Tree[Token] | None = None
     failure: Failure | None = None
@@ -922,8 +946,65 @@ def _reading(base: MathResult, parser: Parser, constants: frozenset[str]) -> Mat
                 tree = None
     if tree is None:
         return dataclasses.replace(base, failure=failure)
+    return dataclasses.replace(
+        base,
+        status=ParseOutcome.AMBIGUOUS if any(t.data == "_ambig" for t in tree.iter_subtrees())
+        else ParseOutcome.PARTIAL if tail else ParseOutcome.OK,
+        kind=_detect(tree) if kind == "any_value" else kind,
+        tree=tree,
+        failure=failure if tail else None,
+        tail=tail,
+    )
+
+
+def syntax(
+    latex: str,
+    kind: Kind = "any_value",
+    macros: Mapping[str, MacroDef] | None = None,
+    *,
+    seconds: float = PARSE_SECONDS,
+) -> MathResult:
+    """Recognize positioned alternatives without role resolution or native mathematics."""
+    require_main_thread()
+    if kind not in STARTS:
+        raise ValueError(f"unsupported mathematical kind {kind!r}")
+    table = macros or {}
+    classes = classify(table)
+    base = MathResult(latex, kind, ParseOutcome.FAILED, macros=table, classes=classes)
     try:
-        resolver = _Resolver(source, base.macros, base.classes, base.context)
+        with _deadline(seconds):
+            return _syntax_reading(base, parser_for(classes))
+    except _Expired:
+        return dataclasses.replace(base, failure=Failure("timeout", "Timeout"))
+
+
+def interpret(
+    recognized: MathResult,
+    context: MathContext,
+    *,
+    seconds: float = PARSE_SECONDS,
+    symbolic: bool = False,
+) -> MathResult:
+    """Apply declared roles; native equivalence is a separate explicit stronger request."""
+    base = dataclasses.replace(recognized, context=context)
+    if base.tree is None:
+        return base
+    try:
+        with _deadline(seconds):
+            return _interpret_reading(base, symbolic=symbolic)
+    except _Expired:
+        return dataclasses.replace(base, status=ParseOutcome.FAILED, tree=None,
+                                   failure=Failure("timeout", "Timeout"))
+
+
+def _interpret_reading(base: MathResult, *, symbolic: bool = False) -> MathResult:
+    if base.tree is None:
+        return base
+    source, kind, tree, tail = base.latex, base.requested, base.tree, base.tail
+    constants = frozenset(tex.token_form(c, base.macros) for c in base.context.constants)
+    try:
+        resolver_type = _SymbolicResolver if symbolic else _Resolver
+        resolver = resolver_type(source, base.macros, base.classes, base.context)
         resolver.declare_definitions(tree)
         node: _tree.Node = resolver.lone_symbol_formula(tree) or tree
         node = resolver.resolve(node)
@@ -932,7 +1013,8 @@ def _reading(base: MathResult, parser: Parser, constants: frozenset[str]) -> Mat
             raise TypeError("a reading resolved to a token")
         found = occurrences(node, source, base.macros, constants)
     except Exception as error:  # a crash after parsing is reported, not raised
-        return dataclasses.replace(base, failure=_failure(error, source, parser))
+        return dataclasses.replace(base, status=ParseOutcome.FAILED,
+                                   failure=_failure(error, source, parser_for(base.classes)))
     notes = list(resolver.notes)
     residual = resolver.residual_products(node) if not resolver.unresolved else set()
     if residual:
@@ -956,7 +1038,7 @@ def _reading(base: MathResult, parser: Parser, constants: frozenset[str]) -> Mat
         status=status,
         kind=_detect(node) if kind == "any_value" else kind,
         tree=node,
-        failure=failure if tail else None,
+        failure=base.failure if tail else None,
         notes=tuple(notes),
         occurrences=found,
         declarations=tuple(resolver.declarations),
@@ -967,7 +1049,7 @@ def _reading(base: MathResult, parser: Parser, constants: frozenset[str]) -> Mat
 # ============================================================================ SymPy
 
 
-def to_sympy(result: MathResult) -> Any:
+def to_sympy(result: MathResult, *, symbol_factory=None) -> Any:
     """The SymPy value of a parsed value (evaluation's value equivalence; M11 from phase 1).
 
     Raises `NotParsed`, `Ambiguous` or `NotRepresentable`; transformer failures are unwrapped from
@@ -979,7 +1061,8 @@ def to_sympy(result: MathResult) -> Any:
         raise Ambiguous("; ".join(result.notes))
     sets, ops = dict(result.classes.sets), dict(result.classes.ops)
     try:
-        value = transform(result.tree, result.latex, result.macros, sets, ops)
+        options = {} if symbol_factory is None else {"symbol_factory": symbol_factory}
+        value = transform(result.tree, result.latex, result.macros, sets, ops, **options)
     except VisitError as error:
         cause = error.orig_exc
         if isinstance(cause, NotRepresentable):

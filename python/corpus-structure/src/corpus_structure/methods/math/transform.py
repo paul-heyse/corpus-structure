@@ -85,6 +85,8 @@ def symbol_name(node: _tree.Node, source: str, table: Mapping[str, MacroDef]) ->
 def name_symbols(node: _tree.Node, source: str, table: Mapping[str, MacroDef]) -> _tree.Node:
     """Replace `sub_symbol` and `sup_sub` subtrees by `NAMED_SYMBOL` tokens, top-down."""
     if isinstance(node, Token):
+        if node.type in {"SYMBOL", "GREEK_SYMBOL_WITH_PRIMES"}:
+            return Token.new_borrow_pos("NAMED_SYMBOL", symbol_name(node, source, table), node)
         return node
     if node.data == "sub_symbol":
         return Token("NAMED_SYMBOL", symbol_name(node, source, table))
@@ -112,10 +114,14 @@ def _expr(*operands: Any) -> None:
 class ToSympy(TransformToSymPyExpr):
     """The extension-aware transformer; `sets` and `ops` are the macro classification's."""
 
-    def __init__(self, sets: Mapping[str, str], ops: Mapping[str, str]) -> None:
+    def __init__(self, sets: Mapping[str, str], ops: Mapping[str, str],
+                 symbol_factory: Callable[[str], Any] = sympy.Symbol,
+                 bound_symbols: Mapping[str, Any] | None = None) -> None:
         super().__init__()
         self.sets = sets
         self.ops = ops
+        self.symbol_factory = symbol_factory
+        self.bound_symbols = bound_symbols or {}
 
     # ---- arithmetic: operands must be expressions (no deprecated non-Expr Mul or Add)
     def add(self, tokens: list[Any]) -> Any:
@@ -141,7 +147,8 @@ class ToSympy(TransformToSymPyExpr):
 
     # ---- symbols and constants
     def NAMED_SYMBOL(self, token: Token) -> Any:
-        return sympy.Symbol(str(token))
+        name = str(token)
+        return self.bound_symbols[name] if name in self.bound_symbols else self.symbol_factory(name)
 
     def pi_constant(self, tokens: list[Any]) -> Any:
         return sympy.pi
@@ -323,12 +330,81 @@ class ToSympy(TransformToSymPyExpr):
         return _args(tokens[1])
 
 
+def _source_binders(tree: _tree.Node) -> tuple[_tree.Node, dict[str, Any]]:
+    """Assign native bound identity at source-established Sum/Product/Integral/set binders.
+
+    Body traversal carries lexical scope. Limits are outside it; a nested binder shadows
+    its own body only. This runs before constructors can simplify assumed free symbols.
+    """
+    symbols: dict[str, Any] = {}
+
+    def variable(node):
+        return next((t for t in _tree.leaves(node) if t.type == "NAMED_SYMBOL"), None)
+
+    def walk(node, environment):
+        if isinstance(node, Token):
+            if node.type == "NAMED_SYMBOL" and str(node) in environment:
+                return Token.new_borrow_pos("NAMED_SYMBOL", environment[str(node)], node)
+            return node
+        declaration, body_indexes = None, set()
+        if node.data in {"summation", "product"} and len(node.children) >= 3:
+            declaration = variable(node.children[1])
+            body_indexes = {2}
+        elif node.data == "normal_integral" and len(node.children) >= 3:
+            candidate = node.children[-1]
+            if isinstance(candidate, Token) and candidate.type == "NAMED_SYMBOL":
+                declaration = candidate
+                # Native grammar places bound arguments before the integrand. Only
+                # expression children after the last bound argument belong to the body.
+                bound_end = 0
+                for index, child in enumerate(node.children[:-2]):
+                    if isinstance(child, Token) and str(child) in {"_", "^"}:
+                        bound_end = index + 1
+                body_indexes = set(range(bound_end + 1, len(node.children) - 2))
+        elif node.data == "set_builder" and len(node.children) >= 4:
+            declaration = variable(node.children[1])
+            body_indexes = set(range(3, len(node.children) - 1))
+        local = environment
+        if declaration is not None:
+            marker = f"@bound:{len(symbols)}:{declaration}"
+            symbols[marker] = sympy.Dummy(str(declaration))
+            local = {**environment, str(declaration): marker}
+        children = []
+        for index, child in enumerate(node.children):
+            if child is declaration:
+                children.append(walk(child, local))
+            elif declaration is not None and index == 1 and node.data in {"summation", "product"}:
+                # Replace the declaration occurrence, not matching names in the bounds.
+                def limits(part):
+                    if part is declaration:
+                        return walk(part, local)
+                    if isinstance(part, Tree):
+                        return Tree(part.data, [limits(c) for c in part.children], part.meta)
+                    return walk(part, environment)
+                children.append(limits(child))
+            elif declaration is not None and index == 1 and node.data == "set_builder":
+                def head(part):
+                    if part is declaration:
+                        return walk(part, local)
+                    if isinstance(part, Tree):
+                        return Tree(part.data, [head(c) for c in part.children], part.meta)
+                    return walk(part, environment)
+                children.append(head(child))
+            else:
+                children.append(walk(child, local if index in body_indexes else environment))
+        return Tree(node.data, children, node.meta)
+
+    return walk(tree, {}), symbols
+
+
 def transform(
     tree: _tree.Node,
     source: str,
     table: Mapping[str, MacroDef],
     sets: Mapping[str, str],
     ops: Mapping[str, str],
+    *,
+    symbol_factory: Callable[[str], Any] = sympy.Symbol,
 ) -> Any:
     """The SymPy value of `tree` (read from `source`); raises `VisitError` around failures.
 
@@ -336,10 +412,10 @@ def transform(
     methods, such as a differential pair inside `\\frac`) raises `NotRepresentable` here instead
     of taking it, in production as under the tests' `-W error`.
     """
-    named = name_symbols(tree, source, table)
+    named, bound_symbols = _source_binders(name_symbols(tree, source, table))
     with warnings.catch_warnings():
         warnings.simplefilter("error", SymPyDeprecationWarning)
         try:
-            return ToSympy(sets, ops).transform(named)
+            return ToSympy(sets, ops, symbol_factory, bound_symbols).transform(named)
         except SymPyDeprecationWarning as error:
             raise NotRepresentable(f"a path SymPy deprecates: {error}".splitlines()[0]) from error

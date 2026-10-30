@@ -39,6 +39,8 @@ _DEMAND_COMPONENTS = {
 }
 _REQUIRED_COMPONENTS = {
     "lexical": {"grammar", "profile", "kind", "macros"},
+    "structure": {"grammar", "profile", "kind", "macros"},
+    "syntax": {"grammar", "profile", "kind", "macros"},
     "occurrences": {
         "grammar",
         "profile",
@@ -116,7 +118,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
         if (
             profile.id in ids
             or profile.id != "mathematical-interpretation"
-            or profile.version not in {"1", "2", "3", "4", "5"}
+            or profile.version not in {"1", "2", "3", "4", "5", "6"}
         ):
             _fail(
                 "unsupported_analysis_profile",
@@ -124,10 +126,10 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 "supported profiles are mathematical-interpretation/1 and /2",
             )
         ids.add(profile.id)
-        if profile.version in {"2", "3", "4", "5"}:
+        if profile.version in {"2", "3", "4", "5", "6"}:
             if (profile.grammar_recipe, profile.transformer_recipe, profile.shared_consumers) != (
-                "extended-lark-2",
-                "sympy-transform-2",
+                "extended-lark-3" if profile.version == "6" else "extended-lark-2",
+                "sympy-transform-3" if profile.version == "6" else "sympy-transform-2",
                 ("normalize.formula", "extract.math"),
             ):
                 _fail(
@@ -192,7 +194,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                         "implement the method and supply valid precision/sampling parameters "
                         "before admission",
                     )
-        if profile.version in {"3", "4", "5"}:
+        if profile.version in {"3", "4", "5", "6"}:
             from .contracts import AlignmentPolicyDefinition, TextPreparationPolicy
 
             if profile.text_policy != TextPreparationPolicy(
@@ -206,7 +208,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                     "implement text/alignment recipes before admitting changed policy",
                 )
             policy = profile.placement_policy
-            if policy is None or policy.recipe != "citation-cascade-1":
+            if policy is None or policy.recipe != ("citation-cascade-2" if profile.version == "6" else "citation-cascade-1"):
                 _fail("unsupported_placement_policy", location, "declare citation-cascade-1")
             from decimal import Decimal, InvalidOperation
 
@@ -235,14 +237,14 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 or values[3] <= 0
             ):
                 _fail("unsupported_placement_policy", location, "invalid cutoff/window/timeout")
-        if profile.version in {"4", "5"} and profile.capture_policy != _supported_capture_policy():
+        if profile.version in {"4", "5", "6"} and profile.capture_policy != _supported_capture_policy():
             _fail(
                 "unsupported_capture_policy",
                 location,
                 "implement capture representation/hash/lifetime support before admission",
             )
         demands = {d.id: d for d in profile.demands}
-        if len(demands) != len(profile.demands) or set(demands) != set(_REQUIRED_COMPONENTS):
+        if len(demands) != len(profile.demands) or set(demands) != (set(_REQUIRED_COMPONENTS) if profile.version == "6" else set(_REQUIRED_COMPONENTS) - {"structure", "syntax"}):
             _fail(
                 "analysis_demands",
                 location,
@@ -261,7 +263,9 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 )
             required_prior = {
                 "lexical": set(),
-                "occurrences": {"lexical"},
+                "structure": {"lexical"},
+                "syntax": {"lexical"},
+                "occurrences": {"syntax"} if profile.version == "6" else {"lexical"},
                 "interpretation": {"occurrences"},
                 "symbolic": {"interpretation"},
                 "scientific": {"symbolic"},
@@ -275,7 +279,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                     "unknown or reflexive prerequisite",
                 )
 
-        if profile.version == "5":
+        if profile.version in {"5", "6"}:
             from .contracts import InvocationPolicyDefinition
 
             if profile.invocation_policy != InvocationPolicyDefinition(
@@ -406,7 +410,7 @@ def _profile(prepared: PreparedRelease | None):
                 f"analysis preparation requires execution compiler {EXECUTION_COMPILER_VERSION}; "
                 "historical archives are read-only",
             )
-    if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "5":
+    if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "6":
         _fail(
             "missing_analysis_profile",
             model.model_id,
