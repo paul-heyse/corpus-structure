@@ -949,6 +949,28 @@ class BoundReader:
             raise OperationConflict("source product task identity has not been bound for this batch")
         return ProductReference(self.source_tasks[document_id], "source", content_digest)
 
+    def parsing_fallback_macros(self):
+        """The exact archived run configuration, never today's pack defaults.
+
+        The structured artifact is derived from the immutable invocation input; its field
+        reference does not pretend to be a literal offset in a YAML file.
+        """
+        import json
+        from corpus_structure.core.evidence import MacroDef
+
+        binding = binding_of(self.conn, self.run_id)
+        archived = json.loads(binding.dependencies)
+        sections = []
+        for operation in archived.get("operations", {}).values():
+            section = operation.get("parameters", {}).get("math")
+            if section is not None:
+                sections.append(section)
+        if sections and any(section != sections[0] for section in sections[1:]):
+            raise OperationConflict("source capture has competing fallback macro contexts; select one admitted configuration")
+        section = sections[0] if sections else {"macros": {}}
+        reference = f"run:{self.run_id}:dependencies:{binding.dependency_digest}:math"
+        return reference, {name: MacroDef(body=body) for name, body in section.get("macros", {}).items()}
+
     def prepare_layered_product(self, payload):
         from .parsing_products import parsing_context_for_release, prepare_layered_product
 

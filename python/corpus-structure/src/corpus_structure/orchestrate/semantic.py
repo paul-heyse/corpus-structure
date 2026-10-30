@@ -308,6 +308,10 @@ def run_source_methods(
 
                             view.reader.math_readings_batch = MathReadingsBatch()
                         for method, config, claimed in work:
+                            view.reader.bind_source_tasks({
+                                int(task.unit_id): task.task_id for task in claimed
+                                if task.unit_type == "document" and task.unit_id is not None
+                            })
                             units = [
                                 _unit(
                                     conn,

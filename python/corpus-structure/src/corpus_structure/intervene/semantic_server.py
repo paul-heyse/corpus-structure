@@ -22,6 +22,7 @@ from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
 from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import Settings
+from corpus_structure.serve.source import SourceRequest, SourceResponse
 
 
 class SemanticUnitPart(BaseModel):
@@ -317,6 +318,17 @@ def build_semantic_server(
         if run is not None and run != found.run_id:
             raise ToolError("this server is bound to a different semantic run")
         return found
+
+    @server.tool(annotations={"readOnlyHint": True})
+    @tool_refusals(ProposalRefused, OperationConflict, ValueError)
+    def inspect_source(ctx: Context, request: SourceRequest) -> SourceResponse:
+        """Inspect a pinned source product or trace qualified origins; performs no interpretation."""
+        from corpus_structure.semantic.query import read_snapshot
+        from corpus_structure.serve.source import inspect_source as inspect_selected
+
+        active = bound_run(ctx, request.run_id)
+        with read_snapshot(active.engine) as conn:
+            return inspect_selected(conn, request)
 
     @server.tool
     @tool_refusals(ProposalRefused, OperationConflict)

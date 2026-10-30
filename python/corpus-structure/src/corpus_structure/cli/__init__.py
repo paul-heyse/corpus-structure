@@ -21,6 +21,7 @@ from corpus_structure.cli import (
     regenerate,
     schema,
     status,
+    source,
 )
 from corpus_structure.cli import eval as evaluation
 from corpus_structure.cli.planned import Planned
@@ -35,6 +36,7 @@ REGISTRY: tuple[Callable[[typer.Typer], None], ...] = (
     Planned("ingest", "Run M01-M03 over a slice or paths.", f"{_I}, P0-I-1b").register,
     orchestrate.register,
     status.register,
+    source.register,
     query.register,
     explain.register,
     export.register,
