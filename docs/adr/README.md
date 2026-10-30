@@ -26,6 +26,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0030](0030-semantic-consumers-and-reference-evaluation.md) | Semantic consumers select completed results and protect independent references | 2026-10-29 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0031](0031-semantic-execution-closure.md) | Effective semantic contracts govern protected execution and archive opening | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0025](0025-semantic-publication.md) |
 | [ADR-0032](0032-native-test-deployment-equivalence.md) | Fresh native tests clone a session deployment with explicit database policy replay | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
+| [ADR-0033](0033-relational-execution-products.md) | Release-scoped execution rows govern stable protected kernels | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Implemented |  |
 
 ## Superseded, still in the tree
 

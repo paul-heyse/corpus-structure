@@ -73,7 +73,8 @@ def scientific_report_layout():
     comparisons, arrays = [], []
     required = {
         (body["class"], body["property"])
-        for row in model.registry_rows if row.kind == "operation_property"
+        for row in model.registry_rows
+        if row.kind == "operation_property"
         for body in (json.loads(row.body),)
         if body.get("cs:role") == "required_report_array"
     }
@@ -85,7 +86,13 @@ def scientific_report_layout():
             return
         for prop in definition.properties:
             if prop.multivalued:
-                arrays.append({"parent_path": path, "field": prop.name, "required": prop.required or (name, prop.iri) in required})
+                arrays.append(
+                    {
+                        "parent_path": path,
+                        "field": prop.name,
+                        "required": prop.required or (name, prop.iri) in required,
+                    }
+                )
             if prop.range in definitions:
                 visit(prop.range, path + "." + prop.name + ("[*]" if prop.multivalued else ""))
 
@@ -102,7 +109,11 @@ def scientific_report_schema():
         body = json.loads(row.body)
         if body.get("cs:role") != "required_report_array":
             continue
-        target = schema if body["class"] == "ReferenceScientificReport" else schema["$defs"][body["class"]]
+        target = (
+            schema
+            if body["class"] == "ReferenceScientificReport"
+            else schema["$defs"][body["class"]]
+        )
         target.setdefault("required", []).append(body["name"])
     return schema
 
@@ -117,13 +128,18 @@ def _scientific_report_validator():
 
 
 def validate_reference_science(result):
-    projection = {"units": [
-        {"comparisons": unit["comparisons"], "undecided": [
-            {"comparisons": item["comparisons"]} if "comparisons" in item else {}
-            for item in unit["undecided"]
-        ]}
-        for unit in result["units"]
-    ]}
+    projection = {
+        "units": [
+            {
+                "comparisons": unit["comparisons"],
+                "undecided": [
+                    {"comparisons": item["comparisons"]} if "comparisons" in item else {}
+                    for item in unit["undecided"]
+                ],
+            }
+            for unit in result["units"]
+        ]
+    }
     _scientific_report_validator().validate(projection)
     scientific_model().validate_json("ReferenceScientificReport", json.dumps(projection))
 

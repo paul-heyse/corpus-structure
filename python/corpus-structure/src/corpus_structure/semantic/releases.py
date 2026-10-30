@@ -382,6 +382,7 @@ def persist_release(
     and never recompiles while writing projection rows. The caller commits or rolls back.
     """
     from .contracts import require_bound_operation
+
     require_bound_operation(prepared, "archive")
     _validate_manifest(bundle, dependencies, profile, prepared)
     if profile.compiler_version == "13":

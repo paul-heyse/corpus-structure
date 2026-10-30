@@ -19,20 +19,26 @@ def _transport_sql(
 ) -> tuple[str, str, str, str]:
     create, verify, content, insert = [], [], [], []
     from sqlalchemy.sql.ddl import sort_tables
+
     from .metadata import table
 
     relations = [table("data." + name) for name in sorted(STAGE_TYPES)]
     # Fact identity reads completed child roles; the FK graph cannot express that dependency.
     implicit = [(table("data.value_role"), table("data.fact"))]
-    derived = tuple(relation.name for relation in sort_tables(relations, extra_dependencies=implicit))
+    derived = tuple(
+        relation.name for relation in sort_tables(relations, extra_dependencies=implicit)
+    )
     order = derived if relation_order is None else relation_order
     if len(order) != len(set(order)) or set(order) != set(STAGE_TYPES):
         raise ValueError("transport order must contain each declared relation exactly once")
     positions = {name: position for position, name in enumerate(order)}
-    dependencies = [(parent.name, child.name) for child in relations
-                    for constraint in child.foreign_key_constraints
-                    for parent in (constraint.referred_table,)
-                    if parent.name in positions and parent is not child]
+    dependencies = [
+        (parent.name, child.name)
+        for child in relations
+        for constraint in child.foreign_key_constraints
+        for parent in (constraint.referred_table,)
+        if parent.name in positions and parent is not child
+    ]
     dependencies += [(before.name, after.name) for before, after in implicit]
     if any(positions[before] >= positions[after] for before, after in dependencies):
         raise ValueError("transport relation order violates publication dependencies")
