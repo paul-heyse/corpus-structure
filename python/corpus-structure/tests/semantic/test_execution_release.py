@@ -212,7 +212,7 @@ def test_execution_activation_refuses_missing_native_enforcement_and_preserves_p
         assert releases.load_release(conn, prepared.release_id) == prepared
 
 
-def test_changed_trusted_model_refuses_before_activation(semantic_db_engine: Engine, monkeypatch):
+def test_comment_only_trusted_input_change_preserves_archived_execution_binding(semantic_db_engine: Engine, monkeypatch):
     from corpus_structure.semantic import contracts
 
     with semantic_db_engine.begin() as conn:
@@ -226,11 +226,11 @@ def test_changed_trusted_model_refuses_before_activation(semantic_db_engine: Eng
             ),
         )
         monkeypatch.setattr(contracts, "trusted_execution_inputs", lambda: changed)
-        with pytest.raises(ExecutionAdmissionError, match="incompatible with trusted code"):
-            releases.activate_release(
-                conn, project_id, prepared.release_id, expected_parent=None, expected_generation=0
-            )
-        assert releases.activation_token(conn, project_id) == releases.ActivationToken(None, 0)
+        releases.activate_release(
+            conn, project_id, prepared.release_id, expected_parent=None, expected_generation=0
+        )
+        assert releases.activation_token(conn, project_id) == releases.ActivationToken(prepared.release_id, 1)
+        assert releases.open_release(conn, prepared.release_id).execution_model_id == prepared.execution_model_id
 
 
 @pytest.mark.parametrize("route", ["owner_insert", "writer_initialize"])

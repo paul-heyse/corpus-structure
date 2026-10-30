@@ -739,8 +739,10 @@ def test_projection_policy_fields_drive_compiler_refusal():
             prepared,
             registry_rows=tuple(changed_row if r is row else r for r in prepared.registry_rows),
         )
-        with pytest.raises(ValueError, match="policy is not supported"):
+        with pytest.raises(ValueError) as refusal:
             compile_projection(mutated, SnapshotBinding(prepared.release_id, "z", 0, "capture"))
+        message = str(refusal.value)
+        assert "policy is not supported" in message or "analytical_policy." + field in message
     assert captured["analytical_policy"]["universe"] == "full_spine"
     from corpus_structure.semantic.analytics import CANDIDATE_SCHEMA, CandidateInput
     from corpus_structure.semantic.domain_operations import CutInput

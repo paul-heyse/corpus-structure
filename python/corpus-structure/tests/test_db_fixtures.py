@@ -123,7 +123,9 @@ def test_sweep_honours_leases_and_template_age(db_support, db_server) -> None:
         # Another live session: a lease on its template and on its session name.
         with db_server.lease(held, "ci_test_999999998"):
             dropped = db_server.sweep()
-        assert sorted(dropped) == sorted([dead, aged, unstamped])
+        # Sweeping a shared server can also remove eligible residue from another
+        # completed fixture. Assert this test's entire owned universe independently.
+        assert set(dropped).intersection(names) == {dead, aged, unstamped}
         assert all(db_server.exists(name) for name in (live, held, fresh, other))
         assert db_server.exists(db_server.current)
         # Released and aged, the held template goes on the next sweep.
