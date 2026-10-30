@@ -968,7 +968,7 @@ def _macro_table(
                     sources[index] = replace(prior, read=replace(prior.read, events=events))
             table[name] = definition
         notes.extend(read.notes)
-        sources.append(MacroSource(source, "".join(pieces), read, tuple(fragments)))
+        sources.append(MacroSource(source, macro_text, read, fragments))
     return table, notes, tuple(sources)
 
 
