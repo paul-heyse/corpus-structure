@@ -108,3 +108,21 @@ def test_prepared_layout_roundtrips_absolute_offsets_without_retokenizing(monkey
         make_doc(nlp, block, dataclasses.replace(layout, text_digest="wrong"), start=100)
     with pytest.raises(ValueError, match="regenerate"):
         make_doc(nlp, block, restored, start=0)
+
+
+def test_ingestion_retains_the_exact_layout_consumed_by_segmentation(profile: CompiledProfile) -> None:
+    from corpus_structure.ingest.html import build_rendition
+    from corpus_structure.methods.math.scope import segment_block
+
+    built = build_rendition(
+        b"<html><body><p>Let \\(x\\) be real. Then [3] holds.</p></body></html>",
+        profile, CONFIG, source_uri="siegrist_random/random/t/a.html",
+    )
+    blocks = [s for s in built.content.document.walk() if any(c.kind == "sentence" for c in s.children)]
+    assert len(built.text_layouts) == len(blocks) == 1
+    for layout, segment in zip(built.text_layouts, blocks, strict=True):
+        assert (layout.block_start, layout.block_end) == (segment.start, segment.end)
+        reconstructed = make_doc(pipeline(CONFIG), segment_block(built.content, segment), layout,
+                                 start=segment.start)
+        assert reconstructed.text == built.content.text(segment)
+        assert any(token.role == "math" for token in layout.tokens)

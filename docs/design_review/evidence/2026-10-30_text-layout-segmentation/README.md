@@ -16,12 +16,21 @@ uv run python docs/design_review/evidence/2026-10-30_text-layout-segmentation/pr
 The tokenization-plus-Doc baseline took 0.01468s; prepared reconstruction took 0.00705s.
 JSON serialization took 0.00207s and deserialization 0.00505s for 667,164 bytes. Thus encoding,
 decoding and reconstruction already take about 0.01416s before storage/transfer or native
-validation. This measurement supplies no compelling saving for durable layout retention.
-Select operation-owned layout preparation with explicit cold reconstruction through the same
-producer. Do not add a PostgreSQL field, migration or persistent cache based on this result.
-The ingestion batch consumes compact layouts immediately and drops them after segmentation;
-no unused layout collection is retained on `IngestResult`.
-No claim is made that separate processes avoid tokenization without transporting a layout.
+validation. This does not establish a throughput advantage for durable retention.
+
+**Selected representation, 2026-10-30:** preserve the structured layout as rendition-build state.
+The operator explicitly prioritizes structured representation, reuse and analytical value even
+when slightly slower. `IngestResult.text_layouts` carries the same immutable layouts already
+consumed by segmentation into method results. The modeled persistence/native boundary owns
+source, recipe and tokenizer binding; M13 reads the layout from its selected/reused source build.
+This makes token boundaries and atom roles explicitly available across process lifetimes rather
+than requiring hidden re-inference. Historical absent/incompatible layouts still use the same
+canonical producer for cold reconstruction. Purely physical layout state remains outside rendition
+content identity. Matching source artifacts that fail integrity checks must refuse with a
+regeneration remedy rather than silently reconstructing.
+
+The bounded timing is retained without claiming that persistence improves latency. Full producer,
+storage, selected-build retrieval and consumer verification belong to the integrated implementation.
 
 ## Segmentation disposition
 

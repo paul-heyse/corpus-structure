@@ -574,6 +574,8 @@ class SymbolScope(_PerRendition):
             ren = _rendition(ctx.reader, _rendition_id(unit))
             stored = stored_math(ctx.reader, ren)
             macros = tex.effective_macros(ren.content.macros, cfg.section().macro_table())
+            layout_reader = getattr(ctx.reader, "text_layouts", None)
+            layouts = layout_reader(ren.id, cfg.sentences) if layout_reader is not None else ()
             scopes = resolve_scopes(
                 ren.content,
                 stored.values,
@@ -582,6 +584,7 @@ class SymbolScope(_PerRendition):
                 macros,
                 cfg.binders,
                 cfg.sentences,
+                text_layouts={(layout.block_start, layout.block_end): layout for layout in layouts},
             )
             out.append(_result(unit, scope_drafts(ren, scopes, stored.refs, stored.source_refs)))
         return out

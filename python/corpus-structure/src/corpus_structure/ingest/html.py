@@ -188,6 +188,7 @@ class IngestResult:
     title: str | None
     page: str
     parse_detail: ParseDetail
+    text_layouts: tuple[sentences.TextLayout, ...] = ()
 
 
 # --- The walk ----------------------------------------------------------------------------------
@@ -654,7 +655,7 @@ def _leaf_blocks(root: Node) -> list[Node]:
     ]
 
 
-def _add_sentences(root: Node, text: str, config: SentenceConfig) -> None:
+def _add_sentences(root: Node, text: str, config: SentenceConfig) -> tuple[sentences.TextLayout, ...]:
     leaves = _leaf_blocks(root)
     blocks = [
         sentences.block_of(
@@ -676,6 +677,7 @@ def _add_sentences(root: Node, text: str, config: SentenceConfig) -> None:
     )
     for node, extents in zip(leaves, sentences.split(blocks, config, layouts=layouts), strict=True):
         node.children += [Node(K.SENTENCE, node.start + a, node.start + b) for a, b in extents]
+    return layouts
 
 
 def _segment(node: Node) -> Segment:
@@ -848,7 +850,7 @@ def build_rendition_with_elements(
     text, top = _serialize(tree, walker)
     _titles(top, text)
     _hints(top, prof)
-    _add_sentences(top, text, sentence_config)
+    text_layouts = _add_sentences(top, text, sentence_config)
     content = RenditionContent(canonical_text=text, document=_segment(top), macros=macros)
     synth_notes: list[str] = []
     drafts = _markup_drafts(top, content, prof, page, synth_notes, document_key)
@@ -872,6 +874,7 @@ def build_rendition_with_elements(
         title=_collapse("".join(titles[0].itertext())) if titles else None,
         page=page,
         parse_detail=detail,
+        text_layouts=text_layouts,
     )
     elements = {
         SegmentRef(n.kind, n.start, n.end): n.element

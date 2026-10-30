@@ -220,6 +220,7 @@ def _result(unit: UnitView, built: IngestResult) -> UnitResult:
         observations=drafts,
         rendition=built.content,
         parse_detail=built.parse_detail.to_json(),
+        text_layouts=built.text_layouts,
     )
 
 
