@@ -96,6 +96,7 @@ def domain_rule_inputs(
     core: bytes = b"",
     *,
     aliases: Mapping[str, Any] | None = None,
+    execution_model=None,
 ) -> ResolvedDependencies:
     """Archive existing rules as one operation dependency, never read latest files in a run."""
     from .scientific_evidence import scientific_policy_recipe
@@ -119,7 +120,8 @@ def domain_rule_inputs(
             *dependencies.artifacts,
             SourceArtifact(RULE_INPUT, yaml.safe_dump(source, sort_keys=True).encode()),
             SourceArtifact(
-                "operation/scientific-policy.json", canonical_bytes(scientific_policy_recipe())
+                "operation/scientific-policy.json",
+                canonical_bytes(scientific_policy_recipe(model=execution_model)),
             ),
             *(
                 SourceArtifact(
@@ -2612,6 +2614,8 @@ class ReleasedRulesPolicy:
                     operative_macros = dict(a.macros)
                     if _bindings(a.object) != _bindings(b.object):
                         reason = "distinct explicit expression bindings"
+                    elif set(a.constants) != set(b.constants):
+                        reason = "incompatible source constant declarations"
                     elif isinstance(a.object, dict) and isinstance(b.object, dict):
                         left_context = a.object.get("macro_context", {})
                         right_context = b.object.get("macro_context", {})
@@ -2636,7 +2640,13 @@ class ReleasedRulesPolicy:
                                 )
                             else:
                                 left, right = a.object, b.object
-                            macro_key = canonical_bytes(operative_macros)
+                            macro_key = canonical_bytes(
+                                [
+                                    operative_macros,
+                                    sorted(a.constants),
+                                    self.prepared.execution_model_id,
+                                ]
+                            )
                             if macro_key not in comparators:
                                 comparators[macro_key] = SemanticComparator(
                                     {

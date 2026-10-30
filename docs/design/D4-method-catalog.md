@@ -1143,3 +1143,9 @@ canonical-form fusion only, status from agent proposals and M19 rules.
 **Proposed (accepted target,2026-10-30).** One interpretation authority may admit qualified physical frontends. The current grammar remains implemented pending PE-02. Shared prepared context reaches source, rule and scientific readers without downstream M13 feedback. Segmentation changes require explicit configuration and new rendition/anchor identities.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+## Prepared interpretation execution
+
+**Implemented (scoped verification,2026-10-30).** Source M09/M11 share compatible rendition-batch preparation while retaining independent logical tasks and outputs. Frozen prepared mathematical inputs lazily produce values. General Earley remains selected after bounded comparison; the recognition limitation and qualified-subset investigation remain open in PE-02.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

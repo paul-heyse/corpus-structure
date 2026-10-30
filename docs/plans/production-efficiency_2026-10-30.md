@@ -1,6 +1,6 @@
 # Model-governed production efficiency
 
-**Status:** Planned; authoring complete; production implementation not started · **Created:**2026-10-30.
+**Status:** In progress; PE-00–PE-04 implemented with scoped evidence and bounded PE-02 decision · **Created:**2026-10-30.
 **Target maturity:** Proposed. This coordinator owns PE-00–PE-12 package state and current disposition
 of findings scheduled from the [production-efficiency review](../design_review/reviews/production-efficiency_2026-10-30.md).
 Approval to create these documents is not a claim of implementation or measured benefit.
@@ -74,9 +74,9 @@ Historical archive/source bytes and recorded meaning remain preserved. No databa
 |---|---|---|---|
 | PE-00 | [Model contracts](production-efficiency/analysis-model-and-contracts.md#PE-00): durable authority decisions | Accepted planning envelope and affected current owners | Complete · ADR-0035 |
 | PE-01 | [Model contracts](production-efficiency/analysis-model-and-contracts.md#PE-01): compiled context/demand/outcome/dependency and ownership contracts | Relevant PE-00 decisions | Complete · scoped Tested; §9 |
-| PE-02 | [Interpretation](production-efficiency/interpretation-and-scientific-analysis.md#PE-02): qualified recognizer/ambiguity decision | Agreed PE-01 semantics; bounded production evidence | Open |
-| PE-03 | [Interpretation](production-efficiency/interpretation-and-scientific-analysis.md#PE-03): shared mathematical interpretation and consumer migration | Working PE-01 and selected PE-02 contract | Open |
-| PE-04 | [Scientific analysis](production-efficiency/interpretation-and-scientific-analysis.md#PE-04): prepared comparison | PE-01 policy contracts/PE-03 operands; local repetition removal can start earlier | Open |
+| PE-02 | [Interpretation](production-efficiency/interpretation-and-scientific-analysis.md#PE-02): qualified recognizer/ambiguity decision | Agreed PE-01 semantics; bounded production evidence | Complete · bounded decision; F01 remains open |
+| PE-03 | [Interpretation](production-efficiency/interpretation-and-scientific-analysis.md#PE-03): shared mathematical interpretation and consumer migration | Working PE-01 and selected PE-02 contract | Complete · scoped Tested; §10 |
+| PE-04 | [Scientific analysis](production-efficiency/interpretation-and-scientific-analysis.md#PE-04): prepared comparison | PE-01 policy contracts/PE-03 operands; local repetition removal can start earlier | Complete · scoped Tested; §10 |
 | PE-05 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-05): token reuse and explicit segmentation decision | PE-01 context; RC02 before changed segmentation | Open |
 | PE-06 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-06): scope/eligibility indexes | PE-01 authority and required universe | Open |
 | PE-07 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-07): prepared assignment/citation consumers | PE-06; PE-04 for substantive mathematical comparisons | Open |
@@ -100,8 +100,8 @@ contributors, actual consumer adoption and suitable evidence, not merely a helpe
 
 | Item | Component / structural correction | Disposition · dependency | Closure evidence |
 |---|---|---|---|
-| F01 | Contextual recognition and ambiguity execution; PE-01–03 | Open · recognizer decision gates downstream migration | Supported interpretation/ambiguity preserved or explicitly versioned; real consumers and production cost route established |
-| F02 | One authorized context and prepared mathematical products; PE-01/03 | Open · no circular scope feedback | All source/rule/scientific readers consume the model-derived context and complete dependency keys |
+| F01 | Contextual recognition and ambiguity execution; PE-01–03 | Open · qualified general Earley retained; recognition/subset limitation remains | Supported interpretation/ambiguity preserved or explicitly versioned; real consumers and production cost route established |
+| F02 | One authorized context and prepared mathematical products; PE-01/03 | Closed for PE-01/03 · shared prepared context/products and consumer checks; no M13 feedback | All source/rule/scientific readers consume the model-derived context and complete dependency keys |
 | F03 | Prepared operands and policy-bound scientific comparison; PE-04/07 | Open · no numeric-as-proof substitution | Repeated base/value work removed; evidence tiers/conditions remain correct; comparison measured separately |
 | F04 | Shared token preparation and segmentation decision; PE-05 | Open · RC02 before changed anchors | Actual ingest/scope consumers migrated; exact offsets retained or new release declared |
 | F05 | Hierarchy/per-symbol scope indexes; PE-06 | Open · authority/tie rules from model | Enclosure/reopen/mention results preserve meaning; repeated flat scans retire |
@@ -208,3 +208,19 @@ Maintenance note: `git diff --cached --check` identified trailing whitespace in 
 frozen SQLAlchemy/native SQL products. Their byte-for-byte generator correspondence is retained;
 this whitespace diagnostic supplies no functional failure and does not invalidate types/tests.
 The earlier unstaged `git diff --check` passed before new generated files were staged.
+
+## 10. PE-02–PE-04 execution —2026-10-30
+
+[Interpretation/science execution](production-efficiency/interpretation-and-scientific-analysis.md#execution-2026-10-30)
+owns mechanisms and bounded evidence. PE-02 retains qualified general Earley; no faster recognizer
+was established. F01 remains open with qualified subset/direct-forest applicability as the next
+investigation. PE-03 shares batch preparation and lazily requested values across real consumers;
+PE-04 binds prepared operands, conditions and numeric decisions to explicit model recipes.
+Compiler6/native0036 preserve historical meanings and existing tables. F03 retains its PE-07
+obligations; PE-05–PE-12 remain open. There is no full-series or quantitative speedup claim.
+
+Scoped verification receipts are under `build/pe234/` and `build/pe-model/`; failed setup attempts
+are retained beside corrected applicable results. Corpus/property, source-method, scientific,
+model-input/recipe and native/archival checks have separate boundaries. Typing precedes expensive
+qualification; lint-only maintenance does not invalidate those results. The generated SQL retains
+its existing whitespace convention and byte-for-byte derivation checks.

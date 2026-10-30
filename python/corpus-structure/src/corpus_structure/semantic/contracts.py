@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "5"
+EXECUTION_COMPILER_VERSION = "6"
 
 
 @lru_cache(maxsize=1)
@@ -116,6 +116,7 @@ def approved_implementations() -> Mapping[str, Any]:
 class ExecutionModelInputs:
     schema: SourceBundle
     catalog: SourceArtifact
+    implementations: tuple[SourceArtifact, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -371,6 +372,22 @@ class InputOwnershipContract:
 
 
 @dataclass(frozen=True)
+class ScientificComputationProfile:
+    policy_id: str
+    symbolic_method: str
+    numeric_method: str
+    backend: str
+    simplify_seconds: str
+    points: int
+    max_draws: int
+    minimum_valid_points: int
+    relative_tolerance: str
+    absolute_tolerance: str
+    seed: str
+    numeric_requires: str
+
+
+@dataclass(frozen=True)
 class AnalysisProfile:
     id: str
     version: str
@@ -379,6 +396,10 @@ class AnalysisProfile:
     builtin_functions: tuple[str, ...]
     local_declaration_rules: tuple[str, ...]
     ownership: tuple[InputOwnershipContract, ...]
+    grammar_recipe: str = ""
+    transformer_recipe: str = ""
+    shared_consumers: tuple[str, ...] = ()
+    scientific_profiles: tuple[ScientificComputationProfile, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -399,6 +420,7 @@ class ExecutionModelProducts:
     native_guards: tuple[NativeGuardBinding, ...]
     effect_definitions: tuple[EffectDefinition, ...] = ()
     analysis_profiles: tuple[AnalysisProfile, ...] = ()
+    implementation_digests: tuple[tuple[str, str], ...] = ()
 
     def operation(self, name: str) -> OperationContract:
         """Resolve a mandatory operation from this exact release-bound model."""
@@ -511,7 +533,7 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
     data = json.loads(payload)
     if data.get("model_id") != model_id:
         _fail("execution_binding", name, "execution payload identity differs")
-    if data.get("inputs", {}).get("compiler_version") in {"1", "2", "3", "4"}:
+    if data.get("inputs", {}).get("compiler_version") in {"1", "2", "3", "4", "5"}:
         # Retained immutable reader ABI, without allowing historical writes/activation.
         if name not in {
             "reload",
@@ -567,7 +589,7 @@ def bound_execution_model(prepared) -> ExecutionModelProducts:
 @lru_cache(maxsize=16)
 def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts:
     data = json.loads(body)
-    if data.get("inputs", {}).get("compiler_version") not in {"1", "2", "3", "4", "5"}:
+    if data.get("inputs", {}).get("compiler_version") not in {"1", "2", "3", "4", "5", "6"}:
         _fail(
             "unsupported_execution_abi", model_id, "execution product has no supported compiler ABI"
         )
@@ -594,6 +616,26 @@ def trusted_execution_inputs() -> ExecutionModelInputs:
             ),
         ),
         SourceArtifact("execution-model.yaml", root.joinpath("execution-model.yaml").read_bytes()),
+        analysis_implementation_inputs(),
+    )
+
+
+def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
+    """Acquire implementation determinants explicitly; the compiler never reads installed code."""
+    from importlib.metadata import version
+
+    math = files("corpus_structure").joinpath("methods", "math")
+    shipped = files("sympy").joinpath("parsing", "latex", "lark", "grammar", "latex.lark")
+    return (
+        SourceArtifact("grammar/grammar.py", math.joinpath("grammar.py").read_bytes()),
+        SourceArtifact("grammar/extension.lark", math.joinpath("extension.lark").read_bytes()),
+        SourceArtifact("grammar/prepared.py", math.joinpath("prepared.py").read_bytes()),
+        SourceArtifact("grammar/_tree.py", math.joinpath("_tree.py").read_bytes()),
+        SourceArtifact("grammar/shipped.lark", shipped.read_bytes()),
+        SourceArtifact("transformer/transform.py", math.joinpath("transform.py").read_bytes()),
+        SourceArtifact(
+            "libraries.json", canonical_bytes({name: version(name) for name in ("sympy", "lark")})
+        ),
     )
 
 
@@ -956,7 +998,26 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     data = _collection_defaults(
         "ExecutionCatalog", data, {d.name: d for d in companion.definitions}
     )
+    names = tuple(item.name for item in inputs.implementations)
+    required_implementations = {
+        "grammar/grammar.py",
+        "grammar/extension.lark",
+        "grammar/prepared.py",
+        "grammar/_tree.py",
+        "grammar/shipped.lark",
+        "transformer/transform.py",
+        "libraries.json",
+    }
+    if set(names) != required_implementations or len(names) != len(set(names)):
+        _fail(
+            "analysis_implementation_inputs",
+            inputs.catalog.name,
+            "supply the exact grammar/transformer implementation input set",
+        )
     identity = {
+        "implementations": [
+            {"name": item.name, "sha256": item.digest} for item in inputs.implementations
+        ],
         "compiler_version": EXECUTION_COMPILER_VERSION,
         "schema": {
             "root": inputs.schema.root,
@@ -965,8 +1026,11 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "catalog": {"name": inputs.catalog.name, "sha256": inputs.catalog.digest},
     }
     model_id = "execution:" + sha256(canonical_bytes(identity)).hexdigest()
-    products = _normalize(data, model_id)
-    if not products.analysis_profiles:
+    products = replace(
+        _normalize(data, model_id),
+        implementation_digests=tuple((item.name, item.digest) for item in inputs.implementations),
+    )
+    if not products.analysis_profiles or any(p.version != "2" for p in products.analysis_profiles):
         _fail(
             "missing_analysis_profile",
             inputs.catalog.name,

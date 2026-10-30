@@ -604,7 +604,7 @@ def _owned_input(prepared: PreparedRelease, family: str, **dependencies: Any):
     from .contracts import execution_payload
 
     payload = execution_payload(prepared)
-    if payload is None or json.loads(payload)["inputs"]["compiler_version"] != "5":
+    if payload is None or json.loads(payload)["inputs"]["compiler_version"] != "6":
         return None
     return bind_analysis_family(prepared, family).prepare(**dependencies)
 

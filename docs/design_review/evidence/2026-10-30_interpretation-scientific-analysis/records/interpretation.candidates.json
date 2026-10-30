@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "id": "interpretation.candidates",
+  "title": "Bounded interpretation candidate execution",
+  "group": "production-efficiency",
+  "package": "PE-02",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does alternative ambiguity representation or local tree preparation remove the observed recognition cost without changing interpretation?",
+  "answers": [],
+  "method": "Compare frozen38f79f5 and current production grammar on original195-span page plus five context cases; attribute forest recognition/projection separately; bound an explicitly admitted numeric subset population.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-30_interpretation-scientific-analysis/code/parser_candidates.py",
+    "uv run python docs/design_review/evidence/2026-10-30_interpretation-scientific-analysis/code/parser_candidates.py --phases-only",
+    "uv run python docs/design_review/evidence/2026-10-30_interpretation-scientific-analysis/code/parser_candidates.py --subset-only"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "code/parser_candidates.py",
+      "role": "Bounded production-kernel comparison command",
+      "sha256": "fe3a358bc9d9309c576a041918c8e2a200185eac153a75a2e8eeccd3df46e191"
+    },
+    {
+      "path": "raw/parser-candidates.json",
+      "role": "Final raw candidate comparison",
+      "sha256": "f534a94d69b38df503c4c2a7ba83ac2726c8e2edc8cd63decc6655e480438d5d"
+    },
+    {
+      "path": "raw/parser-phases.json",
+      "role": "Instrumented phase attribution",
+      "sha256": "f408156c47364908c53683e2fa6e3f0b313aac78228456eb0f52a5909618271d"
+    },
+    {
+      "path": "raw/parser-subset.json",
+      "role": "Bounded deterministic subset applicability",
+      "sha256": "7229d04413cf108ae256187f167581ea84a2b19ddef22c504bf70f3cba5f4924"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Inputs",
+      "value": 200,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Frozen baseline",
+      "value": 10.126540443045087,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "Summarized tree route",
+      "value": 11.61779667600058,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "Outcome differences",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Forest recognition",
+      "value": 12.574245836643968,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "Forest tree projection",
+      "value": 0.11465843062615022,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Retain qualified general Earley recognition and shared prepared products. No faster recognizer or page speedup established. Forest tree projection is small beside recognition for this population; full grammar strict LALR has conflicts, while useful qualified subsets remain an open F01 investigation. All200 status/kind/failure-category/occurrence outputs agree in the bounded comparison. Further isolated timing is required before asserting no ordinary-workload regression.",
+  "consumed_by": [
+    "production-efficiency PE-02/PE-03"
+  ]
+}

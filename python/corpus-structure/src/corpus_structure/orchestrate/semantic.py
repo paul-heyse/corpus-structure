@@ -85,7 +85,7 @@ def run_source_methods(
     from corpus_structure.semantic.contracts import execution_payload
 
     payload = execution_payload(prepared)
-    if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "5":
+    if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "6":
         from corpus_structure.semantic.analysis_contracts import bind_analysis_family
 
         invocation_input = bind_analysis_family(prepared, "invocation").prepare(
@@ -226,104 +226,124 @@ def run_source_methods(
     holder = f"semantic-source:{rid}"
     try:
         for stage, steps in graph.stages:
-            for step in steps:
-                name = step.config.split("/", 1)[0]
-                method = registry.method(name)
-                config = configs[name]
-                with engine.begin() as conn:
-                    cid = record_method(
-                        conn,
-                        method,
-                        config.name,
-                        config.params,
-                        config.config_hash,
-                        prepared=prepared,
-                    )
-                    view = run_view(conn, rid, prepared)
-                    for ref in method.select(view, config.config):
-                        unit = _unit(conn, view, ref)
-                        digest = method.input_digest(unit, config.config)
-                        ih = sha256(
-                            canonical_bytes(
-                                [
-                                    prepared.release_id,
-                                    binding.input_realization_id,
-                                    binding.input_revision,
-                                    binding.dependency_digest,
-                                    method.name,
-                                    method.version,
-                                    config.config_hash,
-                                    digest.bytes.hex(),
-                                ]
-                            )
-                        ).hexdigest()
-                        task_id = create_task(
-                            conn,
-                            run_id=rid,
-                            config_id=cid,
-                            stage=str(stage),
-                            unit_type=str(ref.unit_type),
-                            unit_id=ref.unit_id,
-                            unit_key=ref.unit_key,
-                            input_hash=ih,
-                            packet_hash=digest.packet_hash,
-                            fresh=name in fresh,
-                        )
-                        if ref.unit_type == TaskUnitType.DOCUMENT and ref.unit_id is not None:
-                            task_table = table("ops.task")
-                            if (
-                                conn.execute(
-                                    select(task_table.c.status).where(task_table.c.id == task_id)
-                                ).scalar_one()
-                                == "reused"
-                            ):
-                                from corpus_structure.semantic.operations import read_original
-
-                                read_original(conn, ref.unit_id, prepared=prepared)
-                while True:
+            for group in _source_step_groups(steps, configs, prepared):
+                scheduled = []
+                for step in group:
+                    name = step.config.split("/", 1)[0]
+                    method = registry.method(name)
+                    config = configs[name]
                     with engine.begin() as conn:
-                        claimed = claim_tasks(
+                        cid = record_method(
                             conn,
-                            run_id=rid,
-                            config_id=cid,
-                            holder=holder,
-                            limit=method.resources.batch_size,
+                            method,
+                            config.name,
+                            config.params,
+                            config.config_hash,
+                            prepared=prepared,
                         )
-                    if not claimed:
+                        view = run_view(conn, rid, prepared)
+                        for ref in method.select(view, config.config):
+                            unit = _unit(conn, view, ref)
+                            digest = method.input_digest(unit, config.config)
+                            ih = sha256(
+                                canonical_bytes(
+                                    [
+                                        prepared.release_id,
+                                        binding.input_realization_id,
+                                        binding.input_revision,
+                                        binding.dependency_digest,
+                                        method.name,
+                                        method.version,
+                                        config.config_hash,
+                                        digest.bytes.hex(),
+                                    ]
+                                )
+                            ).hexdigest()
+                            task_id = create_task(
+                                conn,
+                                run_id=rid,
+                                config_id=cid,
+                                stage=str(stage),
+                                unit_type=str(ref.unit_type),
+                                unit_id=ref.unit_id,
+                                unit_key=ref.unit_key,
+                                input_hash=ih,
+                                packet_hash=digest.packet_hash,
+                                fresh=name in fresh,
+                            )
+                            if ref.unit_type == TaskUnitType.DOCUMENT and ref.unit_id is not None:
+                                task_table = table("ops.task")
+                                if (
+                                    conn.execute(
+                                        select(task_table.c.status).where(
+                                            task_table.c.id == task_id
+                                        )
+                                    ).scalar_one()
+                                    == "reused"
+                                ):
+                                    from corpus_structure.semantic.operations import read_original
+
+                                    read_original(conn, ref.unit_id, prepared=prepared)
+                    scheduled.append((method, config, cid))
+                while True:
+                    work = []
+                    for method, config, cid in scheduled:
+                        with engine.begin() as conn:
+                            claimed = claim_tasks(
+                                conn,
+                                run_id=rid,
+                                config_id=cid,
+                                holder=holder,
+                                limit=method.resources.batch_size,
+                            )
+                        if claimed:
+                            work.append((method, config, claimed))
+                    if not work:
                         break
+                    completed = []
                     with engine.connect() as conn:
                         view = run_view(conn, rid, prepared)
-                        units = [
-                            _unit(
-                                conn,
-                                view,
-                                UnitRef(TaskUnitType(t.unit_type), t.unit_id, t.unit_key),
+                        if len(group) > 1:
+                            from corpus_structure.methods.math.methods import MathReadingsBatch
+
+                            view.reader.math_readings_batch = MathReadingsBatch()
+                        for method, config, claimed in work:
+                            units = [
+                                _unit(
+                                    conn,
+                                    view,
+                                    UnitRef(TaskUnitType(t.unit_type), t.unit_id, t.unit_key),
+                                )
+                                for t in claimed
+                            ]
+                            results = method.run(
+                                units,
+                                config.config,
+                                MethodContext(
+                                    view,
+                                    view.reader,
+                                    method_settings,
+                                    logging.getLogger(method.name),
+                                ),
                             )
-                            for t in claimed
-                        ]
-                        results = method.run(
-                            units,
-                            config.config,
-                            MethodContext(
-                                view, view.reader, method_settings, logging.getLogger(method.name)
-                            ),
-                        )
+                            completed.append((method, config, claimed, results))
                         conn.rollback()
-                    for task, result in zip(claimed, results, strict=True):
-                        with engine.begin() as conn:
-                            complete_unit_result(
-                                conn,
-                                task_id=task.task_id,
-                                attempt=task.attempt,
-                                holder=holder,
-                                prepared=prepared,
-                                result=result,
-                                method=method,
-                                configuration_hash=config.config_hash,
-                                source=result.ref.unit_key or "run",
-                            )
-                        if result.error is not None:
-                            raise OperationConflict(result.error)
+                    for method, config, claimed, results in completed:
+                        for task, result in zip(claimed, results, strict=True):
+                            with engine.begin() as conn:
+                                complete_unit_result(
+                                    conn,
+                                    task_id=task.task_id,
+                                    attempt=task.attempt,
+                                    holder=holder,
+                                    prepared=prepared,
+                                    result=result,
+                                    method=method,
+                                    configuration_hash=config.config_hash,
+                                    source=result.ref.unit_key or "run",
+                                )
+                            if result.error is not None:
+                                raise OperationConflict(result.error)
         with engine.begin() as conn:
             cut = seal_cut(conn, rid, "source-ready")
             queued = (
@@ -722,3 +742,30 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
             ).scalar_one() in ("pending", "running", "awaiting_agent"):
                 open_count += 1
     return open_count
+
+
+def _source_step_groups(steps, configs, prepared):
+    """Fuse only the admitted, compatible adjacent rendition consumers."""
+    from corpus_structure.methods.math.methods import ExtractMathConfig, NormalizeFormulaConfig
+    from corpus_structure.semantic.analysis_contracts import supports_shared_math
+
+    items = list(steps)
+    index = 0
+    while index < len(items):
+        first = items[index]
+        group = [first]
+        if index + 1 < len(items) and supports_shared_math(prepared):
+            second = items[index + 1]
+            names = (first.config.split("/", 1)[0], second.config.split("/", 1)[0])
+            if set(names) == {"normalize.formula", "extract.math"}:
+                left, right = (configs[name].config for name in names)
+                if (
+                    isinstance(left, (ExtractMathConfig, NormalizeFormulaConfig))
+                    and isinstance(right, (ExtractMathConfig, NormalizeFormulaConfig))
+                    and left.section() == right.section()
+                    and left.parse_seconds == right.parse_seconds
+                ):
+                    group.append(second)
+                    index += 1
+        yield group
+        index += 1

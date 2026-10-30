@@ -781,3 +781,9 @@ M13 binds `X`, `a`, `b`, `\mu`, `\sigma` to the unit; M10 proposes C1–C4.
 **Proposed (accepted target,2026-10-30).** Each scientific operand retains its own authorized interpretation context. Candidate universes and condition/policy dependencies remain explicit; physical preparation cannot silently prune eligibility or merge occurrence identity.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+## Prepared interpretation execution
+
+**Implemented (scoped verification,2026-10-30).** Scientific ABI3 profiles bind prepared operands, complete conditions and per-candidate numerical validity to the same explicit model used by archived recipes. Polynomial-only cancellation and shared direct evaluations preserve separate consolidation/reference policies. Direct numerical execution remains selected after bounded NumPy/CSE investigation.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

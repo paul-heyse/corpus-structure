@@ -163,7 +163,7 @@ def test_owned_input_enforces_exact_release_and_dependencies():
 
 def test_explicit_live_base_and_archived_composed_refusal():
     base = prepare_release(trusted_execution_inputs().schema)
-    assert prepare_interpretation_context(base, macros={}).profile.version == "1"
+    assert prepare_interpretation_context(base, macros={}).profile.version == "2"
     import json
 
     from corpus_structure.semantic.identity import canonical_bytes
@@ -254,5 +254,120 @@ def test_historical_abi_cannot_self_attest_analysis_capabilities():
             RegistryRow("execution_model", model.model_id, canonical_bytes(changed)),
         ),
     )
-    with pytest.raises(PreparationError, match="requires execution compiler 5"):
+    with pytest.raises(PreparationError, match="requires execution compiler 6"):
         prepare_interpretation_context(archived, macros={})
+
+
+def test_explicit_implementation_bytes_are_part_of_identity_and_runtime_support():
+
+    from corpus_structure.semantic.types import RegistryRow
+
+    inputs = trusted_execution_inputs()
+    model = compile_execution_model(inputs)
+    changed_inputs = replace(
+        inputs,
+        implementations=(
+            replace(inputs.implementations[0], content=inputs.implementations[0].content + b"\n"),
+            *inputs.implementations[1:],
+        ),
+    )
+    changed = compile_execution_model(changed_inputs)
+    assert model.model_id != changed.model_id
+    base = prepare_release(inputs.schema)
+    prepared = replace(
+        base,
+        execution_model_id=changed.model_id,
+        registry_rows=(
+            *base.registry_rows,
+            RegistryRow("execution_model", changed.model_id, changed.content),
+        ),
+    )
+    with pytest.raises(PreparationError, match="admitted implementation bytes"):
+        prepare_interpretation_context(prepared, macros={})
+
+
+def test_scientific_profile_and_source_sharing_are_admitted_data():
+    from corpus_structure.semantic.analysis_contracts import scientific_computation_profile
+
+    computation = scientific_computation_profile("reference-evidence-2")
+    assert computation.minimum_valid_points == 12
+    assert computation.numeric_requires == "no-restrictions"
+    assert context().profile.shared_consumers == ("normalize.formula", "extract.math")
+
+
+def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition(
+    monkeypatch,
+):
+    import json
+    from pathlib import Path
+
+    from corpus_structure.semantic.analysis_contracts import scientific_computation_profile
+    from corpus_structure.semantic.regeneration import acquire_pack, compose_pack_inputs
+    from corpus_structure.semantic.scientific_evidence import require_scientific_policy
+
+    pack = Path(__file__).resolve().parents[4] / "domains/statistics"
+    acquired = acquire_pack(pack)
+    data = yaml.safe_load(acquired.execution.catalog.content)
+    data["analysis_profiles"][0]["scientific_profiles"][0]["minimum_valid_points"] = 7
+    execution = replace(
+        acquired.execution,
+        catalog=replace(acquired.execution.catalog, content=yaml.safe_dump(data).encode()),
+    )
+    candidate = replace(acquired, execution=execution)
+    monkeypatch.setattr(
+        "corpus_structure.semantic.regeneration.trusted_execution_inputs",
+        lambda: pytest.fail("composition acquired installed inputs"),
+    )
+    bundle, dependencies, profile = compose_pack_inputs((candidate,))
+    prepared = prepare_release(bundle, dependencies, profile)
+    recipe = next(
+        item for item in prepared.artifacts if item.kind == "operation/scientific-policy.json"
+    )
+    decoded = json.loads(recipe.content)
+    assert decoded["consolidation"]["minimum_valid_points"] == 7
+    assert decoded["computation_profiles"][0]["minimum_valid_points"] == 7
+    assert (
+        scientific_computation_profile("consolidation-evidence-2", prepared).minimum_valid_points
+        == 7
+    )
+    require_scientific_policy(prepared)
+    decoded["consolidation"]["minimum_valid_points"] = 6
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    altered = replace(
+        prepared,
+        artifacts=tuple(
+            replace(item, content=canonical_bytes(decoded)) if item is recipe else item
+            for item in prepared.artifacts
+        ),
+    )
+    with pytest.raises(ValueError, match="recipe is unsupported"):
+        require_scientific_policy(altered)
+
+
+def test_current_compilation_and_preparation_refuse_retained_analysis_profile():
+    import json
+
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    inputs = trusted_execution_inputs()
+    data = yaml.safe_load(inputs.catalog.content)
+    data["analysis_profiles"][0]["version"] = "1"
+    with pytest.raises(PreparationError, match="required analysis preparation profile"):
+        compile_execution_model(
+            replace(inputs, catalog=replace(inputs.catalog, content=yaml.safe_dump(data).encode()))
+        )
+    current = compile_execution_model(inputs)
+    body = json.loads(current.content)
+    body["analysis_profiles"][0]["version"] = "1"
+    base = prepare_release(inputs.schema)
+    altered = replace(
+        base,
+        execution_model_id=current.model_id,
+        registry_rows=(
+            *base.registry_rows,
+            RegistryRow("execution_model", current.model_id, canonical_bytes(body)),
+        ),
+    )
+    with pytest.raises(PreparationError, match="historical archives are read-only"):
+        prepare_interpretation_context(altered, macros={})

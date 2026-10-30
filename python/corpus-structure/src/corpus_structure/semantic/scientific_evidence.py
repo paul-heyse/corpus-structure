@@ -36,8 +36,8 @@ NUMERIC_MAX_DRAWS = 4000
 NUMERIC_MIN_POINTS = 6
 REL_TOL = 1e-9
 ABS_TOL = 1e-12
-CONSOLIDATION_PROFILE = "consolidation-evidence-1"
-REFERENCE_PROFILE = "reference-evidence-1"
+CONSOLIDATION_PROFILE = "consolidation-evidence-2"
+REFERENCE_PROFILE = "reference-evidence-2"
 
 SCIENTIFIC_POLICY_INPUT = "operation/scientific-policy.json"
 
@@ -144,9 +144,62 @@ def validate_reference_science(result):
     scientific_model().validate_json("ReferenceScientificReport", json.dumps(projection))
 
 
-def scientific_policy_recipe() -> dict[str, Any]:
-    return {
-        "abi": "scientific-evidence-2",
+def bind_scientific_computation(recipe: Mapping[str, Any], profiles) -> dict[str, Any]:
+    """Pure candidate binding over supplied recipe bytes and compiled profile records."""
+    from copy import deepcopy
+    from dataclasses import asdict
+
+    if recipe.get("abi") != "scientific-evidence-3":
+        raise ValueError("unsupported scientific recipe ABI for computation binding")
+    by_policy = {profile.policy_id: profile for profile in profiles}
+    if len(by_policy) != len(profiles) or set(by_policy) != {
+        CONSOLIDATION_PROFILE,
+        REFERENCE_PROFILE,
+    }:
+        raise ValueError("scientific computation profiles differ from required policies")
+    result = deepcopy(dict(recipe))
+    result["computation_profiles"] = [
+        asdict(by_policy[p]) for p in (CONSOLIDATION_PROFILE, REFERENCE_PROFILE)
+    ]
+    for section, policy in (
+        ("consolidation", CONSOLIDATION_PROFILE),
+        ("reference", REFERENCE_PROFILE),
+    ):
+        profile = by_policy[policy]
+        target = result[section]
+        target["simplify_seconds"] = float(profile.simplify_seconds)
+        target["points"] = profile.points
+        target["relative_tolerance"] = float(profile.relative_tolerance)
+        if section == "consolidation":
+            target["max_draws"] = profile.max_draws
+            target["minimum_valid_points"] = profile.minimum_valid_points
+            target["absolute_tolerance"] = float(profile.absolute_tolerance)
+    return result
+
+
+def scientific_policy_recipe(prepared=None, *, model=None) -> dict[str, Any]:
+    from dataclasses import asdict
+
+    from .analysis_contracts import scientific_computation_profile
+
+    if model is not None:
+        profiles = {
+            p.policy_id: p
+            for profile in model.analysis_profiles
+            for p in profile.scientific_profiles
+        }
+    else:
+        profiles = {
+            policy: scientific_computation_profile(policy, prepared)
+            for policy in (CONSOLIDATION_PROFILE, REFERENCE_PROFILE)
+        }
+    consolidation = profiles[CONSOLIDATION_PROFILE]
+    reference = profiles[REFERENCE_PROFILE]
+    recipe = {
+        "computation_profiles": [
+            asdict(profiles[policy]) for policy in (CONSOLIDATION_PROFILE, REFERENCE_PROFILE)
+        ],
+        "abi": "scientific-evidence-3",
         "decision_rules": list(decision_rules()),
         **scientific_report_layout(),
         "report_schema": scientific_report_schema(),
@@ -155,12 +208,12 @@ def scientific_policy_recipe() -> dict[str, Any]:
         "decision_rule_schema": scientific_model().json_schema("DecisionRule"),
         "consolidation": {
             "profile": CONSOLIDATION_PROFILE,
-            "simplify_seconds": SIMPLIFY_SECONDS,
-            "points": NUMERIC_POINTS,
-            "max_draws": NUMERIC_MAX_DRAWS,
-            "minimum_valid_points": NUMERIC_MIN_POINTS,
-            "relative_tolerance": REL_TOL,
-            "absolute_tolerance": ABS_TOL,
+            "simplify_seconds": float(consolidation.simplify_seconds),
+            "points": consolidation.points,
+            "max_draws": consolidation.max_draws,
+            "minimum_valid_points": consolidation.minimum_valid_points,
+            "relative_tolerance": float(consolidation.relative_tolerance),
+            "absolute_tolerance": float(consolidation.absolute_tolerance),
             "seed": "sha256(sorted canonical operand forms + canonical restrictions)[:16]",
             "numeric_method": "xreplace(point).evalf()",
             "numeric_agreement": "equivalent",
@@ -169,10 +222,10 @@ def scientific_policy_recipe() -> dict[str, Any]:
         },
         "reference": {
             "profile": REFERENCE_PROFILE,
-            "simplify_seconds": 5,
-            "points": 12,
+            "simplify_seconds": float(reference.simplify_seconds),
+            "points": reference.points,
             "bounds": [0.25, 3],
-            "relative_tolerance": 1e-9,
+            "relative_tolerance": float(reference.relative_tolerance),
             "seed": "sha256(canonical sorted raw semantic operands)[:16]",
             "numeric_method": "evalf(subs=point)",
             "numeric_requires": "no restrictions",
@@ -180,10 +233,12 @@ def scientific_policy_recipe() -> dict[str, Any]:
             "counterexample": "different",
             "inconclusive": "undecided",
         },
-        "symbolic_method": "sympy.simplify / exact relational and set expressions",
+        "symbolic_method": "domain-targeted-then-simplify-2",
+        "numeric_candidate_policy": "each orientation independently meets minimum valid points",
         "sympy_equals": "not used; numerical fallback is not a symbolic proof",
         "assessment_evidence_schema": ScientificAssessmentEvidence.model_json_schema(),
     }
+    return bind_scientific_computation(recipe, tuple(profiles.values()))
 
 
 @lru_cache(maxsize=1)
@@ -199,7 +254,7 @@ def require_scientific_policy(prepared) -> None:
         bound_execution_model(prepared).require_operation("scientific_policy")
 
     artifact = next((a for a in prepared.artifacts if a.kind == SCIENTIFIC_POLICY_INPUT), None)
-    if artifact is None or artifact.content != _scientific_policy_bytes():
+    if artifact is None or artifact.content != canonical_bytes(scientific_policy_recipe(prepared)):
         raise ValueError(
             "scientific evidence/policy recipe is unsupported; "
             "derive a release with the supported profiles"
@@ -260,7 +315,12 @@ class ScientificAssessmentEvidence(BaseModel):
 
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
     abi: Literal["scientific-assessment-evidence-1"] = "scientific-assessment-evidence-1"
-    policy: Literal["consolidation-evidence-1", "reference-evidence-1"]
+    policy: Literal[
+        "consolidation-evidence-1",
+        "reference-evidence-1",
+        "consolidation-evidence-2",
+        "reference-evidence-2",
+    ]
     tier: Literal["canonical", "symbolic", "numeric", "undecided"]
     numeric: Literal["not_run", "inconclusive", "agreement", "counterexample"]
     valid_points: NonNegativeInt
@@ -276,9 +336,9 @@ def scientific_assessment_reason(
 ) -> str:
     """Serialize exact model operands/context with the policy that consumed evidence."""
     envelope = ScientificAssessmentEvidence(
-        policy="reference-evidence-1"
+        policy=REFERENCE_PROFILE
         if evidence and evidence.profile == REFERENCE_PROFILE
-        else "consolidation-evidence-1",
+        else CONSOLIDATION_PROFILE,
         tier=evidence.tier.value if evidence else "undecided",
         numeric=evidence.numeric if evidence else "not_run",
         valid_points=evidence.valid_points if evidence else 0,
@@ -400,13 +460,42 @@ def _json(value: Any) -> str:
     return canonical_bytes(value).decode()
 
 
+def _targeted_difference(value: Any) -> Any:
+    """Canonical polynomial arithmetic before the bounded general fallback.
+
+    Restrict cancellation to polynomial expressions: general rational cancellation
+    could erase source-domain holes without a nonzero-denominator condition.
+    """
+    if value == 0:
+        return value
+    if value.is_polynomial():
+        cancelled = sympy.cancel(value)
+        if cancelled == 0 or cancelled.is_number:
+            return cancelled
+    return sympy.simplify(value)
+
+
 class MathematicalEvidence:
     def __init__(
-        self, macros: Mapping[str, MacroDef], constants: Iterable[str] = (), *, constraints=None
+        self,
+        macros: Mapping[str, MacroDef],
+        constants: Iterable[str] = (),
+        *,
+        constraints=None,
+        prepared=None,
     ):
-        self.macros = macros
+        from types import MappingProxyType
+
+        from .analysis_contracts import scientific_computation_profile
+
+        self.prepared = prepared
+        self.computation = scientific_computation_profile(CONSOLIDATION_PROFILE, prepared)
+        self.macros = MappingProxyType(dict(macros))
         self.constants = frozenset(constants)
         self.constraints = constraints
+        self._readings = {}
+        self._condition_products = {}
+        self._contexts = {}
 
     def _undecided(
         self, kind: str, fa: str, fb: str, why: str, status: str = ""
@@ -439,16 +528,26 @@ class MathematicalEvidence:
                 "unanalysed",
                 "unresolved expression binding: " + ", ".join(sorted(context.unresolved)),
             )
+        from corpus_structure.methods.math.prepared import PreparedMathInput
+
+        key = (latex, kinds, context.stage_key("symbolic"))
+        if key in self._readings:
+            return self._readings[key]
         for kind in kinds:
-            result = grammar.parse(latex, kind, context.macros, context.grammar_context)
+            operand = PreparedMathInput(context, latex, kind=kind)
+            result = operand.reading()
             if result.status in (ParseOutcome.OK, ParseOutcome.PARTIAL):
                 try:
-                    value = grammar.to_sympy(result)
+                    value = operand.symbolic_value()
                     context.validate_result(
                         produced=("lexical", "occurrences", "interpretation", "symbolic"),
                         interpretation=result.status.value,
                     )
-                    return MathReading(value, result.status.value)
+                    reading = MathReading(value, result.status.value)
+                    self._readings[key] = reading
+                    return reading
+                except grammar.Expired:
+                    return MathReading(None, result.status.value, "symbolic conversion timeout")
                 except Exception as error:
                     return MathReading(None, result.status.value, f"no SymPy value: {error}")
             if result.status is ParseOutcome.AMBIGUOUS:
@@ -483,12 +582,12 @@ class MathematicalEvidence:
         ea, eb = ra.expr, rb.expr
         if t == "set":
             try:
-                with grammar.deadline(SIMPLIFY_SECONDS):
-                    if ea == eb or ea.symmetric_difference(eb) == sympy.S.EmptySet:
+                with grammar.deadline(float(self.computation.simplify_seconds)):
+                    d = sympy.S.EmptySet if ea == eb else ea.symmetric_difference(eb)
+                    if d == sympy.S.EmptySet:
                         return ScientificEvidence(
                             True, EvidenceTier.SYMBOLIC, t, fa, fb, grammar=status
                         )
-                    d = ea.symmetric_difference(eb)
                     if not d.free_symbols and d.is_empty is False:
                         return ScientificEvidence(
                             False, EvidenceTier.SYMBOLIC, t, fa, fb, "differ", status
@@ -520,8 +619,8 @@ class MathematicalEvidence:
             diffs, base = [ea - eb], ea
         detail = ""
         try:
-            with grammar.deadline(SIMPLIFY_SECONDS):
-                simplified = [sympy.simplify(d) for d in diffs]
+            with grammar.deadline(float(self.computation.simplify_seconds)):
+                simplified = [_targeted_difference(d) for d in diffs]
             if any(s == 0 for s in simplified):
                 return ScientificEvidence(True, EvidenceTier.SYMBOLIC, t, fa, fb, grammar=status)
             if all(s.is_number and s.is_zero is False for s in simplified):
@@ -530,24 +629,36 @@ class MathematicalEvidence:
                 )
             detail = "simplify inconclusive"
         except grammar.Expired:
-            detail = f"simplify timed out ({SIMPLIFY_SECONDS} s)"
+            detail = f"simplify timed out ({self.computation.simplify_seconds} s)"
         except Exception as error:
             detail = f"simplify {type(error).__name__}"
         rng = np.random.default_rng(_seed(fa, fb, cform))
         members, relations = self._constraints(conds, variables)
-        points = sample_points(set(ea.free_symbols) | set(eb.free_symbols), members, relations, rng)
+        points = sample_points(
+            set(ea.free_symbols) | set(eb.free_symbols), members, relations, rng, self.computation
+        )
         verdicts = []
+        base_values = [_num(base, point) for point in points]
         for d in diffs:
             checks = []
-            for point in points:
-                x, s = _num(d, point), _num(base, point)
+            for point, s in zip(points, base_values, strict=True):
+                x = _num(d, point)
                 if x is None or s is None:
                     continue
-                checks.append(abs(x) <= max(REL_TOL * max(abs(s), abs(s - x)), ABS_TOL))
+                checks.append(
+                    abs(x)
+                    <= max(
+                        float(self.computation.relative_tolerance) * max(abs(s), abs(s - x)),
+                        float(self.computation.absolute_tolerance),
+                    )
+                )
             verdicts.append(checks)
         valid = max((len(v) for v in verdicts), default=0)
-        if valid >= NUMERIC_MIN_POINTS:
-            equal = any(v and all(v) for v in verdicts)
+        qualified = [v for v in verdicts if len(v) >= self.computation.minimum_valid_points]
+        agreement = next((v for v in qualified if all(v)), None)
+        if agreement is not None or len(qualified) == len(verdicts):
+            equal = agreement is not None
+            valid = len(agreement) if agreement is not None else min(map(len, qualified))
             return ScientificEvidence(
                 equal,
                 EvidenceTier.NUMERIC,
@@ -578,8 +689,8 @@ class MathematicalEvidence:
         da, db = ea.lhs - ea.rhs, eb.lhs - eb.rhs
         candidates = [da - db] + ([da + db] if isinstance(ea, sympy.Unequality) else [])
         try:
-            with grammar.deadline(SIMPLIFY_SECONDS):
-                simplified = [sympy.simplify(c) for c in candidates]
+            with grammar.deadline(float(self.computation.simplify_seconds)):
+                simplified = [_targeted_difference(c) for c in candidates]
         except grammar.Expired:
             return self._undecided("relation", fa, fb, "simplify timed out", status)
         except Exception as error:
@@ -694,7 +805,11 @@ def _draw_int(rng: np.random.Generator, lo: float, hi: float) -> int:
 
 
 def sample_points(
-    symbols: Iterable[Any], members: list[Any], relations: list[Any], rng: np.random.Generator
+    symbols: Iterable[Any],
+    members: list[Any],
+    relations: list[Any],
+    rng: np.random.Generator,
+    profile=None,
 ) -> list[dict[Any, Any]]:
     """Distinct points satisfying the constraints, by rejection sampling."""
     by_symbol: dict[Any, list[Any]] = {}
@@ -707,8 +822,8 @@ def sample_points(
         spec[s] = (integer, *_bounds(s, members, relations))
     points: list[dict[Any, Any]] = []
     seen: set[tuple[str, ...]] = set()
-    for _ in range(NUMERIC_MAX_DRAWS):
-        if len(points) >= NUMERIC_POINTS:
+    for _ in range(profile.max_draws if profile is not None else NUMERIC_MAX_DRAWS):
+        if len(points) >= (profile.points if profile is not None else NUMERIC_POINTS):
             break
         point: dict[Any, Any] = {}
         for s in ordered:
@@ -836,10 +951,13 @@ class SemanticComparator(MathematicalEvidence):
     def __init__(self, macros, constants=(), *, prepared=None):
         if prepared is not None:
             require_scientific_policy(prepared)
-        super().__init__(macros, constants)
+        super().__init__(macros, constants, prepared=prepared)
         self.prepared = prepared
 
     def _constraints(self, conditions, variables):
+        key = (canonical_bytes(conditions), tuple(variables))
+        if key in self._condition_products:
+            return self._condition_products[key]
         members, relations = [], []
 
         def expression(node, kinds):
@@ -882,11 +1000,43 @@ class SemanticComparator(MathematicalEvidence):
 
         for condition in conditions:
             visit(condition)
-        return members, relations
+        expected_members = expected_relations = 0
+        pending = list(conditions)
+        while pending:
+            node = pending.pop()
+            if node["kind"] == "all":
+                pending.extend(node["terms"])
+            elif node["kind"] == "member":
+                expected_members += 1
+            elif node["kind"] == "compare":
+                expected_relations += 1
+        if len(members) != expected_members or len(relations) != expected_relations:
+            raise ValueError("mathematical restriction reading is incomplete")
+        product = (tuple(members), tuple(relations))
+        self._condition_products[key] = product
+        return product
+
+    def operand_context(self, operand):
+        from .analysis_contracts import prepare_interpretation_context
+
+        key = canonical_bytes(operand.get("bindings", ()))
+        if key not in self._contexts:
+            self._contexts[key] = prepare_interpretation_context(
+                self.prepared,
+                macros=self.macros,
+                constants=self.constants,
+                bindings=operand.get("bindings", ()),
+                demand="symbolic",
+            )
+        return self._contexts[key]
 
     def compare(self, a, b, conditions=(), ref_eq=None) -> ScientificDecision:
         grammar.require_main_thread()
-        fa, fb = _json(canonical_operand(a, self.macros)), _json(canonical_operand(b, self.macros))
+        canonical_a, canonical_b = (
+            canonical_operand(a, self.macros),
+            canonical_operand(b, self.macros),
+        )
+        fa, fb = _json(canonical_a), _json(canonical_b)
         ca, cb = json_operand(a), json_operand(b)
         if ca.get("kind") == "entity" or cb.get("kind") == "entity":
             agreement = (
@@ -897,27 +1047,30 @@ class SemanticComparator(MathematicalEvidence):
             return decide_consolidation(
                 ScientificEvidence(agreement, EvidenceTier.CANONICAL, "ref", fa, fb)
             )
-        kind_a, kind_b = (
-            canonical_operand(a, self.macros)["t"],
-            canonical_operand(b, self.macros)["t"],
-        )
+        kind_a, kind_b = canonical_a["t"], canonical_b["t"]
+        if kind_a in {"formula", "set"} and kind_b in {"formula", "set"}:
+
+            def bindings(operand):
+                value = operand.get("bindings", ())
+                return tuple(value.values()) if isinstance(value, Mapping) else tuple(value)
+
+            if any(
+                b["kind"] in {"unresolved", "param_of", "param_expr_of"}
+                for b in (*bindings(ca), *bindings(cb))
+            ):
+                return decide_consolidation(
+                    self._undecided(kind_a, fa, fb, "unresolved expression binding")
+                )
+            if canonical_bytes(bindings(ca)) != canonical_bytes(bindings(cb)):
+                return decide_consolidation(
+                    self._undecided(kind_a, fa, fb, "distinct explicit expression bindings")
+                )
         if kind_a != kind_b or fa == fb:
             return decide_consolidation(
                 ScientificEvidence(fa == fb, EvidenceTier.CANONICAL, kind_a, fa, fb)
             )
         if kind_a in {"formula", "set"}:
-            from .analysis_contracts import prepare_interpretation_context
-
-            contexts = tuple(
-                prepare_interpretation_context(
-                    self.prepared,
-                    macros=self.macros,
-                    constants=self.constants,
-                    bindings=operand.get("bindings", ()),
-                    demand="symbolic",
-                )
-                for operand in (ca, cb)
-            )
+            contexts = tuple(self.operand_context(operand) for operand in (ca, cb))
             # Pair-wide variables are only for sampling/conditions. Each operand is
             # interpreted under its own admitted roles, never the other side's roles.
             variables = tuple(sorted(set().union(*(c.grammar_context.variables for c in contexts))))
@@ -965,10 +1118,38 @@ def json_operand(value: Any) -> Mapping[str, Any]:
     raise ValueError("scientific operand has no faithful comparison shape")
 
 
+class ReferenceComparisonScope:
+    """Reference-only operand lifetime for one alignment; never a global memo."""
+
+    def __init__(self, prepared=None):
+        self.prepared = prepared
+        self._computation = None
+        self._operands = {}
+
+    @property
+    def computation(self):
+        if self._computation is None:
+            from .analysis_contracts import scientific_computation_profile
+
+            if self.prepared is not None:
+                require_scientific_policy(self.prepared)
+            self._computation = scientific_computation_profile(REFERENCE_PROFILE, self.prepared)
+        return self._computation
+
+    def read(self, value):
+        _ = self.computation  # Bind only when a mathematical operand is actually requested.
+        key = canonical_bytes(value)
+        if key not in self._operands:
+            reading = read_reference_operand(value, prepared=self.prepared)
+            if reading[0] is not None:
+                self._operands[key] = reading
+            return reading
+        return self._operands[key]
+
+
 def read_reference_operand(value, *, prepared=None):
     from corpus_structure.core.evidence import MacroDef
     from corpus_structure.core.vocab import ParseOutcome
-    from corpus_structure.methods.math import grammar
 
     if value.get("language") not in {"tex", "latex"}:
         return None, "unsupported expression language"
@@ -989,29 +1170,32 @@ def read_reference_operand(value, *, prepared=None):
     context = prepare_interpretation_context(
         prepared, macros=env, bindings=tuple(bindings), demand="symbolic"
     )
+    from corpus_structure.methods.math.prepared import PreparedMathInput
+
     for kind in ("set_expr",) if value["kind"] == "set" else ("formula", "relation", "member"):
-        parsed = grammar.parse(value["expression"], kind, context.macros, context.grammar_context)
+        operand = PreparedMathInput(context, value["expression"], kind=kind)
+        parsed = operand.reading()
         if parsed.status is ParseOutcome.AMBIGUOUS:
             return None, "ambiguous expression grammar"
         if parsed.status in {ParseOutcome.OK, ParseOutcome.PARTIAL}:
             try:
-                result = grammar.to_sympy(parsed)
+                result = operand.symbolic_value()
                 context.validate_result(
                     produced=("lexical", "occurrences", "interpretation", "symbolic"),
                     interpretation=parsed.status.value,
                 )
                 return result, parsed.status.value
+            except grammar.Expired:
+                return None, "symbolic conversion timeout"
             except ValueError, TypeError, NotImplementedError:
                 pass
     return None, "expression grammar did not produce a mathematical value"
 
 
 def reference_evidence(
-    a: Mapping[str, Any], b: Mapping[str, Any], *, conditions=None, prepared=None
+    a: Mapping[str, Any], b: Mapping[str, Any], *, conditions=None, prepared=None, scope=None
 ) -> ScientificEvidence:
     """Preserved reference profile: numeric evidence can disprove, never prove equality."""
-    if prepared is not None:
-        require_scientific_policy(prepared)
     fa, fb = _json(dict(a)), _json(dict(b))
     valid, attempted = 0, False
 
@@ -1030,12 +1214,15 @@ def reference_evidence(
         )
 
     grammar.require_main_thread()
-    x, why_a = read_reference_operand(a, prepared=prepared)
-    y, why_b = read_reference_operand(b, prepared=prepared)
+    scope = scope or ReferenceComparisonScope(prepared)
+    if scope.prepared is not prepared:
+        raise ValueError("reference operand scope belongs to another prepared interpretation")
+    x, why_a = scope.read(a)
+    y, why_b = scope.read(b)
     if x is None or y is None:
         return result(False, "undecided", why_a + "; " + why_b)
     try:
-        with grammar.deadline(5):
+        with grammar.deadline(float(scope.computation.simplify_seconds)):
             if isinstance(x, sympy.Equality) and isinstance(y, sympy.Equality):
                 if not all(isinstance(v, sympy.Expr) for v in (x.lhs, x.rhs, y.lhs, y.rhs)):
                     return result(
@@ -1071,7 +1258,7 @@ def reference_evidence(
                     16,
                 )
             )
-            for _ in range(12):
+            for _ in range(scope.computation.points):
                 values = dict(
                     zip(
                         symbols,
@@ -1098,10 +1285,11 @@ def reference_evidence(
                 if (
                     np.isfinite(xa)
                     and np.isfinite(ya)
-                    and abs(xa - ya) > 1e-9 * max(1, abs(xa), abs(ya))
+                    and abs(xa - ya)
+                    > float(scope.computation.relative_tolerance) * max(1, abs(xa), abs(ya))
                 ):
                     return result(False, "numeric", "deterministic counterexample")
-        if valid == 12:
+        if valid == scope.computation.points:
             return result(True, "numeric", "agreement at deterministic sample points")
         return result(False, "undecided", "no symbolic equivalence proof")
     except (

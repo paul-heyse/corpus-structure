@@ -65,7 +65,7 @@ class PackInputs:
 
 
 def acquire_pack(pack: Path) -> PackInputs:
-    """Read explicit pack inputs once; never compile to discover dependencies."""
+    """Acquire explicit inputs and bind operation dependencies to one compiled execution recipe."""
     source = pack / "semantic.yaml"
     if not source.is_file():
         raise PackInputError(f"semantic declaration missing: {source}")
@@ -92,6 +92,10 @@ def acquire_pack(pack: Path) -> PackInputs:
             SourceArtifact("semantic_core", core.read_bytes()),
         ),
     )
+    execution = trusted_execution_inputs()
+    from .contracts import compile_execution_model
+
+    execution_model = compile_execution_model(execution)
     methods = _mapping(pack / "methods.yaml")
     core_rules = pack.parent / "core/schema/rules.yaml"
     rules = pack / "schema/rules.yaml"
@@ -100,6 +104,7 @@ def acquire_pack(pack: Path) -> PackInputs:
         rules.read_bytes() if rules.exists() else b"rules: []",
         core_rules.read_bytes() if core_rules.exists() else b"rules: []",
         aliases=methods.get("aliases", {}),
+        execution_model=execution_model,
     )
     artifacts = tuple(
         SourceArtifact("operation/" + filename, (pack / filename).read_bytes())
@@ -164,7 +169,7 @@ def acquire_pack(pack: Path) -> PackInputs:
         tuple(qualifiers),
         tuple(statement_classes),
         trusted,
-        trusted_execution_inputs(),
+        execution,
     )
 
 
@@ -256,6 +261,31 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
         deps,
         model_content=content["analytics.yaml"],
         profile=content["analytical-profile.json"],
+    )
+    import json
+    from dataclasses import replace
+
+    from .contracts import compile_execution_model
+    from .identity import canonical_bytes
+    from .scientific_evidence import bind_scientific_computation
+
+    # Rebind only supplied recipe bytes to the supplied candidate execution model.
+    # No installed source is consulted by pure pack composition.
+    model = compile_execution_model(execution)
+    computation = model.analysis_profiles[0].scientific_profiles
+    deps = replace(
+        deps,
+        artifacts=tuple(
+            replace(
+                artifact,
+                content=canonical_bytes(
+                    bind_scientific_computation(json.loads(artifact.content), computation)
+                ),
+            )
+            if artifact.name.endswith("operation/scientific-policy.json")
+            else artifact
+            for artifact in deps.artifacts
+        ),
     )
     deps = composed_dependencies(deps, execution)
     return bundle, deps, PreparationProfile(version="semantic-2")

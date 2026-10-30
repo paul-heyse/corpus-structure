@@ -84,7 +84,7 @@ from corpus_structure.methods.math.spans import (
     read_spans,
 )
 
-VERSION = "2"
+VERSION = "3"
 PAYLOAD_VERSION = "1"
 M09, M11, M13 = "extract.math", "normalize.formula", "resolve.symbol_scope"
 _KIND_OF = {  # M11's payload `math_kind` back to the detected kind M13's rules read
@@ -168,14 +168,22 @@ def _row(reader: Reader, rendition_id: int) -> Any:
 
 
 def _rendition(reader: Reader, rendition_id: int) -> _Rendition:
+    batch = getattr(reader, "math_readings_batch", None)
+    if batch is not None:
+        batch.bind(reader)
+    if batch is not None and rendition_id in batch.renditions:
+        return batch.renditions[rendition_id]
     row = _row(reader, rendition_id)
-    return _Rendition(
+    rendition = _Rendition(
         rendition_id,
         str(row.key),
         str(row.content_digest),
         reader.content(rendition_id),
         reader.segments(rendition_id),
     )
+    if batch is not None:
+        batch.renditions[rendition_id] = rendition
+    return rendition
 
 
 def _units(run: SourceRunContext) -> list[UnitRef]:
@@ -191,10 +199,38 @@ def _content_digest(unit: UnitView) -> str:
     return str(_row(unit.run.reader, unit.ref.unit_id).content_digest)
 
 
+@dataclass
+class MathReadingsBatch:
+    """Owned by one source execution batch, shared by compatible logical methods."""
+
+    readings: dict[tuple[int, str, str, bytes], list[Any]] = field(default_factory=dict)
+    renditions: dict[int, _Rendition] = field(default_factory=dict)
+    owner: object | None = field(default=None, repr=False)
+
+    def bind(self, reader: object) -> None:
+        if self.owner is None:
+            self.owner = reader
+        elif self.owner is not reader:
+            raise ValueError("math preparation belongs to another source reader")
+
+
 def _readings(
     ren: _Rendition, cfg: ExtractMathConfig | NormalizeFormulaConfig, reader=None
 ) -> list[Any]:
     section = cfg.section()
+    key = (
+        ren.id,
+        ren.key,
+        ren.digest,
+        canonical_json(
+            {"math": section.model_dump(mode="json"), "seconds": str(cfg.parse_seconds)}
+        ),
+    )
+    batch = getattr(reader, "math_readings_batch", None)
+    if batch is not None:
+        batch.bind(reader)
+    if batch is not None and key in batch.readings:
+        return batch.readings[key]
     macros = tex.effective_macros(ren.content.macros, section.macro_table())
     from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
 
@@ -203,11 +239,14 @@ def _readings(
         macros=macros,
         constants=section.constants,
         source_id=ren.key,
-        demand="occurrences",
+        demand="interpretation",
     )
-    return read_spans(
+    readings = read_spans(
         ren.content, macros, section.constants, seconds=cfg.parse_seconds, prepared_context=context
     )
+    if batch is not None:
+        batch.readings[key] = readings
+    return readings
 
 
 def _result(

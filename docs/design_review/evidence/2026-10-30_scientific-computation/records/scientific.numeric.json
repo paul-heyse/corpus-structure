@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "scientific.numeric",
+  "title": "Direct versus generated numerical evaluation",
+  "group": "production-efficiency",
+  "package": "PE-04",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does generated numerical evaluation repay preparation for the actual small-point scientific workload?",
+  "answers": [],
+  "method": "Compare direct SymPy with NumPy-backed lambdify for three real expressions at twelve and twelve hundred points, CSE disabled/enabled.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-30_scientific-computation/code/numeric_candidates.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "code/numeric_candidates.py",
+      "role": "Bounded numerical investigation",
+      "sha256": "7e7407f16e0ec6a60120f6cd7a80ebc585b133ff9d1a78dcc7512185c3d61f82"
+    },
+    {
+      "path": "raw/environment.json",
+      "role": "Bounded numerical investigation",
+      "sha256": "0e5322fb1575f5c447dfe029cf686f6d027c7930cf9be6a11a8f68c8aae922e4"
+    },
+    {
+      "path": "raw/numeric-candidates.json",
+      "role": "Bounded numerical investigation",
+      "sha256": "c8786d04420e0edbe0e514b5abfeb09c0e7117cf405e9cabcae29ba62327d5a5"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Retain direct evaluation for current small scientific comparisons. The bounded generated kernels agreed but do not qualify complete complex, restriction and unavailable-value semantics. Larger repeated numeric workloads remain a separate qualification opportunity.",
+  "consumed_by": [
+    "production-efficiency PE-04"
+  ]
+}

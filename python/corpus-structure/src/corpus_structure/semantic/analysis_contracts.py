@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from hashlib import sha256
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
@@ -116,14 +116,82 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
         if (
             profile.id in ids
             or profile.id != "mathematical-interpretation"
-            or profile.version != "1"
+            or profile.version not in {"1", "2"}
         ):
             _fail(
                 "unsupported_analysis_profile",
                 location,
-                "supported profile is mathematical-interpretation/1",
+                "supported profiles are mathematical-interpretation/1 and /2",
             )
         ids.add(profile.id)
+        if profile.version == "2":
+            if (profile.grammar_recipe, profile.transformer_recipe, profile.shared_consumers) != (
+                "extended-lark-2",
+                "sympy-transform-2",
+                ("normalize.formula", "extract.math"),
+            ):
+                _fail(
+                    "unsupported_analysis_recipe",
+                    location,
+                    "implement the declared grammar/transformer/sharing profile before admission",
+                )
+            if len(profile.scientific_profiles) != 2 or {
+                p.policy_id for p in profile.scientific_profiles
+            } != {"consolidation-evidence-2", "reference-evidence-2"}:
+                _fail(
+                    "unsupported_scientific_profile",
+                    location,
+                    "declare both admitted computation profiles",
+                )
+            for computation in profile.scientific_profiles:
+                reference = computation.policy_id == "reference-evidence-2"
+                expected = (
+                    "domain-targeted-then-simplify-2",
+                    "evalf-subs" if reference else "xreplace-evalf",
+                    "direct",
+                    "raw-operands" if reference else "canonical-restrictions",
+                    "no-restrictions" if reference else "interpreted-conditions",
+                )
+                actual = (
+                    computation.symbolic_method,
+                    computation.numeric_method,
+                    computation.backend,
+                    computation.seed,
+                    computation.numeric_requires,
+                )
+                from decimal import Decimal, InvalidOperation
+
+                try:
+                    seconds = Decimal(computation.simplify_seconds)
+                    relative = Decimal(computation.relative_tolerance)
+                    absolute = Decimal(computation.absolute_tolerance)
+                except InvalidOperation:
+                    _fail(
+                        "unsupported_scientific_profile",
+                        computation.policy_id,
+                        "scientific numerical parameters must be finite decimal strings",
+                    )
+                if (
+                    actual != expected
+                    or not all(
+                        value.is_finite() and Decimal(str(float(value))) == value
+                        for value in (seconds, relative, absolute)
+                    )
+                    or seconds <= 0
+                    or relative < 0
+                    or absolute < 0
+                    or not 0
+                    < computation.minimum_valid_points
+                    <= computation.points
+                    <= computation.max_draws
+                    or (reference and computation.minimum_valid_points != computation.points)
+                ):
+                    _fail(
+                        "unsupported_scientific_profile",
+                        computation.policy_id,
+                        "implement the method and supply valid precision/sampling parameters "
+                        "before admission",
+                    )
         demands = {d.id: d for d in profile.demands}
         if len(demands) != len(profile.demands) or set(demands) != set(_REQUIRED_COMPONENTS):
             _fail(
@@ -257,21 +325,34 @@ def _profile(prepared: PreparedRelease | None):
     else:
         model = bound_execution_model(prepared)
         payload = execution_payload(prepared)
-        if payload is None or json.loads(payload).get("inputs", {}).get("compiler_version") != "5":
+        if payload is None or json.loads(payload).get("inputs", {}).get("compiler_version") != "6":
             _fail(
                 "unsupported_analysis_abi",
                 model.model_id,
-                "analysis preparation requires execution compiler 5; "
+                "analysis preparation requires execution compiler 6; "
                 "historical archives are read-only",
             )
-    if len(model.analysis_profiles) != 1:
+    if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "2":
         _fail(
             "missing_analysis_profile",
             model.model_id,
             "prepare a release with an admitted analysis profile; "
             "historical archives are read-only",
         )
+    if model.implementation_digests != _runtime_implementation_digests():
+        _fail(
+            "unsupported_analysis_implementation",
+            model.model_id,
+            "bind the admitted implementation bytes to this runtime before analysis",
+        )
     return model, model.analysis_profiles[0]
+
+
+@lru_cache(maxsize=1)
+def _runtime_implementation_digests():
+    from .contracts import analysis_implementation_inputs
+
+    return tuple((item.name, item.digest) for item in analysis_implementation_inputs())
 
 
 @lru_cache(maxsize=1)
@@ -311,6 +392,7 @@ class PreparedInterpretationContext:
     assumptions: bytes
     bindings: bytes
     demand: str
+    implementation_digests: tuple[tuple[str, str], ...] = ()
 
     @property
     def allow_local_definitions(self) -> bool:
@@ -339,39 +421,61 @@ class PreparedInterpretationContext:
     def key(self) -> str:
         return self.stage_key(self.demand)
 
-    def stage_key(self, demand: str, **decision_dependencies: Any) -> str:
-        from .contracts import _fail
-
-        recipe = next((d for d in self.profile.demands if d.id == demand), None)
-        if recipe is None:
-            _fail("unsupported_analysis_demand", demand, "choose an admitted demand")
+    @cached_property
+    def _components(self) -> dict[str, Any]:
         macros = {name: value.model_dump(mode="json") for name, value in self.macros.items()}
-        values: dict[str, Any] = {
-            "grammar": "extended-lark-1",
-            "transformer": "sympy-transform-1",
+        identities = dict(self.implementation_digests)
+        return {
+            "grammar": (
+                self.profile.grammar_recipe,
+                tuple(
+                    (name, value)
+                    for name, value in identities.items()
+                    if name.startswith("grammar/") or name == "libraries.json"
+                ),
+            ),
+            "transformer": (
+                self.profile.transformer_recipe,
+                tuple(
+                    (name, value)
+                    for name, value in identities.items()
+                    if name.startswith("transformer/") or name == "libraries.json"
+                ),
+            ),
             "profile": (self.model_id, self.profile.id, self.profile.version),
             "kind": self.kind,
             "macros": macros,
             "declarations": {
-                "roles": [
-                    (
-                        d.symbol,
-                        d.role,
-                        d.authority,
-                        d.evidence,
-                        d.source_id,
-                        d.scope,
-                        d.start,
-                        d.end,
-                    )
-                    for d in self.declarations
-                ],
+                "roles": [tuple(vars(d).values()) for d in self.declarations],
                 "bindings": self.bindings.hex(),
             },
             "scope": self.scope,
             "assumptions": self.assumptions.hex(),
             "missing_declarations": sorted(self.unresolved),
         }
+
+    @cached_property
+    def _stage_base_digests(self) -> dict[str, str]:
+        return {
+            recipe.id: sha256(
+                canonical_bytes(
+                    {
+                        name: self._components[name]
+                        for name in recipe.dependencies
+                        if name in self._components
+                    }
+                )
+            ).hexdigest()
+            for recipe in self.profile.demands
+        }
+
+    def stage_key(self, demand: str, **decision_dependencies: Any) -> str:
+        from .contracts import _fail
+
+        recipe = next((d for d in self.profile.demands if d.id == demand), None)
+        if recipe is None:
+            _fail("unsupported_analysis_demand", demand, "choose an admitted demand")
+        values = dict(self._components)
         if set(decision_dependencies) - (
             {"conditions", "precision", "sampling", "decision_policy"} & set(recipe.dependencies)
         ):
@@ -381,7 +485,7 @@ class PreparedInterpretationContext:
         if missing:
             _fail("analysis_dependency", demand, "supply " + ", ".join(sorted(missing)))
         return sha256(
-            canonical_bytes({name: values[name] for name in recipe.dependencies})
+            canonical_bytes([self._stage_base_digests[demand], decision_dependencies])
         ).hexdigest()
 
     def validate_result(
@@ -541,6 +645,7 @@ def prepare_interpretation_context(
         canonical_bytes(assumptions),
         canonical_bytes(binding_records),
         demand,
+        model.implementation_digests,
     )
 
 
@@ -639,3 +744,20 @@ def bind_analysis_family(prepared: PreparedRelease, family: str) -> BoundAnalysi
         _fail("analysis_input_family", family, "use an admitted preparation family")
     model.require_operation(contract.operation)
     return BoundAnalysisFamily(prepared.release_id, model.model_id, contract)
+
+
+def supports_shared_math(prepared: PreparedRelease) -> bool:
+    if prepared.execution_model_id is None:
+        return False
+    _, profile = _profile(prepared)
+    return profile.shared_consumers == ("normalize.formula", "extract.math")
+
+
+def scientific_computation_profile(policy: str, prepared: PreparedRelease | None = None):
+    from .contracts import _fail
+
+    _, profile = _profile(prepared)
+    for computation in profile.scientific_profiles:
+        if computation.policy_id == policy:
+            return computation
+    _fail("unsupported_scientific_profile", policy, "use the bound scientific computation profile")

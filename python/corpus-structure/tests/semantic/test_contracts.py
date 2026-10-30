@@ -319,7 +319,9 @@ def test_exact_explicit_bytes_identity_and_immutable_products(inputs, products, 
     assert (
         compile_execution_model(
             ExecutionModelInputs(
-                inputs.schema, SourceArtifact(inputs.catalog.name, inputs.catalog.content)
+                inputs.schema,
+                SourceArtifact(inputs.catalog.name, inputs.catalog.content),
+                inputs.implementations,
             )
         ).content
         == products.content

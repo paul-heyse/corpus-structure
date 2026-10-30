@@ -1,61 +1,49 @@
 # Status
-_Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); work is on `main`._
+_Updated2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); work is on `main`._
 
 ## Current checkpoint
 
-- [Production efficiency PE-00/PE-01](docs/plans/production-efficiency_2026-10-30.md#9-pe-00pe-01-execution-2026-10-30)
-  implemented2026-10-30: ADR-0035, trusted analysis contracts/compiler5, canonical context/demand
-  and ownership consumers, forward native0035. Focused acceptance only; PE-02–PE-12 remain open.
-  Existing parser/algorithms remain; no performance or full-series qualification claim.
-  Audit accounts, stored grades, operational databases and unrelated documents are unchanged.
+- [Production efficiency PE-02–PE-04](docs/plans/production-efficiency/interpretation-and-scientific-analysis.md#execution-2026-10-30)
+  implemented with scoped verification: explicit implementation recipes/compiler6/native0036,
+  frozen lazy mathematical inputs, compatible M09/M11 batch sharing and model-bound scientific
+  preparation. PE-02 retains general Earley after bounded investigation; no parser speedup or
+  ordinary-workload no-regression claim was established. F01 recognition/subset work remains open.
+- [Coordinator §10](docs/plans/production-efficiency_2026-10-30.md#10-pe-02pe-04-execution-2026-10-30)
+  owns package/finding disposition. F02's prepared-context/product adoption is closed in this scope;
+  F03 retains PE-07 obligations. PE-05–PE-12 remain open, including assembled qualification.
+- Scientific operands retain individual context and complete conditions. Numerical candidates meet
+  their own valid-point threshold. Direct evaluation stays selected; NumPy/CSE was investigated
+  without qualification for the complete domain. Reference numerical agreement remains undecided.
+- Explicit acquisition supplies implementation bytes and matching scientific profile/recipe inputs;
+  pure compilation and hot keys use those inputs. Current compiler6/profile2 execution is separate
+  from retained compiler5 reads. Forward0036 preserves existing tables and historical migrations.
+- Operational databases, historical archives, selected answers/grades, external MCP processes and
+  unrelated documents are unchanged. Audit accounts and testing architecture were not revised.
 
-- Remaining SP-09 functional scope and SP-10 applicable required-union qualification are complete
-  (Tested). The [regeneration owner](docs/plans/semantic-model-pivot/regeneration-and-acceptance.md#current-execution--2026-10-30)
-  and [coordinator §15](docs/plans/semantic-model-pivot_2026-10-29.md#15-remaining-sp-09sp-10-execution--2026-10-30)
-  own completion, source applicability and findings.
-- Fresh `corpus_semantic_pivot_20261030` on `18/corpus:5434` bootstrapped at0033 and upgraded to0034.
-  Actual authenticated statistics, transfer and source-frame runs1/2/3 completed and selected
-  generation2. Current defaults use this target. Actual query/explanation/JSONL/Parquet passed;
-  independent automatic transfer/statistics grades persisted without accuracy tuning or human grading.
-- Historical0030 database, selected answers/grades and unfinished run3 remain unchanged. Isolated
-  frozen `ad4593f` source/lock proved read-only historical query/explanation/JSONL access.
-  Fresh source-frame completion replaces historical run3 continuation, as agreed.
-- ADR-0034 supersedes ADR-0015. Superseded production orchestration/repository/registration/pool
-  loaders moved to explicit historical test support; useful algorithms/migration oracles remain.
-- Spawned bounded math workers retain the complete independent78-page oracle. Model-default
-  qualifier projection uses one rule-language primitive path. Canonical typed serialization
-  preserves dates/decimals. Python/native reference membership uses immutable completed-cut frames;
-  missing custody refuses with hash-verified backfill, including empty/reused origin tasks.
+## Verification —2026-10-30
 
-## Verification — 2026-10-30
-- PE-00/PE-01 focused checks: contracts/context, source/read, science/analytics, publication,
-  historical archives, CLI derivation and restricted native admission/CAS/view refusal.
-  Logs: `build/pe01-root/`, `build/pe01-native/`; failed attempts are retained. The owning
-  coordinator §9 owns corrected selections and retained failed attempts.
-- `uv run pyrefly check --min-severity warn --summary=none`: passed, no errors/warnings.
-  Maintenance: `just turn-end`, `just adr-lint`, `uv run ruff check --quiet`,
-  `just docs-check` passed. Staged whitespace diagnostics on frozen generated SQL are retained
-  in coordinator §9; functional/type results retain their applicable scope.
-
-- **passed:** every final required node has applicable passing setup/call/teardown evidence:
-  final default collection2325, required unresolved0. `required-union.json` records the reconciliation.
-- **failed, retained:** original default `just test-all`,2295 passed/24 failed. Its aggregate
-  classifier remains failed; all24 failures were repaired. No single final full zero-exit run is claimed.
-- **passed:** final affected supervisor selection,242 tests, including six new regressions.
-  Receipt: `build/test-receipts/sp09-final-tail/`; original full receipt:
-  `build/test-receipts/qualification/20261030T050111Z-3893227/`.
-- **passed:** complete78-page oracle,172.1857s in this invocation; not a benchmark/SLA.
-- **passed:** `uv run pyrefly check --min-severity warn --summary=none`, zero errors/warnings,
-  no suppressions added (`build/sp09-current/types-complete.log`).
-- **passed:** all remaining hygiene checks, typing reused separately before lint; `just evidence`
-  has zero errors/37 retained historical warnings. Final documentation maintenance preserves these
-  applicable results. Rust discovery is empty and supplies no functional coverage.
-- [Final evidence](docs/design_review/evidence/2026-10-30_semantic-pivot-final/README.md) retains actual
-  workflows, failed grading attempts, raw full/tail receipts and exact correction commands.
+- **passed:** existing78page grammar/offset/key oracle and generated grammar properties:
+  `uv run pytest -q python/corpus-structure/tests/math/test_coverage.py python/corpus-structure/tests/math/test_property.py`.
+  Receipt: `build/pe234/corpus.log`. This is functional coverage, not production throughput.
+- **passed:** focused grammar/prepared, scientific/alignment and model/native controls; explicit
+  candidate parameter variation reaches archived recipe and runtime, mismatch refuses.
+  Receipts: `build/pe-model/`, `build/pe234/`; source investigation folders hold bounded measurements.
+- **failed, retained:** initial source setup before0036 assets existed; broader integrated selection
+  later had two source-key canonicalization failures. Both affected source cases and the direct
+  shared-readings regression passed after correction (`build/pe234/source-corrected.log`).
+- **passed:** `uv run pyrefly check --min-severity warn --summary=none`, no errors/warnings or new
+  suppressions (`build/pe234/types-final.log`). Maintenance is root-owned; lint-only edits preserve
+  applicable type/functional receipts. Frozen generated SQL retains its existing whitespace form.
+- **passed:** `just turn-end`, `uv run ruff check --quiet`, `just adr-lint`, `just docs-check`;
+  `just evidence` has zero errors and37 retained historical warnings. Final implementation bytes
+  match frozen0036. Generated SQL whitespace diagnostics retain their existing boundary.
+- Prior full SP-09/SP-10 qualification retains its original source/applicability at the
+  [regeneration owner](docs/plans/semantic-model-pivot/regeneration-and-acceptance.md#current-execution--2026-10-30).
+  It is not current full-series qualification for the efficiency changes. Failed/interrupted
+  records and historical source/grades remain at their existing owners.
 
 ## Next
 
-PE-02 recognizer investigation can use the implemented PE-01 contract; dependent PE-03 and
-independent later packages follow the production-series readiness conditions.
-No remaining SP-09/SP-10 execution obligation in the prior scope. Existing broader-series claims retain
-prior boundaries; this execution does not constitute a new completion audit or capacity/quality claim.
+PE-05 and independently ready later efficiency packages follow the coordinator's readiness map.
+F01 needs a useful qualified subset/direct-forest route with broader applicability and isolated
+performance evidence. PE-12 owns assembled/provider/nonfunctional qualification and adoption.

@@ -36,8 +36,26 @@ classes:
       operation: {range: string, required: true, slot_uri: execution:InputOwnershipContract_operation}
       lifetime: {range: string, required: true, slot_uri: execution:InputOwnershipContract_lifetime}
       dependencies: {range: string, required: true, multivalued: true, minimum_cardinality: 1, slot_uri: execution:InputOwnershipContract_dependencies}
+  ScientificComputationProfile:
+    attributes:
+      policy_id: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_policy_id}
+      symbolic_method: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_symbolic_method}
+      numeric_method: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_numeric_method}
+      backend: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_backend}
+      simplify_seconds: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_simplify_seconds}
+      points: {range: integer, required: true, slot_uri: execution:ScientificComputationProfile_points}
+      max_draws: {range: integer, required: true, slot_uri: execution:ScientificComputationProfile_max_draws}
+      minimum_valid_points: {range: integer, required: true, slot_uri: execution:ScientificComputationProfile_minimum_valid_points}
+      relative_tolerance: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_relative_tolerance}
+      absolute_tolerance: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_absolute_tolerance}
+      seed: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_seed}
+      numeric_requires: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_numeric_requires}
   AnalysisProfile:
     attributes:
+      grammar_recipe: {range: string, slot_uri: execution:AnalysisProfile_grammar_recipe}
+      transformer_recipe: {range: string, slot_uri: execution:AnalysisProfile_transformer_recipe}
+      shared_consumers: {range: string, multivalued: true, slot_uri: execution:AnalysisProfile_shared_consumers}
+      scientific_profiles: {range: ScientificComputationProfile, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: execution:AnalysisProfile_scientific_profiles}
       id: {range: string, required: true, slot_uri: execution:AnalysisProfile_id}
       version: {range: string, required: true, slot_uri: execution:AnalysisProfile_version}
       demands: {range: AnalysisDemand, required: true, multivalued: true, minimum_cardinality: 1, inlined: true, inlined_as_list: true, slot_uri: execution:AnalysisProfile_demands}

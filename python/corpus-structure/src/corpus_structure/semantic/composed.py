@@ -39,10 +39,15 @@ def composed_dependencies(
                     "root": inputs.schema.root,
                     "schemas": schema_names,
                     "catalog": inputs.catalog.name,
+                    "implementations": [item.name for item in inputs.implementations],
                 }
             ),
         ),
         SourceArtifact(_PREFIX + "catalog.yaml", inputs.catalog.content),
+        *(
+            SourceArtifact(_PREFIX + "implementation/" + item.name, item.content)
+            for item in inputs.implementations
+        ),
         *(
             SourceArtifact(_PREFIX + "schema/" + item.name, item.content)
             for item in inputs.schema.sources
@@ -66,7 +71,7 @@ def execution_model_from_dependencies(dependencies: ResolvedDependencies) -> Exe
         raise ValueError("semantic-2 requires explicit execution inputs")
     manifest = json.loads(sources[_MANIFEST].content)
     if (
-        set(manifest) != {"root", "schemas", "catalog"}
+        set(manifest) != {"root", "schemas", "catalog", "implementations"}
         or not isinstance(manifest["root"], str)
         or not isinstance(manifest["schemas"], list)
         or not isinstance(manifest["catalog"], str)
@@ -78,7 +83,15 @@ def execution_model_from_dependencies(dependencies: ResolvedDependencies) -> Exe
         set(names)
     ):
         raise ValueError("invalid execution schema names")
+    implementation_names = manifest["implementations"]
+    if (
+        not isinstance(implementation_names, list)
+        or any(not isinstance(name, str) for name in implementation_names)
+        or len(set(implementation_names)) != len(implementation_names)
+    ):
+        raise ValueError("invalid execution implementation names")
     expected = {
+        *(_PREFIX + "implementation/" + name for name in implementation_names),
         _MANIFEST,
         _PREFIX + "catalog.yaml",
         *(_PREFIX + "schema/" + name for name in names),
@@ -90,6 +103,11 @@ def execution_model_from_dependencies(dependencies: ResolvedDependencies) -> Exe
         tuple(SourceArtifact(name, sources[_PREFIX + "schema/" + name].content) for name in names),
     )
     inputs = ExecutionModelInputs(
-        bundle, SourceArtifact(manifest["catalog"], sources[_PREFIX + "catalog.yaml"].content)
+        bundle,
+        SourceArtifact(manifest["catalog"], sources[_PREFIX + "catalog.yaml"].content),
+        tuple(
+            SourceArtifact(name, sources[_PREFIX + "implementation/" + name].content)
+            for name in implementation_names
+        ),
     )
     return compile_execution_model(inputs)

@@ -581,16 +581,29 @@ class _Resolver:
         self.declarations: list[LocalDeclaration] = []
         self.notes: list[str] = []
         self.unresolved = 0
+        # These summaries belong to this fixed source/context only. Tree identity is
+        # retained by the parsed root; no cache escapes the interpretation operation.
+        self._summaries: dict[int, tuple[frozenset[str], frozenset[str], bool]] = {}
+        self._values: dict[int, Any] = {}
+        self._resolved: dict[int, _tree.Node] = {}
 
     def name(self, node: _tree.Node) -> str:
         return bare(symbol_name(node, self.source, self.macros))
 
-    def flags(self, node: _tree.Node) -> tuple[set[str], set[str]]:
-        """(symbols applied as functions, symbols multiplied by a following parenthesized group)."""
+    def flags(self, node: _tree.Node) -> tuple[frozenset[str], frozenset[str]]:
+        applied, multiplied, _ = self.summary(node)
+        return applied, multiplied
+
+    def summary(self, node: _tree.Node) -> tuple[frozenset[str], frozenset[str], bool]:
+        """Pure role requirements; unresolved alternatives make the summary incomplete."""
+        cached = self._summaries.get(id(node))
+        if cached is not None:
+            return cached
         applied: set[str] = set()
         multiplied: set[str] = set()
         if isinstance(node, Token):
-            return applied, multiplied
+            return frozenset(), frozenset(), False
+        ambiguous = node.data == "_ambig"
         if node.data == "function_applied":
             applied.add(self.name(node.children[0]))
         elif node.data == "adjacent_expressions" and len(node.children) == 2:
@@ -609,10 +622,13 @@ class _Resolver:
                     multiplied.add(self.name(first.children[0]))
         if node.data != "_ambig":
             for child in node.children:
-                a, m = self.flags(child)
+                a, m, uncertain = self.summary(child)
                 applied |= a
                 multiplied |= m
-        return applied, multiplied
+                ambiguous |= uncertain
+        result = frozenset(applied), frozenset(multiplied), ambiguous
+        self._summaries[id(node)] = result
+        return result
 
     def declare_definitions(self, tree: Tree[Token]) -> None:
         """`g(x) = ...`: the left side applies g to symbols, so g is a function here."""
@@ -670,16 +686,47 @@ class _Resolver:
         return applied <= self.functions and multiplied <= self.variables
 
     def value(self, reading: _tree.Node) -> Any:
-        try:
-            return transform(reading, self.source, self.macros, self.sets, self.ops)
-        except Exception:  # a reading without a value is not comparable
-            return None
+        key = id(reading)
+        if key not in self._values:
+            try:
+                value = transform(reading, self.source, self.macros, self.sets, self.ops)
+            except Exception:  # a reading without a value is not comparable
+                value = None
+            self._values[key] = value
+        return self._values[key]
 
     def resolve(self, node: _tree.Node) -> _tree.Node:
         if isinstance(node, Token):
             return node
-        children = [self.resolve(c) for c in node.children]
+        cached = self._resolved.get(id(node))
+        if cached is not None:
+            return cached
+        result = self._resolve(node)
+        self._resolved[id(node)] = result
+        return result
+
+    def _resolve(self, node: _tree.Node) -> _tree.Node:
+        if isinstance(node, Token):
+            return node
+        candidates = node.children
+        if node.data == "_ambig":
+            summaries = [self.summary(child) for child in candidates]
+            # A definitely admissible branch establishes that the old all-invalid
+            # fallback is unnecessary. Only then may proven-invalid branches be
+            # removed before their nested ambiguity and SymPy work is performed.
+            if any(
+                not uncertain and a <= self.functions and m <= self.variables
+                for a, m, uncertain in summaries
+            ):
+                candidates = [
+                    child
+                    for child, (a, m, _) in zip(candidates, summaries, strict=True)
+                    if a <= self.functions and m <= self.variables
+                ]
+        children = [self.resolve(c) for c in candidates]
         if node.data != "_ambig":
+            if all(a is b for a, b in zip(children, node.children, strict=True)):
+                return node
             return Tree(node.data, children, node.meta)
         keep = [a for a in children if self.admissible(a)]
         if len(keep) == 1:
@@ -704,7 +751,7 @@ class _Resolver:
 
     def residual_products(self, node: _tree.Node) -> set[str]:
         """Product readings of `symbol(...)` with an undeclared symbol, left in the tree."""
-        return self.flags(node)[1] - self.variables
+        return set(self.flags(node)[1] - self.variables)
 
 
 def _detect(tree: _tree.Node) -> str | None:

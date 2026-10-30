@@ -1,6 +1,6 @@
 # Interpretation, mathematical preparation and scientific analysis
 
-**Status:** Planned; target Proposed; implementation not started · **Created:**2026-10-30.
+**Status:** Implemented with scoped verification; PE-02 decision bounded; F01 remains open · **Created:**2026-10-30.
 [Coordinator](../production-efficiency_2026-10-30.md) owns status/disposition. This plan owns
 PE-02–PE-04 and review F01–F03. Shared semantics belong to [PE-01](analysis-model-and-contracts.md#PE-01).
 
@@ -118,3 +118,70 @@ Sources: [SymPy best practices](https://docs.sympy.org/latest/explanation/best-p
 [numeric computation](https://docs.sympy.org/latest/modules/numeric-computation.html),
 [local capability orientation](../../libraries/Sympy.md). Check consequential APIs against the
 pinned installation through Context7 and primary/installed sources; newer docs are not pin evidence.
+
+## Execution —2026-10-30
+
+**Implemented; scoped verification.** Current delivery follows PE-01, source38f79f5
+(operator documentation62565b2 preserved). The coordinator owns package/finding disposition.
+
+### PE-02 decision and limit
+
+Retain general Earley/dynamic recognition. Resolver changes reuse role/value summaries, prune
+proven-invalid branches only when a definitely admissible branch exists, and retain unchanged
+subtrees. Prepared input lazily converts mathematical values. The bounded200input comparison
+preserved status, kind, failure category and occurrence positions. It established no recognizer
+speedup or ordinary-workload no-regression claim: recognition dominates, forest tree projection
+was small, and the complete grammar failed strict LALR construction. The narrow integer/add/subtract
+subset covered none of that sample; this does not rule out useful broader subsets. F01 remains
+open for a qualified subset or direct forest interpretation justified by broader source applicability.
+No unqualified forest/LALR/pylatexenc production path was added.
+
+Evidence: [interpretation investigation](../../design_review/evidence/2026-10-30_interpretation-scientific-analysis/README.md).
+
+### PE-03 shared execution
+
+Frozen `PreparedMathInput` retains exact text, kind, context and deadline policy; private caches
+retain stable values/unrepresentability and exclude transient timeout. Source readers, rule views,
+scientific operands and references use that preparation boundary. M09/M11 demand interpreted status
+because their observations and coverage require it. Compatible adjacent logical methods physically
+share one rendition batch through the source loop, while separate claims, configuration hashes,
+completions, observations and provenance remain. Different configuration/deadline inputs stay apart;
+batch ownership refuses cross-reader reuse and binds rendition identity/digest. M13 remains downstream.
+
+Analysis profile2 carries actual grammar/transformer recipes, explicit implementation-source/library
+determinants, supported sharing and scientific computation profiles. Acquisition supplies these bytes;
+pure compilation never reads installed implementation defaults. Invariant context components are
+prepared once. Compiler6/current profile2 admission and retained compiler5 reading remain distinct.
+
+### PE-04 scientific execution
+
+Operation-local operands canonicalize/convert once, retain individual contexts, and check binding
+compatibility before canonical shortcuts. Conditions are interpreted once, retaining completeness.
+Set differences and common base/point evaluations are reused. Each equation orientation meets its
+own valid-point threshold. Polynomial-only cancellation precedes bounded simplification without
+removing undefined denominator points. Consolidation/reference sampling and decisions stay distinct;
+reference numerical agreement remains undecided. Symbolic conversion timeouts remain transient.
+
+Scientific ABI3/profile2 recipes derive from the same explicitly supplied model as runtime settings.
+A candidate threshold change reaches recipe and execution; mismatched artifacts refuse. The numerical
+investigation selected direct evaluation for current small comparisons. Generated NumPy/CSE results
+were bounded probes, without complete domain qualification or a production speed claim.
+Evidence: [numeric investigation](../../design_review/evidence/2026-10-30_scientific-computation/README.md).
+
+### Acceptance and deployment
+
+Compiler6 and forward0036 use existing fixed relations. New native products follow final source-byte
+acquisition; historical migrations, operational databases, archives and stored grades remain unchanged.
+Root receipts: `build/pe234/`; model/native receipts: `build/pe-model/`.
+The broader integrated selection failed two source-key cases because a float deadline entered the
+strict canonical serializer; using the canonical string fixed both cases and the direct sharing
+regression. The failed original and corrected selection remain separately recorded. Grammar/preparation,
+scientific/alignment, source grouping, explicit candidate recipe variation and retained-read controls
+have focused passing evidence. The existing78page corpus/key oracle and generated properties passed.
+Native/source/domain integration remains scoped; no full-series/provider qualification follows.
+Initial source setup failed while0036 assets were not yet frozen; that failed attempt is retained.
+
+PE-02's bounded selection is complete; the larger F01 recognition opportunity remains open.
+PE-03/PE-04 structural mechanisms are implemented. F03 retains PE-07 consumer/benefit obligations.
+No audits or testing-architecture changes were performed. Lint-only edits preserve applicable
+functional/type results. PE-12 owns assembled qualification.

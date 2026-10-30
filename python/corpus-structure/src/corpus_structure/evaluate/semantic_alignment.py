@@ -171,12 +171,16 @@ def equivalent(
     conditions=None,
     model: AlignmentModel | None = None,
     range_name: str | None = None,
+    science_scope=None,
 ):
     """Canonical typed values, aligned references, commutative condition trees and math.
 
     Numeric probes only run after successful grammar interpretation; unequal probes disprove,
     whereas coincident probes without a symbolic proof remain explicitly undecided.
     """
+    from corpus_structure.semantic.scientific_evidence import ReferenceComparisonScope
+
+    science_scope = science_scope or ReferenceComparisonScope(model)
     claim_map = {} if claim_map is None else claim_map
     if isinstance(a, Mapping) and isinstance(b, Mapping):
         definition = record_definition(model, range_name, a) if model else None
@@ -239,7 +243,13 @@ def equivalent(
                 ):
                     child = _prefix(
                         equivalent(
-                            x, y, entity_map, claim_map, model=model, range_name="ExpressionBinding"
+                            x,
+                            y,
+                            entity_map,
+                            claim_map,
+                            model=model,
+                            science_scope=science_scope,
+                            range_name="ExpressionBinding",
                         ),
                         ["bindings", str(left_pos)],
                         ["bindings", str(right_pos)],
@@ -259,7 +269,9 @@ def equivalent(
                     "expression bindings differ or remain unresolved",
                     tuple(binding_comparisons),
                 )
-            if canonical_bytes(a) == canonical_bytes(b):
+            if canonical_bytes({**a, "bindings": binding_meaning(a, True)}) == canonical_bytes(
+                {**b, "bindings": binding_meaning(b, False)}
+            ):
                 from corpus_structure.semantic.scientific_evidence import (
                     EvidenceTier,
                     ScientificEvidence,
@@ -293,7 +305,7 @@ def equivalent(
             )
 
             decision = decide_reference(
-                reference_evidence(a, b, conditions=conditions, prepared=model)
+                reference_evidence(a, b, conditions=conditions, prepared=model, scope=science_scope)
             )
             return ValueDecision(
                 decision.equal,
@@ -313,6 +325,7 @@ def equivalent(
                         entity_map,
                         claim_map,
                         model=model,
+                        science_scope=science_scope,
                         range_name=props["terms"].range if "terms" in props else None,
                     )
                     for y in bb
@@ -373,6 +386,7 @@ def equivalent(
                         entity_map,
                         claim_map,
                         model=model,
+                        science_scope=science_scope,
                         range_name=prop.range if prop and prop.inlined else None,
                     ),
                     [key, *([] if position is None else [str(position)])],
@@ -403,7 +417,15 @@ def equivalent(
             return ValueDecision(False, "canonical")
         ds = [
             _prefix(
-                equivalent(x, y, entity_map, claim_map, model=model, range_name=range_name),
+                equivalent(
+                    x,
+                    y,
+                    entity_map,
+                    claim_map,
+                    model=model,
+                    science_scope=science_scope,
+                    range_name=range_name,
+                ),
                 [str(i)],
             )
             for i, (x, y) in enumerate(zip(a, b, strict=True))
@@ -732,6 +754,9 @@ def align_semantic(
 ) -> SemanticAlignment:
     if ref.unit != pred.unit:
         raise ValueError("alignment sides refer to different source units")
+    from corpus_structure.semantic.scientific_evidence import ReferenceComparisonScope
+
+    science_scope = ReferenceComparisonScope(prepared)
     out = SemanticAlignment(ref.unit)
     emap = _entity_pairs(ref, pred, prepared, out)
     entity_comparisons = tuple(out.comparisons)
@@ -825,6 +850,7 @@ def align_semantic(
                     claim_map,
                     conditions=r.get("qualification", {}).get("condition"),
                     model=prepared,
+                    science_scope=science_scope,
                     range_name="Value",
                 )
                 if value.outcome == "undecided":
@@ -844,6 +870,7 @@ def align_semantic(
                     emap,
                     claim_map,
                     model=prepared,
+                    science_scope=science_scope,
                     range_name=qualification_name,
                 )
                 same_statement = (not r.get("statement") and not p.get("statement")) or bool(

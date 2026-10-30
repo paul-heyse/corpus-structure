@@ -40,7 +40,6 @@ from corpus_structure.methods.math.grammar import (
     PARSE_SECONDS,
     MathResult,
     Occurrence,
-    parse,
 )
 
 MATH_KINDS = frozenset({SegmentKind.MATH_INLINE, SegmentKind.MATH_DISPLAY})
@@ -113,11 +112,12 @@ def read_spans(
     prepared_context = prepared_context or prepare_interpretation_context(
         macros=macros, constants=constants, demand="occurrences"
     )
-    context = prepared_context.grammar_context
+    from .prepared import PreparedMathInput
+
     macros = prepared_context.macros
     readings = []
     for span in math_spans(content):
-        result = parse(span.latex, "any_value", macros, context, seconds=seconds)
+        result = PreparedMathInput(prepared_context, span.latex, "any_value", seconds).reading()
         prepared_context.validate_result(
             produced=("lexical", "occurrences", "interpretation"),
             interpretation=result.status.value,

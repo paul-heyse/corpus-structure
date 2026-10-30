@@ -432,7 +432,7 @@ def test_successful_scientific_comparison_retains_modelled_explanation():
     trace = decision.comparisons[0]
     assert trace["evidence_tier"] == trace["decision_tier"] == "symbolic"
     assert trace["outcome"] == "equivalent"
-    assert trace["policy_id"] == "reference-evidence-1"
+    assert trace["policy_id"] == "reference-evidence-2"
     assert trace["numeric"] == "not_run"
 
 
@@ -449,7 +449,10 @@ def test_alignment_report_retains_numeric_evidence_in_undecided_condition():
     model = replace(
         prepared().bound(),
         manifest=canonical_bytes(
-            {"libraries": {name: determinant_version(name) for name in SCIENTIFIC_LIBRARIES}}
+            {
+                "profile": {"version": "semantic-1", "compiler_version": "13"},
+                "libraries": {name: determinant_version(name) for name in SCIENTIFIC_LIBRARIES},
+            }
         ),
         artifacts=(
             PreparedArtifact(SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe())),
@@ -586,7 +589,7 @@ def test_whole_alignment_retains_scientific_entity_comparisons_without_claims(ba
     assert trace["alignment_basis"] == basis and trace["field"] == "entity_identity"
     assert trace["reference_path"] == trace["prediction_path"] == ["attributes", "0", "value"]
     assert trace["evidence_tier"] == trace["decision_tier"] == "symbolic"
-    assert trace["outcome"] == "equivalent" and trace["policy_id"] == "reference-evidence-1"
+    assert trace["outcome"] == "equivalent" and trace["policy_id"] == "reference-evidence-2"
 
 
 @pytest.mark.parametrize("difference", [None, "numeric", "symbolic"])

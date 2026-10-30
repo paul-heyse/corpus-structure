@@ -193,3 +193,29 @@ def test_m09_on_the_spike_pages(spike_pages: dict[str, Any]) -> None:
             )
     print(f"\nM09: {checked} mentions on the spike pages")
     assert checked > 1000
+
+
+def test_paired_methods_share_readings_only_with_compatible_configuration(monkeypatch):
+    from types import SimpleNamespace
+
+    from corpus_structure.methods.math import methods
+
+    content = rendition("x + y")
+    ren = methods._Rendition(1, "source:one", "digest", content, {})
+    reader = SimpleNamespace(math_readings_batch=methods.MathReadingsBatch())
+    original = methods.read_spans
+    calls = []
+
+    def observe(*args, **kwargs):
+        calls.append(kwargs["seconds"])
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(methods, "read_spans", observe)
+    first = methods._readings(ren, methods.NormalizeFormulaConfig(), reader)
+    second = methods._readings(ren, methods.ExtractMathConfig(), reader)
+    assert first is second
+    assert len(calls) == 1
+    assert first[0].result.status is ParseOutcome.OK
+    different = methods._readings(ren, methods.ExtractMathConfig(parse_seconds=3), reader)
+    assert different is not first
+    assert calls == [2, 3]

@@ -202,7 +202,7 @@ def test_scientific_reason_roundtrip_retains_exact_context_and_policy():
     )
     parsed = parse_scientific_assessment_reason(reason)
     assert parsed is not None
-    assert parsed.policy == "consolidation-evidence-1"
+    assert parsed.policy == "consolidation-evidence-2"
     assert parsed.numeric == "counterexample" and parsed.valid_points == 12
     assert '"unit":"m"' in parsed.context
     assert parse_scientific_assessment_reason("historical human-readable reason") is None
@@ -322,9 +322,9 @@ def test_one_evidence_records_the_policy_that_actually_decided():
     evidence = ScientificEvidence(True, EvidenceTier.NUMERIC, "formula", "a", "b")
     consolidated = comparison_assessment(decide_consolidation(evidence), context={})
     reference = comparison_assessment(decide_reference(evidence), context={})
-    assert consolidated["policy_id"] == "consolidation-evidence-1"
+    assert consolidated["policy_id"] == "consolidation-evidence-2"
     assert consolidated["outcome"] == "equivalent"
-    assert reference["policy_id"] == "reference-evidence-1"
+    assert reference["policy_id"] == "reference-evidence-2"
     assert reference["outcome"] == "undecided"
     assert consolidated["numeric"] == reference["numeric"] == "agreement"
 
@@ -369,6 +369,8 @@ def test_consolidation_reads_each_operands_own_roles(monkeypatch):
     left = {**expression("c+1"), "bindings": [{"symbol": "c", "kind": "constant"}]}
     right = {**expression("c+2"), "bindings": [{"symbol": "c", "kind": "free"}]}
     assert comparator.compare(left, right).tier is EvidenceTier.UNDECIDED
+    assert seen == []  # incompatible bindings refuse before the mathematical kernel
+    seen = [comparator.operand_context(left), comparator.operand_context(right)]
     assert seen[0].grammar_context.constants == frozenset({"c"})
     assert seen[0].grammar_context.variables == frozenset()
     assert seen[1].grammar_context.variables == frozenset({"c"})
@@ -381,3 +383,69 @@ def test_unresolved_operand_cannot_gain_symbolic_agreement():
     result = comparator.compare(left, expression("1+x"))
     assert result.tier is EvidenceTier.UNDECIDED
     assert "unresolved expression binding" in result.evidence.detail
+
+
+def test_equation_orientations_cannot_borrow_valid_point_counts(monkeypatch):
+    import sympy
+
+    from corpus_structure.semantic import scientific_evidence as owner
+
+    x = sympy.Symbol("x")
+    kernel = owner.MathematicalEvidence({})
+    monkeypatch.setattr(
+        kernel,
+        "_read",
+        lambda text, *args: owner.MathReading(
+            sympy.Eq(x, 0) if text == "left" else sympy.Eq(x, 1), "ok"
+        ),
+    )
+    monkeypatch.setattr(sympy, "simplify", lambda value: value)
+    monkeypatch.setattr(owner, "_targeted_difference", lambda value: value)
+    monkeypatch.setattr(owner, "sample_points", lambda *args: [{x: i} for i in range(6)])
+    base_calls = []
+
+    def evaluate(expr, point):
+        if expr == x:
+            base_calls.append(point)
+            return 1
+        if expr == 1:
+            return 1
+        return 0 if point[x] == 0 else None
+
+    monkeypatch.setattr(owner, "_num", evaluate)
+    evidence = kernel._math("formula", "left", "right", "a", "b", [], "", ("x",))
+    assert evidence.tier is owner.EvidenceTier.UNDECIDED
+    assert evidence.valid_points == 6
+    assert len(base_calls) == 6
+
+
+def test_equal_text_with_different_binding_cannot_gain_canonical_agreement():
+    left = {**expression("x"), "bindings": [{"kind": "free", "symbol": "x"}]}
+    right = {**expression("x"), "bindings": [{"kind": "constant", "symbol": "x"}]}
+    decision = SemanticComparator({}).compare(left, right)
+    assert decision.tier is EvidenceTier.UNDECIDED
+    assert "distinct explicit" in decision.detail
+
+
+def test_symbolic_conversion_timeout_remains_unavailable_and_transient(monkeypatch):
+    from corpus_structure.methods.math import grammar
+    from corpus_structure.methods.math.prepared import PreparedMathInput
+    from corpus_structure.semantic.scientific_evidence import (
+        MathematicalEvidence,
+        read_reference_operand,
+    )
+
+    calls = []
+
+    def expire(self):
+        calls.append(self.latex)
+        raise grammar.Expired()
+
+    monkeypatch.setattr(PreparedMathInput, "symbolic_value", expire)
+    kernel = MathematicalEvidence({})
+    for _ in range(2):
+        value = kernel._read("x", ("formula",), ("x",))
+        assert value.expr is None and "timeout" in value.error
+    assert calls == ["x", "x"]
+    value, reason = read_reference_operand(expression("x"))
+    assert value is None and "timeout" in reason

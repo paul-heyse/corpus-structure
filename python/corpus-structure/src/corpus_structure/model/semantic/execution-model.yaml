@@ -8682,7 +8682,13 @@ effect_definitions:
 
 analysis_profiles:
 - id: mathematical-interpretation
-  version: '1'
+  version: '2'
+  grammar_recipe: extended-lark-2
+  transformer_recipe: sympy-transform-2
+  shared_consumers: [normalize.formula, extract.math]
+  scientific_profiles:
+  - {policy_id: consolidation-evidence-2, symbolic_method: domain-targeted-then-simplify-2, numeric_method: xreplace-evalf, backend: direct, simplify_seconds: '5.0', points: 12, max_draws: 4000, minimum_valid_points: 6, relative_tolerance: '1e-9', absolute_tolerance: '1e-12', seed: canonical-restrictions, numeric_requires: interpreted-conditions}
+  - {policy_id: reference-evidence-2, symbolic_method: domain-targeted-then-simplify-2, numeric_method: evalf-subs, backend: direct, simplify_seconds: '5.0', points: 12, max_draws: 12, minimum_valid_points: 12, relative_tolerance: '1e-9', absolute_tolerance: '0', seed: raw-operands, numeric_requires: no-restrictions}
   demands:
   - id: lexical
     prerequisites: []

@@ -685,3 +685,9 @@ and per-iteration agent budgets bound how much Opus is asked to do (§7.4).
 **Proposed (accepted target,2026-10-30).** Logical skipped invocations may be identified from source/configuration/policy before rendering provider packets. Skipped population, reasons and unknown coverage remain required. Existing packet-dependent scheduling remains implemented until PE-10.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+## Prepared interpretation execution
+
+**Implemented (scoped verification,2026-10-30).** The source loop coexecutes only model-admitted compatible M09/M11 steps within a bounded rendition batch. Claims, configuration identity, task completion and observation provenance remain separate; batch state cannot transfer to another reader.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
