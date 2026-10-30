@@ -40,6 +40,8 @@ import time
 from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from types import MappingProxyType
+from typing import Protocol, cast
 
 import regex
 from rapidfuzz import fuzz, process
@@ -49,11 +51,10 @@ from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef
 
 
-def _partial_ratio(
-    __s1: Sequence[Hashable], __s2: Sequence[Hashable], *, score_cutoff: float | None
-) -> float:
-    """The score callback contract, delegated to RapidFuzz's native partial ratio."""
-    return fuzz.partial_ratio(__s1, __s2, score_cutoff=score_cutoff)
+class _PartialRatioScorer(Protocol):
+    def __call__(
+        self, __s1: Sequence[Hashable], __s2: Sequence[Hashable], *, score_cutoff: float | None
+    ) -> float: ...
 
 
 CASCADE_VERSION = "1"
@@ -129,8 +130,14 @@ def snap(text: str, a: int, b: int, lo: int, hi: int) -> tuple[int, int]:
 def spacing_pattern(quote: str, macros: Mapping[str, str] | None = None) -> str:
     """The quote up to spacing (steps 3 and 4); with `macros` (name -> body), a macro or its body
     in the quote matches either spelling."""
+    return _spacing_pattern(quote, _macro_alternatives(macros or {}))
+
+
+def _macro_alternatives(
+    macros: Mapping[str, str],
+) -> tuple[tuple[regex.Pattern[str], regex.Pattern[str], str], ...]:
     alternatives = []
-    for name, body in sorted((macros or {}).items(), key=lambda kv: (-len(kv[0]), kv[0])):
+    for name, body in sorted(macros.items(), key=lambda kv: (-len(kv[0]), kv[0])):
         name_pattern = regex.escape(name) + r"(?![A-Za-z])"
         body_pattern = JOIN.join(regex.escape(c) for c in body if not c.isspace())
         if not body_pattern:
@@ -142,6 +149,12 @@ def spacing_pattern(quote: str, macros: Mapping[str, str] | None = None) -> str:
                 f"(?:{name_pattern}|{body_pattern})",
             )
         )
+    return tuple(alternatives)
+
+
+def _spacing_pattern(
+    quote: str, alternatives: tuple[tuple[regex.Pattern[str], regex.Pattern[str], str], ...]
+) -> str:
     parts: list[str] = []
     i = 0
     while i < len(quote):
@@ -186,27 +199,90 @@ def tokens(text: str, base: int = 0) -> list[tuple[str, int, int]]:
     return out
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
+class PlacementPolicy:
+    """Admitted cascade semantics; model-bound callers supply their release projection."""
+
+    token_cutoff: int = TOKEN_CUTOFF
+    token_pad: int = TOKEN_PAD
+    char_cutoff: int = CHAR_CUTOFF
+    char_pad: float = CHAR_PAD
+    char_errors: float = CHAR_ERRORS
+    pick_cutoff: int = PICK_CUTOFF
+    regex_timeout: float = REGEX_TIMEOUT
+    refine_timeout: float = REFINE_TIMEOUT
+    recipe: str = "citation-cascade-1"
+
+
+@dataclass(frozen=True)
 class Cascade:
-    """The cascade over one rendition's text and one frame's resolved sentences."""
+    """One immutable citation frame with operation-local, lazily prepared physical inputs.
+
+    Caches belong to this frame and policy, never to global text identity. Tokens/patterns
+    are prepared only when earlier cascade steps need them; exact citations pay no NLP cost.
+    """
 
     text: str
     sentences: Sequence[FrameSentence]
     macros: Mapping[str, MacroDef] = field(default_factory=dict)
-    regex_timeout: float = REGEX_TIMEOUT
-    refine_timeout: float = REFINE_TIMEOUT
+    regex_timeout: float | None = None
+    refine_timeout: float | None = None
+    policy: PlacementPolicy = field(default_factory=PlacementPolicy)
+    _by_id: Mapping[str, FrameSentence] = field(init=False, repr=False, compare=False)
+    _texts: Mapping[str, str] = field(init=False, repr=False, compare=False)
+    _macro_bodies: Mapping[str, str] = field(init=False, repr=False, compare=False)
+    _macro_patterns: tuple[tuple[regex.Pattern[str], regex.Pattern[str], str], ...] = field(
+        init=False, repr=False, compare=False
+    )
+    _sentence_tokens: dict[str, tuple[tuple[str, int, int], ...]] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _quote_tokens: dict[str, tuple[tuple[str, int, int], ...]] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _patterns: dict[tuple[str, Step], regex.Pattern[str]] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _orders: dict[str | None, tuple[FrameSentence, ...]] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _results: dict[tuple[str, str | None], Located] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
-        self.sentences = sorted(self.sentences, key=lambda s: (s.start, s.end, s.id))
-        self._by_id = {s.id: s for s in self.sentences}
-        self._macro_bodies = {
+        sentences = tuple(sorted(self.sentences, key=lambda s: (s.start, s.end, s.id)))
+        object.__setattr__(self, "sentences", sentences)
+        object.__setattr__(self, "macros", MappingProxyType(dict(self.macros)))
+        object.__setattr__(self, "_by_id", MappingProxyType({s.id: s for s in sentences}))
+        object.__setattr__(self, "_texts", MappingProxyType({
+            s.id: self.text[s.start:s.end] for s in sentences
+        }))
+        object.__setattr__(self, "_macro_bodies", MappingProxyType({
             name: d.body for name, d in self.macros.items() if d.nargs == 0 and d.body.strip()
-        }
+        }))
+        object.__setattr__(self, "_macro_patterns", _macro_alternatives(self._macro_bodies))
+        policy = dataclasses.replace(
+            self.policy,
+            regex_timeout=(self.policy.regex_timeout if self.regex_timeout is None
+                           else self.regex_timeout),
+            refine_timeout=(self.policy.refine_timeout if self.refine_timeout is None
+                            else self.refine_timeout),
+        )
+        object.__setattr__(self, "policy", policy)
+        object.__setattr__(self, "regex_timeout", policy.regex_timeout)
+        object.__setattr__(self, "refine_timeout", policy.refine_timeout)
 
     def locate(self, quote: str, cited: str | None) -> Located:
-        """Steps 1-7 for a quote cited in the frame sentence `cited` (None: no valid sentence)."""
+        """Preserve occurrence reporting while sharing timeless placement decisions."""
         started = time.perf_counter()
-        found = self._locate(quote, self._by_id.get(cited) if cited is not None else None)
+        key = (quote, cited)
+        found = self._results.get(key)
+        if found is None:
+            found = self._locate(quote, self._by_id.get(cited) if cited is not None else None)
+            # A timeout can make the result depend on transient execution conditions.
+            if not found.timeouts:
+                self._results[key] = found
         ms = round((time.perf_counter() - started) * 1000, 3)
         return dataclasses.replace(found, ms=ms)
 
@@ -215,9 +291,14 @@ class Cascade:
     def _locate(self, quote: str, cited: FrameSentence | None) -> Located:
         if not quote.strip():
             return Located()
-        others = [s for s in self.sentences if cited is None or s.id != cited.id]
+        cited_id = cited.id if cited is not None else None
+        others = self._orders.get(cited_id)
+        if others is None:
+            eligible = tuple(s for s in self.sentences if cited is None or s.id != cited.id)
+            anchor = cited.start if cited is not None else (eligible[0].start if eligible else 0)
+            others = tuple(sorted(eligible, key=lambda s: (abs(s.start - anchor), s.start)))
+            self._orders[cited_id] = others
         anchor = cited.start if cited is not None else (others[0].start if others else 0)
-        others.sort(key=lambda s: (abs(s.start - anchor), s.start))
         if cited is not None:
             hits = self._exact(quote, [cited])
             if hits:
@@ -231,7 +312,13 @@ class Cascade:
         if self._macro_bodies:
             steps.append((Step.MACROS, self._macro_bodies))
         for step, macros in steps:
-            pattern = regex.compile(spacing_pattern(quote, macros))
+            pattern_key = (quote, step)
+            pattern = self._patterns.get(pattern_key)
+            if pattern is None:
+                pattern = regex.compile(_spacing_pattern(
+                    quote, self._macro_patterns if macros is not None else ()
+                ))
+                self._patterns[pattern_key] = pattern
             for scope in ([cited] if cited is not None else [], others):
                 hits, timed_out = self._search(pattern, scope)
                 if timed_out:
@@ -245,10 +332,11 @@ class Cascade:
                 return fuzzy
         pool = others
         if pool:
-            texts = [self.text[s.start : s.end] for s in pool]
-            # rapidfuzz's stubs type `partial_ratio` as an overload extractOne's do not accept
+            texts = [self._texts[s.id] for s in pool]
+            # A typing-only cast preserves RapidFuzz's native scorer identity/C-API.
             choice = process.extractOne(
-                quote, texts, scorer=_partial_ratio, score_cutoff=float(PICK_CUTOFF)
+                quote, texts, scorer=cast(_PartialRatioScorer, fuzz.partial_ratio),
+                score_cutoff=float(self.policy.pick_cutoff)
             )
             if choice is not None:
                 fuzzy = self._fuzzy(quote, pool[choice[2]], timeouts, picked=True)
@@ -274,7 +362,7 @@ class Cascade:
         timed_out = False
         for s in scope:
             try:
-                for m in pattern.finditer(self.text, s.start, s.end, timeout=self.regex_timeout):
+                for m in pattern.finditer(self.text, s.start, s.end, timeout=self.policy.regex_timeout):
                     if m.end() > m.start():
                         out.append((m.start(), m.end(), s))
             except TimeoutError:
@@ -320,16 +408,23 @@ class Cascade:
         return None
 
     def _tokens(self, quote: str, s: FrameSentence) -> tuple[int, int, float] | None:
-        needle = tokens(quote.rstrip(TRAILING) or quote)
-        hay = tokens(self.text[s.start : s.end], s.start)
+        normalized = quote.rstrip(TRAILING) or quote
+        needle = self._quote_tokens.get(normalized)
+        if needle is None:
+            needle = tuple(tokens(normalized))
+            self._quote_tokens[normalized] = needle
+        hay = self._sentence_tokens.get(s.id)
+        if hay is None:
+            hay = tuple(tokens(self._texts[s.id], s.start))
+            self._sentence_tokens[s.id] = hay
         if not needle or not hay:
             return None
         q = [token for token, _, _ in needle]
         h = [token for token, _, _ in hay]
-        window = fuzz.partial_ratio_alignment(q, h, score_cutoff=TOKEN_CUTOFF)
+        window = fuzz.partial_ratio_alignment(q, h, score_cutoff=self.policy.token_cutoff)
         if window is None:
             return None
-        w0, w1 = max(0, window.dest_start - TOKEN_PAD), min(len(h), window.dest_end + TOKEN_PAD)
+        w0, w1 = max(0, window.dest_start - self.policy.token_pad), min(len(h), window.dest_end + self.policy.token_pad)
         ops = [
             o
             for o in Levenshtein.opcodes(q, h[w0:w1])
@@ -348,17 +443,21 @@ class Cascade:
     ) -> tuple[int, int, float, tuple[int, int, int]] | None:
         needle = quote.rstrip(TRAILING) or quote
         window = fuzz.partial_ratio_alignment(
-            needle, self.text[s.start : s.end], score_cutoff=CHAR_CUTOFF
+            needle, self._texts[s.id], score_cutoff=self.policy.char_cutoff
         )
         if window is None:
             return None
-        pad = math.ceil(CHAR_PAD * len(needle))
+        pad = math.ceil(self.policy.char_pad * len(needle))
         lo = max(s.start, s.start + window.dest_start - pad)
         hi = min(s.end, s.start + window.dest_end + pad)
-        bound = max(1, math.ceil(CHAR_ERRORS * len(needle)))
-        pattern = r"(?b)(?:" + regex.escape(needle) + "){e<=" + str(bound) + "}"
+        bound = max(1, math.ceil(self.policy.char_errors * len(needle)))
+        pattern_key = (needle, Step.CHARACTERS)
+        pattern = self._patterns.get(pattern_key)
+        if pattern is None:
+            pattern = regex.compile(r"(?b)(?:" + regex.escape(needle) + "){e<=" + str(bound) + "}")
+            self._patterns[pattern_key] = pattern
         try:
-            m = regex.search(pattern, self.text, pos=lo, endpos=hi, timeout=self.refine_timeout)
+            m = pattern.search(self.text, pos=lo, endpos=hi, timeout=self.policy.refine_timeout)
         except TimeoutError:
             timeouts.append(Step.CHARACTERS)
             return None

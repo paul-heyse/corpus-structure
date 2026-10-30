@@ -52,6 +52,8 @@ from typing import Any, assert_never
 
 from pydantic import MISSING, BaseModel
 
+from corpus_structure.semantic.analysis_contracts import prepare_placement_policy
+
 from corpus_structure.core import batch as B
 from corpus_structure.core import values as V
 from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment, segment_key
@@ -225,6 +227,7 @@ class _Parser:
             self.text,
             sentences,
             view.macros,
+            policy=prepare_placement_policy(),
             regex_timeout=timeouts.get("regex_timeout", REGEX_TIMEOUT),
             refine_timeout=timeouts.get("refine_timeout", REFINE_TIMEOUT),
         )

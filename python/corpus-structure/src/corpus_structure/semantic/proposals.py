@@ -23,6 +23,7 @@ from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Step
 from corpus_structure.methods.llm.packet import SentenceEntry
 from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 
+from .analysis_contracts import prepare_placement_policy
 from .prepare import preview_schema
 from .publication import native_constraints
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
@@ -456,6 +457,7 @@ def locate_proposal(
         frame.text,
         [FrameSentence(s.id, s.start, s.end) for s in frame.sentences],
         dict(macros or {}),
+        policy=prepare_placement_policy(prepared),
     )
     issues = []
     for section in ("claims", "unsupported", "identity_exclusions"):
