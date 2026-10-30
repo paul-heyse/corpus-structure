@@ -24,7 +24,7 @@ def evaluate(
     json: JsonOpt = False,
 ):
     """Persist core, qualified-full and evidence P/R/F1 with exact pass-C snapshots."""
-    with reference_session(ctx, project) as (conn, pid):
+    with reference_session(ctx, project, json=json) as (conn, pid):
         result = reference_evaluate(conn, project_id=pid, run_id=run, set_id=set_id)
     output(result, json)
 

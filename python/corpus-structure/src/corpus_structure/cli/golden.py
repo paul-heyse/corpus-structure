@@ -9,9 +9,9 @@ from typing import Annotated
 
 import typer
 from sqlalchemy import select
-from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.cli.output import JsonOpt, state, stderr_console
+from corpus_structure.cli.failures import failure_boundary
+from corpus_structure.cli.output import JsonOpt, state
 from corpus_structure.evaluate import semantic as references
 from corpus_structure.semantic.metadata import table
 
@@ -21,10 +21,10 @@ golden_app = typer.Typer(
 
 
 @contextmanager
-def reference_session(ctx, project=None):
+def reference_session(ctx, project=None, *, json=False):
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    try:
+    with failure_boundary(json, expected=(references.ReferenceError,)):
         settings = state(ctx).settings()
         with (
             open_runtime_engine(
@@ -47,9 +47,6 @@ def reference_session(ctx, project=None):
             ):
                 raise references.ReferenceError("unknown semantic project")
             yield conn, project
-    except (ValueError, LookupError, DBAPIError) as error:
-        stderr_console().print(f"refused: {error}")
-        raise typer.Exit(1) from None
 
 
 def output(result, json):
@@ -70,7 +67,7 @@ def split_command(
     ctx: typer.Context, seed: int | None = None, project: str | None = None, json: JsonOpt = False
 ):
     """Assign registered source documents immutably to development/test splits."""
-    with reference_session(ctx, project) as (conn, pid):
+    with reference_session(ctx, project, json=json) as (conn, pid):
         result = references.split_documents(conn, pid, seed=seed)
     output(result, json)
 
@@ -87,7 +84,7 @@ def create_command(
     json: JsonOpt = False,
 ):
     """Sample independent reference units from a completed result's frozen source cut."""
-    with reference_session(ctx, project) as (conn, pid):
+    with reference_session(ctx, project, json=json) as (conn, pid):
         run = from_run or conn.scalar(
             select(table("data.project").c.selected_result_run_id).where(
                 table("data.project").c.project_id == pid
@@ -106,7 +103,7 @@ def status_command(
     ctx: typer.Context, label: str | None = None, project: str | None = None, json: JsonOpt = False
 ):
     """Show counts and bindings, without exposing reference answers."""
-    with reference_session(ctx, project) as (conn, pid):
+    with reference_session(ctx, project, json=json) as (conn, pid):
         s = table("eval.reference_set")
         q = select(s).where(s.c.project_id == pid)
         if label is not None:
@@ -140,7 +137,7 @@ def submit_command(
     """Store an automated independent pass and its exact source citation frame."""
     from corpus_structure.semantic.proposals import ProposalFrame, ProposalSentence
 
-    with reference_session(ctx, project) as (conn, pid):
+    with reference_session(ctx, project, json=json) as (conn, pid):
         if references._unit(conn, unit)["project_id"] != pid:
             raise references.ReferenceError("reference unit belongs to another project")
         raw = jsonlib.loads(frame.read_bytes())

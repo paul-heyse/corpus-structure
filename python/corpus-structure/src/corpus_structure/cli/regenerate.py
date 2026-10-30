@@ -8,9 +8,10 @@ from typing import Annotated
 import typer
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
 
+from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
+from corpus_structure.semantic.refusals import SemanticRefusal
 
 
 class RegenerationReport(BaseModel):
@@ -83,9 +84,30 @@ def regenerate(
 
     prepared: PreparedRelease | None = None
     source_id: str | None = None
-    try:
+    from corpus_structure.orchestrate.commands import CommandError
+    from corpus_structure.orchestrate.project import ProjectError
+    from corpus_structure.semantic.authored_sql import SQLAdmissionError
+    from corpus_structure.semantic.domain_operations import DomainOperationRefused
+    from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
+    from corpus_structure.semantic.publication import PublicationConflict
+    from corpus_structure.semantic.releases import ActivationConflict, ReleaseConflict
+
+    with failure_boundary(
+        json,
+        expected=(
+            CommandError,
+            ProjectError,
+            OperationConflict,
+            SQLAdmissionError,
+            DomainOperationRefused,
+            ExecutionAdmissionError,
+            PublicationConflict,
+            ActivationConflict,
+            ReleaseConflict,
+        ),
+    ):
         if Path(domain).name != domain:
-            raise ValueError("domain must name a declared pack")
+            raise SemanticRefusal("domain must name a declared pack")
         if resume_run is None:
             bundle, deps, profile, prepared = prepare_pack(DOMAINS / domain)
             source_id = f"source:{project}:{prepared.release_id}"
@@ -206,10 +228,6 @@ def regenerate(
             ),
             json=json,
         )
-    except (ValueError, KeyError, SQLAlchemyError) as error:
-        reason = str(getattr(error, "orig", error)).splitlines()[0]
-        stderr_console().print(f"refused: {reason}")
-        raise typer.Exit(code=1) from None
 
 
 def register(app: typer.Typer) -> None:

@@ -4,17 +4,13 @@ from __future__ import annotations
 
 import json as jsonlib
 from contextlib import contextmanager
-from dataclasses import asdict
 from typing import Annotated, Any, Literal
 
 import typer
-from pydantic import ValidationError
 from rich.table import Table
-from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
+from corpus_structure.cli.output import JsonOpt, emit, state
 from corpus_structure.semantic.query import read_snapshot
-from corpus_structure.semantic.refusals import SemanticRefusal, database_failure_code
 from corpus_structure.serve.journey import QueryRefused, parse_run, select_run, serve_query
 from corpus_structure.serve.queries import GENERIC
 from corpus_structure.serve.registry import QueryRegistryError, build_registry
@@ -22,36 +18,10 @@ from corpus_structure.serve.registry import QueryRegistryError, build_registry
 
 @contextmanager
 def refusal(json: bool):
-    try:
-        yield
-    except (
-        QueryRefused,
-        QueryRegistryError,
-        ValidationError,
-        SemanticRefusal,
-    ) as e:
-        if json:
-            from corpus_structure.semantic.types import PreparationError
+    from .failures import failure_boundary
 
-            error: dict[str, Any] = {"code": type(e).__name__, "message": str(e)}
-            if isinstance(e, PreparationError):
-                error["diagnostics"] = [
-                    {key: value for key, value in asdict(item).items() if value is not None}
-                    for item in e.diagnostics
-                ]
-            typer.echo(jsonlib.dumps({"error": error}))
-        else:
-            stderr_console().print(f"refused: {e}")
-        raise typer.Exit(1) from None
-    except DBAPIError as error:
-        code = database_failure_code(error)
-        if json:
-            typer.echo(
-                jsonlib.dumps({"error": {"code": code, "message": "database operation failed"}})
-            )
-        else:
-            stderr_console().print(f"{code}: database operation failed")
-        raise typer.Exit(1) from error
+    with failure_boundary(json, expected=(QueryRegistryError,)):
+        yield
 
 
 def context(conn: Any, project: str | None, run: str) -> tuple[str, int, Any]:

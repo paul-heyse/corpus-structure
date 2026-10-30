@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Literal
 
 import typer
-from sqlalchemy import text
 
 from corpus_structure.cli.output import JsonOpt, emit, state
 from corpus_structure.cli.query import context, refusal
+from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.serve.explain import explain as explain_query
 
 app = typer.Typer(help="Explain a claim or unit.")
@@ -28,10 +28,8 @@ def _explain(
     with (
         refusal(json),
         open_runtime_engine(settings, application_name="ci-explain", purpose="read") as engine,
-        engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
-        conn.begin(),
+        read_snapshot(engine) as conn,
     ):
-        conn.execute(text("SET TRANSACTION READ ONLY"))
         _, rid, _ = context(
             conn, project or (settings.runtime.default_project if run == "promoted" else None), run
         )

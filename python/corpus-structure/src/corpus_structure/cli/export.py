@@ -10,6 +10,7 @@ import typer
 from corpus_structure.cli.output import JsonOpt, state
 from corpus_structure.cli.query import context, refusal
 from corpus_structure.semantic.analytics import load_packet
+from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.serve.export import export_packet
 from corpus_structure.serve.journey import bind_session
 
@@ -27,11 +28,7 @@ def export(
     settings = state(ctx).settings()
     with refusal(json):
         with open_runtime_engine(settings, application_name="ci-export", purpose="read") as engine:
-            with (
-                engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
-                conn.begin(),
-            ):
-                conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+            with read_snapshot(engine) as conn:
                 _, rid, _ = context(
                     conn,
                     project or (settings.runtime.default_project if run == "promoted" else None),
