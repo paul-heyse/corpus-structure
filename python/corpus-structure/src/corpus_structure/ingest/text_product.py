@@ -22,12 +22,14 @@ def text_product_payload(canonical: str, *, root: Mapping[str, Any],
                          macro_sources: Sequence[MacroSource] = (),
                          fallback_macros: Mapping[str, MacroDef] | None = None,
                          fallback_source_ref: str | None = None,
-                         structure: bool = True, product_key: str = "text") -> dict[str, Any]:
+                         structure: bool = True, product_key: str = "text",
+                         expand_macros: bool = True) -> dict[str, Any]:
     """Archive complete lexical capture, selected native structure and expansion custody.
 
     ``math_ranges`` uses canonical offsets and explicit source delimiters. An empty sequence
     requests only canonical capture (including text outside sentence blocks). Fallback definitions
     are archived as structured artifacts and a named derived TeX projection, never page bytes.
+    ``expand_macros=False`` leaves expansion unrequested while preserving structural specs.
     """
     fallback = fallback_macros or {}
     if fallback and not fallback_source_ref:
@@ -168,7 +170,7 @@ def text_product_payload(canonical: str, *, root: Mapping[str, Any],
             raise ValueError("math extents overlap or lie outside canonical source")
         previous_end = b
         capture = capture_text(canonical[a:b], start=a, opener=opener, closer=closer,
-                               structure=structure, macros=table, bindings=bindings)
+                               structure=structure, macros=table, bindings=bindings, expand_macros=expand_macros)
         if capture.structure_outcome in {"partial", "invalid"}:
             p["coverage"] = "partial"
         view_ref = f"parse:{index}"

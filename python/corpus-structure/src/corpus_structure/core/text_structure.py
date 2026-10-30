@@ -69,17 +69,19 @@ class TextCapture:
 def capture_text(text: str, *, start: int = 0, representation_id: str = "canonical",
                  structure: bool = False, opener: str | None = None,
                  closer: str | None = None, macros: Mapping[str, MacroDef] | None = None,
-                 bindings: Mapping[str, MacroBinding] | None = None) -> TextCapture:
+                 bindings: Mapping[str, MacroBinding] | None = None,
+                 expand_macros: bool = True) -> TextCapture:
     """Capture every source token; only an explicit structure demand calls pylatexenc.
 
-    ``macros=None`` leaves expansion unrequested. An explicit table requests bounded expansion
-    against named artifacts; callers archive binding artifacts with the resulting product.
+    ``macros`` supplies declared structural arguments. Unless ``expand_macros=False``, an
+    explicit table also requests bounded expansion against named artifacts; callers archive
+    binding artifacts with the resulting product. ``macros=None`` leaves expansion unrequested.
     """
     from dataclasses import replace
 
     lexical = tuple(replace(t, start=t.start + start, end=t.end + start) for t in tokens(text))
     view = parse_view(text, start=start, opener=opener, closer=closer)
-    expansion = expand(lexical, macros, source_ref=representation_id, bindings=bindings) if macros is not None else None
+    expansion = expand(lexical, macros, source_ref=representation_id, bindings=bindings) if macros is not None and expand_macros else None
     nodes, outcome, issues = _structure(view, macros or {}) if structure else ((), "not_requested", ())
     return TextCapture(representation_id, start, start + len(text), lexical, view,
                        nodes, outcome, issues, expansion)

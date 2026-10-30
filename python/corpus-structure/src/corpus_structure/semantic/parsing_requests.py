@@ -11,7 +11,7 @@ from dataclasses import dataclass, replace
 from hashlib import sha256
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine, select
 
 from corpus_structure.core.evidence import MacroDef
@@ -19,10 +19,11 @@ from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.macros import MacroFragment, MacroSource, read_macros
 from corpus_structure.ingest.text_product import text_product_artifacts, text_product_payload
+from corpus_structure.methods.math.grammar import PARSE_SECONDS
 
 from .identity import canonical_bytes
 from .metadata import table
-from .operations import (OperationDescriptor, binding_of, claim_tasks, complete_unit_result,
+from .operations import (OperationConflict, OperationDescriptor, binding_of, claim_tasks, complete_unit_result,
                          create_run, create_task, end_source_run, record_method, seal_cut)
 from .parsing_products import (ParsingProductUnavailable, PreparedLayeredParsingProduct,
                               PreparedParsingProductSet, ProductReference, parsing_context_for_task,
@@ -43,6 +44,7 @@ class ParsingRequestConfig(BaseModel):
     root: dict[str, Any]
     text_product: dict[str, Any]
     demand: Demand
+    seconds: float = Field(default=PARSE_SECONDS, gt=0, allow_inf_nan=False, strict=True)
     math_index: int | None = None
     start: int | None = None
     end: int | None = None
@@ -137,12 +139,13 @@ def _products(config: ParsingRequestConfig, *, task_id: int, root: ProductRefere
             math_ranges=[(n["start_offset"], n["end_offset"], None, None) for n in views if n["end_offset"] > n["start_offset"]],
             macro_sources=pages, fallback_macros=fallback,
             fallback_source_ref=f"run:{source_run_id}:dependencies:{source_dependency_digest}:math",
-            structure=config.demand == "structure")
+            structure=config.demand == "structure", expand_macros=config.demand != "lexical",
+            product_key="text:" + config.demand)
         artifacts = text_product_artifacts(text)
         text["dependencies"].append(dict(name="input-text", kind="product", target_task_id=text_reference.task_id,
                                          target_product_key=text_reference.product_key, target_content_digest=text_reference.content_digest))
         prepared_text = prepare_layered_product(text, context=context)
-        return PreparedParsingProductSet((prepared_text,), required=("text",), artifacts=artifacts)
+        return PreparedParsingProductSet((prepared_text,), required=("text:" + config.demand,), artifacts=artifacts)
     products = []
     artifacts = ()
     from corpus_structure.methods.math.prepared import PreparedMathInput
@@ -155,7 +158,7 @@ def _products(config: ParsingRequestConfig, *, task_id: int, root: ProductRefere
         macros=effective_macros(page_table, fallback), constants=section.get("constants", ()),
         source_id=f"source:{root.task_id}:{root.content_digest}", scope=dict(root=root.values(), node=view["node_id"]),
         demand="scientific" if config.demand == "assessment" else config.demand)
-    operand = PreparedMathInput(mathematical_context, canonical[a:b], source_text=canonical[a:b],
+    operand = PreparedMathInput(mathematical_context, canonical[a:b], seconds=config.seconds, source_text=canonical[a:b],
                                 source_start=a, parse_start=a)
     selected_text = text_reference
     stage = "symbolic" if config.demand == "assessment" else config.demand
@@ -163,6 +166,8 @@ def _products(config: ParsingRequestConfig, *, task_id: int, root: ProductRefere
         source_node_id=view["node_id"], product_key="math", stage=stage)
     prepared_math = prepare_layered_product(math_payload, context=context)
     products.append(prepared_math)
+    if math_payload["lifecycle"] != "available":
+        return PreparedParsingProductSet(tuple(products), artifacts=artifacts)
     if config.demand == "assessment":
         assert config.question is not None
         assessment = operand.assess(config.question, predicate=config.predicate)
@@ -174,7 +179,7 @@ def _products(config: ParsingRequestConfig, *, task_id: int, root: ProductRefere
 
 
 def request_parsing(engine: Engine, *, root: ProductReference, text_product: ProductReference,
-                    demand: Demand, code_commit: str, math_index: int | None = None,
+                    demand: Demand, code_commit: str, seconds: float = PARSE_SECONDS, math_index: int | None = None,
                     start: int | None = None, end: int | None = None,
                     question: str | None = None, predicate: str | None = None,
                     holder: str = "parsing-request") -> ParsingRequestResult:
@@ -182,7 +187,7 @@ def request_parsing(engine: Engine, *, root: ProductReference, text_product: Pro
     if root.product_key != "source":
         raise ParsingRequestUnavailable("wrong_product", "root must identify the pinned original source product")
     config = ParsingRequestConfig(root=root.values(), text_product=text_product.values(), demand=demand,
-        math_index=math_index, start=start, end=end, question=question, predicate=predicate)
+        math_index=math_index, start=start, end=end, question=question, predicate=predicate, seconds=seconds)
     if (start is None) != (end is None) or (math_index is not None and start is not None):
         raise ValueError("choose a math index or one paired range")
     if (demand == "assessment") != (question is not None) or (predicate is not None and demand != "assessment"):
@@ -219,14 +224,28 @@ def request_parsing(engine: Engine, *, root: ProductReference, text_product: Pro
         section = _math_section(source_binding.dependencies)
         params = config.model_dump(mode="json")
         digest = sha256(canonical_bytes(params)).hexdigest()
-        method = OperationDescriptor("parsing.request", "1", MethodFamily.NORMALIZE, MethodTier.DETERMINISTIC,
+        method = OperationDescriptor("parsing.request", "2", MethodFamily.NORMALIZE, MethodTier.DETERMINISTIC,
                                      TaskUnitType.RENDITION, ParsingRequestConfig)
         run_id = create_run(conn, project_id=origin["project_id"], binding=source_binding, kind="slice",
                             options={"parsing_request": params}, code_commit=code_commit)
         rendition_id = select_parsing_request_source(conn, run_id=run_id, root=root)
         config_id = record_method(conn, method, "request", params, digest, prepared=prepared)
         task_id = create_task(conn, run_id=run_id, config_id=config_id, stage="parsing", unit_type="rendition",
-                              unit_id=rendition_id, unit_key="parsing:" + digest, input_hash=digest, fresh=True)
+                              unit_id=rendition_id, unit_key="parsing:" + digest, input_hash=digest, fresh=False)
+        reused = conn.scalar(select(task.c.reused_task_id).where(task.c.id == task_id))
+        if reused is not None:
+            from .parsing_products import select_layered_products
+
+            selected = select_layered_products(conn, run_id=run_id, rendition_id=rendition_id,
+                                               producing_task_id=reused, root_task_id=root.task_id)
+            expected = ("text:" + demand,) if demand in {"lexical", "structure"} else (
+                ("math", "assessment") if demand == "assessment" else ("math",))
+            if {p.reference.product_key for p in selected} != set(expected) or any(p.lifecycle != "available" for p in selected):
+                raise ParsingRequestUnavailable("reused_result_unavailable", "completed request does not retain its required available products")
+            cut = seal_cut(conn, run_id, "parsing-request-source", final=True)
+            references = {p.reference.product_key: p.reference for p in selected}
+            return ParsingRequestResult(run_id, task_id, cut, "source_ready",
+                                        tuple(references[key] for key in expected), inputs=(root, text_product))
         claim = claim_tasks(conn, run_id=run_id, config_id=config_id, holder=holder)[0]
     try:
         products = _products(config, task_id=task_id, root=root, text_reference=text_product,
@@ -253,8 +272,14 @@ def request_parsing(engine: Engine, *, root: ProductReference, text_product: Pro
             if current == "running":
                 failure = UnitResult(ref=UnitRef(TaskUnitType.RENDITION, rendition_id, "parsing:" + digest),
                                      outcome=ObservationOutcome.FAILED, error=diagnostic)
-                complete_unit_result(conn, task_id=task_id, attempt=claim.attempt, holder=holder,
-                    prepared=prepared, result=failure, method=method, configuration_hash=digest, source="parsing-request")
+                try:
+                    with conn.begin_nested():
+                        complete_unit_result(conn, task_id=task_id, attempt=claim.attempt, holder=holder,
+                            prepared=prepared, result=failure, method=method, configuration_hash=digest, source="parsing-request")
+                except OperationConflict:
+                    # An expired attempt cannot record a terminal result; draining the owned
+                    # run below still prevents a stale worker from publishing afterwards.
+                    pass
             end_source_run(conn, run_id, failure={"message": diagnostic})
             status = conn.execute(select(run.c.status).where(run.c.id == run_id)).scalar_one()
         return ParsingRequestResult(run_id, task_id, None, "cancelled" if status == "cancelled" else "failed", (), diagnostic, (root, text_product))

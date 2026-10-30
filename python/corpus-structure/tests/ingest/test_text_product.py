@@ -52,3 +52,15 @@ def test_structured_fallback_does_not_reparse_or_repair_its_body() -> None:
     assert reps["expanded:0"]["text_content"] == "{"
     event = next(n for n in result["nodes"] if n["kind"] == "macro_definition")
     assert json.loads(event["value"])["body"] == "{"
+
+
+def test_expansion_demand_can_be_disabled_without_losing_declared_structure(monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("structure-only adapter expanded a macro")
+    monkeypatch.setattr("corpus_structure.core.text_structure.expand", forbidden)
+    result = text_product_payload(r"\f{x}", root=ROOT, math_ranges=[(0, 5, None, None)],
+        fallback_macros={r"\f": MacroDef(nargs=1, body="#1+#1")},
+        fallback_source_ref="release:math.macros", structure=True, expand_macros=False)
+    assert not any(r["kind"] == "expanded" for r in result["representations"])
+    macro = next(n for n in result["nodes"] if n["kind"] == "macro" and n["name"] == "f")
+    assert (macro["start_offset"], macro["end_offset"]) == (0, 5)
