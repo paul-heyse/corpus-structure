@@ -42,11 +42,20 @@ class ValueDecision:
 
 
 def _prefix(decision: ValueDecision, reference: list[str], prediction: list[str] | None = None):
-    return replace(decision, comparisons=tuple(
-        {**trace, "reference_path": [*reference, *trace["reference_path"]],
-         "prediction_path": [*(prediction if prediction is not None else reference), *trace["prediction_path"]]}
-        for trace in decision.comparisons
-    ))
+    return replace(
+        decision,
+        comparisons=tuple(
+            {
+                **trace,
+                "reference_path": [*reference, *trace["reference_path"]],
+                "prediction_path": [
+                    *(prediction if prediction is not None else reference),
+                    *trace["prediction_path"],
+                ],
+            }
+            for trace in decision.comparisons
+        ),
+    )
 
 
 @dataclass(frozen=True)
@@ -202,54 +211,85 @@ def equivalent(
                     result.append(item)
                 return sorted(result, key=canonical_bytes)
 
+            binding_comparisons: list[dict[str, Any]] = []
             if model:
-                left_bindings = a.get("bindings", ())
-                right_bindings = b.get("bindings", ())
-                if isinstance(left_bindings, dict):
-                    left_bindings = left_bindings.values()
-                if isinstance(right_bindings, dict):
-                    right_bindings = right_bindings.values()
-                left_bindings = sorted(left_bindings, key=lambda item: item["symbol"])
-                right_bindings = sorted(right_bindings, key=lambda item: item["symbol"])
-                if len(left_bindings) != len(right_bindings) or any(
-                    not equivalent(
-                        x, y, entity_map, claim_map, model=model, range_name="ExpressionBinding"
-                    ).equal
-                    for x, y in zip(left_bindings, right_bindings, strict=True)
-                ):
+
+                def positioned_bindings(value):
+                    positions = value.items() if isinstance(value, dict) else enumerate(value)
+                    return sorted(positions, key=lambda entry: entry[1]["symbol"])
+
+                left_bindings = positioned_bindings(a.get("bindings", ()))
+                right_bindings = positioned_bindings(b.get("bindings", ()))
+                if len(left_bindings) != len(right_bindings):
                     return ValueDecision(
                         False, "undecided", "expression bindings differ or remain unresolved"
                     )
+                for (left_pos, x), (right_pos, y) in zip(
+                    left_bindings, right_bindings, strict=True
+                ):
+                    child = _prefix(
+                        equivalent(
+                            x, y, entity_map, claim_map, model=model, range_name="ExpressionBinding"
+                        ),
+                        ["bindings", str(left_pos)],
+                        ["bindings", str(right_pos)],
+                    )
+                    binding_comparisons.extend(child.comparisons)
+                    if not child.equal:
+                        return ValueDecision(
+                            False,
+                            "undecided",
+                            "expression bindings differ or remain unresolved",
+                            tuple(binding_comparisons),
+                        )
             if binding_meaning(a, True) != binding_meaning(b, False):
                 return ValueDecision(
-                    False, "undecided", "expression bindings differ or remain unresolved"
+                    False,
+                    "undecided",
+                    "expression bindings differ or remain unresolved",
+                    tuple(binding_comparisons),
                 )
             if canonical_bytes(a) == canonical_bytes(b):
                 from corpus_structure.semantic.scientific_evidence import (
-                    ScientificEvidence, EvidenceTier, comparison_assessment, decide_reference,
+                    EvidenceTier,
+                    ScientificEvidence,
+                    comparison_assessment,
+                    decide_reference,
                 )
 
-                decision = decide_reference(ScientificEvidence(
-                    True, EvidenceTier.CANONICAL, str(ka),
-                    canonical_bytes(a).decode(), canonical_bytes(b).decode(),
-                    profile=REFERENCE_PROFILE,
-                ))
+                decision = decide_reference(
+                    ScientificEvidence(
+                        True,
+                        EvidenceTier.CANONICAL,
+                        str(ka),
+                        canonical_bytes(a).decode(),
+                        canonical_bytes(b).decode(),
+                        profile=REFERENCE_PROFILE,
+                    )
+                )
                 return ValueDecision(
-                    True, "canonical", comparisons=(comparison_assessment(decision, context=conditions),)
+                    True,
+                    "canonical",
+                    comparisons=(
+                        *binding_comparisons,
+                        comparison_assessment(decision, context=conditions),
+                    ),
                 )
 
             from corpus_structure.semantic.scientific_evidence import (
+                comparison_assessment,
                 decide_reference,
                 reference_evidence,
-                comparison_assessment,
             )
 
             decision = decide_reference(
                 reference_evidence(a, b, conditions=conditions, prepared=model)
             )
             return ValueDecision(
-                decision.equal, decision.tier.value, decision.detail,
-                (comparison_assessment(decision, context=conditions),),
+                decision.equal,
+                decision.tier.value,
+                decision.detail,
+                (*binding_comparisons, comparison_assessment(decision, context=conditions)),
             )
         if ka in {"all", "any"}:
             aa, bb = a.get("terms", ()), b.get("terms", ())
@@ -272,10 +312,15 @@ def equivalent(
             matched = _assignment(np.array([[float(v.equal) for v in row] for row in decisions]))
             if len(matched) == len(aa):
                 return ValueDecision(
-                    True, "condition", comparisons=tuple(
-                        trace for i, j in matched
-                        for trace in _prefix(decisions[i][j], ["terms", str(i)], ["terms", str(j)]).comparisons
-                    )
+                    True,
+                    "condition",
+                    comparisons=tuple(
+                        trace
+                        for i, j in matched
+                        for trace in _prefix(
+                            decisions[i][j], ["terms", str(i)], ["terms", str(j)]
+                        ).comparisons
+                    ),
                 )
             return ValueDecision(
                 False,
@@ -283,7 +328,9 @@ def equivalent(
                 if any(v.outcome == "undecided" for row in decisions for v in row)
                 else "condition",
                 comparisons=tuple(
-                    trace for i, row in enumerate(decisions) for j, d in enumerate(row)
+                    trace
+                    for i, row in enumerate(decisions)
+                    for j, d in enumerate(row)
                     for trace in _prefix(d, ["terms", str(i)], ["terms", str(j)]).comparisons
                 ),
             )
@@ -293,7 +340,7 @@ def equivalent(
         for key in a:
             prop = props.get(key)
 
-            def compare_member(left, right, position=None, prop=prop):
+            def compare_member(left, right, position=None, prop=prop, key=key):
                 if prop and prop.reference_role == "fact":
                     return ValueDecision(
                         left in claim_map and claim_map[left] == right, "reference"
@@ -309,10 +356,17 @@ def equivalent(
                     and isinstance(right, str)
                 ):
                     return ValueDecision(left.casefold() == right.casefold(), "canonical")
-                return _prefix(equivalent(
-                    left, right, entity_map, claim_map, model=model,
-                    range_name=prop.range if prop and prop.inlined else None,
-                ), [key, *([] if position is None else [str(position)])])
+                return _prefix(
+                    equivalent(
+                        left,
+                        right,
+                        entity_map,
+                        claim_map,
+                        model=model,
+                        range_name=prop.range if prop and prop.inlined else None,
+                    ),
+                    [key, *([] if position is None else [str(position)])],
+                )
 
             if prop and prop.collection_key:
                 if set(a[key]) != set(b[key]):
@@ -324,7 +378,8 @@ def equivalent(
                     decisions.append(ValueDecision(False, "canonical"))
                 else:
                     decisions.extend(
-                        compare_member(x, y, i) for i, (x, y) in enumerate(zip(a[key], b[key], strict=True))
+                        compare_member(x, y, i)
+                        for i, (x, y) in enumerate(zip(a[key], b[key], strict=True))
                     )
             else:
                 decisions.append(compare_member(a[key], b[key]))
@@ -337,7 +392,10 @@ def equivalent(
         if len(a) != len(b):
             return ValueDecision(False, "canonical")
         ds = [
-            _prefix(equivalent(x, y, entity_map, claim_map, model=model, range_name=range_name), [str(i)])
+            _prefix(
+                equivalent(x, y, entity_map, claim_map, model=model, range_name=range_name),
+                [str(i)],
+            )
             for i, (x, y) in enumerate(zip(a, b, strict=True))
         ]
         return ValueDecision(
@@ -394,6 +452,28 @@ def _entity_pairs(ref, pred, prepared, out):
 
     def attributes(entity):
         return {x["predicate"]: x["value"] for x in entity.get("attributes", ())}
+
+    attribute_comparisons: dict[tuple[str, str], list[dict[str, Any]]] = {}
+
+    def compare_attribute(a, b, property_iri, left, right, entity_map, *, use, **kwargs):
+        decision = equivalent(left, right, entity_map, **kwargs)
+        if decision.comparisons:
+
+            def path(entity):
+                # attributes() uses the last occurrence of a repeated predicate as well.
+                index = max(
+                    i
+                    for i, item in enumerate(entity.get("attributes", ()))
+                    if item["predicate"] == property_iri
+                )
+                return ["attributes", str(index), "value"]
+
+            traces = attribute_comparisons.setdefault((a["id"], b["id"]), [])
+            for trace in _prefix(decision, path(a), path(b)).comparisons:
+                record = {"field": "entity_identity", "use": use, **trace}
+                if record not in traces:
+                    traces.append(record)
+        return decision.equal
 
     def names(entity):
         values = [entity.get("label"), *entity.get("aliases", ())]
@@ -456,13 +536,17 @@ def _entity_pairs(ref, pred, prepared, out):
                     if all(
                         not entity_reference(prepared.definitions, props_by_name[n]) for n in group
                     ) and not all(
-                        equivalent(
+                        compare_attribute(
+                            a,
+                            b,
+                            props_by_name[n].iri,
                             aa[props_by_name[n].iri],
                             bb[props_by_name[n].iri],
                             {},
+                            use="identity_constraint",
                             model=prepared,
                             range_name="Value",
-                        ).equal
+                        )
                         for n in group
                     ):
                         incompatible = True
@@ -502,7 +586,15 @@ def _entity_pairs(ref, pred, prepared, out):
                 and symbol_iri
                 and symbol_iri in attributes(a)
                 and symbol_iri in attributes(b)
-                and equivalent(attributes(a)[symbol_iri], attributes(b)[symbol_iri], {}).equal
+                and compare_attribute(
+                    a,
+                    b,
+                    symbol_iri,
+                    attributes(a)[symbol_iri],
+                    attributes(b)[symbol_iri],
+                    {},
+                    use="local_symbol",
+                )
             ):
                 weights[i, j] = 0.9
                 bases[i, j] = "local_symbol"
@@ -589,11 +681,15 @@ def _entity_pairs(ref, pred, prepared, out):
                     all(
                         props[n].iri in aa
                         and props[n].iri in bb
-                        and equivalent(
+                        and compare_attribute(
+                            a,
+                            b,
+                            props[n].iri,
                             key_value(aa[props[n].iri], props[n]),
                             key_value(bb[props[n].iri], props[n]),
                             mapping,
-                        ).equal
+                            use="identity_key",
+                        )
                         for n in group
                     )
                     for group in groups
@@ -613,6 +709,11 @@ def _entity_pairs(ref, pred, prepared, out):
         for a, b in unique:
             mapping[a] = b
             out.entity_pairs.append((a, b, "declared_identity_keys"))
+    for a, b, basis in out.entity_pairs:
+        out.comparisons.extend(
+            {"reference": a, "prediction": b, "alignment_basis": basis, **trace}
+            for trace in attribute_comparisons.get((a, b), ())
+        )
     return mapping
 
 
@@ -623,6 +724,7 @@ def align_semantic(
         raise ValueError("alignment sides refer to different source units")
     out = SemanticAlignment(ref.unit)
     emap = _entity_pairs(ref, pred, prepared, out)
+    entity_comparisons = tuple(out.comparisons)
     qualification_name = next(
         (
             p.range
@@ -770,7 +872,12 @@ def align_semantic(
                 weights[i, j] = size**3 + size**2 * full + size * evidence + overlap
                 tiers[i, j] = (full, evidence)
                 comparison_details[i, j] = [
-                    {"field": field, **trace, "reference_path": [field, *trace["reference_path"]], "prediction_path": [field, *trace["prediction_path"]]}
+                    {
+                        "field": field,
+                        **trace,
+                        "reference_path": [field, *trace["reference_path"]],
+                        "prediction_path": [field, *trace["prediction_path"]],
+                    }
                     for field, decision in (("object", value), ("qualification", qual))
                     for trace in decision.comparisons
                 ]
@@ -805,7 +912,7 @@ def align_semantic(
         pairs = [chosen[i, j] for i, j in _assignment(group_weights)]
         new = {(rr[i]["id"], pp[j]["id"]) for i, j in pairs}
         out.matches = {k: [] for k in ("core", "full", "evidence")}
-        out.comparisons = []
+        out.comparisons = list(entity_comparisons)
         for i, j in pairs:
             pair = (rr[i]["id"], pp[j]["id"])
             out.matches["core"].append(pair)

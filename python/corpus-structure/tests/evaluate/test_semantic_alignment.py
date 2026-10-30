@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
+import pytest
+
 from corpus_structure.evaluate.semantic_alignment import SemanticSide, align_semantic, equivalent
 from corpus_structure.semantic.types import (
     ClassDefinition,
@@ -418,8 +420,12 @@ def test_schema_declared_nary_entity_roles_follow_alignment_without_rewriting_pl
 
 
 def test_successful_scientific_comparison_retains_modelled_explanation():
-    left = {"kind": "expression", "language": "latex", "expression": "x+x",
-            "bindings": [{"kind": "free", "symbol": "x"}]}
+    left = {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "x+x",
+        "bindings": [{"kind": "free", "symbol": "x"}],
+    }
     decision = equivalent(left, {**left, "expression": "2 x"}, {})
     assert decision.equal
     assert len(decision.comparisons) == 1
@@ -432,14 +438,22 @@ def test_successful_scientific_comparison_retains_modelled_explanation():
 
 def test_alignment_report_retains_numeric_evidence_in_undecided_condition():
     from dataclasses import replace
+
     from corpus_structure.semantic.determinants import SCIENTIFIC_LIBRARIES, determinant_version
     from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.scientific_evidence import SCIENTIFIC_POLICY_INPUT, scientific_policy_recipe
+    from corpus_structure.semantic.scientific_evidence import (
+        SCIENTIFIC_POLICY_INPUT,
+        scientific_policy_recipe,
+    )
 
     model = replace(
         prepared().bound(),
-        manifest=canonical_bytes({"libraries": {name: determinant_version(name) for name in SCIENTIFIC_LIBRARIES}}),
-        artifacts=(PreparedArtifact(SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe())),),
+        manifest=canonical_bytes(
+            {"libraries": {name: determinant_version(name) for name in SCIENTIFIC_LIBRARIES}}
+        ),
+        artifacts=(
+            PreparedArtifact(SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe())),
+        ),
     )
     left, right = batch(), batch()
     a = {"kind": "expression", "language": "latex", "expression": "1"}
@@ -455,3 +469,167 @@ def test_alignment_report_retains_numeric_evidence_in_undecided_condition():
     assert trace["numeric"] == "agreement" and trace["valid_points"] == 12
     assert trace["outcome"] == "undecided" and trace["decision_tier"] == "undecided"
     assert report["undecided"][0]["comparisons"][0]["numeric"] == "agreement"
+
+
+def admitted_scientific_model():
+    """Prepare real inherited boundaries for scientific keys and binding extensions."""
+    import json
+    from dataclasses import replace
+    from pathlib import Path
+
+    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.determinants import SCIENTIFIC_LIBRARIES, determinant_version
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.scientific_evidence import (
+        SCIENTIFIC_POLICY_INPUT,
+        scientific_policy_recipe,
+    )
+
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    source = b"""
+id: https://example.org/scientific-alignment
+name: scientific_alignment
+imports: [semantic_core]
+prefixes: {ex: 'https://example.org/'}
+default_prefix: ex
+default_range: string
+classes:
+  ScientificIdentity:
+    is_a: Entity
+    attributes:
+      signature: {range: ExpressionValue, inlined: true, required: true}
+    unique_keys:
+      semantic_key: {unique_key_slots: [signature]}
+  ScientificSymbol:
+    is_a: Entity
+    attributes:
+      symbol: {range: ExpressionValue, inlined: true, required: true}
+  MeasuredBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind: {equals_string: measured}
+      measure: {range: ExpressionValue, inlined: true, required: true}
+"""
+    model = prepare_release(
+        SourceBundle(
+            "alignment",
+            (
+                SourceArtifact("alignment", source),
+                SourceArtifact("semantic_core", core.read_bytes()),
+            ),
+        )
+    )
+    manifest = json.loads(model.manifest)
+    manifest["libraries"].update({name: determinant_version(name) for name in SCIENTIFIC_LIBRARIES})
+    return replace(
+        model,
+        manifest=canonical_bytes(manifest),
+        artifacts=(
+            *model.artifacts,
+            PreparedArtifact(
+                SCIENTIFIC_POLICY_INPUT,
+                canonical_bytes(scientific_policy_recipe()),
+            ),
+        ),
+    )
+
+
+def expression(text):
+    return {"kind": "expression", "language": "latex", "expression": text}
+
+
+@pytest.mark.parametrize("basis", ["label", "declared_identity_keys", "local_symbol"])
+def test_whole_alignment_retains_scientific_entity_comparisons_without_claims(basis):
+    model = admitted_scientific_model()
+    local = basis == "local_symbol"
+    cls, prop = ("ScientificSymbol", "symbol") if local else ("ScientificIdentity", "signature")
+    left_value, right_value = expression("1+1"), expression("2")
+    # Establish that the actual declared class/property boundaries admit the scientific values.
+    model.validate_python(cls, {"id": "r", prop: left_value})
+    model.validate_python(cls, {"id": "p", prop: right_value})
+    definition = next(d for d in model.definitions if d.name == cls)
+    property_iri = next(p.iri for p in definition.properties if p.name == prop)
+    left_entity: dict[str, Any] = {
+        "id": "r",
+        "class_iri": definition.iri,
+        "attributes": [
+            {"predicate": property_iri, "value": left_value},
+        ],
+    }
+    right_entity: dict[str, Any] = {
+        "id": "p",
+        "class_iri": definition.iri,
+        "attributes": [
+            {"predicate": property_iri, "value": right_value},
+        ],
+    }
+    if basis == "label":
+        left_entity["label"] = right_entity["label"] = "same label"
+    elif local:
+        left_entity["scope"] = right_entity["scope"] = {"extent": "statement", "locator": "s"}
+    report = align_semantic(
+        side({"entities": [left_entity], "claims": []}),
+        side({"entities": [right_entity], "claims": []}),
+        model,
+    ).as_dict()
+    assert report["entity_pairs"] == [("r", "p", basis)]
+    assert report["tiers"]["core"]["matched"] == 0
+    expected_use = {
+        "label": "identity_constraint",
+        "declared_identity_keys": "identity_key",
+        "local_symbol": "local_symbol",
+    }[basis]
+    traces = [trace for trace in report["comparisons"] if trace["use"] == expected_use]
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace["reference"] == "r" and trace["prediction"] == "p"
+    assert trace["alignment_basis"] == basis and trace["field"] == "entity_identity"
+    assert trace["reference_path"] == trace["prediction_path"] == ["attributes", "0", "value"]
+    assert trace["evidence_tier"] == trace["decision_tier"] == "symbolic"
+    assert trace["outcome"] == "equivalent" and trace["policy_id"] == "reference-evidence-1"
+
+
+@pytest.mark.parametrize("difference", [None, "numeric", "symbolic"])
+def test_whole_alignment_retains_admitted_binding_children_and_original_positions(difference):
+    import json
+
+    model = admitted_scientific_model()
+    z = {"kind": "measured", "symbol": "z", "measure": expression("1")}
+    a = {"kind": "measured", "symbol": "a", "measure": expression("2")}
+    left_object = {**expression("1"), "bindings": [z, a]}
+    right_object = {**expression("1"), "bindings": [copy.deepcopy(a), copy.deepcopy(z)]}
+    if difference == "numeric":
+        right_object["bindings"][0]["measure"] = expression("2.000000000001")
+    elif difference == "symbolic":
+        right_object["bindings"][0]["measure"] = expression("1+1")
+    model.validate_json("ExpressionValue", json.dumps(left_object))
+    model.validate_json("ExpressionValue", json.dumps(right_object))
+    left, right = batch(), batch()
+    left["claims"][0]["object"], right["claims"][0]["object"] = left_object, right_object
+    # Use actual admitted Entity definitions while retaining the test's ordinary name claim.
+    entity = next(d for d in model.definitions if d.name == "Entity")
+    left["entities"][0]["class_iri"] = right["entities"][0]["class_iri"] = entity.iri
+    report = align_semantic(side(left), side(right), model).as_dict()
+    if difference is not None:
+        assert report["tiers"]["core"]["matched"] == 0
+        traces = report["undecided"][0]["comparisons"]
+        if difference == "numeric":
+            assert len(traces) == 1
+            assert traces[0]["numeric"] == "agreement" and traces[0]["outcome"] == "undecided"
+        else:
+            # Child symbolic equivalence does not change the existing exact binding guard.
+            assert len(traces) == 2
+            assert traces[0]["evidence_tier"] == "symbolic"
+            assert all(trace["outcome"] == "equivalent" for trace in traces)
+        assert traces[0]["reference_path"] == ["bindings", "1", "measure"]
+        assert traces[0]["prediction_path"] == ["bindings", "0", "measure"]
+    else:
+        assert report["tiers"]["full"]["matched"] == 1
+        traces = report["comparisons"]
+        assert len(traces) == 3
+        assert traces[0]["reference_path"] == ["object", "bindings", "1", "measure"]
+        assert traces[0]["prediction_path"] == ["object", "bindings", "0", "measure"]
+        assert traces[1]["reference_path"] == ["object", "bindings", "0", "measure"]
+        assert traces[1]["prediction_path"] == ["object", "bindings", "1", "measure"]
+        assert traces[2]["reference_path"] == traces[2]["prediction_path"] == ["object"]
+        assert all(trace["outcome"] == "equivalent" for trace in traces)
