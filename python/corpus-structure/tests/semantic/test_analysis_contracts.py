@@ -163,7 +163,7 @@ def test_owned_input_enforces_exact_release_and_dependencies():
 
 def test_explicit_live_base_and_archived_composed_refusal():
     base = prepare_release(trusted_execution_inputs().schema)
-    assert prepare_interpretation_context(base, macros={}).profile.version == "4"
+    assert prepare_interpretation_context(base, macros={}).profile.version == "5"
     import json
 
     from corpus_structure.semantic.identity import canonical_bytes
@@ -254,7 +254,7 @@ def test_historical_abi_cannot_self_attest_analysis_capabilities():
             RegistryRow("execution_model", model.model_id, canonical_bytes(changed)),
         ),
     )
-    with pytest.raises(PreparationError, match="requires execution compiler 8"):
+    with pytest.raises(PreparationError, match="requires execution compiler 9"):
         prepare_interpretation_context(archived, macros={})
 
 
@@ -371,3 +371,22 @@ def test_current_compilation_and_preparation_refuse_retained_analysis_profile():
     )
     with pytest.raises(PreparationError, match="historical archives are read-only"):
         prepare_interpretation_context(altered, macros={})
+
+
+def test_invocation_identity_is_disjoint_and_binds_complete_decisions():
+    from corpus_structure.semantic.analysis_contracts import invocation_identity
+
+    dependencies = dict(source={"revision": 1},
+        configuration={"method": "agent.opus", "model": "declared"},
+        policy={"classification": "unknown", "limit": 1}, unit={"id": 3})
+    skipped = invocation_identity(None, release="release:one", **dependencies, skip_reason="limit", packet_hash=None)
+    executable = invocation_identity(None, release="release:one", **dependencies, skip_reason=None, packet_hash="packet:one")
+    assert skipped != executable
+    for key, replacement in (("source", {"revision": 2}), ("configuration", {"model": "other"}),
+                             ("policy", {"classification": "known", "limit": 1}), ("unit", {"id": 4})):
+        assert invocation_identity(None, release="release:one", **{**dependencies, key: replacement},
+                                   skip_reason="limit", packet_hash=None) != skipped
+    with pytest.raises(ValueError, match="packet presence"):
+        invocation_identity(None, release="release:one", **dependencies, skip_reason="limit", packet_hash="forged")
+    with pytest.raises(ValueError, match="packet presence"):
+        invocation_identity(None, release="release:one", **dependencies, skip_reason=None, packet_hash=None)

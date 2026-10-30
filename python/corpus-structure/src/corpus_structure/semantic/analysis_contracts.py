@@ -116,7 +116,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
         if (
             profile.id in ids
             or profile.id != "mathematical-interpretation"
-            or profile.version not in {"1", "2", "3", "4"}
+            or profile.version not in {"1", "2", "3", "4", "5"}
         ):
             _fail(
                 "unsupported_analysis_profile",
@@ -124,7 +124,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 "supported profiles are mathematical-interpretation/1 and /2",
             )
         ids.add(profile.id)
-        if profile.version in {"2", "3", "4"}:
+        if profile.version in {"2", "3", "4", "5"}:
             if (profile.grammar_recipe, profile.transformer_recipe, profile.shared_consumers) != (
                 "extended-lark-2",
                 "sympy-transform-2",
@@ -192,7 +192,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                         "implement the method and supply valid precision/sampling parameters "
                         "before admission",
                     )
-        if profile.version in {"3", "4"}:
+        if profile.version in {"3", "4", "5"}:
             from .contracts import AlignmentPolicyDefinition, TextPreparationPolicy
 
             if profile.text_policy != TextPreparationPolicy(
@@ -235,17 +235,8 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 or values[3] <= 0
             ):
                 _fail("unsupported_placement_policy", location, "invalid cutoff/window/timeout")
-        if profile.version == "4":
-            from .contracts import CapturePolicyDefinition
-
-            if profile.capture_policy != CapturePolicyDefinition(
-                ("resident", "spooled"),
-                "semantic-capture-1",
-                "canonical-rows-1",
-                "primary-key-c",
-                "full-spine",
-                "parquet",
-            ):
+        if profile.version in {"4", "5"}:
+            if profile.capture_policy != _supported_capture_policy():
                 _fail(
                     "unsupported_capture_policy",
                     location,
@@ -284,6 +275,14 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                     location + "/" + demand.id,
                     "unknown or reflexive prerequisite",
                 )
+
+        if profile.version == "5":
+            from .contracts import InvocationPolicyDefinition
+            if profile.invocation_policy != InvocationPolicyDefinition(
+                "invocation-logical-1", "invocation-packet-1",
+                ("release", "source", "configuration", "policy", "unit"), "absent", "required"
+            ):
+                _fail("unsupported_invocation_policy", location, "implement the declared invocation policy before admission")
 
         def visit(name: str, path: frozenset[str], declared: dict, at: str) -> None:
             if name in path:
@@ -384,14 +383,14 @@ def _profile(prepared: PreparedRelease | None):
     else:
         model = bound_execution_model(prepared)
         payload = execution_payload(prepared)
-        if payload is None or json.loads(payload).get("inputs", {}).get("compiler_version") != "8":
+        if payload is None or json.loads(payload).get("inputs", {}).get("compiler_version") != "9":
             _fail(
                 "unsupported_analysis_abi",
                 model.model_id,
-                "analysis preparation requires execution compiler 8; "
+                "analysis preparation requires execution compiler 9; "
                 "historical archives are read-only",
             )
-    if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "4":
+    if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "5":
         _fail(
             "missing_analysis_profile",
             model.model_id,
@@ -853,6 +852,14 @@ def prepare_placement_policy(prepared: PreparedRelease | None = None):
     )
 
 
+def _supported_capture_policy():
+    """Finite reader support is independent of current release compilation/admission."""
+    from .contracts import CapturePolicyDefinition
+
+    return CapturePolicyDefinition(("resident", "spooled"), "semantic-capture-1", "canonical-rows-1",
+                                   "primary-key-c", "full-spine", "parquet")
+
+
 def prepare_capture_policy(prepared: PreparedRelease | None = None):
     _, profile = _profile(prepared)
     assert profile.capture_policy is not None
@@ -861,7 +868,7 @@ def prepare_capture_policy(prepared: PreparedRelease | None = None):
 
 def validate_capture_manifest(manifest):
     """Use the trusted LinkML boundary; physical completeness is checked by its owner."""
-    policy = prepare_capture_policy()
+    policy = _supported_capture_policy()
     normalized = (
         _boundary()
         .validate_json("CaptureManifest", canonical_bytes(dict(manifest)))
@@ -874,3 +881,27 @@ def validate_capture_manifest(manifest):
     ):
         raise ValueError("unsupported or incomplete captured manifest")
     return normalized
+
+
+def invocation_identity(prepared: PreparedRelease | None, *, release: str, source: Any,
+                        configuration: Any, policy: Any, unit: Any,
+                        skip_reason: str | None, packet_hash: str | None) -> str:
+    """One admitted policy governs disjoint logical skips and executable packet identity."""
+    _, profile = _profile(prepared)
+    if prepared is not None and release != prepared.release_id:
+        raise ValueError("invocation belongs to another release")
+    recipe = profile.invocation_policy
+    assert recipe is not None
+    if (skip_reason is None) != (packet_hash is not None):
+        raise ValueError("invocation packet presence differs from its disposition")
+    def digest(value):
+        return sha256(canonical_bytes(value)).hexdigest()
+    decision = {
+        "recipe": recipe.logical_recipe if skip_reason is not None else recipe.executable_recipe,
+        "release": release, "source": digest(source), "configuration": digest(configuration),
+        "policy": digest(policy), "unit": digest(unit), "disposition": skip_reason or "execute",
+    }
+    if packet_hash is not None:
+        decision["packet"] = packet_hash
+    normalized = _boundary().validate_json("InvocationDecision", canonical_bytes(decision))
+    return digest(normalized.model_dump(mode="json", exclude_none=True))

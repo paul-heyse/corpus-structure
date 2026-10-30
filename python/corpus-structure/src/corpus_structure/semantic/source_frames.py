@@ -103,37 +103,42 @@ def capture_source_frame(conn: Connection, task_id: int, packet: ProposalPacket)
     )
 
 
-def load_source_frame(conn: Connection, task_id: int) -> ProposalFrame:
+def load_source_frames(conn: Connection, task_ids) -> dict[int, ProposalFrame]:
+    """Acquire distinct immutable origins in bounded sets, independent of observations."""
     frames, sentences, segments, renditions = map(
         table, ("ops.source_frame", "ops.source_frame_sentence", "kb.segment", "kb.rendition")
     )
-    frame = (
-        conn.execute(
-            select(frames, renditions.c.canonical_text)
-            .join(renditions, renditions.c.id == frames.c.rendition_id)
-            .where(frames.c.task_id == task_id)
-        )
-        .mappings()
-        .one_or_none()
-    )
-    if frame is None:
+    ids = sorted(set(task_ids))
+    headers = {}
+    coordinates = {}
+    for start in range(0, len(ids), 512):
+        chunk = ids[start:start + 512]
+        headers.update((row["task_id"], row) for row in conn.execute(
+            select(frames).where(frames.c.task_id.in_(chunk))
+        ).mappings())
+        for row in conn.execute(select(
+            sentences.c.task_id, sentences.c.sentence_id, sentences.c.locator,
+            segments.c.start_offset, segments.c.end_offset,
+        ).join(segments, segments.c.id == sentences.c.segment_id)
+          .where(sentences.c.task_id.in_(chunk))
+          .order_by(sentences.c.task_id, sentences.c.sentence_id)):
+            coordinates.setdefault(row.task_id, []).append(ProposalSentence(*row[1:]))
+    missing = set(ids) - headers.keys()
+    if missing:
         raise OperationConflict(
-            f"source task {task_id} lacks its immutable source frame; verify and backfill it first"
+            f"source tasks {sorted(missing)} lack their immutable source frames; verify and backfill them first"
         )
-    rows = conn.execute(
-        select(
-            sentences.c.sentence_id,
-            sentences.c.locator,
-            segments.c.start_offset,
-            segments.c.end_offset,
-        )
-        .join(segments, segments.c.id == sentences.c.segment_id)
-        .where(sentences.c.task_id == task_id)
-        .order_by(sentences.c.sentence_id)
-    ).all()
-    return ProposalFrame(
-        frame["unit_ref"], frame["canonical_text"], tuple(ProposalSentence(*row) for row in rows)
-    )
+    rendition_ids = sorted({row["rendition_id"] for row in headers.values()})
+    texts = {}
+    for start in range(0, len(rendition_ids), 512):
+        texts.update(conn.execute(select(renditions.c.id, renditions.c.canonical_text)
+          .where(renditions.c.id.in_(rendition_ids[start:start + 512]))).all())
+    return {task_id: ProposalFrame(row["unit_ref"], texts[row["rendition_id"]],
+                tuple(coordinates.get(task_id, ()))) for task_id, row in headers.items()}
+
+
+def load_source_frame(conn: Connection, task_id: int) -> ProposalFrame:
+    return load_source_frames(conn, [task_id])[task_id]
 
 
 def packet_bound_source_tasks(run_id: int, *, cut_id: int | None = None):

@@ -427,14 +427,22 @@ def unit_inputs(
     reference_run_id: int | None,
     pack_macros: Mapping[str, MacroDef],
     golden: bool = False,
+    preparation: dict | None = None,
+    coordinate_index: LocatorIndex | None = None,
 ) -> UnitInputs:
     """A unit's recorded inputs through the run's reader (module doc)."""
     from corpus_structure.core import tex
     from corpus_structure.core.vocab import ObservationKind
 
-    content = reader.content(rendition_id)
+    cache_key = (rendition_id, document_id, reference_run_id, golden)
+    if preparation is not None and cache_key in preparation:
+        content, page, index, macros, views, known = preparation[cache_key]
+        unit = (index.resolve(unit_key),)
+        context = tuple(context_from_stored(content, page, unit, views))
+        return UnitInputs(content, page, unit_key, unit, context, known, macros)
+    content = reader.content(rendition_id) if coordinate_index is None else coordinate_index.rendition
     page = parse_locator(unit_key).page
-    index = LocatorIndex(content, page)
+    index = LocatorIndex(content, page) if coordinate_index is None else coordinate_index
     unit = (index.resolve(unit_key),)
     macros = tex.effective_macros(content.macros, pack_macros)
     from corpus_structure.core.method import StableObservationReading
@@ -459,4 +467,6 @@ def unit_inputs(
             known = tuple(reference_entities(conn, reference_run_id, document_id))
     else:
         known = tuple(bootstrap_terms(content))
+    if preparation is not None:
+        preparation[cache_key] = (content, page, index, macros, views, known)
     return UnitInputs(content, page, unit_key, unit, context, known, macros)

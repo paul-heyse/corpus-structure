@@ -8671,7 +8671,7 @@ effect_definitions:
   version: "1"
   meaning: retain held diagnostics
 - id: schedule_pending_or_reused_or_skipped
-  version: "1"
+  version: "2"
   meaning: schedule pending or reused or skipped
 - id: seal_source_production
   version: "1"
@@ -8682,7 +8682,8 @@ effect_definitions:
 
 analysis_profiles:
 - id: mathematical-interpretation
-  version: '4'
+  version: '5'
+  invocation_policy: {logical_recipe: invocation-logical-1, executable_recipe: invocation-packet-1, dependencies: [release, source, configuration, policy, unit], skipped_packet: absent, executable_packet: required}
   capture_policy: {modes: [resident, spooled], manifest: semantic-capture-1, digest: canonical-rows-1, ordering: primary-key-c, completeness: full-spine, storage: parquet}
   text_policy: {recipe: canonical-token-layout-1, offsets: codepoints, atoms: math-reference, segmentation: configured-spacy}
   alignment_policy: {recipe: semantic-alignment-1, max_iterations: 8, solver: scipy-dense, topology: networkx, ambiguity: refuse-equal-best}

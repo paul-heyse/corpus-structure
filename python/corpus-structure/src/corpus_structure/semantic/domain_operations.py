@@ -638,6 +638,12 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
             raise DomainOperationRefused("consolidation requires a sealed final observation cut")
         prepared = open_release(conn, cut["release_id"])
         observations = list({row["id"]: row for row in cut_observations(conn, cut_id)}.values())
+        from .source_frames import load_source_frames, packet_bound_source_tasks
+
+        required_origins = packet_bound_source_tasks(job["id"], cut_id=cut_id).subquery()
+        source_frames = load_source_frames(conn, conn.execute(
+            select(required_origins.c.id).distinct()
+        ).scalars())
         descriptors = {}
         o, t, seg = table("kb.observation"), table("ops.task"), table("kb.segment")
         config, method = table("ops.method_config"), table("ops.method")
@@ -709,21 +715,9 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
             }
             descriptors[source["id"]] = descriptor
             report = reports_by_id[source["id"]]
-            if report["payload_definition"] == "AgentStoredBatch" and report["payload"].get(
-                "statements"
-            ):
-                from .proposals import ProposalFrame
-                from .source_frames import load_source_frame
+            if report["payload_definition"] == "AgentStoredBatch" and report["task_id"] in source_frames:
+                descriptor["frame"] = source_frames[report["task_id"]]
 
-                frame_table = table("ops.source_frame")
-                has_frame = conn.execute(
-                    select(frame_table.c.task_id).where(frame_table.c.task_id == report["task_id"])
-                ).scalar_one_or_none()
-                descriptor["frame"] = (
-                    load_source_frame(conn, report["task_id"])
-                    if has_frame is not None
-                    else ProposalFrame(report["payload"]["unit_ref"], descriptor["text"], ())
-                )
         tasks = (
             conn.execute(select(table("ops.task")).where(table("ops.task").c.run_id == job["id"]))
             .mappings()

@@ -187,3 +187,27 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
             ).where(table("kb.observation").c.task_id == task)
         ).one()
         assert after == before
+
+
+def test_bulk_frames_deduplicate_origins_and_preserve_exact_coordinates(
+    semantic_db_engine, semantic_writer_engine, tmp_path
+):
+    from sqlalchemy import event
+    from .test_agent_resubmission import source_task
+    from corpus_structure.semantic.source_frames import load_source_frames
+
+    prepared, run, task, _ = source_task(semantic_db_engine, semantic_writer_engine, tmp_path / "frame.html")
+    from corpus_structure.orchestrate.semantic import agent_packet
+    with semantic_writer_engine.begin() as conn:
+        packet = agent_packet(conn, run, task, prepared)
+        statements = []
+        def record(conn, cursor, statement, parameters, context, executemany):
+            statements.append(statement)
+        event.listen(conn, "before_cursor_execute", record)
+        try:
+            frames = load_source_frames(conn, [task] * 1025)
+        finally:
+            event.remove(conn, "before_cursor_execute", record)
+    assert list(frames) == [task]
+    assert frames[task] == packet.frame
+    assert len(statements) == 3

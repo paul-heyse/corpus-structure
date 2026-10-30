@@ -106,9 +106,27 @@ classes:
       profile_digest: {range: string, required: true}
       logical_digest: {range: string, required: true}
       relations: {range: CaptureRelationManifest, required: true, multivalued: true, minimum_cardinality: 1, inlined: true, inlined_as_list: false}
+  InvocationPolicyDefinition:
+    attributes:
+      logical_recipe: {range: string, required: true}
+      executable_recipe: {range: string, required: true}
+      dependencies: {range: string, required: true, multivalued: true}
+      skipped_packet: {range: string, required: true}
+      executable_packet: {range: string, required: true}
+  InvocationDecision:
+    attributes:
+      recipe: {range: string, required: true}
+      release: {range: string, required: true}
+      source: {range: string, required: true}
+      configuration: {range: string, required: true}
+      policy: {range: string, required: true}
+      unit: {range: string, required: true}
+      disposition: {range: string, required: true}
+      packet: {range: string}
   AnalysisProfile:
     attributes:
       capture_policy: {range: CapturePolicyDefinition, inlined: true}
+      invocation_policy: {range: InvocationPolicyDefinition, inlined: true}
       text_policy: {range: TextPreparationPolicy, inlined: true}
       alignment_policy: {range: AlignmentPolicyDefinition, inlined: true}
       placement_policy: {range: PlacementPolicyDefinition, inlined: true}

@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "8"
+EXECUTION_COMPILER_VERSION = "9"
 
 
 @lru_cache(maxsize=1)
@@ -428,6 +428,15 @@ class CapturePolicyDefinition:
 
 
 @dataclass(frozen=True)
+class InvocationPolicyDefinition:
+    logical_recipe: str
+    executable_recipe: str
+    dependencies: tuple[str, ...]
+    skipped_packet: str
+    executable_packet: str
+
+
+@dataclass(frozen=True)
 class AnalysisProfile:
     id: str
     version: str
@@ -444,6 +453,7 @@ class AnalysisProfile:
     alignment_policy: AlignmentPolicyDefinition | None = None
     placement_policy: PlacementPolicyDefinition | None = None
     capture_policy: CapturePolicyDefinition | None = None
+    invocation_policy: InvocationPolicyDefinition | None = None
 
 
 @dataclass(frozen=True)
@@ -577,7 +587,7 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
     data = json.loads(payload)
     if data.get("model_id") != model_id:
         _fail("execution_binding", name, "execution payload identity differs")
-    if data.get("inputs", {}).get("compiler_version") in {"1", "2", "3", "4", "5", "6", "7"}:
+    if data.get("inputs", {}).get("compiler_version") in {"1", "2", "3", "4", "5", "6", "7", "8"}:
         # Retained immutable reader ABI, without allowing historical writes/activation.
         if name not in {
             "reload",
@@ -642,6 +652,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "6",
         "7",
         "8",
+        "9",
     }:
         _fail(
             "unsupported_execution_abi", model_id, "execution product has no supported compiler ABI"
@@ -687,6 +698,11 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
             for name, path in (
                 ("text/sentences.py", "ingest/sentences.py"),
                 ("capture/analytics.py", "semantic/analytics.py"),
+                ("invocation/scheduler.py", "orchestrate/semantic.py"),
+                ("invocation/packet.py", "methods/llm/packet.py"),
+                ("invocation/source_frames.py", "semantic/source_frames.py"),
+                ("invocation/proposals.py", "semantic/proposals.py"),
+                ("invocation/server.py", "intervene/semantic_server.py"),
                 ("capture/storage.py", "semantic/capture_storage.py"),
                 ("publication/arrow.py", "semantic/arrow_publication.py"),
                 ("graph/ontology.py", "semantic/ontology.py"),
@@ -1104,6 +1120,8 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     )
     names = tuple(item.name for item in inputs.implementations)
     required_implementations = {
+        "invocation/scheduler.py", "invocation/packet.py", "invocation/source_frames.py",
+        "invocation/proposals.py", "invocation/server.py",
         "text/sentences.py",
         "capture/analytics.py",
         "capture/storage.py",
@@ -1146,7 +1164,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         _normalize(data, model_id),
         implementation_digests=tuple((item.name, item.digest) for item in inputs.implementations),
     )
-    if not products.analysis_profiles or any(p.version != "4" for p in products.analysis_profiles):
+    if not products.analysis_profiles or any(p.version != "5" for p in products.analysis_profiles):
         _fail(
             "missing_analysis_profile",
             inputs.catalog.name,

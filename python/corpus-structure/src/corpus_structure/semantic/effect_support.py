@@ -360,7 +360,7 @@ SUPPORTED_EFFECT_VERSIONS = {
     "renew_current_attempt_deadline": "1",
     "renew_deadline": "1",
     "retain_held_diagnostics": "1",
-    "schedule_pending_or_reused_or_skipped": "1",
+    "schedule_pending_or_reused_or_skipped": "2",
     "seal_source_production": "1",
     "source_execution": "1",
 }

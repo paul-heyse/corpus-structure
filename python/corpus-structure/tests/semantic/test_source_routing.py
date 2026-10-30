@@ -122,6 +122,13 @@ chains:
         ],
     )
     assert initialized.exit_code == 0, (initialized.output, initialized.exception)
+    from corpus_structure.orchestrate import semantic as scheduling
+    packet_calls = []
+    original_packet = scheduling._packet_for_unit
+    def counted_packet(*args, **kwargs):
+        packet_calls.append(args[3])
+        return original_packet(*args, **kwargs)
+    monkeypatch.setattr(scheduling, "_packet_for_unit", counted_packet)
     result = runner.invoke(
         app,
         [
@@ -208,6 +215,8 @@ chains:
         assert len(tasks) == 2
         assert [task["status"] for task in tasks] == ["awaiting_agent", "skipped"]
         assert tasks[1]["reason"] == "limit"
+        assert tasks[1]["packet_hash"] is None
+        assert len(packet_calls) == 1
         assert all(task["trigger"]["values"]["unit.claim_bearing"] is None for task in tasks)
         assert all(task["trigger"]["rule_key"] == "explicit-unknown" for task in tasks)
     listed = runner.invoke(app, ["tasks", str(run), "--semantic", "--limit", "0", "--json"])

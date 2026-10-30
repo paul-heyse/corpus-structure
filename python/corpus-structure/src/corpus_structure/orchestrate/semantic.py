@@ -85,7 +85,7 @@ def run_source_methods(
     from corpus_structure.semantic.contracts import execution_payload
 
     payload = execution_payload(prepared)
-    if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "6":
+    if payload is not None:
         from corpus_structure.semantic.analysis_contracts import bind_analysis_family
 
         invocation_input = bind_analysis_family(prepared, "invocation").prepare(
@@ -400,7 +400,8 @@ def _unit(conn: Any, view: Any, ref: Any) -> UnitView:
 
 
 def _packet_for_unit(
-    conn: Any, run_id: int, prepared: Any, ref: Any, configuration: Mapping[str, Any]
+    conn: Any, run_id: int, prepared: Any, ref: Any, configuration: Mapping[str, Any],
+    preparation: dict | None = None,
 ):
     """Shared queue/serve preparation including recorded M13 standing context."""
     from corpus_structure.core.evidence import MacroDef
@@ -414,14 +415,20 @@ def _packet_for_unit(
     )
 
     lock_input_snapshot(conn, run_id)
-    view = run_view(conn, run_id, prepared)
+    preparation = {} if preparation is None else preparation
+    if "view" not in preparation:
+        preparation["view"] = run_view(conn, run_id, prepared)
+    view = preparation["view"]
     snapshot = view.options.get("agent_configs")
     if not isinstance(snapshot, dict) or not any(
         canonical_bytes(value) == canonical_bytes(dict(configuration))
         for value in snapshot.values()
     ):
         raise OperationConflict("agent configuration differs from immutable run snapshot")
-    unit = _unit(conn, view, ref)
+    units = preparation.setdefault("units", {})
+    if ref not in units:
+        units[ref] = _unit(conn, view, ref)
+    unit = units[ref]
     if unit.rendition_id is None or unit.document_id is None or ref.unit_key is None:
         raise OperationConflict("an agent proposal requires a located source unit")
     raw_math = configuration.get("math", {})
@@ -433,8 +440,13 @@ def _packet_for_unit(
         unit_key=ref.unit_key,
         reference_run_id=None,
         pack_macros=macros,
+        preparation=preparation.setdefault("unit_inputs", {}),
+        coordinate_index=preparation.get("indices", {}).get(unit.rendition_id),
     )
-    references = document_references(conn, view, unit.document_id, limit=MAX_KNOWN)
+    refs = preparation.setdefault("references", {})
+    if unit.document_id not in refs:
+        refs[unit.document_id] = document_references(conn, view, unit.document_id, limit=MAX_KNOWN)
+    references = refs[unit.document_id]
     if references:
         from dataclasses import replace
 
@@ -451,10 +463,12 @@ def _packet_for_unit(
         rendered = inputs.packet(configuration.get("packet_cap_chars", 18000))
     except PacketTooLarge as exc:
         raise OperationConflict(str(exc)) from exc
+    if "guideline" not in preparation:
+        preparation["guideline"] = view.reader.guideline()
     return proposal_packet(
         prepared,
         source_frame(ref.unit_key, inputs.content, inputs.page, rendered.sentences),
-        guideline=view.reader.guideline(),
+        guideline=preparation["guideline"],
         configuration=configuration,
         macros=inputs.macros,
         known_classes={entity.entity_id: entity.classes for entity in references},
@@ -468,7 +482,7 @@ def _packet_for_unit(
     )
 
 
-def agent_packet(conn: Any, run_id: int, task_id: int, prepared: Any):
+def agent_packet(conn: Any, run_id: int, task_id: int, prepared: Any, *, preparation: dict | None = None):
     """Rebuild exactly the packet hashed by queue_agent; no active release lookup."""
     t, c = table("ops.task"), table("ops.method_config")
     row = (
@@ -484,7 +498,7 @@ def agent_packet(conn: Any, run_id: int, task_id: int, prepared: Any):
     from corpus_structure.semantic.proposals import ProposalRefused
 
     try:
-        packet = _packet_for_unit(conn, run_id, prepared, ref, row["params"])
+        packet = _packet_for_unit(conn, run_id, prepared, ref, row["params"], preparation)
     except OperationConflict as exc:
         raise ProposalRefused(str(exc)) from exc
     if row["packet_hash"] != packet.hash:
@@ -505,6 +519,7 @@ def queue_agent(
     configuration_name: str = "extract",
     trigger: Mapping[str, Any] | None = None,
     skip_reason: str | None = None,
+    preparation: dict | None = None,
 ) -> list[int]:
     """Queue policy-selected source units under the same packet definition used by MCP."""
     from hashlib import sha256
@@ -529,10 +544,15 @@ def queue_agent(
         "configuration:"
         + sha256(canonical_bytes([method.name, method.version, dict(configuration)])).hexdigest()
     )
-    config_id = record_method(
-        conn, method, configuration_name, configuration, config_hash, prepared=prepared
-    )
-    view = run_view(conn, run_id, prepared)
+    preparation = {} if preparation is None else preparation
+    recorded = preparation.setdefault("configurations", {})
+    key = (configuration_name, config_hash)
+    if key not in recorded:
+        recorded[key] = record_method(conn, method, configuration_name, configuration, config_hash, prepared=prepared)
+    config_id = recorded[key]
+    if "view" not in preparation:
+        preparation["view"] = run_view(conn, run_id, prepared)
+    view = preparation["view"]
     binding = view.binding
     snapshot = view.options.get("agent_configs", {})
     if (
@@ -548,20 +568,19 @@ def queue_agent(
     for ref in units:
         if ref.unit_type != method.unit_type:
             raise OperationConflict("agent unit differs from its declared method contract")
-        packet = _packet_for_unit(conn, run_id, prepared, ref, configuration)
-        digest = sha256(
-            canonical_bytes(
-                [
-                    binding.release_id,
-                    binding.input_realization_id,
-                    binding.input_revision,
-                    binding.dependency_digest,
-                    method.version,
-                    config_hash,
-                    packet.hash,
-                ]
-            )
-        ).hexdigest()
+        from corpus_structure.semantic.analysis_contracts import invocation_identity
+
+        packet = None if skip_reason is not None else _packet_for_unit(
+            conn, run_id, prepared, ref, configuration, preparation)
+        digest = invocation_identity(
+            prepared, release=binding.release_id,
+            source={"realization": binding.input_realization_id, "revision": binding.input_revision,
+                    "dependencies": binding.dependency_digest},
+            configuration={"method": method.name, "version": method.version, "hash": config_hash},
+            policy={"trigger": dict(trigger or {}), "options": view.options},
+            unit={"type": str(ref.unit_type), "id": ref.unit_id, "key": ref.unit_key},
+            skip_reason=skip_reason, packet_hash=None if packet is None else packet.hash,
+        )
         task_id = create_task(
             conn,
             run_id=run_id,
@@ -571,14 +590,14 @@ def queue_agent(
             unit_id=ref.unit_id,
             unit_key=ref.unit_key,
             input_hash=digest,
-            packet_hash=packet.hash,
+            packet_hash=None if packet is None else packet.hash,
             agent=True,
             fresh="agent.opus" in fresh_names,
             trigger={**dict(trigger or {}), "configuration_name": configuration_name},
             skip_reason=skip_reason,
         )
         tasks.append(task_id)
-        if skip_reason is None:
+        if packet is not None:
             from corpus_structure.semantic.source_frames import capture_source_frame
 
             reused = conn.execute(
@@ -632,6 +651,9 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
     counts = Counter()
     scheduled = set()
     open_count = 0
+    decisions = []
+    preparations = {}
+    unit_views = {}
     for entry in rules.entries(PolicyChain.PROPOSE):
         method = registry.method(entry.method)
         if (
@@ -645,7 +667,9 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
         config_name = entry.entry.do.method.split("/", 1)[1]
         config = registry.overlay(entry.method, config_name)
         for ref in method.select(view, config):
-            unit = _unit(conn, view, ref)
+            if ref not in unit_views:
+                unit_views[ref] = _unit(conn, view, ref)
+            unit = unit_views[ref]
             if unit.rendition_id is None or unit.document_id is None or ref.unit_key is None:
                 raise OperationConflict("propose requires located source units")
             if unit.rendition_id not in indices:
@@ -725,22 +749,23 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
                     "iteration": 0,
                 },
             }
-            task = queue_agent(
-                conn,
-                run_id=run_id,
-                prepared=prepared,
-                configuration=configs[config_name],
-                units=[ref],
-                configuration_name=config_name,
-                trigger=trigger,
-                skip_reason=reason,
-            )[0]
+            trigger["scope_limit"] = {"scope": view.options.get("scope"), "limit": entry.entry.do.limit,
+                                       "position": counts[entry.key]}
+            decisions.append((ref, config_name, trigger, reason))
             if reason is None:
                 counts[entry.key] += 1
-            if reason is None and conn.execute(
-                select(t.c.status).where(t.c.id == task)
-            ).scalar_one() in ("pending", "running", "awaiting_agent"):
-                open_count += 1
+    for ref, config_name, trigger, reason in decisions:
+        preparation = preparations.setdefault(config_name, {"view": view, "units": unit_views,
+            "indices": {rid: pair[0] for rid, pair in indices.items()}})
+        task = queue_agent(
+            conn, run_id=run_id, prepared=prepared, configuration=configs[config_name],
+            units=[ref], configuration_name=config_name, trigger=trigger, skip_reason=reason,
+            preparation=preparation,
+        )[0]
+        if reason is None and conn.execute(select(t.c.status).where(t.c.id == task)).scalar_one() in (
+            "pending", "running", "awaiting_agent"
+        ):
+            open_count += 1
     return open_count
 
 
