@@ -40,6 +40,24 @@ probe Q-3 and package P0-M-2). Once the generated rendering exists, this documen
 revision and keeps only the explanatory prose. Column comments that would repeat D1 are omitted.
 > Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md), [ADR-0021](../adr/0021-instance-and-structure-authorities.md)
 
+## Governed derived publication
+
+**Implemented, 2026-10-29; scoped verification belongs to [SP-I07](../plans/semantic-model-pivot/release-and-consumer-consolidation.md#SP-I07).**
+Frozen semantic_0032 is a forward routine delta over 0031 with unchanged physical tables. Derived
+publication v2 consumes the admitted operation/projection policy and a versioned binding containing
+the semantic contract, compiled projection, cut and arithmetic profile. The existing intent text
+field stores its canonical envelope. Exact receipt replay precedes new-write checks; the old ABI
+is replay-only. Evaluation binds the sealed cut, source revision and designated output; inference
+binds the exact accepted universe and publishes proof-bearing selected conclusions. The explicit
+fixed semantic-1 inference protocol does not rebind old products to the current execution model.
+Identity-exclusion version checks consume the archived operation policy_version, with version
+and located-custody failures diagnosed separately. Keyed collections require mappings with
+matching member identifiers; unkeyed multivalues require
+sequences. Both use the same effective property constraints. Historical migration bytes remain
+frozen. The lightweight pool package does not import historical physical metadata; retained
+historical consumers name their legacy metadata owner explicitly.
+
+
 ## Effective execution closure
 
 **Accepted target, 2026-10-29; implementation and qualification are separately scoped.**

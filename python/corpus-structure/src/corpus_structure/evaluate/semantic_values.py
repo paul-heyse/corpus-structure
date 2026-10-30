@@ -1,114 +1,92 @@
-"""Traverse reference positions from the admitted LinkML class/property descriptors."""
+"""Evaluation adapters over the archived semantic boundary and reference visitor."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from corpus_structure.semantic.types import ClassDefinition, PropertyDefinition
+from pydantic import BaseModel, ValidationError
+
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.reference_positions import collect_references
+from corpus_structure.semantic.reference_positions import rewrite_references as rewrite_positions
+from corpus_structure.semantic.types import ClassDefinition, PreparedRelease, PropertyDefinition
 
 
-def record_definition(
-    definitions: Sequence[ClassDefinition], range_name: str | None, value: Mapping[str, Any]
-) -> ClassDefinition | None:
-    if range_name is None:
-        return None
+def _validated_record(prepared: PreparedRelease, range_name: str, value: Any) -> BaseModel:
     candidates = []
-    for definition in definitions:
+    for definition in prepared.definitions:
         if definition.abstract or not (
             definition.name == range_name or range_name in definition.ancestors
         ):
             continue
-        props = {p.name: p for p in definition.properties}
-        if not set(value) <= props.keys():
+        try:
+            validated = prepared.adapter(definition.name).validate_json(
+                canonical_bytes(value),
+                strict=True,
+                by_name=True,
+                context={"validation_purpose": "structural"},
+            )
+        except ValidationError:
             continue
-        if any(
-            p.equals_string is not None and value.get(p.name) != p.equals_string
-            for p in props.values()
-        ):
-            continue
-        candidates.append(definition)
+        candidates.append((definition, validated))
     if not candidates:
-        if any(d.name == range_name for d in definitions):
-            raise ValueError(f"no admitted {range_name} record matches the validated value")
+        raise ValueError(f"no archived {range_name} boundary accepts the value")
+    depth = max(len(d.ancestors) for d, _ in candidates)
+    selected = [record for definition, record in candidates if len(definition.ancestors) == depth]
+    if len(selected) != 1:
+        raise ValueError(f"ambiguous archived record type for {range_name}")
+    return selected[0]
+
+
+def record_definition(
+    prepared: PreparedRelease, range_name: str | None, value: Mapping[str, Any]
+) -> ClassDefinition | None:
+    if range_name is None or not any(d.name == range_name for d in prepared.definitions):
         return None
-    depth = max(len(d.ancestors) for d in candidates)
-    best = [d for d in candidates if len(d.ancestors) == depth]
-    if len(best) != 1:
-        raise ValueError(f"ambiguous admitted record type for {range_name}")
-    return best[0]
+    model = _validated_record(prepared, range_name, value)
+    return next(d for d in prepared.definitions if d.name == type(model).__name__)
 
 
 def entity_reference(definitions: Sequence[ClassDefinition], prop: PropertyDefinition) -> bool:
-    return not prop.inlined and any(
-        d.name == prop.range and (d.name == "Entity" or "Entity" in d.ancestors)
-        for d in definitions
+    """Class-ranged references include non-Entity concepts; literals remain literals."""
+    return (
+        not prop.inlined
+        and prop.reference_role != "fact"
+        and any(d.name == prop.range for d in definitions)
     )
 
 
 def rewrite_references(
-    definitions: Sequence[ClassDefinition],
+    prepared: PreparedRelease,
     range_name: str,
     value: Any,
     entities: Mapping[str, str],
     claims: Mapping[str, str] | None = None,
 ) -> Any:
-    """Rewrite only declared entity/fact positions; plain string fields retain their text."""
-    claims = {} if claims is None else claims
     if not isinstance(value, Mapping):
         return value
-    definition = record_definition(definitions, range_name, value)
-    if definition is None:
-        return dict(value)
+    model = _validated_record(prepared, range_name, value)
+    rewritten = rewrite_positions(
+        prepared, type(model).__name__, model, classes=entities, facts=claims, collision="reject"
+    )
 
-    def member(prop, item):
-        if prop.reference_role == "fact":
-            return claims.get(item, item)
-        if entity_reference(definitions, prop):
-            return entities.get(item, item)
-        if prop.inlined:
-            return rewrite_references(definitions, prop.range, item, entities, claims)
+    def mutable_sequences(item: Any) -> Any:
+        if isinstance(item, (tuple, list)):
+            return [mutable_sequences(member) for member in item]
+        if isinstance(item, Mapping):
+            return {key: mutable_sequences(member) for key, member in item.items()}
         return item
 
-    result: dict[str, Any] = {}
-    for prop in definition.properties:
-        if prop.name not in value:
-            continue
-        item = value[prop.name]
-        if prop.collection_key:
-            rewritten = [member(prop, child) for child in item.values()]
-            entries = {}
-            for child in rewritten:
-                if not isinstance(child, Mapping):
-                    raise TypeError("declared keyed collection item must be a record")
-                entries[child[prop.collection_key]] = child
-            result[prop.name] = entries
-            if len(result[prop.name]) != len(rewritten):
-                raise ValueError("reference mapping collides a declared collection key")
-        elif prop.multivalued:
-            result[prop.name] = [member(prop, child) for child in item]
-        else:
-            result[prop.name] = member(prop, item)
-    return result
+    return mutable_sequences(rewritten)
 
 
-def entity_references(
-    definitions: Sequence[ClassDefinition], range_name: str, value: Any
-) -> frozenset[str]:
+def entity_references(prepared: PreparedRelease, range_name: str, value: Any) -> frozenset[str]:
     if not isinstance(value, Mapping):
         return frozenset()
-    definition = record_definition(definitions, range_name, value)
-    if definition is None:
-        return frozenset()
-    result = set()
-    for prop in definition.properties:
-        if prop.name not in value:
-            continue
-        raw = value[prop.name]
-        members = raw.values() if prop.collection_key else raw if prop.multivalued else (raw,)
-        for item in members:
-            if entity_reference(definitions, prop):
-                result.add(item)
-            elif prop.inlined:
-                result.update(entity_references(definitions, prop.range, item))
-    return frozenset(result)
+    model = _validated_record(prepared, range_name, value)
+    return frozenset(
+        ref.target
+        for ref in collect_references(prepared, type(model).__name__, model)
+        if ref.kind == "class"
+    )

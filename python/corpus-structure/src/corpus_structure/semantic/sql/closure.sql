@@ -396,7 +396,7 @@ BEGIN
  SELECT * INTO STRICT archived FROM sem.release WHERE release_id=r;
  document:=convert_from(archived.prepared_bytes,'UTF8')::jsonb;
  manifest:=convert_from(archived.manifest_bytes,'UTF8')::jsonb;
- IF archived.profile NOT IN ('semantic-1','semantic-2') OR document->>'format' NOT IN ('semantic-release-archive-1','semantic-release-archive-2')
+ IF archived.profile NOT IN ('semantic-1','semantic-2') OR document->>'format' NOT IN ('semantic-release-archive-1','semantic-release-archive-2','semantic-release-archive-3')
  OR archived.release_id<>'release:'||encode(sha256(archived.manifest_bytes),'hex')
  OR archived.content_digest<>encode(sha256(archived.prepared_bytes),'hex')
  OR document->'products'->>'release_id' IS DISTINCT FROM r
@@ -423,7 +423,12 @@ REVOKE ALL ON FUNCTION sem.require_archive_bytes(text) FROM PUBLIC;
 
 DO $finalize$ DECLARE r text; BEGIN
  FOR r IN SELECT release_id FROM sem.release LOOP PERFORM sem.require_archive_bytes(r); END LOOP;
- INSERT INTO sem.release_finalization SELECT release_id,content_digest FROM sem.release;
+ INSERT INTO sem.release_finalization SELECT release_id,content_digest FROM sem.release
+ ON CONFLICT(release_id) DO NOTHING;
+ IF EXISTS(SELECT FROM sem.release_finalization f JOIN sem.release s USING(release_id)
+           WHERE f.content_digest IS DISTINCT FROM s.content_digest) THEN
+  RAISE EXCEPTION 'finalized release digest differs from archive' USING ERRCODE='23514';
+ END IF;
 END $finalize$;
 
 -- {immutability_guards}
@@ -524,7 +529,8 @@ BEGIN
  IF enforce AND n=0 AND (a.required OR COALESCE(a.minimum_cardinality,0)>0) THEN RAISE EXCEPTION 'missing required record property %',a.property_id USING ERRCODE='23514'; END IF;
  FOR primitive IN SELECT child_value_id FROM data.value_role WHERE release_id=r AND realization_id=z AND parent_value_id=x.value_id AND role=a.constraints->>'name' LOOP
  IF a.multivalued THEN
- IF NOT EXISTS(SELECT FROM data.typed_value WHERE release_id=r AND realization_id=z AND value_id=primitive AND kind='sequence') THEN RAISE EXCEPTION 'multivalue requires sequence' USING ERRCODE='23514'; END IF;
+ IF NOT EXISTS(SELECT FROM data.typed_value WHERE release_id=r AND realization_id=z AND value_id=primitive AND kind=CASE WHEN a.constraints->>'collection_key' IS NULL THEN 'sequence' ELSE 'mapping' END) THEN RAISE EXCEPTION 'multivalue collection representation differs for %/% (key %)',x.datatype,a.property_id,a.constraints->>'collection_key' USING ERRCODE='23514'; END IF;
+ IF a.constraints->>'collection_key' IS NOT NULL AND EXISTS(SELECT FROM data.value_role member WHERE member.release_id=r AND member.realization_id=z AND member.parent_value_id=primitive AND NOT EXISTS(SELECT FROM data.value_role kr JOIN data.typed_value kv ON (kv.release_id,kv.realization_id,kv.value_id)=(kr.release_id,kr.realization_id,kr.child_value_id) WHERE kr.release_id=r AND kr.realization_id=z AND kr.parent_value_id=member.child_value_id AND kr.role=a.constraints->>'collection_key' AND kv.kind='string' AND kv.text_value=member.role)) THEN RAISE EXCEPTION 'inlined map key differs from member identifier for %/%',x.datatype,a.property_id USING ERRCODE='23514'; END IF;
  SELECT count(*) INTO value_count FROM data.value_role WHERE release_id=r AND realization_id=z AND parent_value_id=primitive;
  IF enforce AND (value_count<COALESCE(a.minimum_cardinality,CASE WHEN a.required THEN 1 ELSE 0 END) OR (a.maximum_cardinality IS NOT NULL AND value_count>a.maximum_cardinality)) THEN RAISE EXCEPTION 'record cardinality' USING ERRCODE='23514'; END IF;
  FOR lexical IN SELECT child_value_id FROM data.value_role WHERE release_id=r AND realization_id=z AND parent_value_id=primitive LOOP

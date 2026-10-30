@@ -25,6 +25,7 @@ from .test_identity_exclusions import exclusion_result
         "identity",
         "locator",
         "attribute_source",
+        "policy_version",
     ],
 )
 def test_native_exclusion_publication_refuses_tampering(
@@ -51,6 +52,7 @@ def test_native_exclusion_publication_refuses_tampering(
         "identity": "identity differs",
         "locator": "evidence span is not a located citation",
         "attribute_source": "occurrence citation is outside bound source claim",
+        "policy_version": "operation version differs from release model",
     }[attack]
     if attack == "attribute_source":
         from dataclasses import fields
@@ -81,6 +83,10 @@ def test_native_exclusion_publication_refuses_tampering(
     elif attack == "collapse":
         batch = replace(
             batch, identity_exclusion=(replace(row, right_entity_id=row.left_entity_id),)
+        )
+    elif attack == "policy_version":
+        batch = replace(
+            batch, identity_exclusion=(replace(row, operation_version="forged-policy"),)
         )
     elif attack == "raw_reference":
         batch = replace(batch, identity_exclusion=(replace(row, left_ref="invented"),))

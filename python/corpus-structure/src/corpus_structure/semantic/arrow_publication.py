@@ -249,6 +249,9 @@ class SnapshotDerivedPublication:
     source: SnapshotBinding
     operation_id: str
     projection_id: str
+    contract_id: str
+    cut_id: int | None
+    profile_digest: str | None
 
     def __init__(
         self,
@@ -260,6 +263,9 @@ class SnapshotDerivedPublication:
         source: SnapshotBinding,
         operation_id: str,
         projection_id: str,
+        contract_id: str | None = None,
+        cut_id: int | None = None,
+        profile_digest: str | None = None,
     ) -> None:
         if type(source.data_revision) is not int or source.data_revision < 0:
             raise ArrowPublicationError("derived source revision must be a nonnegative integer")
@@ -282,6 +288,38 @@ class SnapshotDerivedPublication:
         object.__setattr__(self, "source", source)
         object.__setattr__(self, "operation_id", operation_id)
         object.__setattr__(self, "projection_id", projection_id)
+        resolved = contract_id or ("accepted" if projection_id == "accepted" else "candidate")
+        if (operation_id, resolved) not in {
+            ("evaluate", "candidate"),
+            ("publish_inference", "accepted"),
+        }:
+            raise ArrowPublicationError("unsupported semantic derived operation/projection")
+        if source.release_id != release_id:
+            raise ArrowPublicationError("derived operation cannot cross releases")
+        if resolved == "candidate":
+            if (
+                type(cut_id) is not int
+                or cut_id < 1
+                or not profile_digest
+                or not projection_id.startswith("projection:")
+                or source.realization_id == realization_id
+            ):
+                raise ArrowPublicationError(
+                    "candidate publication requires bound cut/profile/projection "
+                    "and distinct target"
+                )
+        elif (
+            cut_id is not None
+            or profile_digest is not None
+            or source.realization_id != realization_id
+            or projection_id != "accepted"
+        ):
+            raise ArrowPublicationError(
+                "accepted inference requires exact same-realization projection"
+            )
+        object.__setattr__(self, "contract_id", resolved)
+        object.__setattr__(self, "cut_id", cut_id)
+        object.__setattr__(self, "profile_digest", profile_digest)
 
     @property
     def release_id(self) -> str:
@@ -311,6 +349,9 @@ class SnapshotDerivedPublication:
         source: SnapshotBinding,
         operation_id: str,
         projection_id: str,
+        contract_id: str | None = None,
+        cut_id: int | None = None,
+        profile_digest: str | None = None,
     ) -> SnapshotDerivedPublication:
         append = AppendPublication.from_rows(batch)
         return cls(
@@ -321,6 +362,9 @@ class SnapshotDerivedPublication:
             source=source,
             operation_id=operation_id,
             projection_id=projection_id,
+            contract_id=contract_id,
+            cut_id=cut_id,
+            profile_digest=profile_digest,
         )
 
 
@@ -355,7 +399,7 @@ def publish_arrow_on_connection(
     """Stage and publish without committing the SQLAlchemy-owned transaction."""
     stage_arrow(connection, batch)
     function = "data.publish_batch(:r,:z,:b,:c)"
-    params: dict[str, str | bytes | int] = {
+    params: dict[str, str | bytes | int | None] = {
         "r": batch.release_id,
         "z": batch.realization_id,
         "b": batch.batch_id,
@@ -363,8 +407,8 @@ def publish_arrow_on_connection(
     }
     if isinstance(batch, SnapshotDerivedPublication):
         function = (
-            "data.publish_derived_batch("
-            ":r,:z,:b,:c,:sr,:sz,:revision,:capture,:operation,:projection)"
+            "data.publish_derived_batch_v2("
+            ":r,:z,:b,:c,:sr,:sz,:revision,:capture,:operation,:projection,:contract,:cut,:profile)"
         )
         params.update(
             sr=batch.source.release_id,
@@ -373,6 +417,9 @@ def publish_arrow_on_connection(
             capture=batch.source.capture_id,
             operation=batch.operation_id,
             projection=batch.projection_id,
+            contract=batch.contract_id,
+            cut=batch.cut_id,
+            profile=batch.profile_digest,
         )
     try:
         revision = connection.execute(text("SELECT " + function), params).scalar_one()

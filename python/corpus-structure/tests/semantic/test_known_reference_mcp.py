@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import anyio
 import yaml
 from fastmcp import Client
+from pydantic import BaseModel
 from sqlalchemy import insert, select
 from typer.testing import CliRunner
 
@@ -26,6 +27,7 @@ from corpus_structure.semantic import (
     prepare_release,
 )
 from corpus_structure.semantic.analytical_profile import analytical_inputs
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.consolidation import SourceItem, assemble
 from corpus_structure.semantic.domain_operations import domain_rule_inputs
 from corpus_structure.semantic.metadata import table
@@ -73,9 +75,11 @@ def test_native_known_reference_packet_mcp_and_finalizer(
     )
     bundle = observation_inputs(proposal_inputs(bundle, deps))
     bundle, deps = analytical_inputs(bundle, deps)
-    prepared = prepare_release(bundle, deps)
+    deps = composed_dependencies(deps)
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, deps, profile)
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, deps, PreparationProfile(), prepared)
+        persist_release(conn, bundle, deps, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="known"))
         conn.execute(
             insert(table("data.realization")).values(
@@ -141,6 +145,10 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             original=path.read_bytes(),
             metadata={"page": "source.html"},
         )
+
+        class SourceConfig(BaseModel):
+            pass
+
         config = record_method(
             conn,
             SimpleNamespace(
@@ -149,6 +157,8 @@ def test_native_known_reference_packet_mcp_and_finalizer(
                 family="ingest",
                 tier="deterministic",
                 confidence_source=None,
+                unit_type=TaskUnitType.RUN,
+                Config=SourceConfig,
             ),
             "default",
             {},

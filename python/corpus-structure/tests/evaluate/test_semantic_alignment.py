@@ -20,6 +20,37 @@ class AlignmentFixture:
     registry_rows: tuple[RegistryRow, ...] = ()
     artifacts: tuple[PreparedArtifact, ...] = ()
 
+    def bound(self):
+        from corpus_structure.semantic.boundary import build_boundary_adapters
+        from corpus_structure.semantic.types import PreparedRelease
+
+        models = {}
+        adapters = build_boundary_adapters(
+            self.definitions,
+            (),
+            primitive_types={
+                "string": str,
+                "boolean": bool,
+                "decimal": Decimal,
+            },
+            aliases={},
+            conditional_fragments={},
+            models_out=models,
+        )
+        return PreparedRelease(
+            "fixture:alignment",
+            b"{}",
+            self.definitions,
+            (),
+            self.registry_rows,
+            (),
+            self.artifacts,
+            (),
+            (),
+            adapters,
+            _boundary_models=models,
+        )
+
 
 P = "https://example.org/Person"
 NAME = "https://example.org/name"
@@ -56,12 +87,12 @@ def side(value, **kwargs):
 
 def test_canonical_qualifications_and_evidence_have_separate_scoring_tiers():
     a, b = batch(), batch(polarity=False)
-    alignment = align_semantic(side(a), side(b), prepared())
+    alignment = align_semantic(side(a), side(b), prepared().bound())
     assert alignment.counts["core"].matched == 1
     assert alignment.counts["full"].matched == 0
     assert alignment.counts["evidence"].matched == 0
     b = batch(evidence=False)
-    alignment = align_semantic(side(a), side(b), prepared())
+    alignment = align_semantic(side(a), side(b), prepared().bound())
     assert alignment.counts["full"].matched == 1
     assert alignment.counts["evidence"].matched == 0
 
@@ -73,7 +104,7 @@ def test_duplicate_supports_cannot_inflate_a_fact_and_context_is_uncounted():
     duplicate["id"] = "duplicate"
     duplicate["evidence"] = [{"role": "primary", "outcome": "located", "start": 1, "end": 5}]
     b["claims"].append(duplicate)
-    got = align_semantic(side(a), side(b), prepared())
+    got = align_semantic(side(a), side(b), prepared().bound())
     assert got.counts["full"].as_dict() == {
         "reference": 1,
         "prediction": 1,
@@ -82,20 +113,20 @@ def test_duplicate_supports_cannot_inflate_a_fact_and_context_is_uncounted():
         "recall": 1.0,
         "f1": 1.0,
     }
-    got = align_semantic(side(a, context=frozenset({"c"})), side(b), prepared())
+    got = align_semantic(side(a, context=frozenset({"c"})), side(b), prepared().bound())
     assert got.counts["core"].reference == 0 and got.counts["core"].matched == 0
 
 
 def test_ambiguous_labels_refuse_alignment_and_known_identity_disambiguates():
     a, b = batch(), batch()
     b["entities"].append({"id": "other", "class_iri": P, "label": "Alice"})
-    ambiguous = align_semantic(side(a), side(b), prepared())
+    ambiguous = align_semantic(side(a), side(b), prepared().bound())
     assert ambiguous.counts["core"].matched == 0
     assert ambiguous.undecided[0]["reason"] == "ambiguous label/anchor assignment"
     matched = align_semantic(
         side(a, known_ids={"p": "known:first"}),
         side(b, known_ids={"p": "known:first", "other": "known:other"}),
-        prepared(),
+        prepared().bound(),
     )
     assert matched.counts["core"].matched == 1
 
@@ -108,10 +139,10 @@ def test_alias_normalization_requires_class_compatibility():
         PreparedArtifact(RULE_INPUT, b"identity:\n  aliases:\n    articles: [the]\nrules: []\n"),
     )
     a, b = batch("The Alice"), batch("Alice")
-    got = align_semantic(side(a), side(b), p)
+    got = align_semantic(side(a), side(b), p.bound())
     assert got.entity_pairs == [("p", "p", "alias_normalization")]
     b["entities"][0]["class_iri"] = "https://example.org/Incompatible"
-    assert align_semantic(side(a), side(b), p).entity_pairs == []
+    assert align_semantic(side(a), side(b), p.bound()).entity_pairs == []
 
 
 def test_alternative_readings_are_one_scoring_item():
@@ -121,7 +152,7 @@ def test_alternative_readings_are_one_scoring_item():
     other["object"] = {"kind": "text", "text": "Alison"}
     a["claims"].append(other)
     a["alternatives"] = [{"id": "alternative", "members": ["c", "c2"]}]
-    result = align_semantic(side(a), side(b), prepared())
+    result = align_semantic(side(a), side(b), prepared().bound())
     assert result.counts["core"].as_dict() == {
         "reference": 1,
         "prediction": 1,
@@ -167,9 +198,9 @@ def test_external_known_endpoints_need_no_redeclared_entity_or_label():
     a["claims"][0]["subject"] = "known:alice"
     b["claims"][0]["subject"] = "known:alice"
     known = {"known:alice": "known:alice"}
-    result = align_semantic(side(a, known_ids=known), side(b, known_ids=known), prepared())
+    result = align_semantic(side(a, known_ids=known), side(b, known_ids=known), prepared().bound())
     assert result.counts["full"].matched == 1
-    assert align_semantic(side(a), side(b), prepared()).counts["core"].matched == 0
+    assert align_semantic(side(a), side(b), prepared().bound()).counts["core"].matched == 0
 
 
 def test_scalar_declared_identity_attributes_align_without_a_label():
@@ -187,7 +218,7 @@ def test_scalar_declared_identity_attributes_align_without_a_label():
         value["entities"][0]["attributes"] = [
             {"predicate": NAME, "value": {"kind": "text", "text": "Alice"}}
         ]
-    result = align_semantic(side(a), side(b), p)
+    result = align_semantic(side(a), side(b), p.bound())
     assert result.entity_pairs == [("p", "p", "declared_identity_keys")]
     assert result.counts["full"].matched == 1
 
@@ -249,16 +280,16 @@ def test_release_qualification_provenance_does_not_change_meaning_and_statement_
     a, b = batch(), batch()
     a["claims"][0]["qualification"]["confidence"] = "source-A"
     b["claims"][0]["qualification"]["confidence"] = "source-B"
-    assert align_semantic(side(a), side(b), p).counts["full"].matched == 1
+    assert align_semantic(side(a), side(b), p.bound()).counts["full"].matched == 1
     a["claims"][0]["statement"] = "unmatched-reference-statement"
-    assert align_semantic(side(a), side(b), p).counts["full"].matched == 0
+    assert align_semantic(side(a), side(b), p.bound()).counts["full"].matched == 0
 
 
 def test_located_evidence_in_the_same_source_sentence_matches_without_quote_overlap():
     a, b = batch(), batch()
     a["claims"][0]["evidence"][0]["locator"] = "source#sentence"
     b["claims"][0]["evidence"][0].update(locator="source#sentence", start=8, end=10)
-    assert align_semantic(side(a), side(b), prepared()).counts["evidence"].matched == 1
+    assert align_semantic(side(a), side(b), prepared().bound()).counts["evidence"].matched == 1
 
 
 def test_equal_labels_cannot_override_incompatible_declared_identity_keys():
@@ -289,7 +320,7 @@ def test_equal_labels_cannot_override_incompatible_declared_identity_keys():
     b["entities"][0]["attributes"] = [
         {"predicate": registry.iri, "value": {"kind": "text", "text": "101"}}
     ]
-    assert align_semantic(side(a), side(b), p).entity_pairs == []
+    assert align_semantic(side(a), side(b), p.bound()).entity_pairs == []
 
 
 def test_schema_declared_nary_entity_roles_follow_alignment_without_rewriting_plain_text():
@@ -377,10 +408,10 @@ def test_schema_declared_nary_entity_roles_follow_alignment_without_rewriting_pl
         "custodian": "y",
         "note": "p",
     }
-    assert align_semantic(side(a), side(b), p).counts["full"].matched == 1
+    assert align_semantic(side(a), side(b), p.bound()).counts["full"].matched == 1
     assert (
-        rewrite_references(p.definitions, "Value", a["claims"][0]["object"], {"p": "x", "q": "y"})
+        rewrite_references(p.bound(), "Value", a["claims"][0]["object"], {"p": "x", "q": "y"})
         == b["claims"][0]["object"]
     )
     b["claims"][0]["object"]["note"] = "x"
-    assert align_semantic(side(a), side(b), p).counts["core"].matched == 0
+    assert align_semantic(side(a), side(b), p.bound()).counts["core"].matched == 0

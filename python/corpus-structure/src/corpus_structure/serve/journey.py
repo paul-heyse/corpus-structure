@@ -7,26 +7,38 @@ import binascii
 import json
 from collections.abc import Mapping
 from typing import Any, Literal
-from uuid import uuid4
 
 from pydantic import JsonValue
 from sqlalchemy import Connection, select
 
 from corpus_structure.core.canonical import canonical_json, digest
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.query import ReadSession, SnapshotBinding
-from corpus_structure.semantic.releases import load_release
+from corpus_structure.semantic.query import (
+    ReadSession,
+    SnapshotBinding,
+    bind_completed_result,
+)
+from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.serve.protocol import DomainQuery, QueryContext, QueryResult, Scope
 
 PROMOTED = "promoted"
 
 
-class QueryRefused(ValueError):
+class QueryRefused(SemanticRefusal):
     """A query that cannot name an authoritative completed result."""
 
 
 class StaleToken(QueryRefused):
     pass
+
+
+def parse_run(value: int | str) -> int:
+    try:
+        if isinstance(value, bool):
+            raise ValueError("boolean run selector")
+        return int(value)
+    except (TypeError, ValueError) as error:
+        raise QueryRefused("run selector must name a completed integer run") from error
 
 
 def check_finished(conn: Connection, run_id: int) -> int:
@@ -50,7 +62,7 @@ def select_run(conn: Connection, project_id: str, run: int | str = PROMOTED) -> 
         if found is None:
             raise QueryRefused("no selected completed result")
         run = int(found)
-    run_id = check_finished(conn, int(run))
+    run_id = check_finished(conn, parse_run(run))
     r = table("ops.run")
     if (
         project_id
@@ -61,24 +73,10 @@ def select_run(conn: Connection, project_id: str, run: int | str = PROMOTED) -> 
 
 
 def bind_session(conn: Connection, run_id: int) -> ReadSession:
-    if (
-        conn.get_isolation_level() != "REPEATABLE READ"
-        or conn.exec_driver_sql("SHOW transaction_read_only").scalar_one() != "on"
-    ):
-        raise QueryRefused("serving requires a read-only REPEATABLE READ transaction")
-    check_finished(conn, run_id)
-    completed, realization = table("ops.completed_result"), table("data.realization")
-    row = conn.execute(
-        select(
-            completed.c.release_id, completed.c.output_realization_id, realization.c.data_revision
-        )
-        .join(realization, realization.c.realization_id == completed.c.output_realization_id)
-        .where(completed.c.run_id == run_id)
-    ).one()
-    binding = SnapshotBinding(
-        row.release_id, row.output_realization_id, row.data_revision, str(uuid4())
-    )
-    return ReadSession(conn, binding, load_release(conn, binding.release_id))
+    try:
+        return bind_completed_result(conn, run_id)
+    except SemanticRefusal as error:
+        raise QueryRefused(str(error)) from error
 
 
 def coverage(ctx: QueryContext, scope: Scope):
@@ -189,17 +187,20 @@ def serve_query(
         if body["params"] != params_digest(dumped):
             raise StaleToken("stale token: the parameters differ from the journey's")
         try:
-            run_id = check_finished(conn, int(body["run"]))
+            run_id = check_finished(conn, parse_run(body["run"]))
         except QueryRefused as error:
             raise StaleToken(f"stale token: {error}") from None
         position = body["position"]
+        validate_position = getattr(query, "validate_position", None)
+        if validate_position is not None:
+            validate_position(position)
     else:
         if run == PROMOTED and project_id is None:
             raise QueryRefused("a promoted run needs its project")
         run_id = (
             select_run(conn, project_id or "", run)
             if run == PROMOTED
-            else check_finished(conn, int(run))
+            else check_finished(conn, parse_run(run))
         )
     ctx = QueryContext(
         run_id,
@@ -208,28 +209,37 @@ def serve_query(
         projection=projection,
     )
     binding = ctx.session.binding
-    if body is not None:
-        if any(
-            body[k] != v
-            for k, v in {
-                "release": binding.release_id,
-                "realization": binding.realization_id,
-                "revision": binding.data_revision,
-                "projection": projection,
-                "arithmetic": "exact",
-            }.items()
-        ):
-            raise StaleToken("stale token: semantic snapshot or projection differs")
+    if body is not None and any(
+        body[k] != v
+        for k, v in {
+            "release": binding.release_id,
+            "realization": binding.realization_id,
+            "revision": binding.data_revision,
+            "projection": projection,
+            "arithmetic": "exact",
+        }.items()
+    ):
+        raise StaleToken("stale token: semantic snapshot or projection differs")
     for bound in (max_rows, max_chars):
         if bound is not None and bound <= 0:
             raise QueryRefused("page bounds must be positive")
     rows: list[dict[str, JsonValue]] = []
     scope = query.scope(ctx, p)
-    cov = coverage(ctx, scope)
+    cov = ctx.session.coverage()
     family = getattr(p, "predicate", None)
     if family is not None:
         cov = tuple(c for c in cov if c.family == ctx.reader.iri(family))
-    complete_cov = bool(family and cov) and all(c.outcome == "complete" for c in cov)
+    complete_cov = False
+    coverage_diagnostic = None
+    if family is not None:
+        members = scope.unit_keys if scope.kind == "units" else scope.documents
+        requirement = ctx.session.required_coverage(
+            run_id, ctx.reader.iri(family), scope.kind, members
+        )
+        coverage_diagnostic = requirement.diagnostic
+        complete_cov = requirement.established_by(cov)
+        if requirement.diagnostic is None:
+            cov = tuple(c for c in cov if c.scope == "*" or c.scope in requirement.members)
 
     # Query-owned cursor: no replay or hydration of a previous page's prefix.
     def response(more: bool, cursor: JsonValue) -> QueryResult:
@@ -237,11 +247,14 @@ def serve_query(
             run_id=run_id,
             binding=binding,
             projection=projection,
-            knowledge="observed" if rows else "absent" if complete_cov else "unknown",
+            knowledge=(
+                "observed" if rows else "absent" if complete_cov and position is None else "unknown"
+            ),
             query=query.name,
             version=query.version,
             params=dumped,
             coverage=cov,
+            coverage_diagnostic=coverage_diagnostic,
             rows=rows,
             next_page_token=encode_token(
                 run_id, query, dumped, cursor, binding=binding, projection=projection

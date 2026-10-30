@@ -432,12 +432,11 @@ def test_fusion_distinct_typed_sets_and_candidate_count():
 
 
 def test_declared_views_reuse_native_set_kernel_and_independent_expected_rows():
-    from corpus_structure.pool.steps import (
+    from corpus_structure.semantic.analytical_kernels import (
         VIEW_ALTERNATIVES,
         VIEW_CLAIMS,
         VIEW_ENTITIES,
         VIEW_IDENTITY,
-        PythonEngine,
         ViewSpec,
     )
 
@@ -506,10 +505,6 @@ def test_declared_views_reuse_native_set_kernel_and_independent_expected_rows():
         {"claim": "f3", "view": "same_slot", "facts": []},
     ]
     assert result == expected
-    assert (
-        PythonEngine().views(claims, entities, identity, alternatives, specs).to_pylist()
-        == expected
-    )
 
 
 def test_concurrent_scopes_own_separate_scratch_and_preserve_parent(tmp_path):
@@ -685,13 +680,95 @@ def test_candidate_input_has_explicit_universe_without_fabricated_capture():
         packet.profile_digest,
         "cut-1",
         "asserted-positive-candidates",
-        {},
+        {
+            "candidate_input": pa.Table.from_pylist(
+                [],
+                schema=pa.schema(
+                    [
+                        pa.field("fact_id", pa.string()),
+                        pa.field("occurrence_id", pa.string()),
+                        pa.field(
+                            "evidence", pa.list_(pa.struct([pa.field("evidence_id", pa.string())]))
+                        ),
+                    ],
+                    metadata={
+                        **(packet.relations["fact"].schema.metadata or {}),
+                        b"cs.relation": b"candidate_input",
+                    },
+                ),
+            )
+        },
         scale=packet.scale,
     )
     with AnalysisScope(candidate) as scope:
         assert scope.connection.sql("SELECT 3").fetchall() == [(3,)]
     with pytest.raises(ValueError, match="cut and decision universe"):
         replace(candidate, cut_id="")
+    with pytest.raises(ValueError, match="actual candidate_input relation"):
+        replace(candidate, relations={})
+    with AnalysisScope(candidate) as scope:
+        assert scope.fuse(scope.relation("candidate_input")).to_arrow_table().num_rows == 0
+        with pytest.raises(ValueError, match="bound candidate universe"):
+            scope.fuse(scope.connection.from_arrow(candidate.relations["candidate_input"]))
+
+
+def test_projection_policy_fields_drive_compiler_refusal():
+    import json
+
+    from corpus_structure.semantic import PreparationProfile
+    from corpus_structure.semantic.composed import composed_dependencies
+
+    bundle, deps, _ = prepared_inputs()
+    prepared = prepare_release(
+        bundle, composed_dependencies(deps), PreparationProfile(version="semantic-2")
+    )
+    row = next(r for r in prepared.registry_rows if r.kind == "execution_model")
+    body = json.loads(row.body)
+    captured = next(p for p in body["projections"] if p["id"] == "captured")
+    for field, wrong in (
+        ("universe", "cut_candidates"),
+        ("values", "exact"),
+        ("collections", "set"),
+        ("arithmetic_profile", None),
+    ):
+        changed = json.loads(row.body)
+        product = next(p for p in changed["projections"] if p["id"] == "captured")
+        product["analytical_policy"][field] = wrong
+        changed_row = replace(row, body=json.dumps(changed).encode())
+        mutated = replace(
+            prepared,
+            registry_rows=tuple(changed_row if r is row else r for r in prepared.registry_rows),
+        )
+        with pytest.raises(ValueError, match="policy is not supported"):
+            compile_projection(mutated, SnapshotBinding(prepared.release_id, "z", 0, "capture"))
+    assert captured["analytical_policy"]["universe"] == "full_spine"
+    from corpus_structure.semantic.analytics import CANDIDATE_SCHEMA, CandidateInput
+    from corpus_structure.semantic.domain_operations import CutInput
+
+    cut = CutInput(
+        1,
+        2,
+        "p",
+        prepared,
+        "output",
+        (),
+        (),
+        PublicationBatch(prepared.release_id, "output", "cut"),
+        {},
+        {},
+        SnapshotBinding(prepared.release_id, "source", 0, "cut:1"),
+    )
+    candidates = pa.Table.from_pylist([], schema=CANDIDATE_SCHEMA)
+    packet = CandidateInput.from_cut(
+        prepared, cut, candidates=candidates, decision_universe="policy"
+    )
+    assert packet.run_id == 2 and packet.target_realization_id == "output"
+    assert set(packet.relations) == {"candidate_input"}
+    forged = pa.Table.from_pylist(
+        [{"fact_id": "foreign", "occurrence_id": "o", "evidence": []}], schema=CANDIDATE_SCHEMA
+    )
+    with pytest.raises(ValueError, match="complete cut occurrence/evidence universe"):
+        CandidateInput.from_cut(prepared, cut, candidates=forged, decision_universe="policy")
 
 
 def test_cleanup_attempts_all_and_retains_failures(monkeypatch):
@@ -787,3 +864,95 @@ def test_scope_closes_connections_created_by_borrowed_cursor():
         native.sql("SELECT 42")
     with pytest.raises(RuntimeError, match="scope is closed"):
         cursor.sql("SELECT 42")
+
+
+def _operation_view_inputs(scope, *, label="view_claims"):
+    from corpus_structure.semantic.analytical_kernels import (
+        VIEW_ALTERNATIVES,
+        VIEW_CLAIMS,
+        VIEW_ENTITIES,
+        VIEW_IDENTITY,
+        ViewSpec,
+    )
+
+    p = "https://example/label"
+    tables = (
+        pa.Table.from_pylist(
+            [{"claim": "c", "predicate": p, "subject": "e", "object": "e", "statement": None}],
+            schema=VIEW_CLAIMS,
+        ),
+        pa.Table.from_pylist(
+            [{"entity": "e", "key": "e", "type": "Thing", "label": label}], schema=VIEW_ENTITIES
+        ),
+        pa.Table.from_pylist([], schema=VIEW_IDENTITY),
+        pa.Table.from_pylist([], schema=VIEW_ALTERNATIVES),
+    )
+    return tuple(scope.connection.from_arrow(table) for table in tables), [
+        ViewSpec("label", frozenset({p}), p, "subject", "subject", "subject", "label")
+    ]
+
+
+def test_native_single_input_binding_preserves_literals_and_leaves_no_name():
+    with AnalysisScope(empty_packet(prepared_inputs()[2])) as scope:
+        source = scope.connection.from_arrow(pa.table({"key": ["k"], "meaning": ["v"]}))
+        bound = scope._query_input(
+            source, "meanings", "SELECT key, 'meanings' AS literal FROM meanings"
+        )
+        assert bound.fetchall() == [("k", "meanings")]
+        assert bound.fetchall() == [("k", "meanings")]
+        with pytest.raises(Exception, match="meanings"):
+            scope.connection.table("meanings")
+        assert scope._views == []
+        assert not any(name.startswith("op") for name in scope._registered)
+
+
+def test_multiple_lazy_view_macro_invocations_retain_their_own_inputs():
+    packet = replace(empty_packet(prepared_inputs()[2]), property_ids=("https://example/label",))
+    with AnalysisScope(packet) as scope:
+        inputs, specs = _operation_view_inputs(scope, label="view_claims")
+        first = scope.views(inputs[0], inputs[1], inputs[2], inputs[3], specs)
+        second_inputs, _ = _operation_view_inputs(scope, label="second")
+        second = scope.views(
+            second_inputs[0], second_inputs[1], second_inputs[2], second_inputs[3], specs
+        )
+        expected = [
+            {"claim": "c", "view": "alternative_of", "facts": []},
+            {"claim": "c", "view": "label", "facts": ["view_claims"]},
+            {"claim": "c", "view": "same_slot", "facts": []},
+        ]
+        assert first.to_arrow_table().to_pylist() == expected
+        assert second.to_arrow_table().to_pylist()[1]["facts"] == ["second"]
+        assert first.to_arrow_table().to_pylist() == expected
+        assert len(scope._views) == 8
+    with pytest.raises(RuntimeError, match="scope is closed"):
+        first.fetchall()
+
+
+def test_view_binding_rejects_foreign_owner_before_catalog_mutation():
+    packet = replace(empty_packet(prepared_inputs()[2]), property_ids=("https://example/label",))
+    with AnalysisScope(packet) as first, AnalysisScope(packet) as second:
+        inputs, specs = _operation_view_inputs(first)
+        foreign, _ = _operation_view_inputs(second)
+        with pytest.raises(ValueError, match="belong to this analysis scope"):
+            first.views(inputs[0], foreign[1], inputs[2], inputs[3], specs)
+        assert first._views == []
+        assert not any(name.startswith("op") for name in first._registered)
+        child = first.connection.cursor()
+        child_relation = child.sql("SELECT 'x' AS fact_id, 'o' AS occurrence_id, [] AS evidence")
+        with pytest.raises(ValueError, match="scope's analytical connection"):
+            first.fuse(child_relation)
+
+
+def test_native_views_empty_inputs_and_duplicate_spec_refusal():
+    from corpus_structure.semantic.analytical_kernels import VIEW_CLAIMS
+
+    packet = replace(empty_packet(prepared_inputs()[2]), property_ids=("https://example/label",))
+    with AnalysisScope(packet) as scope:
+        inputs, specs = _operation_view_inputs(scope)
+        empty = scope.connection.from_arrow(pa.Table.from_pylist([], schema=VIEW_CLAIMS))
+        assert (
+            scope.views(empty, inputs[1], inputs[2], inputs[3], specs).to_arrow_table().num_rows
+            == 0
+        )
+        with pytest.raises(ValueError, match="view names repeat"):
+            scope.views(inputs[0], inputs[1], inputs[2], inputs[3], [*specs, *specs])

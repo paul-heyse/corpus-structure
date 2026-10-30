@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import Connection, func, select, text
 from sqlalchemy.exc import IntegrityError
 
-from corpus_structure.core import db as store
+from corpus_structure.core.db import legacy_metadata as store
 from corpus_structure.core.db import repo
 from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.payload_schemas import UnknownPayloadSchema

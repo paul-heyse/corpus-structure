@@ -76,6 +76,7 @@ def validate_result_dimension(
             ("hold_submission", "decision"): "hold_decision",
             ("check_submission", "disposition"): "submission",
             ("scientific_policy", "finding"): "assessment_finding",
+            ("scientific_policy", "comparison"): "scientific_comparison",
             ("scientific_policy", "selection"): "selection",
             ("read_original", "outcome"): "read",
             ("read_rendition", "outcome"): "read",

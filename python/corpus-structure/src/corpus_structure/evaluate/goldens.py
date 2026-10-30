@@ -1,7 +1,6 @@
 """Immutable semantic reference API; references remain private to the evaluator."""
 
 
-
 def context_refs(batch):
     """Pure pre-pivot fixture context projection, retained for alignment parity consumers."""
     from corpus_structure.core import batch as B

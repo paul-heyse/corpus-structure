@@ -58,18 +58,18 @@ classes:
   AgentAlternative:
     attributes:
       id: {required: true}
-      members: {multivalued: true, required: true}
+      members: {multivalued: true, required: true, annotations: {cs:reference_role: fact}}
       faithful: {range: boolean, required: true}
       reason: {required: true}
   AgentClaim:
     attributes:
       id: {required: true}
-      subject: {required: true}
+      subject: {range: Entity, required: true}
       predicate: {range: AgentPropertyIRI, required: true}
       object: {range: Value, inlined: true, required: true}
       qualification: {range: Qualification, inlined: true, required: true}
       establishment: {range: Establishment, required: true}
-      statement: {}
+      statement: {range: SourceStatement}
       statement_role: {range: AgentStatementRole}
       evidence: {range: AgentEvidence, inlined: true, multivalued: true, minimum_cardinality: 1, required: true}
   AgentStoredClaim:
@@ -90,7 +90,7 @@ classes:
   IdentityEndpoint:
     attributes:
       kind: {range: IdentityEndpointKind, required: true}
-      target: {required: true}
+      target: {range: Entity, required: true}
   AgentIdentityExclusion:
     attributes:
       id: {required: true}

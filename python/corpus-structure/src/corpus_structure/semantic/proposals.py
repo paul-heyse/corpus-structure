@@ -38,15 +38,17 @@ def proposal_inputs(
     *,
     qualification_class: str = "Qualification",
     statement_class: str = "SourceStatement",
+    model_content: bytes | None = None,
+    observation_content: bytes | None = None,
 ) -> SourceBundle:
     """Archive model-facing boundaries with the exact candidate vocabulary."""
     from .observations import observation_inputs
 
-    bundle = observation_inputs(bundle)
+    bundle = observation_inputs(bundle, model_content=observation_content)
     if {source.name for source in bundle.sources} & {"agent", "agent-root"}:
         raise ValueError("reserved agent module name already supplied")
     candidate = preview_schema(bundle, dependencies)
-    module = yaml.safe_load(_MODEL.read_bytes())
+    module = yaml.safe_load(_MODEL.read_bytes() if model_content is None else model_content)
     qualification = next((d for d in candidate.classes if d.name == qualification_class), None)
     if qualification is None or not (
         qualification.name == "Qualification" or "Qualification" in qualification.ancestors
@@ -413,6 +415,12 @@ def locate_proposal(
         raise ProposalRefused("proposal unit does not match its bound source frame")
     _check_references(prepared, raw, known_classes or {})
     declared = {item["id"]: item["class_iri"] for item in raw.get("entities", ())}
+    from .statement_types import statement_definition
+
+    declared.update(
+        {item["id"]: statement_definition(prepared).iri for item in raw.get("statements", ())}
+    )
+
     known = known_classes or {}
     iri_definitions = {definition.iri: definition for definition in prepared.definitions}
 

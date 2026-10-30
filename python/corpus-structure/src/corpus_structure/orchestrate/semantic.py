@@ -63,7 +63,7 @@ def run_source_methods(
     """
     from hashlib import sha256
 
-    from corpus_structure.orchestrate.runs import code_commit
+    from corpus_structure.core.provenance import code_commit
     from corpus_structure.semantic.identity import canonical_bytes
 
     if agent_mode != "complete":

@@ -4780,6 +4780,7 @@ invariants:
   required_capability: execution.selected_result.v1
 operations:
 - id: resolve_identity
+  policy_version: semantic-domain-3
   inputs:
   - SourceObservation
   - IdentityExclusion
@@ -5453,6 +5454,7 @@ operations:
   - occurrence
   - fact
 - id: evaluate
+  policy_version: semantic-domain-3
   inputs: &id070
   - FinalCut
   - RunBinding
@@ -5493,6 +5495,7 @@ operations:
   - candidate
   - accepted
 - id: scientific_policy
+  policy_version: semantic-domain-3
   inputs: &id073
   - CandidateInput
   - OperationPolicy
@@ -5514,6 +5517,7 @@ operations:
   result_dimensions:
   - {id: finding, field: assessment.outcome, outcome_domain: assessment_finding}
   - {id: selection, field: selection.outcome, outcome_domain: selection}
+  - {id: comparison, field: assessment.comparison, outcome_domain: scientific_comparison}
   dependencies:
   - semantic_release
   - execution_model
@@ -5578,7 +5582,7 @@ operations:
   precision: Exact authored/canonical values; no implicit rounding
   implementation: publish_inference
   transitions: []
-  projections: []
+  projections: [accepted]
 - id: publish
   inputs: &id082
   - Realization
@@ -6874,6 +6878,12 @@ projections:
   lifetime: snapshot
   implementation: query
 - id: accepted
+  analytical_policy:
+    input_kind: accepted
+    universe: eligible_positive_accepted
+    collections: positions_and_multiplicity
+    values: exact
+    completeness: declared_universe
   sources:
   - SemanticFact
   - Selection
@@ -6928,6 +6938,13 @@ projections:
   lifetime: snapshot
   implementation: explain
 - id: captured
+  analytical_policy:
+    input_kind: captured
+    universe: full_spine
+    collections: positions_and_multiplicity
+    values: exact_with_separate_bounded_projection
+    completeness: declared_universe
+    arithmetic_profile: analytical-profile.json
   sources:
   - IdentityExclusion
   - CapturedPacket
@@ -6954,6 +6971,13 @@ projections:
   lifetime: detached
   implementation: capture
 - id: candidate
+  analytical_policy:
+    input_kind: candidate
+    universe: cut_candidates
+    collections: positions_and_multiplicity
+    values: exact_with_separate_bounded_projection
+    completeness: declared_universe
+    arithmetic_profile: analytical-profile.json
   sources:
   - IdentityExclusion
   - CandidateInput
@@ -8245,6 +8269,9 @@ outcome_domains:
   - partial
   - unanalysed
   - failed
+- id: scientific_comparison
+  authority: code
+  values: [equivalent, different, undecided]
 - id: scientific
   authority: code
   values:

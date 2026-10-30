@@ -108,7 +108,10 @@ def test_archive_is_exact_offline_and_idempotent(semantic_db_engine: Engine, mon
             releases.persist_release(conn, bundle, dependencies, profile, prepared)
             == prepared.release_id
         )
-        assert calls == []  # no recompilation while inserting/checking any registry row
+        assert calls == [(bundle, dependencies, profile)]  # one explicit persistence verification
+        opened = releases.open_release(conn, prepared.release_id)
+        assert opened == prepared
+        assert len(calls) == 1  # ordinary opening never invokes preparation
         source_rows = conn.execute(select(table("sem.input"))).mappings().all()
         archived = {
             (r["input_kind"], r["input_name"]): bytes(r["content"])
@@ -118,8 +121,8 @@ def test_archive_is_exact_offline_and_idempotent(semantic_db_engine: Engine, mon
         assert archived["source", "base"].startswith(b"# exact imported bytes\r\n")
         assert archived["source", "base"] == bundle.sources[1].content
         assert archived["dependency", "opaque"] == b"\x00exact external bytes\xff"
-        loaded = releases.load_release(conn, prepared.release_id)
-        assert len(calls) == 1
+        loaded = releases.verify_release(conn, prepared.release_id)
+        assert len(calls) == 2
         assert calls[0] == (bundle, dependencies, profile)
         assert loaded == prepared
         assert loaded.validate_json("Child", '{"id":"a"}').model_dump() == {"id": "a"}

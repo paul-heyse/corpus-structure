@@ -194,9 +194,11 @@ def test_native_publication_refuses_fabricated_or_omitted_context(
 
 
 def test_arrow_native_transport_preserves_occurrence_context(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, monkeypatch
 ):
-    _, _, cut = _source(
+    from corpus_structure.semantic.arrow_publication import SnapshotDerivedPublication
+
+    _, run, cut = _source(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", monkeypatch
     )
     inputs = _cut_input(semantic_writer_engine, cut, "arrow")
@@ -204,19 +206,56 @@ def test_arrow_native_transport_preserves_occurrence_context(
     assert batch.occurrence_context and batch.occurrence_evidence_role
     arrow = ArrowPublicationBatch.from_rows(batch)
     assert arrow.content == batch.content
-    assert {row["statement_role"] for row in arrow.relations["occurrence_context"].to_pylist()} == {
-        "conclusion",
-        "premise",
-    }
-    # Source spans are resolved by the production final writer before publication; this
-    # low-level transport test intentionally supplies no source links, retaining row roles.
-    with (
-        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
-        conn.begin(),
-    ):
-        conn.execute(text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "arrow"})
-        receipt = publish_arrow_on_connection(conn, arrow)
-        assert receipt.data_revision == 1
+    expected_context = arrow.relations["occurrence_context"].to_pylist()
+    expected_roles = arrow.relations["occurrence_evidence_role"].to_pylist()
+    assert {row["statement_role"] for row in expected_context} == {"conclusion", "premise"}
+    observed = []
+
+    def publish(connection, actual):
+        if isinstance(actual, SnapshotDerivedPublication) and actual.operation_id == "evaluate":
+            assert actual.cut_id == cut and actual.realization_id == "arrow"
+            assert actual.relations["occurrence_context"].to_pylist() == expected_context
+            assert actual.relations["occurrence_evidence_role"].to_pylist() == expected_roles
+            receipt = publish_arrow_on_connection(connection, actual)
+            assert receipt.data_revision == 1
+            observed.append(actual.batch_id)
+            return receipt
+        return publish_arrow_on_connection(connection, actual)
+
+    monkeypatch.setattr(
+        "corpus_structure.semantic.arrow_publication.publish_arrow_on_connection", publish
+    )
+    # Exercise the real atomic source/proof/result publisher, including source-span custody.
+    consolidate_cut(semantic_writer_engine, cut, "arrow")
+    assert len(observed) == 1
+    with read_session(semantic_reader_engine, "arrow") as session:
+        for name, expected in (
+            ("occurrence_context", expected_context),
+            ("occurrence_evidence_role", expected_roles),
+        ):
+            relation = table("data." + name)
+            columns = arrow.relations[name].column_names
+            rows = (
+                session.connection.execute(
+                    select(*(relation.c[column] for column in columns)).where(
+                        session.scope(relation)
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            from corpus_structure.semantic.identity import canonical_bytes
+
+            assert sorted((dict(row) for row in rows), key=canonical_bytes) == sorted(
+                expected, key=canonical_bytes
+            )
+        completed = table("ops.completed_result")
+        assert (
+            session.connection.scalar(
+                select(completed.c.output_realization_id).where(completed.c.run_id == run)
+            )
+            == "arrow"
+        )
 
 
 def test_absent_statement_context_remains_unknown(

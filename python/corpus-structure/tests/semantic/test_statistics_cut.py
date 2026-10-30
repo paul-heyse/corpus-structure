@@ -3,9 +3,11 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+from pydantic import BaseModel
 from sqlalchemy import insert, select
 
 from corpus_structure.core.evidence import RenditionContent, Segment
+from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.vocab import SegmentKind
 from corpus_structure.semantic import (
     PreparationProfile,
@@ -15,6 +17,7 @@ from corpus_structure.semantic import (
     prepare_release,
 )
 from corpus_structure.semantic.analytical_profile import analytical_inputs
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.domain_operations import consolidate_cut, domain_rule_inputs
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import observation_inputs
@@ -34,9 +37,11 @@ from corpus_structure.semantic.proposals import (
     ProposalSentence,
     locate_proposal,
     proposal_inputs,
+    proposal_packet,
 )
 from corpus_structure.semantic.query import QuerySpec, read_session
 from corpus_structure.semantic.releases import persist_release
+from corpus_structure.semantic.source_frames import capture_source_frame
 
 
 def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targets(
@@ -62,9 +67,11 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
         proposal_inputs(bundle, dependencies, qualification_class="StatisticsQualification")
     )
     bundle, dependencies = analytical_inputs(bundle, dependencies)
-    prepared = prepare_release(bundle, dependencies)
+    dependencies = composed_dependencies(dependencies)
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, dependencies, profile)
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
+        persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(
@@ -77,6 +84,26 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
     )
     path = tmp_path / "Statistics.html"
     path.write_text(source)
+    sentence = Segment(kind=SegmentKind.SENTENCE, start=0, end=len(source))
+    paragraph = Segment(kind=SegmentKind.PARAGRAPH, start=0, end=len(source), children=(sentence,))
+    content = RenditionContent(
+        canonical_text=source,
+        document=Segment(
+            kind=SegmentKind.DOCUMENT, start=0, end=len(source), children=(paragraph,)
+        ),
+    )
+    locators = LocatorIndex(content, "Statistics.html")
+    unit_locator = str(locators.generate(paragraph))
+    frame = ProposalFrame(
+        unit_locator,
+        source,
+        (ProposalSentence("s1", str(locators.generate(sentence)), 0, len(source)),),
+    )
+    packet = proposal_packet(prepared, frame, guideline="", configuration={})
+
+    class SourceConfig(BaseModel):
+        pass
+
     with semantic_writer_engine.begin() as conn:
         document = register_document(
             conn,
@@ -105,6 +132,8 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
                 family="agent",
                 tier="agent",
                 confidence_source="agent",
+                unit_type="document",
+                Config=SourceConfig,
             ),
             "extract",
             {},
@@ -117,22 +146,22 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             stage="propose",
             unit_type="document",
             unit_id=document,
-            unit_key="Statistics.html#unit",
+            unit_key=unit_locator,
             input_hash="input",
+            packet_hash=packet.hash,
+            agent=True,
         )
-        claimed = claim_tasks(conn, run_id=run, config_id=config, holder="agent")[0]
+        claimed = claim_tasks(conn, run_id=run, config_id=config, holder="agent", agent=True)[0]
         rendition = store_rendition(
             conn,
             run_id=run,
             document_id=document,
-            content=RenditionContent(
-                canonical_text=source,
-                document=Segment(kind=SegmentKind.DOCUMENT, start=0, end=len(source)),
-            ),
+            content=content,
             task_id=task,
             config_id=config,
             parse_detail={},
         )
+        capture_source_frame(conn, task, packet)
     namespace = "https://corpus-structure.dev/domains/statistics/"
 
     def formula(expression):
@@ -177,7 +206,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             }
         )
     raw = {
-        "unit_ref": "Statistics.html#unit",
+        "unit_ref": unit_locator,
         "entities": [
             {"id": ref, "class_iri": namespace + "DistributionFamily", "label": label}
             for ref, label in [
@@ -186,7 +215,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
                 ("second-entity", "SecondParent"),
             ]
         ],
-        "statements": [{"id": "s", "kind": "theorem", "anchor": "Statistics.html#unit"}],
+        "statements": [{"id": "s", "kind": "theorem", "anchor": unit_locator}],
         "claims": claims,
         "alternatives": [],
         "unsupported": [],
@@ -194,11 +223,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
     located = locate_proposal(
         prepared,
         raw,
-        ProposalFrame(
-            "Statistics.html#unit",
-            source,
-            (ProposalSentence("s1", "Statistics.html#unit", 0, len(source)),),
-        ),
+        frame,
     )
     assert located.clean
     with semantic_writer_engine.begin() as conn:

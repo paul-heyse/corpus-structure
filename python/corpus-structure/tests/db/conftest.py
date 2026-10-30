@@ -15,8 +15,8 @@ from typing import Any
 import pytest
 from sqlalchemy import Connection, insert, select
 
-from corpus_structure.core import db as store
 from corpus_structure.core._model.revision import CONTENT_HASH, LABEL
+from corpus_structure.core.db import legacy_metadata as store
 from corpus_structure.core.vocab import ClaimModality, StatementKind
 from corpus_structure.schema import model, registry
 

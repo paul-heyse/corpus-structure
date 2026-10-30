@@ -19,7 +19,7 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.pool import NullPool
 
-from corpus_structure.core import db
+from corpus_structure.core.db import legacy_metadata as db
 from corpus_structure.core.db import overlay
 
 DATA = Path(__file__).resolve().parent / "data"

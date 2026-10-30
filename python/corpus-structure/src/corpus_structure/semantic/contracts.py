@@ -262,6 +262,7 @@ class OperationContract:
     projections: tuple[str, ...]
 
     result_dimensions: tuple[ResultDimension, ...] = ()
+    policy_version: str | None = None
 
 
 @dataclass(frozen=True)
@@ -271,6 +272,16 @@ class GraphProjectionPolicy:
     collections: Literal["positions_and_multiplicity"]
     lifetime: Literal["snapshot"]
     node_kinds: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class AnalyticalProjectionPolicy:
+    input_kind: Literal["captured", "candidate", "accepted"]
+    universe: Literal["full_spine", "cut_candidates", "eligible_positive_accepted"]
+    collections: Literal["positions_and_multiplicity"]
+    values: Literal["exact_with_separate_bounded_projection", "exact"]
+    completeness: Literal["declared_universe"]
+    arithmetic_profile: str | None = None
 
 
 @dataclass(frozen=True)
@@ -287,6 +298,7 @@ class ProjectionContract:
     lifetime: str
     implementation: str
     graph_policy: GraphProjectionPolicy | None = None
+    analytical_policy: AnalyticalProjectionPolicy | None = None
 
 
 @dataclass(frozen=True)
@@ -579,6 +591,8 @@ def _validate(products: ExecutionModelProducts) -> None:
         if not set(transition.outcomes) <= set(o[transition.operation].outcomes):
             _fail("transition_outcome", transition.id, "outcome outside operation contract")
     for operation in products.operations:
+        if operation.policy_version is not None and not operation.policy_version.strip():
+            _fail("operation_policy_version", operation.id, "policy version must be nonempty")
         _refs(operation.inputs, c, operation.id)
         _refs(operation.results, c, operation.id)
         _refs(operation.applicability, i, operation.id)

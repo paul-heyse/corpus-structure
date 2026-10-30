@@ -99,6 +99,8 @@ def build_boundary_adapters(
     conditional_fragments: Mapping[str, dict[str, Any]],
     conditional_scope: str = "shape",
     legacy_v10: bool = False,
+    finite_fields: bool = False,
+    class_names: tuple[str, ...] | None = None,
     descendant_order: Mapping[str, tuple[str, ...]] | None = None,
     models_out: dict[str, type[BaseModel]] | None = None,
 ) -> tuple[tuple[str, TypeAdapter[BaseModel]], ...]:
@@ -116,7 +118,19 @@ def build_boundary_adapters(
             return descendant_order[name]
         return tuple(d.name for d in definitions if name in d.ancestors and not d.abstract)
 
+    selected = set(classes) if class_names is None else set(class_names)
+    pending = list(selected)
+    while pending:
+        name = pending.pop()
+        definition = classes[name]
+        required = set(concrete(name)) if definition.abstract else set()
+        required.update(p.range for p in definition.properties if p.inlined and p.range in classes)
+        for dependency in required - selected:
+            selected.add(dependency)
+            pending.append(dependency)
     for definition in definitions:
+        if definition.name not in selected:
+            continue
         fields: dict[str, Any] = {}
         for prop in definition.properties:
             if prop.range in classes:
@@ -134,6 +148,8 @@ def build_boundary_adapters(
                 annotation = enums[prop.range]
             else:
                 annotation = primitive_types[prop.range]
+                if annotation is float and finite_fields:
+                    annotation = _ANNOTATED[annotation, Field(allow_inf_nan=False)]
             if prop.equals_string is not None:
                 annotation = _LITERAL[prop.equals_string]
             limits: dict[str, Any] = {}

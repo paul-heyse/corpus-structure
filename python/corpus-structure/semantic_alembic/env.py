@@ -7,6 +7,7 @@ from typing import Any
 
 from alembic import context
 
+from corpus_structure.semantic.alembic_defaults import plugin as defaults_plugin
 from corpus_structure.semantic.metadata import SCHEMAS, metadata
 from corpus_structure.semantic.migrations import VERSION_TABLE
 
@@ -72,7 +73,7 @@ context.configure(
     autogenerate_plugins=[
         "alembic.autogenerate.*",
         "alembic.ext.checkconstraint_byname",
-        "corpus.semantic.defaults",
+        defaults_plugin.name,
     ],
     on_version_apply=applied,
 )

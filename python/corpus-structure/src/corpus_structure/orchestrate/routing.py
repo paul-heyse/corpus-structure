@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy import Connection, select, text
 from sqlalchemy.dialects.postgresql import insert
 
-from corpus_structure.core.db import metadata
+from corpus_structure.core.db.legacy_metadata import metadata
 from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.method import UnitView
 from corpus_structure.core.vocab import (

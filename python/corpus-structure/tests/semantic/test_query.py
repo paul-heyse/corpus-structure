@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import event, insert, text, update
+from sqlalchemy import event, insert, select, text, update
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic import (
@@ -254,6 +254,20 @@ def test_archived_new_declarations_native_occurrence_fact_explain(
         assert session.connection.scalar(text("SHOW transaction_isolation")) == "repeatable read"
         assert session.connection.scalar(text("SHOW transaction_read_only")) == "on"
         occurrences = session.query(spec(session))
+        # Equality uses semantic Decimal meaning, including lexical scale/exponent variants.
+        fact_table = table("data.fact")
+        for operand in ("1.23000", "123e-2", "+001.23"):
+            matched = (
+                session.connection.execute(
+                    select(fact_table.c.fact_id).where(
+                        session.scope(fact_table),
+                        session.object_predicate(PREFIX + "exact_signal", operand),
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            assert matched == [batch.fact[0].fact_id]
         assert {row.occurrence_id for row in occurrences.rows} == {
             o.occurrence_id for o in batch.occurrence
         }
@@ -322,6 +336,16 @@ def test_snapshot_continuation_pointer_change_and_revision_refusal(
         request = spec(old, page_size=1)
         first = old.query(request)
         assert first.continuation is not None and not first.complete
+        import base64
+        import json
+
+        high = json.loads(base64.urlsafe_b64decode(first.continuation))
+        high["after"] = "zzzzzzzzzz"
+        token = base64.urlsafe_b64encode(json.dumps(high).encode()).decode()
+        empty_page = old.query(request, continuation=token)
+        assert empty_page.rows == () and empty_page.complete
+        assert empty_page.coverage[0].outcome == "complete"
+        assert empty_page.knowledge == "unknown"
         with semantic_db_engine.begin() as conn:
             conn.execute(
                 update(table("data.project")).values(
@@ -387,7 +411,7 @@ def test_wrong_handles_refused_and_strict_outputs_preserve_records(
                     property_handle=replace(request.property_handle, class_iri=PREFIX + "Reading"),
                 )
             )
-        with pytest.raises(KeyError):
+        with pytest.raises(ValueError, match="unknown release name"):
             session.property_handle(request.class_handle, 'arbitrary" SQL identifier')
         result = session.query(spec(session, "readings", "accepted"))
         record = result.rows[0].object

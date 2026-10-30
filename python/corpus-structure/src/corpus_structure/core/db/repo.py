@@ -57,7 +57,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB, REAL, REGCONFIG, TIMESTAMP
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from corpus_structure.core.db import metadata
+from corpus_structure.core.db.legacy_metadata import metadata
 from corpus_structure.core.evidence import (
     MacroDef,
     RenditionContent,

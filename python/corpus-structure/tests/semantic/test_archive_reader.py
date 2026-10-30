@@ -227,3 +227,74 @@ def test_compiler10_public_snapshot_reads_survive_unavailable_current_compiler(
 
     exported = export_packet(packet, tmp_path / "old-answer")
     assert exported["binding"]["release_id"] == r
+
+
+def test_current_open_builds_only_requested_boundary_closure():
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.releases import _products
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+
+    source = SourceBundle(
+        "lazy",
+        (
+            SourceArtifact(
+                "lazy",
+                b"""id: https://example.org/lazy
+name: lazy
+types:
+  string: {base: str, uri: xsd:string}
+classes:
+  Used:
+    attributes:
+      id: {identifier: true}
+  Unrelated:
+    attributes:
+      id: {identifier: true}
+""",
+            ),
+        ),
+    )
+    prepared = prepare_release(source)
+    opened = reconstruct_release(
+        _products(prepared), prepared.manifest, source, PreparationProfile(), prepared.artifacts
+    )
+    assert opened._boundary_models == {}
+    assert opened.validate_python("Used", {"id": "a"}).model_dump()["id"] == "a"
+    assert set(opened._boundary_models) == {"Used"}
+    assert opened.adapter("Used") is opened.adapter("Used")
+    with pytest.raises(TypeError):
+        from typing import Any, cast
+
+        cast(Any, opened.index.definitions)["Other"] = opened.definitions[0]
+
+
+def test_extracted_float_item_keeps_finite_policy():
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+
+    prepared = prepare_release(
+        SourceBundle(
+            "finite",
+            (
+                SourceArtifact(
+                    "finite",
+                    b"""id: https://example.org/finite
+name: finite
+types:
+  string: {base: str, uri: xsd:string}
+  float: {base: float, uri: xsd:float}
+classes:
+  Finite:
+    attributes:
+      id: {identifier: true}
+      values: {range: float, multivalued: true}
+""",
+                ),
+            ),
+        )
+    )
+    item = prepared.property_adapter("Finite", "values", item=True)
+    for value in (float("nan"), float("inf"), -float("inf")):
+        with pytest.raises(ValidationError):
+            item.validate_python(value, strict=True)
+    assert item.validate_python(1.5, strict=True) == 1.5

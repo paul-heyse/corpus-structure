@@ -88,7 +88,7 @@ def test_execution_inputs_and_products_reload_exactly_offline(
             )
         ).scalar_one()
         archive = json.loads(bytes(archived))
-        assert archive["format"] == "semantic-release-archive-2"
+        assert archive["format"] == "semantic-release-archive-3"
         assert archive["products"]["execution_model_id"] == prepared.execution_model_id
         assert json.loads(prepared.manifest)["execution_model_id"] == prepared.execution_model_id
         inputs = table("sem.input")

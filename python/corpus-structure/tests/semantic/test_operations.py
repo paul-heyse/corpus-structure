@@ -22,7 +22,7 @@ from corpus_structure.semantic.operations import (
 )
 
 
-def setup(engine, *, observations=False, archive=False, composed=False):
+def setup(engine, *, observations=False, archive=False, composed=False, evaluation=False):
     bundle = SourceBundle(
         "m",
         (
@@ -97,7 +97,15 @@ classes:
     from corpus_structure.semantic.types import PreparationProfile
 
     profile = PreparationProfile()
-    if composed:
+    if evaluation:
+        from corpus_structure.semantic.analytical_profile import analytical_inputs
+        from corpus_structure.semantic.domain_operations import domain_rule_inputs
+        from corpus_structure.semantic.proposals import proposal_inputs
+
+        dependencies = domain_rule_inputs(dependencies, b"rules: []\n")
+        bundle = proposal_inputs(bundle, dependencies)
+        bundle, dependencies = analytical_inputs(bundle, dependencies)
+    if composed or evaluation:
         from corpus_structure.semantic.composed import composed_dependencies
 
         dependencies = composed_dependencies(dependencies)
@@ -363,10 +371,19 @@ def test_recognizer_terminal_source_boundary_and_coverage(
     class Payload(BaseModel):
         text: str
 
-    p = setup(semantic_db_engine, observations=True)
+    class SourceConfig(BaseModel):
+        pass
+
+    p = setup(semantic_db_engine, observations=True, evaluation=True)
     e = semantic_writer_engine
     method = SimpleNamespace(
-        name="read", version="1", family="ingest", tier="deterministic", confidence_source=None
+        name="read",
+        version="1",
+        family="ingest",
+        tier="deterministic",
+        confidence_source=None,
+        unit_type=TaskUnitType.RUN,
+        Config=SourceConfig,
     )
     with e.begin() as c:
         run = create_run(
@@ -502,33 +519,12 @@ def test_recognizer_terminal_source_boundary_and_coverage(
             source="file:source",
         )
 
-    from corpus_structure.semantic.arrow_publication import (
-        SnapshotDerivedPublication,
-        publish_arrow_on_connection,
-    )
-    from corpus_structure.semantic.publication import PublicationBatch
-    from corpus_structure.semantic.query import SnapshotBinding, read_session
+    from corpus_structure.semantic.domain_operations import consolidate_cut
+    from corpus_structure.semantic.query import read_session
 
     with e.connect().execution_options(isolation_level="SERIALIZABLE") as c, c.begin():
         cut = seal_cut(c, run, "measurement-final", final=True)
-        c.execute(
-            text("SELECT data.begin_evaluation(:cut,:output)"),
-            {"cut": cut, "output": "measurement-output"},
-        )
-        batch = PublicationBatch(p.release_id, "measurement-output", "measurement-result")
-        publish_arrow_on_connection(
-            c,
-            SnapshotDerivedPublication.from_rows(
-                batch,
-                source=SnapshotBinding(p.release_id, "z", 0, "cut:" + str(cut)),
-                operation_id="consolidate_cut",
-                projection_id="candidate",
-            ),
-        )
-        c.execute(
-            text("SELECT data.finish_evaluation(:cut,:output,:batch)"),
-            {"cut": cut, "output": "measurement-output", "batch": batch.batch_id},
-        )
+    consolidate_cut(e, cut, "measurement-output")
     with read_session(semantic_reader_engine, "measurement-output") as session:
         measurements = [m.model_dump(mode="python") for m in session.measurements("count")]
     assert len(measurements) == 4

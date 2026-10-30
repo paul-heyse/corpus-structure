@@ -1,0 +1,203 @@
+id: https://corpus-structure.dev/semantic/rule-view
+name: semantic_rule_view
+version: semantic-rule-view-1
+prefixes:
+  rv: https://corpus-structure.dev/semantic/rule-view/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: rv
+default_range: string
+types:
+  string:
+    base: str
+    uri: xsd:string
+  decimal:
+    base: Decimal
+    uri: xsd:decimal
+  boolean:
+    base: bool
+    uri: xsd:boolean
+annotations:
+  rv:decimal_precision: '28'
+  rv:decimal_rounding: ROUND_HALF_EVEN
+classes:
+  Entity:
+    attributes:
+      id:
+        range: string
+      key:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      type:
+        range: string
+      label:
+        range: string
+      symbol:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      identity:
+        range: string
+        annotations:
+          rv:collection: mapping
+      index_symbols:
+        range: string
+        annotations:
+          rv:collection: array
+  Value:
+    attributes:
+      t:
+        range: string
+      latex:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      v:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      enum:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      slot_kind:
+        range: string
+      defined_symbol:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      parse:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      math_kind:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+  Statement:
+    attributes:
+      id:
+        range: string
+      key:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      kind:
+        range: string
+  Binding:
+    attributes:
+      symbol:
+        range: string
+      bind:
+        range: string
+      entity:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      claim:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      param:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+  Node:
+    attributes:
+      op:
+        range: string
+      ref:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      name:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      rel:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      x_latex:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+  Claim:
+    attributes:
+      id:
+        range: string
+      key:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      predicate:
+        range: string
+      groups:
+        range: string
+        annotations:
+          rv:collection: array
+      subject:
+        range: Entity
+      object:
+        range: Entity
+        annotations:
+          rv:nullable: 'true'
+      value:
+        range: Value
+        annotations:
+          rv:nullable: 'true'
+      qualifiers:
+        range: Qualifiers
+      statement:
+        range: Statement
+        annotations:
+          rv:nullable: 'true'
+      statement_kind:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      statement_role:
+        range: string
+        annotations:
+          rv:nullable: 'true'
+      establishment:
+        range: string
+      bindings:
+        range: Binding
+        annotations:
+          rv:collection: array
+      condition_nodes:
+        range: Node
+        annotations:
+          rv:collection: array
+      claim_refs:
+        range: string
+        annotations:
+          rv:collection: array
+      statement_premises:
+        range: string
+        annotations:
+          rv:collection: array
+      gives_symbols:
+        range: string
+        annotations:
+          rv:collection: array
+      given_by_others:
+        range: string
+        annotations:
+          rv:collection: array
+      same_slot:
+        range: string
+        annotations:
+          rv:collection: array
+      alternative_of:
+        range: string
+        annotations:
+          rv:collection: array
+      evidence_count:
+        range: decimal
+      unresolved_symbols:
+        range: decimal
+  Qualifiers:
+    description: Fields are induced from the exact bound Qualification definitions,
+      not a parallel type map.

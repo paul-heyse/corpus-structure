@@ -19,6 +19,7 @@ from corpus_structure.intervene import service, submission
 from corpus_structure.intervene.semantic import ProposalSession, RefusedProposal
 from corpus_structure.semantic.operations import OperationConflict
 from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
+from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import Settings
 
@@ -53,7 +54,7 @@ class SemanticAgentSession:
 
     def interpretation(self) -> PreparedRelease:
         from corpus_structure.semantic.metadata import table
-        from corpus_structure.semantic.releases import load_release
+        from corpus_structure.semantic.releases import open_release
 
         with self.lock:
             if self.prepared is None:
@@ -62,7 +63,7 @@ class SemanticAgentSession:
                     release_id = conn.execute(
                         select(runs.c.release_id).where(runs.c.id == self.run_id)
                     ).scalar_one()
-                    self.prepared = load_release(conn, release_id)
+                    self.prepared = open_release(conn, release_id)
             return self.prepared
 
     def active(self, task_id: int) -> ProposalSession:
@@ -305,10 +306,12 @@ def build_semantic_server(
         return found
 
     @server.tool
+    @tool_refusals(ProposalRefused, OperationConflict)
     def queue_status(ctx: Context, run: int | None = None) -> service.QueueStatus:
         return bound_run(ctx, run).status()
 
     @server.tool
+    @tool_refusals(ProposalRefused, OperationConflict)
     def queue_next(
         ctx: Context,
         mode: Literal["extract", "adjudicate"] = "extract",
@@ -321,6 +324,7 @@ def build_semantic_server(
             raise ToolError(str(error)) from None
 
     @server.tool
+    @tool_refusals(ProposalRefused, OperationConflict)
     def read_unit(ctx: Context, task_id: int, part: int = 1) -> ToolResult:
         try:
             active = current(ctx).active(task_id)
@@ -340,6 +344,7 @@ def build_semantic_server(
             raise ToolError(str(error)) from None
 
     @server.tool
+    @tool_refusals(ProposalRefused, OperationConflict)
     def read_instructions(
         ctx: Context, task_id: int, part: str | None = None, page: int = 1
     ) -> service.Instructions:
@@ -372,6 +377,7 @@ def build_semantic_server(
             raise ToolError(str(error)) from None
 
     @server.tool
+    @tool_refusals(ProposalRefused, OperationConflict)
     def propose_claims(
         ctx: Context,
         task_id: int,
@@ -445,6 +451,7 @@ def build_semantic_server(
             )
 
     @server.tool
+    @tool_refusals(ProposalRefused, OperationConflict)
     def release(ctx: Context, task_id: int, reason: str) -> service.Released:
         try:
             active = current(ctx).active(task_id)
@@ -464,6 +471,7 @@ def build_semantic_server(
             raise ToolError(str(error)) from None
 
     @server.tool
+    @tool_refusals(ProposalRefused, OperationConflict)
     def record_direction(
         ctx: Context, text: str, scope: str | None = None
     ) -> service.DirectionRecorded:

@@ -35,6 +35,7 @@ the `$enums` membership fallback of §3.5 is not needed (settled by the tests ov
 
 from __future__ import annotations
 
+import decimal
 import difflib
 import enum
 from collections.abc import Iterator, Mapping, Sequence
@@ -189,6 +190,8 @@ class _Types:
             return DataType.MAPPING(DataType.STRING, self.parse(text[4:-1]))
         if text in self.SCALARS:
             return self.SCALARS[text]
+        if text in self.built:
+            return self.built[text]
         if text in self.objects:
             return self.object(text)
         raise ValueError(f"unknown type {text!r}")
@@ -209,11 +212,17 @@ class Language:
     arguments: Mapping[str, tuple[Vocabulary | None, ...]] = field(default_factory=dict)
     absent: Mapping[Ref, tuple[RuleErrorCode, str]] = field(default_factory=dict)
     no_regex: frozenset[Ref] = frozenset()
+    native_types: Mapping[str, Any] = field(default_factory=dict)
+    decimal_context: decimal.Context | None = None
 
     @cached_property
     def _types(self) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         types = _Types(self.objects)
-        symbols = {name: types.parse(t) for name, t in self.symbols.items()}
+        types.built.update(self.native_types)
+        symbols = {
+            **self.native_types,
+            **{name: types.parse(t) for name, t in self.symbols.items()},
+        }
         values = {name: b.value for name, b in self.builtins.items()}
         value_types = {name: types.parse(b.type) for name, b in self.builtins.items()}
         return symbols, values, value_types
@@ -224,6 +233,7 @@ class Language:
             type_resolver=rule_engine.type_resolver_from_dict(symbols),
             mapping_attribute_lookup=False,
             default_timezone="utc",
+            decimal_context=self.decimal_context,
         )
         ctx.builtins = Builtins.from_defaults(
             values=values, value_types=value_types, timezone=ctx.default_timezone
@@ -306,8 +316,8 @@ def _ref(expr: Any) -> Ref | None:
     if isinstance(expr, CoalesceExpression):
         return _ref(expr.left)
     if isinstance(expr, GetAttributeExpression):
-        owner = getattr(expr, "_object_type", None)
-        return (owner.name, expr.name) if owner is not None else None
+        owner = DataType.NULLABLE.unwrap(expr.object.result_type)
+        return (owner.name, expr.name) if DataType.is_type(owner, DataType.OBJECT) else None
     if isinstance(expr, SymbolExpression) and expr.scope == "built-in":
         return (BUILTIN, expr.name)
     if isinstance(expr, FunctionCallExpression) and isinstance(expr.function, SymbolExpression):

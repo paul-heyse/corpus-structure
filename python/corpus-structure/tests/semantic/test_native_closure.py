@@ -57,7 +57,12 @@ def test_restricted_complete_archive_replay_and_immutable_closure(semantic_db_en
     with admitter.begin() as conn:
         conn.execute(text("SELECT data.require_runtime_principal('admit')"))
         assert persist_release(conn, bundle, deps, profile, prepared) == prepared.release_id
-        with pytest.raises(ReleaseConflict, match="archive replay differs"), conn.begin_nested():
+        with (
+            pytest.raises(
+                ReleaseConflict, match="prepared products differ from exact-source verification"
+            ),
+            conn.begin_nested(),
+        ):
             persist_release(
                 conn,
                 bundle,
@@ -324,14 +329,14 @@ def test_model_products_match_frozen_forward_revision():
     from sqlalchemy.schema import CreateTable
 
     from corpus_structure.semantic.metadata import metadata
-    from corpus_structure.semantic.native_products import closure_products
+    from corpus_structure.semantic.native_products import consolidation_products
 
     versions = Path(__file__).resolve().parents[2] / "semantic_alembic/versions"
     before = {
         name: str(CreateTable(relation).compile(dialect=dialect()))
         for name, relation in metadata.tables.items()
     }
-    for product in closure_products():
+    for product in consolidation_products():
         assert versions.joinpath(product.name).read_bytes() == product.content
     assert before == {
         name: str(CreateTable(relation).compile(dialect=dialect()))
@@ -380,12 +385,27 @@ def test_forward_reconciles_same_head_constraints_and_kernel(revision_database, 
     from dataclasses import asdict
     from hashlib import sha256
 
+    from corpus_structure.semantic.archive_reader import reconstruct_release
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.releases import _archive_bytes, _projection_rows
 
-    bundle, deps, profile = source_bundle(), ResolvedDependencies(), PreparationProfile()
-    prepared = prepare_release(bundle, deps, profile)
-    archive_bytes = _archive_bytes(bundle, deps, prepared)
+    from .test_archive_reader import archived
+
+    retained, bundle, artifacts = archived()
+    deps, profile = ResolvedDependencies(), PreparationProfile(**retained["profile"])
+    prepared = reconstruct_release(
+        retained["products"], bytes.fromhex(retained["manifest"]), bundle, profile, artifacts
+    )
+    archive_bytes = canonical_bytes(
+        {
+            "format": "semantic-release-archive-1",
+            "root": retained["root"],
+            "sources": [source.name for source in bundle.sources],
+            "dependencies": [],
+            "products": retained["products"],
+        }
+    )
+    assert _archive_bytes(bundle, deps, prepared) == archive_bytes
     with engine.begin() as conn:
         # Reproduce the historical complete persister before protected publication existed.
         conn.execute(
@@ -466,7 +486,6 @@ def test_forward_reconciles_same_head_constraints_and_kernel(revision_database, 
             )
             == archive_bytes
         )
-        assert persist_release(conn, bundle, deps, profile, prepared) == prepared.release_id
         # Independent allowed sets; reference_set deliberately excludes reserved.
         checks = dict(
             conn.execute(
@@ -495,6 +514,9 @@ def test_forward_reconciles_same_head_constraints_and_kernel(revision_database, 
         assert not conn.execute(
             text("SELECT has_database_privilege('corpus_sem_writer',current_database(),'TEMP')")
         ).scalar_one()
+        conn.execute(text("RESET ROLE"))
+        upgrade(conn, "semantic_0032")
+        assert persist_release(conn, bundle, deps, profile, prepared) == prepared.release_id
 
 
 def test_alembic_current_physical_comparison(semantic_db_engine):

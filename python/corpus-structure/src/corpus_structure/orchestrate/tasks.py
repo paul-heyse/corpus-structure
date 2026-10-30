@@ -27,7 +27,7 @@ from typing import Any
 from sqlalchemy import Connection, bindparam, text
 
 from corpus_structure.core.canonical import digest
-from corpus_structure.core.db import metadata
+from corpus_structure.core.db.legacy_metadata import metadata
 from corpus_structure.core.method import Method, ResolvedConfig, UnitView
 from corpus_structure.core.vocab import MethodTier, SkipReason, Stage, TaskStatus, TaskUnitType
 

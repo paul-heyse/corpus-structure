@@ -10,10 +10,12 @@ from typing import Annotated, Any, Literal
 import typer
 from pydantic import ValidationError
 from rich.table import Table
-from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
-from corpus_structure.serve.journey import QueryRefused, select_run, serve_query
+from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.refusals import SemanticRefusal, database_failure_code
+from corpus_structure.serve.journey import QueryRefused, parse_run, select_run, serve_query
 from corpus_structure.serve.queries import GENERIC
 from corpus_structure.serve.registry import QueryRegistryError, build_registry
 
@@ -26,9 +28,7 @@ def refusal(json: bool):
         QueryRefused,
         QueryRegistryError,
         ValidationError,
-        ValueError,
-        LookupError,
-        OSError,
+        SemanticRefusal,
     ) as e:
         if json:
             from corpus_structure.semantic.types import PreparationError
@@ -43,6 +43,15 @@ def refusal(json: bool):
         else:
             stderr_console().print(f"refused: {e}")
         raise typer.Exit(1) from None
+    except DBAPIError as error:
+        code = database_failure_code(error)
+        if json:
+            typer.echo(
+                jsonlib.dumps({"error": {"code": code, "message": "database operation failed"}})
+            )
+        else:
+            stderr_console().print(f"{code}: database operation failed")
+        raise typer.Exit(1) from error
 
 
 def context(conn: Any, project: str | None, run: str) -> tuple[str, int, Any]:
@@ -53,7 +62,7 @@ def context(conn: Any, project: str | None, run: str) -> tuple[str, int, Any]:
 
     if run == "promoted" and not project:
         raise QueryRefused("a selected completed result needs its project")
-    rid = select_run(conn, project or "", run if run == "promoted" else int(run))
+    rid = select_run(conn, project or "", run if run == "promoted" else parse_run(run))
     r = table("ops.run")
     row = conn.execute(select(r.c.project_id, r.c.options).where(r.c.id == rid)).one()
     domain = row.options.get("domain")
@@ -137,10 +146,8 @@ def query(
             raise QueryRefused("invalid projection")
         with (
             open_runtime_engine(settings, application_name="ci-query", purpose="read") as engine,
-            engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
-            conn.begin(),
+            read_snapshot(engine) as conn,
         ):
-            conn.execute(text("SET TRANSACTION READ ONLY"))
             from corpus_structure.serve.journey import decode_token
 
             selected = str(decode_token(page_token)["run"]) if page_token else run
@@ -155,7 +162,7 @@ def query(
                 name,
                 params,
                 project_id=pid,
-                run=run if run == "promoted" else int(run),
+                run=run if run == "promoted" else parse_run(run),
                 page_token=page_token,
                 max_rows=max_rows,
                 max_chars=max_chars,

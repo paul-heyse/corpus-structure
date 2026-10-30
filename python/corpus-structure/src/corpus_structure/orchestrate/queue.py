@@ -34,7 +34,8 @@ from typing import Any
 
 from sqlalchemy import Connection, Engine, text
 
-from corpus_structure.core.db import metadata, repo
+from corpus_structure.core.db import repo
+from corpus_structure.core.db.legacy_metadata import metadata
 from corpus_structure.core.db.store import ErrorClass, classify_error
 from corpus_structure.core.method import UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, Stage, TaskStatus

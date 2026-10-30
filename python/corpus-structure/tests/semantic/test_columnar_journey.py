@@ -17,9 +17,8 @@ from corpus_structure.semantic import (
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.analytics import AnalysisScope, load_packet
 from corpus_structure.semantic.arrow_publication import (
+    ArrowPublicationError,
     SnapshotDerivedPublication,
-    StaleAnalysisError,
-    publish_arrow,
     stage_schema,
 )
 from corpus_structure.semantic.metadata import table
@@ -40,7 +39,7 @@ from corpus_structure.semantic.releases import persist_release
 from corpus_structure.settings import Settings
 
 
-def test_native_snapshot_kernel_arrow_publication(
+def test_native_snapshot_kernel_refuses_unmodeled_publication(
     semantic_db_engine, semantic_reader_engine, semantic_writer_engine
 ):
     bundle, deps = analytical_inputs(
@@ -126,34 +125,22 @@ classes:
         assert len(result) == 1 and len(result[0]["supports"]) == 2
         raw = scope.declared_view(p).project("fact_id, true AS selected").to_arrow_table()
         selections = pa.Table.from_arrays(raw.columns, schema=stage_schema("selection"))
-    batch = SnapshotDerivedPublication(
-        rid,
-        z,
-        "analysis",
-        {"selection": selections},
-        source=packet.binding,
-        operation_id="columnar_analysis",
-        projection_id=packet.projection_id,
-    )
-    receipt = publish_arrow(semantic_writer_engine, batch)
-    assert receipt.data_revision == 2
-    assert publish_arrow(semantic_writer_engine, batch) == receipt
+    # The computed selection has no admitted operation: analytical capability alone
+    # must not authorize publication. Real inferred publication is covered independently.
+    with pytest.raises(ArrowPublicationError, match="unsupported semantic derived"):
+        SnapshotDerivedPublication(
+            rid,
+            z,
+            "analysis",
+            {"selection": selections},
+            source=packet.binding,
+            operation_id="columnar_analysis",
+            projection_id=packet.projection_id,
+        )
     with read_session(semantic_reader_engine, z) as session:
         cls = session.class_handle("Thing")
         prop = session.property_handle(cls, "label")
-        assert len(session.query(QuerySpec(cls, prop, projection="accepted")).rows) == 1
-    with pytest.raises(StaleAnalysisError):
-        publish_arrow(
-            semantic_writer_engine,
-            SnapshotDerivedPublication(
-                rid,
-                z,
-                "stale",
-                {"selection": selections},
-                source=packet.binding,
-                operation_id="columnar_analysis",
-                projection_id=packet.projection_id,
-            ),
-        )
+        assert session.query(QuerySpec(cls, prop, projection="accepted")).rows == ()
+        assert session.binding.data_revision == 1
     with semantic_db_engine.connect() as conn:
         assert len(conn.execute(select(table("data.occurrence"))).all()) == 2

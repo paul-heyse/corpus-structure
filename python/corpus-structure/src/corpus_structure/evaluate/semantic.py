@@ -19,7 +19,7 @@ from sqlalchemy import Connection, select, text
 
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import ProposalFrame, locate_proposal
-from corpus_structure.semantic.releases import load_release
+from corpus_structure.semantic.releases import open_release
 
 from .semantic_alignment import SemanticSide, TierCounts, align_semantic
 from .semantic_values import entity_references, rewrite_references
@@ -98,11 +98,14 @@ def _source_units(conn, run_id):
     """Units actually represented in the completed cut, including reused origin tasks."""
     return (
         conn.execute(
-            text("""SELECT DISTINCT o.rendition_id,o.payload->>'unit_ref' AS unit_key,d.source_uri,d.id AS document_id,segment.segment_key,segment.kind AS segment_kind,segment.attrs AS segment_attrs
+            text("""SELECT DISTINCT o.rendition_id,o.payload->>'unit_ref' AS unit_key,
+        d.source_uri,d.id AS document_id,segment.segment_key,
+        segment.kind AS segment_kind,segment.attrs AS segment_attrs
       FROM ops.completed_result c JOIN ops.cut_task ct ON ct.cut_id=c.cut_id
       JOIN kb.observation o ON o.task_id=ct.origin_task_id
       JOIN kb.rendition r ON r.id=o.rendition_id JOIN kb.document d ON d.id=r.document_id
-      LEFT JOIN kb.segment segment ON segment.id=o.segment_id AND segment.rendition_id=o.rendition_id
+      LEFT JOIN kb.segment segment ON segment.id=o.segment_id
+        AND segment.rendition_id=o.rendition_id
       WHERE c.run_id=:run AND o.payload_definition='AgentStoredBatch'
         AND o.payload->>'unit_ref' IS NOT NULL ORDER BY unit_key,o.rendition_id"""),
             {"run": run_id},
@@ -240,7 +243,8 @@ def _forced_slice_units(conn, release_id, pool, names):
                     matched.append(unit["unit_key"])
             if len(set(matched)) != 1:
                 raise ReferenceError(
-                    f"forced reference locator is absent or ambiguous in the completed source pool: {locator}"
+                    "forced reference locator is absent or ambiguous in the completed source pool: "
+                    f"{locator}"
                 )
             forced.update(matched)
     return tuple(sorted(forced))
@@ -261,7 +265,7 @@ def create_reference_set(
     from .sampling import sample
 
     result = _completed(conn, source_run_id, project_id)
-    release = load_release(conn, result["release_id"])
+    release = open_release(conn, result["release_id"])
     config = evaluation_config(conn, release.release_id)
     split_documents(conn, project_id, config.split, release_id=release.release_id)
     pool = _source_units(conn, source_run_id)
@@ -276,7 +280,8 @@ def create_reference_set(
     pool = [u for u in pool if assigned.get(u["source_uri"]) == split]
     if not pool:
         raise ReferenceError(
-            "no completed source units in the requested document split; assign document splits first"
+            "no completed source units in the requested document split; "
+            "assign document splits first"
         )
     forced = tuple(
         sorted(
@@ -359,7 +364,7 @@ def record_pass(
     )
     if frame.unit_ref != unit["unit_key"] or frame.text != rendition["canonical_text"]:
         raise ReferenceError("reference source frame differs from bound unit/rendition")
-    release = load_release(conn, unit["release_id"])
+    release = open_release(conn, unit["release_id"])
     raw = json.loads(authored)
     # Use the same rich release/reference validator and citation cascade as source admission.
     # Reference bytes remain private and never enter a source task or publication batch.
@@ -415,7 +420,7 @@ def read_pass(
     authored = bytes(row["authored"])
     if sha256(authored).hexdigest() != row["content_digest"]:
         raise ReferenceError("reference authored bytes no longer match their digest")
-    release = load_release(conn, unit["release_id"])
+    release = open_release(conn, unit["release_id"])
     batch = release.validate_json("AgentAuthoredBatch", authored).model_dump(mode="json")
     fields = {(e["family"], e["item_ref"], e["evidence_index"]): e for e in citation["frame"]}
     for family in ("claims", "unsupported", "identity_exclusions"):
@@ -572,7 +577,8 @@ def split_documents(
         )
         if release_id is None:
             raise ReferenceError(
-                "split assignment requires an active admitted release or explicit archived evaluation policy"
+                "split assignment requires an active admitted release "
+                "or explicit archived evaluation policy"
             )
         config = evaluation_config(conn, release_id).split
     d = table("kb.document")
@@ -622,7 +628,7 @@ def _external_ids(prepared, batch):
         item["id"] for family in ("entities", "statements") for item in batch.get(family, ())
     }
     return (
-        entity_references(prepared.definitions, "AgentStoredBatch", batch)
+        entity_references(prepared, "AgentStoredBatch", batch)
         | {c["subject"] for c in batch.get("claims", ())}
     ) - declared
 
@@ -639,7 +645,8 @@ def _prediction(conn, completed, unit, prepared):
             text("""SELECT DISTINCT o.id,o.payload,o.observation_key FROM kb.observation o
       JOIN data.occurrence x ON x.source=o.observation_key AND x.release_id=o.release_id
       WHERE x.realization_id=:z AND x.release_id=:r AND o.rendition_id=:rendition
-      AND o.payload_definition='AgentStoredBatch' AND o.payload->>'unit_ref'=:unit ORDER BY o.id"""),
+      AND o.payload_definition='AgentStoredBatch'
+        AND o.payload->>'unit_ref'=:unit ORDER BY o.id"""),
             {
                 "z": completed["output_realization_id"],
                 "r": completed["release_id"],
@@ -693,7 +700,7 @@ def _prediction(conn, completed, unit, prepared):
             for family in ("entities", "statements", "claims", "unsupported")
             for item in source.get(family, ())
         }
-        rewritten = rewrite_references(prepared.definitions, "AgentStoredBatch", source, ids, ids)
+        rewritten = rewrite_references(prepared, "AgentStoredBatch", source, ids, ids)
         for family in ("entities", "statements"):
             for item in rewritten.get(family, ()):
                 value = dict(item)
@@ -721,9 +728,9 @@ def _prediction(conn, completed, unit, prepared):
             batch["claims"].append(c)
         for alternative in rewritten.get("alternatives", ()):
             members = [
-                ids[m]
+                ids.get(m, m)
                 for m in alternative["members"]
-                if m in ids and any(c["id"] == ids[m] for c in batch["claims"])
+                if any(c["id"] == ids.get(m, m) for c in batch["claims"])
             ]
             if len(members) > 1:
                 batch["alternatives"].append(
@@ -745,7 +752,7 @@ def _prediction(conn, completed, unit, prepared):
             batch["alternatives"].append({"id": group, "members": sorted(set(claims))})
     for c in batch["claims"]:
         c.pop("_fact_id", None)
-    batch = rewrite_references(prepared.definitions, "AgentStoredBatch", batch, {}, claim_aliases)
+    batch = rewrite_references(prepared, "AgentStoredBatch", batch, {}, claim_aliases)
     for group in batch["alternatives"]:
         group["members"] = list(
             dict.fromkeys(claim_aliases.get(member, member) for member in group["members"])
@@ -762,8 +769,10 @@ def agreement(conn: Connection, unit_id: int) -> dict[str, Any]:
     unit = _unit(conn, unit_id)
     if a.rendition_id != b.rendition_id or a.rendition_digest != b.rendition_digest:
         raise ReferenceError("agreement requires the same source rendition")
-    prepared = load_release(conn, unit["release_id"])
-    ctx = frozenset(unit["context"])
+    prepared = open_release(conn, unit["release_id"])
+    from corpus_structure.semantic.scientific_evidence import require_scientific_policy
+
+    require_scientific_policy(prepared)
     return {
         "unit_id": unit_id,
         "pass_a": a.id,
@@ -797,9 +806,13 @@ def reference_evaluate(
     )
     if definition["release_id"] != completed["release_id"]:
         raise ReferenceError(
-            "references and completed result have different releases; explicit reference migration is required"
+            "references and completed result have different releases; "
+            "explicit reference migration is required"
         )
-    prepared = load_release(conn, completed["release_id"])
+    prepared = open_release(conn, completed["release_id"])
+    from corpus_structure.semantic.scientific_evidence import require_scientific_policy
+
+    require_scientific_policy(prepared)
     snapshot = _call(conn, "SELECT eval.reference_snapshot(:s)", s=set_id).scalar_one()
     units = (
         conn.execute(
@@ -866,7 +879,8 @@ def reference_evaluate(
     }
     identity = _call(
         conn,
-        "SELECT eval.record_reference_evaluation(:p,:run,:s,CAST(:snapshot AS jsonb),CAST(:result AS jsonb))",
+        "SELECT eval.record_reference_evaluation(:p,:run,:s,"
+        "CAST(:snapshot AS jsonb),CAST(:result AS jsonb))",
         p=project_id,
         run=run_id,
         s=set_id,

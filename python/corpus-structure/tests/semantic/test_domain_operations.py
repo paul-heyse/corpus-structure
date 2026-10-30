@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 import yaml
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import insert, select, text
 from sqlalchemy.exc import DBAPIError
 
@@ -45,6 +46,12 @@ from corpus_structure.semantic.proposals import (
     proposal_inputs,
 )
 from corpus_structure.semantic.releases import persist_release
+
+
+class DomainFixtureConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+    math: dict[str, Any] | None = None
+    variant: str | None = None
 
 
 def fixture(
@@ -145,9 +152,13 @@ def fixture(
     )
     bundle = observation_inputs(proposal_inputs(bundle, deps))
     bundle, deps = analytical_inputs(bundle, deps)
-    prepared = prepare_release(bundle, deps)
+    from corpus_structure.semantic.composed import composed_dependencies
+
+    deps = composed_dependencies(deps)
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, deps, profile)
     with admin.begin() as conn:
-        persist_release(conn, bundle, deps, PreparationProfile(), prepared)
+        persist_release(conn, bundle, deps, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(
@@ -214,6 +225,8 @@ def fixture(
                 family="agent",
                 tier="agent",
                 confidence_source="agent",
+                unit_type="document",
+                Config=DomainFixtureConfig,
             ),
             "extract",
             {"math": math} if math is not None else {},
@@ -271,8 +284,9 @@ def fixture(
             unit_key="page#one",
             input_hash="input",
             packet_hash=packet.hash if statement_packets else None,
+            agent=True,
         )
-        lease = claim_tasks(conn, run_id=run, config_id=cid, holder="worker")[0]
+        lease = claim_tasks(conn, run_id=run, config_id=cid, holder="worker", agent=True)[0]
         rid = store_rendition(
             conn,
             run_id=run,
@@ -488,6 +502,8 @@ def fixture(
                     family="agent",
                     tier="agent",
                     confidence_source="agent",
+                    unit_type="document",
+                    Config=DomainFixtureConfig,
                 ),
                 "extract",
                 {
@@ -510,12 +526,13 @@ def fixture(
                 unit_key=second_unit,
                 input_hash="input-second",
                 packet_hash=second_packet.hash if statement_packets else None,
+                agent=True,
             )
             if statement_packets:
                 capture_source_frame(conn, second_task, second_packet)
-            second_lease = claim_tasks(conn, run_id=run, config_id=second_config, holder="worker")[
-                0
-            ]
+            second_lease = claim_tasks(
+                conn, run_id=run, config_id=second_config, holder="worker", agent=True
+            )[0]
             second_stored = second_located.stored.model_dump(mode="python")
             if statement_packets:
                 second_stored["statements"][0]["anchor"] = "s1"
@@ -649,6 +666,71 @@ def test_atomic_cut_inference_has_distinct_exact_receipts(
         assert conn.execute(select(table("data.derivation"))).all()
 
 
+def test_native_candidate_publication_binds_operation_profile_cut_and_target(
+    semantic_db_engine,
+    semantic_writer_engine,
+    tmp_path,
+):
+    from corpus_structure.semantic.analytics import compile_projection
+    from corpus_structure.semantic.arrow_publication import AppendPublication, stage_arrow
+    from corpus_structure.semantic.domain_operations import _cut_input
+
+    prepared, _run, cut = fixture(
+        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
+    )
+    inputs = _cut_input(semantic_writer_engine, cut, "candidate-output")
+    compiled = compile_projection(prepared, inputs.source_binding, kind="candidate")
+    transport = AppendPublication.from_rows(inputs.batch)
+    bound = dict(
+        r=prepared.release_id,
+        z=inputs.output_realization_id,
+        b=transport.batch_id,
+        content=transport.content,
+        sr=inputs.source_binding.release_id,
+        sz=inputs.source_binding.realization_id,
+        revision=inputs.source_binding.data_revision,
+        capture=inputs.source_binding.capture_id,
+        operation="evaluate",
+        projection=compiled.projection_id,
+        contract="candidate",
+        cut=cut,
+        profile=compiled.profile.digest,
+    )
+    changes = [
+        ({"projection": "projection:wrong"}, "compiled projection differs"),
+        ({"profile": "wrong"}, "arithmetic profile differs"),
+        ({"cut": 0}, "requires bound cut/profile"),
+        ({"z": inputs.source_binding.realization_id}, "source/target differs"),
+        ({"operation": "append"}, "does not permit derived projection"),
+    ]
+    with (
+        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        conn.begin() as transaction,
+    ):
+        conn.execute(
+            text("SELECT data.begin_evaluation(:cut,:out)"),
+            {"cut": cut, "out": inputs.output_realization_id},
+        )
+        for mutation, diagnostic in changes:
+            with pytest.raises(DBAPIError, match=diagnostic), conn.begin_nested():
+                stage_arrow(conn, transport)
+                conn.execute(
+                    text(
+                        "SELECT data.publish_derived_batch_v2(:r,:z,:b,:content,"
+                        ":sr,:sz,:revision,:capture,:operation,:projection,:contract,:cut,:profile)"
+                    ),
+                    {**bound, **mutation},
+                )
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM data.batch WHERE realization_id=:out"),
+                {"out": inputs.output_realization_id},
+            )
+            == 0
+        )
+        transaction.rollback()
+
+
 def test_native_finish_refuses_source_occurrence_without_cut_evidence(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
@@ -687,7 +769,21 @@ def test_native_finish_refuses_source_occurrence_without_cut_evidence(
         )
 
 
-def test_stage_disposal_refuses_writer_owned_imitation(semantic_writer_engine):
+def test_writer_cannot_create_untrusted_stage_relations(semantic_writer_engine):
+    with (
+        pytest.raises(DBAPIError, match="permission denied to create temporary tables"),
+        semantic_writer_engine.begin() as conn,
+    ):
+        conn.exec_driver_sql("CREATE TEMP TABLE sp_entity(entity_id text)")
+
+
+def test_stage_disposal_refuses_writer_owned_imitation(semantic_db_engine, semantic_writer_engine):
+    # Deliberately widen only this disposable test database to exercise the disposal
+    # guard independently of the normal principal's earlier TEMP privilege refusal.
+    with semantic_db_engine.begin() as conn:
+        database = conn.scalar(text("SELECT current_database()"))
+        quoted = conn.dialect.identifier_preparer.quote(database)
+        conn.exec_driver_sql(f"GRANT TEMP ON DATABASE {quoted} TO corpus_sem_writer")
     with (
         pytest.raises(DBAPIError, match="untrusted staging relation sp_entity"),
         semantic_writer_engine.begin() as conn,

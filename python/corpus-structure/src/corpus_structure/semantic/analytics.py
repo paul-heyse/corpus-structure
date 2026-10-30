@@ -37,17 +37,28 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import Select
 
-from corpus_structure.pool.steps import ViewSpec
-
+from .analytical_kernels import (
+    ALTERNATIVE_OF,
+    DISAGREEMENTS_SQL,
+    FUSE_SQL,
+    SAME_SLOT,
+    VIEW_APPLIES,
+    VIEW_SPECS,
+    VIEWS_INPUTS,
+    VIEWS_MACRO_NAME,
+    VIEWS_MACRO_SQL,
+    ViewSpec,
+)
 from .analytical_profile import AnalyticalProfile
 from .identity import canonical_bytes
 from .metadata import PHYSICAL_MODEL_ID, table
 from .types import PreparedRelease
 
 if TYPE_CHECKING:
+    from .domain_operations import CutInput
     from .query import ReadSession, SnapshotBinding
 
-COMPILER_VERSION = "analytical-4"
+COMPILER_VERSION = "analytical-5"
 SPINE = (
     "entity",
     "entity_input",
@@ -75,6 +86,13 @@ SPINE = (
     "occurrence_establishment",
     "assessment",
     "evidence_source",
+)
+CANDIDATE_SCHEMA = pa.schema(
+    [
+        pa.field("fact_id", pa.string()),
+        pa.field("occurrence_id", pa.string()),
+        pa.field("evidence", pa.list_(pa.struct([pa.field("evidence_id", pa.string())]))),
+    ]
 )
 
 
@@ -132,18 +150,111 @@ class CandidateInput:
     relations: Mapping[str, pa.Table]
     property_ids: tuple[str, ...] = ()
     scale: int = 12
+    operation_id: str = "evaluate"
+    run_id: int | None = None
+    target_realization_id: str | None = None
+    decision_occurrence_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.cut_id or not self.decision_universe:
             raise ValueError("candidate input requires cut and decision universe")
+        if set(self.relations) != {"candidate_input"}:
+            raise ValueError("candidate input requires its actual candidate_input relation")
+        relation = self.relations["candidate_input"]
+        if not relation.schema.remove_metadata().equals(CANDIDATE_SCHEMA):
+            raise ValueError("candidate relation has wrong compiled shape")
+        if any(relation[name].null_count for name in ("fact_id", "occurrence_id", "evidence")):
+            raise ValueError("candidate relation contains missing identifiers/support sets")
+        if len(set(relation["occurrence_id"].to_pylist())) != relation.num_rows:
+            raise ValueError("candidate relation repeats an occurrence identity")
         object.__setattr__(self, "relations", MappingProxyType(dict(self.relations)))
+
+    @classmethod
+    def from_cut(
+        cls,
+        prepared: PreparedRelease,
+        cut: CutInput,
+        *,
+        candidates: pa.Table,
+        decision_universe: str,
+    ) -> CandidateInput:
+        if (
+            prepared.release_id != cut.prepared.release_id
+            or prepared.release_id != cut.source_binding.release_id
+        ):
+            raise ValueError("candidate cut release differs from source")
+        if (
+            cut.batch.release_id != prepared.release_id
+            or cut.batch.realization_id != cut.output_realization_id
+        ):
+            raise ValueError("candidate output differs from cut batch")
+        if (
+            cut.source_binding.realization_id == cut.output_realization_id
+            or cut.cut_id < 1
+            or cut.run_id < 1
+            or cut.source_binding.capture_id != "cut:" + str(cut.cut_id)
+        ):
+            raise ValueError("candidate cut requires a distinct bound output and run")
+        contract = _projection_contract(prepared, "candidate", operation_id="evaluate")
+        compiled = compile_projection(prepared, cut.source_binding, kind="candidate")
+        evidence: dict[str, list[dict[str, str]]] = {
+            row.occurrence_id: [] for row in cut.batch.occurrence
+        }
+        for link in cut.batch.occurrence_evidence:
+            evidence[link.occurrence_id].append({"evidence_id": link.evidence_id})
+        expected = [
+            {
+                "fact_id": row.fact_id,
+                "occurrence_id": row.occurrence_id,
+                "evidence": evidence[row.occurrence_id],
+            }
+            for row in cut.batch.occurrence
+        ]
+        if (
+            not candidates.schema.remove_metadata().equals(CANDIDATE_SCHEMA)
+            or candidates.to_pylist() != expected
+        ):
+            raise ValueError(
+                "candidate relation differs from complete cut occurrence/evidence universe"
+            )
+        if not contract or not decision_universe:
+            raise ValueError("candidate decision universe is missing")
+        decisions = tuple(sorted({row.occurrence_id for row in cut.candidates}))
+        if not set(decisions) <= set(evidence):
+            raise ValueError("decision candidate is outside cut source occurrence universe")
+        rows = candidates.replace_schema_metadata(
+            _metadata(
+                cut.source_binding,
+                compiled.projection_id,
+                compiled.profile.digest,
+                "candidate_input",
+            )
+        )
+        return cls(
+            cut.source_binding,
+            compiled.projection_id,
+            compiled.profile.digest,
+            str(cut.cut_id),
+            decision_universe,
+            {"candidate_input": rows},
+            tuple(sorted({p.iri for d in prepared.definitions for p in d.properties})),
+            compiled.profile.scale,
+            "evaluate",
+            cut.run_id,
+            cut.output_realization_id,
+            decisions,
+        )
 
 
 class BorrowedHandle:
     """DuckDB objects borrow the scope; materialized Arrow/Python results detach."""
 
-    def __init__(self, owner: AnalysisScope, native: Any):
+    def __init__(
+        self, owner: AnalysisScope, native: Any, connection: duckdb.DuckDBPyConnection | None = None
+    ):
         self._owner, self._native = owner, native
+        self._connection_owner = connection if connection is not None else owner._connection
+        self._input_name: str | None = None
 
     def __getattr__(self, name: str) -> Any:
         self._owner._ensure_open()
@@ -151,7 +262,7 @@ class BorrowedHandle:
             return self._owner.close
         attribute = getattr(self._native, name)
         if not callable(attribute):
-            return self._owner._borrow(attribute)
+            return self._owner._borrow(attribute, self._connection_owner)
 
         def invoke(*args: Any, **kwargs: Any) -> Any:
             self._owner._ensure_open()
@@ -167,7 +278,7 @@ class BorrowedHandle:
             result = attribute(
                 *(unwrap(v) for v in args), **{k: unwrap(v) for k, v in kwargs.items()}
             )
-            return self._owner._borrow(result)
+            return self._owner._borrow(result, self._connection_owner)
 
         return invoke
 
@@ -226,18 +337,24 @@ def _fields(name: str, scale: int) -> list[pa.Field]:
     return fields
 
 
-def compile_projection(
-    prepared: PreparedRelease, binding: SnapshotBinding, *, kind: str = "captured"
-) -> CompiledProjection:
-    """One trusted physical mapping produces Core selections and their exact Arrow schemas."""
-    if prepared.release_id != binding.release_id:
-        raise ValueError("projection release differs from snapshot")
-    if kind not in {"captured", "candidate"}:
-        raise ValueError("unknown analytical projection contract")
-    contract: Any = kind
-    if prepared.execution_model_id is not None:
-        import json
+def _projection_contract(
+    prepared: PreparedRelease, kind: str, *, operation_id: str | None = None
+) -> dict[str, Any]:
+    """Resolve finite projection behavior from the admitted semantic descriptor."""
+    import json
 
+    if prepared.execution_model_id is None:
+        if operation_id is not None:
+            raise ValueError("candidate operation requires a composed execution model")
+        # The base analytical profile has no operations; its fixed capture protocol is
+        # the same typed product supplied by the trusted companion model.
+        import yaml
+
+        from .contracts import trusted_execution_inputs
+
+        catalog = yaml.safe_load(trusted_execution_inputs().catalog.content)
+        contract = next(p for p in catalog["projections"] if p["id"] == kind)
+    else:
         model = next(
             (
                 row
@@ -252,9 +369,68 @@ def compile_projection(
         contract = next((row for row in body["projections"] if row["id"] == kind), None)
         if contract is None:
             raise ValueError("missing named analytical projection contract")
-        expected = ("capture", "detached") if kind == "captured" else ("analysis", "scope")
-        if (contract["implementation"], contract["lifetime"]) != expected:
-            raise ValueError("analytical projection has incompatible implementation/lifetime")
+        if operation_id is not None:
+            operation = next((row for row in body["operations"] if row["id"] == operation_id), None)
+            if operation is None or kind not in operation["projections"]:
+                raise ValueError("operation does not admit the analytical projection")
+    expected = {
+        "input_kind": kind,
+        "universe": {
+            "captured": "full_spine",
+            "candidate": "cut_candidates",
+            "accepted": "eligible_positive_accepted",
+        }[kind],
+        "collections": "positions_and_multiplicity",
+        "completeness": "declared_universe",
+        "values": "exact" if kind == "accepted" else "exact_with_separate_bounded_projection",
+        "arithmetic_profile": None if kind == "accepted" else "analytical-profile.json",
+    }
+    if contract.get("analytical_policy") != expected:
+        raise ValueError("analytical projection policy is not supported by this compiler")
+    expected_omissions = ["negative_hypothetical_premises"] if kind == "accepted" else []
+    if contract.get("omissions") != expected_omissions:
+        raise ValueError("analytical projection omissions are unsupported")
+    implementation, lifetime = {
+        "captured": ("capture", "detached"),
+        "candidate": ("analysis", "scope"),
+        "accepted": ("query", "snapshot"),
+    }[kind]
+    if (contract["implementation"], contract["lifetime"]) != (implementation, lifetime):
+        raise ValueError("analytical projection has incompatible implementation/lifetime")
+    return contract
+
+
+def _projection_recipe(prepared: PreparedRelease, kind: str) -> tuple[Any, str]:
+    """Historical capture retains its archived projection ABI; it admits no new work."""
+    import json
+
+    compiler = str(json.loads(prepared.manifest)["profile"]["compiler_version"])
+    if compiler not in {"10", "11"}:
+        return _projection_contract(prepared, kind), COMPILER_VERSION
+    if kind != "captured":
+        raise ValueError("historical analytical recipe supports retained capture reads only")
+    if prepared.execution_model_id is None:
+        return kind, "analytical-4"
+    model = next(
+        row
+        for row in prepared.registry_rows
+        if row.kind == "execution_model" and row.name == prepared.execution_model_id
+    )
+    contract = next(row for row in json.loads(model.body)["projections"] if row["id"] == kind)
+    if (contract["implementation"], contract["lifetime"]) != ("capture", "detached"):
+        raise ValueError("historical analytical projection recipe is unsupported")
+    return contract, "analytical-4"
+
+
+def compile_projection(
+    prepared: PreparedRelease, binding: SnapshotBinding, *, kind: str = "captured"
+) -> CompiledProjection:
+    """One trusted physical mapping produces Core selections and their exact Arrow schemas."""
+    if prepared.release_id != binding.release_id:
+        raise ValueError("projection release differs from snapshot")
+    if kind not in {"captured", "candidate"}:
+        raise ValueError("unknown analytical projection contract")
+    contract, compiler = _projection_recipe(prepared, kind)
     profile = AnalyticalProfile.from_release(prepared)
     identity = (
         "projection:"
@@ -263,13 +439,17 @@ def compile_projection(
                 [
                     prepared.release_id,
                     PHYSICAL_MODEL_ID,
-                    COMPILER_VERSION,
+                    compiler,
                     profile.digest,
                     contract,
                 ]
             )
         ).hexdigest()
     )
+    if kind == "candidate":
+        # Candidates are private cut rows supplied by from_cut, never a PostgreSQL
+        # full-spine capture. Their fixed shape is CANDIDATE_SCHEMA.
+        return CompiledProjection(binding, identity, profile, ())
     projections = []
     for name in SPINE:
         source = table("data." + name)
@@ -522,6 +702,16 @@ class AnalysisScope:
             if isinstance(packet, CapturedPacket) and set(packet.relations) != set(SPINE):
                 raise ValueError("packet does not contain the complete normalized spine")
             for name, rows in packet.relations.items():
+                if isinstance(packet, CandidateInput):
+                    if name != "candidate_input" or rows.schema.metadata != _metadata(
+                        packet.binding, packet.projection_id, packet.profile_digest, name
+                    ):
+                        raise ValueError("candidate relation has wrong bound identity")
+                    if rows.column_names != ["fact_id", "occurrence_id", "evidence"]:
+                        raise ValueError("candidate relation has wrong compiled shape")
+                    self.connection.register(name, rows)
+                    self._registered.append(name)
+                    continue
                 if name not in SPINE:
                     raise ValueError(f"undeclared analytical input {name}")
                 expected = _metadata(
@@ -545,6 +735,7 @@ class AnalysisScope:
                         raise ValueError(f"wrong row scope in {name}.{column}")
                 self.connection.register(name, rows)
                 self._registered.append(name)
+            self.connection.sql(VIEWS_MACRO_SQL)
         except BaseException as error:
             _cleanup_after_failure(error, self.close)
             raise
@@ -562,19 +753,19 @@ class AnalysisScope:
         if self._closed:
             raise RuntimeError("analysis scope is closed")
 
-    def _borrow(self, value: Any) -> Any:
+    def _borrow(self, value: Any, connection: duckdb.DuckDBPyConnection | None = None) -> Any:
         if isinstance(value, pa.RecordBatchReader):
             if all(reader is not value for reader in self._readers):
                 self._readers.append(value)
-            return BorrowedReader(self, value)
+            return BorrowedReader(self, value, connection)
         if isinstance(value, duckdb.DuckDBPyConnection):
             if value is not self._connection and all(
                 connection is not value for connection in self._connections
             ):
                 self._connections.append(value)
-            return BorrowedHandle(self, value)
+            return BorrowedHandle(self, value, value)
         if isinstance(value, duckdb.DuckDBPyRelation):
-            return BorrowedHandle(self, value)
+            return BorrowedHandle(self, value, connection)
         return value
 
     def close(self) -> None:
@@ -584,11 +775,11 @@ class AnalysisScope:
         failures: list[BaseException] = []
         actions = [reader.close for reader in self._readers]
         actions += [
-            lambda name=name: self._connection.unregister(name) for name in self._registered
-        ]
-        actions += [
             lambda name=name: self._connection.sql(f'DROP VIEW IF EXISTS "{name}"')
             for name in self._views
+        ]
+        actions += [
+            lambda name=name: self._connection.unregister(name) for name in self._registered
         ]
         actions += [connection.close for connection in self._connections]
         actions += [self._connection.close, self._scratch.cleanup]
@@ -613,7 +804,9 @@ class AnalysisScope:
             raise RuntimeError("analysis scope is closed")
         if name not in self._registered:
             raise KeyError(name)
-        return self.connection.table(name)
+        relation = self.connection.table(name)
+        relation._input_name = name if name in self.packet.relations else None
+        return relation
 
     def fact_support(self) -> duckdb.DuckDBPyRelation:
         """Occurrences retain identity; empty evidence/support is an empty typed list."""
@@ -670,16 +863,14 @@ class AnalysisScope:
         Keys identify a declared source-claim projection, not canonical packet facts. Null
         meanings stay unknown variants, matching the existing consolidation set kernel.
         """
-        from corpus_structure.pool.duckdb_engine import _DISAGREEMENTS
-
-        return self._compose(_DISAGREEMENTS, {"meanings": meanings})
+        return self._query_input(meanings, "meanings", DISAGREEMENTS_SQL)
 
     def alias_candidates(
         self, aliases: duckdb.DuckDBPyRelation, references: duckdb.DuckDBPyRelation
     ) -> duckdb.DuckDBPyRelation:
         """Join typed, already normalized (class_id, normalized, entity_id) alias relations."""
-        left = aliases.set_alias("candidate_alias")
-        right = references.set_alias("reference_alias")
+        left = self._owned_relation(aliases).set_alias("candidate_alias")
+        right = self._owned_relation(references).set_alias("reference_alias")
         return (
             left.join(
                 right,
@@ -694,50 +885,58 @@ class AnalysisScope:
             .order("entity_id, candidate_id")
         )
 
-    def _compose(
-        self, sql: str, inputs: Mapping[str, duckdb.DuckDBPyRelation | pa.Table]
-    ) -> duckdb.DuckDBPyRelation:
-        """Bind operation projections once into this graph; scope owns their lifetime."""
-        import re
+    def _owned_relation(self, relation: Any) -> BorrowedHandle:
+        self._ensure_open()
+        if not isinstance(relation, BorrowedHandle) or relation._owner is not self:
+            raise ValueError("operation relation must belong to this analysis scope")
+        relation._owner._ensure_open()
+        if relation._connection_owner is not self._connection or not isinstance(
+            relation._native, duckdb.DuckDBPyRelation
+        ):
+            raise ValueError("operation relation must use the scope's analytical connection")
+        return relation
 
+    def _query_input(self, relation: Any, name: str, sql: str) -> duckdb.DuckDBPyRelation:
+        """The native single-input binding owns its name without catalog residue."""
+        result = self._owned_relation(relation).query(name, sql)
+        if result is None:
+            raise RuntimeError("owned analytical kernel did not return a relation")
+        return result
+
+    def _view_inputs(self, inputs: Mapping[str, Any]) -> duckdb.DuckDBPyRelation:
+        """Bind the fixed six-input macro on this connection; lazy outputs borrow all inputs."""
+        self._ensure_open()
+        if tuple(inputs) != VIEWS_INPUTS:
+            raise ValueError("view kernel requires its six declared inputs")
+        # Validate every owner before creating any catalog objects.
+        for relation in inputs.values():
+            if not isinstance(relation, pa.Table):
+                self._owned_relation(relation)
         self._operation_id += 1
-        names = {}
-        for name, relation in inputs.items():
-            local = f"op{self._operation_id}_{name}"
-            names[name] = local
+        names = []
+        for label, relation in inputs.items():
+            # Only the counter and code-owned labels contribute identifier text.
+            local = f"op{self._operation_id}_{label}"
+            names.append(local)
             if isinstance(relation, pa.Table):
                 self.connection.register(local, relation)
                 self._registered.append(local)
             else:
-                relation.create_view(local)
+                self._owned_relation(relation).create_view(local, replace=False)
                 self._views.append(local)
-        sql = re.sub(
-            r"\b(" + "|".join(map(re.escape, names)) + r")\b", lambda m: names[m.group()], sql
-        )
-        return self.connection.sql(sql)
+        # query_table takes names as values. These generated names contain no quotes;
+        # the SQL kernel itself is never rewritten, and the returned SELECT remains lazy.
+        arguments = ",".join("'" + name + "'" for name in names)
+        return self.connection.sql(f"SELECT * FROM {VIEWS_MACRO_NAME}({arguments})")
 
     def fuse(self, candidates: duckdb.DuckDBPyRelation) -> duckdb.DuckDBPyRelation:
-        """Union typed evidence/support sets per semantic fact, preserving candidate count.
-
-        Input is an operation-shaped relation (fact_id, occurrence_id, evidence LIST<STRUCT>).
-        It may contain repeated candidates; identity is never inferred from rounded values.
-        """
-        return self._compose(
-            """
-            WITH evidence_items AS (
-                SELECT DISTINCT fact_id, unnest(evidence) AS item FROM candidate_input
-            ), evidence_sets AS (
-                SELECT fact_id, list(item ORDER BY item) AS evidence
-                FROM evidence_items GROUP BY fact_id
-            ), support_sets AS (
-                SELECT fact_id, coalesce(list(DISTINCT occurrence_id ORDER BY occurrence_id)
-                    FILTER (WHERE occurrence_id IS NOT NULL), []) AS supports,
-                    count(*) AS candidates FROM candidate_input GROUP BY fact_id
-            ) SELECT s.*, coalesce(e.evidence, []) AS evidence
-              FROM support_sets s LEFT JOIN evidence_sets e USING (fact_id) ORDER BY fact_id
-        """,
-            {"candidate_input": candidates},
-        )
+        """Union typed support/evidence sets without changing occurrence counts."""
+        if (
+            isinstance(self.packet, CandidateInput)
+            and self._owned_relation(candidates)._input_name != "candidate_input"
+        ):
+            raise ValueError("fusion relation differs from bound candidate universe")
+        return self._query_input(candidates, "candidate_input", FUSE_SQL)
 
     def views(
         self,
@@ -754,8 +953,16 @@ class AnalysisScope:
         canonical fact/occurrence meaning. Statement, entity attributes and identity are
         declared projections; canonical packet relations keep their compiled semantics.
         """
-        from corpus_structure.pool.duckdb_engine import _APPLIES, _SPECS, _VIEWS
-
+        if isinstance(self.packet, CandidateInput):
+            actual = set(
+                self._owned_relation(claims).project("claim").to_arrow_table()["claim"].to_pylist()
+            )
+            expected = set(self.packet.decision_occurrence_ids)
+            if actual != expected:
+                raise ValueError("operation view claims differ from bound candidate universe")
+        names = [spec.name for spec in specs]
+        if len(set(names)) != len(names) or {SAME_SLOT, ALTERNATIVE_OF} & set(names):
+            raise ValueError("view names repeat or shadow a generic fact")
         declared = set(self.packet.property_ids)
         for spec in specs:
             if spec.source not in declared or not spec.applies_to <= declared:
@@ -773,15 +980,14 @@ class AnalysisScope:
             for s in specs
         ]
         applies = [{"view": s.name, "predicate": p} for s in specs for p in sorted(s.applies_to)]
-        return self._compose(
-            _VIEWS,
+        return self._view_inputs(
             {
                 "view_claims": claims,
                 "view_entities": entities,
                 "view_identity": identity,
                 "view_alternatives": alternatives,
-                "view_specs": pa.Table.from_pylist(rows, schema=_SPECS),
-                "view_applies": pa.Table.from_pylist(applies, schema=_APPLIES),
+                "view_specs": pa.Table.from_pylist(rows, schema=VIEW_SPECS),
+                "view_applies": pa.Table.from_pylist(applies, schema=VIEW_APPLIES),
             },
         )
 

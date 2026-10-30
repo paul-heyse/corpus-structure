@@ -381,6 +381,9 @@ classes:
       outcome_domain: {range: string, required: true}
   OperationContract:
     attributes:
+      policy_version:
+        range: string
+        slot_uri: execution:OperationContract_policy_version
       result_dimensions:
         range: ResultDimension
         multivalued: true
@@ -482,8 +485,17 @@ classes:
         multivalued: true
         minimum_cardinality: 1
         slot_uri: execution:GraphProjectionPolicy_node_kinds
+  AnalyticalProjectionPolicy:
+    attributes:
+      input_kind: {range: AnalyticalInputKind, required: true}
+      universe: {range: AnalyticalUniverse, required: true}
+      collections: {range: string, required: true, equals_string: positions_and_multiplicity}
+      values: {range: AnalyticalValuePolicy, required: true}
+      completeness: {range: string, required: true, equals_string: declared_universe}
+      arithmetic_profile: {range: string}
   ProjectionContract:
     attributes:
+      analytical_policy: {range: AnalyticalProjectionPolicy, inlined: true}
       graph_policy:
         range: GraphProjectionPolicy
         inlined: true
@@ -714,6 +726,12 @@ classes:
         required: true
         slot_uri: execution:AttributeDefinition_multivalued
 enums:
+  AnalyticalInputKind:
+    permissible_values: {captured: {}, candidate: {}, accepted: {}}
+  AnalyticalUniverse:
+    permissible_values: {full_spine: {}, cut_candidates: {}, eligible_positive_accepted: {}}
+  AnalyticalValuePolicy:
+    permissible_values: {exact_with_separate_bounded_projection: {}, exact: {}}
   ConceptFamily:
     permissible_values:
       interpretation: {}
@@ -761,6 +779,7 @@ enums:
       relational: {}
       lifecycle: {}
       scientific: {}
+      scientific_comparison: {}
       snapshot: {}
       resource: {}
   ExecutionPlacement:

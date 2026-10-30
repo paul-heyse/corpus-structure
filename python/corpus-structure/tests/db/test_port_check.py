@@ -30,7 +30,7 @@ from pglast.stream import RawStream
 from pglast.visitors import Visitor, referenced_relations
 from sqlalchemy import MetaData, create_mock_engine
 
-from corpus_structure.core import db
+from corpus_structure.core.db import legacy_metadata as db
 
 DATA = Path(__file__).resolve().parent / "data"
 REPO = Path(__file__).resolve().parents[4]

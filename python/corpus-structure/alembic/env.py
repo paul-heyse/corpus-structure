@@ -22,7 +22,7 @@ from alembic import context
 from sqlalchemy import Connection, MetaData, create_engine, pool
 from sqlalchemy.dialects.postgresql import REGCONFIG, base
 
-from corpus_structure.core import db
+from corpus_structure.core.db import legacy_metadata as db
 from corpus_structure.core.db import migrations
 from corpus_structure.settings import Settings
 

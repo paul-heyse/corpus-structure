@@ -120,7 +120,10 @@ def derive_(
         if out.exists():
             raise ValueError("derivation requires a new --out directory")
         compile_(domain, domains, out, json_)
-        from corpus_structure.semantic.native_products import closure_products, physical_products
+        from corpus_structure.semantic.native_products import (
+            consolidation_products,
+            physical_products,
+        )
 
         native = out / "native"
         native.mkdir()
@@ -128,7 +131,7 @@ def derive_(
         bootstrap.mkdir()
         for product in physical_products():
             (bootstrap / (product.name.replace("/", "_") + ".sql")).write_bytes(product.content)
-        for product in closure_products():
+        for product in consolidation_products():
             (native / product.name).write_bytes(product.content)
 
 

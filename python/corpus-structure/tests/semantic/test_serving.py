@@ -30,7 +30,7 @@ from corpus_structure.serve.results import (
 from .test_agent_resubmission import lease_and_read, source_task
 
 
-def completed(admin, writer, tmp_path):
+def completed(admin, writer, tmp_path, *, complete_coverage=False):
     prepared, run, task, locator = source_task(
         admin, writer, tmp_path / "source.html", composed=True, domain="statistics"
     )
@@ -74,6 +74,63 @@ def completed(admin, writer, tmp_path):
             assert result.structured_content["submission_disposition"] == "completed_accepted"
 
     anyio.run(submit)
+    if complete_coverage:
+        from types import SimpleNamespace
+
+        from corpus_structure.core.method import CoverageDraft, UnitRef, UnitResult
+        from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
+        from corpus_structure.semantic.operations import (
+            claim_tasks,
+            complete_unit_result,
+            create_task,
+            record_method,
+        )
+
+        class WitnessConfig(BaseModel):
+            pass
+
+        method = SimpleNamespace(
+            name="coverage.witness",
+            version="1",
+            family="extract",
+            tier="deterministic",
+            unit_type=TaskUnitType.RUN,
+            Config=WitnessConfig,
+            confidence_source=None,
+        )
+        with writer.begin() as conn:
+            config = record_method(conn, method, "default", {}, "coverage-witness")
+            task_id = create_task(
+                conn,
+                run_id=run,
+                config_id=config,
+                stage="extract",
+                unit_type="run",
+                unit_key="global",
+                input_hash="coverage-witness",
+            )
+            claimed = claim_tasks(conn, run_id=run, config_id=config, holder="coverage-witness")[0]
+            complete_unit_result(
+                conn,
+                task_id=task_id,
+                attempt=claimed.attempt,
+                holder="coverage-witness",
+                prepared=prepared,
+                method=method,
+                configuration_hash="coverage-witness",
+                source="coverage-witness",
+                result=UnitResult(
+                    ref=UnitRef(TaskUnitType.RUN, unit_key="global"),
+                    outcome=ObservationOutcome.EMPTY,
+                    coverage=(
+                        CoverageDraft(
+                            family="https://example.org/name",
+                            scope="*",
+                            outcome="complete",
+                        ),
+                    ),
+                ),
+            )
     finalize_bound_run(writer, run, "served-result")
     return prepared, run, task, locator
 
@@ -81,7 +138,7 @@ def completed(admin, writer, tmp_path):
 def test_named_semantic_pages_explanations_and_source_search(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
 ):
-    prepared, run, task, locator = completed(semantic_db_engine, semantic_writer_engine, tmp_path)
+    prepared, run, _task, locator = completed(semantic_db_engine, semantic_writer_engine, tmp_path)
     registry = build_registry(GENERIC)
     with (
         semantic_reader_engine.connect().execution_options(
@@ -127,6 +184,28 @@ def test_named_semantic_pages_explanations_and_source_search(
             run=run,
         )
         assert candidates.projection == "fact"
+        filtered = serve_query(
+            conn,
+            registry,
+            "claims",
+            {"predicate": "https://example.org/name", "object": "Alice"},
+            run=run,
+        )
+        assert filtered.rows and {
+            row["fact"]["object"] for row in json.loads(filtered.model_dump_json())["rows"]
+        } == {"Alice"}
+        occurrence_filter = serve_query(
+            conn,
+            registry,
+            "claims",
+            {"predicate": "https://example.org/name", "object": "Alice"},
+            run=run,
+            projection="occurrence",
+        )
+        assert len(occurrence_filter.rows) == 2
+        assert {
+            row["fact"]["object"] for row in json.loads(occurrence_filter.model_dump_json())["rows"]
+        } == {"Alice"}
         unknown = serve_query(
             conn,
             registry,
@@ -193,7 +272,7 @@ def test_full_projection_exports_and_cancel_cleanup(
 ):
     import pyarrow.parquet as pq
 
-    _, run, _, _ = completed(semantic_db_engine, semantic_writer_engine, tmp_path)
+    _, _run, _, _ = completed(semantic_db_engine, semantic_writer_engine, tmp_path)
     uri = semantic_reader_engine.url.render_as_string(hide_password=False).replace(
         "postgresql+psycopg:", "postgresql:"
     )
@@ -336,7 +415,8 @@ def test_statistics_named_algorithms_and_exact_ownership(
         ref = prepared.fact_identity(
             "pack", "rv0", prepared.expand_name("stat:has_distribution"), "normal", premise
         )
-        return original_entries + [
+        return [
+            *original_entries,
             ("rv0", "RandomVariable", "symbol", "X", q, "Qualification"),
             ("rv0", "RandomVariable", "scope_locator", "pack.html#stmt", q, "Qualification"),
             ("rv1", "RandomVariable", "symbol", "Y", q, "Qualification"),
@@ -361,7 +441,7 @@ def test_statistics_named_algorithms_and_exact_ownership(
             ("stmt", "SourceStatement", "locator", "pack.html#stmt", q, "Qualification"),
         ]
 
-    prepared, batch = install_pack(
+    _prepared, _batch = install_pack(
         semantic_db_engine,
         semantic_writer_engine,
         "statistics",
@@ -380,6 +460,16 @@ def test_statistics_named_algorithms_and_exact_ownership(
                 for row in query.rows(ctx, query.params.model_validate(params))
             ]
 
+        referenced = run(
+            "claims", {"predicate": "stat:special_case_of", "object": "Normal"}, ClaimAnswer
+        )
+        assert [(row.fact.subject.entity_id, row.fact.object) for row in referenced] == [
+            ("standard", "normal")
+        ]
+        explicit_id = run(
+            "claims", {"predicate": "stat:special_case_of", "object": "normal"}, ClaimAnswer
+        )
+        assert [row.fact.fact_id for row in referenced] == [row.fact.fact_id for row in explicit_id]
         profile = run("family_profile", {"family": "normal"}, ClaimAnswer)
         assert {row.fact.property_iri.rsplit("/", 1)[-1] for row in profile} >= {
             "family",
@@ -449,7 +539,7 @@ def test_ownership_uses_declared_qualification_type_and_exact_scale(
             "ToyQualification",
         ),
     ]
-    _, batch = install_pack(semantic_db_engine, semantic_writer_engine, "toy", entries)
+    _, _batch = install_pack(semantic_db_engine, semantic_writer_engine, "toy", entries)
     registry = build_registry(GENERIC, Path(__file__).resolve().parents[4] / "domains/toy")
     with read_session(semantic_reader_engine, "pack") as session:
         ctx = QueryContext(0, session.connection)
@@ -514,6 +604,33 @@ def test_real_cli_query_explain_and_export_dispatch(
     )
     assert continued.exit_code == 0, continued.output
     assert len(json.loads(continued.stdout)["rows"]) == 1
+    unknown_prefix = cli(
+        "query",
+        "claims",
+        "--run",
+        str(run),
+        "--param",
+        "predicate=bogus:name",
+        "--json",
+        settings=lambda: settings,
+    )
+    assert unknown_prefix.exit_code == 1
+    assert json.loads(unknown_prefix.stdout)["error"]["code"] == "SemanticRefusal"
+    malformed = json.loads(base64.urlsafe_b64decode(page["next_page_token"]))
+    malformed["position"] = 1
+    malformed_token = base64.urlsafe_b64encode(json.dumps(malformed).encode()).decode()
+    invalid_cursor = cli(
+        "query",
+        "claims",
+        "--param",
+        "predicate=https://example.org/name",
+        "--page-token",
+        malformed_token,
+        "--json",
+        settings=lambda: settings,
+    )
+    assert invalid_cursor.exit_code == 1
+    assert json.loads(invalid_cursor.stdout)["error"]["code"] == "StaleToken"
     fact = page["rows"][0]["fact"]["fact_id"]
     explained = cli(
         "explain", "claim", fact, "--run", str(run), "--json", settings=lambda: settings
@@ -538,3 +655,27 @@ def test_real_cli_query_explain_and_export_dispatch(
     result = json.loads(exported.stdout)
     assert result["manifest"]["binding"]["realization_id"] == "served-result"
     assert (tmp_path / "cli-export" / "manifest.json").is_file()
+
+
+def test_empty_named_continuation_does_not_assert_whole_query_absence(
+    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+):
+    from corpus_structure.semantic.query import read_snapshot
+
+    _, run, _, _ = completed(
+        semantic_db_engine, semantic_writer_engine, tmp_path, complete_coverage=True
+    )
+    registry = build_registry(GENERIC)
+    params = {"predicate": "https://example.org/name"}
+    with read_snapshot(semantic_reader_engine) as conn:
+        first = serve_query(conn, registry, "claims", params, run=run, max_rows=1)
+        assert first.rows and first.next_page_token
+        assert any(c.scope == "*" and c.outcome == "complete" for c in first.coverage)
+        body = json.loads(base64.urlsafe_b64decode(first.next_page_token))
+        body["position"] = "zzzzzzzzzz"
+        token = base64.urlsafe_b64encode(json.dumps(body).encode()).decode()
+        empty = serve_query(conn, registry, "claims", params, run=run, page_token=token)
+        assert empty.rows == [] and empty.next_page_token is None and not empty.truncated
+        assert empty.coverage_diagnostic is None and empty.knowledge == "unknown"
+        absent = serve_query(conn, registry, "claims", {**params, "subject": "missing"}, run=run)
+        assert absent.rows == [] and absent.knowledge == "absent"

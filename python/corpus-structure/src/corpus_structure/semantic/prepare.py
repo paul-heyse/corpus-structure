@@ -10,12 +10,11 @@ from datetime import date
 from decimal import Decimal
 from functools import lru_cache
 from hashlib import sha256
-from importlib.metadata import version
 from typing import Any, Never, cast
 
 import yaml
 from linkml_runtime.dumpers import json_dumper
-from linkml_runtime.linkml_model import SchemaDefinition, SchemaDefinitionName
+from linkml_runtime.linkml_model import SchemaDefinition
 from linkml_runtime.loaders import yaml_loader
 from linkml_runtime.utils.schemaview import SchemaView
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
@@ -27,6 +26,8 @@ from .conditional_rules import (
     compile_native_conditionals,
     inspect_rule_declarations,
 )
+from .determinants import BYTE_LIBRARIES as _LIBRARIES
+from .determinants import determinant_version
 from .identity import canonical_bytes
 from .types import (
     SEMANTIC_COMPILER_VERSION,
@@ -315,11 +316,14 @@ def _view(bundle: SourceBundle, profile: PreparationProfile | None = None) -> Sc
         for imp in schema.imports or ():
             if str(imp) not in schemas:
                 _fail("missing_import", source, f"import {imp} is not supplied", "unresolved")
-    view = SchemaView(schemas[bundle.root])
-    # Import keys can be CURIEs/URLs although SchemaView annotates them as NCNames.
-    mapping = {cast(SchemaDefinitionName, k): v for k, v in schemas.items()}
-    mapping[SchemaDefinitionName(str(schemas[bundle.root].name))] = schemas[bundle.root]
-    view.schema_map = mapping
+    from linkml_runtime.dumpers import json_dumper
+
+    view = SchemaView(
+        schemas[bundle.root],
+        importmap={
+            key: cast(dict[str, Any], json_dumper.to_dict(value)) for key, value in schemas.items()
+        },
+    )
     view.imports_closure()
     # Generators work on the explicit, fully materialized import closure only.
     view.merge_imports()
@@ -374,27 +378,12 @@ _EMPTY_DEPENDENCIES = ResolvedDependencies()
 _DEFAULT_PROFILE = PreparationProfile()
 
 
-_LIBRARIES = (
-    "linkml",
-    "linkml-runtime",
-    "pydantic",
-    "rdflib",
-    "pyshacl",
-    "oaklib",
-    "linkml-term-validator",
-    "valuesets",
-    "pyoxigraph",
-    "jsonschema",
-    "cattrs",
-)
-
-
 def _compiler_stack() -> tuple[tuple[str, str], ...]:
     # Read the current stack at the cache boundary, not once at module import.
     return (
         ("compiler", SEMANTIC_COMPILER_VERSION),
         ("python", sys.version),
-        *((name, version(name)) for name in _LIBRARIES),
+        *((name, determinant_version(name)) for name in _LIBRARIES),
     )
 
 
@@ -690,7 +679,7 @@ def _prepare_release_uncached(
                 ann.get("cs:case", "preserve"),
                 ann.get("cs:key_role", "meaning"),
                 tuple(patterns),
-                slot.equals_string if slot.equals_string is not None else None,
+                str.__str__(slot.equals_string) if slot.equals_string is not None else None,
                 collection_key,
                 reference_role,
             )
@@ -746,6 +735,7 @@ def _prepare_release_uncached(
             conditional_fragments=rule_fragments,
             conditional_scope=profile.constraint_scope,
             legacy_v10=profile.compiler_version == "10",
+            finite_fields=profile.compiler_version == "12",
             descendant_order=descendants,
             models_out=boundary_models,
         )
@@ -759,8 +749,10 @@ def _prepare_release_uncached(
     primitive_tokens = {typ: name for name, typ in _PRIMITIVES.items()}
     # Normalize duplicate Python primitive spellings without changing their runtime meaning.
     primitive_tokens.update({str: "string", float: "float"})
+    from .coverage_contract import coverage_recipe
+
     boundary_recipe = {
-        "abi": "semantic-boundary-11",
+        "abi": "semantic-boundary-12",
         "primitives": {name: primitive_tokens[typ] for name, typ in primitives.items()},
         "aliases": {
             d.name: {p.name: aliases[d.name, p.name] for p in d.properties} for d in definitions
@@ -784,6 +776,7 @@ def _prepare_release_uncached(
     artifacts = [
         PreparedArtifact("definitions.json", canonical_bytes([asdict(d) for d in definitions])),
         PreparedArtifact("boundary_recipe.json", canonical_bytes(boundary_recipe)),
+        PreparedArtifact("query_coverage.json", canonical_bytes(coverage_recipe())),
         PreparedArtifact("effective_bindings.json", canonical_bytes(effective_bindings)),
     ]
     if profile.version == "semantic-2":
@@ -825,7 +818,11 @@ def _prepare_release_uncached(
                 _fail("analytical_profile", dependency.name, str(exc))
             artifacts.append(PreparedArtifact(dependency.name, dependency.content))
     for dependency in dependencies.artifacts:
-        if dependency.name == "operation/domain-rules.yaml":
+        if dependency.name in {
+            "operation/domain-rules.yaml",
+            "operation/rule-view.yaml",
+            "operation/scientific-policy.json",
+        }:
             try:
                 declared = yaml.load(dependency.content, Loader=_SchemaYamlLoader)
             except (yaml.YAMLError, ValueError) as exc:

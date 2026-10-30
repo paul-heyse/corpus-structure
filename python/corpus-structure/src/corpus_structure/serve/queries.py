@@ -5,7 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import and_, exists, select
 
-from corpus_structure.semantic.query import Coverage, _same_scope
+from corpus_structure.semantic.query import Coverage, same_scope_clause
 from corpus_structure.serve.protocol import Positioned, Scope
 from corpus_structure.serve.read import T
 from corpus_structure.serve.results import (
@@ -56,6 +56,12 @@ class Query:
     version = "semantic-1"
     result: type[BaseModel] = ClaimAnswer
 
+    def validate_position(self, position):
+        if position is not None and not isinstance(position, str):
+            from corpus_structure.serve.journey import StaleToken
+
+            raise StaleToken("invalid generic query cursor")
+
     def scope(self, ctx, p):
         return Scope.run()
 
@@ -68,7 +74,7 @@ class Claims(Query):
     name, params = "claims", ClaimParams
 
     def rows(self, ctx, p, after=None):
-        f, v = T["fact"], T["typed_value"]
+        f = T["fact"]
         stmt = ctx.reader.fact_statement(
             include_candidates=p.include_candidates,
             include_suppositions=p.include_suppositions,
@@ -81,12 +87,8 @@ class Claims(Query):
         if p.object is not None:
             targets = ctx.reader.resolve(p.object)
             stmt = stmt.where(
-                exists(
-                    select(1).where(
-                        ctx.reader.scope(v),
-                        v.c.value_id == f.c.object_value_id,
-                        (v.c.entity_id.in_(targets)) | (v.c.lexical == p.object),
-                    )
+                ctx.session.object_predicate(
+                    p.predicate, p.object, targets, projection=ctx.projection
                 )
             )
         for claim in ctx.reader.claims(statement=stmt, after=after):
@@ -121,7 +123,9 @@ class Statement(Query):
                 exists(
                     select(1)
                     .select_from(
-                        oe.join(e, and_(_same_scope(oe, e), oe.c.evidence_id == e.c.evidence_id))
+                        oe.join(
+                            e, and_(same_scope_clause(oe, e), oe.c.evidence_id == e.c.evidence_id)
+                        )
                     )
                     .where(
                         ctx.reader.scope(oe),
@@ -137,13 +141,15 @@ class Statement(Query):
             .scalars()
             .all()
         )
-        entities = ctx.session._entities(set(ids))
+        entities = ctx.session.load_entities(set(ids))
         for id_ in ids:
             associated = (
                 select(o.c.fact_id)
                 .join(
                     context,
-                    and_(_same_scope(o, context), o.c.occurrence_id == context.c.occurrence_id),
+                    and_(
+                        same_scope_clause(o, context), o.c.occurrence_id == context.c.occurrence_id
+                    ),
                 )
                 .where(ctx.reader.scope(o), context.c.statement_entity_id == id_)
             )

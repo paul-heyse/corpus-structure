@@ -7,9 +7,12 @@ missing v10 aliases from supplied source bytes; vocabulary and constraints stay 
 from __future__ import annotations
 
 import json
+from collections import OrderedDict
 from datetime import date
 from decimal import Decimal
+from threading import RLock
 from typing import Any, cast
+from weakref import WeakKeyDictionary
 
 import yaml
 from cattrs import Converter
@@ -30,6 +33,11 @@ from .types import (
     SourceBundle,
     VocabularySnapshot,
 )
+
+# Engine lifetime bounds database authority; keys additionally bind snapshot-observed bytes
+# and the actual validation runtime. Mutable selection, authorization and facts never enter it.
+_OPEN_CACHE: WeakKeyDictionary[Any, OrderedDict[tuple, PreparedRelease]] = WeakKeyDictionary()
+_CACHE_LOCK = RLock()
 
 _PRIMITIVES: dict[str, Any] = {
     "string": str,
@@ -191,11 +199,11 @@ def reconstruct_release(
     if profile.compiler_version == "10":
         aliases, descendants = _v10_aliases(bundle, definitions)
         primitive_types = _v10_primitives(rows)
-    elif profile.compiler_version == "11":
+    elif profile.compiler_version in {"11", "12"}:
         recipe = json.loads(artifact_map["boundary_recipe.json"].content)
         if (
             set(recipe) != {"abi", "primitives", "aliases", "descendants", "conditional_scope"}
-            or recipe["abi"] != "semantic-boundary-11"
+            or recipe["abi"] != f"semantic-boundary-{profile.compiler_version}"
         ):
             raise ValueError("unsupported archived boundary ABI")
         if recipe["conditional_scope"] != profile.constraint_scope:
@@ -210,18 +218,25 @@ def reconstruct_release(
     else:
         raise ValueError(f"unsupported archived compiler {profile.compiler_version}")
     models = {}
-    adapters = build_boundary_adapters(
-        definitions,
-        vocabularies,
-        primitive_types=primitive_types,
-        aliases=aliases,
-        conditional_fragments=fragments,
-        conditional_scope=profile.constraint_scope,
-        legacy_v10=profile.compiler_version == "10",
-        descendant_order=descendants,
-        models_out=models,
-    )
-    for name, adapter in adapters:
+
+    def build(class_names=None):
+        return build_boundary_adapters(
+            definitions,
+            vocabularies,
+            primitive_types=primitive_types,
+            aliases=aliases,
+            conditional_fragments=fragments,
+            conditional_scope=profile.constraint_scope,
+            legacy_v10=profile.compiler_version == "10",
+            finite_fields=profile.compiler_version == "12",
+            descendant_order=descendants,
+            models_out=models,
+            class_names=class_names,
+        )
+
+    adapters = () if profile.compiler_version == "12" else build()
+
+    def check_schema(name, adapter):
         actual_schema = json.loads(canonical_bytes(adapter.json_schema()))
         expected_schema = json.loads(artifact_map[f"json_schema/{name}"].content)
         if actual_schema != expected_schema:
@@ -243,6 +258,16 @@ def reconstruct_release(
                 f"archived boundary schema differs for {name}: "
                 f"{difference(actual_schema, expected_schema)}"
             )
+
+    for name, adapter in adapters:
+        check_schema(name, adapter)
+
+    def load_adapter(name):
+        built = dict(build((name,)))
+        adapter = built[name]
+        check_schema(name, adapter)
+        return adapter
+
     return PreparedRelease(
         release_id=products["release_id"],
         manifest=manifest,
@@ -258,19 +283,19 @@ def reconstruct_release(
         _adapters=adapters,
         execution_model_id=products.get("execution_model_id"),
         _boundary_models=models,
+        _adapter_loader=load_adapter if profile.compiler_version == "12" else None,
     )
 
 
 def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
     """Read a complete archive in one caller-owned snapshot, retaining row coherence checks."""
     from dataclasses import asdict
-    from importlib.metadata import version
 
     from sqlalchemy import select
 
+    from .determinants import boundary_compatible
     from .identity import canonical_bytes
     from .releases import (
-        _LIBRARIES,
         ReleaseConflict,
         _archive_bytes,
         _compare_rows,
@@ -288,6 +313,24 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
     )
     if row is None:
         raise KeyError(release_id)
+    finalization = _table("sem.release_finalization")
+    finalized_digest = conn.execute(
+        select(finalization.c.content_digest).where(finalization.c.release_id == release_id)
+    ).scalar_one_or_none()
+    from .determinants import BOUNDARY_LIBRARIES, determinant_version
+
+    runtime = tuple(
+        (name, determinant_version(name)) for name in (*BOUNDARY_LIBRARIES, "linkml-runtime")
+    )
+    if _digest(bytes(row["prepared_bytes"])) != row["content_digest"]:
+        raise ReleaseConflict("archive digest differs")
+    cache_key = (release_id, row["content_digest"], _digest(bytes(row["manifest_bytes"])), runtime)
+    if finalized_digest == row["content_digest"]:
+        with _CACHE_LOCK:
+            cache = _OPEN_CACHE.get(conn.engine)
+            if cache is not None and cache_key in cache:
+                cache.move_to_end(cache_key)
+                return cache[cache_key]
     try:
         archive_bytes, manifest_bytes = bytes(row["prepared_bytes"]), bytes(row["manifest_bytes"])
         if _digest(archive_bytes) != row["content_digest"] or release_id != "release:" + _digest(
@@ -295,9 +338,15 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
         ):
             raise ReleaseConflict("archive or manifest identity differs")
         archive, manifest = json.loads(archive_bytes), json.loads(manifest_bytes)
-        if archive["format"] not in {"semantic-release-archive-1", "semantic-release-archive-2"}:
+        if archive["format"] not in {
+            "semantic-release-archive-1",
+            "semantic-release-archive-2",
+            "semantic-release-archive-3",
+        }:
             raise ReleaseConflict("unsupported archive format")
-        if manifest["libraries"] != {name: version(name) for name in _LIBRARIES}:
+        if not boundary_compatible(
+            manifest["libraries"], str(manifest["profile"]["compiler_version"])
+        ):
             raise ReleaseConflict("archived boundary library versions differ")
         relation = _table("sem.input")
         source: dict[tuple[str, str], bytes] = {}
@@ -389,8 +438,18 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
             or _archive_bytes(bundle, ResolvedDependencies(dependencies), prepared) != archive_bytes
         ):
             raise ReleaseConflict("archived products differ")
-        for name, expected_rows in _projection_rows(prepared).items():
-            _compare_rows(conn, name, release_id, expected_rows)
+        if finalized_digest != row["content_digest"]:
+            # Required historical archives without protected finalization retain the
+            # complete snapshot coherence path; they never populate the cache.
+            for name, expected_rows in _projection_rows(prepared).items():
+                _compare_rows(conn, name, release_id, expected_rows)
+        else:
+            with _CACHE_LOCK:
+                cache = _OPEN_CACHE.setdefault(conn.engine, OrderedDict())
+                cache[cache_key] = prepared
+                cache.move_to_end(cache_key)
+                while len(cache) > 8:
+                    cache.popitem(last=False)
         return prepared
     except ReleaseConflict:
         raise

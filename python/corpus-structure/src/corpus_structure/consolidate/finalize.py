@@ -43,20 +43,13 @@ from corpus_structure.core.vocab import (
     ClaimRefKind,
     ClaimStatus,
     EntityRefRole,
-    MathKind,
     ParseOutcome,
 )
 from corpus_structure.pool.steps import Engine
+from corpus_structure.semantic.grammar_profile import GRAMMAR_KINDS as GRAMMAR_KINDS
 from corpus_structure.validate.runner import Finding, RuleOutcome, run_rules
 from corpus_structure.validate.views import Reading, build_views, engine_facts
 
-GRAMMAR_KINDS = {
-    "formula": MathKind.FORMULA,
-    "relation": MathKind.RELATION,
-    "member": MathKind.MEMBERSHIP,
-    "set_expr": MathKind.SET,
-    "list": MathKind.LIST,
-}
 START: dict[str, Literal["any_value", "set_expr"]] = {"formula": "any_value", "set": "set_expr"}
 
 

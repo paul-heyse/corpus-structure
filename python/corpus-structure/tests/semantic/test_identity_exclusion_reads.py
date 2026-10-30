@@ -2,14 +2,13 @@
 
 from dataclasses import FrozenInstanceError
 
-import pyarrow as pa
 import pytest
 from pydantic import ValidationError
 from rdflib import URIRef
 from rdflib.namespace import OWL, RDF
 from sqlalchemy import select
 
-from corpus_structure.semantic.analytics import AnalysisScope, CandidateInput, compile_projection
+from corpus_structure.semantic.analytics import AnalysisScope, load_packet
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.ontology import CS, validate_projected_graph
 from corpus_structure.semantic.query import read_session
@@ -20,7 +19,7 @@ def test_identity_exclusion_snapshot_reader_and_columnar_closure(
 ):
     from .test_identity_exclusions import exclusion_result
 
-    prepared, _run, cut, result = exclusion_result(
+    _prepared, _run, _cut, result = exclusion_result(
         semantic_db_engine, semantic_writer_engine, tmp_path
     )
     assert result is not None
@@ -35,7 +34,7 @@ def test_identity_exclusion_snapshot_reader_and_columnar_closure(
         assert exclusion.observation_key
         assert exclusion.local_id
         assert exclusion.operation_id == "resolve_identity"
-        assert exclusion.operation_version == "semantic-domain-2"
+        assert exclusion.operation_version == "semantic-domain-3"
         assert exclusion.evidence
         for evidence in exclusion.evidence:
             assert evidence.source is not None
@@ -67,25 +66,14 @@ def test_identity_exclusion_snapshot_reader_and_columnar_closure(
         explanation = session.explain(fact_id)
         assert explanation.identity_exclusions == rows
 
-        compiled = compile_projection(prepared, session.binding, kind="candidate")
-        relations = {}
-        for relation in compiled.relations:
-            if relation.name not in {"identity_exclusion", "identity_exclusion_evidence"}:
-                continue
-            native = session.connection.execute(relation.statement).mappings().all()
-            relations[relation.name] = pa.Table.from_pylist(
-                [dict(row) for row in native], schema=relation.schema
-            )
-        assert set(relations) == {"identity_exclusion", "identity_exclusion_evidence"}
-        packet = CandidateInput(
-            session.binding,
-            compiled.projection_id,
-            compiled.profile.digest,
-            str(cut),
-            "identity-exclusion-reader",
-            relations,
-            scale=compiled.profile.scale,
+        uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+            hide_password=False
         )
+        packet = load_packet(session, uri)
+        assert {"identity_exclusion", "identity_exclusion_evidence"} <= packet.relations.keys()
+        captured = packet.relations["identity_exclusion"]
+        assert captured["exclusion_id"].to_pylist() == [exclusion.exclusion_id]
+        assert packet.relations["identity_exclusion_evidence"].num_rows == len(exclusion.evidence)
     with AnalysisScope(packet) as scope:
         detached = scope.connection.sql(
             "SELECT x.exclusion_id,x.left_entity_id,x.right_entity_id,e.evidence_id "

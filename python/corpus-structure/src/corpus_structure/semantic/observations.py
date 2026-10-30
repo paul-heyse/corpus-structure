@@ -25,16 +25,17 @@ from .types import PreparedRelease, SourceArtifact, SourceBundle
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "observations.yaml"
 
 
-def observation_inputs(bundle: SourceBundle) -> SourceBundle:
+def observation_inputs(bundle: SourceBundle, *, model_content: bytes | None = None) -> SourceBundle:
     """Include the source-report module through archived, hashed release preparation."""
     names = {source.name for source in bundle.sources}
+    content = _MODEL.read_bytes() if model_content is None else model_content
     if names & {"observations", "observation-root"}:
         from .prepare import _view
 
         module = next((source for source in bundle.sources if source.name == "observations"), None)
         if (
             module is not None
-            and module.content == _MODEL.read_bytes()
+            and module.content == content
             and "SourceObservation" in _view(bundle).all_classes()
         ):
             return bundle
@@ -43,7 +44,7 @@ def observation_inputs(bundle: SourceBundle) -> SourceBundle:
         "observation-root",
         (
             *bundle.sources,
-            SourceArtifact("observations", _MODEL.read_bytes()),
+            SourceArtifact("observations", content),
             SourceArtifact(
                 "observation-root",
                 yaml.safe_dump(
@@ -59,14 +60,18 @@ def observation_inputs(bundle: SourceBundle) -> SourceBundle:
 
 
 def prepare_source_inputs(
-    bundle: SourceBundle, dependencies=None, *, metric_content: bytes | None = None
+    bundle: SourceBundle,
+    dependencies=None,
+    *,
+    metric_content: bytes | None = None,
+    model_content: bytes | None = None,
 ):
     """Explicitly acquire source-report schema and metric definitions before pure preparation."""
     from .metrics import observation_dependencies
     from .types import ResolvedDependencies
 
     return (
-        observation_inputs(bundle),
+        observation_inputs(bundle, model_content=model_content),
         observation_dependencies(
             ResolvedDependencies() if dependencies is None else dependencies, metric_content
         ),

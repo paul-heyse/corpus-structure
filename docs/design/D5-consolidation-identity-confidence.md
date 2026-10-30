@@ -17,6 +17,25 @@ conflicts are decided; how confidence is estimated and calibrated; how judgments
 validation set status. Consolidation is methods M17 and M18 of
 [D4](D4-method-catalog.md#11-consolidation-summary) and the only writer of knowledge rows.
 
+## Shared scientific evidence and analytical inputs
+
+**Implemented, 2026-10-29; scoped verification belongs to [SP-I06/SP-I07](../plans/semantic-model-pivot/release-and-consumer-consolidation.md#SP-I06).**
+Semantic operands feed one scientific evidence kernel with distinct archived consolidation and
+reference sampling/decision profiles. Numeric agreement retains its existing different treatment;
+SymPy numerical fallback is never relabeled symbolic proof. Assessments persist a typed, versioned
+reason envelope containing policy, mechanism, numerical status, operands and exact context; existing
+explanations expose that evidence. Authored LinkML logical views drive typed rule-engine OBJECT
+accessors, nullable fields, arrays and maps; actual accessor values are validated. Rule contexts
+retain explicit decimal precision, closed vocabulary and nondeterminism restrictions.
+
+Identity resolution retains the complete global candidate context. Afterwards, only used typed
+reference/qualification closure, memberships, supports and retained exclusions contribute imported
+evidence. Candidate inputs distinguish all source-support occurrences from the scientific decision
+subset. DuckDB single-input kernels use relation.query; multi-input views use one owned TEMP table
+macro with query_table arguments. Lazy results retain their scope/resources. Physical Arrow export
+and exact per-value numerical policy remain separate from bounded analytical columns.
+
+
 ## Semantic domain operation entry points
 
 **Implemented profile, 2026-10-29; acceptance and remaining obligations belong to

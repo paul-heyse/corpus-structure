@@ -223,13 +223,18 @@ def test_outcome_translation_preserves_unknown_and_unsupported(products):
         ("implementations", 0, "input_concepts", ["SourceBundle"], "implementation_contract"),
         ("invariants", 0, "implementation", "missing", "unresolved_contract_reference"),
         ("projections", 0, "sources", ["Missing"], "unresolved_contract_reference"),
-        ("outcome_domains", 13, "values", ["invented"], "outcome_authority"),
+        ("outcome_domains", "scientific", "values", ["invented"], "outcome_implementation"),
         ("outcome_translations", 0, "target", "missing", "translation_outcome"),
     ],
 )
 def test_invalid_connected_definitions_refuse(inputs, section, index, field, value, code):
     data = body(inputs)
-    data[section][index][field] = value
+    item = (
+        next(row for row in data[section] if row["id"] == index)
+        if isinstance(index, str)
+        else data[section][index]
+    )
+    item[field] = value
     with pytest.raises(PreparationError) as error:
         compile_execution_model(changed(inputs, data))
     assert error.value.diagnostics[0].code == code

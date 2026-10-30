@@ -173,6 +173,17 @@ def closure_products() -> tuple[NativeProduct, ...]:
 
     from .publication import STAGE_TYPES
 
+    inference_relations = {"typed_value", "fact", "selection", "derivation", "derivation_premise"}
+    kernels += "\n" + source.joinpath("derived_publication.sql").read_text().replace(
+        "{accepted_empty_stages}",
+        " OR ".join(
+            "EXISTS(SELECT FROM pg_temp.sp_" + name + ")"
+            for name in STAGE_TYPES
+            if name not in inference_relations
+        ),
+    )
+    kernels += "\n" + source.joinpath("exclusions.sql").read_text()
+
     row_type, types = STAGE_TYPES["typed_value"]
     signatures = ",".join(
         "'" + column.name + ":" + kind + "'"
@@ -411,6 +422,13 @@ def closure_products() -> tuple[NativeProduct, ...]:
     )
     descriptor: dict[str, Any] = json.loads(source.joinpath("native_descriptor.json").read_bytes())
     descriptor["physical_checks_source_digest"] = check_source_digest
+    descriptor["base_derived_protocol"] = {
+        "operation": "publish_inference",
+        "projection": "accepted",
+        "universe": "eligible_positive_accepted",
+        "values": "exact",
+        "target": "same_realization",
+    }
     descriptor["physical_relations"] = sorted(metadata.tables)
     descriptor["views"] = [
         {"relation": "data.selected_fact", "query": str(view_query.compile(dialect=dialect()))}
@@ -605,3 +623,28 @@ def closure_products() -> tuple[NativeProduct, ...]:
         NativeProduct("semantic_0031_kernels.sql", kernels.encode()),
         NativeProduct("semantic_0031_admission.sql", admission.encode()),
     )
+
+
+def consolidation_products() -> tuple[NativeProduct, ...]:
+    """Forward routine delta over 0031; its tables and immutable rows already exist."""
+    from pglast.stream import RawStream
+
+    products = []
+    for product in closure_products():
+        name = product.name.replace("0031", "0032")
+        if name.endswith("_physical.sql"):
+            content = b"-- Physical model unchanged from semantic_0031.\n"
+        elif name.endswith("_kernels.sql"):
+            content = (
+                "\n".join(
+                    RawStream()(statement.stmt) + ";"
+                    for statement in parse_sql(product.content.decode())
+                    if statement.stmt is not None
+                    and not isinstance(statement.stmt, ast.CreateTrigStmt)
+                )
+                + "\n"
+            ).encode()
+        else:
+            content = product.content
+        products.append(NativeProduct(name, content))
+    return tuple(products)

@@ -54,7 +54,8 @@ PHASE0: Callable[[], dict[str, Any]] = _phase0
 
 @contextmanager
 def _refusals() -> Generator[None]:
-    from corpus_structure.orchestrate import commands, project, registry, runs
+    from corpus_structure.orchestrate import commands, project, registry
+    from corpus_structure.orchestrate.errors import RunError
     from corpus_structure.orchestrate.policy import PolicyError
     from corpus_structure.orchestrate.slices import SliceError
     from corpus_structure.semantic.domain_operations import DomainOperationRefused
@@ -66,7 +67,7 @@ def _refusals() -> Generator[None]:
         commands.CommandError,
         project.ProjectError,
         registry.RegistryError,
-        runs.RunError,
+        RunError,
         OperationConflict,
         DomainOperationRefused,
         SliceError,

@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from functools import cached_property
 from hashlib import sha256
+from threading import RLock
+from types import MappingProxyType
 from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, TypeAdapter
 
-SEMANTIC_COMPILER_VERSION = "11"
+from .refusals import SemanticRefusal
+
+SEMANTIC_COMPILER_VERSION = "12"
 
 
 @dataclass(frozen=True)
@@ -71,7 +77,7 @@ class Diagnostic:
     remedy: str | None = None
 
 
-class PreparationError(ValueError):
+class PreparationError(SemanticRefusal):
     def __init__(self, diagnostics: tuple[Diagnostic, ...]):
         self.diagnostics = diagnostics
         super().__init__("; ".join(f"{d.location}: {d.message}" for d in diagnostics))
@@ -165,6 +171,31 @@ class SchemaPreview:
         return frozenset(m.value for m in vocabulary.members)
 
 
+class _AdapterLookup(Mapping[str, TypeAdapter[BaseModel]]):
+    def __init__(self, release: PreparedRelease):
+        self._release = release
+
+    def __getitem__(self, name: str) -> TypeAdapter[BaseModel]:
+        return self._release.adapter(name)
+
+    def __iter__(self):
+        return iter(self._release.index.definitions)
+
+    def __len__(self) -> int:
+        return len(self._release.definitions)
+
+
+@dataclass(frozen=True)
+class ReleaseIndex:
+    """Read-only lookup acceleration; never part of release identity."""
+
+    definitions: Mapping[str, ClassDefinition]
+    by_iri: Mapping[str, ClassDefinition]
+    properties: Mapping[tuple[str, str], PropertyDefinition]
+    properties_by_class: Mapping[str, Mapping[str, PropertyDefinition]]
+    adapters: Mapping[str, TypeAdapter[BaseModel]]
+
+
 @dataclass(frozen=True)
 class PreparedRelease:
     release_id: str
@@ -178,6 +209,13 @@ class PreparedRelease:
     diagnostics: tuple[Diagnostic, ...]
     _adapters: tuple[tuple[str, TypeAdapter[BaseModel]], ...] = field(repr=False, compare=False)
     execution_model_id: str | None = None
+    _adapter_loader: Callable[[str], TypeAdapter[BaseModel]] | None = field(
+        default=None, repr=False, compare=False
+    )
+    _adapter_lock: Any = field(default_factory=RLock, repr=False, compare=False)
+    _loaded_adapters: dict[str, TypeAdapter[BaseModel]] = field(
+        default_factory=dict, repr=False, compare=False
+    )
     _boundary_models: dict[str, type[BaseModel]] = field(
         default_factory=dict, repr=False, compare=False
     )
@@ -187,6 +225,31 @@ class PreparedRelease:
     _result_adapters: dict[tuple[str, str, str | None], TypeAdapter[Any]] = field(
         default_factory=dict, repr=False, compare=False, init=False
     )
+
+    def adapter(self, class_name: str) -> TypeAdapter[BaseModel]:
+        if self._adapter_loader is None:
+            return self.index.adapters[class_name]
+        with self._adapter_lock:
+            if class_name not in self._loaded_adapters:
+                self._loaded_adapters[class_name] = self._adapter_loader(class_name)
+            return self._loaded_adapters[class_name]
+
+    @cached_property
+    def index(self) -> ReleaseIndex:
+        return ReleaseIndex(
+            MappingProxyType({d.name: d for d in self.definitions}),
+            MappingProxyType({d.iri: d for d in self.definitions}),
+            MappingProxyType({(d.name, p.name): p for d in self.definitions for p in d.properties}),
+            MappingProxyType(
+                {
+                    d.name: MappingProxyType({p.name: p for p in d.properties})
+                    for d in self.definitions
+                }
+            ),
+            _AdapterLookup(self)
+            if self._adapter_loader is not None
+            else MappingProxyType(dict(self._adapters)),
+        )
 
     def expand_name(self, name: str) -> str:
         """Resolve only prefixes archived with this release; never installed namespaces."""
@@ -245,8 +308,8 @@ class PreparedRelease:
         """Canonical candidate keys for each declared unique group; not entity resolution."""
         from .identity import _meaning, canonical_bytes
 
-        definition = next(d for d in self.definitions if d.name == class_name)
-        props = {p.name: p for p in definition.properties}
+        definition = self.index.definitions[class_name]
+        props = self.index.properties_by_class[class_name]
         out = []
         for group in definition.identity_groups:
             if not include_identifier and group == definition.identity_slots:
@@ -271,7 +334,7 @@ class PreparedRelease:
 
     def qualification_definition(self, class_name: str = "Qualification") -> ClassDefinition:
         """Resolve an explicitly named qualification type; never guess from submitted fields."""
-        definition = next((d for d in self.definitions if d.name == class_name), None)
+        definition = self.index.definitions.get(class_name)
         if definition is None or not (
             definition.name == "Qualification" or "Qualification" in definition.ancestors
         ):
@@ -292,7 +355,7 @@ class PreparedRelease:
         from .identity import fact_key
 
         definition = self.qualification_definition(qualification_class)
-        props = {p.name: p for p in definition.properties}
+        props = self.index.properties_by_class[definition.name]
         result = {}
         for name, value in qualification.items():
             if name not in props:
@@ -311,6 +374,7 @@ class PreparedRelease:
         key = (class_name, property_name, item)
         if key in self._property_adapters:
             return self._property_adapters[key]
+        self.adapter(class_name)
         model = self._boundary_models.get(class_name)
         if model is None:
             raise KeyError(f"prepared boundary model unavailable: {class_name}")
@@ -328,42 +392,27 @@ class PreparedRelease:
 
     def validate_python(self, class_name: str, data: object) -> BaseModel:
         """Validate reconstructed native values without JSON's numeric/date conversions."""
-        for name, adapter in self._adapters:
-            if name == class_name:
-                return adapter.validate_python(
-                    data, strict=True, context={"validation_purpose": "structural"}
-                )
-        raise KeyError(class_name)
+        return self.adapter(class_name).validate_python(
+            data, strict=True, context={"validation_purpose": "structural"}
+        )
 
     def validate_json(self, class_name: str, data: str | bytes) -> BaseModel:
-        for name, adapter in self._adapters:
-            if name == class_name:
-                return adapter.validate_json(
-                    data, strict=True, context={"validation_purpose": "structural"}
-                )
-        raise KeyError(class_name)
+        return self.adapter(class_name).validate_json(
+            data, strict=True, context={"validation_purpose": "structural"}
+        )
 
     def validate_accepted_python(self, class_name: str, data: object) -> BaseModel:
         """Validate the accepted projection; native publication still enforces shared state."""
-        for name, adapter in self._adapters:
-            if name == class_name:
-                return adapter.validate_python(
-                    data, strict=True, context={"validation_purpose": "accepted_value"}
-                )
-        raise KeyError(class_name)
+        return self.adapter(class_name).validate_python(
+            data, strict=True, context={"validation_purpose": "accepted_value"}
+        )
 
     def validate_accepted_json(self, class_name: str, data: str | bytes) -> BaseModel:
-        for name, adapter in self._adapters:
-            if name == class_name:
-                return adapter.validate_json(
-                    data, strict=True, context={"validation_purpose": "accepted_value"}
-                )
-        raise KeyError(class_name)
+        return self.adapter(class_name).validate_json(
+            data, strict=True, context={"validation_purpose": "accepted_value"}
+        )
 
     def json_schema(
         self, class_name: str, *, mode: Literal["validation", "serialization"] = "validation"
     ) -> dict[str, object]:
-        for name, adapter in self._adapters:
-            if name == class_name:
-                return adapter.json_schema(mode=mode)
-        raise KeyError(class_name)
+        return self.adapter(class_name).json_schema(mode=mode)

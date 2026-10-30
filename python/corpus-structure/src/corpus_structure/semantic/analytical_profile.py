@@ -21,6 +21,7 @@ def analytical_inputs(
     dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES,
     *,
     profile: bytes | None = None,
+    model_content: bytes | None = None,
 ) -> tuple[SourceBundle, ResolvedDependencies]:
     """Opt into the packaged profile through ordinary hashed, archived release inputs."""
     return (
@@ -28,7 +29,12 @@ def analytical_inputs(
             "analytical-root",
             (
                 *bundle.sources,
-                SourceArtifact("analytics", (_MODEL / "analytics.yaml").read_bytes()),
+                SourceArtifact(
+                    "analytics",
+                    (_MODEL / "analytics.yaml").read_bytes()
+                    if model_content is None
+                    else model_content,
+                ),
                 SourceArtifact(
                     "analytical-root",
                     yaml.safe_dump(

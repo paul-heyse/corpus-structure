@@ -8,6 +8,7 @@ from typing import Literal, cast, get_args
 
 SourceCoverageOutcome = Literal["complete", "partial", "unknown", "unsupported", "failed"]
 SemanticCoverageOutcome = Literal["complete", "partial", "unanalysed", "failed"]
+ScientificComparison = Literal["equivalent", "different", "undecided"]
 ScientificOutcome = Literal[
     "accepted",
     "rejected",
@@ -62,6 +63,7 @@ CODE_OUTCOME_DOMAINS = {
     "source_coverage": get_args(SourceCoverageOutcome),
     "semantic_coverage": get_args(SemanticCoverageOutcome),
     "scientific": get_args(ScientificOutcome),
+    "scientific_comparison": get_args(ScientificComparison),
     "transaction": get_args(TransactionOutcome),
     "query_knowledge": get_args(QueryKnowledgeOutcome),
 }

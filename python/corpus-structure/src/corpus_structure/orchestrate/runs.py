@@ -32,10 +32,8 @@ holds is orphaned (`pg_locks`: advisory, in this database, `classid` the namespa
 
 from __future__ import annotations
 
-import subprocess
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import psycopg
@@ -44,8 +42,9 @@ from sqlalchemy import Connection, bindparam, select, text
 
 from corpus_structure.core._model.revision import KEY_SCHEME
 from corpus_structure.core.canonical import digest
-from corpus_structure.core.db import metadata
+from corpus_structure.core.db.legacy_metadata import metadata
 from corpus_structure.core.options import RunOptions
+from corpus_structure.core.provenance import code_commit as code_commit
 from corpus_structure.core.vocab import (
     AgentMode,
     AgentReuse,
@@ -56,6 +55,15 @@ from corpus_structure.core.vocab import (
     SkipReason,
     TaskStatus,
 )
+from corpus_structure.orchestrate.errors import (
+    IllegalTransition as IllegalTransition,
+)
+from corpus_structure.orchestrate.errors import (
+    ProfileRefused as ProfileRefused,
+)
+from corpus_structure.orchestrate.errors import (
+    RunError as RunError,
+)
 from corpus_structure.orchestrate.project import PackVersions
 from corpus_structure.orchestrate.registry import MethodRegistry, artifact_hashes
 
@@ -64,27 +72,6 @@ LIVENESS = 0x63735255  # the advisory-lock namespace of run liveness ("csRU")
 REFUSED_KINDS = frozenset({RunKind.EXPERIMENT, RunKind.RESCORE})
 OPEN_TASKS = (TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.AWAITING_AGENT)
 LIVE_STATUSES = (RunStatus.RUNNING, RunStatus.AWAITING_AGENT, RunStatus.CONSOLIDATING)
-
-
-class RunError(ValueError):
-    """A run that cannot be created or moved as asked."""
-
-
-class ProfileRefused(RunError):
-    """A source profile names a kind outside the run's schema version (DA-010)."""
-
-    def __init__(self, issues: Sequence[tuple[str, str, str, str]]) -> None:
-        self.issues = list(issues)  # (profile, code, field, value)
-        super().__init__(
-            "; ".join(
-                f"source profile {p}: {field} {value!r}: {code}"
-                for p, code, field, value in self.issues
-            )
-        )
-
-
-class IllegalTransition(RunError):
-    pass
 
 
 class OptionsReport(BaseModel):
@@ -133,25 +120,6 @@ def resolve_options(
     )
     sources |= {"corpus": "option", "configs": "resolved"}
     return OptionsReport(options=options, sources=sources)
-
-
-def code_commit(repo: Path | None = None) -> str:
-    """`git rev-parse HEAD`, with `+dirty` when the tree has changes; `unknown` outside Git."""
-    cwd = repo or Path(__file__).resolve().parents[4]
-    try:
-        head = subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=cwd, capture_output=True, text=True, check=True
-        ).stdout.strip()
-        dirty = subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
-    except OSError, subprocess.CalledProcessError:
-        return "unknown"
-    return f"{head}+dirty" if dirty else head
 
 
 def corpus_hash(documents: Iterable[tuple[str, str]], ingest_configs: Iterable[str]) -> str:

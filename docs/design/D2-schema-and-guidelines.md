@@ -15,6 +15,21 @@ instance authority and consolidation ownership.
 LLM output, validation and the annotation guideline, and the first version of the statistics
 pack. The knowledge types the schema populates are defined in [D1](D1-knowledge-representation.md).
 
+## Release and boundary realization
+
+**Implemented, 2026-10-29; verification is scoped by [SP-I04–SP-I07](../plans/semantic-model-pivot/release-and-consumer-consolidation.md#execution-checkpoint--2026-10-29).**
+Compiler 12 emits archive 3 and boundary 12. Acquisition owns named immutable pack/trusted bytes;
+composition is pure and prepares the root once. SchemaView uses a closed public import map and
+contextual induction, with generator mutation isolated. The boundary recipe carries effective
+primitives, aliases, constraints, references and operation/projection bindings. A non-identity
+ReleaseIndex supplies reusable lookups and demand-built model closures. Extracted Pydantic field
+adapters retain primitive metadata, including finite floats. Runtime acceptance explicitly binds
+Python, Pydantic-core and conditional validation behavior; compiler provenance alone does not
+establish boundary compatibility. Supported compiler-10/11 product readers retain their recorded
+semantics. Ordinary opening caches only finalized immutable products within database/store context;
+verification and live deployment checks retain separate admission responsibilities.
+
+
 ## Effective execution closure
 
 **Accepted target, 2026-10-29; implementation and qualification are separately scoped.**

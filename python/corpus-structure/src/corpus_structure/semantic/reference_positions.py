@@ -168,7 +168,7 @@ def _visit(
 def _validated(prepared: PreparedRelease, class_name: str, value: Any) -> BaseModel:
     # Internal schema-native records use slot names. External producer JSON has already
     # passed its separate alias-sensitive boundary before entering this visitor.
-    adapter = next(adapter for name, adapter in prepared._adapters if name == class_name)
+    adapter = prepared.adapter(class_name)
     return adapter.validate_python(
         value, strict=True, by_name=True, context={"validation_purpose": "structural"}
     )

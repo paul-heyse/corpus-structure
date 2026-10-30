@@ -9,7 +9,7 @@ import anyio
 import pytest
 import yaml
 from fastmcp import Client
-from sqlalchemy import insert, select, text, update
+from sqlalchemy import insert, select
 
 from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.locators import LocatorIndex
@@ -37,6 +37,7 @@ from corpus_structure.semantic.operations import (
     hold_agent_result,
     record_method,
     register_document,
+    release_claim,
     store_rendition,
 )
 from corpus_structure.semantic.proposals import proposal_inputs
@@ -85,11 +86,10 @@ def source_task(
         deps,
     )
     bundle, deps = analytical_inputs(bundle, deps)
-    profile = PreparationProfile(version="semantic-2" if composed else "semantic-1")
-    if composed:
-        from corpus_structure.semantic.composed import composed_dependencies
+    profile = PreparationProfile(version="semantic-2")
+    from corpus_structure.semantic.composed import composed_dependencies
 
-        deps = composed_dependencies(deps)
+    deps = composed_dependencies(deps)
     prepared = prepare_release(bundle, deps, profile)
     with admin.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)
@@ -299,13 +299,15 @@ def test_uncertain_first_hold_survives_session_restart_and_terminal_second_repor
                         table("kb.observation").c.task_id == task
                     )
                 ).first()
-        # A replaced host cannot renew the previous lease. Advance its persisted expiry
-        # directly instead of sleeping, then exercise the real native reclaim path.
+        # Release the old host's ownership through the protected transition. A replacement
+        # host reclaims a new attempt while the durable first submission stays available.
         with engine.begin() as conn:
-            conn.execute(
-                update(table("ops.task"))
-                .where(table("ops.task").c.id == task)
-                .values(lease_until=text("clock_timestamp()-interval '1 second'"))
+            release_claim(
+                conn,
+                task_id=task,
+                attempt=first_attempt,
+                holder=first.holder,
+                reason="session restart",
             )
         second = SemanticAgentSession(engine, run)
         async with Client(build_semantic_server(second)) as client:

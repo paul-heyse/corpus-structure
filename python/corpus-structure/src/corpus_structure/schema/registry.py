@@ -264,7 +264,7 @@ PROJECTION: Mapping[str, str] = {
 
 
 def _tables() -> Any:
-    from corpus_structure.core.db import metadata
+    from corpus_structure.core.db.legacy_metadata import metadata
 
     return metadata.tables
 

@@ -88,7 +88,8 @@ def capture_source_frame(conn: Connection, task_id: int, packet: ProposalPacket)
         )
     conn.execute(
         text(
-            "SELECT ops.record_source_frame(:task,:hash,:rendition,:unit,:locator,:segment,CAST(:sentences AS jsonb))"
+            "SELECT ops.record_source_frame(:task,:hash,:rendition,:unit,:locator,:segment,"
+            "CAST(:sentences AS jsonb))"
         ),
         {
             "task": task_id,
@@ -139,7 +140,7 @@ def backfill_source_frames(engine: Engine, run_id: int) -> int:
     """Append missing origin frames after rebuilding and verifying their original packet hash."""
     from corpus_structure.orchestrate.semantic import agent_packet
 
-    from .releases import load_release
+    from .releases import open_release
 
     tasks, observations, cuts, members, frames = map(
         table, ("ops.task", "kb.observation", "ops.input_cut", "ops.cut_task", "ops.source_frame")
@@ -178,7 +179,7 @@ def backfill_source_frames(engine: Engine, run_id: int) -> int:
             task = conn.execute(
                 select(tasks.c.run_id, tasks.c.release_id).where(tasks.c.id == task_id)
             ).one()
-            prepared = load_release(conn, task.release_id)
+            prepared = open_release(conn, task.release_id)
             # agent_packet verifies recorded packet_hash before the identical capture routine.
             agent_packet(conn, task.run_id, task_id, prepared)
         return len(missing)

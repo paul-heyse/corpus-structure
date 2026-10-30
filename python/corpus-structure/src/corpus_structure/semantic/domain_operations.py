@@ -12,6 +12,7 @@ from contextlib import suppress
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from hashlib import sha256
+from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
 from typing import Any, Protocol
 
@@ -40,11 +41,11 @@ from .publication import (
     _publish,
 )
 from .query import SnapshotBinding
-from .releases import load_release
+from .releases import open_release
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact
 
 RULE_INPUT = "operation/domain-rules.yaml"
-VERSION = "semantic-domain-2"
+VERSION = "semantic-domain-3"
 
 
 class DomainOperationRefused(ValueError):
@@ -97,6 +98,8 @@ def domain_rule_inputs(
     aliases: Mapping[str, Any] | None = None,
 ) -> ResolvedDependencies:
     """Archive existing rules as one operation dependency, never read latest files in a run."""
+    from .scientific_evidence import scientific_policy_recipe
+
     source = _policy_yaml(domain) or {}
     base = _policy_yaml(core) or {}
     if set(base) - {"rules"}:
@@ -115,6 +118,15 @@ def domain_rule_inputs(
         artifacts=(
             *dependencies.artifacts,
             SourceArtifact(RULE_INPUT, yaml.safe_dump(source, sort_keys=True).encode()),
+            SourceArtifact(
+                "operation/scientific-policy.json", canonical_bytes(scientific_policy_recipe())
+            ),
+            SourceArtifact(
+                "operation/rule-view.yaml",
+                (
+                    Path(__file__).resolve().parents[1] / "model/semantic/rule-view.yaml"
+                ).read_bytes(),
+            ),
         ),
     )
 
@@ -382,24 +394,6 @@ def _known_input(conn, prepared, job, observations):
     from .publication import STAGE_TYPES
     from .query import ReadSession
 
-    references = set()
-    classes = set()
-
-    def refs(value):
-        if isinstance(value, dict):
-            for name, child in value.items():
-                if name in {"target", "entity", "subject"} and isinstance(child, str):
-                    references.add(child)
-                else:
-                    refs(child)
-        elif isinstance(value, (list, tuple)):
-            for child in value:
-                refs(child)
-
-    for observation in observations:
-        if observation["payload_definition"] == "AgentStoredBatch":
-            refs(observation["payload"])
-            classes.update(e["class_iri"] for e in observation["payload"].get("entities", ()))
     realization = table("data.realization")
     m = table("data.membership")
     revision = conn.execute(
@@ -422,6 +416,11 @@ def _known_input(conn, prepared, job, observations):
         .all()
     )
     ids = {row["entity_id"] for row in memberships}
+    membership_ids = select(m.c.entity_id).where(
+        m.c.release_id == job["release_id"],
+        m.c.realization_id == job["input_realization_id"],
+        m.c.entity_id.is_not(None),
+    )
     if not ids:
         return {}, {}
     f, s = table("data.fact"), table("data.selection")
@@ -437,7 +436,7 @@ def _known_input(conn, prepared, job, observations):
             .where(
                 f.c.release_id == job["release_id"],
                 f.c.realization_id == job["input_realization_id"],
-                f.c.subject_id.in_(ids),
+                f.c.subject_id.in_(membership_ids),
             )
         )
         .mappings()
@@ -450,7 +449,7 @@ def _known_input(conn, prepared, job, observations):
         ),
         prepared,
     )
-    values, nodes, _ = session._values(
+    values, nodes, _ = session.load_values(
         {
             value
             for row in facts
@@ -538,45 +537,31 @@ def _known_input(conn, prepared, job, observations):
                     item["label"] = value
     copied = {}
     support = table("data.membership_support")
-    supports = (
-        conn.execute(
-            select(support).where(
-                support.c.release_id == job["release_id"],
-                support.c.realization_id == job["input_realization_id"],
-                support.c.entity_id.in_(ids),
-            )
-        )
-        .mappings()
-        .all()
+    support_selection = select(support).where(
+        support.c.release_id == job["release_id"],
+        support.c.realization_id == job["input_realization_id"],
+        support.c.entity_id.in_(membership_ids),
     )
-    evidence_ids = {row["evidence_id"] for row in supports}
+    supports = conn.execute(support_selection).mappings().all()
     excluded = table("data.identity_exclusion")
-    exclusion_rows = (
-        conn.execute(
-            select(excluded).where(
-                excluded.c.release_id == job["release_id"],
-                excluded.c.realization_id == job["input_realization_id"],
-                excluded.c.left_entity_id.in_(ids),
-                excluded.c.right_entity_id.in_(ids),
-            )
-        )
-        .mappings()
-        .all()
+    exclusion_selection = select(excluded).where(
+        excluded.c.release_id == job["release_id"],
+        excluded.c.realization_id == job["input_realization_id"],
+        excluded.c.left_entity_id.in_(membership_ids),
+        excluded.c.right_entity_id.in_(membership_ids),
     )
-    exclusion_ids = {row["exclusion_id"] for row in exclusion_rows}
+    exclusion_rows = conn.execute(exclusion_selection).mappings().all()
+    retained_exclusions = exclusion_selection.subquery("input_exclusions")
     links = table("data.identity_exclusion_evidence")
-    exclusion_links = (
-        conn.execute(
-            select(links).where(
-                links.c.release_id == job["release_id"],
-                links.c.realization_id == job["input_realization_id"],
-                links.c.exclusion_id.in_(exclusion_ids),
-            )
-        )
-        .mappings()
-        .all()
+    link_selection = select(links).where(
+        links.c.release_id == job["release_id"],
+        links.c.realization_id == job["input_realization_id"],
+        links.c.exclusion_id.in_(select(retained_exclusions.c.exclusion_id)),
     )
-    evidence_ids.update(row["evidence_id"] for row in exclusion_links)
+    exclusion_links = conn.execute(link_selection).mappings().all()
+    required_evidence = select(support_selection.subquery().c.evidence_id).union(
+        select(link_selection.subquery().c.evidence_id)
+    )
     for name, rows in (
         ("identity_exclusion", exclusion_rows),
         ("identity_exclusion_evidence", exclusion_links),
@@ -589,7 +574,7 @@ def _known_input(conn, prepared, job, observations):
     copied["_identity_exclusion_sources"] = tuple(
         conn.execute(
             select(observations_table.c.id, observations_table.c.observation_key).where(
-                observations_table.c.id.in_({row["observation_id"] for row in exclusion_rows})
+                observations_table.c.id.in_(select(retained_exclusions.c.observation_id))
             )
         ).all()
     )
@@ -605,7 +590,7 @@ def _known_input(conn, prepared, job, observations):
             select(target).where(
                 target.c.release_id == job["release_id"],
                 target.c.realization_id == job["input_realization_id"],
-                target.c.evidence_id.in_(evidence_ids),
+                target.c.evidence_id.in_(required_evidence),
             )
         ).mappings()
         copied[name] = tuple(
@@ -616,10 +601,11 @@ def _known_input(conn, prepared, job, observations):
 
 def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
     with (
-        engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
+        engine.connect().execution_options(
+            isolation_level="REPEATABLE READ", postgresql_readonly=True
+        ) as conn,
         conn.begin(),
     ):
-        conn.exec_driver_sql("SET TRANSACTION READ ONLY")
         cut = (
             conn.execute(
                 select(table("ops.input_cut")).where(table("ops.input_cut").c.id == cut_id)
@@ -634,7 +620,7 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
         )
         if not cut["final"] or not job["sealed"]:
             raise DomainOperationRefused("consolidation requires a sealed final observation cut")
-        prepared = load_release(conn, cut["release_id"])
+        prepared = open_release(conn, cut["release_id"])
         observations = list({row["id"]: row for row in cut_observations(conn, cut_id)}.values())
         descriptors = {}
         o, t, seg = table("kb.observation"), table("ops.task"), table("kb.segment")
@@ -642,44 +628,45 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
         effective = func.coalesce(
             o.c.rendition_id, seg.c.rendition_id, case((t.c.unit_type == "rendition", t.c.unit_id))
         )
-        source_rows = (
-            conn.execute(
-                select(
-                    o.c.id,
-                    t.c.unit_key,
-                    effective.label("rendition_id"),
-                    method.c.name.label("provider"),
-                    method.c.version,
-                    config.c.params,
+        cut_tasks = table("ops.cut_task")
+        selected_renditions = table("ops.run_rendition")
+        source_selection = (
+            select(
+                o.c.id,
+                t.c.unit_key,
+                effective.label("rendition_id"),
+                method.c.name.label("provider"),
+                method.c.version,
+                config.c.params,
+                select(selected_renditions.c.rendition_id)
+                .where(
+                    selected_renditions.c.run_id == job["id"],
+                    selected_renditions.c.rendition_id == effective,
                 )
-                .select_from(
-                    o.join(t, t.c.id == o.c.task_id)
-                    .join(config, config.c.id == t.c.method_config_id)
-                    .join(method, method.c.id == config.c.method_id)
-                    .outerjoin(seg, and_(t.c.unit_type == "segment", seg.c.id == t.c.unit_id))
-                )
-                .where(o.c.id.in_([row["id"] for row in observations]))
+                .correlate(o, t, seg)
+                .exists()
+                .label("selected_rendition"),
             )
-            .mappings()
-            .all()
-        )
-        chosen = set(
-            conn.execute(
-                select(table("ops.run_rendition").c.rendition_id).where(
-                    table("ops.run_rendition").c.run_id == job["id"]
+            .select_from(
+                o.join(t, t.c.id == o.c.task_id)
+                .join(config, config.c.id == t.c.method_config_id)
+                .join(method, method.c.id == config.c.method_id)
+                .outerjoin(seg, and_(t.c.unit_type == "segment", seg.c.id == t.c.unit_id))
+            )
+            .where(
+                o.c.task_id.in_(
+                    select(cut_tasks.c.origin_task_id).where(cut_tasks.c.cut_id == cut_id)
                 )
-            ).scalars()
+            )
         )
+        source_rows = conn.execute(source_selection).mappings().all()
+        cut_sources = source_selection.subquery("cut_sources")
         renditions = {}
         r, d = table("kb.rendition"), table("kb.document")
         for row in conn.execute(
             select(r, d.c.source_uri, d.c.meta)
             .join(d, d.c.id == r.c.document_id)
-            .where(
-                r.c.id.in_(
-                    {row["rendition_id"] for row in source_rows if row["rendition_id"] is not None}
-                )
-            )
+            .where(r.c.id.in_(select(cut_sources.c.rendition_id)))
         ).mappings():
             renditions[row["id"]] = row
         reports_by_id = {row["id"]: row for row in observations}
@@ -688,7 +675,7 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
             if rid is None:
                 descriptors[source["id"]] = None
                 continue
-            if rid not in chosen:
+            if not source["selected_rendition"]:
                 raise DomainOperationRefused(
                     "reused proposal is not located on this run selected rendition"
                 )
@@ -1825,7 +1812,20 @@ def _project_cut(
         identity_exclusion=rows_union(batch.identity_exclusion, inherited_exclusions),
         identity_exclusion_evidence=rows_union(batch.identity_exclusion_evidence, inherited_links),
     )
+    imported_evidence = {
+        row.evidence_id for row in copied.get("membership_support", ()) if row.entity_id in used
+    } | {
+        row.evidence_id
+        for rows in (
+            batch.membership_support,
+            batch.occurrence_evidence,
+            batch.identity_exclusion_evidence,
+        )
+        for row in rows
+    }
     for name, rows in copied.items():
+        if name in {"evidence", "evidence_source"}:
+            rows = tuple(row for row in rows if row.evidence_id in imported_evidence)
         if name.startswith("membership"):
             rows = tuple(row for row in rows if row.entity_id in used)
         incoming[name] = tuple(
@@ -1908,7 +1908,13 @@ def _project_cut(
         tuple(reports),
         tuple(claims),
         batch,
-        MappingProxyType(metadata),
+        MappingProxyType(
+            {
+                key: value
+                for key, value in metadata.items()
+                if key in used or key in {row.entity_id for row in batch.entity}
+            }
+        ),
         MappingProxyType(source_links),
         SnapshotBinding(
             job["release_id"],
@@ -1940,18 +1946,6 @@ def consolidate_cut(
         raise DomainOperationRefused("scientific policy belongs to another release")
     binding = inputs.source_binding
     compiled = compile_projection(inputs.prepared, binding, kind="candidate")
-    packet = CandidateInput(
-        binding,
-        compiled.projection_id,
-        compiled.profile.digest,
-        cut_id=str(inputs.cut_id),
-        decision_universe="consolidation:" + policy.version,
-        relations=MappingProxyType({}),
-        scale=compiled.profile.scale,
-        property_ids=tuple(
-            sorted({p.iri for d in inputs.prepared.definitions for p in d.properties})
-        ),
-    )
     evidence_type = pa.list_(pa.struct([pa.field("evidence_id", pa.string())]))
     links = {o.occurrence_id: [] for o in inputs.batch.occurrence}
     for link in inputs.batch.occurrence_evidence:
@@ -1973,8 +1967,11 @@ def consolidate_cut(
             ]
         ),
     )
+    packet = CandidateInput.from_cut(
+        inputs.prepared, inputs, candidates=candidates, decision_universe=policy.version
+    )
     with AnalysisScope(packet) as scope:
-        fused = scope.fuse(scope.connection.from_arrow(candidates)).to_arrow_table()
+        fused = scope.fuse(scope.relation("candidate_input")).to_arrow_table()
         decision = policy.evaluate(inputs, scope, fused)
     facts = {f.fact_id for f in inputs.batch.fact}
     if not decision.selected.issubset(facts):
@@ -2006,8 +2003,11 @@ def consolidate_cut(
             SnapshotDerivedPublication.from_rows(
                 batch,
                 source=inputs.source_binding,
-                operation_id="consolidate_cut",
+                operation_id="evaluate",
                 projection_id=compiled.projection_id,
+                contract_id="candidate",
+                cut_id=cut_id,
+                profile_digest=compiled.profile.digest,
             ),
         )
         if done:
@@ -2112,98 +2112,6 @@ def consolidate_cut(
     )
 
 
-def _comparison_value(raw):
-    """Project only shared scientific operand shapes into the existing comparator.
-
-    This is an operation adapter. It does not change the source record or install legacy
-    schema authority. Shapes without a faithful comparator operand remain undecided.
-    """
-    from datetime import date, datetime
-    from decimal import Decimal
-
-    from corpus_structure.core import values as V
-
-    if isinstance(raw, str):
-        return V.TextValue(t="text", v=raw)
-    if isinstance(raw, bool):
-        return V.BoolValue(t="bool", v=raw)
-    if isinstance(raw, (Decimal, int)):
-        text = format(Decimal(raw), "f")
-        if "." in text:
-            text = text.rstrip("0").rstrip(".")
-        return V.NumberValue(t="number", v=text if Decimal(raw) else "0")
-    if isinstance(raw, (date, datetime)):
-        return V.DateValue(t="date", v=raw.isoformat())
-    if not isinstance(raw, dict):
-        raise DomainOperationRefused("scientific operand has no faithful comparator shape")
-    kind = raw.get("kind")
-    if kind == "text":
-        return V.TextValue(t="text", v=raw["text"])
-    if kind in {"number", "quantity"}:
-        value = _comparison_value(raw["number"])
-        return value.model_copy(update={k: raw[k] for k in ("unit", "basis") if k in raw})
-    if kind == "boolean":
-        return V.BoolValue(t="bool", v=raw["boolean"])
-    if kind == "entity":
-        return V.EntityRef(ref=raw["target"])
-    if kind in {"formula", "set", "expression"}:
-        if raw.get("language") != "latex":
-            raise DomainOperationRefused("scientific expression language has no comparator")
-        if len({b["symbol"] for b in raw.get("bindings", ())}) != len(raw.get("bindings", ())):
-            raise DomainOperationRefused(
-                "duplicate source symbol bindings are not a functional map"
-            )
-        bindings = {
-            b["symbol"]: V.SymbolBinding.model_validate(
-                {
-                    "bind": b["kind"],
-                    **{k: b[k] for k in ("entity", "claim") if k in b},
-                    **({"param": b["parameter"]} if "parameter" in b else {}),
-                }
-            )
-            for b in raw.get("bindings", ())
-        }
-        if kind == "set" or raw.get("form") == "set":
-            return V.SetValue(t="set", latex=raw["expression"], symbols=bindings)
-        return V.Formula(t="formula", latex=raw["expression"], symbols=bindings)
-    if kind == "interval":
-        return V.IntervalValue.model_validate(
-            {
-                "t": "interval",
-                "start_incl": raw["lower_closed"],
-                "end_incl": raw["upper_closed"],
-                **({"start": _comparison_value(raw["lower"])} if "lower" in raw else {}),
-                **({"end": _comparison_value(raw["upper"])} if "upper" in raw else {}),
-            }
-        )
-    raise DomainOperationRefused(
-        "scientific " + str(kind) + " operand has no faithful comparator shape"
-    )
-
-
-def _comparison_condition(raw):
-    """Project typed mathematical conditions; unknown predicates remain undecided."""
-    from corpus_structure.core import values as V
-
-    kind = raw["kind"]
-    if kind == "all":
-        return V.StoredAnd(op="and", args=tuple(_comparison_condition(t) for t in raw["terms"]))
-    if kind == "member":
-        return V.MemberNode(
-            op="member", x=_comparison_value(raw["x"]), set=_comparison_value(raw["set"])
-        )
-    if kind == "compare":
-        return V.CmpNode(
-            op="cmp",
-            rel=raw["relation"],
-            lhs=_comparison_value(raw["lhs"]),
-            rhs=_comparison_value(raw["rhs"]),
-        )
-    raise DomainOperationRefused(
-        "condition " + kind + " has no mathematical restriction projection"
-    )
-
-
 def _bindings(value):
     if isinstance(value, dict):
         found = [value["bindings"]] if "bindings" in value else []
@@ -2227,8 +2135,9 @@ class ReleasedRulesPolicy:
     version = VERSION
 
     def __init__(self, prepared: PreparedRelease):
-        from corpus_structure.schema.rulelang import Builtin, Language, Vocabulary
-        from corpus_structure.schema.rules import BINDING, CLAIM, ENTITY, NODE, STATEMENT, VALUE
+        from corpus_structure.schema.rulelang import Builtin, Vocabulary
+
+        from .rule_views import build_rule_language
 
         self.prepared = prepared
         self.release_id = prepared.release_id
@@ -2250,6 +2159,17 @@ class ReleasedRulesPolicy:
             if row.kind == "prefix"
         }
         self.validate_source()
+        self.version = self.source["operation"]["version"]
+        if prepared.execution_model_id is not None:
+            models = [row for row in prepared.registry_rows if row.kind == "execution_model"]
+            if len(models) != 1 or models[0].name != prepared.execution_model_id:
+                raise DomainOperationRefused("policy requires its exact archived execution model")
+            operations = {item["id"]: item for item in json.loads(models[0].body)["operations"]}
+            for name in ("resolve_identity", "evaluate", "scientific_policy"):
+                if operations.get(name, {}).get("policy_version") != self.version:
+                    raise DomainOperationRefused(
+                        f"{name}: policy version differs from the archived domain implementation"
+                    )
         self.enums = {}
         for row in prepared.registry_rows:
             if row.kind == "enum_definition":
@@ -2260,34 +2180,13 @@ class ReleasedRulesPolicy:
                         prepared.enum_members(row.name)
                     )
         # Classes, qualifier schemas and memberships come from the same immutable binding.
-        qualifications = [
-            d
-            for d in prepared.definitions
-            if d.name == "Qualification" or "Qualification" in d.ancestors
-        ]
-        qtypes = {}
-        qprops = {}
-        for definition in qualifications:
-            for prop in definition.properties:
-                qprops[prop.name] = prop
-                if prop.multivalued and prop.range in self.definitions:
-                    fields = {p.name: p for p in self.definitions[prop.range].properties}
-                    qtypes[prop.name] = (
-                        "map[Value]" if {"key", "value"}.issubset(fields) else "list[string]"
-                    )
-                elif prop.range == "boolean":
-                    qtypes[prop.name] = "boolean?"
-                elif prop.range in {"integer", "decimal", "float", "double"}:
-                    qtypes[prop.name] = "number?"
-                elif prop.range in self.definitions:
-                    qtypes[prop.name] = "string?"
-                else:
-                    qtypes[prop.name] = "string?"
+        from .statement_types import effective_bindings
+
+        qualification = effective_bindings(prepared)["qualification"]
+        qprops = (
+            {p.name: p for p in self.definitions[qualification].properties} if qualification else {}
+        )
         self.qprops = qprops
-        claim = dict(CLAIM)
-        for name in self.source.get("views", {}):
-            claim[name] = "list[string]"
-        value = {**VALUE, "parse": "string?", "math_kind": "string?"}
         builtins = {
             "enums": Builtin(self.enums, "map[list[string]]"),
             "is_a": Builtin(self.is_a, "function(string, string)->boolean"),
@@ -2347,21 +2246,13 @@ class ReleasedRulesPolicy:
                 values["Qualifiers", prop.name] = Vocabulary(
                     prop.range, frozenset(prepared.enum_members(prop.range))
                 )
-        self.language = Language(
-            objects={
-                "Claim": claim,
-                "Entity": ENTITY,
-                "Value": value,
-                "Statement": STATEMENT,
-                "Binding": BINDING,
-                "Node": NODE,
-                "Qualifiers": qtypes,
-            },
-            symbols={"claim": "Claim"},
+        self.language = build_rule_language(
+            prepared,
+            qprops=qprops,
             builtins=builtins,
             values=values,
             arguments={"is_a": (Vocabulary("classes", classes), Vocabulary("classes", classes))},
-            no_regex=frozenset({("Value", "latex"), ("Node", "x_latex"), ("Binding", "symbol")}),
+            views=self.source.get("views", {}),
         )
         self.rules = []
         seen = set()
@@ -2383,7 +2274,8 @@ class ReleasedRulesPolicy:
 
     def validate_source(self):
         from corpus_structure.core.keys import LabelRules
-        from corpus_structure.pool.steps import ALTERNATIVE_OF, SAME_SLOT, ViewSpec
+
+        from .analytical_kernels import ALTERNATIVE_OF, SAME_SLOT, ViewSpec
 
         source = self.source
         if set(source) - {
@@ -2554,11 +2446,12 @@ class ReleasedRulesPolicy:
         """
         from collections import defaultdict
 
-        from corpus_structure.core import values as V
         from corpus_structure.core.evidence import MacroDef
-        from corpus_structure.evaluate.equivalence import Tier, ValueComparator, grammar_name
 
         from .identity import _meaning
+        from .operation_results import validate_result_dimension
+        from .scientific_evidence import EvidenceTier as Tier
+        from .scientific_evidence import SemanticComparator, grammar_name
 
         groups = defaultdict(list)
         rows = []
@@ -2626,13 +2519,18 @@ class ReleasedRulesPolicy:
             o.occurrence_id: o.report_qualification_value_id for o in inputs.batch.occurrence
         }
 
-        def assessment(a, b, outcome, reason, tier):
+        def assessment(a, b, outcome, reason, tier, evidence=None):
+            from .scientific_evidence import scientific_assessment_reason
+
+            validate_result_dimension(self.prepared, "scientific_policy", "comparison", outcome)
             for c, other in ((a, b), (b, a)):
                 detail = canonical_bytes(
                     {
                         "other_fact_id": other.fact_id,
                         "other_occurrence_id": other.occurrence_id,
                         "tier": tier,
+                        "policy": "scientific-evidence-1/consolidation",
+                        "evidence_profile": "consolidation-evidence-1",
                         "detail": reason,
                     }
                 ).decode()
@@ -2651,7 +2549,19 @@ class ReleasedRulesPolicy:
                         VERSION,
                         outcome,
                         occurrence_id=c.occurrence_id,
-                        reason=reason or f"{tier} comparison: {outcome}",
+                        reason=scientific_assessment_reason(
+                            evidence,
+                            detail=reason or f"{tier} comparison: {outcome}",
+                            context={
+                                "left": a.object,
+                                "right": b.object,
+                                "qualification": a.qualification,
+                                "macros": a.macros,
+                                "constants": sorted(a.constants),
+                                "right_macros": b.macros,
+                                "right_constants": sorted(b.constants),
+                            },
+                        ),
                         uncertainty=reason if outcome == "undecided" else None,
                         counterpart_fact_id=other.fact_id,
                         counterpart_occurrence_id=other.occurrence_id,
@@ -2703,41 +2613,41 @@ class ReleasedRulesPolicy:
                                 if p.iri == a.predicate
                             )
                             if descriptor.range in self.definitions and not descriptor.inlined:
-                                left, right = V.EntityRef(ref=a.object), V.EntityRef(ref=b.object)
-                            else:
                                 left, right = (
-                                    _comparison_value(a.object),
-                                    _comparison_value(b.object),
+                                    {"kind": "entity", "target": v} for v in (a.object, b.object)
                                 )
+                            else:
+                                left, right = a.object, b.object
                             macro_key = canonical_bytes(operative_macros)
                             if macro_key not in comparators:
-                                comparators[macro_key] = ValueComparator(
+                                comparators[macro_key] = SemanticComparator(
                                     {
                                         name: MacroDef.model_validate(value)
                                         for name, value in operative_macros.items()
                                     },
                                     a.constants,
+                                    prepared=self.prepared,
                                 )
                             comparator = comparators[macro_key]
                             condition = a.qualification.get("condition")
-                            conditions = (
-                                (_comparison_condition(condition),) if condition is not None else ()
-                            )
+                            conditions = (condition,) if condition is not None else ()
                             if conditions:
 
                                 def expected(node):
-                                    if node.op == "and":
+                                    if node["kind"] == "all":
                                         return [
-                                            part for child in node.args for part in expected(child)
+                                            part
+                                            for child in node["terms"]
+                                            for part in expected(child)
                                         ]
-                                    return [node.op]
+                                    return [{"compare": "cmp"}.get(node["kind"], node["kind"])]
 
                                 leaves = expected(conditions[0])
                                 variables = tuple(
                                     dict.fromkeys(
                                         grammar_name(key)
                                         for value in (left, right)
-                                        for key in getattr(value, "symbols", {})
+                                        for key in _bindings(value)
                                     )
                                 )
                                 members, relations = comparator._constraints(
@@ -2766,14 +2676,28 @@ class ReleasedRulesPolicy:
                         continue
                     if comparison.tier is Tier.UNDECIDED:
                         detail = comparison.detail
-                        assessment(a, b, "undecided", detail, "undecided")
+                        assessment(a, b, "undecided", detail, "undecided", comparison.evidence)
                         unresolved.update(c.occurrence_id for c in members)
                     elif comparison.equal:
-                        assessment(a, b, "equivalent", comparison.detail, comparison.tier.value)
+                        assessment(
+                            a,
+                            b,
+                            "equivalent",
+                            comparison.detail,
+                            comparison.tier.value,
+                            comparison.evidence,
+                        )
                         ra, rb = root(a.fact_id, parent), root(b.fact_id, parent)
                         parent[max(ra, rb)] = min(ra, rb)
                     else:
-                        assessment(a, b, "different", comparison.detail, comparison.tier.value)
+                        assessment(
+                            a,
+                            b,
+                            "different",
+                            comparison.detail,
+                            comparison.tier.value,
+                            comparison.evidence,
+                        )
                         group = "value_disagreement:" + sha256(slot).hexdigest()
                         for c in members:
                             generated[c.occurrence_id].add(group)
@@ -2867,9 +2791,10 @@ class ReleasedRulesPolicy:
         return tuple(rows), tuple(links), view_members, incomplete
 
     def evaluate(self, inputs: CutInput, scope: AnalysisScope, fused: pa.Table) -> PolicyDecision:
-        from corpus_structure.consolidate.finalize import GRAMMAR_KINDS
         from corpus_structure.methods.math import grammar
-        from corpus_structure.validate.views import (
+
+        from .grammar_profile import GRAMMAR_KINDS
+        from .rule_views import (
             _BARE,
             MAX_SYMBOL,
             BindingView,
@@ -2961,7 +2886,7 @@ class ReleasedRulesPolicy:
             gives[candidate.occurrence_id] = symbols
         # The rule operation evaluates source assertions. Its view item IDs are occurrence
         # references; canonical fact IDs remain separate in ClaimCandidate and assessments.
-        from corpus_structure.pool.steps import (
+        from .analytical_kernels import (
             VIEW_ALTERNATIVES,
             VIEW_CLAIMS,
             VIEW_ENTITIES,
@@ -3038,11 +2963,7 @@ class ReleasedRulesPolicy:
             qvalues.update(
                 c.rule_qualification if c.rule_qualification is not None else c.qualification
             )
-            for name, value in tuple(qvalues.items()):
-                if isinstance(value, (list, tuple)) and all(
-                    isinstance(v, dict) and {"key", "value"} <= v.keys() for v in value
-                ):
-                    qvalues[name] = {v["key"]: v["value"] for v in value}
+
             obj = None
             value = None
             bindings = []

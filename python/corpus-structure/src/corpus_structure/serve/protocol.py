@@ -87,6 +87,7 @@ class QueryResult(BaseModel):
     params: dict[str, JsonValue]
     coverage: tuple[Coverage, ...]
     knowledge: Literal["observed", "unknown", "absent"]
+    coverage_diagnostic: str | None = None
     rows: list[dict[str, JsonValue]]
     next_page_token: str | None = None
     truncated: bool = False

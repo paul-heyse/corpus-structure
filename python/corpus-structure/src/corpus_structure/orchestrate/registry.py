@@ -260,7 +260,8 @@ class MethodRegistry:
         self, conn: Connection, resolved: Mapping[str, ResolvedConfig]
     ) -> dict[str, ResolvedConfig]:
         """Get or create each configuration's `ops.method` and `ops.method_config` rows."""
-        from corpus_structure.core.db import metadata, repo
+        from corpus_structure.core.db import repo
+        from corpus_structure.core.db.legacy_metadata import metadata
 
         method_rows: dict[str, int] = {}
         out = {}
@@ -298,7 +299,7 @@ class MethodRegistry:
 
 def artifact_hashes(conn: Connection, schema_version_id: int) -> dict[tuple[str, str], str]:
     """The schema version's artifacts by (compiler, kind), at the installed compiler versions."""
-    from corpus_structure.core.db import metadata
+    from corpus_structure.core.db.legacy_metadata import metadata
     from corpus_structure.schema.compile import COMPILERS, compiler_version
 
     table = metadata.tables["meta.compiled_artifact"]
@@ -316,7 +317,7 @@ class RunConfigs:
     after creation (a policy action, a pass-C task days later) reads these."""
 
     def __init__(self, registry: MethodRegistry, conn: Connection, configs: Mapping[str, str]):
-        from corpus_structure.core.db import metadata
+        from corpus_structure.core.db.legacy_metadata import metadata
 
         table = metadata.tables["ops.method_config"]
         hashes = sorted(set(configs.values()))

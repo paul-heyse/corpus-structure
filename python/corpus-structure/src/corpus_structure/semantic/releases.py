@@ -10,7 +10,6 @@ import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from importlib.metadata import version
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -18,6 +17,8 @@ if TYPE_CHECKING:
 
 from sqlalchemy import Connection, select
 
+from .determinants import BYTE_LIBRARIES as _LIBRARIES
+from .determinants import BYTE_LIBRARIES_V11, determinant_version
 from .identity import canonical_bytes
 from .prepare import prepare_release
 from .types import (
@@ -28,20 +29,6 @@ from .types import (
     SourceBundle,
     VocabularyMember,
     VocabularySnapshot,
-)
-
-_LIBRARIES = (
-    "linkml",
-    "linkml-runtime",
-    "pydantic",
-    "rdflib",
-    "pyoxigraph",
-    "pyshacl",
-    "oaklib",
-    "linkml-term-validator",
-    "valuesets",
-    "jsonschema",
-    "cattrs",
 )
 
 
@@ -98,7 +85,9 @@ def _archive_bytes(
     return canonical_bytes(
         {
             "format": (
-                "semantic-release-archive-2"
+                "semantic-release-archive-3"
+                if json.loads(prepared.manifest)["profile"]["compiler_version"] == "12"
+                else "semantic-release-archive-2"
                 if prepared.execution_model_id is not None
                 else "semantic-release-archive-1"
             ),
@@ -119,7 +108,10 @@ def _validate_manifest(
     manifest: dict[str, Any] = {
         "root": bundle.root,
         "profile": asdict(profile),
-        "libraries": {name: version(name) for name in _LIBRARIES},
+        "libraries": {
+            name: determinant_version(name)
+            for name in (_LIBRARIES if profile.compiler_version == "12" else BYTE_LIBRARIES_V11)
+        },
         "sources": sorted((s.name, s.digest) for s in bundle.sources),
         "dependencies": sorted((s.name, s.digest) for s in dependencies.artifacts),
         "ontology_sources": sorted(dependencies.ontology_sources),
@@ -313,6 +305,13 @@ def persist_release(
     and never recompiles while writing projection rows. The caller commits or rolls back.
     """
     _validate_manifest(bundle, dependencies, profile, prepared)
+    if profile.compiler_version == "12":
+        derived = prepare_release(bundle, dependencies, profile)
+        if _archive_bytes(bundle, dependencies, derived) != _archive_bytes(
+            bundle, dependencies, prepared
+        ):
+            raise ReleaseConflict("prepared products differ from exact-source verification")
+
     if prepared.execution_model_id is not None:
         from .execution_admission import require_archive_fence
 
@@ -426,7 +425,11 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
         if _digest(archive_bytes) != row["content_digest"]:
             raise ReleaseConflict("archive digest differs")
         archive = json.loads(archive_bytes)
-        if archive["format"] not in {"semantic-release-archive-1", "semantic-release-archive-2"}:
+        if archive["format"] not in {
+            "semantic-release-archive-1",
+            "semantic-release-archive-2",
+            "semantic-release-archive-3",
+        }:
             raise ReleaseConflict("unsupported archive format")
         inputs = _table("sem.input")
         source: dict[tuple[str, str], bytes] = {}
@@ -464,7 +467,7 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
             raise ReleaseConflict("unexpected archived inputs")
         # Detect version changes before attempting to interpret with another compiler.
         manifest = json.loads(bytes(row["manifest_bytes"]))
-        if manifest["libraries"] != {name: version(name) for name in _LIBRARIES}:
+        if manifest["libraries"] != {name: determinant_version(name) for name in _LIBRARIES}:
             raise ReleaseConflict("archived compiler library versions differ")
         prepared = prepare_release(bundle, dependencies, profile)
         _validate_manifest(bundle, dependencies, profile, prepared)

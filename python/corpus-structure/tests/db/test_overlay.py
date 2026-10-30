@@ -10,7 +10,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import ForeignKeyConstraint
 
-from corpus_structure.core import db
+from corpus_structure.core import db as db_package
+from corpus_structure.core.db import legacy_metadata as db
 from corpus_structure.core.db import overlay
 
 TABLES = Path(db.__file__).resolve().parent / "_tables.py"
@@ -36,7 +37,7 @@ def test_importing_the_overlay_fails_on_a_missing_column(monkeypatch: pytest.Mon
         sys.modules, "corpus_structure.core.db._tables", seeded_tables(TS_CONFIG, "")
     )
     monkeypatch.delitem(sys.modules, "corpus_structure.core.db.overlay")
-    monkeypatch.setattr(db, "_tables", sys.modules["corpus_structure.core.db._tables"])
+    monkeypatch.setattr(db_package, "_tables", sys.modules["corpus_structure.core.db._tables"])
     # the freshly imported module defines its own OverlayBindingError, a LookupError
     with pytest.raises(LookupError, match=r"no column kb\.segment\.ts_config") as err:
         importlib.import_module("corpus_structure.core.db.overlay")

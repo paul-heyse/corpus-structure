@@ -16,6 +16,23 @@ the system: the MCP server Opus works through, work packets and their size caps,
 typed query API and exports. Every write through these surfaces becomes an observation, an
 intervention or a versioned artifact; nothing writes knowledge rows directly (D1 INV-04).
 
+## Shared semantic read boundary
+
+**Implemented, 2026-10-29; scoped verification belongs to [SP-I05](../plans/semantic-model-pivot/release-and-consumer-consolidation.md#SP-I05).**
+Public semantic snapshot binders select realization/completed-result identity in one read-only
+REPEATABLE READ transaction. Selection, value/entity/context loading and strict batched hydration
+have one owner; named queries retain their parameter/presentation/paging policy. Continuations bind
+query/version, parameters, release, realization/revision and projection/profile. Exact equality
+uses declared field adapters and native canonical value meaning, preserving exact Decimal values.
+Required coverage uses the archived producer/universe recipe and sealed run task population with
+frozen effective origins. Missing or skipped required units remain unknown; page completion never
+establishes knowledge absence. Document scopes lift to their required source units.
+
+Shared CLI/MCP adapters classify typed semantic refusals separately from database retry/fencing and
+implementation failures. FastMCP refusal decorators preserve Context injection/output schemas;
+proposal hold/correction dispositions remain typed results. No new MCP query profile is implied.
+
+
 ## 1. Surfaces
 
 | Surface | User | Realization | Writes |

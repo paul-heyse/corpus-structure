@@ -17,9 +17,10 @@ import pytest
 from jsonschema import Draft202012Validator
 from pydantic import JsonValue, TypeAdapter
 
-from corpus_structure.core import db, payloads, schemas
+from corpus_structure.core import payloads, schemas
 from corpus_structure.core._model import revision
 from corpus_structure.core.batch import CitationFrame
+from corpus_structure.core.db import legacy_metadata as db
 from corpus_structure.core.options import RunOptions
 from corpus_structure.core.parse_detail import ParseDetail
 from corpus_structure.schema import interchange as ix

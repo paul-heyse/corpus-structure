@@ -28,8 +28,6 @@ configuration passes it.
 
 from __future__ import annotations
 
-import hashlib
-import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -44,15 +42,17 @@ from corpus_structure.core import values as V
 from corpus_structure.core.canonical import canonical_json
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.keys import Uniform, canonical_condition, canonical_value
-from corpus_structure.core.vocab import ParseOutcome, Relation
+from corpus_structure.core.vocab import Relation
 from corpus_structure.methods.math import grammar
+from corpus_structure.semantic.scientific_evidence import MathReading as _Reading
+from corpus_structure.semantic.scientific_evidence import _bounds as _bounds
+from corpus_structure.semantic.scientific_evidence import _draw_int as _draw_int
+from corpus_structure.semantic.scientific_evidence import _draw_real as _draw_real
+from corpus_structure.semantic.scientific_evidence import _num as _num
+from corpus_structure.semantic.scientific_evidence import _seed as _seed
+from corpus_structure.semantic.scientific_evidence import grammar_name as grammar_name
+from corpus_structure.semantic.scientific_evidence import sample_points as sample_points
 
-SIMPLIFY_SECONDS = 5.0
-NUMERIC_POINTS = 12
-NUMERIC_MAX_DRAWS = 4000
-NUMERIC_MIN_POINTS = 6
-REL_TOL = 1e-9
-ABS_TOL = 1e-12
 _IDENTITY = Uniform(lambda ref: ref)
 
 type RefEq = Callable[[str, str], bool]
@@ -75,13 +75,6 @@ class Equivalence:
     b: str
     detail: str = ""
     grammar: str = ""  # the grammar's status of the two values, "ok/ambiguous"
-
-
-@dataclass(frozen=True)
-class _Reading:
-    expr: Any = None
-    status: str = "failed"
-    error: str = ""
 
 
 def _json(value: Any) -> str:
@@ -191,17 +184,9 @@ class ValueComparator:
     def _read(
         self, latex: str, kinds: tuple[grammar.Kind, ...], variables: tuple[str, ...]
     ) -> _Reading:
-        context = grammar.MathContext(variables=frozenset(variables), constants=self.constants)
-        for kind in kinds:
-            result = grammar.parse(latex, kind, self.macros, context)
-            if result.status in (ParseOutcome.OK, ParseOutcome.PARTIAL):
-                try:
-                    return _Reading(grammar.to_sympy(result), result.status.value)
-                except Exception as error:
-                    return _Reading(None, result.status.value, f"no SymPy value: {error}")
-            if result.status is ParseOutcome.AMBIGUOUS:
-                return _Reading(None, "ambiguous", "; ".join(result.notes))
-        return _Reading(None, "failed", "the grammar does not read it")
+        from corpus_structure.semantic.scientific_evidence import MathematicalEvidence
+
+        return MathematicalEvidence(self.macros, self.constants)._read(latex, kinds, variables)
 
     def _math(
         self,
@@ -214,95 +199,22 @@ class ValueComparator:
         cform: str,
         variables: tuple[str, ...],
     ) -> Equivalence:
-        kinds: tuple[grammar.Kind, ...] = (
-            ("set_expr",) if t == "set" else ("formula", "relation", "member")
-        )
-        ra, rb = self._read(la, kinds, variables), self._read(lb, kinds, variables)
-        status = f"{ra.status}/{rb.status}"
-        if ra.expr is None or rb.expr is None:
-            why = f"no SymPy value: {ra.error or ''} {rb.error or ''}".strip()
-            return self._undecided(t, fa, fb, why, status)
-        ea, eb = ra.expr, rb.expr
-        if t == "set":
-            try:
-                with grammar.deadline(SIMPLIFY_SECONDS):
-                    if ea == eb or ea.symmetric_difference(eb) == sympy.S.EmptySet:
-                        return Equivalence(True, Tier.SYMBOLIC, t, fa, fb, grammar=status)
-                    d = ea.symmetric_difference(eb)
-                    if not d.free_symbols and d.is_empty is False:
-                        return Equivalence(False, Tier.SYMBOLIC, t, fa, fb, "differ", status)
-            except grammar.Expired:
-                pass
-            return self._undecided(t, fa, fb, "set equality inconclusive", status)
-        ka, kb = _expr_kind(ea), _expr_kind(eb)
-        if "boolean" in (ka, kb):
-            if ka == kb and ea == eb:
-                return Equivalence(True, Tier.SYMBOLIC, "relation", fa, fb, grammar=status)
-            if ka != kb:
-                return Equivalence(False, Tier.SYMBOLIC, "relation", fa, fb, f"{ka}/{kb}", status)
-            return self._undecided("relation", fa, fb, "membership or chain inconclusive", status)
-        if "relation" in (ka, kb):
-            return self._relation(ea, eb, ka, kb, fa, fb, status)
-        if (ka == "equation") != (kb == "equation"):
-            return Equivalence(False, Tier.SYMBOLIC, t, fa, fb, "equation/expression", status)
-        if ka == "equation":
-            diffs = [ea.lhs - ea.rhs - (eb.lhs - eb.rhs), ea.lhs - ea.rhs + (eb.lhs - eb.rhs)]
-            base = ea.lhs - ea.rhs
-        else:
-            diffs, base = [ea - eb], ea
-        detail = ""
-        try:
-            with grammar.deadline(SIMPLIFY_SECONDS):
-                simplified = [sympy.simplify(d) for d in diffs]
-            if any(s == 0 for s in simplified):
-                return Equivalence(True, Tier.SYMBOLIC, t, fa, fb, grammar=status)
-            if all(s.is_number and s.is_zero is False for s in simplified):
-                return Equivalence(False, Tier.SYMBOLIC, t, fa, fb, "nonzero constant", status)
-            detail = "simplify inconclusive"
-        except grammar.Expired:
-            detail = f"simplify timed out ({SIMPLIFY_SECONDS} s)"
-        except Exception as error:
-            detail = f"simplify {type(error).__name__}"
-        rng = np.random.default_rng(_seed(fa, fb, cform))
-        members, relations = self._constraints(conds, variables)
-        points = sample_points(set(ea.free_symbols) | set(eb.free_symbols), members, relations, rng)
-        verdicts = []
-        for d in diffs:
-            checks = []
-            for point in points:
-                x, s = _num(d, point), _num(base, point)
-                if x is None or s is None:
-                    continue
-                checks.append(abs(x) <= max(REL_TOL * max(abs(s), abs(s - x)), ABS_TOL))
-            verdicts.append(checks)
-        valid = max((len(v) for v in verdicts), default=0)
-        if valid >= NUMERIC_MIN_POINTS:
-            equal = any(v and all(v) for v in verdicts)
-            return Equivalence(equal, Tier.NUMERIC, t, fa, fb, f"{detail}; {valid} points", status)
-        return self._undecided(t, fa, fb, f"{detail}; {valid} valid points", status)
+        from corpus_structure.semantic.scientific_evidence import EvidenceTier, MathematicalEvidence
 
-    def _relation(
-        self, ea: Any, eb: Any, ka: str, kb: str, fa: str, fb: str, status: str
-    ) -> Equivalence:
-        if ka != kb:
-            return Equivalence(False, Tier.SYMBOLIC, "relation", fa, fb, f"{ka}/{kb}", status)
-        ea, eb = _lt_form(ea), _lt_form(eb)
-        if type(ea) is not type(eb):
-            return self._undecided("relation", fa, fb, "operators differ", status)
-        da, db = ea.lhs - ea.rhs, eb.lhs - eb.rhs
-        candidates = [da - db] + ([da + db] if isinstance(ea, sympy.Unequality) else [])
-        try:
-            with grammar.deadline(SIMPLIFY_SECONDS):
-                simplified = [sympy.simplify(c) for c in candidates]
-        except grammar.Expired:
-            return self._undecided("relation", fa, fb, "simplify timed out", status)
-        except Exception as error:
-            return self._undecided("relation", fa, fb, f"simplify {type(error).__name__}", status)
-        if any(c == 0 for c in simplified):
-            return Equivalence(True, Tier.SYMBOLIC, "relation", fa, fb, grammar=status)
-        if all(c.is_number and c.is_zero is False for c in simplified):
-            return Equivalence(False, Tier.SYMBOLIC, "relation", fa, fb, "differ", status)
-        return self._undecided("relation", fa, fb, "relation inconclusive", status)
+        evidence = MathematicalEvidence(
+            self.macros, self.constants, constraints=self._constraints
+        )._math(t, la, lb, fa, fb, conds, cform, variables)
+        if evidence.tier is EvidenceTier.UNDECIDED:
+            return self._undecided(t, fa, fb, evidence.detail, evidence.grammar)
+        return Equivalence(
+            evidence.agreement is True,
+            Tier(evidence.tier.value),
+            evidence.kind,
+            fa,
+            fb,
+            evidence.detail,
+            evidence.grammar,
+        )
 
     def _constraints(
         self, conds: list[V.StoredCondition], variables: tuple[str, ...]
@@ -329,146 +241,6 @@ class ValueComparator:
         for c in conds:
             walk(c)
         return members, relations
-
-
-def grammar_name(symbol: str) -> str:
-    """A binding map's key as a declared variable (a lone control word without its backslash)."""
-    return symbol[1:] if symbol.startswith("\\") and symbol[1:].isalpha() else symbol
-
-
-def _seed(fa: str, fb: str, cform: str) -> int:
-    payload = _json([sorted((fa, fb)), cform])
-    return int(hashlib.sha256(payload.encode()).hexdigest()[:16], 16)
-
-
-def _expr_kind(e: Any) -> str:
-    if isinstance(e, sympy.Equality):
-        return "equation"
-    relational = isinstance(e, sympy.core.relational.Relational)
-    if (
-        isinstance(e, sympy.logic.boolalg.Boolean)
-        and not relational
-        and not isinstance(e, sympy.Expr)
-    ):
-        return "boolean"
-    return "relation" if relational else "expression"
-
-
-def _lt_form(e: Any) -> Any:
-    if isinstance(e, sympy.StrictGreaterThan | sympy.GreaterThan):
-        return e.reversed
-    return e
-
-
-_REL: Mapping[str, Callable[[float, float], bool]] = {
-    "<": lambda a, b: a < b,
-    "<=": lambda a, b: a <= b,
-    "=": lambda a, b: math.isclose(a, b),
-    "!=": lambda a, b: not math.isclose(a, b),
-    ">": lambda a, b: a > b,
-    ">=": lambda a, b: a >= b,
-}
-
-
-def _num(expr: Any, point: Mapping[Any, Any]) -> complex | None:
-    try:
-        v = complex(expr.xreplace(point).evalf())
-    except Exception:
-        return None
-    return v if math.isfinite(v.real) and math.isfinite(v.imag) else None
-
-
-def _bounds(sym: Any, members: list[Any], relations: list[Any]) -> tuple[float, float]:
-    lo, hi = -math.inf, math.inf
-    for s, st in members:
-        if s != sym:
-            continue
-        for attr, low in (("inf", True), ("sup", False)):
-            try:
-                v = getattr(st, attr)
-                if v.is_number and v.is_finite:
-                    lo, hi = (max(lo, float(v)), hi) if low else (lo, min(hi, float(v)))
-            except Exception:
-                pass
-    flip = {"<": ">", "<=": ">=", ">": "<", ">=": "<="}
-    for rel, lhs, rhs in relations:
-        if lhs == sym and rhs.is_number:
-            c, r = float(rhs), rel
-        elif rhs == sym and lhs.is_number:
-            c, r = float(lhs), flip.get(rel, rel)
-        else:
-            continue
-        if r in ("<", "<="):
-            hi = min(hi, c)
-        elif r in (">", ">="):
-            lo = max(lo, c)
-    return lo, hi
-
-
-def _draw_real(rng: np.random.Generator, lo: float, hi: float) -> float:
-    if math.isfinite(lo) and math.isfinite(hi):
-        return float(rng.uniform(lo, hi))
-    if rng.random() < 0.5:
-        v = float(rng.uniform(-5.0, 5.0))
-    else:
-        v = float(rng.choice([-1, 1]) * 10 ** rng.uniform(-2, 3))
-    if math.isfinite(lo):
-        return lo + abs(v)
-    if math.isfinite(hi):
-        return hi - abs(v)
-    return v
-
-
-def _draw_int(rng: np.random.Generator, lo: float, hi: float) -> int:
-    a = (
-        math.ceil(lo)
-        if math.isfinite(lo)
-        else (math.floor(hi) - 200 if math.isfinite(hi) else -100)
-    )
-    b = math.floor(hi) if math.isfinite(hi) else a + 200
-    return int(rng.integers(a, b + 1)) if a <= b else a
-
-
-def sample_points(
-    symbols: Iterable[Any], members: list[Any], relations: list[Any], rng: np.random.Generator
-) -> list[dict[Any, Any]]:
-    """Distinct points satisfying the constraints, by rejection sampling."""
-    by_symbol: dict[Any, list[Any]] = {}
-    for s, st in members:
-        by_symbol.setdefault(s, []).append(st)
-    ordered = sorted(symbols, key=str)
-    spec = {}
-    for s in ordered:
-        integer = any(bool(st.is_subset(sympy.S.Integers)) for st in by_symbol.get(s, []))
-        spec[s] = (integer, *_bounds(s, members, relations))
-    points: list[dict[Any, Any]] = []
-    seen: set[tuple[str, ...]] = set()
-    for _ in range(NUMERIC_MAX_DRAWS):
-        if len(points) >= NUMERIC_POINTS:
-            break
-        point: dict[Any, Any] = {}
-        for s in ordered:
-            integer, lo, hi = spec[s]
-            if integer:
-                point[s] = sympy.Integer(_draw_int(rng, lo, hi))
-            else:
-                point[s] = sympy.Float(_draw_real(rng, lo, hi), 30)
-        key = tuple(str(point[s]) for s in ordered)
-        if key in seen:
-            continue
-        ok = all(s not in point or st.contains(point[s]) is sympy.true for s, st in members)
-        for rel, lhs, rhs in relations if ok else ():
-            x, y = _num(lhs, point), _num(rhs, point)
-            if x is None or y is None or abs(x.imag) > ABS_TOL or abs(y.imag) > ABS_TOL:
-                ok = False
-                break
-            if not _REL[rel](x.real, y.real):
-                ok = False
-                break
-        if ok:
-            seen.add(key)
-            points.append(point)
-    return points
 
 
 # --- Condition trees -------------------------------------------------------------------------
@@ -499,7 +271,9 @@ def normalize_tree(node: V.StoredCondition | None) -> V.StoredCondition | None:
             n = normalize_tree(arg)
             if n is None:
                 continue
-            if (isinstance(node, V.StoredAnd) and isinstance(n, V.StoredAnd)) or (isinstance(node, V.StoredOr) and isinstance(n, V.StoredOr)):
+            if (isinstance(node, V.StoredAnd) and isinstance(n, V.StoredAnd)) or (
+                isinstance(node, V.StoredOr) and isinstance(n, V.StoredOr)
+            ):
                 args.extend(n.args)
             else:
                 args.append(n)

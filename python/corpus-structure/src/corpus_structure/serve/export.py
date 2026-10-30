@@ -46,7 +46,10 @@ def export_packet(
         "profile_digest": packet.profile_digest,
         "scale": packet.scale,
         "property_ids": packet.property_ids,
-        "exact_values": "typed_value lexical and role graph are authoritative; derived numeric columns retain rounding flags",
+        "exact_values": (
+            "typed_value lexical and role graph are authoritative; "
+            "derived numeric columns retain rounding flags"
+        ),
         "jsonl_binary": "base64",
         "jsonl_decimal": "decimal string",
         "relations": {},

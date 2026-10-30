@@ -11,7 +11,7 @@ import pyarrow as pa
 import pytest
 from sqlalchemy import Engine, update
 
-from corpus_structure.core import db as store
+from corpus_structure.core.db import legacy_metadata as store
 from corpus_structure.core.db import repo
 from corpus_structure.core.payloads import validate_payload
 from corpus_structure.pool import contract, hydrate

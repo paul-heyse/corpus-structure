@@ -1,6 +1,7 @@
 """Actual pgpq binary COPY and source fencing under the restricted writer login."""
 
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from decimal import Decimal
 from threading import Barrier
 from typing import Any
@@ -8,7 +9,7 @@ from typing import Any
 import psycopg
 import pyarrow as pa
 import pytest
-from sqlalchemy import event, insert, text
+from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic import arrow_publication as arrow
@@ -21,7 +22,6 @@ from corpus_structure.semantic.arrow_publication import (
     stage_schema,
 )
 from corpus_structure.semantic.identity import fact_key, occurrence_key
-from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import (
     EntityRow,
     EvidenceRow,
@@ -35,45 +35,19 @@ from corpus_structure.semantic.publication import (
     ValueRow,
 )
 
-R = "release:test"
+from .test_publication import fixture_model
+from .test_publication import seed as seed_publication
+
+R = fixture_model()[1].release_id
 Z = "realization:test"
 C = "https://example/Thing"
 P = "https://example/label"
 
 
 def seed(engine):
-    """An explicit small registry; no application preparation or semantic result oracle."""
-    with engine.begin() as conn:
-        for name, values in (
-            (
-                "sem.release",
-                dict(
-                    release_id=R,
-                    content_digest="test",
-                    profile="test",
-                    prepared_bytes=b"{}",
-                    manifest_bytes=b"{}",
-                ),
-            ),
-            ("sem.class_definition", dict(release_id=R, class_id=C, name="Thing", iri=C)),
-            ("sem.property_definition", dict(release_id=R, property_id=P, name="label", iri=P)),
-            (
-                "sem.property_applicability",
-                dict(
-                    release_id=R,
-                    class_id=C,
-                    property_id=P,
-                    range_name="string",
-                    required=False,
-                    multivalued=False,
-                    constraint_scope="accepted_value",
-                    constraints={"name": "label", "inlined": False, "case_policy": "casefold"},
-                ),
-            ),
-            ("data.project", dict(project_id="p")),
-            ("data.realization", dict(realization_id=Z, release_id=R, project_id="p")),
-        ):
-            conn.execute(insert(table(name)).values(**values))
+    """Use the immutable archive and the fixed semantic-1 inference protocol."""
+    prepared = seed_publication(engine)
+    assert prepared.release_id == R
 
 
 def batch(identity="b", *, entity="e"):
@@ -98,17 +72,22 @@ def batch(identity="b", *, entity="e"):
     )
 
 
-def derived_rows(batch, *, expected_data_revision):
-    from corpus_structure.semantic.query import SnapshotBinding
-
+def derived_rows(result, *, identity=None, expected_data_revision=None):
     return SnapshotDerivedPublication.from_rows(
-        batch,
-        source=SnapshotBinding(
-            batch.release_id, batch.realization_id, expected_data_revision, "test-capture"
-        ),
-        operation_id="test-analysis",
-        projection_id="test-projection",
+        replace(result.batch, batch_id=identity) if identity is not None else result.batch,
+        source=replace(result.binding, data_revision=expected_data_revision)
+        if expected_data_revision is not None
+        else result.binding,
+        operation_id="publish_inference",
+        projection_id="accepted",
     )
+
+
+def inference_fixture(admin, writer):
+    from .test_inference import compute, setup
+
+    binding, _ = setup(admin, writer, [("a", "b"), ("b", "c")], rules=("transitive",))
+    return compute(writer, binding)
 
 
 def test_exact_frozen_schema_and_content():
@@ -171,20 +150,28 @@ def test_optional_numeric_projection_never_rounds_lexical():
 
 
 def test_native_arrow_copy_receipt_and_fence(semantic_db_engine, semantic_writer_engine):
-    seed(semantic_db_engine)
-    candidate = derived_rows(batch(), expected_data_revision=0)
+    result = inference_fixture(semantic_db_engine, semantic_writer_engine)
+    candidate = derived_rows(result)
     receipt = publish_arrow(semantic_writer_engine, candidate)
-    assert receipt.data_revision == 1
+    assert receipt.data_revision == 2
     # The old source revision is still valid for exact receipt recovery.
     assert publish_arrow(semantic_writer_engine, candidate) == receipt
     with semantic_db_engine.connect() as conn:
-        assert bytes(conn.scalar(text("SELECT content FROM data.batch"))) == candidate.content
+        assert (
+            bytes(
+                conn.scalar(
+                    text("SELECT content FROM data.batch WHERE batch_id=:batch"),
+                    {"batch": candidate.batch_id},
+                )
+            )
+            == candidate.content
+        )
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
-    stale = derived_rows(batch("stale", entity="other"), expected_data_revision=0)
+    stale = derived_rows(result, identity="stale")
     with pytest.raises(StaleAnalysisError, match="recompute"):
         publish_arrow(semantic_writer_engine, stale)
     with semantic_writer_engine.connect() as conn:
-        assert conn.scalar(text("SELECT count(*) FROM data.fact")) == 1
+        assert conn.scalar(text("SELECT count(*) FROM data.fact")) == 3
         assert conn.scalar(text("SELECT count(*) FROM sem.release")) == 1
     with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError):
         conn.execute(
@@ -265,7 +252,7 @@ def test_arrow_ambiguous_commit_resolves_receipt(
     assert (
         publish_arrow(
             semantic_writer_engine,
-            derived_rows(batch(), expected_data_revision=0),
+            ArrowPublicationBatch.from_rows(batch()),
         ).data_revision
         == 1
     )
@@ -391,7 +378,7 @@ def test_native_malformed_copy_rolls_back(semantic_db_engine, semantic_writer_en
 def test_analysis_serialization_requires_recomputation(
     semantic_db_engine, semantic_writer_engine, monkeypatch
 ):
-    seed(semantic_db_engine)
+    result = inference_fixture(semantic_db_engine, semantic_writer_engine)
     barrier = Barrier(2)
     original = arrow.stage_arrow
     seen = []
@@ -403,7 +390,7 @@ def test_analysis_serialization_requires_recomputation(
             barrier.wait(timeout=10)
 
     monkeypatch.setattr(arrow, "stage_arrow", staged)
-    candidates = [derived_rows(batch(x, entity=x), expected_data_revision=0) for x in ("a", "b")]
+    candidates = [derived_rows(result, identity=x) for x in ("a", "b")]
 
     def attempt(candidate):
         try:
@@ -415,8 +402,8 @@ def test_analysis_serialization_requires_recomputation(
         results = list(pool.map(attempt, candidates))
     assert sum(isinstance(r, StaleAnalysisError) for r in results) == 1
     with semantic_db_engine.connect() as conn:
-        assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
-        assert conn.scalar(text("SELECT data_revision FROM data.realization")) == 1
+        assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 2
+        assert conn.scalar(text("SELECT data_revision FROM data.realization")) == 2
 
 
 def test_derived_publication_requires_explicit_intent_and_keeps_it_disjoint():
@@ -425,7 +412,7 @@ def test_derived_publication_requires_explicit_intent_and_keeps_it_disjoint():
 
     source = SnapshotBinding(R, Z, 0, "capture")
     derived = SnapshotDerivedPublication.from_rows(
-        batch(), source=source, operation_id="analysis", projection_id="captured"
+        batch(), source=source, operation_id="publish_inference", projection_id="accepted"
     )
     assert not isinstance(derived, AppendPublication)
     assert derived.source == source
@@ -437,3 +424,100 @@ def test_derived_publication_requires_explicit_intent_and_keeps_it_disjoint():
         from typing import Any, cast
 
         cast(Any, AppendPublication.from_rows)(batch(), expected_data_revision=0)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"operation": "arbitrary-analysis"},
+        {"contract": "captured"},
+        {"projection": "unbound"},
+        {"source_release": "another-release"},
+        {"cut": 1},
+        {"profile": "unadmitted-profile"},
+    ],
+)
+def test_native_derived_model_binding_refuses_unbound_intent(
+    semantic_db_engine,
+    semantic_writer_engine,
+    changes,
+):
+    result = inference_fixture(semantic_db_engine, semantic_writer_engine)
+    candidate = ArrowPublicationBatch.from_rows(result.batch)
+    binding = result.binding
+    params = dict(
+        r=binding.release_id,
+        z=binding.realization_id,
+        b=candidate.batch_id,
+        content=candidate.content,
+        source_release=binding.release_id,
+        source_realization=binding.realization_id,
+        revision=binding.data_revision,
+        capture="capture",
+        operation="publish_inference",
+        projection="accepted",
+        contract="accepted",
+        cut=None,
+        profile=None,
+    )
+    params.update(changes)
+    with (
+        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        conn.begin(),
+        pytest.raises(DBAPIError),
+    ):
+        arrow.stage_arrow(conn, candidate)
+        conn.execute(
+            text(
+                "SELECT data.publish_derived_batch_v2(:r,:z,:b,:content,"
+                ":source_release,:source_realization,:revision,:capture,"
+                ":operation,:projection,:contract,:cut,:profile)"
+            ),
+            params,
+        )
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
+
+
+def test_native_legacy_derived_abi_cannot_admit_new_intent(
+    semantic_db_engine,
+    semantic_writer_engine,
+):
+    seed(semantic_db_engine)
+    candidate = ArrowPublicationBatch.from_rows(batch())
+    with (
+        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        conn.begin(),
+        pytest.raises(DBAPIError, match="model-bound v2 ABI"),
+    ):
+        arrow.stage_arrow(conn, candidate)
+        conn.execute(
+            text(
+                "SELECT data.publish_derived_batch(:r,:z,:b,:content,"
+                ":r,:z,0,'capture','publish_inference','accepted')"
+            ),
+            {"r": R, "z": Z, "b": candidate.batch_id, "content": candidate.content},
+        )
+
+
+def test_native_inference_effect_refuses_assertion_rows(semantic_db_engine, semantic_writer_engine):
+    seed(semantic_db_engine)
+    from corpus_structure.semantic.query import SnapshotBinding
+
+    source = SnapshotBinding(R, Z, 0, "capture")
+    candidate = SnapshotDerivedPublication.from_rows(
+        batch(), source=source, operation_id="publish_inference", projection_id="accepted"
+    )
+    with pytest.raises(DBAPIError, match="source/assertion transport rows"):
+        publish_arrow(semantic_writer_engine, candidate)
+
+
+def test_native_inference_effect_requires_staged_proof(semantic_db_engine, semantic_writer_engine):
+    from corpus_structure.semantic.inference import InferenceResult
+
+    result = inference_fixture(semantic_db_engine, semantic_writer_engine)
+    forged = InferenceResult(
+        result.binding, replace(result.batch, derivation=(), derivation_premise=())
+    )
+    with pytest.raises(DBAPIError, match="lacks its staged proof conclusion"):
+        publish_arrow(semantic_writer_engine, derived_rows(forged))

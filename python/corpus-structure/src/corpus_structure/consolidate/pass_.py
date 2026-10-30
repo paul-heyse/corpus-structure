@@ -22,7 +22,7 @@ from corpus_structure.core.method import (
 from corpus_structure.core.vocab import ConfidenceSource, MethodFamily, MethodTier, TaskUnitType
 
 METHOD = "consolidate.claims"
-VERSION = "1"
+VERSION = "2"
 
 
 class ConsolidateConfig(BaseModel):
@@ -31,7 +31,7 @@ class ConsolidateConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    engine: Literal["duckdb", "python"] = "duckdb"
+    engine: Literal["duckdb"] = "duckdb"
     use_markup_hints: bool = True
     aliases: Annotated[dict[str, Any], PackSection("aliases")] = Field(default_factory=dict)
     math: Annotated[dict[str, Any], PackSection("math")] = Field(default_factory=dict)

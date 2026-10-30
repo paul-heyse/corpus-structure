@@ -10,28 +10,18 @@ import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal
-from hashlib import sha256
-from typing import Any, Protocol
+from typing import Any
 
 import numpy as np
-import sympy
 from scipy.optimize import linear_sum_assignment
 
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.types import ClassDefinition, PreparedArtifact, RegistryRow
+from corpus_structure.semantic.scientific_evidence import REFERENCE_PROFILE
+from corpus_structure.semantic.types import PreparedRelease
 
 from .semantic_values import entity_reference, record_definition, rewrite_references
 
-
-class AlignmentModel(Protocol):
-    """The immutable release projections consumed by the pure alignment algorithm."""
-
-    @property
-    def definitions(self) -> tuple[ClassDefinition, ...]: ...
-    @property
-    def registry_rows(self) -> tuple[RegistryRow, ...]: ...
-    @property
-    def artifacts(self) -> tuple[PreparedArtifact, ...]: ...
+AlignmentModel = PreparedRelease
 
 
 @dataclass(frozen=True)
@@ -99,6 +89,7 @@ class SemanticAlignment:
     def as_dict(self):
         return {
             "unit": self.unit,
+            "scientific_policy": REFERENCE_PROFILE,
             "entity_pairs": self.entity_pairs,
             "matches": self.matches,
             "tiers": {k: v.as_dict() for k, v in self.counts.items()},
@@ -136,41 +127,9 @@ def _assignment(weights):
 
 
 def _math_read(value):
-    from corpus_structure.core.evidence import MacroDef
-    from corpus_structure.core.vocab import ParseOutcome
-    from corpus_structure.methods.math import grammar
+    from corpus_structure.semantic.scientific_evidence import read_reference_operand
 
-    if value.get("language") not in {"tex", "latex"}:
-        return None, "unsupported expression language"
-    bindings = value.get("bindings", ())
-    if isinstance(bindings, dict):
-        bindings = bindings.values()
-    if any(b.get("kind") in {"unresolved", "param_of", "param_expr_of"} for b in bindings):
-        return None, "unresolved expression binding"
-    macros = value.get("macro_context", ())
-    if isinstance(macros, dict):
-        macros = macros.values()
-    env = {
-        m["name"]: MacroDef(nargs=m["nargs"], body=m["body"], default=m.get("default"))
-        for m in macros
-    }
-    variables = frozenset(
-        b["symbol"] for b in bindings if b.get("kind") in {"variable", "family_param", "free"}
-    )
-    context = grammar.MathContext(
-        variables=variables,
-        constants=frozenset(b["symbol"] for b in bindings if b.get("kind") == "constant"),
-    )
-    for kind in ("set_expr",) if value["kind"] == "set" else ("formula", "relation", "member"):
-        parsed = grammar.parse(value["expression"], kind, env, context)
-        if parsed.status is ParseOutcome.AMBIGUOUS:
-            return None, "ambiguous expression grammar"
-        if parsed.status in {ParseOutcome.OK, ParseOutcome.PARTIAL}:
-            try:
-                return grammar.to_sympy(parsed), parsed.status.value
-            except ValueError, TypeError, NotImplementedError:
-                pass
-    return None, "expression grammar did not produce a mathematical value"
+    return read_reference_operand(value)
 
 
 def equivalent(
@@ -190,7 +149,7 @@ def equivalent(
     """
     claim_map = {} if claim_map is None else claim_map
     if isinstance(a, Mapping) and isinstance(b, Mapping):
-        definition = record_definition(model.definitions, range_name, a) if model else None
+        definition = record_definition(model, range_name, a) if model else None
         props = {p.name: p for p in definition.properties} if definition else {}
         ka, kb = a.get("kind"), b.get("kind")
         if ka != kb:
@@ -218,7 +177,7 @@ def equivalent(
                     item = dict(item)
                     if left and model:
                         item = rewrite_references(
-                            model.definitions, "ExpressionBinding", item, entity_map, claim_map
+                            model, "ExpressionBinding", item, entity_map, claim_map
                         )
                     elif left:
                         if "entity" in item:
@@ -256,93 +215,16 @@ def equivalent(
                 )
             if canonical_bytes(a) == canonical_bytes(b):
                 return ValueDecision(True, "canonical")
-            from corpus_structure.methods.math import grammar
 
-            grammar.require_main_thread()
-            x, why_a = _math_read(a)
-            y, why_b = _math_read(b)
-            if x is None or y is None:
-                return ValueDecision(False, "undecided", why_a + "; " + why_b)
-            try:
-                with grammar.deadline(5):
-                    if isinstance(x, sympy.Equality) and isinstance(y, sympy.Equality):
-                        if not all(isinstance(v, sympy.Expr) for v in (x.lhs, x.rhs, y.lhs, y.rhs)):
-                            return ValueDecision(
-                                False,
-                                "undecided",
-                                "equation operands are not arithmetic expressions",
-                            )
-                        dx, dy = (
-                            sympy.Add(x.lhs, sympy.Mul(-1, x.rhs)),
-                            sympy.Add(y.lhs, sympy.Mul(-1, y.rhs)),
-                        )
-                        same = (
-                            sympy.simplify(sympy.Add(dx, sympy.Mul(-1, dy))) == 0
-                            or sympy.simplify(sympy.Add(dx, dy)) == 0
-                        )
-                    elif isinstance(x, sympy.Set) and isinstance(y, sympy.Set):
-                        same = x.symmetric_difference(y) == sympy.S.EmptySet
-                    elif isinstance(x, sympy.Expr) and isinstance(y, sympy.Expr):
-                        same = sympy.simplify(sympy.Add(x, sympy.Mul(-1, y))) == 0
-                    else:
-                        same = x == y
-                if same:
-                    return ValueDecision(True, "symbolic")
-                # Reuse deterministic probes only as disproof. Conditions are never discarded.
-                if isinstance(x, sympy.Expr) and isinstance(y, sympy.Expr) and not conditions:
-                    symbols = sorted(x.free_symbols | y.free_symbols, key=str)
-                    rng = np.random.default_rng(
-                        int(
-                            sha256(
-                                canonical_bytes(sorted((dict(a), dict(b)), key=canonical_bytes))
-                            ).hexdigest()[:16],
-                            16,
-                        )
-                    )
-                    for _ in range(12):
-                        values = dict(
-                            zip(
-                                symbols,
-                                (float(v) for v in rng.uniform(0.25, 3, len(symbols))),
-                                strict=True,
-                            )
-                        )
+            from corpus_structure.semantic.scientific_evidence import (
+                decide_reference,
+                reference_evidence,
+            )
 
-                        def numerical(expr: sympy.Expr) -> complex:
-                            value = expr.evalf(subs=values)
-                            if not isinstance(value, sympy.Expr) or value.free_symbols:
-                                raise ValueError("numerical value remains symbolic")
-                            parts = value.as_real_imag()
-                            if parts is None:
-                                raise ValueError(
-                                    "numerical value has no real/imaginary decomposition"
-                                )
-                            real, imag = parts
-                            if not isinstance(real, sympy.Number) or not isinstance(
-                                imag, sympy.Number
-                            ):
-                                raise ValueError("numerical value is not a complex scalar")
-                            return complex(float(real), float(imag))
-
-                        xa, ya = numerical(x), numerical(y)
-                        if (
-                            np.isfinite(xa)
-                            and np.isfinite(ya)
-                            and abs(xa - ya) > 1e-9 * max(1, abs(xa), abs(ya))
-                        ):
-                            return ValueDecision(False, "numeric", "deterministic counterexample")
-                return ValueDecision(False, "undecided", "no symbolic equivalence proof")
-            except (
-                ArithmeticError,
-                ValueError,
-                TypeError,
-                NotImplementedError,
-                TimeoutError,
-                grammar.Expired,
-            ):
-                return ValueDecision(
-                    False, "undecided", "symbolic comparison unavailable or timed out"
-                )
+            decision = decide_reference(
+                reference_evidence(a, b, conditions=conditions, prepared=model)
+            )
+            return ValueDecision(decision.equal, decision.tier.value, decision.detail)
         if ka in {"all", "any"}:
             aa, bb = a.get("terms", ()), b.get("terms", ())
             if len(aa) != len(bb):
@@ -376,7 +258,7 @@ def equivalent(
         for key in a:
             prop = props.get(key)
 
-            def compare_member(left, right):
+            def compare_member(left, right, prop=prop):
                 if prop and prop.reference_role == "fact":
                     return ValueDecision(
                         left in claim_map and claim_map[left] == right, "reference"
@@ -430,7 +312,7 @@ def equivalent(
             all(d.equal for d in ds),
             "undecided" if any(d.outcome == "undecided" for d in ds) else "canonical",
         )
-    return ValueDecision(type(a) == type(b) and a == b, "canonical")
+    return ValueDecision(type(a) is type(b) and a == b, "canonical")
 
 
 def _entity_pairs(ref, pred, prepared, out):

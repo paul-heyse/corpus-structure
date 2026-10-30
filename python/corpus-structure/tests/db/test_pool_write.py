@@ -13,7 +13,7 @@ import pytest
 from psycopg.types.json import Jsonb
 from sqlalchemy import Engine, text
 
-from corpus_structure.core import db as store
+from corpus_structure.core.db import legacy_metadata as store
 from corpus_structure.core.db import overlay, repo
 from corpus_structure.pool.load import connect, read_tables
 from corpus_structure.schema import interchange
