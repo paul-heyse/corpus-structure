@@ -217,7 +217,18 @@ def equivalent(
                     False, "undecided", "expression bindings differ or remain unresolved"
                 )
             if canonical_bytes(a) == canonical_bytes(b):
-                return ValueDecision(True, "canonical")
+                from corpus_structure.semantic.scientific_evidence import (
+                    ScientificEvidence, EvidenceTier, comparison_assessment, decide_reference,
+                )
+
+                decision = decide_reference(ScientificEvidence(
+                    True, EvidenceTier.CANONICAL, str(ka),
+                    canonical_bytes(a).decode(), canonical_bytes(b).decode(),
+                    profile=REFERENCE_PROFILE,
+                ))
+                return ValueDecision(
+                    True, "canonical", comparisons=(comparison_assessment(decision, context=conditions),)
+                )
 
             from corpus_structure.semantic.scientific_evidence import (
                 decide_reference,

@@ -65,6 +65,7 @@ def fixture(
     formulas=(),
     known=False,
     local_known=False,
+    input_noise=False,
     nary=False,
     broken=False,
     claim_chain=False,
@@ -87,6 +88,8 @@ def fixture(
         "default_prefix": "ex",
         "classes": {"Person": {"is_a": "Entity", "attributes": {"name": {"range": "string"}}}},
     }
+    if input_noise:
+        schema["classes"]["Person"]["attributes"]["note"] = {"range": "string"}
     if integer_alias:
         schema["types"] = {"SmallCount": {"typeof": "integer"}}
         schema["classes"]["Person"]["attributes"]["name"] = {
@@ -186,7 +189,7 @@ def fixture(
                     "stated",
                     evidence,
                 )
-                for name, value in [("id", "known:alice"), ("name", "Alice")]
+                for name, value in [("id", "known:alice"), ("name", "Alice"), *([("note", "irrelevant")] if input_noise else [])]
             ),
         )
         publish_batch(
@@ -1214,3 +1217,38 @@ def test_conflicting_recorded_constant_profiles_refuse_cut(
                 table("data.realization").c.realization_id == "evaluated"
             )
         ).first()
+
+
+def test_known_input_roles_filter_before_value_hydration(
+    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+):
+    from corpus_structure.semantic.query import ReadSession
+
+    prepared, run, cut = fixture(
+        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html",
+        known=True, input_noise=True,
+    )
+    with semantic_db_engine.connect() as conn:
+        facts = conn.execute(select(table("data.fact")).where(
+            table("data.fact").c.realization_id == "source"
+        )).mappings().all()
+    noise_ids = {f["object_value_id"] for f in facts if f["property_id"] == "https://example.org/note"}
+    assert noise_ids
+    loaded = set()
+    original = ReadSession.load_values
+
+    def observe(self, value_ids, *args, **kwargs):
+        loaded.update(value_ids)
+        return original(self, value_ids, *args, **kwargs)
+
+    monkeypatch.setattr(ReadSession, "load_values", observe)
+    consolidate_cut(semantic_writer_engine, cut, "evaluated")
+    assert not noise_ids & loaded
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(select(table("data.entity_input").c.input_entity_id).where(
+            table("data.entity_input").c.run_id == run
+        )) == "known:alice"
+        assert conn.scalar(select(table("data.fact").c.fact_id).where(
+            table("data.fact").c.realization_id == "evaluated",
+            table("data.fact").c.property_id == "https://example.org/note",
+        )) is None

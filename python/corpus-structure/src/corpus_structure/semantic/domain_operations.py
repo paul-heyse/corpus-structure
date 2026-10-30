@@ -539,8 +539,9 @@ def _known_input(conn, prepared, job, observations):
                         else {"kind": "text", "text": value},
                     }
                 )
-                if "display" in prepared.index.property_roles.get(
-                    (d.iri, prop.iri), frozenset()
+                if any(
+                    "display" in prepared.index.property_roles.get((iri, prop.iri), frozenset())
+                    for iri in item["class_iris"]
                 ) and not prop.multivalued:
                     item["label"] = value
     copied = {}
@@ -2169,12 +2170,12 @@ class ReleasedRulesPolicy:
         self.validate_source()
         self.version = self.source["operation"]["version"]
         if prepared.execution_model_id is not None:
-            models = [row for row in prepared.registry_rows if row.kind == "execution_model"]
-            if len(models) != 1 or models[0].name != prepared.execution_model_id:
-                raise DomainOperationRefused("policy requires its exact archived execution model")
-            operations = {item["id"]: item for item in json.loads(models[0].body)["operations"]}
+            from .contracts import bound_execution_model
+
+            execution = bound_execution_model(prepared)
             for name in ("resolve_identity", "evaluate", "scientific_policy"):
-                if operations.get(name, {}).get("policy_version") != self.version:
+                operation = execution.require_operation(name)
+                if operation.policy_version != self.version:
                     raise DomainOperationRefused(
                         f"{name}: policy version differs from the archived domain implementation"
                     )
