@@ -396,3 +396,58 @@ def test_failed_lazy_schema_check_does_not_publish_partial_models():
         prepared.adapter("A")
     assert prepared._boundary_models == before
     assert prepared.validate_python("C", c) is c
+
+
+def test_abstract_dispatch_reuses_previously_validated_concrete_instances():
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.releases import _products
+
+    _, bundle, _ = archived()
+    current = prepare_release(bundle)
+    opened = reconstruct_release(
+        _products(current), current.manifest, bundle, PreparationProfile(), current.artifacts
+    )
+    circle = opened.validate_json("Circle", '{"id":"c","kind":"Circle","exact_amount":"1.2300"}')
+    opened.adapter("Shape")
+    record = opened.validate_python("Record", {"id": "r", "shape": circle, "values": {"c": circle}})
+    assert record.__dict__["shape"] is circle
+    assert record.__dict__["values"]["c"] is circle
+
+
+def test_recursive_lazy_boundary_is_canonical_when_outer_closure_is_requested():
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.releases import _products
+
+    source = SourceBundle(
+        "recursive",
+        (
+            SourceArtifact(
+                "recursive",
+                b"""id: https://example.org/recursive
+name: recursive
+types:
+  string: {base: str, uri: xsd:string}
+classes:
+  Node:
+    attributes:
+      id: {identifier: true}
+      children: {range: Node, inlined: true, multivalued: true, inlined_as_list: true}
+  Envelope:
+    attributes:
+      id: {identifier: true}
+      root: {range: Node, inlined: true}
+""",
+            ),
+        ),
+    )
+    current = prepare_release(source)
+    opened = reconstruct_release(
+        _products(current), current.manifest, source, PreparationProfile(), current.artifacts
+    )
+    node = opened.validate_json("Node", '{"id":"root","children":[{"id":"leaf"}]}')
+    node_type = type(node)
+    item = opened.property_adapter("Node", "children", item=True)
+    envelope = opened.validate_python("Envelope", {"id": "e", "root": node})
+    assert envelope.__dict__["root"] is node
+    assert opened._boundary_models["Node"] is node_type
+    assert item.validate_python(node, strict=True) is node
