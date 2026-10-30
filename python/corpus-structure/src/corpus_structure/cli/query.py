@@ -121,11 +121,21 @@ def query(
             from corpus_structure.serve.journey import decode_token
 
             selected = str(decode_token(page_token)["run"]) if page_token else run
-            pid, _, registry = context(
-                conn,
-                project or (settings.runtime.default_project if selected == "promoted" else None),
-                selected,
-            )
+            try:
+                pid, _, registry = context(
+                    conn,
+                    project
+                    or (settings.runtime.default_project if selected == "promoted" else None),
+                    selected,
+                )
+            except QueryRefused as error:
+                if page_token is None:
+                    raise
+                from corpus_structure.semantic.refusals import StaleSnapshot
+
+                raise StaleSnapshot(
+                    f"continuation result is unavailable: {error}", reason="unavailable_result"
+                ) from error
             result = serve_query(
                 conn,
                 registry,

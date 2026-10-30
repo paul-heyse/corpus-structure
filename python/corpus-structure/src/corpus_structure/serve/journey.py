@@ -173,9 +173,6 @@ def serve_query(
                 f"continuation result is unavailable: {error}", reason="unavailable_result"
             ) from error
         position = body["position"]
-        validate_position = getattr(query, "validate_position", None)
-        if validate_position is not None:
-            validate_position(position)
     else:
         if run == PROMOTED and project_id is None:
             raise QueryRefused("a promoted run needs its project")
@@ -204,8 +201,12 @@ def serve_query(
                 "arithmetic": "exact",
                 "revision": binding.data_revision,
                 "version": query.version,
+                **({"run": parse_run(run)} if run != PROMOTED else {}),
             },
         )
+        validate_position = getattr(query, "validate_position", None)
+        if validate_position is not None:
+            validate_position(position)
     for bound in (max_rows, max_chars):
         if bound is not None and bound <= 0:
             raise QueryRefused("page bounds must be positive")

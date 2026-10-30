@@ -313,7 +313,7 @@ def test_overlapping_lazy_boundaries_keep_validated_instances_and_field_adapters
     assert prepared._boundary_models["C"] is c_type
     assert prepared.property_adapter("B", "children", item=True) is item
     a = prepared.validate_python("A", {"id": "a", "b": {"id": "b", "c": c}})
-    assert getattr(getattr(a, "b"), "c") is c
+    assert a.__dict__["b"].__dict__["c"] is c
     assert item.validate_python(c, strict=True) is c
     assert "Unrelated" not in prepared._boundary_models
 
@@ -384,7 +384,7 @@ def test_concurrent_overlapping_lazy_requests_share_one_registry():
     assert adapters[2].validate_python(c, strict=True) is c
     assert adapters[3].validate_python(c, strict=True) is c
     a = prepared.validate_python("A", {"id": "a", "b": {"id": "b", "c": c}})
-    assert getattr(getattr(a, "b"), "c") is c
+    assert a.__dict__["b"].__dict__["c"] is c
     assert "Unrelated" not in prepared._boundary_models
 
 

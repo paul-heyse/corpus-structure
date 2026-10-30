@@ -22,6 +22,7 @@ from .determinants import BYTE_LIBRARIES_V11, determinant_version
 from .identity import canonical_bytes
 from .prepare import prepare_release
 from .types import (
+    SEMANTIC_COMPILER_VERSION,
     PreparationProfile,
     PreparedRelease,
     ResolvedDependencies,
@@ -276,23 +277,36 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
         bindings = {binding.id: binding for binding in execution.implementations}
         for operation in execution.operations:
             binding = bindings[operation.implementation]
-            rows["execution_operation"].append({
-                "release_id": rid, "operation_id": operation.id,
-                "implementation_id": binding.id, "implementation_version": binding.version,
-            })
+            rows["execution_operation"].append(
+                {
+                    "release_id": rid,
+                    "operation_id": operation.id,
+                    "implementation_id": binding.id,
+                    "implementation_version": binding.version,
+                }
+            )
             rows["operation_effect"].extend(
                 {"release_id": rid, "operation_id": operation.id, "effect_id": effect}
                 for effect in operation.effects
             )
         for transition in execution.transitions:
-            rows["execution_transition"].append({
-                "release_id": rid, "transition_id": transition.id,
-                "operation_id": transition.operation, "lifecycle": transition.lifecycle,
-            })
+            rows["execution_transition"].append(
+                {
+                    "release_id": rid,
+                    "transition_id": transition.id,
+                    "operation_id": transition.operation,
+                    "lifecycle": transition.lifecycle,
+                }
+            )
             rows["execution_edge"].extend(
-                {"release_id": rid, "transition_id": transition.id,
-                 "prior_state": before, "result_state": after}
-                for before in transition.from_states for after in transition.to_states
+                {
+                    "release_id": rid,
+                    "transition_id": transition.id,
+                    "prior_state": before,
+                    "result_state": after,
+                }
+                for before in transition.from_states
+                for after in transition.to_states
             )
             rows["transition_effect"].extend(
                 {"release_id": rid, "transition_id": transition.id, "effect_id": effect}
@@ -513,6 +527,11 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
             tuple(json.loads(source["ontology_sources", "ontology_sources"])),
         )
         profile = PreparationProfile(**json.loads(source["profile", "profile"]))
+        if profile.compiler_version != SEMANTIC_COMPILER_VERSION:
+            raise ReleaseConflict(
+                f"full verification requires historical compiler {profile.compiler_version}; "
+                f"current compiler {SEMANTIC_COMPILER_VERSION} preserves product reading only"
+            )
         if len(source) != len(bundle.sources) + len(dependencies.artifacts) + 3:
             raise ReleaseConflict("unexpected archived inputs")
         # Detect version changes before attempting to interpret with another compiler.
