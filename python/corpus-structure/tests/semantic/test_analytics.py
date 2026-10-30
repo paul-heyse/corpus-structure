@@ -238,8 +238,9 @@ def test_native_relation_kernels_keep_occurrences_qualifications_and_roles():
         assert scope.relation("fact").to_arrow_table().num_rows == 3
 
 
+@pytest.mark.parametrize("mode", ["resident", "spooled"])
 def test_native_exported_snapshot_and_decimal_boundary(
-    semantic_db_engine, semantic_reader_engine, semantic_writer_engine
+    semantic_db_engine, semantic_reader_engine, semantic_writer_engine, mode
 ):
     bundle, dependencies, prepared = prepared_inputs()
     rid, realization = prepared.release_id, "z"
@@ -292,10 +293,10 @@ def test_native_exported_snapshot_and_decimal_boundary(
     )
     with read_session(semantic_reader_engine, realization) as session:
         publish_batch(semantic_writer_engine, batch("later"))
-        packet = load_packet(session, uri)
+        packet = load_packet(session, uri, mode=mode, batch_size=2)
         assert packet.binding.data_revision == 1
     assert packet.relations["fact"].num_rows == 1
-    lexical = packet.relations["typed_value"].to_pylist()
+    lexical = [row for batch in packet.iter_batches("typed_value",batch_size=2) for row in batch.to_pylist()]
     numeric = next(r for r in lexical if r["kind"] == "decimal")
     assert numeric["decimal_lexical"] == "1.0000000000015"
     assert numeric["decimal_value"] == Decimal("1.000000000002")
@@ -312,6 +313,7 @@ def test_native_exported_snapshot_and_decimal_boundary(
     with AnalysisScope(packet) as scope:
         assert scope.fact_support().to_arrow_table().num_rows == 1
         assert scope.declared_view("https://example/label").to_arrow_table().num_rows == 1
+    packet.close()
 
 
 def test_native_scalar_projection_preserves_source_and_missing_states():

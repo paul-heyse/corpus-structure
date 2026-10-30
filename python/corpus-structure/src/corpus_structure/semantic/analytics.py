@@ -14,7 +14,7 @@ from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import adbc_driver_manager.dbapi as adbc_manager
 import adbc_driver_postgresql.dbapi as adbc
@@ -51,6 +51,7 @@ from .analytical_kernels import (
     ViewSpec,
 )
 from .analytical_profile import AnalyticalProfile
+from .capture_storage import CaptureOwner, FileRelation, finish_manifest, store_relation
 from .identity import canonical_bytes
 from .metadata import PHYSICAL_MODEL_ID, table
 from .types import PreparedRelease
@@ -60,7 +61,7 @@ if TYPE_CHECKING:
     from .domain_operations import CutInput
     from .query import ReadSession, SnapshotBinding
 
-COMPILER_VERSION = "analytical-5"
+COMPILER_VERSION = "analytical-6"
 SPINE = (
     "entity",
     "entity_input",
@@ -130,12 +131,44 @@ class CapturedPacket:
     binding: SnapshotBinding
     projection_id: str
     profile_digest: str
-    relations: Mapping[str, pa.Table]
+    relations: Mapping[str, pa.Table | FileRelation]
     property_ids: tuple[str, ...] = ()
     scale: int = 12
     execution_model_id: str | None = None
     execution_contract: bytes | None = None
     input_contract: OwnedAnalysisInput | None = dataclass_field(default=None, kw_only=True)
+
+    manifest: Mapping[str, Any] | None = dataclass_field(default=None, kw_only=True)
+    owner: CaptureOwner | None = dataclass_field(default=None, kw_only=True, repr=False, compare=False)
+
+    @property
+    def logical_digest(self) -> str | None:
+        return self.manifest["logical_digest"] if self.manifest else None
+
+    def iter_batches(self, name: str, batch_size: int = 65536):
+        if batch_size < 1:
+            raise ValueError("batch_size must be positive")
+        if self.owner:
+            self.owner.acquire()
+        try:
+            relation = self.relations[name]
+            if isinstance(relation, FileRelation):
+                yield from relation.iter_batches(batch_size)
+            else:
+                yield from relation.to_batches(max_chunksize=batch_size)
+        finally:
+            if self.owner:
+                self.owner.release()
+
+    def close(self):
+        if self.owner:
+            self.owner.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "relations", MappingProxyType(dict(self.relations)))
@@ -494,6 +527,10 @@ def compile_projection(
                     else_=qualification,
                 ).label("qualification_key")
             )
+        statement = statement.order_by(*(
+            column.collate("C") if isinstance(column.type, Text) else column
+            for column in source.primary_key.columns
+        ))
         fields = _fields(name, profile.scale)
         schema = pa.schema(fields, metadata=_metadata(binding, identity, profile.digest, name))
         derived_sources = {
@@ -604,13 +641,16 @@ def _owned_input(prepared: PreparedRelease, family: str, **dependencies: Any):
     from .contracts import execution_payload
 
     payload = execution_payload(prepared)
-    if payload is None or json.loads(payload)["inputs"]["compiler_version"] != "7":
+    if payload is None or json.loads(payload)["inputs"]["compiler_version"] != "8":
         return None
     return bind_analysis_family(prepared, family).prepare(**dependencies)
 
 
 def load_packet(
-    session: ReadSession, uri: str, *, driver_path: str | None = None
+    session: ReadSession, uri: str, *, driver_path: str | None = None,
+    mode: Literal["resident", "spooled"] = "resident", batch_size: int = 65536,
+    resident_limit_bytes: int = 512 * 1024**2, batch_size_hint_bytes: int = 8 * 1024**2,
+    scratch_path: str | Path | None = None,
 ) -> AnalyticalPacket:
     """Capture all mutable relations through an imported snapshot, consuming readers once.
 
@@ -620,6 +660,11 @@ def load_packet(
     from .contracts import execution_payload, require_bound_operation
 
     require_bound_operation(session.prepared, "capture_analytics")
+    from .analysis_contracts import prepare_capture_policy
+
+    policy = prepare_capture_policy(session.prepared)
+    if mode not in policy.modes or min(batch_size, resident_limit_bytes, batch_size_hint_bytes) < 1:
+        raise ValueError("invalid capture mode or capacity configuration")
     compiled = compile_projection(session.prepared, session.binding)
     snapshot = session.connection.execute(select(text("pg_export_snapshot()"))).scalar_one()
     # Exported ids are server-generated; SQLAlchemy renders their SQL literal safely.
@@ -637,22 +682,45 @@ def load_packet(
             db_kwargs={"uri": uri, "adbc.postgresql.type_resolver_mode": "builtin"},
         )
     )
-    with connection as bulk:
-        try:
-            with bulk.cursor() as cursor:
-                cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
-                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-                cursor.execute("SET TRANSACTION SNAPSHOT " + snapshot_sql)
-                cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "true"})
-                relations = {}
-                for projection in compiled.relations:
-                    cursor.execute(compile_sql(projection.statement))
-                    with cursor.fetch_record_batch() as reader:
-                        relations[projection.name] = normalize_relation(
-                            reader.read_all(), projection, compiled.profile
-                        )
-        finally:
-            bulk.rollback()
+    owner = CaptureOwner(scratch_path) if mode == "spooled" else None
+    descriptors = {}
+    budget = [0]
+    try:
+        with connection as bulk:
+            try:
+                with bulk.cursor() as cursor:
+                    cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
+                    cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+                    cursor.execute("SET TRANSACTION SNAPSHOT " + snapshot_sql)
+                    cursor.adbc_statement.set_options(**{
+                        "adbc.postgresql.use_copy": "true",
+                        "adbc.postgresql.batch_size_hint_bytes": str(batch_size_hint_bytes),
+                    })
+                    relations = {}
+                    for projection in compiled.relations:
+                        cursor.execute(compile_sql(projection.statement))
+                        with cursor.fetch_record_batch() as reader:
+                            def normalized():
+                                for raw in reader:
+                                    for offset in range(0, raw.num_rows, batch_size):
+                                        value = normalize_relation(
+                                            pa.Table.from_batches([raw.slice(offset, batch_size)]),
+                                            projection, compiled.profile,
+                                        )
+                                        yield from value.to_batches(max_chunksize=batch_size)
+                            relations[projection.name], descriptors[projection.name] = store_relation(
+                                owner, projection.name, projection.schema, normalized(),
+                                tuple(c.name for c in table("data." + projection.name).primary_key.columns),
+                                budget, resident_limit_bytes,
+                            )
+            finally:
+                bulk.rollback()
+        manifest = finish_manifest(owner, asdict(compiled.binding), compiled.projection_id,
+                                   compiled.profile.digest, descriptors)
+    except BaseException:
+        if owner:
+            owner.close()
+        raise
     return AnalyticalPacket(
         compiled.binding,
         compiled.projection_id,
@@ -662,6 +730,7 @@ def load_packet(
         compiled.profile.scale,
         execution_model_id=session.prepared.execution_model_id,
         execution_contract=execution_payload(session.prepared),
+        owner=owner, manifest=manifest,
         input_contract=_owned_input(
             session.prepared,
             "capture",
@@ -680,12 +749,17 @@ def capture_packet(
     *,
     release_id: str | None = None,
     driver_path: str | None = None,
+    mode: Literal["resident", "spooled"] = "resident", batch_size: int = 65536,
+    resident_limit_bytes: int = 512 * 1024**2, batch_size_hint_bytes: int = 8 * 1024**2,
+    scratch_path: str | Path | None = None,
 ) -> AnalyticalPacket:
     """Own both database scopes and end them before returning replayable analytical inputs."""
     from .query import read_session
 
     with read_session(engine, realization_id, release_id=release_id) as session:
-        return load_packet(session, uri, driver_path=driver_path)
+        return load_packet(session, uri, driver_path=driver_path, mode=mode, batch_size=batch_size,
+                           resident_limit_bytes=resident_limit_bytes,
+                           batch_size_hint_bytes=batch_size_hint_bytes, scratch_path=scratch_path)
 
 
 def _cleanup_after_failure(error: BaseException, cleanup: Callable[[], None]) -> None:
@@ -730,6 +804,7 @@ class AnalysisScope:
         if threads < 1:
             raise ValueError("threads must be positive")
         self.packet = packet
+        self._capture_lease = None
         self._closed = False
         self._readers: list[pa.RecordBatchReader] = []
         self._connections: list[duckdb.DuckDBPyConnection] = []
@@ -752,10 +827,17 @@ class AnalysisScope:
             _cleanup_after_failure(error, self._scratch.cleanup)
             raise
         try:
+            if isinstance(packet, CapturedPacket) and packet.manifest:
+                from .analysis_contracts import validate_capture_manifest
+                validate_capture_manifest(packet.manifest)
+            if isinstance(packet, CapturedPacket) and packet.owner:
+                packet.owner.acquire()
+                self._capture_lease = packet.owner
             if isinstance(packet, CapturedPacket) and set(packet.relations) != set(SPINE):
                 raise ValueError("packet does not contain the complete normalized spine")
             for name, rows in packet.relations.items():
                 if isinstance(packet, CandidateInput):
+                    assert isinstance(rows, pa.Table)
                     if name != "candidate_input" or rows.schema.metadata != _metadata(
                         packet.binding, packet.projection_id, packet.profile_digest, name
                     ):
@@ -776,6 +858,20 @@ class AnalysisScope:
                     pa.schema(_fields(name, packet.scale), metadata=expected), check_metadata=True
                 ):
                     raise ValueError(f"wrong compiled shape for {name}")
+                if isinstance(rows, FileRelation):
+                    rows.verify()
+                    for batch in rows.iter_batches():
+                        for field in batch.schema:
+                            if not field.nullable and batch[field.name].null_count:
+                                raise ValueError(f"unexpected null in {name}.{field.name}")
+                        for column, value in (("release_id", packet.binding.release_id),
+                                              ("realization_id", packet.binding.realization_id)):
+                            if pc.call_function("all", [pc.call_function("equal", [batch[column], pa.scalar(value)])]).as_py() is False:
+                                raise ValueError(f"wrong row scope in {name}.{column}")
+                    self._connection.read_parquet(str(rows.path), hive_partitioning=False).create_view(name)
+                    self._registered.append(name)
+                    self._views.append(name)
+                    continue
                 for field in rows.schema:
                     if not field.nullable and rows[field.name].null_count:
                         raise ValueError(f"unexpected null in {name}.{field.name}")
@@ -836,6 +932,8 @@ class AnalysisScope:
         ]
         actions += [connection.close for connection in self._connections]
         actions += [self._connection.close, self._scratch.cleanup]
+        if self._capture_lease is not None:
+            actions.append(self._capture_lease.release)
         for action in actions:
             try:
                 action()
