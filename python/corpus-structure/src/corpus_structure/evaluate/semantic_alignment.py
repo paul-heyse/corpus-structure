@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import unicodedata
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from typing import Any
 
@@ -39,6 +39,14 @@ class ValueDecision:
     outcome: str
     reason: str = ""
     comparisons: tuple[dict[str, Any], ...] = ()
+
+
+def _prefix(decision: ValueDecision, reference: list[str], prediction: list[str] | None = None):
+    return replace(decision, comparisons=tuple(
+        {**trace, "reference_path": [*reference, *trace["reference_path"]],
+         "prediction_path": [*(prediction if prediction is not None else reference), *trace["prediction_path"]]}
+        for trace in decision.comparisons
+    ))
 
 
 @dataclass(frozen=True)
@@ -265,7 +273,8 @@ def equivalent(
             if len(matched) == len(aa):
                 return ValueDecision(
                     True, "condition", comparisons=tuple(
-                        trace for i, j in matched for trace in decisions[i][j].comparisons
+                        trace for i, j in matched
+                        for trace in _prefix(decisions[i][j], ["terms", str(i)], ["terms", str(j)]).comparisons
                     )
                 )
             return ValueDecision(
@@ -273,6 +282,10 @@ def equivalent(
                 "undecided"
                 if any(v.outcome == "undecided" for row in decisions for v in row)
                 else "condition",
+                comparisons=tuple(
+                    trace for i, row in enumerate(decisions) for j, d in enumerate(row)
+                    for trace in _prefix(d, ["terms", str(i)], ["terms", str(j)]).comparisons
+                ),
             )
         if set(a) != set(b):
             return ValueDecision(False, "canonical", "different qualification/value fields")
@@ -280,7 +293,7 @@ def equivalent(
         for key in a:
             prop = props.get(key)
 
-            def compare_member(left, right, prop=prop):
+            def compare_member(left, right, position=None, prop=prop):
                 if prop and prop.reference_role == "fact":
                     return ValueDecision(
                         left in claim_map and claim_map[left] == right, "reference"
@@ -296,26 +309,22 @@ def equivalent(
                     and isinstance(right, str)
                 ):
                     return ValueDecision(left.casefold() == right.casefold(), "canonical")
-                return equivalent(
-                    left,
-                    right,
-                    entity_map,
-                    claim_map,
-                    model=model,
+                return _prefix(equivalent(
+                    left, right, entity_map, claim_map, model=model,
                     range_name=prop.range if prop and prop.inlined else None,
-                )
+                ), [key, *([] if position is None else [str(position)])])
 
             if prop and prop.collection_key:
                 if set(a[key]) != set(b[key]):
                     decisions.append(ValueDecision(False, "canonical"))
                 else:
-                    decisions.extend(compare_member(a[key][k], b[key][k]) for k in a[key])
+                    decisions.extend(compare_member(a[key][k], b[key][k], k) for k in a[key])
             elif prop and prop.multivalued:
                 if len(a[key]) != len(b[key]):
                     decisions.append(ValueDecision(False, "canonical"))
                 else:
                     decisions.extend(
-                        compare_member(x, y) for x, y in zip(a[key], b[key], strict=True)
+                        compare_member(x, y, i) for i, (x, y) in enumerate(zip(a[key], b[key], strict=True))
                     )
             else:
                 decisions.append(compare_member(a[key], b[key]))
@@ -328,8 +337,8 @@ def equivalent(
         if len(a) != len(b):
             return ValueDecision(False, "canonical")
         ds = [
-            equivalent(x, y, entity_map, claim_map, model=model, range_name=range_name)
-            for x, y in zip(a, b, strict=True)
+            _prefix(equivalent(x, y, entity_map, claim_map, model=model, range_name=range_name), [str(i)])
+            for i, (x, y) in enumerate(zip(a, b, strict=True))
         ]
         return ValueDecision(
             all(d.equal for d in ds),
@@ -761,7 +770,7 @@ def align_semantic(
                 weights[i, j] = size**3 + size**2 * full + size * evidence + overlap
                 tiers[i, j] = (full, evidence)
                 comparison_details[i, j] = [
-                    {"field": field, **trace}
+                    {"field": field, **trace, "reference_path": [field, *trace["reference_path"]], "prediction_path": [field, *trace["prediction_path"]]}
                     for field, decision in (("object", value), ("qualification", qual))
                     for trace in decision.comparisons
                 ]
@@ -779,6 +788,7 @@ def align_semantic(
                             "reference": r["id"],
                             "prediction": p["id"],
                             "reason": "qualification comparison undecided",
+                            "comparisons": list(qual.comparisons),
                         }
                     )
         group_weights = np.zeros((len(rg), len(pg)))

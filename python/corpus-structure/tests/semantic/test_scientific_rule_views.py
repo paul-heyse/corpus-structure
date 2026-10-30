@@ -314,3 +314,16 @@ def test_actual_reference_kernel_retains_agreement_before_policy():
     decision = decide_reference(raw)
     assert not decision.equal and decision.tier is EvidenceTier.UNDECIDED
     assert decision.evidence is raw
+
+
+def test_one_evidence_records_the_policy_that_actually_decided():
+    from corpus_structure.semantic.scientific_evidence import comparison_assessment
+
+    evidence = ScientificEvidence(True, EvidenceTier.NUMERIC, "formula", "a", "b")
+    consolidated = comparison_assessment(decide_consolidation(evidence), context={})
+    reference = comparison_assessment(decide_reference(evidence), context={})
+    assert consolidated["policy_id"] == "consolidation-evidence-1"
+    assert consolidated["outcome"] == "equivalent"
+    assert reference["policy_id"] == "reference-evidence-1"
+    assert reference["outcome"] == "undecided"
+    assert consolidated["numeric"] == reference["numeric"] == "agreement"

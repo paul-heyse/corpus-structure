@@ -26,6 +26,9 @@ classes:
   ComparisonAssessment:
     attributes:
       policy_id: {required: true}
+      evidence_profile: {required: true}
+      reference_path: {multivalued: true}
+      prediction_path: {multivalued: true}
       evidence_tier: {range: Tier, required: true}
       decision_tier: {range: Tier, required: true}
       outcome: {range: Decision, required: true}

@@ -165,6 +165,7 @@ class ScientificDecision:
     detail: str
     grammar: str
     evidence: ScientificEvidence
+    policy: str = CONSOLIDATION_PROFILE
 
 
 class ScientificAssessmentEvidence(BaseModel):
@@ -240,7 +241,7 @@ def _decide(evidence: ScientificEvidence, policy: str) -> ScientificDecision:
         detail = "no symbolic equivalence proof"
     return ScientificDecision(
         rule["decision"] == "equivalent", EvidenceTier(rule["decision_tier"]),
-        detail, evidence.grammar, evidence,
+        detail, evidence.grammar, evidence, policy,
     )
 
 
@@ -256,7 +257,10 @@ def comparison_assessment(decision: ScientificDecision, *, context: Any) -> dict
     evidence = decision.evidence
     outcome = "equivalent" if decision.equal else "undecided" if decision.tier is EvidenceTier.UNDECIDED else "different"
     return scientific_model().validate_json("ComparisonAssessment", json.dumps({
-        "policy_id": evidence.profile,
+        "policy_id": decision.policy,
+        "evidence_profile": evidence.profile,
+        "reference_path": [],
+        "prediction_path": [],
         "evidence_tier": evidence.tier.value,
         "decision_tier": decision.tier.value,
         "outcome": outcome,

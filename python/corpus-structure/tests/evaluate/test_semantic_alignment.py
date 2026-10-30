@@ -428,3 +428,30 @@ def test_successful_scientific_comparison_retains_modelled_explanation():
     assert trace["outcome"] == "equivalent"
     assert trace["policy_id"] == "reference-evidence-1"
     assert trace["numeric"] == "not_run"
+
+
+def test_alignment_report_retains_numeric_evidence_in_undecided_condition():
+    from dataclasses import replace
+    from corpus_structure.semantic.determinants import SCIENTIFIC_LIBRARIES, determinant_version
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.scientific_evidence import SCIENTIFIC_POLICY_INPUT, scientific_policy_recipe
+
+    model = replace(
+        prepared().bound(),
+        manifest=canonical_bytes({"libraries": {name: determinant_version(name) for name in SCIENTIFIC_LIBRARIES}}),
+        artifacts=(PreparedArtifact(SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe())),),
+    )
+    left, right = batch(), batch()
+    a = {"kind": "expression", "language": "latex", "expression": "1"}
+    b = {**a, "expression": "1.000000000001"}
+    left["claims"][0]["qualification"]["condition"] = {"kind": "all", "terms": [a]}
+    right["claims"][0]["qualification"]["condition"] = {"kind": "all", "terms": [b]}
+    report = align_semantic(side(left), side(right), model).as_dict()
+    assert report["tiers"]["core"]["matched"] == 1
+    assert report["tiers"]["full"]["matched"] == 0
+    assert len(report["comparisons"]) == 1
+    trace = report["comparisons"][0]
+    assert trace["field"] == "qualification"
+    assert trace["numeric"] == "agreement" and trace["valid_points"] == 12
+    assert trace["outcome"] == "undecided" and trace["decision_tier"] == "undecided"
+    assert report["undecided"][0]["comparisons"][0]["numeric"] == "agreement"
