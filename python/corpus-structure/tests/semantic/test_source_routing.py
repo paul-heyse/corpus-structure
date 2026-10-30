@@ -11,7 +11,7 @@ from corpus_structure.semantic.metadata import table
 
 
 def test_actual_cli_source_scope_agent_unknown_limit_and_cancel(
-    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+    semantic_db_engine, semantic_writer_engine, semantic_admitter_engine, tmp_path, monkeypatch
 ):
     from corpus_structure.cli import orchestrate as cli
     from corpus_structure.cli.app import app
@@ -32,6 +32,7 @@ def test_actual_cli_source_scope_agent_unknown_limit_and_cancel(
     from corpus_structure.semantic.domain_operations import domain_rule_inputs
     from corpus_structure.semantic.observations import prepare_source_inputs
     from corpus_structure.semantic.proposals import proposal_inputs
+    from corpus_structure.semantic.publication import admit_release
     from corpus_structure.semantic.releases import persist_release
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
@@ -44,6 +45,8 @@ def test_actual_cli_source_scope_agent_unknown_limit_and_cancel(
     prepared = prepare_release(bundle, deps, profile)
     with semantic_db_engine.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)
+    with semantic_admitter_engine.begin() as conn:
+        admit_release(prepared, connection=conn)
     corpus = tmp_path / "corpus"
     (corpus / "toy").mkdir(parents=True)
     (corpus / "toy" / "input.html").write_text(
