@@ -8,6 +8,12 @@ BEGIN
  IF supported IS NULL OR NOT EXISTS(SELECT FROM sem.execution_operation o WHERE o.release_id=r AND o.operation_id=operation
   AND o.implementation_id=supported->>'implementation' AND o.implementation_version=supported->>'version') THEN
   RAISE EXCEPTION 'unsupported execution operation % in release %',operation,r USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM sem.operation_effect e WHERE e.release_id=r AND e.operation_id=operation
+  AND e.effect_version IS DISTINCT FROM data.execution_contract_descriptor()->'supported_effect_versions'->>e.effect_id)
+ OR EXISTS(SELECT FROM sem.transition_effect e JOIN sem.execution_transition t USING(release_id,transition_id)
+  WHERE e.release_id=r AND t.operation_id=operation
+  AND e.effect_version IS DISTINCT FROM data.execution_contract_descriptor()->'supported_effect_versions'->>e.effect_id) THEN
+  RAISE EXCEPTION 'unsupported execution effect version for %',operation USING ERRCODE='23514'; END IF;
  SELECT COALESCE(jsonb_agg(effect_id ORDER BY effect_id),'[]'::jsonb) INTO actual
  FROM sem.operation_effect WHERE release_id=r AND operation_id=operation;
  IF actual IS DISTINCT FROM supported->'effects' THEN
@@ -85,3 +91,44 @@ BEGIN
 END $lock$;
 REVOKE ALL ON FUNCTION ops.lock_execution_run(bigint,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.lock_execution_run(bigint,text) TO corpus_sem_writer;
+
+CREATE OR REPLACE FUNCTION eval.guard_scientific_decisions() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $scientific$
+DECLARE r text;
+BEGIN
+ SELECT release_id INTO STRICT r FROM eval.reference_set WHERE id=NEW.set_id;
+ PERFORM sem.require_execution_operation(r,'reference_grade');
+ IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN RETURN NEW; END IF;
+ IF jsonb_typeof(NEW.result->'units') IS DISTINCT FROM 'array'
+  OR jsonb_typeof(NEW.result->'undecided') IS DISTINCT FROM 'array' THEN
+  RAISE EXCEPTION 'scientific report requires typed units and undecided arrays' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements((NEW.result->'units')||(NEW.result->'undecided')) unit
+  WHERE jsonb_typeof(unit) IS DISTINCT FROM 'object' OR jsonb_typeof(unit->'comparisons') IS DISTINCT FROM 'array') THEN
+  RAISE EXCEPTION 'scientific report unit requires comparisons array' USING ERRCODE='23514'; END IF;
+
+ IF EXISTS(
+  SELECT FROM (
+   SELECT comparison FROM jsonb_array_elements(COALESCE(NEW.result->'units','[]'::jsonb)||COALESCE(NEW.result->'undecided','[]'::jsonb)) unit
+   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(unit->'comparisons','[]'::jsonb)) comparison
+  ) reported LEFT JOIN sem.scientific_decision_rule rule
+   ON rule.release_id=r AND rule.policy_id=reported.comparison->>'policy_id'
+   AND rule.evidence_tier=reported.comparison->>'evidence_tier' AND rule.agreement=reported.comparison->>'agreement'
+  WHERE rule.policy_id IS NULL OR rule.decision IS DISTINCT FROM reported.comparison->>'outcome'
+   OR rule.decision_tier IS DISTINCT FROM reported.comparison->>'decision_tier'
+ ) THEN RAISE EXCEPTION 'scientific decision differs from bound evidence policy' USING ERRCODE='23514'; END IF;
+ RETURN NEW;
+END $scientific$;
+REVOKE ALL ON FUNCTION eval.guard_scientific_decisions() FROM PUBLIC;
+CREATE TRIGGER scientific_decisions BEFORE INSERT ON eval.reference_evaluation FOR EACH ROW EXECUTE FUNCTION eval.guard_scientific_decisions();
+SET LOCAL ROLE corpus_sem_publisher;
+
+CREATE OR REPLACE FUNCTION ops.lock_finalization_run(p_run bigint) RETURNS ops.run
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $finalization$
+DECLARE job ops.run;
+BEGIN
+ SELECT * INTO STRICT job FROM ops.run WHERE id=p_run FOR UPDATE;
+ PERFORM sem.require_execution_operation(job.release_id,'evaluate');
+ RETURN job;
+END $finalization$;
+REVOKE ALL ON FUNCTION ops.lock_finalization_run(bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.lock_finalization_run(bigint) TO corpus_sem_writer;

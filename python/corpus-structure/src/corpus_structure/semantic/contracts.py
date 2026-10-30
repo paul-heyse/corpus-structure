@@ -371,7 +371,11 @@ class ExecutionModelProducts:
         for operation in self.operations:
             if operation.id == name:
                 return operation
-        _fail("missing_operation", name, "required operation is absent from the bound model")
+        raise PreparationError((Diagnostic(
+            "missing_operation", name, "required operation is absent from the bound model",
+            contract_id=name, consumer="bound_execution_model", expected="declared owned operation",
+            actual="missing", remedy="include the required operation in the bound model and derive a new release",
+        ),))
 
     def require_operation(self, name: str) -> OperationContract:
         """Resolve actual owned effect support; never substitute the installed model."""
@@ -405,8 +409,13 @@ def _validate_effect_support(model: ExecutionModelProducts, operation: Operation
         "transitions": {t.id: tuple(sorted(t.effects)) for t in model.transitions if t.operation == operation.id},
     }
     if supported != actual:
-        _fail("unsupported_effect_profile", operation.id,
-              "required effects differ from the owned implementation; implement the required profile before admission")
+        raise PreparationError((Diagnostic(
+            "unsupported_effect_profile", operation.id,
+            "required effects differ from the owned implementation",
+            contract_id=operation.id, consumer=f"{binding.owner}:{binding.symbol}",
+            expected=repr(supported), actual=repr(actual),
+            remedy="implement the required bounded effect profile, then ci schema derive --out <new-directory> and deploy a reviewed forward revision",
+        ),))
 
 
 def execution_payload(prepared) -> bytes | None:
@@ -632,10 +641,18 @@ def _validate(products: ExecutionModelProducts) -> None:
         if _APPROVED_NATIVE_GUARDS.get(guard.id) != (guard.symbol, guard.version):
             _fail("unapproved_native_guard", guard.id, guard.symbol)
         _refs(guard.invariants, i, guard.id)
+    from .effect_support import SUPPORTED_EFFECT_VERSIONS
+
     effects = _index(products.effect_definitions, "effect_definitions")
     for effect in effects.values():
-        if effect.version != "1" or not effect.meaning.strip():
-            _fail("unsupported_effect", effect.id, "unsupported effect version or empty meaning")
+        supported_version = SUPPORTED_EFFECT_VERSIONS.get(effect.id)
+        if effect.version != supported_version or not effect.meaning.strip():
+            raise PreparationError((Diagnostic(
+                "unsupported_effect", effect.id, "unsupported effect identity/version or empty description",
+                contract_id=effect.id, consumer="owned effect implementation",
+                expected=repr(supported_version), actual=effect.version,
+                remedy="implement this effect version and derive a new reviewed release before admission",
+            ),))
     for item in (*products.operations, *products.transitions, *products.implementations):
         _refs(item.effects, effects, item.id)
     owned = approved_implementations()

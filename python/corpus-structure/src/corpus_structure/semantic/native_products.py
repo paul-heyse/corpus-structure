@@ -168,7 +168,7 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
             )
     from .routines import _transport_sql, stage_disposal_sql
 
-    kernels = (
+    kernels = "SET LOCAL ROLE corpus_sem_publisher;\n" + source.joinpath("execution_projection_check.sql").read_text() + "\n" + (
         source.joinpath("closure.sql")
         .read_text()
         .replace("{intrinsic_relations}", ",".join("'" + name + "'" for name in intrinsic))
@@ -196,7 +196,6 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
         transport = transport.replace("{" + marker + "}", fragment)
     kernels = "\n".join(line for line in kernels.splitlines() if not line.startswith("CREATE TRIGGER native_float_codec"))
     kernels += "\n" + transport
-    kernels += "\n" + source.joinpath("execution_projection_check.sql").read_text()
     kernels += "\n" + source.joinpath("execution_projection.sql").read_text()
     kernels += "\nSET LOCAL ROLE __MIGRATION_OWNER__;\n" + source.joinpath("execution_guards.sql").read_text() + "\nSET LOCAL ROLE corpus_sem_publisher;\n"
 
@@ -427,7 +426,7 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     descriptor["views"] = [
         {"relation": "data.selected_fact", "query": str(view_query.compile(dialect=dialect()))}
     ]
-    from .effect_support import SUPPORTED_EFFECTS
+    from .effect_support import SUPPORTED_EFFECTS, SUPPORTED_EFFECT_VERSIONS
 
     bindings = {binding.id: binding for binding in model.implementations}
     descriptor["supported_effects"] = {
@@ -436,6 +435,7 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
         }
         for operation in model.operations
     }
+    descriptor["supported_effect_versions"] = SUPPORTED_EFFECT_VERSIONS
     descriptor["execution_abi"] = "4"
     descriptor["model_id"] = model.model_id
     descriptor["physical_id"] = PHYSICAL_MODEL_ID

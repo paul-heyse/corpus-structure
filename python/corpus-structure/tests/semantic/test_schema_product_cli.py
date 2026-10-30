@@ -46,3 +46,33 @@ def test_model_diagnostics_remain_actionable_in_cli_json(cli, monkeypatch):
     assert item["consumer"] == "source_projection"
     assert item["expected"] == "SourceStatement" and item["actual"] == "Entity"
     assert item["remedy"] == "bind a SourceStatement subtype"
+
+
+def test_derive_preserves_changed_core_view_sql(cli, tmp_path, monkeypatch):
+    from corpus_structure.semantic import native_products
+    query = native_products.selected_fact_query()
+    monkeypatch.setattr(native_products, "selected_fact_query", lambda: query.limit(3))
+    target = tmp_path / "changed-view"
+    result = cli("schema", "derive", "--out", str(target), "--json")
+    assert result.exit_code == 0, result.output
+    physical = (target / "native/semantic_0033_physical.sql").read_text()
+    assert "CREATE OR REPLACE VIEW data.selected_fact" in physical
+    assert "LIMIT 3" in physical
+    projected = json.loads((target / "native/release-projections.json").read_bytes())
+    assert any(row["transition_id"] == "run_final_cut" for row in projected["execution_edge"])
+    assert not "allowed(lifecycle,prior,result)" in physical
+
+
+def test_derive_refuses_unmapped_transport_shape_without_partial_output(cli, tmp_path, monkeypatch):
+    from dataclasses import make_dataclass
+    from corpus_structure.semantic.publication import STAGE_TYPES
+    changed = make_dataclass("ChangedEntity", [("entity_id", str), ("unmapped", str)], frozen=True)
+    monkeypatch.setitem(STAGE_TYPES, "entity", (changed, ("text", "text")))
+    target = tmp_path / "unsupported-transport"
+    result = cli("schema", "derive", "--out", str(target), "--json")
+    assert result.exit_code == 1
+    diagnostic = json.loads(result.stdout)["error"]["diagnostics"][0]
+    assert diagnostic["code"] == "unsupported_transport_shape"
+    assert diagnostic["consumer"] == "protected publication"
+    assert "physical" in diagnostic["remedy"]
+    assert not target.exists()

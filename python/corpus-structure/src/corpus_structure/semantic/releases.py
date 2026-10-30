@@ -277,6 +277,7 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
 
         execution = bound_execution_model(prepared)
         bindings = {binding.id: binding for binding in execution.implementations}
+        effects = {effect.id: effect.version for effect in execution.effect_definitions}
         for operation in execution.operations:
             binding = bindings[operation.implementation]
             rows["execution_operation"].append(
@@ -288,7 +289,7 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
                 }
             )
             rows["operation_effect"].extend(
-                {"release_id": rid, "operation_id": operation.id, "effect_id": effect}
+                {"release_id": rid, "operation_id": operation.id, "effect_id": effect, "effect_version": effects[effect]}
                 for effect in operation.effects
             )
         for transition in execution.transitions:
@@ -311,7 +312,7 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
                 for after in transition.to_states
             )
             rows["transition_effect"].extend(
-                {"release_id": rid, "transition_id": transition.id, "effect_id": effect}
+                {"release_id": rid, "transition_id": transition.id, "effect_id": effect, "effect_version": effects[effect]}
                 for effect in transition.effects
             )
     # The index shares contextual role derivation with public Core property queries.

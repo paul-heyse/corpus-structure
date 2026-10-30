@@ -30,7 +30,10 @@ _NATIVE_CAPABILITIES = frozenset(
 )
 
 
-class ExecutionAdmissionError(ValueError):
+from .refusals import SemanticRefusal
+
+
+class ExecutionAdmissionError(SemanticRefusal):
     """The archived binding lacks a compatible trusted enforcing implementation."""
 
 
@@ -132,6 +135,7 @@ def _verify_deployment_functions(connection: Connection) -> None:
 
 def require_native_execution(connection: Connection, prepared: PreparedRelease) -> None:
     from sqlalchemy import text
+    from sqlalchemy.exc import DBAPIError
 
     _verify_deployment_functions(connection)
     try:
@@ -139,8 +143,10 @@ def require_native_execution(connection: Connection, prepared: PreparedRelease) 
             text("SELECT data.require_execution_release(:release)"),
             {"release": prepared.release_id},
         )
-    except Exception as exc:
-        reason = str(getattr(exc, "orig", exc)).splitlines()[0]
+    except DBAPIError as exc:
+        if getattr(exc.orig, "sqlstate", None) not in {"23514", "P0001"}:
+            raise
+        reason = str(exc.orig).splitlines()[0]
         raise ExecutionAdmissionError(
             "native execution deployment or archived binding is incompatible: "
             + reason
@@ -196,7 +202,7 @@ def require_archive_fence(connection: Connection) -> None:
 
 # Frozen from reviewed migration ASTs through semantic_0032.
 # Schema derive emits the corresponding SQL.
-_DESCRIPTOR_SHA256 = "91422915caf1f57ded4c05d3d954926bacb773bbd0178a40fda0d6f9d69af7c1"
+_DESCRIPTOR_SHA256 = "02c5904463651e7bf448646c1cc4bfa8107134fc503146c1adb47014d2ac06a7"
 _REQUIRE_SHA256 = "d4e70e27d077a8b8825f212664d3822c43e19dbd08b7f894f137a7fdae8ab32f"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

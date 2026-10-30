@@ -26,6 +26,7 @@ CREATE TABLE sem.operation_effect (
 	release_id TEXT NOT NULL, 
 	operation_id TEXT NOT NULL, 
 	effect_id TEXT NOT NULL, 
+	effect_version TEXT NOT NULL, 
 	CONSTRAINT pk_operation_effect PRIMARY KEY (release_id, operation_id, effect_id)
 );
 
@@ -51,6 +52,7 @@ CREATE TABLE sem.transition_effect (
 	release_id TEXT NOT NULL, 
 	transition_id TEXT NOT NULL, 
 	effect_id TEXT NOT NULL, 
+	effect_version TEXT NOT NULL, 
 	CONSTRAINT pk_transition_effect PRIMARY KEY (release_id, transition_id, effect_id)
 );
 
@@ -488,5 +490,5 @@ DO $repair$ DECLARE n text; owner_name text; previous_name text:=current_user; B
 	content BYTEA, 
 	content_digest TEXT
 )'; EXECUTE 'ALTER TABLE pg_temp.semantic_check_reference ADD CONSTRAINT ck_sql_admission_physical_022451ced1 CHECK (input_kind = ''dependency'')'; INSERT INTO pg_temp.semantic_physical_checks SELECT 'sem.sql_admission','ck_sql_admission_physical_022451ced1',pg_get_expr(conbin,conrelid) FROM pg_constraint WHERE conrelid='pg_temp.semantic_check_reference'::regclass AND conname='ck_sql_admission_physical_022451ced1'; SELECT conname INTO n FROM pg_constraint WHERE conrelid='sem.sql_admission'::regclass AND contype='c' AND pg_get_expr(conbin,conrelid)=(SELECT pg_get_expr(conbin,conrelid) FROM pg_constraint WHERE conrelid='pg_temp.semantic_check_reference'::regclass AND conname='ck_sql_admission_physical_022451ced1'); IF n IS NULL THEN RAISE EXCEPTION 'unmatched physical CHECK requires reviewed forward repair: sem.sql_admission.ck_sql_admission_physical_022451ced1'; ELSIF n<>'ck_sql_admission_physical_022451ced1' THEN EXECUTE format('ALTER TABLE sem.sql_admission RENAME CONSTRAINT %I TO %I',n,'ck_sql_admission_physical_022451ced1'); END IF; DROP TABLE pg_temp.semantic_check_reference; EXECUTE format('SET LOCAL ROLE %I',previous_name); END $repair$;
-INSERT INTO sem.physical_contract SELECT 'physical:8543aba370201fab88b80057994cd7d73d82aa22b6fb8273b29bbbf807525ce1',COALESCE(jsonb_agg(jsonb_build_object('relation',relation_name,'name',constraint_name,'expression',expression) ORDER BY relation_name,constraint_name),'[]'::jsonb),'76e241c9f28205640f3e4b97d5fc6cf270e6255a12f43992e9c7621927823866' FROM pg_temp.semantic_physical_checks;
+INSERT INTO sem.physical_contract SELECT 'physical:8647234638afd6bb2a79c05411ccbae24ab8ac0624954a5808fb78d907129a25',COALESCE(jsonb_agg(jsonb_build_object('relation',relation_name,'name',constraint_name,'expression',expression) ORDER BY relation_name,constraint_name),'[]'::jsonb),'76e241c9f28205640f3e4b97d5fc6cf270e6255a12f43992e9c7621927823866' FROM pg_temp.semantic_physical_checks;
 DROP TABLE pg_temp.semantic_physical_checks;

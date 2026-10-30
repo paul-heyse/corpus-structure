@@ -1,4 +1,47 @@
 SET LOCAL ROLE corpus_sem_publisher;
+CREATE OR REPLACE FUNCTION sem.require_execution_projection(r text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $projection$
+DECLARE document jsonb; model jsonb; actual jsonb; expected jsonb;
+BEGIN
+ SELECT convert_from(prepared_bytes,'UTF8')::jsonb INTO STRICT document FROM sem.release WHERE release_id=r;
+ -- Historical finalized archives retain their recorded projection ABI without backfill.
+ IF (SELECT convert_from(manifest_bytes,'UTF8')::jsonb->'profile'->>'compiler_version' FROM sem.release WHERE release_id=r)<>'13' THEN RETURN; END IF;
+ SELECT COALESCE(jsonb_agg(jsonb_build_object('kind',kind,'name',name,'body_hex',encode(body,'hex')) ORDER BY kind,name),'[]'::jsonb) INTO actual FROM sem.registry_row WHERE release_id=r;
+ SELECT COALESCE(jsonb_agg(value ORDER BY value->>'kind',value->>'name'),'[]'::jsonb) INTO expected FROM jsonb_array_elements(document->'products'->'registry_rows');
+ IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived registry projection differs' USING ERRCODE='23514'; END IF;
+ SELECT convert_from(body,'UTF8')::jsonb INTO model FROM sem.registry_row WHERE release_id=r AND kind='execution_model';
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,o->>'id' operation_id,o->>'implementation' implementation_id,b->>'version' implementation_version FROM jsonb_array_elements(model->'operations') o JOIN jsonb_array_elements(model->'implementations') b ON b->>'id'=o->>'implementation') x;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.execution_operation x WHERE release_id=r;
+ IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived execution_operation projection differs' USING ERRCODE='23514'; END IF;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,t->>'id' transition_id,t->>'operation' operation_id,t->>'lifecycle' lifecycle FROM jsonb_array_elements(model->'transitions') t) x;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.execution_transition x WHERE release_id=r;
+ IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived execution_transition projection differs' USING ERRCODE='23514'; END IF;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,t->>'id' transition_id,b.value prior_state,a.value result_state FROM jsonb_array_elements(model->'transitions') t CROSS JOIN LATERAL jsonb_array_elements_text(t->'from_states') b CROSS JOIN LATERAL jsonb_array_elements_text(t->'to_states') a) x;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.execution_edge x WHERE release_id=r;
+ IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived execution_edge projection differs' USING ERRCODE='23514'; END IF;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,o->>'id' operation_id,e.value effect_id,(SELECT d->>'version' FROM jsonb_array_elements(model->'effect_definitions') d WHERE d->>'id'=e.value) effect_version FROM jsonb_array_elements(model->'operations') o CROSS JOIN LATERAL jsonb_array_elements_text(o->'effects') e) x;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.operation_effect x WHERE release_id=r;
+ IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived operation_effect projection differs' USING ERRCODE='23514'; END IF;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,t->>'id' transition_id,e.value effect_id,(SELECT d->>'version' FROM jsonb_array_elements(model->'effect_definitions') d WHERE d->>'id'=e.value) effect_version FROM jsonb_array_elements(model->'transitions') t CROSS JOIN LATERAL jsonb_array_elements_text(t->'effects') e) x;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.transition_effect x WHERE release_id=r;
+ IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived transition_effect projection differs' USING ERRCODE='23514'; END IF;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,rule->>'policy_id' policy_id,rule->>'evidence_tier' evidence_tier,rule->>'agreement' agreement,rule->>'decision' decision,rule->>'decision_tier' decision_tier FROM sem.artifact a CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'decision_rules') rule WHERE a.release_id=r AND a.artifact_name='operation/scientific-policy.json') x;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.scientific_decision_rule x WHERE release_id=r;
+ IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived scientific_decision_rule projection differs' USING ERRCODE='23514'; END IF;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (WITH declarations AS (SELECT d FROM jsonb_array_elements(document->'products'->'definitions') d), props AS (
+ SELECT d,p FROM declarations CROSS JOIN LATERAL jsonb_array_elements(d->'properties') p
+ ) SELECT DISTINCT r release_id,d->>'iri' class_id,p->>'iri' property_id,roles.role
+ FROM props CROSS JOIN LATERAL (
+ SELECT 'identity' role WHERE EXISTS(SELECT FROM jsonb_array_elements(d->'identity_groups') g CROSS JOIN LATERAL jsonb_array_elements_text(g) member WHERE member.value=p->>'name')
+ UNION ALL SELECT 'required' WHERE (p->>'required')::boolean OR COALESCE((p->>'minimum_cardinality')::integer,0)>0
+ UNION ALL SELECT 'display' WHERE EXISTS(SELECT FROM sem.registry_row reg WHERE reg.release_id=r AND reg.kind='operation_property' AND convert_from(reg.body,'UTF8')::jsonb->>'class'=d->>'name' AND convert_from(reg.body,'UTF8')::jsonb->>'property'=p->>'iri' AND convert_from(reg.body,'UTF8')::jsonb->>'cs:role'='display')
+ ) roles) x;
+ SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.operation_property_role x WHERE release_id=r;
+ IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived operation_property_role projection differs' USING ERRCODE='23514'; END IF;
+END $projection$;
+REVOKE ALL ON FUNCTION sem.require_execution_projection(text) FROM PUBLIC;
+
+SET LOCAL ROLE corpus_sem_publisher;
 
 CREATE OR REPLACE FUNCTION sem.refuse_immutable_mutation() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $body$
@@ -982,48 +1025,6 @@ $transport$;
 REVOKE ALL ON FUNCTION data.publish_contract_batch(text,text,text,bytea) FROM PUBLIC,corpus_sem_writer,corpus_sem_reader;
 GRANT EXECUTE ON FUNCTION data.begin_stage() TO corpus_sem_writer;
 
-CREATE OR REPLACE FUNCTION sem.require_execution_projection(r text) RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $projection$
-DECLARE document jsonb; model jsonb; actual jsonb; expected jsonb;
-BEGIN
- SELECT convert_from(prepared_bytes,'UTF8')::jsonb INTO STRICT document FROM sem.release WHERE release_id=r;
- -- Historical finalized archives retain their recorded projection ABI without backfill.
- IF (SELECT convert_from(manifest_bytes,'UTF8')::jsonb->'profile'->>'compiler_version' FROM sem.release WHERE release_id=r)<>'13' THEN RETURN; END IF;
- SELECT COALESCE(jsonb_agg(jsonb_build_object('kind',kind,'name',name,'body_hex',encode(body,'hex')) ORDER BY kind,name),'[]'::jsonb) INTO actual FROM sem.registry_row WHERE release_id=r;
- SELECT COALESCE(jsonb_agg(value ORDER BY value->>'kind',value->>'name'),'[]'::jsonb) INTO expected FROM jsonb_array_elements(document->'products'->'registry_rows');
- IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived registry projection differs' USING ERRCODE='23514'; END IF;
- SELECT convert_from(body,'UTF8')::jsonb INTO model FROM sem.registry_row WHERE release_id=r AND kind='execution_model';
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,o->>'id' operation_id,o->>'implementation' implementation_id,b->>'version' implementation_version FROM jsonb_array_elements(model->'operations') o JOIN jsonb_array_elements(model->'implementations') b ON b->>'id'=o->>'implementation') x;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.execution_operation x WHERE release_id=r;
- IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived execution_operation projection differs' USING ERRCODE='23514'; END IF;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,t->>'id' transition_id,t->>'operation' operation_id,t->>'lifecycle' lifecycle FROM jsonb_array_elements(model->'transitions') t) x;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.execution_transition x WHERE release_id=r;
- IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived execution_transition projection differs' USING ERRCODE='23514'; END IF;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,t->>'id' transition_id,b.value prior_state,a.value result_state FROM jsonb_array_elements(model->'transitions') t CROSS JOIN LATERAL jsonb_array_elements_text(t->'from_states') b CROSS JOIN LATERAL jsonb_array_elements_text(t->'to_states') a) x;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.execution_edge x WHERE release_id=r;
- IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived execution_edge projection differs' USING ERRCODE='23514'; END IF;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,o->>'id' operation_id,e.value effect_id FROM jsonb_array_elements(model->'operations') o CROSS JOIN LATERAL jsonb_array_elements_text(o->'effects') e) x;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.operation_effect x WHERE release_id=r;
- IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived operation_effect projection differs' USING ERRCODE='23514'; END IF;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,t->>'id' transition_id,e.value effect_id FROM jsonb_array_elements(model->'transitions') t CROSS JOIN LATERAL jsonb_array_elements_text(t->'effects') e) x;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.transition_effect x WHERE release_id=r;
- IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived transition_effect projection differs' USING ERRCODE='23514'; END IF;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,rule->>'policy_id' policy_id,rule->>'evidence_tier' evidence_tier,rule->>'agreement' agreement,rule->>'decision' decision,rule->>'decision_tier' decision_tier FROM sem.artifact a CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'decision_rules') rule WHERE a.release_id=r AND a.artifact_name='operation/scientific-policy.json') x;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.scientific_decision_rule x WHERE release_id=r;
- IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived scientific_decision_rule projection differs' USING ERRCODE='23514'; END IF;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (WITH declarations AS (SELECT d FROM jsonb_array_elements(document->'products'->'definitions') d), props AS (
- SELECT d,p FROM declarations CROSS JOIN LATERAL jsonb_array_elements(d->'properties') p
- ) SELECT DISTINCT r release_id,d->>'iri' class_id,p->>'iri' property_id,roles.role
- FROM props CROSS JOIN LATERAL (
- SELECT 'identity' role WHERE EXISTS(SELECT FROM jsonb_array_elements(d->'identity_groups') g CROSS JOIN LATERAL jsonb_array_elements_text(g) member WHERE member.value=p->>'name')
- UNION ALL SELECT 'required' WHERE (p->>'required')::boolean OR COALESCE((p->>'minimum_cardinality')::integer,0)>0
- UNION ALL SELECT 'display' WHERE EXISTS(SELECT FROM sem.registry_row reg WHERE reg.release_id=r AND reg.kind='operation_property' AND convert_from(reg.body,'UTF8')::jsonb->>'class'=d->>'name' AND convert_from(reg.body,'UTF8')::jsonb->>'property'=p->>'iri' AND convert_from(reg.body,'UTF8')::jsonb->>'cs:role'='display')
- ) roles) x;
- SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.operation_property_role x WHERE release_id=r;
- IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived operation_property_role projection differs' USING ERRCODE='23514'; END IF;
-END $projection$;
-REVOKE ALL ON FUNCTION sem.require_execution_projection(text) FROM PUBLIC;
-
 -- Stable relational consumers. Candidate releases supply rows, never SQL identifiers or bodies.
 CREATE OR REPLACE FUNCTION sem.require_execution_operation(r text,operation text) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $operation$
@@ -1034,6 +1035,12 @@ BEGIN
  IF supported IS NULL OR NOT EXISTS(SELECT FROM sem.execution_operation o WHERE o.release_id=r AND o.operation_id=operation
   AND o.implementation_id=supported->>'implementation' AND o.implementation_version=supported->>'version') THEN
   RAISE EXCEPTION 'unsupported execution operation % in release %',operation,r USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM sem.operation_effect e WHERE e.release_id=r AND e.operation_id=operation
+  AND e.effect_version IS DISTINCT FROM data.execution_contract_descriptor()->'supported_effect_versions'->>e.effect_id)
+ OR EXISTS(SELECT FROM sem.transition_effect e JOIN sem.execution_transition t USING(release_id,transition_id)
+  WHERE e.release_id=r AND t.operation_id=operation
+  AND e.effect_version IS DISTINCT FROM data.execution_contract_descriptor()->'supported_effect_versions'->>e.effect_id) THEN
+  RAISE EXCEPTION 'unsupported execution effect version for %',operation USING ERRCODE='23514'; END IF;
  SELECT COALESCE(jsonb_agg(effect_id ORDER BY effect_id),'[]'::jsonb) INTO actual
  FROM sem.operation_effect WHERE release_id=r AND operation_id=operation;
  IF actual IS DISTINCT FROM supported->'effects' THEN
@@ -1111,6 +1118,47 @@ BEGIN
 END $lock$;
 REVOKE ALL ON FUNCTION ops.lock_execution_run(bigint,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.lock_execution_run(bigint,text) TO corpus_sem_writer;
+
+CREATE OR REPLACE FUNCTION eval.guard_scientific_decisions() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $scientific$
+DECLARE r text;
+BEGIN
+ SELECT release_id INTO STRICT r FROM eval.reference_set WHERE id=NEW.set_id;
+ PERFORM sem.require_execution_operation(r,'reference_grade');
+ IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN RETURN NEW; END IF;
+ IF jsonb_typeof(NEW.result->'units') IS DISTINCT FROM 'array'
+  OR jsonb_typeof(NEW.result->'undecided') IS DISTINCT FROM 'array' THEN
+  RAISE EXCEPTION 'scientific report requires typed units and undecided arrays' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements((NEW.result->'units')||(NEW.result->'undecided')) unit
+  WHERE jsonb_typeof(unit) IS DISTINCT FROM 'object' OR jsonb_typeof(unit->'comparisons') IS DISTINCT FROM 'array') THEN
+  RAISE EXCEPTION 'scientific report unit requires comparisons array' USING ERRCODE='23514'; END IF;
+
+ IF EXISTS(
+  SELECT FROM (
+   SELECT comparison FROM jsonb_array_elements(COALESCE(NEW.result->'units','[]'::jsonb)||COALESCE(NEW.result->'undecided','[]'::jsonb)) unit
+   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(unit->'comparisons','[]'::jsonb)) comparison
+  ) reported LEFT JOIN sem.scientific_decision_rule rule
+   ON rule.release_id=r AND rule.policy_id=reported.comparison->>'policy_id'
+   AND rule.evidence_tier=reported.comparison->>'evidence_tier' AND rule.agreement=reported.comparison->>'agreement'
+  WHERE rule.policy_id IS NULL OR rule.decision IS DISTINCT FROM reported.comparison->>'outcome'
+   OR rule.decision_tier IS DISTINCT FROM reported.comparison->>'decision_tier'
+ ) THEN RAISE EXCEPTION 'scientific decision differs from bound evidence policy' USING ERRCODE='23514'; END IF;
+ RETURN NEW;
+END $scientific$;
+REVOKE ALL ON FUNCTION eval.guard_scientific_decisions() FROM PUBLIC;
+CREATE TRIGGER scientific_decisions BEFORE INSERT ON eval.reference_evaluation FOR EACH ROW EXECUTE FUNCTION eval.guard_scientific_decisions();
+SET LOCAL ROLE corpus_sem_publisher;
+
+CREATE OR REPLACE FUNCTION ops.lock_finalization_run(p_run bigint) RETURNS ops.run
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $finalization$
+DECLARE job ops.run;
+BEGIN
+ SELECT * INTO STRICT job FROM ops.run WHERE id=p_run FOR UPDATE;
+ PERFORM sem.require_execution_operation(job.release_id,'evaluate');
+ RETURN job;
+END $finalization$;
+REVOKE ALL ON FUNCTION ops.lock_finalization_run(bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.lock_finalization_run(bigint) TO corpus_sem_writer;
 
 SET LOCAL ROLE __MIGRATION_OWNER__;
 CREATE OR REPLACE FUNCTION ops.guard_execution_task() RETURNS trigger LANGUAGE plpgsql SET search_path TO 'pg_catalog', 'pg_temp' AS $$

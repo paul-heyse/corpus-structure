@@ -2489,6 +2489,7 @@ classes:
       release_id: {range: string, required: true}
       operation_id: {range: string, required: true}
       effect_id: {range: string, required: true}
+      effect_version: {range: string, required: true}
     unique_keys:
       primary_key: {unique_key_slots: [release_id, operation_id, effect_id]}
     annotations:
@@ -2500,6 +2501,7 @@ classes:
       release_id: {range: string, required: true}
       transition_id: {range: string, required: true}
       effect_id: {range: string, required: true}
+      effect_version: {range: string, required: true}
     unique_keys:
       primary_key: {unique_key_slots: [release_id, transition_id, effect_id]}
     annotations:

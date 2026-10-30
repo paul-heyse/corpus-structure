@@ -131,6 +131,7 @@ def test_native_attempt_and_nonterminal_transition_fences(
         pytest.raises(DBAPIError, match="claim or reclaim"),
         semantic_db_engine.begin() as conn,
     ):
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.execute(
             table("ops.task")
             .update()
