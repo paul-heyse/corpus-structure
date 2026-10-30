@@ -786,11 +786,19 @@ def complete_unit_result(
 
         if task["status"] != "running":
             products_table = table("ops.parsing_layer_product")
-            retained = dict(conn.execute(select(products_table.c.product_key, products_table.c.content_digest).where(products_table.c.task_id == task_id, products_table.c.kind != "source")).all())
+            retained = dict(
+                conn.execute(
+                    select(products_table.c.product_key, products_table.c.content_digest).where(
+                        products_table.c.task_id == task_id, products_table.c.kind != "source"
+                    )
+                ).all()
+            )
             proposed = {p.product_key: p.digest for p in result.parsing_products.products}
             if retained != proposed:
                 raise OperationConflict("terminal parsing product set differs")
-        store_layered_products(conn, task_id=task_id, attempt=attempt, holder=holder, products=result.parsing_products)
+        store_layered_products(
+            conn, task_id=task_id, attempt=attempt, holder=holder, products=result.parsing_products
+        )
     rows = []
     for item in items:
         rid = item.get("rendition_id", rendition_id)
@@ -946,7 +954,9 @@ class BoundReader:
         from .parsing_products import ProductReference
 
         if document_id not in self.source_tasks:
-            raise OperationConflict("source product task identity has not been bound for this batch")
+            raise OperationConflict(
+                "source product task identity has not been bound for this batch"
+            )
         return ProductReference(self.source_tasks[document_id], "source", content_digest)
 
     def parsing_fallback_macros(self):
@@ -1054,14 +1064,23 @@ class BoundReader:
         """Common immutable product selection for the run and its reused producers."""
         from .parsing_products import select_layered_products
 
-        return select_layered_products(self.conn, run_id=self.run_id, rendition_id=rendition_id, **selection)
+        return select_layered_products(
+            self.conn, run_id=self.run_id, rendition_id=rendition_id, **selection
+        )
 
     def parsing_product(self, rendition_id: int, *, producing_task_id: int | None = None):
         """Compatibility root shim through the common qualified product selector."""
-        from .parsing_products import read_layered_product
+        from .parsing_products import PreparedParsingProduct, read_layered_product
 
-        selected = self.layered_products(rendition_id, kind="source", producing_task_id=producing_task_id)
-        return read_layered_product(self.conn, selected[0].reference) if selected else None
+        selected = self.layered_products(
+            rendition_id, kind="source", producing_task_id=producing_task_id
+        )
+        if not selected:
+            return None
+        result = read_layered_product(self.conn, selected[0].reference)
+        if result is not None and not isinstance(result, PreparedParsingProduct):
+            raise OperationConflict("source product selector returned a derived product")
+        return result
 
     def segments(self, rendition_id: int) -> Mapping[str, int]:
         s = table("kb.segment")

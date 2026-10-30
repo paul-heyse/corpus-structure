@@ -9957,6 +9957,7 @@ analysis_profiles:
   text_policy: {recipe: canonical-token-layout-1, offsets: codepoints, atoms: math-reference, segmentation: configured-spacy}
   alignment_policy: {recipe: semantic-alignment-1, max_iterations: 8, solver: scipy-dense, topology: networkx, ambiguity: refuse-equal-best}
   placement_policy: {recipe: citation-cascade-2, candidate_limit: 5, token_cutoff: 80, token_pad: 3, char_cutoff: 85, char_pad: '0.30', char_errors: '0.15', pick_cutoff: 80, regex_timeout: '1.0', refine_timeout: '0.2'}
+  mathematical_conventions: [naturals-zero-1, set-builder-real-domain-1]
   grammar_recipe: extended-lark-3
   transformer_recipe: sympy-transform-3
   shared_consumers: [normalize.formula, extract.math]

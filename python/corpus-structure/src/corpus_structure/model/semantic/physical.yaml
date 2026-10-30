@@ -3271,8 +3271,9 @@ classes:
         {"columns": ["target_task_id", "target_product_key", "component_id"], "target": "kb.parsing_layer_component.task_id,product_key,component_id"},
         {"columns": ["target_task_id", "target_product_key", "node_id"], "target": "kb.parsing_layer_node.task_id,product_key,node_id"},
         {"columns": ["target_task_id", "target_product_key", "target_content_digest"], "target": "ops.parsing_layer_product.task_id,product_key,content_digest"}]'
-      ph:checks: '["ordinal >= 0", "(component_id IS NULL) <> (node_id IS NULL)", "(task_id = target_task_id
-        AND dependency_name IS NULL) OR (task_id <> target_task_id AND dependency_name IS NOT NULL)"]'
+      ph:checks: '["ordinal >= 0", "(component_id IS NULL) <> (node_id IS NULL)", "((task_id = target_task_id
+        AND product_key = target_product_key) AND dependency_name IS NULL) OR ((task_id <> target_task_id
+        OR product_key <> target_product_key) AND dependency_name IS NOT NULL)"]'
   parsing_layer_mapping:
     in_subset:
     - kb
@@ -3365,8 +3366,9 @@ classes:
         {"columns": ["target_task_id", "target_product_key", "representation_id", "unit"], "target": "kb.parsing_layer_representation.task_id,product_key,representation_id,unit"},
         {"columns": ["target_task_id", "target_product_key", "target_content_digest"], "target": "ops.parsing_layer_product.task_id,product_key,content_digest"}]'
       ph:checks: '["start_offset >= 0 AND end_offset >= start_offset", "ordinal >= 0", "side IN (''source'',''target'')",
-        "(task_id = target_task_id AND dependency_name IS NULL) OR (task_id <> target_task_id AND dependency_name
-        IS NOT NULL)"]'
+        "((task_id = target_task_id AND product_key = target_product_key) AND dependency_name IS NULL)
+        OR ((task_id <> target_task_id OR product_key <> target_product_key) AND dependency_name IS NOT
+        NULL)"]'
   parsing_layer_dependency:
     in_subset:
     - kb

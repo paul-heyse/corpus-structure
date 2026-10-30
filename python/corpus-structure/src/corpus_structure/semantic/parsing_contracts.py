@@ -96,7 +96,11 @@ def validate_parsing_contracts(model: ExecutionModelProducts) -> None:
         "mapping/exclude",
     }
     supported_ids = {"html5lib-source-1", "pylatexenc-structure-1", "lark-math-3"}
-    if not model.parsing_adapters or len({a.adapter_id for a in model.parsing_adapters}) != len(model.parsing_adapters) or not {a.adapter_id for a in model.parsing_adapters} <= supported_ids:
+    if (
+        not model.parsing_adapters
+        or len({a.adapter_id for a in model.parsing_adapters}) != len(model.parsing_adapters)
+        or not {a.adapter_id for a in model.parsing_adapters} <= supported_ids
+    ):
         _fail(
             "unsupported_parsing_adapter",
             "parsing_adapters",
@@ -123,12 +127,46 @@ def validate_parsing_contracts(model: ExecutionModelProducts) -> None:
         )
 
     profiles = {
-        "pylatexenc-structure-1": ("text-structure-1", "pylatexenc-3.0b2", None, "strict-malformed", "explicit-partial", {"text/lexical-partition", "text/parse-view", "tex/structure", "tex/macro-expansion"}),
-        "lark-math-3": ("prepared-math-3", "lark-1.3.1/sympy-1.14.0", "extended-lark-3", "refuse-invalid", "explicit-alternatives", {"math/lexical", "math/structure", "math/syntax", "math/interpretation", "math/assessment"}),
+        "pylatexenc-structure-1": (
+            "text-structure-1",
+            "pylatexenc-3.0b2",
+            None,
+            "strict-malformed",
+            "explicit-partial",
+            {"text/lexical-partition", "text/parse-view", "tex/structure", "tex/macro-expansion"},
+        ),
+        "lark-math-3": (
+            "prepared-math-3",
+            "lark-1.3.1/sympy-1.14.0",
+            "extended-lark-3",
+            "refuse-invalid",
+            "explicit-alternatives",
+            {
+                "math/lexical",
+                "math/structure",
+                "math/syntax",
+                "math/interpretation",
+                "math/assessment",
+            },
+        ),
     }
     for adapter in model.parsing_adapters:
         if adapter.adapter_id not in profiles:
             continue
         revision, frontend, grammar, repair, ambiguity, capabilities = profiles[adapter.adapter_id]
-        if (adapter.implementation_revision != revision or adapter.frontend_revision != frontend or adapter.grammar_revision != grammar or adapter.repair_policy != repair or adapter.ambiguity_policy != ambiguity or set(adapter.capabilities) != capabilities or adapter.lifetime != "operation" or adapter.coordinate_fidelity != "exact" or adapter.provenance_universe != "canonical_output"):
-            _fail("unsupported_parsing_adapter", "parsing_adapters/" + adapter.adapter_id, "qualify the actual finite producer profile before changing it")
+        if (
+            adapter.implementation_revision != revision
+            or adapter.frontend_revision != frontend
+            or adapter.grammar_revision != grammar
+            or adapter.repair_policy != repair
+            or adapter.ambiguity_policy != ambiguity
+            or set(adapter.capabilities) != capabilities
+            or adapter.lifetime != "operation"
+            or adapter.coordinate_fidelity != "exact"
+            or adapter.provenance_universe != "canonical_output"
+        ):
+            _fail(
+                "unsupported_parsing_adapter",
+                "parsing_adapters/" + adapter.adapter_id,
+                "qualify the actual finite producer profile before changing it",
+            )

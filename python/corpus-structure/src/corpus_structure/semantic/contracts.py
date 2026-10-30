@@ -463,6 +463,7 @@ class AnalysisProfile:
     transformer_recipe: str = ""
     shared_consumers: tuple[str, ...] = ()
     scientific_profiles: tuple[ScientificComputationProfile, ...] = ()
+    mathematical_conventions: tuple[str, ...] = ()
     text_policy: TextPreparationPolicy | None = None
     alignment_policy: AlignmentPolicyDefinition | None = None
     placement_policy: PlacementPolicyDefinition | None = None

@@ -51,7 +51,13 @@ from corpus_structure.core.vocab import (
 
 if typing.TYPE_CHECKING:
     from corpus_structure.ingest.sentences import TextLayout
-    from corpus_structure.semantic.parsing_products import PreparedParsingProduct, PreparedParsingProductSet, PreparedLayeredParsingProduct, ProductReference
+    from corpus_structure.semantic.parsing_products import (
+        PreparedLayeredParsingProduct,
+        PreparedParsingProduct,
+        PreparedParsingProductSet,
+        ProductReference,
+        SelectedParsingProduct,
+    )
 
 
 # --- Digests and payload hashes ----------------------------------------------------------------
@@ -236,6 +242,12 @@ class Reader(Protocol):
         self, payload: Mapping[str, Any], original: bytes
     ) -> PreparedParsingProduct:
         """Validate source products with the producing run's archived parsing contract."""
+        ...
+
+    def layered_products(
+        self, rendition_id: int, **selection: Any
+    ) -> tuple[SelectedParsingProduct, ...]:
+        """Immutable products selected through this run's effective producing tasks."""
         ...
 
     def parsing_fallback_macros(self) -> tuple[str, Mapping[str, Any]]:

@@ -127,6 +127,7 @@ classes:
       packet: {range: string}
   AnalysisProfile:
     attributes:
+      mathematical_conventions: {range: string, multivalued: true}
       capture_policy: {range: CapturePolicyDefinition, inlined: true}
       invocation_policy: {range: InvocationPolicyDefinition, inlined: true}
       text_policy: {range: TextPreparationPolicy, inlined: true}
