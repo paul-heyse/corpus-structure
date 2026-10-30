@@ -162,3 +162,42 @@ def test_timeout_attempt_does_not_poison_a_later_native_request(monkeypatch):
     assert value.symbolic_value() == sympy.Symbol("x")
     assert value.state("symbolic").outcome == "resolved"
     assert len(calls) == 2
+
+
+def test_indefinite_integral_keeps_its_free_argument():
+    value = operand(r"\int x dx")
+    assert value.symbolic_value().free_symbols == {sympy.Symbol("x")}
+
+
+def test_limit_has_source_bound_identity():
+    value = operand(r"(\lim_{x\to 0} x) + y")
+    native = value.symbolic_value()
+    limit = next(iter(native.atoms(sympy.Limit)))
+    assert isinstance(limit.args[1], sympy.Dummy)
+    assert native.free_symbols == {sympy.Symbol("y")}
+
+
+def test_unavailable_source_does_not_assert_empty_definedness():
+    value = operand("x/")
+    answer = value.assess("definedness")
+    assert answer.outcome == "invalid"
+    assert answer.diagnostic is not None and "incomplete" in answer.diagnostic
+
+
+def test_scoped_function_declarations_have_distinct_native_identity():
+    def scoped(scope):
+        return operand("f(x)", source_id="document", scope=scope, declarations=[{
+            "symbol":"f", "role":"function", "authority":"source", "evidence":"declaration",
+            "source_id":"document", "scope":scope,
+        }])
+    assert scoped("left").symbolic_value() != scoped("right").symbolic_value()
+    assert scoped("left").symbolic_value() == scoped("left").symbolic_value()
+
+
+def test_binder_role_conflict_cannot_silently_adopt_outer_constant_meaning():
+    value = operand(r"\int_0^1 e de", constants=("e",))
+    reading = value.symbolic_reading()
+    assert reading.status is ParseOutcome.AMBIGUOUS
+    assert any("binder role conflicts" in note for note in reading.notes)
+    with pytest.raises(grammar.Ambiguous):
+        value.symbolic_value()

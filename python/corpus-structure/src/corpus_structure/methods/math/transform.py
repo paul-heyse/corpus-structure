@@ -167,7 +167,12 @@ class ToSympy(TransformToSymPyExpr):
         raise NotRepresentable("\\pm")
 
     def function_applied(self, tokens: list[Any]) -> Any:
-        name = str(tokens[0])
+        head = tokens[0]
+        name = head.name if isinstance(head, sympy.Symbol) else str(head)
+        # Source-scoped declarations have deterministic native identity. Preserve it
+        # for callable construction as well as variable construction.
+        if isinstance(head, sympy.Dummy):
+            name = f"{name}@{head.dummy_index}"
         known = KNOWN_FUNCTIONS.get(name)
         if known is not None:
             return known(*_args(tokens[2]))
@@ -356,7 +361,12 @@ def _source_binders(tree: _tree.Node) -> tuple[_tree.Node, dict[str, Any]]:
         if node.data in {"summation", "product"} and len(node.children) >= 3:
             declaration = variable(node.children[1])
             body_indexes = {2}
-        elif node.data == "normal_integral" and len(node.children) >= 3:
+        elif node.data == "limit" and len(node.children) >= 4:
+            declaration = variable(node.children[2])
+            body_indexes = {len(node.children) - 1}
+        elif node.data == "normal_integral" and len(node.children) >= 3 and any(
+            isinstance(child, Token) and str(child) in {"_", "^"} for child in node.children
+        ):
             candidate = node.children[-1]
             if isinstance(candidate, Token) and candidate.type == "NAMED_SYMBOL":
                 declaration = candidate
@@ -379,7 +389,10 @@ def _source_binders(tree: _tree.Node) -> tuple[_tree.Node, dict[str, Any]]:
         for index, child in enumerate(node.children):
             if child is declaration:
                 children.append(walk(child, local))
-            elif declaration is not None and index == 1 and node.data in {"summation", "product"}:
+            elif declaration is not None and (
+                (index == 1 and node.data in {"summation", "product"})
+                or (index == 2 and node.data == "limit")
+            ):
                 # Replace the declaration occurrence, not matching names in the bounds.
                 def limits(part):
                     if part is declaration:

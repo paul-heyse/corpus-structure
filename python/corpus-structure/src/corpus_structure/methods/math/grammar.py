@@ -596,6 +596,7 @@ class _Resolver:
         conflicts = {bare(x) for x in context.conflicts}
         self.functions = {bare(x) for x in context.functions} - conflicts
         self.variables = {bare(x) for x in context.variables} - conflicts
+        self.constants = {bare(x) for x in context.constants} - conflicts
         self.conventions = context.conventions
         self.definition_rule = context.definition_rule
         self.declarations: list[LocalDeclaration] = []
@@ -721,6 +722,24 @@ class _Resolver:
 
     def _resolve(self, node: _tree.Node) -> _tree.Node:
         if isinstance(node, Token):
+            return node
+        binder = None
+        if node.data in {"summation", "product", "set_builder"} and len(node.children) > 1:
+            binder = next((t for t in _tree.leaves(node.children[1]) if t.type in _SYMBOL_TOKENS), None)
+        elif node.data == "limit" and len(node.children) > 2:
+            binder = next((t for t in _tree.leaves(node.children[2]) if t.type in _SYMBOL_TOKENS), None)
+        elif node.data == "normal_integral" and any(
+            isinstance(child, Token) and str(child) in {"_", "^"} for child in node.children
+        ):
+            candidate = node.children[-1]
+            if isinstance(candidate, Token) and candidate.type in _SYMBOL_TOKENS:
+                binder = candidate
+        if binder is not None and self.name(binder) in self.functions | self.constants:
+            # The source introduces a lexical binder, while this profile projection
+            # supplies a different outer role. Keep the conflict explicit until an
+            # occurrence-scoped declaration projection can disambiguate its body.
+            self.unresolved += 1
+            self.notes.append(f"binder role conflicts with outer declaration: {self.name(binder)}")
             return node
         candidates = node.children
         if node.data == "_ambig":

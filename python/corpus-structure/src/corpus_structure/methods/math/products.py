@@ -155,7 +155,8 @@ def assessment_product_payload(
     product_key: str = "assessment",
 ) -> dict[str, Any]:
     """Publish named evidence against one exact selected mathematical interpretation."""
-    coverage = "partial" if assessment.outcome in {"unsupported", "invalid", "timeout"} else "complete"
+    coverage = "partial" if (assessment.outcome in {"unsupported", "invalid", "timeout"}
+        or operand.interpretation().status.value != "ok") else "complete"
     p = _envelope("assessment", root, product_key, _meaning(assessment.outcome), coverage)
     dependency = _dependency("interpretation", interpretation_product)
     p["dependencies"] = [_dependency("source", root), dependency]

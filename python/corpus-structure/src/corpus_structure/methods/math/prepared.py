@@ -220,14 +220,21 @@ class PreparedMathInput:
         key = question, predicate
         if key in self._assessments:
             return self._assessments[key]
+        reading = self.interpretation()
         conditions = self.definedness()
+        if reading.tree is None:
+            timeout = reading.failure is not None and reading.failure.category == "timeout"
+            return MathAssessment(question, "timeout" if timeout else "invalid", conditions=conditions,
+                                  diagnostic="source interpretation is unavailable; definedness is incomplete")
         try:
             with grammar.deadline(self.seconds):
                 if self.premises.unsupported:
                     result = MathAssessment(question, "unsupported", conditions=conditions,
                                             diagnostic="unsupported source assumptions")
                 elif question == "definedness":
-                    result = MathAssessment(question, "resolved", conditions, conditions)
+                    result = MathAssessment(question,
+                        "unknown" if reading.status is ParseOutcome.AMBIGUOUS else "resolved",
+                        conditions, conditions)
                 else:
                     value = self.symbolic_value()
                     if question == "predicate" and predicate in PREDICATES:
