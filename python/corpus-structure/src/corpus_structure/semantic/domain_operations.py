@@ -2017,18 +2017,7 @@ def consolidate_cut(
         )
         from .arrow_publication import SnapshotDerivedPublication, publish_arrow_on_connection
 
-        receipt = publish_arrow_on_connection(
-            conn,
-            SnapshotDerivedPublication.from_rows(
-                batch,
-                source=inputs.source_binding,
-                operation_id="evaluate",
-                projection_id=compiled.projection_id,
-                contract_id="candidate",
-                cut_id=cut_id,
-                profile_digest=compiled.profile.digest,
-            ),
-        )
+        receipt = publish_arrow_on_connection(conn, batch)
         if done:
             return receipt
         # A source receipt, proof receipts and the run result are one atomic transaction. The
@@ -2096,7 +2085,14 @@ def consolidate_cut(
             ),
         )
     batch = batch.bind_preparation(inputs.prepared)
-    receipt = _publish(engine, batch, publish, attempts=attempts)
+    from .arrow_publication import SnapshotDerivedPublication
+
+    publication = SnapshotDerivedPublication.from_rows(
+        batch, source=inputs.source_binding, operation_id="evaluate",
+        projection_id=compiled.projection_id, contract_id="candidate",
+        cut_id=cut_id, profile_digest=compiled.profile.digest,
+    )
+    receipt = _publish(engine, publication, publish, attempts=attempts)
     with engine.connect() as conn:
         revision = conn.execute(
             select(table("data.realization").c.data_revision).where(
