@@ -50,8 +50,35 @@ classes:
       absolute_tolerance: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_absolute_tolerance}
       seed: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_seed}
       numeric_requires: {range: string, required: true, slot_uri: execution:ScientificComputationProfile_numeric_requires}
+  TextPreparationPolicy:
+    attributes:
+      recipe: {range: string, required: true, slot_uri: execution:TextPreparationPolicy_recipe}
+      offsets: {range: string, required: true, slot_uri: execution:TextPreparationPolicy_offsets}
+      atoms: {range: string, required: true, slot_uri: execution:TextPreparationPolicy_atoms}
+      segmentation: {range: string, required: true, slot_uri: execution:TextPreparationPolicy_segmentation}
+  AlignmentPolicyDefinition:
+    attributes:
+      recipe: {range: string, required: true, slot_uri: execution:AlignmentPolicyDefinition_recipe}
+      max_iterations: {range: integer, required: true, slot_uri: execution:AlignmentPolicyDefinition_max_iterations}
+      solver: {range: string, required: true, slot_uri: execution:AlignmentPolicyDefinition_solver}
+      topology: {range: string, required: true, slot_uri: execution:AlignmentPolicyDefinition_topology}
+      ambiguity: {range: string, required: true, slot_uri: execution:AlignmentPolicyDefinition_ambiguity}
+  PlacementPolicyDefinition:
+    attributes:
+      recipe: {range: string, required: true, slot_uri: execution:PlacementPolicyDefinition_recipe}
+      token_cutoff: {range: integer, required: true, slot_uri: execution:PlacementPolicyDefinition_token_cutoff}
+      token_pad: {range: integer, required: true, slot_uri: execution:PlacementPolicyDefinition_token_pad}
+      char_cutoff: {range: integer, required: true, slot_uri: execution:PlacementPolicyDefinition_char_cutoff}
+      char_pad: {range: string, required: true, slot_uri: execution:PlacementPolicyDefinition_char_pad}
+      char_errors: {range: string, required: true, slot_uri: execution:PlacementPolicyDefinition_char_errors}
+      pick_cutoff: {range: integer, required: true, slot_uri: execution:PlacementPolicyDefinition_pick_cutoff}
+      regex_timeout: {range: string, required: true, slot_uri: execution:PlacementPolicyDefinition_regex_timeout}
+      refine_timeout: {range: string, required: true, slot_uri: execution:PlacementPolicyDefinition_refine_timeout}
   AnalysisProfile:
     attributes:
+      text_policy: {range: TextPreparationPolicy, inlined: true}
+      alignment_policy: {range: AlignmentPolicyDefinition, inlined: true}
+      placement_policy: {range: PlacementPolicyDefinition, inlined: true}
       grammar_recipe: {range: string, slot_uri: execution:AnalysisProfile_grammar_recipe}
       transformer_recipe: {range: string, slot_uri: execution:AnalysisProfile_transformer_recipe}
       shared_consumers: {range: string, multivalued: true, slot_uri: execution:AnalysisProfile_shared_consumers}

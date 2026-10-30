@@ -8682,7 +8682,10 @@ effect_definitions:
 
 analysis_profiles:
 - id: mathematical-interpretation
-  version: '2'
+  version: '3'
+  text_policy: {recipe: canonical-token-layout-1, offsets: codepoints, atoms: math-reference, segmentation: configured-spacy}
+  alignment_policy: {recipe: semantic-alignment-1, max_iterations: 8, solver: scipy-dense, topology: networkx, ambiguity: refuse-equal-best}
+  placement_policy: {recipe: citation-cascade-1, token_cutoff: 80, token_pad: 3, char_cutoff: 85, char_pad: '0.30', char_errors: '0.15', pick_cutoff: 80, regex_timeout: '1.0', refine_timeout: '0.2'}
   grammar_recipe: extended-lark-2
   transformer_recipe: sympy-transform-2
   shared_consumers: [normalize.formula, extract.math]

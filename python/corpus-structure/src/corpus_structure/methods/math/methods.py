@@ -575,7 +575,11 @@ class SymbolScope(_PerRendition):
             stored = stored_math(ctx.reader, ren)
             macros = tex.effective_macros(ren.content.macros, cfg.section().macro_table())
             layout_reader = getattr(ctx.reader, "text_layouts", None)
-            layouts = layout_reader(ren.id, cfg.sentences) if layout_reader is not None else ()
+            layouts = (
+                layout_reader(ren.id, cfg.sentences, ren.content)
+                if layout_reader is not None
+                else ()
+            )
             scopes = resolve_scopes(
                 ren.content,
                 stored.values,

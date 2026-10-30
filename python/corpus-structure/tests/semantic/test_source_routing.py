@@ -150,6 +150,52 @@ chains:
             select(table("ops.run").c.options).where(table("ops.run").c.id == run)
         ).scalar_one()["corpus"]["documents"]
         assert len(docs) == 1
+        import pytest
+        from sqlalchemy import text
+        from sqlalchemy.exc import DBAPIError
+
+        from corpus_structure.ingest.sentences import SentenceConfig
+        from corpus_structure.semantic.operations import BoundReader
+
+        build = table("ops.rendition_build")
+        stored = (
+            conn.execute(
+                select(build)
+                .join(table("ops.task"), build.c.task_id == table("ops.task").c.id)
+                .where(table("ops.task").c.run_id == run)
+            )
+            .mappings()
+            .one()
+        )
+        assert stored["text_layout"]["layouts"]
+        loaded = BoundReader(conn, run, prepared).text_layouts(
+            stored["rendition_id"], SentenceConfig()
+        )
+        assert loaded
+        assert (
+            BoundReader(conn, run, prepared).text_layouts(
+                stored["rendition_id"], SentenceConfig(exclude=("ner",))
+            )
+            == ()
+        )
+        with pytest.raises(DBAPIError, match="permission denied"), conn.begin_nested():
+            conn.execute(
+                text("UPDATE ops.rendition_build SET text_layout=NULL WHERE task_id=:task"),
+                {"task": stored["task_id"]},
+            )
+        with semantic_db_engine.begin() as owner_conn:
+            owner_name = owner_conn.exec_driver_sql(
+                "SELECT pg_get_userbyid(relowner) FROM pg_class "
+                "WHERE oid='ops.rendition_build'::regclass"
+            ).scalar_one()
+            owner_conn.exec_driver_sql(
+                "SET LOCAL ROLE " + owner_conn.dialect.identifier_preparer.quote(owner_name)
+            )
+            with pytest.raises(DBAPIError, match="immutable"), owner_conn.begin_nested():
+                owner_conn.execute(
+                    text("UPDATE ops.rendition_build SET text_layout=NULL WHERE task_id=:task"),
+                    {"task": stored["task_id"]},
+                )
         tasks = (
             conn.execute(
                 select(table("ops.task"))

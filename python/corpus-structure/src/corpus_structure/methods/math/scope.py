@@ -57,7 +57,12 @@ from corpus_structure.core.vocab import (
     SegmentKind,
 )
 from corpus_structure.ingest.sentences import (
-    Block, SentenceConfig, TextLayout, block_of, make_doc, pipeline,
+    Block,
+    SentenceConfig,
+    TextLayout,
+    block_of,
+    make_doc,
+    pipeline,
 )
 from corpus_structure.methods.math.spans import MathRelation, SpanValue, SymbolMention
 
@@ -293,9 +298,18 @@ def resolve_scopes(
     sites: list[BindingSite] = []
     for block, block_sentences in _blocks(content):
         sites += _sites(
-            content, block, block_sentences, tokens, nlp, matcher, phrases, unit_at, section_at,
-            macros, text_layouts.get((block.start, block.end)) if text_layouts is not None else None,
-            policy.recipe
+            content,
+            block,
+            block_sentences,
+            tokens,
+            nlp,
+            matcher,
+            phrases,
+            unit_at,
+            section_at,
+            macros,
+            text_layouts.get((block.start, block.end)) if text_layouts is not None else None,
+            policy.recipe,
         )
     sites.sort(key=lambda s: s.mention.start)  # stable: page order, then creation
     sites = _with_reopens(sites)
@@ -303,8 +317,9 @@ def resolve_scopes(
     for site in sites:
         by_symbol.setdefault(site.symbol, []).append(site)
     mention_symbols = [
-        (m, symbol_form(content.canonical_text[m.start:m.end], macros))
-        for m in mentions if not m.constant
+        (m, symbol_form(content.canonical_text[m.start : m.end], macros))
+        for m in mentions
+        if not m.constant
     ]
     positions_by_symbol: dict[str, list[int]] = {}
     for mention, symbol in mention_symbols:
@@ -330,7 +345,9 @@ def _sites(
     layout: TextLayout | None = None,
     recipe: str = "canonical-token-layout-1",
 ) -> list[BindingSite]:
-    doc: Doc = make_doc(nlp, segment_block(content, block), layout, start=block.start, recipe=recipe)
+    doc: Doc = make_doc(
+        nlp, segment_block(content, block), layout, start=block.start, recipe=recipe
+    )
     starts = {s.start - block.start for s in block_sentences}
     for token in doc[1:]:
         token.is_sent_start = token.idx in starts
@@ -406,7 +423,9 @@ def _with_reopens(sites: Sequence[BindingSite]) -> list[BindingSite]:
     for site in sites:
         if site.reopen:
             previous = previous_by_symbol.get(site.symbol, ())
-            index = bisect.bisect_left(starts_by_symbol.get(site.symbol, ()), site.mention.start) - 1
+            index = (
+                bisect.bisect_left(starts_by_symbol.get(site.symbol, ()), site.mention.start) - 1
+            )
             if index >= 0:
                 site = dataclasses.replace(site, reopens=previous[index])
         out.append(site)

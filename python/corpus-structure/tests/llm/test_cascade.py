@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import Any
+from typing import Any, TypedDict, Unpack
 
 import pytest
 from hypothesis import HealthCheck, assume, given, settings
@@ -23,7 +23,14 @@ from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Step, s
 from corpus_structure.methods.llm.parse import resolve_entries
 
 
-def cascade(*sentences: str, macros: dict[str, MacroDef] | None = None, **kw: float) -> Cascade:
+class CascadeTimeouts(TypedDict, total=False):
+    regex_timeout: float
+    refine_timeout: float
+
+
+def cascade(
+    *sentences: str, macros: dict[str, MacroDef] | None = None, **kw: Unpack[CascadeTimeouts]
+) -> Cascade:
     """A text of sentences joined by spaces, sentence ids s1, s2, ... in order."""
     text, frame = "", []
     for i, s in enumerate(sentences, start=1):

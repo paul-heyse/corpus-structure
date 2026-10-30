@@ -116,7 +116,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
         if (
             profile.id in ids
             or profile.id != "mathematical-interpretation"
-            or profile.version not in {"1", "2"}
+            or profile.version not in {"1", "2", "3"}
         ):
             _fail(
                 "unsupported_analysis_profile",
@@ -124,7 +124,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 "supported profiles are mathematical-interpretation/1 and /2",
             )
         ids.add(profile.id)
-        if profile.version == "2":
+        if profile.version in {"2", "3"}:
             if (profile.grammar_recipe, profile.transformer_recipe, profile.shared_consumers) != (
                 "extended-lark-2",
                 "sympy-transform-2",
@@ -192,6 +192,49 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                         "implement the method and supply valid precision/sampling parameters "
                         "before admission",
                     )
+        if profile.version == "3":
+            from .contracts import AlignmentPolicyDefinition, TextPreparationPolicy
+
+            if profile.text_policy != TextPreparationPolicy(
+                "canonical-token-layout-1", "codepoints", "math-reference", "configured-spacy"
+            ) or profile.alignment_policy != AlignmentPolicyDefinition(
+                "semantic-alignment-1", 8, "scipy-dense", "networkx", "refuse-equal-best"
+            ):
+                _fail(
+                    "unsupported_preparation_policy",
+                    location,
+                    "implement text/alignment recipes before admitting changed policy",
+                )
+            policy = profile.placement_policy
+            if policy is None or policy.recipe != "citation-cascade-1":
+                _fail("unsupported_placement_policy", location, "declare citation-cascade-1")
+            from decimal import Decimal, InvalidOperation
+
+            try:
+                values = tuple(
+                    Decimal(v)
+                    for v in (
+                        policy.char_pad,
+                        policy.char_errors,
+                        policy.regex_timeout,
+                        policy.refine_timeout,
+                    )
+                )
+            except InvalidOperation:
+                _fail("unsupported_placement_policy", location, "supply finite decimal parameters")
+            if (
+                not all(v.is_finite() for v in values)
+                or not all(
+                    0 <= v <= 100
+                    for v in (policy.token_cutoff, policy.char_cutoff, policy.pick_cutoff)
+                )
+                or policy.token_pad < 0
+                or values[0] < 0
+                or not 0 <= values[1] <= 1
+                or values[2] <= 0
+                or values[3] <= 0
+            ):
+                _fail("unsupported_placement_policy", location, "invalid cutoff/window/timeout")
         demands = {d.id: d for d in profile.demands}
         if len(demands) != len(profile.demands) or set(demands) != set(_REQUIRED_COMPONENTS):
             _fail(
@@ -325,14 +368,14 @@ def _profile(prepared: PreparedRelease | None):
     else:
         model = bound_execution_model(prepared)
         payload = execution_payload(prepared)
-        if payload is None or json.loads(payload).get("inputs", {}).get("compiler_version") != "6":
+        if payload is None or json.loads(payload).get("inputs", {}).get("compiler_version") != "7":
             _fail(
                 "unsupported_analysis_abi",
                 model.model_id,
-                "analysis preparation requires execution compiler 6; "
+                "analysis preparation requires execution compiler 7; "
                 "historical archives are read-only",
             )
-    if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "2":
+    if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "3":
         _fail(
             "missing_analysis_profile",
             model.model_id,
@@ -761,3 +804,34 @@ def scientific_computation_profile(policy: str, prepared: PreparedRelease | None
         if computation.policy_id == policy:
             return computation
     _fail("unsupported_scientific_profile", policy, "use the bound scientific computation profile")
+
+
+def prepare_text_policy(prepared: PreparedRelease | None = None):
+    _, profile = _profile(prepared)
+    assert profile.text_policy is not None
+    return profile.text_policy
+
+
+def prepare_alignment_policy(prepared: PreparedRelease | None = None):
+    _, profile = _profile(prepared)
+    assert profile.alignment_policy is not None
+    return profile.alignment_policy
+
+
+def prepare_placement_policy(prepared: PreparedRelease | None = None):
+    from corpus_structure.methods.llm.cascade import PlacementPolicy
+
+    _, profile = _profile(prepared)
+    policy = profile.placement_policy
+    assert policy is not None
+    return PlacementPolicy(
+        recipe=policy.recipe,
+        token_cutoff=policy.token_cutoff,
+        token_pad=policy.token_pad,
+        char_cutoff=policy.char_cutoff,
+        char_pad=float(policy.char_pad),
+        char_errors=float(policy.char_errors),
+        pick_cutoff=policy.pick_cutoff,
+        regex_timeout=float(policy.regex_timeout),
+        refine_timeout=float(policy.refine_timeout),
+    )

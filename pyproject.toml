@@ -30,6 +30,7 @@ dev = [
     "scipy-stubs==1.18.1.1",
     "types-html5lib==1.1.11.20260518",
     "pytest-reportlog==1.0.0",
+    "types-networkx==3.6.1.20261029",
 ]
 
 [tool.uv]

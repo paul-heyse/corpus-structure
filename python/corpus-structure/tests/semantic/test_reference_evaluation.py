@@ -156,8 +156,8 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
         # Python construction deliberately. Nested comparisons must reach the same policy rows.
         nested = copy.deepcopy(report.result)
         comparison = {
-            "policy_id": "reference-evidence-1",
-            "evidence_profile": "reference-evidence-1",
+            "policy_id": "reference-evidence-2",
+            "evidence_profile": "reference-evidence-2",
             "reference_path": [],
             "prediction_path": [],
             "evidence_tier": "canonical",

@@ -255,19 +255,25 @@ class Cascade:
         object.__setattr__(self, "sentences", sentences)
         object.__setattr__(self, "macros", MappingProxyType(dict(self.macros)))
         object.__setattr__(self, "_by_id", MappingProxyType({s.id: s for s in sentences}))
-        object.__setattr__(self, "_texts", MappingProxyType({
-            s.id: self.text[s.start:s.end] for s in sentences
-        }))
-        object.__setattr__(self, "_macro_bodies", MappingProxyType({
-            name: d.body for name, d in self.macros.items() if d.nargs == 0 and d.body.strip()
-        }))
+        object.__setattr__(
+            self, "_texts", MappingProxyType({s.id: self.text[s.start : s.end] for s in sentences})
+        )
+        object.__setattr__(
+            self,
+            "_macro_bodies",
+            MappingProxyType(
+                {name: d.body for name, d in self.macros.items() if d.nargs == 0 and d.body.strip()}
+            ),
+        )
         object.__setattr__(self, "_macro_patterns", _macro_alternatives(self._macro_bodies))
         policy = dataclasses.replace(
             self.policy,
-            regex_timeout=(self.policy.regex_timeout if self.regex_timeout is None
-                           else self.regex_timeout),
-            refine_timeout=(self.policy.refine_timeout if self.refine_timeout is None
-                            else self.refine_timeout),
+            regex_timeout=(
+                self.policy.regex_timeout if self.regex_timeout is None else self.regex_timeout
+            ),
+            refine_timeout=(
+                self.policy.refine_timeout if self.refine_timeout is None else self.refine_timeout
+            ),
         )
         object.__setattr__(self, "policy", policy)
         object.__setattr__(self, "regex_timeout", policy.regex_timeout)
@@ -315,9 +321,9 @@ class Cascade:
             pattern_key = (quote, step)
             pattern = self._patterns.get(pattern_key)
             if pattern is None:
-                pattern = regex.compile(_spacing_pattern(
-                    quote, self._macro_patterns if macros is not None else ()
-                ))
+                pattern = regex.compile(
+                    _spacing_pattern(quote, self._macro_patterns if macros is not None else ())
+                )
                 self._patterns[pattern_key] = pattern
             for scope in ([cited] if cited is not None else [], others):
                 hits, timed_out = self._search(pattern, scope)
@@ -335,8 +341,10 @@ class Cascade:
             texts = [self._texts[s.id] for s in pool]
             # A typing-only cast preserves RapidFuzz's native scorer identity/C-API.
             choice = process.extractOne(
-                quote, texts, scorer=cast(_PartialRatioScorer, fuzz.partial_ratio),
-                score_cutoff=float(self.policy.pick_cutoff)
+                quote,
+                texts,
+                scorer=cast(_PartialRatioScorer, fuzz.partial_ratio),
+                score_cutoff=float(self.policy.pick_cutoff),
             )
             if choice is not None:
                 fuzzy = self._fuzzy(quote, pool[choice[2]], timeouts, picked=True)
@@ -362,7 +370,9 @@ class Cascade:
         timed_out = False
         for s in scope:
             try:
-                for m in pattern.finditer(self.text, s.start, s.end, timeout=self.policy.regex_timeout):
+                for m in pattern.finditer(
+                    self.text, s.start, s.end, timeout=self.policy.regex_timeout
+                ):
                     if m.end() > m.start():
                         out.append((m.start(), m.end(), s))
             except TimeoutError:
@@ -424,7 +434,10 @@ class Cascade:
         window = fuzz.partial_ratio_alignment(q, h, score_cutoff=self.policy.token_cutoff)
         if window is None:
             return None
-        w0, w1 = max(0, window.dest_start - self.policy.token_pad), min(len(h), window.dest_end + self.policy.token_pad)
+        w0, w1 = (
+            max(0, window.dest_start - self.policy.token_pad),
+            min(len(h), window.dest_end + self.policy.token_pad),
+        )
         ops = [
             o
             for o in Levenshtein.opcodes(q, h[w0:w1])

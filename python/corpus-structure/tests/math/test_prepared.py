@@ -126,7 +126,8 @@ def test_prepared_context_cannot_be_rebound_after_reading():
     prepared = PreparedMathInput(context(), "x")
     reading = prepared.reading()
     with pytest.raises(FrozenInstanceError):
-        prepared.context = context()
+        field = "context"
+        setattr(prepared, field, context())
     assert prepared.reading() is reading
 
 

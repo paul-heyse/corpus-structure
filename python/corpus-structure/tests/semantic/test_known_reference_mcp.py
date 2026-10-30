@@ -109,7 +109,9 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             replace(item, property_name="name", object="Alice", item="name"),
         ),
     )
-    batch = replace(batch, selection=tuple(SelectionRow(row.fact_id) for row in batch.fact))
+    batch = replace(
+        batch, selection=tuple(SelectionRow(row.fact_id) for row in batch.fact)
+    ).bind_preparation(prepared)
     publish_batch(semantic_writer_engine, batch)
     text = "Alice is here."
     path = tmp_path / "source.html"

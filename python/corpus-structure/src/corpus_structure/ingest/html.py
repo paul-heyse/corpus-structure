@@ -655,7 +655,9 @@ def _leaf_blocks(root: Node) -> list[Node]:
     ]
 
 
-def _add_sentences(root: Node, text: str, config: SentenceConfig) -> tuple[sentences.TextLayout, ...]:
+def _add_sentences(
+    root: Node, text: str, config: SentenceConfig
+) -> tuple[sentences.TextLayout, ...]:
     leaves = _leaf_blocks(root)
     blocks = [
         sentences.block_of(

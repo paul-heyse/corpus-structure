@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0035"
-NATIVE_REVISION = "semantic_0036"
+NATIVE_PREDECESSOR = "semantic_0036"
+NATIVE_REVISION = "semantic_0037"
 
 
 def selected_fact_query():
@@ -210,6 +210,9 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
         ),
     )
     kernels += "\n" + source.joinpath("exclusions.sql").read_text()
+    kernels += "\n" + source.joinpath("text_layout.sql").read_text().replace(
+        "{physical_id}", PHYSICAL_MODEL_ID
+    )
     create, verify, content, insert = _transport_sql("corpus_sem_writer")
     transport = source.joinpath("transport.sql").read_text()
     for marker, fragment in (
@@ -726,6 +729,10 @@ def consolidation_products(model=None) -> tuple[NativeProduct, ...]:
     Historical migrations execute only committed adjacent products. No physical product
     is discarded by assuming that every future model has the same tables or views.
     """
+    from pathlib import Path
+
+    from .metadata import PHYSICAL_MODEL_ID
+
     base = closure_products(model)
     reference = reference_source_products(base)
     # The candidate includes the complete physical realization for review. Deployment
@@ -736,6 +743,15 @@ def consolidation_products(model=None) -> tuple[NativeProduct, ...]:
     if not separator:
         raise ValueError("native admission product lacks its descriptor boundary")
     return (
+        NativeProduct(
+            f"{NATIVE_REVISION}_text_layout.sql",
+            Path(__file__)
+            .with_name("sql")
+            .joinpath("text_layout.sql")
+            .read_text()
+            .replace("{physical_id}", PHYSICAL_MODEL_ID)
+            .encode(),
+        ),
         NativeProduct(f"{NATIVE_REVISION}_physical.sql", physical.content),
         NativeProduct(f"{NATIVE_REVISION}_kernels.sql", kernels.content),
         NativeProduct(f"{NATIVE_REVISION}_reference_source.sql", reference_kernels.content),

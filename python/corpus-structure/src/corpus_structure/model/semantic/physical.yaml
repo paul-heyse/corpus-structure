@@ -1555,6 +1555,9 @@ classes:
       parse_detail:
         range: json_payload
         required: true
+      text_layout:
+        range: json_payload
+        required: false
     unique_keys:
       primary_key:
         unique_key_slots:

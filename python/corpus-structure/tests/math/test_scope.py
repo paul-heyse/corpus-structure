@@ -223,10 +223,12 @@ def test_site_index_preserves_same_position_exception_and_strict_reopen() -> Non
     from corpus_structure.methods.math.spans import SymbolMention
 
     sentence = Segment(kind=SegmentKind.SENTENCE, start=0, end=100)
+
     def site(pos: int, start: int, end: int, *, reopen: bool = False) -> BindingSite:
         mention = SymbolMention(sentence, pos, pos + 1, "x", "x", None, None, False, None)
-        return BindingSite(mention, "x", sentence, ScopeExtent.SECTION, sentence,
-                           start, end, (), reopen)
+        return BindingSite(
+            mention, "x", sentence, ScopeExtent.SECTION, sentence, start, end, (), reopen
+        )
 
     earlier = site(5, 5, 90)
     same_first = site(20, 20, 60, reopen=True)
@@ -234,8 +236,14 @@ def test_site_index_preserves_same_position_exception_and_strict_reopen() -> Non
     outside_self = site(30, 31, 32)
     sites = [earlier, same_first, same_second, outside_self]
     got = _site_assignments(sites, [4, 5, 20, 30, 31, 32, 50, 90])
-    assert got == {5: earlier, 20: same_second, 30: outside_self, 31: outside_self,
-                   32: same_second, 50: same_first}
+    assert got == {
+        5: earlier,
+        20: same_second,
+        30: outside_self,
+        31: outside_self,
+        32: same_second,
+        50: same_first,
+    }
     reopened = _with_reopens(sites)
     assert reopened[1].reopens is earlier
     assert reopened[2].reopens is earlier

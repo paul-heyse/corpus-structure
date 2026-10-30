@@ -492,7 +492,9 @@ def _entity_pairs(ref, pred, prepared, out, science_scope):
         for entity in (*ra, *pa)
     }
     properties = {iri: {p.name: p for p in d.properties} for iri, d in definitions.items()}
-    entity_ranges = {d.name for d in prepared.definitions if d.name == "Entity" or "Entity" in d.ancestors}
+    entity_ranges = {
+        d.name for d in prepared.definitions if d.name == "Entity" or "Entity" in d.ancestors
+    }
 
     def attributes(entity):
         return attribute_maps[id(entity)]
@@ -539,12 +541,7 @@ def _entity_pairs(ref, pred, prepared, out, science_scope):
         return tuple(
             group
             for group in declaration.identity_groups
-            if group != ("id",)
-            and any(
-                props[n].range
-                in entity_ranges
-                for n in group
-            )
+            if group != ("id",) and any(props[n].range in entity_ranges for n in group)
         )
 
     prepared_names = {id(entity): names(entity) for entity in (*ra, *pa)}
@@ -559,8 +556,10 @@ def _entity_pairs(ref, pred, prepared, out, science_scope):
     for entity in (*ra, *pa):
         for case in (CaseRule.FOLD, CaseRule.PRESERVE):
             normalized[id(entity), case] = tuple(
-                (label if case is CaseRule.PRESERVE else _text(label),
-                 normalize_label(label, compact(entity["class_iri"]), rules, case))
+                (
+                    label if case is CaseRule.PRESERVE else _text(label),
+                    normalize_label(label, compact(entity["class_iri"]), rules, case),
+                )
                 for label in prepared_names[id(entity)]
             )
     weights = np.zeros((len(ra), len(pa)))
@@ -769,10 +768,10 @@ def align_semantic(
 ) -> SemanticAlignment:
     if ref.unit != pred.unit:
         raise ValueError("alignment sides refer to different source units")
+    from corpus_structure.semantic.analysis_contracts import prepare_alignment_policy
     from corpus_structure.semantic.scientific_evidence import ReferenceComparisonScope
 
-    from corpus_structure.semantic.analysis_contracts import prepare_alignment_policy
-    from .alignment_preparation import OwnedSide, CandidateComparisons, independent_assignment
+    from .alignment_preparation import CandidateComparisons, OwnedSide, independent_assignment
 
     policy = prepare_alignment_policy(prepared)
     # Own nested input records before preparing any operation-local indexes or reusable results.
@@ -850,24 +849,34 @@ def align_semantic(
         return list(result.values())
 
     rg, pg = groups(ref_side, rr), groups(pred_side, pp)
-    comparisons = CandidateComparisons(prepared, rr, pp, emap, qualified_meaning, qualification_name)
+    comparisons = CandidateComparisons(
+        prepared, rr, pp, emap, qualified_meaning, qualification_name
+    )
     reference_spans, prediction_spans = tuple(map(_spans, rr)), tuple(map(_spans, pp))
 
     def sentence_locators(claim):
         return frozenset(
-            e["locator"] for e in claim.get("evidence", ())
+            e["locator"]
+            for e in claim.get("evidence", ())
             if e.get("outcome") == "located" and e.get("locator")
         )
 
-    reference_sentences, prediction_sentences = tuple(map(sentence_locators, rr)), tuple(map(sentence_locators, pp))
+    reference_sentences, prediction_sentences = (
+        tuple(map(sentence_locators, rr)),
+        tuple(map(sentence_locators, pp)),
+    )
     geometry = {}
     for i, j in comparisons.edges:
         ratios = tuple(
             _overlap(a, b) / max(1, max(a[1], b[1]) - min(a[0], b[0]))
-            for a in reference_spans[i] for b in prediction_spans[j]
+            for a in reference_spans[i]
+            for b in prediction_spans[j]
         )
         overlap = max(ratios, default=0)
-        geometry[i, j] = (bool(reference_sentences[i] & prediction_sentences[j]) or overlap > 0, overlap)
+        geometry[i, j] = (
+            bool(reference_sentences[i] & prediction_sentences[j]) or overlap > 0,
+            overlap,
+        )
     reference_group = {i: gi for gi, members in enumerate(rg) for i in members}
     prediction_group = {j: gj for gj, members in enumerate(pg) for j in members}
     claim_map = {}
@@ -895,16 +904,16 @@ def align_semantic(
                 )
             if not value.equal:
                 continue
-            qual = comparisons.compare(i, j, "qualification", emap, claim_map, science_scope, equivalent)
+            qual = comparisons.compare(
+                i, j, "qualification", emap, claim_map, science_scope, equivalent
+            )
             same_statement = (not r.get("statement") and not p.get("statement")) or bool(
                 r.get("statement")
                 and p.get("statement")
                 and emap.get(r["statement"]) == p["statement"]
             )
             full = (
-                qual.equal
-                and same_statement
-                and r.get("statement_role") == p.get("statement_role")
+                qual.equal and same_statement and r.get("statement_role") == p.get("statement_role")
             )
             located_overlap, overlap = geometry[i, j]
             evidence = full and located_overlap
@@ -945,7 +954,9 @@ def align_semantic(
             gi, gj = reference_group[i], prediction_group[j]
             existing = chosen.get((gi, gj))
             if existing is None or (weights[i, j], rr[i]["id"], pp[j]["id"]) > (
-                weights[existing], rr[existing[0]]["id"], pp[existing[1]]["id"]
+                weights[existing],
+                rr[existing[0]]["id"],
+                pp[existing[1]]["id"],
             ):
                 group_weights[gi, gj] = weights[i, j]
                 chosen[gi, gj] = (i, j)

@@ -7,7 +7,13 @@ from rapidfuzz import fuzz
 
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.methods.llm import cascade as module
-from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Located, PlacementPolicy, Step
+from corpus_structure.methods.llm.cascade import (
+    Cascade,
+    FrameSentence,
+    Located,
+    PlacementPolicy,
+    Step,
+)
 
 
 def test_frame_owns_input_collections_and_anchor_specific_decisions() -> None:
@@ -21,7 +27,8 @@ def test_frame_owns_input_collections_and_anchor_specific_decisions() -> None:
     assert frame.locate("Identical words", "b").start == 17
     assert len(frame.macros) == 1
     with pytest.raises(FrozenInstanceError):
-        setattr(frame, "text", "changed")
+        field = "text"
+        setattr(frame, field, "changed")
 
 
 def test_native_scorer_reaches_sentence_selection(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -33,9 +40,10 @@ def test_native_scorer_reaches_sentence_selection(monkeypatch: pytest.MonkeyPatc
         return original(*args, **kwargs)
 
     monkeypatch.setattr(module.process, "extractOne", extract)
-    frame = Cascade("Nothing related. The scale parameter is positive.", [
-        FrameSentence("a", 0, 16), FrameSentence("b", 17, 49)
-    ])
+    frame = Cascade(
+        "Nothing related. The scale parameter is positive.",
+        [FrameSentence("a", 0, 16), FrameSentence("b", 17, 49)],
+    )
     result = frame.locate("The scale parametr is positive", "a")
     assert result.found and result.sentence == "b" and result.picked
     assert scorers == [fuzz.partial_ratio]

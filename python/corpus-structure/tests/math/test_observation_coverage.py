@@ -32,7 +32,7 @@ def test_extract_math_preserves_partial_read_when_no_mentions_are_emitted(
         )
     ]
     monkeypatch.setattr(methods, "_rendition", lambda reader, identifier: ren)
-    monkeypatch.setattr(methods, "_readings", lambda rendition, config: readings)
+    monkeypatch.setattr(methods, "_readings", lambda rendition, config, reader: readings)
     unit = UnitView(UnitRef(TaskUnitType.RENDITION, 1, "page"), SimpleNamespace())
     (result,) = methods.ExtractMath().run(
         [unit],

@@ -604,6 +604,7 @@ dev = [
     { name = "scipy-stubs" },
     { name = "types-html5lib" },
     { name = "types-jsonschema" },
+    { name = "types-networkx" },
     { name = "types-pyyaml" },
     { name = "types-regex" },
 ]
@@ -628,6 +629,7 @@ dev = [
     { name = "scipy-stubs", specifier = "==1.18.1.1" },
     { name = "types-html5lib", specifier = "==1.1.11.20260518" },
     { name = "types-jsonschema", specifier = "==4.26.0.20261006" },
+    { name = "types-networkx", specifier = "==3.6.1.20261029" },
     { name = "types-pyyaml", specifier = "==6.0.12.20260906" },
     { name = "types-regex", specifier = "==2026.9.29.20261017" },
 ]
@@ -3914,6 +3916,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/29/d2/1f742605f5a6d39f993134885b8de41c98af606871d3ebddaf3e776bd1eb/types_jsonschema-4.26.0.20261006.tar.gz", hash = "sha256:3eb7db61b6819d40addfdaac7173e749071a7d4a9a4394f0c844598ec84b2500", size = 16843, upload-time = "2026-10-06T08:16:07.318Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8b/a0/4f2e3c0dc3d5cad958006f2e0307065cc8fe4fbf0393ff0b69d55ee9bbe5/types_jsonschema-4.26.0.20261006-py3-none-any.whl", hash = "sha256:29301f4e65e3928540cdf5e23ad716e38bb0c0b416a48dada213edd3d70206ec", size = 16113, upload-time = "2026-10-06T08:16:06.355Z" },
+]
+
+[[package]]
+name = "types-networkx"
+version = "3.6.1.20261029"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/c9/ee0e1f4c63eb6b0ef815ba29b07e124efdacd70f8ea4df8967aa32a4874b/types_networkx-3.6.1.20261029.tar.gz", hash = "sha256:c7f3a9db5e1264978c1c21d8414e89d3422f6970d29ee42ed59c6e00ce887469", size = 77121, upload-time = "2026-10-29T07:44:26.886Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/77/63/2a1983bdaaa0c1d77cf356ac4759aa2fbc03be63a52dc85b1616cfb8383f/types_networkx-3.6.1.20261029-py3-none-any.whl", hash = "sha256:20e9a702d40d2d4314d35ae9e2a29d55321b75984033d8279ead87ebb8feaba6", size = 167599, upload-time = "2026-10-29T07:44:25.427Z" },
 ]
 
 [[package]]

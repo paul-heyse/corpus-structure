@@ -49,6 +49,10 @@ from corpus_structure.core.vocab import (
     TaskUnitType,
 )
 
+if typing.TYPE_CHECKING:
+    from corpus_structure.ingest.sentences import TextLayout
+
+
 # --- Digests and payload hashes ----------------------------------------------------------------
 
 
@@ -365,9 +369,12 @@ class UnitResult:
     cost: Cost | None = None
     rendition: RenditionContent | None = None
     parse_detail: Mapping[str, JsonValue] | None = None
+    text_layouts: tuple[TextLayout, ...] = ()
     coverage: tuple[CoverageDraft, ...] = ()
 
     def __post_init__(self) -> None:
+        if self.text_layouts and self.rendition is None:
+            raise ValueError("token layouts require their rendition content")
         match self.outcome:
             case ObservationOutcome.PRODUCED:
                 ok = bool(self.observations) and self.error is None

@@ -18,8 +18,8 @@ installed spaCy or model that differs from it. The segments it produces are cont
 from __future__ import annotations
 
 import functools
-import itertools
 import hashlib
+import itertools
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -132,8 +132,7 @@ def prepare_layout(
 ) -> TextLayout:
     """Tokenize prose once, preserving atom boundaries and all whitespace tokens."""
     atoms = sorted(
-        [(a, b, "math") for a, b in block.inline]
-        + [(a, b, "reference") for a, b in block.markers]
+        [(a, b, "math") for a, b in block.inline] + [(a, b, "reference") for a, b in block.markers]
     )
     tokens: list[TextToken] = []
     text = block.text
@@ -149,29 +148,44 @@ def prepare_layout(
             continue
         prose(position, a)
         follows_space = text.startswith(" ", b)
-        tokens.append(TextToken(start + a, start + b, follows_space,
-                                "math" if role == "math" else "reference"))
+        tokens.append(
+            TextToken(
+                start + a, start + b, follows_space, "math" if role == "math" else "reference"
+            )
+        )
         position = b + 1 if follows_space else b
     prose(position, len(text))
     return TextLayout(
-        start, start + len(text), hashlib.sha256(text.encode()).hexdigest(), tuple(tokens),
-        tuple((start + a, start + b) for a, b in block.display), recipe,
+        start,
+        start + len(text),
+        hashlib.sha256(text.encode()).hexdigest(),
+        tuple(tokens),
+        tuple((start + a, start + b) for a, b in block.display),
+        recipe,
     )
 
 
 def make_doc(
-    nlp: Language, block: Block, layout: TextLayout | None = None, *, start: int = 0,
+    nlp: Language,
+    block: Block,
+    layout: TextLayout | None = None,
+    *,
+    start: int = 0,
     recipe: str = "canonical-token-layout-1",
 ) -> Doc:
     """Create a consumer-owned mutable Doc from a source-bound prepared layout."""
     if layout is None:
         layout = prepare_layout(nlp, block, start=start, recipe=recipe)
     text = block.text
-    if (layout.recipe != recipe or layout.block_start != start or layout.block_end != start + len(text)
-            or layout.text_digest != hashlib.sha256(text.encode()).hexdigest()
-            or layout.display != tuple((start + a, start + b) for a, b in block.display)):
+    if (
+        layout.recipe != recipe
+        or layout.block_start != start
+        or layout.block_end != start + len(text)
+        or layout.text_digest != hashlib.sha256(text.encode()).hexdigest()
+        or layout.display != tuple((start + a, start + b) for a, b in block.display)
+    ):
         raise ValueError("text layout does not match its source block; regenerate the layout")
-    words = [text[t.start - start:t.end - start] for t in layout.tokens]
+    words = [text[t.start - start : t.end - start] for t in layout.tokens]
     doc = Doc(nlp.vocab, words=words, spaces=[t.space for t in layout.tokens])
     if doc.text != text:
         raise ValueError("text layout does not reconstruct its source; regenerate the layout")
@@ -207,7 +221,9 @@ def boundaries(block: Block, doc: Doc) -> list[tuple[int, int]]:
 
 
 def split(
-    blocks: Sequence[Block], config: SentenceConfig, *,
+    blocks: Sequence[Block],
+    config: SentenceConfig,
+    *,
     layouts: Sequence[TextLayout] | None = None,
 ) -> list[list[tuple[int, int]]]:
     """Sentence extents of each block, relative to it, in input order."""
@@ -218,8 +234,12 @@ def split(
     if layouts is not None and len(layouts) != len(blocks):
         raise ValueError("one text layout is required per block")
     items = (
-        (make_doc(nlp, block, layouts[n], start=layouts[n].block_start, recipe=policy.recipe)
-         if layouts is not None else make_doc(nlp, block, recipe=policy.recipe), n)
+        (
+            make_doc(nlp, block, layouts[n], start=layouts[n].block_start, recipe=policy.recipe)
+            if layouts is not None
+            else make_doc(nlp, block, recipe=policy.recipe),
+            n,
+        )
         for n, block in enumerate(blocks)
     )
     out: list[list[tuple[int, int]]] = [[] for _ in blocks]

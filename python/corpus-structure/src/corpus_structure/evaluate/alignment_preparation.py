@@ -43,7 +43,9 @@ class OwnedSide:
             MappingProxyType(deepcopy(dict(side.batch))),
             frozenset(side.context),
             MappingProxyType(dict(side.known_ids)),
-            MappingProxyType({key: tuple(tuple(span) for span in spans) for key, spans in side.anchors.items()}),
+            MappingProxyType(
+                {key: tuple(tuple(span) for span in spans) for key, spans in side.anchors.items()}
+            ),
         )
 
 
@@ -78,7 +80,9 @@ class CandidateComparisons:
         self.edges = tuple(
             (i, j)
             for i, claim in enumerate(reference)
-            for j in by_subject_predicate.get((entity_map.get(claim["subject"]), claim["predicate"]), ())
+            for j in by_subject_predicate.get(
+                (entity_map.get(claim["subject"]), claim["predicate"]), ()
+            )
         )
         self._decisions: dict[tuple[int, int, str], Any] = {}
         self._mapping: dict[str, str] = {}
@@ -88,13 +92,18 @@ class CandidateComparisons:
         for i, claim in enumerate(reference):
             found: set[tuple[str, str]] = set()
             complete = True
-            for range_name, value in (("Value", claim["object"]), (qualification_name, claim.get("qualification", {}))):
+            for range_name, value in (
+                ("Value", claim["object"]),
+                (qualification_name, claim.get("qualification", {})),
+            ):
                 definition = record_definition(model, range_name, value)
                 if definition is None:
                     complete = False
                     continue
                 admitted = model.adapter(definition.name).validate_json(
-                    canonical_bytes(value), strict=True, by_name=True,
+                    canonical_bytes(value),
+                    strict=True,
+                    by_name=True,
                     context={"validation_purpose": "structural"},
                 )
                 found.update(
@@ -116,7 +125,8 @@ class CandidateComparisons:
 
     def update(self, claim_map: Mapping[str, str]) -> None:
         changed = {
-            key for key in self._mapping.keys() | claim_map.keys()
+            key
+            for key in self._mapping.keys() | claim_map.keys()
             if self._mapping.get(key) != claim_map.get(key)
         }
         if not changed:
@@ -146,11 +156,22 @@ class CandidateComparisons:
             return self._decisions[key]
         if field == "object":
             left, right = self.reference[i][field], self.prediction[j][field]
-            options = {"conditions": self.reference[i].get("qualification", {}).get("condition"), "range_name": "Value"}
+            options = {
+                "conditions": self.reference[i].get("qualification", {}).get("condition"),
+                "range_name": "Value",
+            }
         else:
             left, right = self.qualifications[0][i], self.qualifications[1][j]
             options = {"range_name": self.qualification_name}
-        decision = equivalent(left, right, entity_map, claim_map, model=self.model, science_scope=science_scope, **options)
+        decision = equivalent(
+            left,
+            right,
+            entity_map,
+            claim_map,
+            model=self.model,
+            science_scope=science_scope,
+            **options,
+        )
         # Undecided may be transient (a parser/conversion timeout); it must be retried.
         if decision.outcome != "undecided":
             self._decisions[key] = decision
@@ -189,5 +210,9 @@ def independent_assignment(weights):
         ri = sorted(node[1] for node in component if node[0] == "r")
         pi = sorted(node[1] for node in component if node[0] == "p")
         rows, cols = linear_sum_assignment(weights[np.ix_(ri, pi)], maximize=True)
-        pairs.extend((ri[int(i)], pi[int(j)]) for i, j in zip(rows, cols, strict=True) if weights[ri[int(i)], pi[int(j)]] > 0)
+        pairs.extend(
+            (ri[int(i)], pi[int(j)])
+            for i, j in zip(rows, cols, strict=True)
+            if weights[ri[int(i)], pi[int(j)]] > 0
+        )
     return sorted(pairs)

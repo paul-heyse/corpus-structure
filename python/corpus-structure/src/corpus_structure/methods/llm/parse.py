@@ -52,8 +52,6 @@ from typing import Any, assert_never
 
 from pydantic import MISSING, BaseModel
 
-from corpus_structure.semantic.analysis_contracts import prepare_placement_policy
-
 from corpus_structure.core import batch as B
 from corpus_structure.core import values as V
 from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment, segment_key
@@ -79,6 +77,7 @@ from corpus_structure.methods.llm.cascade import (
     FrameSentence,
     Located,
 )
+from corpus_structure.semantic.analysis_contracts import prepare_placement_policy
 
 _ENTITY_BINDINGS = frozenset({BindKind.VARIABLE, BindKind.FAMILY_PARAM})
 STATEMENT_BLOCK = STATEMENT_ANCHOR | SENTENCE_SPLIT

@@ -663,7 +663,11 @@ def test_component_assignment_preserves_global_pairs_for_ties_and_rectangles():
 
     rng = np.random.default_rng(6)
     cases = [np.eye(20), np.zeros((0, 3)), np.zeros((3, 0)), np.zeros((5, 7))]
-    cases.extend(rng.integers(0, 4, size=(rows, cols)).astype(float) for rows in range(1, 9) for cols in range(1, 9))
+    cases.extend(
+        rng.integers(0, 4, size=(rows, cols)).astype(float)
+        for rows in range(1, 9)
+        for cols in range(1, 9)
+    )
     for weights in cases:
         rows, cols = linear_sum_assignment(weights, maximize=True)
         expected = [(int(i), int(j)) for i, j in zip(rows, cols, strict=True) if weights[i, j] > 0]
@@ -678,12 +682,22 @@ def test_dependency_invalidation_includes_absence_remapping_removal_and_cycles()
     reference: list[dict[str, Any]] = [
         {"id": "a", "subject": "r", "predicate": "p", "object": {"kind": "claim", "ref": "b"}},
         {"id": "b", "subject": "r", "predicate": "p", "object": {"kind": "claim", "ref": "a"}},
-        {"id": "literal", "subject": "r", "predicate": "other", "object": {"kind": "text", "text": "fixed"}},
+        {
+            "id": "literal",
+            "subject": "r",
+            "predicate": "other",
+            "object": {"kind": "text", "text": "fixed"},
+        },
     ]
     prediction: list[dict[str, Any]] = [
         {"id": "x", "subject": "s", "predicate": "p", "object": {"kind": "claim", "ref": "y"}},
         {"id": "y", "subject": "s", "predicate": "p", "object": {"kind": "claim", "ref": "x"}},
-        {"id": "fixed", "subject": "s", "predicate": "other", "object": {"kind": "text", "text": "fixed"}},
+        {
+            "id": "fixed",
+            "subject": "s",
+            "predicate": "other",
+            "object": {"kind": "text", "text": "fixed"},
+        },
     ]
     for claim in (*reference, *prediction):
         value = claim["object"]
@@ -691,13 +705,17 @@ def test_dependency_invalidation_includes_absence_remapping_removal_and_cycles()
         claim["qualification"] = {"modality": "asserted", "polarity": True}
         if value["kind"] == "claim":
             claim["qualification"]["condition"] = value
-    operation = CandidateComparisons(model, reference, prediction, {"r": "s"}, dict, "Qualification")
+    operation = CandidateComparisons(
+        model, reference, prediction, {"r": "s"}, dict, "Qualification"
+    )
     calls = []
 
     def compare(left, right, entities, claims, **kwargs):
         calls.append((left, dict(claims)))
         if "condition" in left:
-            return ValueDecision(claims.get(left["condition"]["ref"]) == right["condition"]["ref"], "reference")
+            return ValueDecision(
+                claims.get(left["condition"]["ref"]) == right["condition"]["ref"], "reference"
+            )
         return ValueDecision(left == right, "canonical")
 
     # A dormant candidate remains present while its source endpoint is unknown.
@@ -721,11 +739,17 @@ def test_undecided_comparisons_are_retried_instead_of_cached():
     from corpus_structure.evaluate.semantic_alignment import ValueDecision
 
     model = admitted_scientific_model()
-    claims: list[dict[str, Any]] = [{"id": "a", "subject": "r", "predicate": "p", "object": {"kind": "text", "text": "x"}}]
+    claims: list[dict[str, Any]] = [
+        {"id": "a", "subject": "r", "predicate": "p", "object": {"kind": "text", "text": "x"}}
+    ]
     claims[0]["qualification"] = {"modality": "asserted", "polarity": True}
     operation = CandidateComparisons(model, claims, claims, {"r": "r"}, dict, "Qualification")
-    outcomes = iter([ValueDecision(False, "undecided", "timeout"), ValueDecision(True, "canonical")])
+    outcomes = iter(
+        [ValueDecision(False, "undecided", "timeout"), ValueDecision(True, "canonical")]
+    )
+
     def compare(*args, **kwargs):
         return next(outcomes)
+
     assert not operation.compare(0, 0, "object", {}, {}, None, compare).equal
     assert operation.compare(0, 0, "object", {}, {}, None, compare).equal

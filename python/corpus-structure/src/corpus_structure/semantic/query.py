@@ -447,7 +447,7 @@ class ReadSession:
         from .contracts import execution_payload
 
         payload = execution_payload(self.prepared)
-        if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "6":
+        if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "7":
             from .analysis_contracts import bind_analysis_family
 
             owned = bind_analysis_family(self.prepared, "read").prepare(

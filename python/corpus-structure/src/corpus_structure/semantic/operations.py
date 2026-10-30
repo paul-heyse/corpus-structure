@@ -544,11 +544,18 @@ def store_rendition(
     task_id: int,
     config_id: int,
     parse_detail: Mapping[str, Any],
+    text_layout: Mapping[str, Any] | None = None,
+    prepared: PreparedRelease | None = None,
 ) -> int:
     """Preserve physical content sharing separately from method build provenance."""
     from .contracts import require_database_operation
 
     require_database_operation(conn, binding_of(conn, run_id).release_id, "store_rendition")
+    if text_layout is not None:
+        from .text_layouts import load_text_layouts
+
+        if prepared is None or not load_text_layouts(text_layout, content, prepared, config_id):
+            raise OperationConflict("token artifact requires its admitted source release")
     payload = content.model_dump(mode="json")
     from corpus_structure.core.evidence import content_digest, rendition_key, segment_key
 
@@ -603,8 +610,12 @@ def store_rendition(
         rendition_id=rendition_id,
         task_id=task_id,
         parse_detail=dict(parse_detail),
+        text_layout=dict(text_layout) if text_layout is not None else None,
     )
     conn.execute(pg_insert(b).values(**build).on_conflict_do_nothing())
+    stored_build = conn.execute(select(b).where(b.c.task_id == task_id)).mappings().one()
+    if any(stored_build[k] != v for k, v in build.items()):
+        raise OperationConflict("rendition build artifact differs on retry")
     tasks = table("ops.task")
     current_hash = conn.execute(
         select(tasks.c.input_hash).where(tasks.c.id == task_id)
@@ -710,6 +721,8 @@ def complete_unit_result(
     if result.rendition is not None and task["status"] == "running":
         if result.ref.unit_id is None:
             raise ValueError("ingest result requires document id")
+        from .text_layouts import freeze_text_layouts
+
         rendition_id = store_rendition(
             conn,
             run_id=task["run_id"],
@@ -718,12 +731,26 @@ def complete_unit_result(
             task_id=task_id,
             config_id=task["method_config_id"],
             parse_detail=result.parse_detail or {},
+            prepared=prepared,
+            text_layout=freeze_text_layouts(
+                result.text_layouts, result.rendition, prepared, task["method_config_id"]
+            ),
         )
     elif result.rendition is not None:
         builds = table("ops.rendition_build")
-        rendition_id = conn.execute(
-            select(builds.c.rendition_id).where(builds.c.task_id == task_id)
-        ).scalar_one()
+        from .text_layouts import freeze_text_layouts
+
+        previous_build = (
+            conn.execute(select(builds).where(builds.c.task_id == task_id)).mappings().one()
+        )
+        rendition_id = previous_build["rendition_id"]
+        artifact = freeze_text_layouts(
+            result.text_layouts, result.rendition, prepared, task["method_config_id"]
+        )
+        if previous_build["text_layout"] != artifact or previous_build["parse_detail"] != dict(
+            result.parse_detail or {}
+        ):
+            raise OperationConflict("terminal rendition build artifact differs")
         if read_rendition(conn, rendition_id, prepared=prepared) != result.rendition:
             raise OperationConflict("terminal rendition result differs from published content")
     rows = []
@@ -821,7 +848,7 @@ class BoundReader:
         self._source_contract = None
         self._source_inputs = {}
         self.math_readings_batch = None
-        if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "6":
+        if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "7":
             from .analysis_contracts import bind_analysis_family
 
             self._source_contract = bind_analysis_family(prepared, "source")
@@ -850,6 +877,57 @@ class BoundReader:
                 profile=self.prepared.execution_model_id,
             )
         return read_rendition(self.conn, rendition_id, prepared=self.prepared)
+
+    def text_layouts(
+        self, rendition_id: int, expected_config, content: RenditionContent | None = None
+    ):
+        """Read the run-selected producing task, including explicit source-task reuse."""
+        from .text_layouts import load_text_layouts
+
+        build, task, config, method, chosen = (
+            table("ops.rendition_build"),
+            table("ops.task"),
+            table("ops.method_config"),
+            table("ops.method"),
+            table("ops.run_rendition"),
+        )
+        query = (
+            select(build.c.text_layout, build.c.method_config_id, config.c.params)
+            .join_from(task, config, task.c.method_config_id == config.c.id)
+            .join(method, config.c.method_id == method.c.id)
+            .join(build, build.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id))
+            .join(
+                chosen,
+                (chosen.c.run_id == task.c.run_id)
+                & (chosen.c.document_id == build.c.document_id)
+                & (chosen.c.rendition_id == build.c.rendition_id),
+            )
+            .where(
+                task.c.run_id == self.run_id,
+                build.c.rendition_id == rendition_id,
+                method.c.name == "ingest.html",
+            )
+        )
+        rows = self.conn.execute(query).mappings().all()
+        if not rows:
+            return ()
+        if len(rows) != 1:
+            raise OperationConflict("source selection has multiple token layout builds")
+        row = rows[0]
+        from corpus_structure.ingest.sentences import SentenceConfig
+
+        stored_config = row["params"].get("sentences")
+        if (
+            not isinstance(stored_config, dict)
+            or SentenceConfig.model_validate(stored_config) != expected_config
+        ):
+            return ()  # Different tokenizer configuration requires canonical reconstruction.
+        return load_text_layouts(
+            row["text_layout"],
+            (self.content(rendition_id) if content is None else content),
+            self.prepared,
+            row["method_config_id"],
+        )
 
     def segments(self, rendition_id: int) -> Mapping[str, int]:
         s = table("kb.segment")
