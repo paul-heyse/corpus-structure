@@ -2,6 +2,7 @@ CREATE OR REPLACE FUNCTION data.require_execution_release(r text) RETURNS void L
 DECLARE expected jsonb; spec jsonb; model jsonb; owner_name text; invalid_inference boolean;
 BEGIN
  -- {finalized_release}
+ PERFORM sem.require_execution_projection(r);
  IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r) THEN RAISE EXCEPTION 'unknown execution release' USING ERRCODE='23514'; END IF;
  expected:=data.execution_contract_descriptor();
  IF NOT EXISTS(SELECT FROM sem.physical_contract WHERE physical_id=expected->>'physical_id' AND source_digest=expected->>'physical_checks_source_digest') THEN
@@ -75,12 +76,15 @@ BEGIN
  ) SELECT EXISTS(SELECT FROM invalid) INTO invalid_inference;
  IF invalid_inference THEN RAISE EXCEPTION 'unsupported required native binary inference profile' USING ERRCODE='23514'; END IF;
  SELECT pg_get_userbyid(nspowner) INTO owner_name FROM pg_namespace WHERE nspname='sem';
- SELECT convert_from(body,'UTF8')::jsonb INTO model FROM sem.registry_row WHERE release_id=r AND kind='execution_model' AND name=expected->>'model_id';
- IF model IS NULL OR model->>'model_id' IS DISTINCT FROM expected->>'model_id' THEN RAISE EXCEPTION 'incompatible archived execution model' USING ERRCODE='23514'; END IF;
- SELECT item.value INTO spec FROM jsonb_array_elements(expected->'inputs') item
- WHERE NOT EXISTS(SELECT FROM sem.input i WHERE i.release_id=r AND i.input_kind='dependency' AND i.input_name=item.value->>'name' AND i.content_digest=item.value->>'sha256' AND encode(sha256(i.content),'hex')=item.value->>'sha256') LIMIT 1;
- IF FOUND THEN RAISE EXCEPTION 'execution input bytes differ' USING ERRCODE='23514'; END IF;
- IF (SELECT count(*) FROM sem.input WHERE release_id=r AND input_kind='dependency' AND input_name LIKE 'execution/%')<>jsonb_array_length(expected->'inputs') THEN RAISE EXCEPTION 'execution input set differs' USING ERRCODE='23514'; END IF;
+ SELECT convert_from(body,'UTF8')::jsonb INTO model FROM sem.registry_row
+ WHERE release_id=r AND kind='execution_model';
+ IF model IS NULL OR model->'inputs'->>'compiler_version' IS DISTINCT FROM expected->>'execution_abi' THEN
+  RAISE EXCEPTION 'incompatible archived execution ABI' USING ERRCODE='23514'; END IF;
+ IF NOT EXISTS(SELECT FROM sem.execution_operation WHERE release_id=r) THEN
+  RAISE EXCEPTION 'release execution projection is unavailable' USING ERRCODE='23514'; END IF;
+ FOR spec IN SELECT jsonb_build_object('id',operation_id) FROM sem.execution_operation WHERE release_id=r LOOP
+  PERFORM sem.require_execution_operation(r,spec->>'id');
+ END LOOP;
  SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions') item
  LEFT JOIN pg_proc p ON p.oid=to_regprocedure(item.value->>'signature')
  LEFT JOIN pg_language l ON l.oid=p.prolang

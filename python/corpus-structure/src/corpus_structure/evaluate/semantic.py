@@ -20,6 +20,7 @@ from sqlalchemy import Connection, select, text
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import ProposalFrame, locate_proposal
 from corpus_structure.semantic.releases import open_release
+from corpus_structure.semantic.contracts import require_bound_operation, require_database_operation
 
 from .semantic_alignment import SemanticSide, TierCounts, align_semantic
 from .semantic_values import entity_references, rewrite_references
@@ -266,6 +267,7 @@ def create_reference_set(
 
     result = _completed(conn, source_run_id, project_id)
     release = open_release(conn, result["release_id"])
+    require_bound_operation(release, "reference_set")
     config = evaluation_config(conn, release.release_id)
     split_documents(conn, project_id, config.split, release_id=release.release_id)
     pool = _source_units(conn, source_run_id)
@@ -365,6 +367,7 @@ def record_pass(
     if frame.unit_ref != unit["unit_key"] or frame.text != rendition["canonical_text"]:
         raise ReferenceError("reference source frame differs from bound unit/rendition")
     release = open_release(conn, unit["release_id"])
+    require_bound_operation(release, "reference_pass")
     raw = json.loads(authored)
     # Use the same rich release/reference validator and citation cascade as source admission.
     # Reference bytes remain private and never enter a source task or publication batch.
@@ -456,6 +459,7 @@ def ensure_items(
     conn: Connection, pass_id: int, *, frame_id: int | None = None
 ) -> StoredReferencePass:
     stored = read_pass(conn, pass_id, frame_id=frame_id)
+    require_database_operation(conn, stored.release_id, "reference_items")
     items = sorted(
         [
             {"item_kind": family, "local_ref": item["id"], "payload": item}
@@ -483,6 +487,7 @@ def ensure_items(
 
 def relocate_frame(conn: Connection, pass_id: int, *, rendition_id: int) -> int:
     stored = read_pass(conn, pass_id)
+    require_database_operation(conn, stored.release_id, "reference_frame")
     rendition = (
         conn.execute(
             select(table("kb.rendition")).where(table("kb.rendition").c.id == rendition_id)
@@ -581,6 +586,10 @@ def split_documents(
                 "or explicit archived evaluation policy"
             )
         config = evaluation_config(conn, release_id).split
+    release_id = release_id or conn.scalar(select(table("data.project").c.active_release_id).where(table("data.project").c.project_id == project_id))
+    if release_id is None:
+        raise ReferenceError("split assignment requires an explicitly bound release")
+    require_database_operation(conn, release_id, "reference_split")
     d = table("kb.document")
     docs = [
         SplitDocument(
@@ -810,6 +819,7 @@ def reference_evaluate(
             "explicit reference migration is required"
         )
     prepared = open_release(conn, completed["release_id"])
+    require_bound_operation(prepared, "reference_grade")
     from corpus_structure.semantic.scientific_evidence import require_scientific_policy
 
     require_scientific_policy(prepared)

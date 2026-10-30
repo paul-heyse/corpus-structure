@@ -22,9 +22,9 @@ types:
 classes:
   EffectDefinition:
     attributes:
-      id: {range: string, required: true}
-      version: {range: string, required: true}
-      meaning: {range: string, required: true}
+      id: {range: string, required: true, slot_uri: "execution:EffectDefinition_id"}
+      version: {range: string, required: true, slot_uri: "execution:EffectDefinition_version"}
+      meaning: {range: string, required: true, slot_uri: "execution:EffectDefinition_meaning"}
   ConceptDefinition:
     attributes:
       id:

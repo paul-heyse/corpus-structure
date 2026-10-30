@@ -205,6 +205,8 @@ def assemble(
     ``selected`` contains fact IDs selected by the domain policy, not confidence cutoffs.
     The publisher independently enforces applicability, range and accepted-state constraints.
     """
+    from corpus_structure.semantic.contracts import require_bound_operation
+    require_bound_operation(prepared, 'assemble')
     lowerer = FactValueLowerer(prepared, realization_id)
     definitions = lowerer.definitions
     entities = lowerer.entities

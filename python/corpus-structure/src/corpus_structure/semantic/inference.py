@@ -62,6 +62,8 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
     No admitted state is mutated. The private temporary table is dropped on success/error.
     Materialized output can outlive this connection; publication rechecks its source revision.
     """
+    from .contracts import require_database_operation
+    require_database_operation(connection, binding.release_id, "derive")
     if connection.get_isolation_level() not in {"REPEATABLE READ", "SERIALIZABLE"}:
         raise ValueError("inference requires a repeatable snapshot")
     realization = table("data.realization")

@@ -94,21 +94,12 @@ def create_run(
 
 def start_run(conn: Connection, run_id: int) -> int:
     """Start a source run through guarded DML; an exact running replay is harmless."""
-    run = table("ops.run")
-    started = conn.execute(
-        update(run)
-        .where(run.c.id == run_id, run.c.status == "created", run.c.sealed.is_(False))
-        .values(status="running")
-        .returning(run.c.id)
-    ).scalar_one_or_none()
-    if started is not None:
-        return started
-    current = conn.execute(
-        select(run.c.status, run.c.sealed).where(run.c.id == run_id)
-    ).one_or_none()
-    if current is not None and current.status == "running" and not current.sealed:
-        return run_id
-    raise OperationConflict("run no longer accepts source execution")
+    try:
+        return conn.execute(text("SELECT ops.start_source_run(:run)"), {"run": run_id}).scalar_one()
+    except Exception as exc:
+        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
+            raise OperationConflict("run no longer accepts source execution") from exc
+        raise
 
 
 def binding_of(conn: Connection, run_id: int) -> OperationBinding:
@@ -199,7 +190,7 @@ def create_task(
 ) -> int:
     r = table("ops.run")
     run = (
-        conn.execute(select(r).where(r.c.id == run_id).with_for_update(read=True)).mappings().one()
+        conn.execute(text("SELECT * FROM ops.lock_execution_run(:run,'schedule')"), {"run": run_id}).mappings().one()
     )
     if run["sealed"] or run["status"] not in {"created", "running"}:
         raise OperationConflict("run no longer accepts tasks")
@@ -286,35 +277,9 @@ def claim_tasks(
         raise ValueError("positive claim limit required")
     if not isinstance(holder, str) or not holder:
         raise ValueError("nonempty claim holder required")
-    t = table("ops.task")
-    r = table("ops.run")
-    run = (
-        conn.execute(select(r).where(r.c.id == run_id).with_for_update(read=True)).mappings().one()
-    )
-    if run["sealed"] or run["status"] not in {"created", "running"}:
-        return ()
-    eligible = (t.c.status == "awaiting_agent") if agent else (t.c.status == "pending")
-    eligible = eligible | ((t.c.status == "running") & (t.c.lease_until < func.clock_timestamp()))
-    ids = (
-        select(t.c.id)
-        .where(t.c.run_id == run_id, t.c.method_config_id == config_id, eligible)
-        .order_by(t.c.priority.desc(), t.c.id)
-        .limit(limit)
-        .with_for_update(skip_locked=True)
-        .cte("c")
-        .prefix_with("MATERIALIZED")
-    )
     rows = conn.execute(
-        update(t)
-        .where(t.c.id == ids.c.id)
-        .values(
-            status="running",
-            attempt=t.c.attempt + 1,
-            claimed_by=holder,
-            lease_until=func.clock_timestamp() + text("interval '5 minutes'"),
-            started_at=func.coalesce(t.c.started_at, func.clock_timestamp()),
-        )
-        .returning(t)
+        text("SELECT * FROM ops.claim_tasks(:run,:config,:holder,:limit,:agent)"),
+        {"run": run_id, "config": config_id, "holder": holder, "limit": limit, "agent": agent},
     ).mappings()
     from corpus_structure.core.vocab import TaskUnitType
 
@@ -688,10 +653,10 @@ def complete_unit_result(
     from .observations import bind_result, source_python
 
     task_table = table("ops.task")
-    run_table = table("ops.run")
     initial = conn.execute(select(task_table).where(task_table.c.id == task_id)).mappings().one()
     conn.execute(
-        select(run_table.c.id).where(run_table.c.id == initial["run_id"]).with_for_update(read=True)
+        text("SELECT * FROM ops.lock_execution_run(:run,'complete_unit')"),
+        {"run": initial["run_id"]},
     ).one()
     task = (
         conn.execute(select(task_table).where(task_table.c.id == task_id).with_for_update())

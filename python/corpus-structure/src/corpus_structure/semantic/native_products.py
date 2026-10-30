@@ -111,7 +111,7 @@ def edge_projection(edges: Iterable[tuple[str, str, str, str]]) -> NativeProduct
     return NativeProduct("execution-edges.json", canonical_bytes(sorted(edges)))
 
 
-def closure_products() -> tuple[NativeProduct, ...]:
+def closure_products(model=None) -> tuple[NativeProduct, ...]:
     """Author forward products from reviewed templates and the trusted model.
 
     The result is written into a new revision by an explicit authoring command. Historical
@@ -147,8 +147,14 @@ def closure_products() -> tuple[NativeProduct, ...]:
             [metadata.tables[name] for name, mode in classified.items() if mode == "intrinsic"]
         )
     ]
+    new_tables = {"sem." + name for name in (
+        "execution_operation", "execution_transition", "execution_edge", "operation_effect",
+        "transition_effect", "operation_property_role", "scientific_decision_rule",
+    )}
     guards = []
     for name, mode in classified.items():
+        if name not in new_tables:
+            continue
         guards.append(
             "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON "
             f"{name}"
@@ -160,7 +166,7 @@ def closure_products() -> tuple[NativeProduct, ...]:
                 f"{name}"
                 " FOR EACH ROW EXECUTE FUNCTION sem.guard_finalized_insert();"
             )
-    from .routines import stage_disposal_sql
+    from .routines import _transport_sql, stage_disposal_sql
 
     kernels = (
         source.joinpath("closure.sql")
@@ -169,6 +175,7 @@ def closure_products() -> tuple[NativeProduct, ...]:
         .replace("-- {immutability_guards}", "\n".join(guards))
         .replace("{transport_disposal}", stage_disposal_sql())
     )
+    kernels += "\n" + "\n".join(f"GRANT SELECT ON {name} TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;" for name in sorted(new_tables))
     from dataclasses import fields
 
     from .publication import STAGE_TYPES
@@ -183,6 +190,16 @@ def closure_products() -> tuple[NativeProduct, ...]:
         ),
     )
     kernels += "\n" + source.joinpath("exclusions.sql").read_text()
+    create, verify, content, insert = _transport_sql("corpus_sem_writer")
+    transport = source.joinpath("transport.sql").read_text()
+    for marker, fragment in (("create", create), ("verify", verify), ("content", content), ("insert", insert)):
+        transport = transport.replace("{" + marker + "}", fragment)
+    kernels = "\n".join(line for line in kernels.splitlines() if not line.startswith("CREATE TRIGGER native_float_codec"))
+    kernels += "\n" + transport
+    kernels += "\n" + source.joinpath("execution_projection_check.sql").read_text()
+    kernels += "\n" + source.joinpath("execution_projection.sql").read_text()
+    kernels += "\nSET LOCAL ROLE __MIGRATION_OWNER__;\n" + source.joinpath("execution_guards.sql").read_text() + "\nSET LOCAL ROLE corpus_sem_publisher;\n"
+
 
     row_type, types = STAGE_TYPES["typed_value"]
     signatures = ",".join(
@@ -202,34 +219,10 @@ def closure_products() -> tuple[NativeProduct, ...]:
         + "]) THEN RAISE EXCEPTION 'untrusted typed-value staging'; END IF;"
     )
     kernels = kernels.replace("{typed_value_stage_verify}", typed_verify)
-    model = compile_execution_model(trusted_execution_inputs())
-    edges = sorted(
-        {
-            (edge.lifecycle, before, after)
-            for edge in model.transitions
-            for before in edge.from_states
-            for after in edge.to_states
-            if edge.lifecycle not in {"reference_set", "reference_evaluation"}
-        }
-    )
-    # Only ordinary task/run lifecycle IDs are lowered by this finite kernel.
-    literals = ",\n".join(
-        "(" + ",".join("'" + part.replace("'", "''") + "'" for part in edge) + ")" for edge in edges
-    )
-    edge_sql = (
-        (
-            "\nCREATE OR REPLACE FUNCTION ops.execution_edge(lifecycle text,prior text,result t"
-            "ext) RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS "
-            "$edge$\n SELECT EXISTS(SELECT FROM (VALUES\n"
-        )
-        + literals
-        + (
-            ") allowed(lifecycle,prior,result) WHERE allowed.lifecycle=$1 AND allowed.prior=$2 "
-            "AND allowed.result=$3)\n$edge$;\n"
-        )
-    )
-    # Physical forward reconciliation; only newly introduced tables are constructed here.
-    new_tables = {"sem.release_finalization", "sem.deployment_admission", "sem.physical_contract"}
+    model = compile_execution_model(trusted_execution_inputs()) if model is None else model
+    for operation in model.operations:
+        model.require_operation(operation.id)
+    edge_sql = ""  # Finite edges are immutable release rows consumed by stable guards.
     physical = "\n".join(
         product.content.decode()
         for product in physical_products()
@@ -250,6 +243,7 @@ def closure_products() -> tuple[NativeProduct, ...]:
     physical += "\nGRANT CREATE ON SCHEMA sem TO corpus_sem_publisher;\n"
     for name in sorted(new_tables):
         physical += f"ALTER TABLE {name} OWNER TO corpus_sem_publisher;\n"
+
     physical += (
         "GRANT SELECT,INSERT,TRIGGER ON ALL TABLES IN SCHEMA sem TO corpus_sem_publisher WITH G"
         "RANT OPTION;\n"
@@ -433,6 +427,16 @@ def closure_products() -> tuple[NativeProduct, ...]:
     descriptor["views"] = [
         {"relation": "data.selected_fact", "query": str(view_query.compile(dialect=dialect()))}
     ]
+    from .effect_support import SUPPORTED_EFFECTS
+
+    bindings = {binding.id: binding for binding in model.implementations}
+    descriptor["supported_effects"] = {
+        operation.id: {
+            **SUPPORTED_EFFECTS[operation.id],
+        }
+        for operation in model.operations
+    }
+    descriptor["execution_abi"] = "4"
     descriptor["model_id"] = model.model_id
     descriptor["physical_id"] = PHYSICAL_MODEL_ID
     descriptor["inputs"] = [
@@ -444,7 +448,7 @@ def closure_products() -> tuple[NativeProduct, ...]:
     def stream(node: Any) -> str:
         return RawStream()(node)
 
-    for raw in parse_sql(kernels + edge_sql):
+    for raw in parse_sql((kernels + edge_sql).replace("__MIGRATION_OWNER__", "corpus_migration_owner")):
         stmt = raw.stmt
         if isinstance(stmt, ast.CreateFunctionStmt):
             if stmt.returnType is None:
@@ -459,6 +463,9 @@ def closure_products() -> tuple[NativeProduct, ...]:
             options = {option.defname: option.arg for option in stmt.options or ()}
             body = options["as"][0].sval
             previous = functions.get(signature, {})
+            from copy import copy
+            result_type = copy(stmt.returnType)
+            result_type.setof = False
             functions[signature] = {
                 "signature": signature,
                 "body_sha256": sha256(body.encode()).hexdigest(),
@@ -470,8 +477,8 @@ def closure_products() -> tuple[NativeProduct, ...]:
                 ),
                 "parallel": "u",
                 "leakproof": False,
-                "setof": False,
-                "result": stream(stmt.returnType),
+                "setof": bool(stmt.returnType.setof),
+                "result": stream(result_type),
                 "config": ["search_path=pg_catalog, pg_temp"],
                 "owner": previous.get("owner", "corpus_sem_publisher"),
                 "execute_roles": list(previous.get("execute_roles", [])),
@@ -619,32 +626,16 @@ def closure_products() -> tuple[NativeProduct, ...]:
         + required
     )
     return (
-        NativeProduct("semantic_0031_physical.sql", physical.encode()),
-        NativeProduct("semantic_0031_kernels.sql", kernels.encode()),
-        NativeProduct("semantic_0031_admission.sql", admission.encode()),
+        NativeProduct("semantic_0033_physical.sql", physical.encode()),
+        NativeProduct("semantic_0033_kernels.sql", kernels.encode()),
+        NativeProduct("semantic_0033_admission.sql", admission.encode()),
     )
 
 
-def consolidation_products() -> tuple[NativeProduct, ...]:
-    """Forward routine delta over 0031; its tables and immutable rows already exist."""
-    from pglast.stream import RawStream
+def consolidation_products(model=None) -> tuple[NativeProduct, ...]:
+    """Complete forward authoring: fixed schema, row consumers, transport and Core view.
 
-    products = []
-    for product in closure_products():
-        name = product.name.replace("0031", "0032")
-        if name.endswith("_physical.sql"):
-            content = b"-- Physical model unchanged from semantic_0031.\n"
-        elif name.endswith("_kernels.sql"):
-            content = (
-                "\n".join(
-                    RawStream()(statement.stmt) + ";"
-                    for statement in parse_sql(product.content.decode())
-                    if statement.stmt is not None
-                    and not isinstance(statement.stmt, ast.CreateTrigStmt)
-                )
-                + "\n"
-            ).encode()
-        else:
-            content = product.content
-        products.append(NativeProduct(name, content))
-    return tuple(products)
+    Historical migrations execute only committed adjacent products. No physical product
+    is discarded by assuming that every future model has the same tables or views.
+    """
+    return closure_products(model)

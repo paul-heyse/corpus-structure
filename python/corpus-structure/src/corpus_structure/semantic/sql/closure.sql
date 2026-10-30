@@ -50,6 +50,7 @@ BEGIN
   RAISE EXCEPTION 'archive content digest differs' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM sem.release WHERE release_id=r AND (release_id<>'release:'||encode(sha256(manifest_bytes),'hex') OR convert_from(prepared_bytes,'UTF8')::jsonb->'products'->>'release_id' IS DISTINCT FROM release_id)) THEN RAISE EXCEPTION 'archive manifest identity differs' USING ERRCODE='23514'; END IF;
  PERFORM sem.require_archive_bytes(r);
+ PERFORM sem.require_execution_projection(r);
  IF NOT replay THEN INSERT INTO sem.release_finalization VALUES(r,digest); END IF;
  RETURN r;
 END
@@ -422,7 +423,8 @@ $body$;
 REVOKE ALL ON FUNCTION sem.require_archive_bytes(text) FROM PUBLIC;
 
 DO $finalize$ DECLARE r text; BEGIN
- FOR r IN SELECT release_id FROM sem.release LOOP PERFORM sem.require_archive_bytes(r); END LOOP;
+ FOR r IN SELECT release_id FROM sem.release LOOP PERFORM sem.require_archive_bytes(r);
+ PERFORM sem.require_execution_projection(r); END LOOP;
  INSERT INTO sem.release_finalization SELECT release_id,content_digest FROM sem.release
  ON CONFLICT(release_id) DO NOTHING;
  IF EXISTS(SELECT FROM sem.release_finalization f JOIN sem.release s USING(release_id)

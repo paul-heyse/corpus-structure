@@ -92,6 +92,8 @@ def init_bound_project(
 
     try:
         prepared = load_release(conn, release_id)
+        from corpus_structure.semantic.contracts import require_bound_operation
+        require_bound_operation(prepared, "construct_project")
     except KeyError as exc:
         raise ProjectError("semantic release is not admitted") from exc
     pack = (domains or DOMAINS) / domain

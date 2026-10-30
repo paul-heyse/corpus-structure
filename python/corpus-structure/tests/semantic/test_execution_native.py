@@ -129,7 +129,7 @@ def test_native_attempt_and_nonterminal_transition_fences(
         assert claimed.attempt == 1
     with (
         pytest.raises(DBAPIError, match="claim or reclaim"),
-        semantic_writer_engine.begin() as conn,
+        semantic_db_engine.begin() as conn,
     ):
         conn.execute(
             table("ops.task")

@@ -131,6 +131,8 @@ class CapturedPacket:
     relations: Mapping[str, pa.Table]
     property_ids: tuple[str, ...] = ()
     scale: int = 12
+    execution_model_id: str | None = None
+    execution_contract: bytes | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "relations", MappingProxyType(dict(self.relations)))
@@ -154,6 +156,9 @@ class CandidateInput:
     run_id: int | None = None
     target_realization_id: str | None = None
     decision_occurrence_ids: tuple[str, ...] = ()
+
+    execution_model_id: str | None = None
+    execution_contract: bytes | None = None
 
     def __post_init__(self) -> None:
         if not self.cut_id or not self.decision_universe:
@@ -230,6 +235,8 @@ class CandidateInput:
                 "candidate_input",
             )
         )
+        from .contracts import execution_payload
+
         return cls(
             cut.source_binding,
             compiled.projection_id,
@@ -243,6 +250,8 @@ class CandidateInput:
             cut.run_id,
             cut.output_realization_id,
             decisions,
+            execution_model_id=prepared.execution_model_id,
+            execution_contract=execution_payload(prepared),
         )
 
 
@@ -426,6 +435,8 @@ def compile_projection(
     prepared: PreparedRelease, binding: SnapshotBinding, *, kind: str = "captured"
 ) -> CompiledProjection:
     """One trusted physical mapping produces Core selections and their exact Arrow schemas."""
+    from corpus_structure.semantic.contracts import require_bound_operation
+    require_bound_operation(prepared, 'compile_projection')
     if prepared.release_id != binding.release_id:
         raise ValueError("projection release differs from snapshot")
     if kind not in {"captured", "candidate"}:
@@ -592,6 +603,8 @@ def load_packet(
     Caller owns the exporting ReadSession and must close it before long local computation.
     A fresh bulk connection has no data query before SET TRANSACTION SNAPSHOT. It is never pooled.
     """
+    from .contracts import execution_payload, require_bound_operation
+    require_bound_operation(session.prepared, "capture_analytics")
     compiled = compile_projection(session.prepared, session.binding)
     snapshot = session.connection.execute(select(text("pg_export_snapshot()"))).scalar_one()
     # Exported ids are server-generated; SQLAlchemy renders their SQL literal safely.
@@ -632,6 +645,8 @@ def load_packet(
         MappingProxyType(relations),
         tuple(sorted({p.iri for d in session.prepared.definitions for p in d.properties})),
         compiled.profile.scale,
+        execution_model_id=session.prepared.execution_model_id,
+        execution_contract=execution_payload(session.prepared),
     )
 
 
@@ -674,6 +689,9 @@ class AnalysisScope:
         memory_limit: str = "2GB",
         scratch_path: str | Path | None = None,
     ):
+        from .contracts import require_payload_operation
+        require_payload_operation(packet.execution_contract, packet.execution_model_id, "open_analysis")
+        require_payload_operation(packet.execution_contract, packet.execution_model_id, "close_analysis")
         if threads < 1:
             raise ValueError("threads must be positive")
         self.packet = packet

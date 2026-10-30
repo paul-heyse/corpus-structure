@@ -43,13 +43,11 @@ def admit_execution_release(
     are checked by their existing owners on every activation and are never cached here.
     """
     if prepared.execution_model_id is not None:
-        from .contracts import compile_execution_model, trusted_execution_inputs
+        from .contracts import bound_execution_model
 
-        current = compile_execution_model(trusted_execution_inputs())
-        if prepared.execution_model_id != current.model_id:
-            raise ExecutionAdmissionError(
-                "archived execution model is incompatible with trusted code"
-            )
+        current = bound_execution_model(prepared)
+        for operation in current.operations:
+            current.require_operation(operation.id)
         missing_requirements = set(current.required_capabilities) - set(
             prepared.required_capabilities
         )
@@ -198,7 +196,7 @@ def require_archive_fence(connection: Connection) -> None:
 
 # Frozen from reviewed migration ASTs through semantic_0032.
 # Schema derive emits the corresponding SQL.
-_DESCRIPTOR_SHA256 = "7efd96a207a3a75750a50187587f218af9ca7d42ce27944f80f72e8505a38793"
-_REQUIRE_SHA256 = "c48c57987c523c376908f14945b8f5d6b5ae35e178c7f147ff5c7ea24553ac06"
+_DESCRIPTOR_SHA256 = "91422915caf1f57ded4c05d3d954926bacb773bbd0178a40fda0d6f9d69af7c1"
+_REQUIRE_SHA256 = "d4e70e27d077a8b8825f212664d3822c43e19dbd08b7f894f137a7fdae8ab32f"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

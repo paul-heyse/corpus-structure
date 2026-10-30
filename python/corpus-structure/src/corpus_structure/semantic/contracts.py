@@ -409,6 +409,54 @@ def _validate_effect_support(model: ExecutionModelProducts, operation: Operation
               "required effects differ from the owned implementation; implement the required profile before admission")
 
 
+def execution_payload(prepared) -> bytes | None:
+    """Carry the exact owned execution recipe with a detached analytical input."""
+    if prepared.execution_model_id is None:
+        return None
+    rows = [row for row in prepared.registry_rows if row.kind == "execution_model"]
+    if len(rows) != 1 or rows[0].name != prepared.execution_model_id:
+        _fail("execution_binding", prepared.release_id, "exactly one matching execution product is required")
+    return rows[0].body
+
+
+def require_bound_operation(prepared, name: str) -> None:
+    payload = execution_payload(prepared)
+    if payload is not None:
+        require_payload_operation(payload, prepared.execution_model_id, name)
+
+
+def require_payload_operation(payload: bytes | None, model_id: str | None, name: str) -> None:
+    if model_id is None:
+        if payload is not None:
+            _fail("execution_binding", name, "execution payload requires its model identity")
+        return  # Explicit historical semantic-1 base protocol.
+    if payload is None:
+        _fail("missing_execution_model", name, "composed operation requires its bound execution payload")
+    data = json.loads(payload)
+    if data.get("model_id") != model_id:
+        _fail("execution_binding", name, "execution payload identity differs")
+    if data.get("inputs", {}).get("compiler_version") in {"1", "2", "3"}:
+        # Retained immutable reader ABI, without allowing historical writes/activation.
+        if name not in {"reload", "open_read", "query", "explain", "compile_projection",
+                        "capture_analytics", "open_analysis", "close_analysis", "graph_project", "graph_validate"}:
+            _fail("unsupported_execution_abi", name, "historical execution products are read-only")
+        operation = next((o for o in data["operations"] if o["id"] == name), None)
+        if operation is None:
+            _fail("missing_operation", name, "historical bound operation is absent")
+        from .effect_support import SUPPORTED_EFFECTS
+        if tuple(sorted(operation["effects"])) != SUPPORTED_EFFECTS[name]["effects"]:
+            _fail("unsupported_effect_profile", name, "historical reader effects are incompatible")
+        return
+    _bound_execution_model(payload, model_id).require_operation(name)
+
+
+def require_database_operation(connection, release_id: str, name: str) -> None:
+    from sqlalchemy import text
+
+    connection.execute(text("SELECT sem.require_execution_operation(:release,:operation)"),
+                       {"release": release_id, "operation": name})
+
+
 def bound_execution_model(prepared) -> ExecutionModelProducts:
     """Read a mandatory immutable execution product, without a current-model fallback."""
     if prepared.execution_model_id is None:
