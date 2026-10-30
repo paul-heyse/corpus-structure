@@ -452,9 +452,11 @@ def _deadline(seconds: float) -> Generator[None]:
             previous(signum, frame)
         raise _Expired
 
-    signal.signal(signal.SIGALRM, expire)
-    signal.setitimer(signal.ITIMER_REAL, min(seconds, remaining) if remaining > 0 else seconds)
     try:
+        # Enter the cleanup guard before changing or arming process signal state.
+        # A valid tiny budget can expire during setitimer itself.
+        signal.signal(signal.SIGALRM, expire)
+        signal.setitimer(signal.ITIMER_REAL, min(seconds, remaining) if remaining > 0 else seconds)
         yield
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)

@@ -250,3 +250,14 @@ def test_unavailable_definedness_has_partial_work_state():
     assert answer.coverage == "partial"
     assert value.state("scientific").work == "available"
     assert value.state("scientific").coverage == "partial"
+
+
+def test_actual_tiny_budget_always_restores_deadline_setup_state():
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    previous_timer = signal.getitimer(signal.ITIMER_REAL)
+    assert previous_timer == (0, 0)
+    for _ in range(20):
+        with pytest.raises(grammar.Expired), grammar.deadline(1e-9):
+            time.sleep(0.01)
+        assert signal.getsignal(signal.SIGALRM) is previous_handler
+        assert signal.getitimer(signal.ITIMER_REAL) == previous_timer

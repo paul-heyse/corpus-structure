@@ -284,7 +284,7 @@ class PreparedMathInput:
                     restriction(node.children[0])
                 elif exponent is None or exponent <= 0 or exponent.denominator != 1:
                     diagnostics.add(f"unsupported source power domain: {node.data} at {_tree.span(node)}")
-            elif str(node.data).endswith("_power") or node.data in _UNSUPPORTED_DOMAIN_RULES:
+            elif node.data.endswith("_power") or node.data in _UNSUPPORTED_DOMAIN_RULES:
                 diagnostics.add(f"unsupported source domain: {node.data} at {_tree.span(node)}")
             elif node.data == "square_root" and len(node.children) > 2:
                 diagnostics.add(f"unsupported indexed-root domain at {_tree.span(node)}")

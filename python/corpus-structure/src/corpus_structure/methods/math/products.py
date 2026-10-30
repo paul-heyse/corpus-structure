@@ -80,6 +80,9 @@ def interpretation_product_payload(
     coverage = "complete" if reading.status.value == "ok" else "partial"
     meaning = "unknown" if stage == "syntax" else _meaning(reading.status.value)
     p = _envelope("interpretation", root, product_key, meaning, coverage)
+    timed_out = reading.failure is not None and reading.failure.category == "timeout"
+    if timed_out:
+        p["lifecycle"], p["semantic_state"], p["coverage"] = "failed", "unknown", "partial"
     dependency = _dependency("text", text_product)
     p["dependencies"] = [_dependency("source", root), dependency]
     p["representations"] = [dict(representation_id="parse_input", kind="parse_view", unit="codepoint",
@@ -98,7 +101,7 @@ def interpretation_product_payload(
              unit="codepoint", start_offset=0, end_offset=len(operand.latex)),
     ]
     native_evidence = None
-    if stage == "symbolic":
+    if stage == "symbolic" and not timed_out:
         try:
             native_evidence = dict(format="sympy-srepr-1", text=sympy.srepr(operand.symbolic_value()))
         except grammar.Expired:
@@ -107,12 +110,17 @@ def interpretation_product_payload(
             p["semantic_state"], p["coverage"] = "unsupported", "partial"
         except ValueError:
             p["semantic_state"], p["coverage"] = "invalid", "partial"
-        coverage = p["coverage"]
+    coverage = p["coverage"]
+    # A failed attempt is an immutable diagnostic, not permission to retry a stage
+    # while serializing it. Source/lexical custody above remains independently complete.
+    definedness = None
+    if stage != "syntax" and p["lifecycle"] != "failed":
+        definedness = operand.definedness_result()
     details = dict(native_evidence=native_evidence, native_state=dataclasses.asdict(operand.state("symbolic")), requested_stage=stage, kind=reading.kind, status=reading.status.value, notes=reading.notes,
                    declarations=[dataclasses.asdict(d) for d in reading.declarations],
                    failure=None if reading.failure is None else dataclasses.asdict(reading.failure),
-                   definedness=[] if stage == "syntax" else [dataclasses.asdict(c) for c in operand.definedness()],
-                   definedness_result=None if stage == "syntax" else dataclasses.asdict(operand.definedness_result()),
+                   definedness=[] if definedness is None else [dataclasses.asdict(c) for c in definedness.conditions],
+                   definedness_result=None if definedness is None else dataclasses.asdict(definedness),
                    conventions=operand.context.profile.mathematical_conventions,
                    requested_native_equivalence=symbolic)
     p["nodes"] = [dict(node_id="interpretation:0", kind="math", origin="literal", name=reading.kind or reading.requested,
@@ -176,7 +184,7 @@ def assessment_product_payload(
     details = dict(question=assessment.question, outcome=assessment.outcome, evidence=explanation,
                    conditions=[dataclasses.asdict(c) for c in assessment.conditions],
                    diagnostic=assessment.diagnostic,
-                   definedness_result=dataclasses.asdict(operand.definedness_result()),
+                   definedness_result=None if assessment.outcome == "timeout" else dataclasses.asdict(operand.definedness_result()),
                    assumption_records=json.loads(operand.context.assumptions))
     p["nodes"] = [dict(node_id="evidence:0", kind="math", origin="derived",
                        origin_reason="named native mathematical assessment; not source spelling",

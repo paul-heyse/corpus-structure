@@ -96,3 +96,81 @@ def test_unknown_definedness_transport_cannot_claim_complete_empty_conditions():
     assert '"coverage":"partial"' in p["nodes"][0]["value"]
     assert 'unsupported source power domain' in p["nodes"][0]["value"]
     assert p["assessments"][0]["algorithm_revision"] == "native-assessment-2"
+
+
+@pytest.mark.parametrize("stage", ["syntax", "interpretation", "symbolic"])
+def test_every_stage_timeout_is_failed_without_serialization_retry(monkeypatch, stage):
+    from corpus_structure.core.vocab import ParseOutcome
+    from corpus_structure.methods.math import grammar
+
+    operand = value("x+x")
+    calls = []
+    def timeout(*args, **kwargs):
+        calls.append(None)
+        return grammar.MathResult("x+x", "formula", ParseOutcome.FAILED,
+                                  failure=grammar.Failure("timeout", "Timeout"))
+    monkeypatch.setattr(grammar, "syntax", timeout)
+    monkeypatch.setattr(PreparedMathInput, "definedness_result",
+                        lambda self: pytest.fail("serializer retried definedness"))
+    monkeypatch.setattr(PreparedMathInput, "symbolic_value",
+                        lambda self: pytest.fail("serializer entered native after timeout"))
+    p = prepare_layered_product(interpretation_product_payload(operand, root=ROOT,
+        text_product=TEXT, source_node_id="view:0", stage=stage)).values()
+    assert (p["lifecycle"], p["semantic_state"], p["coverage"]) == ("failed", "unknown", "partial")
+    assert p["representations"][0]["text_content"] == "x+x"
+    assert p["representations"][0]["partition_state"] == "complete"
+    assert len(p["components"]) == 3
+    assert len(calls) == 1
+
+
+def test_native_timeout_does_not_enter_definedness_during_serialization(monkeypatch):
+    from corpus_structure.methods.math import grammar
+
+    operand = value("x")
+    def expire(self):
+        raise grammar.Expired()
+    monkeypatch.setattr(PreparedMathInput, "symbolic_value", expire)
+    monkeypatch.setattr(PreparedMathInput, "definedness_result",
+                        lambda self: pytest.fail("serializer entered definedness after timeout"))
+    p = prepare_layered_product(interpretation_product_payload(operand, root=ROOT,
+        text_product=TEXT, source_node_id="view:0", stage="symbolic")).values()
+    assert (p["lifecycle"], p["semantic_state"], p["coverage"]) == ("failed", "unknown", "partial")
+
+
+def test_failed_read_can_be_requested_by_a_fresh_operation_with_a_new_budget(monkeypatch):
+    from corpus_structure.core.vocab import ParseOutcome
+    from corpus_structure.methods.math import grammar
+
+    original = grammar.syntax
+    first = value("x")
+    later = PreparedMathInput(first.context, "x", seconds=3.0, parse_start=12)
+    calls = []
+    def budgeted(*args, **kwargs):
+        calls.append(kwargs["seconds"])
+        if len(calls) == 1:
+            return grammar.MathResult("x", "formula", ParseOutcome.FAILED,
+                                      failure=grammar.Failure("timeout", "Timeout"))
+        return original(*args, **kwargs)
+    monkeypatch.setattr(grammar, "syntax", budgeted)
+    failed = interpretation_product_payload(first, root=ROOT, text_product=TEXT,
+                                            source_node_id="view:0")
+    succeeded = interpretation_product_payload(later, root=ROOT, text_product=TEXT,
+                                               source_node_id="view:0")
+    assert failed["lifecycle"] == "failed"
+    assert succeeded["lifecycle"] == "available"
+    assert succeeded["semantic_state"] == "ok"
+    assert calls == [2.0, 3.0]
+
+
+def test_assessment_timeout_serialization_never_reenters_source_stages(monkeypatch):
+    from corpus_structure.methods.math.prepared import MathAssessment
+
+    operand = value("x")
+    monkeypatch.setattr(PreparedMathInput, "interpretation",
+                        lambda self: pytest.fail("serializer retried interpretation"))
+    monkeypatch.setattr(PreparedMathInput, "definedness_result",
+                        lambda self: pytest.fail("serializer retried definedness"))
+    p = prepare_layered_product(assessment_product_payload(operand,
+        MathAssessment("definedness", "timeout", coverage="partial"), root=ROOT,
+        interpretation_product=dict(task_id=8, product_key="math", content_digest="c" * 64))).values()
+    assert (p["lifecycle"], p["semantic_state"], p["coverage"]) == ("failed", "unknown", "partial")
