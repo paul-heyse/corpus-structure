@@ -43,7 +43,10 @@ semantics. Writer lifecycle mutation grants are narrow; protected set-based clai
 preserve current transaction and batching behavior. Detached analytical inputs carry their exact
 execution recipe, and check resource contracts before acquiring resources. Cleanup remains unconditional.
 Property roles reach actual Core filtering before hydration. Scientific decision rows constrain
-persisted reference comparisons at the protected database boundary; they do not establish that
+persisted reference comparisons at the protected database boundary. The deployed supported traversal
+layout derives from the trusted LinkML constructor model and is checked at native admission and
+persistence before archived paths are used. Empty, partial or moved paths cannot attest their own
+support. These checks do not establish that
 observed evidence is scientifically correct or regrade historical output.
 
 The existing schema authoring command emits complete transport fragments, Core table/index/

@@ -89,7 +89,9 @@ Current lifecycle guards query release-scoped edges and operation bindings. Prot
 operations retain atomic publication, attempt/holder and source/proof fences. Set-based claim and
 protected run-lock helpers replace writer lifecycle UPDATE authority without per-item calls.
 Effective property-role rows feed Core filtering before hydration; scientific decision rows enforce
-persisted reference evidence-to-policy mappings. Owned Python operations consume their bound recipe;
+persisted reference evidence-to-policy mappings. Their traversal layout derives from the trusted
+LinkML constructor model and must match the deployed supported layout at admission and persistence;
+archived path labels cannot authorize an empty or moved check. Owned Python operations consume their bound recipe;
 detached analytical inputs carry it and check open/close contracts before acquiring resources.
 
 `schema derive` emits Core physical/view DDL, retained complete transport/publication products,

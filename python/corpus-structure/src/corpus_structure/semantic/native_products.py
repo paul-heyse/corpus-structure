@@ -462,6 +462,12 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
         }
         for operation in model.operations
     }
+    from .scientific_evidence import scientific_report_layout
+
+    layout = scientific_report_layout()
+    if not layout["comparison_paths"] or not layout["array_rules"]:
+        raise ValueError("owned scientific report layout must define comparison and array consumers")
+    descriptor["scientific_report_layout"] = layout
     descriptor["supported_effect_versions"] = SUPPORTED_EFFECT_VERSIONS
     descriptor["execution_abi"] = "4"
     descriptor["model_id"] = model.model_id

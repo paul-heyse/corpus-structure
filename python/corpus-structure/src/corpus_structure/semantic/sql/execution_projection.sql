@@ -92,6 +92,20 @@ END $lock$;
 REVOKE ALL ON FUNCTION ops.lock_execution_run(bigint,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.lock_execution_run(bigint,text) TO corpus_sem_writer;
 
+CREATE OR REPLACE FUNCTION sem.require_scientific_layout(r text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $layout$
+DECLARE recipe jsonb; supported jsonb;
+BEGIN
+ SELECT convert_from(content,'UTF8')::jsonb INTO recipe FROM sem.artifact
+ WHERE release_id=r AND artifact_name='operation/scientific-policy.json';
+ supported:=data.execution_contract_descriptor()->'scientific_report_layout';
+ IF recipe IS NULL OR supported IS NULL
+  OR jsonb_build_object('comparison_paths',recipe->'comparison_paths','array_rules',recipe->'array_rules')
+     IS DISTINCT FROM supported THEN
+  RAISE EXCEPTION 'unsupported scientific report layout in release %',r USING ERRCODE='23514'; END IF;
+END $layout$;
+REVOKE ALL ON FUNCTION sem.require_scientific_layout(text) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION eval.guard_scientific_decisions() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $scientific$
 DECLARE r text; recipe jsonb; rule jsonb; parent jsonb;
@@ -99,6 +113,7 @@ BEGIN
  SELECT release_id INTO STRICT r FROM eval.reference_set WHERE id=NEW.set_id;
  PERFORM sem.require_execution_operation(r,'reference_grade');
  IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN RETURN NEW; END IF;
+ PERFORM sem.require_scientific_layout(r);
  SELECT convert_from(content,'UTF8')::jsonb INTO STRICT recipe FROM sem.artifact
  WHERE release_id=r AND artifact_name='operation/scientific-policy.json';
  IF jsonb_typeof(recipe->'comparison_paths') IS DISTINCT FROM 'array'

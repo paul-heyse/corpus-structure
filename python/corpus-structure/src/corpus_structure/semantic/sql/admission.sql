@@ -82,6 +82,9 @@ BEGIN
   RAISE EXCEPTION 'incompatible archived execution ABI' USING ERRCODE='23514'; END IF;
  IF NOT EXISTS(SELECT FROM sem.execution_operation WHERE release_id=r) THEN
   RAISE EXCEPTION 'release execution projection is unavailable' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND artifact_name='operation/scientific-policy.json') THEN
+  PERFORM sem.require_scientific_layout(r);
+ END IF;
  FOR spec IN SELECT jsonb_build_object('id',operation_id) FROM sem.execution_operation WHERE release_id=r LOOP
   PERFORM sem.require_execution_operation(r,spec->>'id');
  END LOOP;

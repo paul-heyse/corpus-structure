@@ -183,3 +183,48 @@ def test_explicit_transport_order_cannot_place_evidence_links_before_evidence():
     order = ["identity_exclusion_evidence", *[name for name in STAGE_TYPES if name != "identity_exclusion_evidence"]]
     with pytest.raises(ValueError, match="publication dependencies"):
         _transport_sql("corpus_sem_writer", relation_order=tuple(order))
+
+
+@pytest.mark.parametrize("change", ["empty", "partial", "moved", "optionalized"])
+def test_native_admission_rejects_unimplemented_scientific_layout(
+    semantic_db_engine, admitter, change
+):
+    import json
+    from hashlib import sha256
+    from pathlib import Path
+
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.regeneration import prepare_packs
+    from corpus_structure.semantic.releases import persist_release
+
+    from .archive_faults import administrative_archive_edit
+
+    bundle, dependencies, profile, prepared = prepare_packs((Path("domains/statistics"),))
+    with admitter.begin() as connection:
+        persist_release(connection, bundle, dependencies, profile, prepared)
+    # Independently challenge native compatibility after the compiler has verified its source.
+    # Only the authenticated administrator can inject this formerly admitted/corrupt recipe.
+    with semantic_db_engine.begin() as admin:
+        with administrative_archive_edit(admin, table("sem.artifact")):
+            original = bytes(admin.scalar(text(
+                "SELECT content FROM sem.artifact WHERE release_id=:release "
+                "AND artifact_name='operation/scientific-policy.json'"
+            ), {"release": prepared.release_id}))
+            recipe = json.loads(original)
+            if change == "empty":
+                recipe["comparison_paths"], recipe["array_rules"] = [], []
+            elif change == "partial":
+                recipe["comparison_paths"] = recipe["comparison_paths"][:1]
+            elif change == "moved":
+                recipe["comparison_paths"][0] = "$.unconsumed[*].comparisons[*]"
+            else:
+                next(rule for rule in recipe["array_rules"] if rule["field"] == "units")["required"] = False
+            encoded = json.dumps(recipe).encode()
+            admin.execute(text("UPDATE sem.artifact SET content=:content,content_digest=:digest "
+                "WHERE release_id=:release AND artifact_name='operation/scientific-policy.json'"),
+                {"content": encoded, "digest": sha256(encoded).hexdigest(), "release": prepared.release_id})
+    with pytest.raises(DBAPIError, match="unsupported scientific report layout"), admitter.begin() as connection:
+        connection.execute(text("SELECT data.require_execution_release(:release)"),
+                           {"release": prepared.release_id})
