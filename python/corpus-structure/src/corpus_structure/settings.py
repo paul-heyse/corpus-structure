@@ -136,8 +136,15 @@ def _mask_url_credentials(url: str) -> str:
     # Retain useful routing context; unknown query values may contain credentials. This is
     # diagnostic rendering only, never a URL used to establish a connection.
     safe_options = {
-        "host", "hostaddr", "port", "sslmode", "application_name", "connect_timeout",
-        "target_session_attrs", "channel_binding", "gssencmode",
+        "host",
+        "hostaddr",
+        "port",
+        "sslmode",
+        "application_name",
+        "connect_timeout",
+        "target_session_attrs",
+        "channel_binding",
+        "gssencmode",
     }
     try:
         parts = urlsplit(url)
@@ -147,13 +154,15 @@ def _mask_url_credentials(url: str) -> str:
             username, separator, _ = authentication.partition(":")
             if separator:
                 netloc = f"{username}:{MASK}@{host}"
-        query = urlencode([
-            (key, value if key.casefold() in safe_options else MASK)
-            for key, value in parse_qsl(parts.query, keep_blank_values=True)
-        ])
-        return urlunsplit(parts._replace(
-            netloc=netloc, query=query, fragment=MASK if parts.fragment else ""
-        ))
+        query = urlencode(
+            [
+                (key, value if key.casefold() in safe_options else MASK)
+                for key, value in parse_qsl(parts.query, keep_blank_values=True)
+            ]
+        )
+        return urlunsplit(
+            parts._replace(netloc=netloc, query=query, fragment=MASK if parts.fragment else "")
+        )
     except ValueError:
         return MASK
 

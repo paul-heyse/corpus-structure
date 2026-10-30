@@ -12,9 +12,9 @@ from corpus_structure.semantic.metadata import metadata, table
 from corpus_structure.semantic.migrations import current_revision, downgrade, upgrade
 
 
-def test_native_bootstrap_and_subsequent_projection(semantic_db_engine: Engine) -> None:
-    with semantic_db_engine.begin() as conn:
-        assert current_revision(conn) is not None
+def test_native_bootstrap_and_subsequent_projection(semantic_bare_engine: Engine) -> None:
+    with semantic_bare_engine.begin() as conn:
+        assert current_revision(conn) is None
         upgrade(conn)
         catalog = inspect(conn)
         assert {"sem", "data"} <= set(catalog.get_schema_names())

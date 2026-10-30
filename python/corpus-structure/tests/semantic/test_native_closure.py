@@ -9,9 +9,8 @@ from uuid import uuid4
 import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
-from sqlalchemy import create_engine, insert, text
+from sqlalchemy import insert, text
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.pool import NullPool
 
 from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
 from corpus_structure.semantic.metadata import table
@@ -19,17 +18,6 @@ from corpus_structure.semantic.releases import ReleaseConflict, persist_release
 from corpus_structure.semantic.types import PreparedArtifact
 
 from .test_releases import source_bundle
-
-
-@pytest.fixture
-def admitter(semantic_db_engine):
-    engine = create_engine(
-        semantic_db_engine.url.set(username="corpus_sem_admitter"), poolclass=NullPool
-    )
-    try:
-        yield engine
-    finally:
-        engine.dispose()
 
 
 def archive(engine):
@@ -345,36 +333,9 @@ def test_model_products_match_frozen_forward_revision():
 
 
 @pytest.fixture
-def revision_database():
-    """One bounded cold-revision database; consumer-fixture redesign remains SP-I08."""
-    from corpus_structure.semantic.migrations import upgrade
-    from corpus_structure.semantic.runtime import connection_settings
-    from corpus_structure.settings import Settings
-
-    settings = Settings()
-    target = create_engine(
-        connection_settings(settings, "maintenance").database.sqlalchemy_url, poolclass=NullPool
-    )
-    server = create_engine(
-        target.url.set(database="postgres"), poolclass=NullPool, isolation_level="AUTOCOMMIT"
-    )
-    name = "cs_upgrade_" + uuid4().hex[:16]
-    quote = server.dialect.identifier_preparer.quote
-    engine = create_engine(target.url.set(database=name), poolclass=NullPool)
-    try:
-        with server.connect() as conn:
-            conn.exec_driver_sql(
-                f"CREATE DATABASE {quote(name)} TEMPLATE {quote(settings.database.template)}"
-            )
-        with engine.begin() as conn:
-            upgrade(conn, "semantic_0030")
+def revision_database(semantic_database_at):
+    with semantic_database_at("semantic_0030") as engine:
         yield engine
-    finally:
-        engine.dispose()
-        target.dispose()
-        with server.connect() as conn:
-            conn.exec_driver_sql(f"DROP DATABASE IF EXISTS {quote(name)}")
-        server.dispose()
 
 
 @pytest.mark.parametrize("earlier_variant", [False, True])

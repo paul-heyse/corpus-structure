@@ -125,11 +125,23 @@ def test_owner_credentials_are_not_inherited_by_restricted_purpose(purpose):
     "field,purpose",
     [("reader_url", "read"), ("evaluator_url", "evaluate"), ("admission_url", "admit")],
 )
-def test_conflicting_purpose_endpoint_refuses(field, purpose):
+@pytest.mark.parametrize(
+    "credential,conflict",
+    [
+        ("postgresql://restricted@/another", "database"),
+        ("postgresql://restricted@other.example/owned", "host"),
+        ("postgresql://restricted@:5440/owned", "port"),
+        ("postgresql://restricted@/owned?sslmode=disable", "option sslmode"),
+    ],
+)
+def test_conflicting_purpose_endpoint_refuses(field, purpose, credential, conflict):
     settings = Settings(
-        database={"url": "postgresql:///owned", field: "postgresql://restricted@/another"}
+        database={
+            "url": "postgresql://writer@declared.example:5434/owned?sslmode=require",
+            field: credential,
+        }
     )
-    with pytest.raises(ValueError, match="contradict target database"):
+    with pytest.raises(ValueError, match=f"contradict target {conflict}"):
         connection_settings(settings, purpose)
 
 

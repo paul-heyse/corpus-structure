@@ -1,84 +1,94 @@
-"""Native semantic databases: fresh extension-only clone, no legacy migration or sweeper.
+"""Fresh committed native clones of one session-built frozen semantic deployment.
 
-The named principals are provisioned once with `just db-semantic-roles`; tests authenticate
-as the restricted principals rather than SET ROLE from a database owner.
+The bare/revision/name routes retain actual bootstrap and historical upgrade obligations.
+All acquisition, leases, policy replay and disposal use the shared PgAdmin lifecycle.
 """
 
 from __future__ import annotations
 
 import os
-import time
-from collections.abc import Iterator
+from collections.abc import Callable, Generator, Iterator
+from contextlib import AbstractContextManager, contextmanager
+from dataclasses import dataclass
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import Engine, create_engine, text
-from sqlalchemy.exc import DBAPIError
-from sqlalchemy.pool import NullPool
+from sqlalchemy import Engine, text
 
 from corpus_structure.core.db import extensions
+from corpus_structure.semantic.migrations import upgrade
 from corpus_structure.settings import Settings
+from native_test_support import DatabasePolicy, PgAdmin, principal_engine
 
 
-@pytest.fixture
-def semantic_db_engine() -> Iterator[Engine]:
-    from corpus_structure.semantic.migrations import upgrade
+def database_name(kind: str) -> str:
+    return f"cs_sem_{kind}_{os.getpid()}_{uuid4().hex[:12]}"
 
-    settings = Settings()
-    from corpus_structure.semantic.runtime import connection_settings
 
-    admin = create_engine(
-        connection_settings(settings, "maintenance").database.sqlalchemy_url, poolclass=NullPool
-    )
-    url = admin.url
-    server = create_engine(url.set(database="postgres"), poolclass=NullPool)
-    name = f"cs_sem_test_{os.getpid()}_{uuid4().hex[:12]}"
-    template = settings.database.template
-    quote = server.dialect.identifier_preparer.quote
-    engine = create_engine(url.set(database=name), poolclass=NullPool)
-    try:
-        with server.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-            roles = set(
-                conn.execute(
-                    text(
-                        "SELECT rolname FROM pg_roles WHERE rolname IN "
-                        "('corpus_sem_publisher','corpus_sem_writer','corpus_sem_reader')"
-                    )
-                ).scalars()
-            )
-            if len(roles) != 3:
-                pytest.fail("restricted semantic principals missing: run `just db-semantic-roles`")
-            conn.exec_driver_sql(f"CREATE DATABASE {quote(name)} TEMPLATE {quote(template)}")
+@dataclass(frozen=True)
+class SemanticTemplate:
+    name: str
+    policy: DatabasePolicy
+
+
+@pytest.fixture(scope="session")
+def semantic_head_template(native_server: PgAdmin) -> Iterator[SemanticTemplate]:
+    name = database_name("head")
+    with native_server.database(name, native_server.template) as engine:
         with engine.begin() as conn:
             extensions.check(conn.execute(text(extensions.FOUND)).all())
-            # A template with application state is never an acceptable bootstrap.
             assert not conn.execute(
                 text("SELECT 1 FROM pg_namespace WHERE nspname IN ('sem','data','kb','meta')")
             ).first()
             upgrade(conn)
-        yield engine
-    finally:
+        # The migration connection has closed before sealing or reading the source policy.
         engine.dispose()
-        admin.dispose()
-        # libpq close can precede the server backend's final exit. An owner cannot terminate
-        # another login's backend; wait briefly for its normal exit rather than widening roles.
-        for attempt in range(40):
-            try:
-                with server.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-                    conn.exec_driver_sql(f"DROP DATABASE IF EXISTS {quote(name)}")
-                break
-            except DBAPIError as exc:
-                if getattr(exc.orig, "sqlstate", None) != "55006" or attempt == 39:
-                    raise
-                time.sleep(0.05)
-        server.dispose()
+        policy = native_server.policy(name)
+        with native_server.connect() as conn:
+            conn.exec_driver_sql(
+                f'ALTER DATABASE "{name}" ALLOW_CONNECTIONS false IS_TEMPLATE false'
+            )
+        yield SemanticTemplate(name, policy)
 
 
 @pytest.fixture
-def semantic_writer_engine(semantic_db_engine: Engine) -> Iterator[Engine]:
-    engine = create_engine(
-        semantic_db_engine.url.set(username="corpus_sem_writer"), poolclass=NullPool
-    )
+def semantic_db_engine(
+    native_server: PgAdmin, semantic_head_template: SemanticTemplate
+) -> Iterator[Engine]:
+    with native_server.database(
+        database_name("test"), semantic_head_template.name, policy=semantic_head_template.policy
+    ) as engine:
+        yield engine
+
+
+@pytest.fixture
+def semantic_bare_engine(native_server: PgAdmin) -> Iterator[Engine]:
+    with native_server.database(database_name("bare"), native_server.template) as engine:
+        with engine.begin() as conn:
+            extensions.check(conn.execute(text(extensions.FOUND)).all())
+            assert not conn.execute(
+                text("SELECT 1 FROM pg_namespace WHERE nspname IN ('sem','data','kb','meta')")
+            ).first()
+        yield engine
+
+
+@pytest.fixture
+def semantic_database_at(native_server: PgAdmin) -> Callable[[str], AbstractContextManager[Engine]]:
+    @contextmanager
+    def at(revision: str) -> Generator[Engine]:
+        with native_server.database(database_name("revision"), native_server.template) as engine:
+            with engine.begin() as conn:
+                upgrade(conn, revision)
+            yield engine
+
+    return at
+
+
+@pytest.fixture
+def semantic_writer_engine(
+    native_settings: Settings, semantic_db_engine: Engine
+) -> Iterator[Engine]:
+    engine = principal_engine(native_settings, "write", semantic_db_engine.url.database)
     try:
         yield engine
     finally:
@@ -86,11 +96,38 @@ def semantic_writer_engine(semantic_db_engine: Engine) -> Iterator[Engine]:
 
 
 @pytest.fixture
-def semantic_reader_engine(semantic_db_engine: Engine) -> Iterator[Engine]:
-    engine = create_engine(
-        semantic_db_engine.url.set(username="corpus_sem_reader"), poolclass=NullPool
-    )
+def semantic_reader_engine(
+    native_settings: Settings, semantic_db_engine: Engine
+) -> Iterator[Engine]:
+    engine = principal_engine(native_settings, "read", semantic_db_engine.url.database)
     try:
         yield engine
     finally:
         engine.dispose()
+
+
+@pytest.fixture
+def semantic_evaluator_engine(
+    native_settings: Settings, semantic_db_engine: Engine
+) -> Iterator[Engine]:
+    engine = principal_engine(native_settings, "evaluate", semantic_db_engine.url.database)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture
+def semantic_admitter_engine(
+    native_settings: Settings, semantic_db_engine: Engine
+) -> Iterator[Engine]:
+    engine = principal_engine(native_settings, "admit", semantic_db_engine.url.database)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture
+def admitter(semantic_admitter_engine: Engine) -> Engine:
+    return semantic_admitter_engine

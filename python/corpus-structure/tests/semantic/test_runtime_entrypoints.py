@@ -26,7 +26,9 @@ def test_environment_change_preserves_active_mcp_submission_binding(
     )
     monkeypatch.setenv(
         "CORPUS_DATABASE__URL",
-        semantic_writer_engine.url.set(drivername="postgresql").render_as_string(hide_password=False),
+        semantic_writer_engine.url.set(drivername="postgresql").render_as_string(
+            hide_password=False
+        ),
     )
     monkeypatch.setenv("CORPUS_RUNTIME__DEFAULT_PROJECT", "resubmit")
 
@@ -38,20 +40,27 @@ def test_environment_change_preserves_active_mcp_submission_binding(
             batch = {
                 "unit_ref": locator,
                 "entities": [{"id": "person", "class_iri": "https://example.org/Person"}],
-                "claims": [{
-                    "id": "name", "subject": "person", "predicate": "https://example.org/name",
-                    "object": {"kind": "text", "text": "Alice"},
-                    "qualification": {"modality": "asserted", "polarity": True},
-                    "establishment": "stated",
-                    "evidence": [{
-                        "sentence": unit["sentences"][0]["id"],
-                        "quote": "Alice is here.", "role": "primary",
-                    }],
-                }],
+                "claims": [
+                    {
+                        "id": "name",
+                        "subject": "person",
+                        "predicate": "https://example.org/name",
+                        "object": {"kind": "text", "text": "Alice"},
+                        "qualification": {"modality": "asserted", "polarity": True},
+                        "establishment": "stated",
+                        "evidence": [
+                            {
+                                "sentence": unit["sentences"][0]["id"],
+                                "quote": "Alice is here.",
+                                "role": "primary",
+                            }
+                        ],
+                    }
+                ],
             }
-            result = (await client.call_tool(
-                "propose_claims", {"task_id": task, "batch": batch}
-            )).structured_content
+            result = (
+                await client.call_tool("propose_claims", {"task_id": task, "batch": batch})
+            ).structured_content
             assert result is not None
             assert result["status"] == "done" and not result["task_open"]
             assert result["submission_disposition"] == "completed_accepted"
@@ -64,14 +73,12 @@ def test_environment_change_preserves_active_mcp_submission_binding(
     with semantic_db_engine.connect() as conn:
         observation = table("kb.observation")
         tasks = table("ops.task")
-        assert conn.execute(select(
-            observation.c.task_id, tasks.c.run_id, observation.c.release_id
-        ).join(tasks, tasks.c.id == observation.c.task_id).where(
-            observation.c.task_id == task
-        )).all() == [(task, run, prepared.release_id)]
-        row = conn.execute(select(
-            tasks.c.run_id, tasks.c.status
-        ).where(tasks.c.id == task)).one()
+        assert conn.execute(
+            select(observation.c.task_id, tasks.c.run_id, observation.c.release_id)
+            .join(tasks, tasks.c.id == observation.c.task_id)
+            .where(observation.c.task_id == task)
+        ).all() == [(task, run, prepared.release_id)]
+        row = conn.execute(select(tasks.c.run_id, tasks.c.status).where(tasks.c.id == task)).one()
         assert row == (run, "done")
 
 

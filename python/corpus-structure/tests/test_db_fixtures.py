@@ -11,6 +11,7 @@ from sqlalchemy import Connection, Engine, text
 from sqlalchemy.engine import make_url
 
 from corpus_structure.settings import DatabaseSettings
+from test_prerequisites import PrerequisiteUnavailable
 
 MARKER = "f1_isolation_probe"
 _committed: list[str] = []
@@ -83,10 +84,12 @@ def test_a_seeded_version_mismatch_fails_the_fixture_check(
     seeded = db_support.PgAdmin(
         db_server.url, db_server.template, db_support.expected_extensions(record)
     )
-    with pytest.raises(pytest.fail.Exception, match=r"vector 0\.8\.7 \(expected 0\.0\.1\)"):
+    with pytest.raises(PrerequisiteUnavailable, match=r"vector 0\.8\.7 \(expected 0\.0\.1\)"):
         seeded.check()
     absent = db_support.PgAdmin(db_server.url, db_server.template, {"no_such_extension": "1.0"})
-    with pytest.raises(pytest.fail.Exception, match=r"no_such_extension absent \(expected 1\.0\)"):
+    with pytest.raises(
+        PrerequisiteUnavailable, match=r"no_such_extension absent \(expected 1\.0\)"
+    ):
         absent.check()
 
 
@@ -111,7 +114,8 @@ def test_sweep_honours_leases_and_template_age(db_support, db_server) -> None:
     names = (dead, live, held, aged, unstamped, fresh, other)
     old = datetime.now(UTC) - 2 * db_support.TEMPLATE_RETENTION
     for name in names:
-        db_server.create(name, "template0")
+        with db_server.lease(name):
+            db_server.create(name, "template0")
     db_server.stamp(held, old)
     db_server.stamp(aged, old)
     db_server.stamp(fresh)
@@ -136,14 +140,39 @@ def test_server_url_follows_the_settings_environment(
     db_support, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("CORPUS_DATABASE__URL", "postgresql://someone@db.example:6543/corpus_x")
-    assert db_support.server_url() == "postgresql+psycopg://someone@db.example:6543/postgres"
+    monkeypatch.setenv("CORPUS_DATABASE__MAINTENANCE_URL", "postgresql://maint@")
+    assert db_support.server_url() == "postgresql+psycopg://maint@db.example:6543/postgres"
 
 
 def test_server_url_follows_the_settings_default(
     db_support, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("CORPUS_DATABASE__URL", raising=False)
+    monkeypatch.delenv("CORPUS_DATABASE__MAINTENANCE_URL", raising=False)
     admin = make_url(db_support.server_url())
     default = make_url(DatabaseSettings().sqlalchemy_url)
     assert admin.database == "postgres"
-    assert admin.set(database=default.database) == default
+    assert (admin.host, admin.port, admin.query) == (default.host, default.port, default.query)
+    assert admin.username is None and admin.password is None
+
+
+def test_legacy_template_cold_build_retains_completed_template_and_removes_scratch(
+    db_support, db_server
+) -> None:
+    from uuid import uuid4
+
+    server = db_support.PgAdmin(db_server.url, db_server.template)
+    server.current = "cs_tpl_" + uuid4().hex[:16]
+    scratch = server.current + "_build"
+    try:
+        with server.lease(server.current) as lease:
+            server.ensure_template(lease)
+            assert server.exists(server.current)
+            assert not server.exists(scratch)
+            with server.connect(server.current) as conn:
+                assert conn.exec_driver_sql(
+                    "SELECT to_regclass('meta.model_revision')"
+                ).scalar_one()
+    finally:
+        server.drop(scratch)
+        server.drop(server.current)

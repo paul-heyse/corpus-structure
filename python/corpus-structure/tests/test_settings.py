@@ -88,7 +88,9 @@ def test_report_lists_unknown_names_and_masks_secrets() -> None:
     assert report.resolved["gpu.mode"] == "auto"
 
 
-@pytest.mark.parametrize("field", ("url", "maintenance_url", "reader_url", "evaluator_url", "admission_url"))
+@pytest.mark.parametrize(
+    "field", ("url", "maintenance_url", "reader_url", "evaluator_url", "admission_url")
+)
 def test_report_masks_query_credentials_and_preserves_endpoint(field: str) -> None:
     from urllib.parse import parse_qs, urlsplit
 
@@ -107,9 +109,16 @@ def test_report_masks_query_credentials_and_preserves_endpoint(field: str) -> No
     assert query["sslmode"] == ["require"]
     for key in ("password", "passfile", "sslpassword", "custom_token"):
         assert query[key] == [MASK]
-    assert all(secret not in report.model_dump_json() for secret in (
-        "login-secret", "query-secret", "/private/auth", "ssl-secret", "unknown-secret"
-    ))
+    assert all(
+        secret not in report.model_dump_json()
+        for secret in (
+            "login-secret",
+            "query-secret",
+            "/private/auth",
+            "ssl-secret",
+            "unknown-secret",
+        )
+    )
 
 
 def test_report_masks_endpoint_url_credentials() -> None:
