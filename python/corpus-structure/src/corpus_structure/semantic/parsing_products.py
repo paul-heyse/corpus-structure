@@ -929,6 +929,35 @@ def _validate_layered_product(p: dict[str, Any], context: PreparedParsingContext
         raise ValueError("semantic records differ from their product kind")
     if any(r["product_id"] != p["product_key"] for r in p["interpretations"] + p["assessments"]):
         raise ValueError("semantic record product identity differs")
+    for interpretation in p["interpretations"]:
+        if (interpretation["interpretation_id"],) not in nodes:
+            raise ValueError("interpretation requires its local structural occurrence")
+        if not interpretation["occurrence_ids"] or any(
+            (identity,) not in nodes and (identity,) not in components
+            for identity in interpretation["occurrence_ids"]
+        ):
+            raise ValueError("interpretation occurrence reference has no local custody")
+    for assessment in p["assessments"]:
+        evidence = assessment["evidence_ids"]
+        if not evidence or any((identity,) not in nodes for identity in evidence):
+            raise ValueError("assessment evidence reference has no local node custody")
+        inputs = set()
+        for relation in relations.values():
+            if relation["kind"] != "derived_from":
+                continue
+            endpoints = _ordered(
+                [e for e in p["endpoints"] if e["relationship_id"] == relation["relationship_id"]]
+            )
+            target, source = endpoints
+            if local(target) and target.get("node_id") in evidence and not local(source):
+                inputs.add(source.get("node_id"))
+        if (
+            not assessment["interpretation_ids"]
+            or not set(assessment["interpretation_ids"]) <= inputs
+        ):
+            raise ValueError(
+                "assessment interpretation reference lacks its qualified dependency endpoint"
+            )
 
 
 def prepare_layered_product(

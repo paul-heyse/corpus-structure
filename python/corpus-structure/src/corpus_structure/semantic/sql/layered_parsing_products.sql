@@ -68,6 +68,27 @@ BEGIN
  IF EXISTS(SELECT FROM kb.parsing_layer_relationship rel JOIN kb.parsing_layer_endpoint parent ON parent.task_id=rel.task_id AND parent.product_key=rel.product_key AND parent.relationship_id=rel.relationship_id AND parent.ordinal=0 JOIN kb.parsing_layer_endpoint child ON child.task_id=rel.task_id AND child.product_key=rel.product_key AND child.relationship_id=rel.relationship_id AND child.ordinal=1 JOIN kb.parsing_layer_node p ON p.task_id=parent.target_task_id AND p.product_key=parent.target_product_key AND p.node_id=parent.node_id JOIN kb.parsing_layer_node c ON c.task_id=child.target_task_id AND c.product_key=child.target_product_key AND c.node_id=child.node_id WHERE rel.task_id=p_task AND rel.product_key=layer_key AND rel.kind='contains' AND p.origin='literal' AND c.origin='literal' AND (p.representation_id<>c.representation_id OR p.start_offset>c.start_offset OR p.end_offset<c.end_offset)) THEN RAISE EXCEPTION 'layer containment extents differ' USING ERRCODE='23514'; END IF;
  IF EXISTS(WITH RECURSIVE edges AS(SELECT p.node_id parent,c.node_id child FROM kb.parsing_layer_relationship r JOIN kb.parsing_layer_endpoint p USING(task_id,product_key,relationship_id) JOIN kb.parsing_layer_endpoint c USING(task_id,product_key,relationship_id) WHERE r.task_id=p_task AND r.product_key=layer_key AND r.kind IN ('contains','structural_parent') AND p.ordinal=0 AND c.ordinal=1), walk AS(SELECT parent,child,ARRAY[parent,child] path,parent=child cycle FROM edges UNION ALL SELECT w.parent,e.child,w.path||e.child,e.child=ANY(w.path) FROM walk w JOIN edges e ON e.parent=w.child WHERE NOT w.cycle) SELECT FROM walk WHERE cycle) THEN RAISE EXCEPTION 'layer containment cycle' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'interpretations','[]'::jsonb)) item WHERE product->>'kind'<>'interpretation' OR item->>'product_id'<>layer_key) OR EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'assessments','[]'::jsonb)) item WHERE product->>'kind'<>'assessment' OR item->>'product_id'<>layer_key) THEN RAISE EXCEPTION 'semantic layer record kind/identity differs' USING ERRCODE='23514'; END IF;
+ -- Semantic record references resolve actual occurrences, not merely JSON spelling.
+ IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'interpretations','[]'::jsonb)) interpretation
+  WHERE NOT EXISTS(SELECT FROM kb.parsing_layer_node n WHERE n.task_id=p_task AND n.product_key=layer_key AND n.node_id=interpretation->>'interpretation_id')
+  OR EXISTS(SELECT FROM jsonb_array_elements_text(interpretation->'occurrence_ids') identity
+   WHERE NOT EXISTS(SELECT FROM kb.parsing_layer_node n WHERE n.task_id=p_task AND n.product_key=layer_key AND n.node_id=identity)
+    AND NOT EXISTS(SELECT FROM kb.parsing_layer_component c WHERE c.task_id=p_task AND c.product_key=layer_key AND c.component_id=identity))) THEN
+  RAISE EXCEPTION 'interpretation occurrence reference has no local custody' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'assessments','[]'::jsonb)) assessment
+  CROSS JOIN LATERAL jsonb_array_elements_text(assessment->'evidence_ids') identity
+  WHERE NOT EXISTS(SELECT FROM kb.parsing_layer_node n WHERE n.task_id=p_task AND n.product_key=layer_key AND n.node_id=identity)) THEN
+  RAISE EXCEPTION 'assessment evidence reference has no local node custody' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'assessments','[]'::jsonb)) assessment
+  CROSS JOIN LATERAL jsonb_array_elements_text(assessment->'interpretation_ids') identity
+  WHERE NOT EXISTS(SELECT FROM kb.parsing_layer_relationship r
+   JOIN kb.parsing_layer_endpoint target ON target.task_id=r.task_id AND target.product_key=r.product_key AND target.relationship_id=r.relationship_id AND target.ordinal=0
+   JOIN kb.parsing_layer_endpoint source ON source.task_id=r.task_id AND source.product_key=r.product_key AND source.relationship_id=r.relationship_id AND source.ordinal=1
+   JOIN kb.parsing_layer_dependency dependency ON dependency.task_id=source.task_id AND dependency.product_key=source.product_key AND dependency.name=source.dependency_name AND dependency.kind='product' AND dependency.target_task_id=source.target_task_id AND dependency.target_product_key=source.target_product_key AND dependency.target_content_digest=source.target_content_digest
+   JOIN kb.parsing_layer_interpretation interpretation ON interpretation.task_id=source.target_task_id AND interpretation.product_key=source.target_product_key AND interpretation.interpretation_id=source.node_id
+   WHERE r.task_id=p_task AND r.product_key=layer_key AND r.kind='derived_from'
+    AND target.target_task_id=p_task AND target.target_product_key=layer_key AND (assessment->'evidence_ids') ? target.node_id AND source.node_id=identity)) THEN
+  RAISE EXCEPTION 'assessment interpretation reference has no qualified interpretation custody' USING ERRCODE='23514'; END IF;
  RETURN digest;
 END $layer$;
 REVOKE ALL ON FUNCTION ops.publish_layered_parsing_product(bigint,bigint,text,text,bytea,bytea[]) FROM PUBLIC;

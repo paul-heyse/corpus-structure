@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0042"
-NATIVE_REVISION = "semantic_0043"
+NATIVE_PREDECESSOR = "semantic_0043"
+NATIVE_REVISION = "semantic_0044"
 
 
 def selected_fact_query():
@@ -917,7 +917,7 @@ def parsing_contract_products(model=None) -> tuple[NativeProduct, ...]:
 
 def forward_products(model=None) -> tuple[NativeProduct, ...]:
     """Emit the current forward revision, shared by the CLI and frozen-product comparison."""
-    return layered_parsing_contract_products(model)
+    return layered_parsing_guard_products(model)
 
 
 def parsing_publication_sql(
@@ -968,6 +968,16 @@ def parsing_publication_sql(
                 invalid.append(f"NOT ({expression} ? {key})")
             if prop.multivalued:
                 predicate = f"jsonb_typeof({value}) IS DISTINCT FROM 'array'"
+                if prop.range in {"ParsingString", "string"} or prop.range in vocabularies:
+                    predicate += (
+                        f" OR EXISTS(SELECT FROM jsonb_array_elements({value}) element "
+                        "WHERE jsonb_typeof(element) IS DISTINCT FROM 'string')"
+                    )
+                if prop.minimum_cardinality is not None and prop.minimum_cardinality > 0:
+                    predicate += f" OR jsonb_array_length({value}) < {prop.minimum_cardinality}"
+                if prop.maximum_cardinality is not None:
+                    predicate += f" OR jsonb_array_length({value}) > {prop.maximum_cardinality}"
+
             elif prop.range == "ParsingInteger":
                 predicate = (
                     f"jsonb_typeof({value}) IS DISTINCT FROM 'number' "
@@ -1176,4 +1186,19 @@ def layered_parsing_contract_products(model=None) -> tuple[NativeProduct, ...]:
     return (
         NativeProduct("semantic_0043_parsing.sql", ddl.encode()),
         NativeProduct("semantic_0043_admission.sql", consolidation_products(model)[-1].content),
+    )
+
+
+def layered_parsing_guard_products(model=None) -> tuple[NativeProduct, ...]:
+    """Forward 0044 closes historical writes and semantic reference custody."""
+    from pathlib import Path
+
+    projection = Path(__file__).with_name("sql").joinpath("execution_projection.sql").read_text()
+    operation = projection.split("CREATE OR REPLACE FUNCTION ops.execution_edge", 1)[0]
+    sql = "SET LOCAL ROLE corpus_sem_publisher;\n" + operation
+    sql += "\n" + layered_parsing_publication_sql()
+    sql += "\n" + parsing_publication_sql()
+    return (
+        NativeProduct("semantic_0044_parsing.sql", sql.encode()),
+        NativeProduct("semantic_0044_admission.sql", consolidation_products(model)[-1].content),
     )

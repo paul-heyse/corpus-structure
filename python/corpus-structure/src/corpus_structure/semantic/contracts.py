@@ -632,7 +632,18 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
     data = json.loads(payload)
     if data.get("model_id") != model_id:
         _fail("execution_binding", name, "execution payload identity differs")
-    if data.get("inputs", {}).get("compiler_version") in {"1", "2", "3", "4", "5", "6", "7", "8"}:
+    if data.get("inputs", {}).get("compiler_version") in {
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+    }:
         # Retained immutable reader ABI, without allowing historical writes/activation.
         if name not in {
             "reload",
@@ -645,6 +656,9 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
             "close_analysis",
             "graph_project",
             "graph_validate",
+            "read_original",
+            "read_rendition",
+            "read_parsing_product",
         }:
             _fail("unsupported_execution_abi", name, "historical execution products are read-only")
         operation = next((o for o in data["operations"] if o["id"] == name), None)

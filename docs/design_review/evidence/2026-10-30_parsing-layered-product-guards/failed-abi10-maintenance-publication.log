@@ -1,0 +1,203 @@
+F
+=================================== FAILURES ===================================
+______________ test_populated_abi10_source_survives_0042_to_0043 _______________
+
+semantic_database_at = <function semantic_database_at.<locals>.at at 0x72eb9d5baf00>
+tmp_path = PosixPath('/home/paul/.cache/corpus-pp-products/build/tmp/pytest/pytest-of-paul/pytest-6/test_populated_abi10_source_su0')
+
+    def test_populated_abi10_source_survives_0042_to_0043(semantic_database_at, tmp_path):
+        """Compile/publish with actual historical code, then read through the current boundary."""
+        import base64
+        import json
+        import os
+        import subprocess
+        import sys
+        import tarfile
+        from pathlib import Path
+    
+        import pytest
+    
+        from corpus_structure.semantic.contracts import execution_payload
+        from corpus_structure.semantic.execution_admission import (
+            ExecutionAdmissionError,
+            admit_execution_release,
+        )
+        from corpus_structure.semantic.operations import BoundReader
+        from corpus_structure.semantic.parsing_products import (
+            ProductReference,
+            read_layered_product,
+            read_parsing_product,
+        )
+        from corpus_structure.semantic.releases import open_release
+    
+        historical = "abd387838cfc05fdf0a1387481dec3d32df4ec68"
+        repo = Path(__file__).resolve().parents[4]
+        export = tmp_path / "abi10-source"
+        export.mkdir()
+        archive = tmp_path / "abi10-source.tar"
+        with archive.open("wb") as stream:
+            subprocess.run(
+                [
+                    "git",
+                    "archive",
+                    "--format=tar",
+                    historical,
+                    "python/corpus-structure/src",
+                    "python/corpus-structure/tests/semantic/test_operations.py",
+                    "python/corpus-structure/tests/semantic/test_parsing_products.py",
+                    "python/corpus-structure/tests/semantic/__init__.py",
+                    "sources",
+                ],
+                cwd=repo,
+                stdout=stream,
+                check=True,
+            )
+        with tarfile.open(archive) as source:
+            source.extractall(export, filter="data")
+        receipt_path = tmp_path / "abi10-receipt.json"
+        script = Path(__file__).with_name("fixtures") / "populate_abi10_source.py"
+        with semantic_database_at("semantic_0042") as engine:
+            environment = {
+                **os.environ,
+                "PYTHONPATH": os.pathsep.join(
+                    (
+                        str(export / "python/corpus-structure/src"),
+                        str(export / "python/corpus-structure/tests"),
+                    )
+                ),
+                "CS_ABI10_SOURCE_ROOT": str(export),
+                "CS_ABI10_DATABASE_URL": engine.url.render_as_string(hide_password=False),
+                "CS_ABI10_RECEIPT": str(receipt_path),
+            }
+            completed = subprocess.run(
+                [sys.executable, str(script)],
+                cwd=export,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+>           assert completed.returncode == 0, completed.stdout + completed.stderr
+E           AssertionError: Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+E             Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Ambiguous attribute: id https://corpus-structure.dev/execution/id
+E             Abstract class 'MathematicalExpression' has only 1 direct child ('ExpressionValue'). The covering axiom makes them equivalent (MathematicalExpression ≡ ExpressionValue). Use --skip-abstract-class-as-unionof-subclasses to suppress.
+E             Traceback (most recent call last):
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1953, in _exec_single_context
+E                 self.dialect.do_execute(
+E                 ~~~~~~~~~~~~~~~~~~~~~~~^
+E                     cursor, str_statement, effective_parameters, context
+E                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 )
+E                 ^
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 1192, in do_execute
+E                 cursor.execute(statement, parameters)
+E                 ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/psycopg/cursor.py", line 117, in execute
+E                 raise ex.with_traceback(None)
+E             psycopg.errors.InsufficientPrivilege: permission denied for function create_run
+E             
+E             The above exception was the direct cause of the following exception:
+E             
+E             Traceback (most recent call last):
+E               File "/home/paul/.cache/corpus-pp-products/python/corpus-structure/tests/semantic/fixtures/populate_abi10_source.py", line 89, in <module>
+E                 main()
+E                 ~~~~^^
+E               File "/home/paul/.cache/corpus-pp-products/python/corpus-structure/tests/semantic/fixtures/populate_abi10_source.py", line 46, in main
+E                 run, task, attempt, rendition = _native_build(
+E                                                 ~~~~~~~~~~~~~^
+E                     conn, prepared, original, root, content=result.content
+E                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 )
+E                 ^
+E               File "/home/paul/.cache/corpus-pp-products/build/tmp/pytest/pytest-of-paul/pytest-6/test_populated_abi10_source_su0/abi10-source/python/corpus-structure/tests/semantic/test_parsing_products.py", line 206, in _native_build
+E                 run = create_run(
+E                     conn,
+E                 ...<4 lines>...
+E                     code_commit="parsing-test",
+E                 )
+E               File "/home/paul/.cache/corpus-pp-products/build/tmp/pytest/pytest-of-paul/pytest-6/test_populated_abi10_source_su0/abi10-source/python/corpus-structure/src/corpus_structure/semantic/operations.py", line 74, in create_run
+E                 return conn.execute(
+E                        ~~~~~~~~~~~~^
+E                     text("SELECT ops.create_run(:p,:r,:z,:v,:d,:k,:phase,CAST(:opts AS jsonb),:g,:commit)"),
+E                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 ...<11 lines>...
+E                     ),
+E                     ^^
+E                 ).scalar_one()
+E                 ^
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1458, in execute
+E                 return meth(
+E                     self,
+E                     distilled_parameters,
+E                     execution_options or NO_OPTIONS,
+E                 )
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/sql/elements.py", line 533, in _execute_on_connection
+E                 return connection._execute_clauseelement(
+E                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+E                     self, distilled_params, execution_options
+E                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 )
+E                 ^
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1678, in _execute_clauseelement
+E                 ret = self._execute_context(
+E                     dialect,
+E                 ...<9 lines>...
+E                     param_dict=param_dict,
+E                 )
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1832, in _execute_context
+E                 return self._exec_single_context(
+E                        ~~~~~~~~~~~~~~~~~~~~~~~~~^
+E                     dialect, context, statement, parameters
+E                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 )
+E                 ^
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1972, in _exec_single_context
+E                 self._handle_dbapi_exception(
+E                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+E                     e, str_statement, effective_parameters, cursor, context
+E                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 )
+E                 ^
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 2342, in _handle_dbapi_exception
+E                 raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1953, in _exec_single_context
+E                 self.dialect.do_execute(
+E                 ~~~~~~~~~~~~~~~~~~~~~~~^
+E                     cursor, str_statement, effective_parameters, context
+E                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 )
+E                 ^
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 1192, in do_execute
+E                 cursor.execute(statement, parameters)
+E                 ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+E               File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/psycopg/cursor.py", line 117, in execute
+E                 raise ex.with_traceback(None)
+E             sqlalchemy.exc.ProgrammingError: (psycopg.errors.InsufficientPrivilege) permission denied for function create_run
+E             [SQL: SELECT ops.create_run(%(p)s,%(r)s,%(z)s,%(v)s,%(d)s,%(k)s,%(phase)s,CAST(%(opts)s AS jsonb),%(g)s,%(commit)s)]
+E             [parameters: {'p': 'p', 'r': 'release:c47ca04ddcbdd806f469afc68f00f9e87689c83fff58a488826417bd790f55f2', 'z': 'z', 'v': 0, 'd': b'{}', 'k': 'full', 'phase': 0, 'opts': '{}', 'g': '', 'commit': 'parsing-test'}]
+E             (Background on this error at: https://sqlalche.me/e/21/f405)
+E             
+E           assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['/home/paul/corpus-structure/.venv/bin/python', '/home/paul/.cache/corpus-pp-products/python/co...: \'{}\', \'g\': \'\', \'commit\': \'parsing-test\'}]\n(Background on this error at: https://sqlalche.me/e/21/f405)\n').returncode
+
+python/corpus-structure/tests/semantic/test_parsing_migration_preservation.py:153: AssertionError
+=========================== short test summary info ============================
+FAILED python/corpus-structure/tests/semantic/test_parsing_migration_preservation.py::test_populated_abi10_source_survives_0042_to_0043
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!

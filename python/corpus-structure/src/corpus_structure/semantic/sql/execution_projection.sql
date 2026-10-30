@@ -1,9 +1,16 @@
 -- Stable relational consumers. Candidate releases supply rows, never SQL identifiers or bodies.
 CREATE OR REPLACE FUNCTION sem.require_execution_operation(r text,operation text) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $operation$
-DECLARE supported jsonb; actual jsonb; expected jsonb;
+DECLARE supported jsonb; actual jsonb; expected jsonb; archived_abi text;
 BEGIN
  IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN RETURN; END IF;
+ SELECT convert_from(body,'UTF8')::jsonb->'inputs'->>'compiler_version' INTO archived_abi
+ FROM sem.registry_row WHERE release_id=r AND kind='execution_model';
+ IF archived_abi IS DISTINCT FROM data.execution_contract_descriptor()->>'execution_abi'
+ AND operation NOT IN ('reload','open_read','query','explain','compile_projection',
+  'capture_analytics','open_analysis','close_analysis','graph_project','graph_validate',
+  'read_original','read_rendition','read_parsing_product') THEN
+  RAISE EXCEPTION 'historical execution ABI is read-only: %',archived_abi USING ERRCODE='23514'; END IF;
  supported:=data.execution_contract_descriptor()->'supported_effects'->operation;
  IF supported IS NULL OR NOT EXISTS(SELECT FROM sem.execution_operation o WHERE o.release_id=r AND o.operation_id=operation
   AND o.implementation_id=supported->>'implementation' AND o.implementation_version=supported->>'version') THEN
