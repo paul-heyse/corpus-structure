@@ -6,13 +6,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from pydantic_core import to_jsonable_python
-from sqlalchemy import Connection, func, select
+from sqlalchemy import Connection, select
 
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationConflict
-from corpus_structure.semantic.parsing_products import read_parsing_product
 from corpus_structure.semantic import parsing_queries
-from corpus_structure.semantic.releases import open_release
 
 
 class SourceRequest(BaseModel):
@@ -20,6 +18,8 @@ class SourceRequest(BaseModel):
     run_id: int = Field(gt=0)
     rendition_id: int = Field(gt=0)
     producing_task_id: int | None = Field(default=None, gt=0)
+    product_key: str | None = None
+    root_task_id: int | None = Field(default=None, gt=0)
     view: Literal["products", "components", "relationships", "trace"] = "products"
     representation_id: str = "canonical"
     start: int = Field(default=0, ge=0)
@@ -44,41 +44,70 @@ class SourceResponse(BaseModel):
 
 def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
     """Read a selected product; absence is explicit and never initiates interpretation."""
-    runs, tasks, builds, selected = map(table, ("ops.run", "ops.task", "ops.rendition_build", "ops.run_rendition"))
-    release_id = conn.execute(select(runs.c.release_id).where(runs.c.id == request.run_id)).scalar_one()
+    from corpus_structure.semantic.parsing_products import (
+        PreparedParsingProduct, read_layered_product, select_layered_products,
+    )
+    runs=table("ops.run")
+    release_id=conn.execute(select(runs.c.release_id).where(runs.c.id==request.run_id)).scalar_one()
+    from corpus_structure.semantic.releases import open_release
+    from corpus_structure.semantic.contracts import execution_payload, require_bound_operation
+    import json
     prepared = open_release(conn, release_id)
-    candidates = conn.execute(
-        select(builds.c.task_id).join_from(tasks, builds, builds.c.task_id == func.coalesce(tasks.c.reused_task_id, tasks.c.id))
-        .join(selected, (selected.c.run_id == tasks.c.run_id) & (selected.c.document_id == builds.c.document_id) & (selected.c.rendition_id == builds.c.rendition_id))
-        .where(tasks.c.run_id == request.run_id, builds.c.rendition_id == request.rendition_id).distinct()
-    ).scalars().all()
-    if request.producing_task_id is not None:
-        candidates = [t for t in candidates if t == request.producing_task_id]
-    if len(candidates) > 1:
-        raise OperationConflict("multiple source builds; pin producing_task_id")
-    task_id = candidates[0] if candidates else None
-    product = None if task_id is None else read_parsing_product(conn, task_id=task_id)
-    base = dict(run_id=request.run_id, rendition_id=request.rendition_id, producing_task_id=task_id, release_id=release_id, product_digest=product.digest if product else None)
+    payload = execution_payload(prepared)
+    if payload is None or not any(operation["id"] == "read_parsing_product" for operation in json.loads(payload)["operations"]):
+        return SourceResponse(run_id=request.run_id,rendition_id=request.rendition_id,producing_task_id=None,release_id=release_id,product_digest=None,outcome="unavailable",rows=[],diagnostics=["This archived release has no source-product capability; rebuild in an explicitly selected current parsing realization."])
+    require_bound_operation(prepared,"read_parsing_product")
+    selected=select_layered_products(
+        conn, run_id=request.run_id, rendition_id=request.rendition_id,
+        product_key=request.product_key or (None if request.view=="products" else "source"),
+        root_task_id=request.root_task_id, producing_task_id=request.producing_task_id,
+        limit=request.limit,
+    )
+    base=dict(run_id=request.run_id, rendition_id=request.rendition_id,
+              producing_task_id=selected[0].reference.task_id if len(selected)==1 else None,
+              release_id=release_id, product_digest=selected[0].reference.content_digest if len(selected)==1 else None)
+    if not selected:
+        return SourceResponse(**base,outcome="unavailable",rows=[],diagnostics=["No retained product for this selection; rebuild or request the required capability under its admitted recipe."])
+    if request.view=="products":
+        return SourceResponse(**base,outcome="available",rows=[to_jsonable_python(asdict(row)) for row in selected])
+    if len(selected)!=1:
+        raise OperationConflict("inspection requires one explicitly pinned product")
+    reference=selected[0].reference
+    product=read_layered_product(conn,reference)
     if product is None:
-        return SourceResponse(**base, outcome="unavailable", rows=[], diagnostics=["No retained source product for this selection; rebuild under an admitted source recipe."])
-    assert task_id is not None
-    values = product.values()
-    if request.view == "products":
-        return SourceResponse(**base, outcome="available", rows=[{**{k:v for k,v in values.items() if k not in {"representations", "components", "nodes", "relationships", "endpoints", "mappings", "mapping_endpoints", "dependencies"}}, "representations": [{k:v for k,v in r.items() if k not in {"text_content", "text_content_utf8_base64"}} for r in values["representations"]]}])
-    if request.view == "relationships":
-        if request.relationship_id is None:
-            raise ValueError("relationship inspection requires relationship_id")
-        rows = parsing_queries.relationship_endpoints(conn, task_id=task_id, relationship_id=request.relationship_id, limit=request.limit)
-        return SourceResponse(**base, outcome="complete", rows=[asdict(row) for row in rows])
-    representation = next((r for r in values["representations"] if r["representation_id"] == request.representation_id), None)
-    if representation is None:
-        raise ValueError("representation is not present in the selected source product")
-    end = representation["extent_length"] if request.end is None else request.end
-    if request.view == "components":
-        rows = parsing_queries.components(conn, task_id=task_id, representation_id=request.representation_id, start=request.start, end=end, category=request.category, limit=request.limit)
-        return SourceResponse(**base, outcome=representation["partition_state"], rows=[asdict(row) for row in rows])
-    traced = parsing_queries.trace_origins(conn, task_id=task_id, representation_id=request.representation_id, start=request.start, end=end, mapping_limit=request.limit)
-    rows = [to_jsonable_python(asdict(row)) for row in traced.contributions]
-    if request.require_exact and (traced.outcome != "complete" or any(step.fidelity != "exact" for row in traced.contributions for step in row.path)):
-        raise OperationConflict("exact origin is unavailable for this transformed or incomplete contribution; inspect the qualified trace")
-    return SourceResponse(**base, outcome=traced.outcome, rows=rows)
+        raise OperationConflict("selected retained product is unavailable")
+    values=product.values()
+    if request.view=="trace":
+        representations={row["representation_id"]:row for row in values["representations"]}
+        rep=representations.get(request.representation_id)
+        if rep is None: raise ValueError("representation is not in this product")
+        traced=parsing_queries.trace_layered_origins(conn,reference=reference,representation_id=request.representation_id,start=request.start,end=rep["extent_length"] if request.end is None else request.end,limit=request.limit)
+        rows=to_jsonable_python(traced["contributions"])
+        if request.require_exact and (traced["outcome"]!="complete" or any(step["fidelity"]!="exact" for row in rows for step in row["path"])):
+            raise OperationConflict("exact origin is unavailable for this transformed or incomplete contribution; inspect the qualified trace")
+        return SourceResponse(**base,outcome=traced["outcome"],rows=rows)
+    if isinstance(product,PreparedParsingProduct):
+        if request.view=="relationships":
+            if request.relationship_id is None: raise ValueError("relationship inspection requires relationship_id")
+            rows=parsing_queries.relationship_endpoints(conn,task_id=reference.task_id,relationship_id=request.relationship_id,limit=request.limit)
+            return SourceResponse(**base,outcome="complete",rows=[asdict(row) for row in rows])
+        rep=next((r for r in values["representations"] if r["representation_id"]==request.representation_id),None)
+        if rep is None: raise ValueError("representation is not in this product")
+        rows=parsing_queries.components(conn,task_id=reference.task_id,representation_id=request.representation_id,start=request.start,end=rep["extent_length"] if request.end is None else request.end,category=request.category,limit=request.limit)
+        return SourceResponse(**base,outcome=rep["partition_state"],rows=[asdict(row) for row in rows])
+    if request.view=="relationships":
+        if request.relationship_id is None: raise ValueError("relationship inspection requires relationship_id")
+        relation=table("kb.parsing_layer_endpoint")
+        query=select(relation).where(relation.c.task_id==reference.task_id,relation.c.product_key==reference.product_key,relation.c.relationship_id==request.relationship_id).order_by(relation.c.ordinal)
+    else:
+        rep=next((r for r in values["representations"] if r["representation_id"]==request.representation_id),None)
+        if rep is None: raise ValueError("representation is not in this product")
+        end=rep["extent_length"] if request.end is None else request.end
+        if not 0<=request.start<=end<=rep["extent_length"]: raise ValueError("inspection range is outside its representation")
+        if request.start==end: return SourceResponse(**base,outcome=rep["partition_state"],rows=[])
+        relation=table("kb.parsing_layer_component")
+        query=select(relation).where(relation.c.task_id==reference.task_id,relation.c.product_key==reference.product_key,relation.c.representation_id==request.representation_id,relation.c.start_offset<end,relation.c.end_offset>request.start).order_by(relation.c.ordinal)
+        if request.category is not None: query=query.where(relation.c.category==request.category)
+    rows=[{str(name): value for name,value in row.items()} for row in conn.execute(query.limit(request.limit+1)).mappings()]
+    if len(rows)>request.limit: raise parsing_queries.ParsingReadLimit("inspection exceeds its declared answer bound")
+    return SourceResponse(**base,outcome=values["coverage"],rows=rows)

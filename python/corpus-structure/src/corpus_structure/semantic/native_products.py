@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0043"
-NATIVE_REVISION = "semantic_0044"
+NATIVE_PREDECESSOR = "semantic_0044"
+NATIVE_REVISION = "semantic_0045"
 
 
 def selected_fact_query():
@@ -916,8 +916,8 @@ def parsing_contract_products(model=None) -> tuple[NativeProduct, ...]:
 
 
 def forward_products(model=None) -> tuple[NativeProduct, ...]:
-    """Emit the current forward revision, shared by the CLI and frozen-product comparison."""
-    return layered_parsing_guard_products(model)
+    """Final source admission metadata; frozen 0041–0044 remain untouched."""
+    return (NativeProduct("semantic_0045_admission.sql", consolidation_products(model)[-1].content),)
 
 
 def parsing_publication_sql(

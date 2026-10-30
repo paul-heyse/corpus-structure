@@ -318,15 +318,15 @@ class PreparedMathInput:
         if key in self._assessments:
             return self._assessments[key]
         reading = self.interpretation()
-        definedness = self.definedness_result()
-        conditions = definedness.conditions
         if reading.tree is None:
             timeout = reading.failure is not None and reading.failure.category == "timeout"
             outcome = "timeout" if timeout else "invalid"
             diagnostic = "source interpretation is unavailable; definedness is incomplete"
             self._states["scientific"] = StageState("failed" if timeout else "available", "partial", outcome, diagnostic)
-            return MathAssessment(question, outcome, conditions=conditions,
+            return MathAssessment(question, outcome, conditions=(),
                                   diagnostic=diagnostic, coverage="partial")
+        definedness = self.definedness_result()
+        conditions = definedness.conditions
         try:
             with grammar.deadline(self.seconds):
                 if self.premises.unsupported:

@@ -261,3 +261,19 @@ def test_actual_tiny_budget_always_restores_deadline_setup_state():
             time.sleep(0.01)
         assert signal.getsignal(signal.SIGALRM) is previous_handler
         assert signal.getitimer(signal.ITIMER_REAL) == previous_timer
+
+
+def test_direct_assessment_does_not_retry_failed_interpretation(monkeypatch):
+    value = operand("x+x")
+    calls = []
+
+    def timed_out(self):
+        calls.append(1)
+        return grammar.MathResult("x+x", "formula", ParseOutcome.FAILED,
+                                  failure=grammar.Failure("timeout", "budget expired"))
+
+    monkeypatch.setattr(PreparedMathInput, "interpretation", timed_out)
+    monkeypatch.setattr(PreparedMathInput, "definedness_result", lambda self: pytest.fail("failed source was retried"))
+    result = value.assess("definedness")
+    assert result.outcome == "timeout" and result.coverage == "partial"
+    assert calls == [1]

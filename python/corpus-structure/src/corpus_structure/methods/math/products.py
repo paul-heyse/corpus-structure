@@ -15,6 +15,7 @@ from typing import Any
 import sympy
 
 from corpus_structure.core import tex
+from corpus_structure.core.text_structure import TEX_COMPONENT_CATEGORIES
 from corpus_structure.semantic.identity import canonical_bytes
 
 from . import grammar
@@ -22,10 +23,6 @@ from .prepared import MathAssessment, PreparedMathInput
 from .transform import NotRepresentable
 
 ADAPTER_ID = "lark-math-3"
-_CATEGORIES = {"word": "control_word", "symbol": "control_symbol", "open": "group_open",
-               "close": "group_close", "param": "parameter", "space": "whitespace",
-               "char": "character"}
-
 
 def _reference(value) -> dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else dataclasses.asdict(value)
@@ -88,7 +85,7 @@ def interpretation_product_payload(
     p["representations"] = [dict(representation_id="parse_input", kind="parse_view", unit="codepoint",
                                  extent_length=len(operand.latex), text_content=operand.latex,
                                  partition_state="complete", recognition_state="unknown")]
-    p["components"] = [dict(component_id=f"lexical:{index}", ordinal=index, category=_CATEGORIES[t.kind],
+    p["components"] = [dict(component_id=f"lexical:{index}", ordinal=index, category=TEX_COMPONENT_CATEGORIES[t.kind],
                             representation_id="parse_input", unit="codepoint", start_offset=t.start,
                             end_offset=t.end) for index, t in enumerate(tex.tokens(operand.latex))]
     p["mappings"] = [dict(mapping_id="parse-view", operation="copy", fidelity="exact",

@@ -85,11 +85,11 @@ def _range(
     end: int,
     *,
     canonical: bool = False,
-) -> None:
+) -> dict[str, Any]:
     rep = table("kb.parsing_representation")
     row = (
         conn.execute(
-            select(rep.c.extent_length, rep.c.kind).where(
+            select(rep.c.extent_length, rep.c.kind, rep.c.unit).where(
                 rep.c.task_id == task_id, rep.c.representation_id == representation_id
             )
         )
@@ -104,6 +104,8 @@ def _range(
         raise ValueError("query range is outside the pinned representation")
     if canonical and row["kind"] != "canonical":
         raise ValueError("mapping trace requires an explicitly pinned canonical representation")
+
+    return dict(extent_length=row["extent_length"],kind=row["kind"],unit=row["unit"])
 
 
 def _validated(
@@ -330,6 +332,7 @@ def trace_origins(
     mapping_limit: int = 1000,
     endpoint_limit: int = 10000,
     context: PreparedParsingContext | None = None,
+    canonical_only: bool = True,
 ) -> OriginTrace:
     """Follow declared contributions to original bytes/synthetic rules with explicit limits.
 
@@ -344,8 +347,8 @@ def trace_origins(
     _bound(endpoint_limit)
     _bound(max_depth)
     context = _guard(conn, task_id, context)
-    _range(conn, task_id, representation_id, start, end, canonical=True)
-    initial = MappedExtent("target", 0, task_id, None, representation_id, "codepoint", start, end)
+    initial_rep = _range(conn, task_id, representation_id, start, end, canonical=canonical_only)
+    initial = MappedExtent("target", 0, task_id, None, representation_id, initial_rep["unit"], start, end)
     queue: deque[tuple[MappedExtent, tuple[OriginStep, ...]]] = deque([(initial, ())])
     result: list[OriginContribution] = []
     outcome = "complete"
@@ -475,3 +478,106 @@ def trace_origins(
                 )
             )
     return OriginTrace(outcome, tuple(result), examined)
+
+
+def trace_layered_origins(
+    conn: Connection, *, reference, representation_id: str, start: int, end: int,
+    limit: int = 1000,
+) -> dict[str, Any]:
+    """Trace qualified immutable product mappings to original or named artifact custody.
+
+    A transformed source extent is a contributing extent set, not an exact character
+    correspondence. Unknowns, cycles and bounds are returned as explicit outcomes.
+    """
+    from collections import deque
+    from dataclasses import asdict
+    from hashlib import sha256
+    from pydantic_core import to_jsonable_python
+    from .parsing_products import ProductReference, PreparedParsingProduct, read_layered_product, representation_text, _covers
+
+    _bound(limit)
+    queue: deque[tuple[Any, str, int, int, tuple[dict[str, Any], ...], tuple[tuple[Any, str, int, int], ...]]] = deque([(reference, representation_id, start, end, (), ())])
+    cache = {}
+    contributions = []
+    outcome = "complete"
+    examined = 0
+    while queue:
+        ref, rep_id, first, last, path, visited = queue.popleft()
+        if len(contributions) >= limit or examined > limit:
+            return dict(outcome="limit", contributions=contributions, examined_mappings=examined)
+        product = cache.get(ref)
+        if product is None:
+            product = read_layered_product(conn, ref)
+            if product is None:
+                raise ValueError("retained origin dependency is unavailable")
+            cache[ref] = product
+        extent = dict(product=ref.values(), representation_id=rep_id, start_offset=first, end_offset=last)
+        if isinstance(product, PreparedParsingProduct):
+            remaining = limit-examined
+            if remaining <= 0:
+                return dict(outcome="limit", contributions=contributions, examined_mappings=examined)
+            traced = trace_origins(conn, task_id=ref.task_id, representation_id=rep_id,
+                                   start=first, end=last, mapping_limit=remaining,
+                                   endpoint_limit=max(1,limit-len(contributions)),
+                                   canonical_only=False)
+            examined += traced.examined_mappings
+            if traced.outcome != "complete": outcome = traced.outcome
+            for item in traced.contributions:
+                entry=to_jsonable_python(asdict(item))
+                entry["path"]=[*path,*[{**step,"product_key":"source"} for step in entry["path"]]]
+                if len(contributions) >= limit or examined > limit:
+                    return dict(outcome="limit", contributions=contributions, examined_mappings=examined)
+                contributions.append(entry)
+            continue
+        values=product.values()
+        reps={row["representation_id"]:row for row in values["representations"]}
+        rep=reps.get(rep_id)
+        if rep is None or not 0 <= first <= last <= rep["extent_length"]:
+            raise ValueError("origin extent is outside its qualified representation")
+        if first == last: continue
+        signature=(ref,rep_id,first,last)
+        if signature in visited:
+            outcome="cycle"
+            contributions.append(dict(kind="cycle",extent=extent,path=list(path),reason="mapping dependency cycle"))
+            continue
+        extent["unit"]=rep["unit"]
+        text_value=representation_text(rep)
+        digest=sha256(text_value.encode("utf8")).hexdigest()
+        artifacts={d["artifact_digest"] for d in values["dependencies"] if d["kind"]=="artifact"}
+        if digest in artifacts:
+            contributions.append(dict(kind="artifact",extent={**extent,"artifact_digest":digest},path=list(path),reason="named immutable artifact representation"))
+            continue
+        mappings={row["mapping_id"]:row for row in values["mappings"]}
+        selected={row["mapping_id"] for row in values["mapping_endpoints"]
+                  if row["side"]=="target" and row.get("target_task_id") is None
+                  and row["representation_id"]==rep_id and row["start_offset"]<last and row["end_offset"]>first}
+        covered=[]
+        for mapping_id in sorted(selected):
+            if examined >= limit or len(contributions) >= limit:
+                return dict(outcome="limit", contributions=contributions, examined_mappings=examined)
+            mapping=mappings[mapping_id]
+            examined+=1
+            step=dict(product=ref.values(),mapping_id=mapping_id,operation=mapping["operation"],fidelity=mapping["fidelity"])
+            endpoints=[e for e in values["mapping_endpoints"] if e["mapping_id"]==mapping_id]
+            targets=[e for e in endpoints if e["side"]=="target" and e.get("target_task_id") is None and e["representation_id"]==rep_id]
+            covered.extend((max(first,e["start_offset"])-first,min(last,e["end_offset"])-first) for e in targets if e["start_offset"]<last and e["end_offset"]>first)
+            if mapping["fidelity"]=="unknown":
+                outcome="partial"
+                contributions.append(dict(kind="unavailable",extent=extent,path=[*path,step],reason=mapping["reason"]))
+                continue
+            sources=sorted((e for e in endpoints if e["side"]=="source"),key=lambda e:e["ordinal"])
+            if not sources:
+                if mapping["operation"]!="synthetic":
+                    outcome="partial"
+                contributions.append(dict(kind="synthetic" if mapping["operation"]=="synthetic" else "unavailable",extent=extent,path=[*path,step],reason=mapping["reason"]))
+            for source in sources:
+                source_ref=ref if source.get("target_task_id") is None else ProductReference(source["target_task_id"],source["target_product_key"],source["target_content_digest"])
+                if len(queue)+len(contributions) >= limit:
+                    return dict(outcome="limit", contributions=contributions, examined_mappings=examined)
+                queue.append((source_ref,source["representation_id"],source["start_offset"],source["end_offset"],(*path,step),(*visited,signature)))
+        if not _covers(covered,last-first):
+            if outcome != "cycle": outcome="partial"
+            if len(contributions) >= limit:
+                return dict(outcome="limit", contributions=contributions, examined_mappings=examined)
+            contributions.append(dict(kind="unavailable",extent=extent,path=list(path),reason="no qualified mapping covers this extent"))
+    return dict(outcome=outcome,contributions=contributions,examined_mappings=examined)
