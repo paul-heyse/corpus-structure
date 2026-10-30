@@ -2,13 +2,16 @@
 
 from types import SimpleNamespace
 
+import psycopg
 import pytest
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import (
     OperationBinding,
+    claim_tasks,
+    complete_task,
     create_run,
     create_task,
     record_method,
@@ -78,7 +81,7 @@ def test_native_declared_corpus_and_final_open_task_guard(
     with pytest.raises(DBAPIError, match="all automated tasks"), e.begin() as conn:
         seal_cut(conn, run, "final", final=True)
     with (
-        pytest.raises(DBAPIError, match=r"routing provenance|permission denied"),
+        pytest.raises(DBAPIError) as denied,
         e.begin() as conn,
     ):
         conn.execute(
@@ -86,10 +89,34 @@ def test_native_declared_corpus_and_final_open_task_guard(
             .where(table("ops.task").c.id == task)
             .values(trigger={"rule_key": "changed"})
         )
-    with e.begin() as conn:
+    assert isinstance(denied.value.orig, psycopg.Error)
+    assert denied.value.orig.sqlstate == "42501"
+    with e.connect() as conn:
+        assert conn.scalar(
+            select(table("ops.task").c.trigger).where(table("ops.task").c.id == task)
+        ) == {"rule_key": "declared"}
+    with (
+        pytest.raises(DBAPIError, match="routing provenance") as guarded,
+        semantic_db_engine.begin() as conn,
+    ):
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.execute(
             update(table("ops.task"))
             .where(table("ops.task").c.id == task)
-            .values(status="cancelled")
+            .values(trigger={"rule_key": "changed"})
         )
+    assert isinstance(guarded.value.orig, psycopg.Error)
+    assert guarded.value.orig.sqlstate == "P0001"
+    with e.begin() as conn:
+        claim = claim_tasks(conn, run_id=run, config_id=config, holder="worker")[0]
+        completed = complete_task(
+            conn,
+            task_id=task,
+            attempt=claim.attempt,
+            holder="worker",
+            prepared=p,
+            observations=[],
+            outcome="empty",
+        )
+        assert completed.receipt.protocol == "empty"
         seal_cut(conn, run, "final", final=True)

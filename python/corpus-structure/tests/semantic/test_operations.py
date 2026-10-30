@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 from typing import Any
 
+import psycopg
 import pytest
 from sqlalchemy import insert, select, text
 from sqlalchemy.exc import DBAPIError
@@ -186,12 +187,17 @@ def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine, semanti
             c, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="late"
         )
         later = claim_tasks(c, run_id=run, config_id=config, holder="late")[0]
-        c.execute(
-            table("ops.task")
-            .update()
-            .where(table("ops.task").c.id == pending)
-            .values(status="cancelled")
+        failed = complete_task(
+            c,
+            task_id=pending,
+            attempt=later.attempt,
+            holder="late",
+            prepared=p,
+            observations=[],
+            outcome="failed",
+            error={"reason": "independent task failure"},
         )
+        assert failed.receipt.protocol == "failed"
         cut = seal_cut(c, run, "final", final=True)
         assert seal_cut(c, run, "final", final=True) == cut
         rows = cut_observations(c, cut)
@@ -1031,12 +1037,32 @@ def test_native_role_cannot_forge_reuse_binding(
             unit_key="different" if difference == "unit" else None,
             packet_hash="different" if difference == "packet" else None,
         )
-    with pytest.raises(DBAPIError), e.begin() as c:
+    mutation = dict(status="reused", reused_task_id=target if difference == "self" else origin)
+    with pytest.raises(DBAPIError) as denied, e.begin() as c:
         c.execute(
-            update(table("ops.task"))
-            .where(table("ops.task").c.id == target)
-            .values(status="reused", reused_task_id=target if difference == "self" else origin)
+            update(table("ops.task")).where(table("ops.task").c.id == target).values(**mutation)
         )
+    assert isinstance(denied.value.orig, psycopg.Error)
+    assert denied.value.orig.sqlstate == "42501"
+    # The independently invalid bound origin must also fail after reaching the native guard.
+    with (
+        pytest.raises(DBAPIError, match="reuse origin has another bound source context") as guarded,
+        semantic_db_engine.begin() as c,
+    ):
+        c.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        c.execute(
+            update(table("ops.task")).where(table("ops.task").c.id == target).values(**mutation)
+        )
+    assert isinstance(guarded.value.orig, psycopg.Error)
+    assert guarded.value.orig.sqlstate == "P0001"
+    with e.connect() as c:
+        assert tuple(
+            c.execute(
+                select(table("ops.task").c.status, table("ops.task").c.reused_task_id).where(
+                    table("ops.task").c.id == target
+                )
+            ).one()
+        ) == ("pending", None)
 
 
 def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
@@ -1082,12 +1108,35 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
             outcome="empty",
         )
         cut = seal_cut(c, run, "preview")
-    with pytest.raises(DBAPIError, match="terminal source task is immutable"), e.begin() as c:
+    with pytest.raises(DBAPIError) as denied, e.begin() as c:
         c.execute(
             update(table("ops.task"))
             .where(table("ops.task").c.id == task)
             .values(status="running", attempt=2)
         )
+    assert isinstance(denied.value.orig, psycopg.Error)
+    assert denied.value.orig.sqlstate == "42501"
+    with e.connect() as c:
+        assert tuple(
+            c.execute(
+                select(table("ops.task").c.status, table("ops.task").c.attempt).where(
+                    table("ops.task").c.id == task
+                )
+            ).one()
+        ) == ("empty", 1)
+    # Independently reach the lifecycle guard with an actor that can issue the invalid DML.
+    with (
+        pytest.raises(DBAPIError, match="terminal source task is immutable") as guarded,
+        semantic_db_engine.begin() as c,
+    ):
+        c.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        c.execute(
+            update(table("ops.task"))
+            .where(table("ops.task").c.id == task)
+            .values(status="running", attempt=2)
+        )
+    assert isinstance(guarded.value.orig, psycopg.Error)
+    assert guarded.value.orig.sqlstate == "P0001"
     with pytest.raises(OperationConflict), e.begin() as c:
         complete_task(
             c,
@@ -1107,12 +1156,26 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
     with e.begin() as c:
         assert cut_observations(c, cut) == []
         final = seal_cut(c, run, "final", final=True)
-    with pytest.raises(DBAPIError), e.begin() as c:
+    with pytest.raises(DBAPIError) as denied, e.begin() as c:
         c.execute(
             update(table("ops.run"))
             .where(table("ops.run").c.id == run)
             .values(sealed=False, status="running")
         )
+    assert isinstance(denied.value.orig, psycopg.Error)
+    assert denied.value.orig.sqlstate == "42501"
+    with (
+        pytest.raises(DBAPIError, match="sealed run cannot reopen") as guarded,
+        semantic_db_engine.begin() as c,
+    ):
+        c.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        c.execute(
+            update(table("ops.run"))
+            .where(table("ops.run").c.id == run)
+            .values(sealed=False, status="running")
+        )
+    assert isinstance(guarded.value.orig, psycopg.Error)
+    assert guarded.value.orig.sqlstate == "P0001"
     with e.connect() as c:
         assert cut_observations(c, final) == []
         assert c.execute(
@@ -1261,11 +1324,15 @@ def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
             c, run_id=run, config_id=cfg, stage="read", unit_type="run", input_hash="input"
         )
         first = claim_tasks(c, run_id=run, config_id=cfg, holder="first")[0]
+    # Time expiry is fixture setup, not a write capability granted to the worker.
+    with semantic_db_engine.begin() as c:
+        c.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         c.execute(
             t.update()
             .where(t.c.id == task)
             .values(lease_until=text("clock_timestamp()-interval '1 second'"))
         )
+    with e.begin() as c:
         second = claim_tasks(c, run_id=run, config_id=cfg, holder="second")[0]
         assert second.attempt == first.attempt + 1 and second.invocation_key == first.invocation_key
     with pytest.raises(OperationConflict), e.begin() as c:

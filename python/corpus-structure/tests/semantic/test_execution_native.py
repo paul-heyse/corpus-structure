@@ -1,5 +1,6 @@
 """Independent checks of the deployed finite guards and conditional publication kernel."""
 
+import psycopg
 import pytest
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, text
@@ -120,10 +121,37 @@ def test_native_attempt_and_nonterminal_transition_fences(
         dict(status="awaiting_agent"),
         dict(status="running", attempt=2, claimed_by="worker"),
     ]:
-        with pytest.raises(DBAPIError), semantic_writer_engine.begin() as conn:
+        with pytest.raises(DBAPIError) as denied, semantic_writer_engine.begin() as conn:
             conn.execute(
                 table("ops.task").update().where(table("ops.task").c.id == task).values(**mutation)
             )
+        assert isinstance(denied.value.orig, psycopg.Error)
+        assert denied.value.orig.sqlstate == "42501"
+        message = (
+            "undeclared operation transition"
+            if mutation["status"] == "awaiting_agent"
+            else "claim or reclaim"
+        )
+        with (
+            pytest.raises(DBAPIError, match=message) as guarded,
+            semantic_db_engine.begin() as conn,
+        ):
+            conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+            conn.execute(
+                table("ops.task").update().where(table("ops.task").c.id == task).values(**mutation)
+            )
+        assert isinstance(guarded.value.orig, psycopg.Error)
+        assert guarded.value.orig.sqlstate == "23514"
+        with semantic_writer_engine.connect() as conn:
+            assert tuple(
+                conn.execute(
+                    select(
+                        table("ops.task").c.status,
+                        table("ops.task").c.attempt,
+                        table("ops.task").c.claimed_by,
+                    ).where(table("ops.task").c.id == task)
+                ).one()
+            ) == ("pending", 0, None)
     with semantic_writer_engine.begin() as conn:
         claimed = claim_tasks(conn, run_id=run, config_id=config, holder="worker")[0]
         assert claimed.attempt == 1
@@ -408,7 +436,7 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
         claim_tasks(conn, run_id=run, config_id=config, holder="worker")
     for status in ("failed", "cancelled"):
         with (
-            pytest.raises(DBAPIError, match="protected publication"),
+            pytest.raises(DBAPIError) as denied,
             semantic_writer_engine.begin() as conn,
         ):
             conn.execute(
@@ -417,13 +445,57 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
                 .where(table("ops.task").c.id == task)
                 .values(status=status, lease_until=None)
             )
+        assert isinstance(denied.value.orig, psycopg.Error)
+        assert denied.value.orig.sqlstate == "42501"
+        with semantic_writer_engine.connect() as conn:
+            assert tuple(
+                conn.execute(
+                    select(
+                        table("ops.task").c.status, table("ops.task").c.lease_until.is_not(None)
+                    ).where(table("ops.task").c.id == task)
+                ).one()
+            ) == ("running", True)
         with (
-            pytest.raises(DBAPIError, match="protected publication"),
+            pytest.raises(DBAPIError) as denied,
             semantic_writer_engine.begin() as conn,
         ):
             conn.execute(
                 table("ops.run").update().where(table("ops.run").c.id == run).values(status=status)
             )
+        assert isinstance(denied.value.orig, psycopg.Error)
+        assert denied.value.orig.sqlstate == "42501"
+        with semantic_writer_engine.connect() as conn:
+            assert (
+                conn.scalar(select(table("ops.run").c.status).where(table("ops.run").c.id == run))
+                == "created"
+            )
+    with (
+        pytest.raises(
+            DBAPIError, match="completed task requires an immutable result receipt"
+        ) as guarded,
+        semantic_db_engine.begin() as conn,
+    ):
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        conn.execute(
+            table("ops.task")
+            .update()
+            .where(table("ops.task").c.id == task)
+            .values(status="failed", lease_until=None)
+        )
+    assert isinstance(guarded.value.orig, psycopg.Error)
+    assert guarded.value.orig.sqlstate == "23514"
+    with (
+        pytest.raises(
+            DBAPIError, match="terminal run requires all source tasks to be terminal"
+        ) as guarded,
+        semantic_db_engine.begin() as conn,
+    ):
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        conn.execute(
+            table("ops.run").update().where(table("ops.run").c.id == run).values(status="failed")
+        )
+    assert isinstance(guarded.value.orig, psycopg.Error)
+    assert guarded.value.orig.sqlstate == "23514"
     with (
         pytest.raises(DBAPIError, match="permission denied"),
         semantic_writer_engine.begin() as conn,

@@ -367,51 +367,70 @@ def test_forward_reconciles_same_head_constraints_and_kernel(revision_database, 
         }
     )
     assert _archive_bytes(bundle, deps, prepared) == archive_bytes
+    # The genuine compiler-10 archive predates all seven relations introduced in 0033.
+    # Restore its revision-0030 projection explicitly; current compiler projection families
+    # are not an input format accepted by that historical database/publisher.
+    historical_relations = (
+        "registry_row",
+        "class_definition",
+        "property_definition",
+        "vocabulary_member",
+        "metric_definition",
+        "class_hierarchy",
+        "property_applicability",
+        "identity_slot",
+        "conditional_rule",
+        "conditional_atom",
+    )
+    projections = _projection_rows(prepared)
+    release_row = dict(
+        release_id=prepared.release_id,
+        parent_release_id=None,
+        content_digest=sha256(archive_bytes).hexdigest(),
+        profile=profile.version,
+        prepared_bytes=archive_bytes,
+        manifest_bytes=prepared.manifest,
+    )
+    inputs = [("source", item.name, item.content) for item in bundle.sources]
+    inputs += [
+        ("profile", "profile", canonical_bytes(asdict(profile))),
+        ("vocabulary", "vocabulary", b"[]"),
+        ("ontology_sources", "ontology_sources", b"[]"),
+    ]
+    input_rows = [
+        dict(
+            release_id=prepared.release_id,
+            input_kind=kind,
+            input_name=name,
+            content=body,
+            content_digest=sha256(body).hexdigest(),
+        )
+        for kind, name, body in inputs
+    ]
+    artifact_rows = [
+        dict(
+            release_id=prepared.release_id,
+            artifact_name=item.kind,
+            media_type="application/octet-stream",
+            content=item.content,
+            content_digest=item.digest,
+        )
+        for item in prepared.artifacts
+    ]
+    replay_payload = {
+        "release": [release_row],
+        "input": input_rows,
+        "artifact": artifact_rows,
+        **{name: projections[name] for name in historical_relations},
+    }
     with engine.begin() as conn:
+        assert conn.scalar(text("SELECT to_regclass('sem.operation_property_role')")) is None
         # Reproduce the historical complete persister before protected publication existed.
-        conn.execute(
-            insert(table("sem.release")).values(
-                release_id=prepared.release_id,
-                parent_release_id=None,
-                content_digest=sha256(archive_bytes).hexdigest(),
-                profile=profile.version,
-                prepared_bytes=archive_bytes,
-                manifest_bytes=prepared.manifest,
-            )
-        )
-        inputs = [("source", item.name, item.content) for item in bundle.sources]
-        inputs += [
-            ("profile", "profile", canonical_bytes(asdict(profile))),
-            ("vocabulary", "vocabulary", b"[]"),
-            ("ontology_sources", "ontology_sources", b"[]"),
-        ]
-        conn.execute(
-            insert(table("sem.input")),
-            [
-                {
-                    "release_id": prepared.release_id,
-                    "input_kind": kind,
-                    "input_name": name,
-                    "content": body,
-                    "content_digest": sha256(body).hexdigest(),
-                }
-                for kind, name, body in inputs
-            ],
-        )
-        conn.execute(
-            insert(table("sem.artifact")),
-            [
-                {
-                    "release_id": prepared.release_id,
-                    "artifact_name": item.kind,
-                    "media_type": "application/octet-stream",
-                    "content": item.content,
-                    "content_digest": item.digest,
-                }
-                for item in prepared.artifacts
-            ],
-        )
-        for name, rows in _projection_rows(prepared).items():
+        conn.execute(insert(table("sem.release")), [release_row])
+        conn.execute(insert(table("sem.input")), input_rows)
+        conn.execute(insert(table("sem.artifact")), artifact_rows)
+        for name in historical_relations:
+            rows = projections[name]
             if rows:
                 conn.execute(insert(table("sem." + name)), rows)
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
@@ -477,7 +496,29 @@ def test_forward_reconciles_same_head_constraints_and_kernel(revision_database, 
         ).scalar_one()
         conn.execute(text("RESET ROLE"))
         upgrade(conn, "semantic_0032")
-        assert persist_release(conn, bundle, deps, profile, prepared) == prepared.release_id
+        import json
+
+        # Exercise the historical protected replay ABI, not today's compiler-13 publisher.
+        assert (
+            conn.scalar(
+                text("SELECT sem.publish_release_archive(CAST(:payload AS jsonb))"),
+                {
+                    "payload": json.dumps(
+                        replay_payload, default=lambda value: "\\x" + bytes(value).hex()
+                    )
+                },
+            )
+            == prepared.release_id
+        )
+        assert (
+            bytes(
+                conn.scalar(
+                    text("SELECT prepared_bytes FROM sem.release WHERE release_id=:r"),
+                    {"r": prepared.release_id},
+                )
+            )
+            == archive_bytes
+        )
 
 
 def test_alembic_current_physical_comparison(semantic_db_engine):
