@@ -1,0 +1,150 @@
+"""Complete source capture and optional native TeX structure, without mathematical recognition.
+
+Coordinates are code points in the named representation. Native parser objects are local to a
+single call; only immutable ranges escape. Lexical completeness never asserts syntax support.
+"""
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
+
+from corpus_structure.core.evidence import MacroDef
+from corpus_structure.core.tex import Expansion, MacroBinding, Token, expand, tokens
+
+ADAPTER_ID = "pylatexenc-structure-1"
+IMPLEMENTATION_REVISION = "text-structure-1"
+FRONTEND_REVISION = "pylatexenc-3.0b2"
+
+
+@dataclass(frozen=True, slots=True)
+class ParseView:
+    source_start: int
+    source_end: int
+    start: int
+    end: int
+    text: str
+
+
+def parse_view(text: str, *, start: int = 0, opener: str | None = None,
+               closer: str | None = None) -> ParseView:
+    """An explicit inner slice; retain environment wrappers and ordinary dollar characters."""
+    a, b = 0, len(text)
+    if (opener and closer and not opener.startswith(r"\begin") and opener != "$"
+            and text.startswith(opener) and text.endswith(closer)
+            and len(text) >= len(opener) + len(closer)):
+        a, b = len(opener), len(text) - len(closer)
+    while a < b and text[a].isspace():
+        a += 1
+    while b > a and text[b - 1].isspace():
+        b -= 1
+    return ParseView(start, start + len(text), start + a, start + b, text[a:b])
+
+
+@dataclass(frozen=True, slots=True)
+class StructureNode:
+    node_id: str
+    kind: str
+    start: int
+    end: int
+    parent: str | None = None
+    role: str = "content"
+    name: str | None = None
+    argument_index: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TextCapture:
+    representation_id: str
+    start: int
+    end: int
+    lexical: tuple[Token, ...]
+    view: ParseView
+    nodes: tuple[StructureNode, ...] = ()
+    structure_outcome: str = "not_requested"
+    issues: tuple[str, ...] = ()
+    expansion: Expansion | None = None
+
+
+def capture_text(text: str, *, start: int = 0, representation_id: str = "canonical",
+                 structure: bool = False, opener: str | None = None,
+                 closer: str | None = None, macros: Mapping[str, MacroDef] | None = None,
+                 bindings: Mapping[str, MacroBinding] | None = None) -> TextCapture:
+    """Capture every source token; only an explicit structure demand calls pylatexenc.
+
+    ``macros=None`` leaves expansion unrequested. An explicit table requests bounded expansion
+    against named artifacts; callers archive binding artifacts with the resulting product.
+    """
+    from dataclasses import replace
+
+    lexical = tuple(replace(t, start=t.start + start, end=t.end + start) for t in tokens(text))
+    view = parse_view(text, start=start, opener=opener, closer=closer)
+    expansion = expand(lexical, macros, source_ref=representation_id, bindings=bindings) if macros is not None else None
+    nodes, outcome, issues = _structure(view, macros or {}) if structure else ((), "not_requested", ())
+    return TextCapture(representation_id, start, start + len(text), lexical, view,
+                       nodes, outcome, issues, expansion)
+
+
+def _structure(view: ParseView, macros: Mapping[str, MacroDef]) -> tuple[tuple[StructureNode, ...], str, tuple[str, ...]]:
+    from pylatexenc.latexnodes import ParsingState
+    from pylatexenc.latexnodes.parsers import LatexGeneralNodesParser
+    from pylatexenc.latexwalker import LatexWalker, LatexWalkerParseError, get_default_latex_context_db
+    from pylatexenc.macrospec import MacroSpec
+
+    context = get_default_latex_context_db()
+    context.add_context_category("effective-macros", macros=[
+        MacroSpec(name[1:], ("[" if definition.default is not None else "")
+                  + "{" * (definition.nargs - (definition.default is not None)))
+        for name, definition in macros.items()
+    ], prepend=True)
+    state = ParsingState(latex_context=context, enable_comments=False,
+                         enable_math=False, in_math_mode=True)
+    walker = LatexWalker(view.text, default_parsing_state=state, tolerant_parsing=False)
+    try:
+        native, _ = walker.parse_content(LatexGeneralNodesParser())
+    except LatexWalkerParseError as error:
+        return (), "invalid", (str(error),)
+    out: list[StructureNode] = []
+    issues: list[str] = []
+
+    def visit(node: Any, parent: str | None = None, role: str = "content",
+              argument_index: int | None = None) -> None:
+        if node is None:
+            return
+        kind = type(node).__name__.removeprefix("Latex").removesuffix("Node").lower()
+        name = getattr(node, "macroname", getattr(node, "environmentname", getattr(node, "specials_chars", None)))
+        if kind == "specials" and name in {"_", "^"}:
+            kind = "subscript" if name == "_" else "superscript"
+        if kind == "macro" and not getattr(node.spec, "macroname", None):
+            kind = "unknown_macro"
+            issues.append("unknown macro: \\" + str(name))
+        key = f"s{len(out)}"
+        out.append(StructureNode(key, kind, view.start + node.pos, view.start + node.pos_end,
+                                 parent, role, name, argument_index))
+        args = getattr(node, "nodeargd", None)
+        if args is not None:
+            for index, argument in enumerate(args.argnlist):
+                visit(argument, key, "argument", index)
+        for child in getattr(node, "nodelist", ()) or ():
+            visit(child, key)
+
+    for node in native:
+        visit(node)
+    return tuple(out), "partial" if issues else "available", tuple(issues)
+
+
+def source_atoms(length: int, math: tuple[tuple[int, int], ...],
+                 references: tuple[tuple[int, int], ...]) -> tuple[tuple[int, int, str], ...]:
+    """Source-bound atom projection shared with consumer-owned sentence layouts."""
+    rows = sorted([(a, b, "math") for a, b in math]
+                  + [(a, b, "reference") for a, b in references])
+    out: list[tuple[int, int, str]] = []
+    position = 0
+    for a, b, role in rows:
+        if not 0 <= a < b <= length:
+            raise ValueError("atom outside canonical source extent")
+        if a < position:
+            continue
+        out.append((a, b, role))
+        position = b
+    return tuple(out)

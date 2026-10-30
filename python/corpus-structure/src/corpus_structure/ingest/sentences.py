@@ -29,6 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from spacy.language import Language
 from spacy.tokens import Doc
 
+from corpus_structure.core.text_structure import source_atoms
 from corpus_structure.core.vocab import SegmentKind
 
 MATH_TAG = "NNP"
@@ -131,9 +132,7 @@ def prepare_layout(
     nlp: Language, block: Block, *, start: int = 0, recipe: str = "canonical-token-layout-1"
 ) -> TextLayout:
     """Tokenize prose once, preserving atom boundaries and all whitespace tokens."""
-    atoms = sorted(
-        [(a, b, "math") for a, b in block.inline] + [(a, b, "reference") for a, b in block.markers]
-    )
+    atoms = source_atoms(len(block.text), tuple(block.inline), tuple(block.markers))
     tokens: list[TextToken] = []
     text = block.text
 

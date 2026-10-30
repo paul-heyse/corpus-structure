@@ -19,9 +19,12 @@ forms expand by it (D1 §6.2).
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, replace
+from collections.abc import Iterator
+from typing import Literal
 
 from corpus_structure.core.evidence import MACRO_NAME, MacroDef
-from corpus_structure.core.tex import tokens
+from corpus_structure.core.tex import MacroBinding, Token, tokens
 
 DEFINERS = frozenset({r"\newcommand", r"\renewcommand", r"\providecommand"})
 OPERATOR = r"\DeclareMathOperator"
@@ -65,9 +68,55 @@ def _optional(t: list[str], i: int) -> tuple[list[str] | None, int]:
     return None, i
 
 
-def read_macros(source: str) -> tuple[dict[str, MacroDef], list[str]]:
+@dataclass(frozen=True, slots=True)
+class MacroEvent:
+    source_ref: str
+    command: Token
+    name: str
+    name_tokens: tuple[Token, ...]
+    body_tokens: tuple[Token, ...]
+    default_tokens: tuple[Token, ...]
+    count_tokens: tuple[Token, ...]
+    start: int
+    end: int
+    status: Literal["accepted", "ignored", "replaced", "unsupported", "invalid"]
+    definition: MacroDef | None
+
+
+@dataclass(frozen=True, slots=True)
+class MacroRead:
+    table: dict[str, MacroDef]
+    notes: list[str]
+    tokens: tuple[Token, ...]
+    events: tuple[MacroEvent, ...]
+
+    @property
+    def bindings(self) -> dict[str, MacroBinding]:
+        return {event.name: MacroBinding(event.source_ref, event.start, event.end,
+                                        event.body_tokens, event.default_tokens)
+                for event in self.events if event.status == "accepted"}
+
+    def __iter__(self) -> Iterator[dict[str, MacroDef] | list[str]]:
+        # Existing consumers retain their table/notes projection.
+        yield self.table
+        yield self.notes
+
+
+def read_macros(source: str, *, source_ref: str = "macro-source") -> MacroRead:
     """The macro table a source defines, and notes on what was not taken as written."""
-    t = [token.text for token in tokens(source)]
+    retained = tuple(tokens(source))
+    t = [token.text for token in retained]
+    events: list[MacroEvent] = []
+    selected: dict[str, int] = {}
+
+    def parts(a: int, b: int, optional: bool = False) -> tuple[Token, ...]:
+        a = _skip(t, a)
+        if a < b and t[a] == ("[" if optional else "{"):
+            a += 1
+            if b > a and t[b - 1] == ("]" if optional else "}"):
+                b -= 1
+        return retained[a:b]
+
     table: dict[str, MacroDef] = {}
     notes: list[str] = []
     i = 0
@@ -76,15 +125,21 @@ def read_macros(source: str) -> tuple[dict[str, MacroDef], list[str]]:
         if command not in DEFINERS and command != OPERATOR:
             if command in UNREAD:
                 notes.append(f"{command} is not read")
+                events.append(MacroEvent(source_ref, retained[i], "", (), (), (), (), retained[i].start, retained[i].end, "unsupported", None))
             i += 1
             continue
         j = _skip(t, i + 1)
         star = j < len(t) and t[j] == "*"
         if star:
             j += 1
+        name_at = j
         name_tokens, j = _argument(t, j)
+        name_extent = parts(name_at, j)
+        default_extent: tuple[Token, ...] = ()
+        count_extent: tuple[Token, ...] = ()
         name = "".join(x for x in name_tokens if not x.isspace())
         if command == OPERATOR:
+            body_at = j
             body_tokens, j = _argument(t, j)
             opener = r"\operatorname*{" if star else r"\operatorname{"
             definition: tuple[int, str | None, str] | None = (
@@ -93,12 +148,17 @@ def read_macros(source: str) -> tuple[dict[str, MacroDef], list[str]]:
                 opener + "".join(body_tokens) + "}",
             )
         else:
+            count_at = j
             count, j = _optional(t, j)
+            count_extent = parts(count_at, j, True) if count is not None else ()
             default = None
             if count is not None:
+                default_at = j
                 default_tokens, after = _optional(t, j)
                 if default_tokens is not None:
+                    default_extent = parts(default_at, after, True)
                     default, j = "".join(default_tokens), after
+            body_at = j
             body_tokens, j = _argument(t, j)
             text = "".join(count or []).strip()
             definition = None
@@ -108,7 +168,14 @@ def read_macros(source: str) -> tuple[dict[str, MacroDef], list[str]]:
                 notes.append(f"{command}{{{name}}}: a default without an argument; not read")
             else:
                 definition = (int(text or 0), default, "".join(body_tokens))
+        command_at = i
         i = j
+        event = MacroEvent(source_ref, retained[command_at], name, name_extent,
+                           parts(body_at, j), default_extent, count_extent,
+                           retained[command_at].start, retained[j - 1].end,
+                           "invalid", None)
+        events.append(event)
+        event_index = len(events) - 1
         if definition is None:
             continue
         if not _NAME.match(name):
@@ -116,11 +183,34 @@ def read_macros(source: str) -> tuple[dict[str, MacroDef], list[str]]:
             continue
         nargs, default, body = definition
         if command == r"\providecommand" and name in table:
+            events[-1] = replace(event, status="ignored", definition=MacroDef(nargs=nargs, default=default, body=body))
             continue
         if command in (r"\newcommand", OPERATOR) and name in table:
+            events[-1] = replace(event, status="ignored", definition=MacroDef(nargs=nargs, default=default, body=body))
             notes.append(f"{name} redefined by {command} (TeX error; the first is kept)")
             continue
         if command == r"\renewcommand" and name not in table:
             notes.append(f"{name}: \\renewcommand without a prior definition on the page")
         table[name] = MacroDef(nargs=nargs, default=default, body=body)
-    return table, notes
+        if name in selected:
+            at = selected[name]
+            events[at] = replace(events[at], status="replaced")
+        selected[name] = event_index
+        events[-1] = replace(event, status="accepted", definition=table[name])
+    return MacroRead(table, notes, retained, tuple(events))
+
+
+@dataclass(frozen=True, slots=True)
+class MacroFragment:
+    start: int
+    end: int
+    decoded_sources: tuple[tuple[int, int], ...]
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class MacroSource:
+    source_ref: str
+    text: str
+    read: MacroRead
+    fragments: tuple[MacroFragment, ...] = ()

@@ -38,7 +38,7 @@ import re
 import unicodedata
 import warnings
 from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -80,7 +80,7 @@ from corpus_structure.core.vocab import (
     StatementKind,
 )
 from corpus_structure.ingest import delimit, sentences
-from corpus_structure.ingest.macros import read_macros
+from corpus_structure.ingest.macros import MacroFragment, MacroSource, read_macros
 from corpus_structure.ingest.profile import (
     EXCLUSIVE_ROLES,
     BlockHint,
@@ -198,6 +198,7 @@ class IngestResult:
     parse_detail: ParseDetail
     text_layouts: tuple[sentences.TextLayout, ...] = ()
     parsing_product: SourceProduct | None = None
+    macro_sources: tuple[MacroSource, ...] = ()
 
 
 # --- The walk ----------------------------------------------------------------------------------
@@ -910,18 +911,49 @@ def parse(raw: bytes) -> tuple[Any, ParseDetail]:
     return root, detail
 
 
-def _macro_table(root: Any, walker: _Walker) -> tuple[dict[str, MacroDef], list[str]]:
+def _macro_table(root: Any, walker: _Walker) -> tuple[dict[str, MacroDef], list[str], tuple[MacroSource, ...]]:
     table: dict[str, MacroDef] = {}
     notes: list[str] = []
+    sources: list[MacroSource] = []
     for el in root.iter():
-        if isinstance(el.tag, str) and walker.has(el, "macros"):
-            found, more = read_macros("".join(el.itertext()))
-            for name, definition in found.items():
-                if name in table and table[name] != definition:
+        if not isinstance(el.tag, str) or not walker.has(el, "macros"):
+            continue
+        pieces: list[str] = []
+        fragments: list[MacroFragment] = []
+        position = 0
+
+        def slot(node: Any, name: str) -> None:
+            nonlocal position
+            value = getattr(node, name) or ""
+            pieces.append(value)
+            for contribution in walker.capture.slot(node, name):
+                fragments.append(MacroFragment(position, position + contribution.length,
+                                 tuple((s.start, s.end) for s in contribution.sources), contribution.reason))
+                position += contribution.length
+
+        def collect(node: Any) -> None:
+            if isinstance(node.tag, str):
+                slot(node, "text")
+            for child in node:
+                collect(child)
+                slot(child, "tail")
+
+        collect(el)
+        source = "page-macros:" + str(len(sources))
+        read = read_macros("".join(pieces), source_ref=source)
+        for name, definition in read.table.items():
+            if name in table:
+                if table[name] != definition:
                     notes.append(f"{name} defined again by a later macro block; the later is kept")
-                table[name] = definition
-            notes += more
-    return table, notes
+                for index, prior in enumerate(sources):
+                    events = tuple(replace(event, status="replaced")
+                                   if event.name == name and event.status == "accepted" else event
+                                   for event in prior.read.events)
+                    sources[index] = replace(prior, read=replace(prior.read, events=events))
+            table[name] = definition
+        notes.extend(read.notes)
+        sources.append(MacroSource(source, "".join(pieces), read, tuple(fragments)))
+    return table, notes, tuple(sources)
 
 
 def build_rendition_with_elements(
@@ -943,7 +975,7 @@ def build_rendition_with_elements(
     page = page_of(source_uri, prof.root)
     root, detail, capture = _parse_with_capture(raw)
     walker = _Walker(root, compiled, capture)
-    macros, macro_notes = _macro_table(root, walker)
+    macros, macro_notes, macro_sources = _macro_table(root, walker)
     head = root.find("head")
     if head is not None:
         capture.exclude(head, "canonical reading-body selection")
@@ -978,6 +1010,7 @@ def build_rendition_with_elements(
         parse_detail=detail,
         text_layouts=text_layouts,
         parsing_product=capture.finish(text, tuple(top.projections)),
+        macro_sources=macro_sources,
     )
     elements = {
         SegmentRef(n.kind, n.start, n.end): n.element

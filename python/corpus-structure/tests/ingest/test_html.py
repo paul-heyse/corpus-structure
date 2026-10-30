@@ -323,3 +323,17 @@ def test_entities_are_decoded_once_and_diagnostics_stay_out_of_attrs(
 def test_a_document_outside_the_profiles_applies_to_is_refused(profile: CompiledProfile) -> None:
     with pytest.raises(IngestRefused, match="applies_to"):
         run(profile, "<p>x</p>", source_uri="nist/eda/page.htm")
+
+
+def test_macro_sources_keep_itertext_and_decoded_slot_origins(profile: CompiledProfile) -> None:
+    body = r'<div class="latex">\newcommand{\f}{<b>A</b>&amp;B}</div><div class="latex">\renewcommand{\f}{C}</div><p>Text.</p>'
+    result = run(profile, body)
+    first, second = result.macro_sources
+    assert first.text == r"\newcommand{\f}{A&B}"
+    assert second.text == r"\renewcommand{\f}{C}"
+    assert [first.read.events[0].status, second.read.events[0].status] == ["replaced", "accepted"]
+    assert first.fragments[0].start == 0
+    assert first.fragments[-1].end == len(first.text)
+    assert all(fragment.decoded_sources for fragment in first.fragments)
+    assert result.content.macros[r"\f"].body == "C"
+    assert "A&B" not in result.content.canonical_text
