@@ -12,7 +12,12 @@ types:
   ParsingInteger:
     base: int
     uri: xsd:integer
+  ParsingBoolean:
+    base: bool
+    uri: xsd:boolean
 enums:
+  ParsingMacroEventStatus:
+    permissible_values: {accepted: {}, ignored: {}, replaced: {}, unsupported: {}, invalid: {}}
   CoordinateUnit:
     permissible_values:
       byte: &id001 {}
@@ -1041,6 +1046,11 @@ classes:
   ParsingMacroEventNode:
     is_a: ParsingNode
     attributes:
+      macro_event:
+        range: ParsingMacroEventMetadata
+        required: true
+        inlined: true
+        slot_uri: pp:ParsingMacroEventNode_macro_event
       kind:
         range: string
         required: true
@@ -1060,3 +1070,63 @@ classes:
       value:
         range: ParsingString
         slot_uri: pp:ParsingMacroInvocationNode_value
+
+  ParsingLocalRange:
+    description: A nonempty half-open range in its parent macro event representation and coordinate unit.
+    attributes:
+      start_offset:
+        range: ParsingInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pp:ParsingLocalRange_start_offset
+      end_offset:
+        range: ParsingInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pp:ParsingLocalRange_end_offset
+  ParsingMacroEventMetadata:
+    attributes:
+      status:
+        range: ParsingMacroEventStatus
+        required: true
+        slot_uri: pp:ParsingMacroEventMetadata_status
+      selected:
+        range: ParsingBoolean
+        required: true
+        slot_uri: pp:ParsingMacroEventMetadata_selected
+      command:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingMacroEventMetadata_command
+      name_ranges:
+        range: ParsingLocalRange
+        required: false
+        description: Ordered token ranges; omitted or empty when this event has no such tokens.
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:ParsingMacroEventMetadata_name_ranges
+      body_ranges:
+        range: ParsingLocalRange
+        required: false
+        description: Ordered token ranges; omitted or empty when this event has no such tokens.
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:ParsingMacroEventMetadata_body_ranges
+      default_ranges:
+        range: ParsingLocalRange
+        required: false
+        description: Ordered token ranges; omitted or empty when this event has no such tokens.
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:ParsingMacroEventMetadata_default_ranges
+      count_ranges:
+        range: ParsingLocalRange
+        required: false
+        description: Ordered token ranges; omitted or empty when this event has no such tokens.
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:ParsingMacroEventMetadata_count_ranges

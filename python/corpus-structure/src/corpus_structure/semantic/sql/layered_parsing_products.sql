@@ -89,6 +89,19 @@ BEGIN
    WHERE r.task_id=p_task AND r.product_key=layer_key AND r.kind='derived_from'
     AND target.target_task_id=p_task AND target.target_product_key=layer_key AND (assessment->'evidence_ids') ? target.node_id AND source.node_id=identity)) THEN
   RAISE EXCEPTION 'assessment interpretation reference has no qualified interpretation custody' USING ERRCODE='23514'; END IF;
+ -- Macro selection consumes typed status and source-qualified local ranges, never value text.
+ IF EXISTS(SELECT FROM kb.parsing_layer_node n WHERE n.task_id=p_task AND n.product_key=layer_key AND n.kind='macro_event'
+  AND (n.origin<>'literal' OR n.macro_event->>'command'='' OR ((n.macro_event->>'selected')::boolean AND n.macro_event->>'status'<>'accepted'))) THEN
+  RAISE EXCEPTION 'macro-event metadata requires literal accepted selection custody' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM kb.parsing_layer_node n
+  CROSS JOIN LATERAL jsonb_each(n.macro_event) fields(name,ranges)
+  CROSS JOIN LATERAL (SELECT (value->>'start_offset')::bigint first,(value->>'end_offset')::bigint last,
+   lag((value->>'end_offset')::bigint,1,n.start_offset) OVER(ORDER BY position) previous
+   FROM jsonb_array_elements(CASE WHEN fields.name IN ({macro_event_range_fields}) THEN fields.ranges ELSE '[]'::jsonb END) WITH ORDINALITY pieces(value,position)) extent
+  WHERE n.task_id=p_task AND n.product_key=layer_key AND n.kind='macro_event'
+   AND fields.name IN ({macro_event_range_fields})
+   AND (extent.first<extent.previous OR extent.first>=extent.last OR extent.last>n.end_offset)) THEN
+  RAISE EXCEPTION 'macro-event metadata ranges exceed or disorder their parent extent' USING ERRCODE='23514'; END IF;
  RETURN digest;
 END $layer$;
 REVOKE ALL ON FUNCTION ops.publish_layered_parsing_product(bigint,bigint,text,text,bytea,bytea[]) FROM PUBLIC;

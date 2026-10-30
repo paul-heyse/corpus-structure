@@ -855,6 +855,37 @@ def _validate_layered_product(p: dict[str, Any], context: PreparedParsingContext
         elif any(k in row for k in fields) or not row.get("origin_reason"):
             raise ValueError("nonliteral node requires a reason without a fabricated extent")
 
+    macro_range_fields = tuple(
+        prop.name
+        for definition in context.boundary.definitions
+        if definition.name == "ParsingMacroEventMetadata"
+        for prop in definition.properties
+        if prop.multivalued and prop.range == "ParsingLocalRange"
+    )
+    for row in nodes.values():
+        if row["kind"] != "macro_event":
+            continue
+        metadata = row.get("macro_event")
+        if metadata is None:
+            raise ParsingProductUnavailable(
+                "archived macro events require typed metadata; rebuild the text product"
+            )
+        if row["origin"] != "literal" or not metadata["command"]:
+            raise ValueError(
+                "macro-event metadata requires its literal source occurrence and command"
+            )
+        if metadata["selected"] and metadata["status"] != "accepted":
+            raise ValueError("only an accepted macro event can be selected")
+        for field in macro_range_fields:
+            position = row["start_offset"]
+            for extent_value in metadata.get(field, ()):
+                start, end = extent_value["start_offset"], extent_value["end_offset"]
+                if not position <= start < end <= row["end_offset"]:
+                    raise ValueError(
+                        "macro-event metadata ranges must be ordered within their parent extent"
+                    )
+                position = end
+
     def local(row):
         fields = ("target_task_id", "target_product_key", "target_content_digest")
         if not any(k in row for k in fields):

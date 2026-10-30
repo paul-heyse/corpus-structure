@@ -916,8 +916,8 @@ def parsing_contract_products(model=None) -> tuple[NativeProduct, ...]:
 
 
 def forward_products(model=None) -> tuple[NativeProduct, ...]:
-    """Final source admission metadata; frozen 0041–0044 remain untouched."""
-    return (NativeProduct("semantic_0045_admission.sql", consolidation_products(model)[-1].content),)
+    """Typed macro-event publication; frozen 0041-0044 remain untouched."""
+    return macro_event_contract_products(model)
 
 
 def parsing_publication_sql(
@@ -973,11 +973,20 @@ def parsing_publication_sql(
                         f" OR EXISTS(SELECT FROM jsonb_array_elements({value}) element "
                         "WHERE jsonb_typeof(element) IS DISTINCT FROM 'string')"
                     )
+                if prop.range in definitions:
+                    predicate += (
+                        f" OR EXISTS(SELECT FROM jsonb_array_elements({value}) nested_record "
+                        "WHERE jsonb_typeof(nested_record) IS DISTINCT FROM 'object' OR ("
+                        + invalid_record(prop.range, "nested_record")
+                        + "))"
+                    )
                 if prop.minimum_cardinality is not None and prop.minimum_cardinality > 0:
                     predicate += f" OR jsonb_array_length({value}) < {prop.minimum_cardinality}"
                 if prop.maximum_cardinality is not None:
                     predicate += f" OR jsonb_array_length({value}) > {prop.maximum_cardinality}"
 
+            elif prop.range in {"ParsingBoolean", "boolean"}:
+                predicate = f"jsonb_typeof({value}) IS DISTINCT FROM 'boolean'"
             elif prop.range == "ParsingInteger":
                 predicate = (
                     f"jsonb_typeof({value}) IS DISTINCT FROM 'number' "
@@ -1038,6 +1047,16 @@ def parsing_publication_sql(
         .joinpath(template)
         .read_text()
         .replace("-- {parsing_shape_guard}", shape)
+        .replace(
+            "{macro_event_range_fields}",
+            ",".join(
+                quoted(prop.name)
+                for definition in prepared.definitions
+                if definition.name == "ParsingMacroEventMetadata"
+                for prop in definition.properties
+                if prop.multivalued and prop.range == "ParsingLocalRange"
+            ),
+        )
         .replace("{parsing_contract_digest}", PARSING_CONTRACT_DIGEST)
         .replace("product jsonb;", "product jsonb; parsing_item jsonb;")
     )
@@ -1111,6 +1130,8 @@ def _layer_insert_fragments() -> tuple[str, str, str]:
                     "(SELECT product_digest FROM ops.parsing_product target "
                     "WHERE target.task_id=item.target_task_id)"
                 )
+            elif column == "macro_event" and field == "nodes":
+                value = "NULL::jsonb"
             elif column == "kind" and field == "dependencies":
                 value = "'product'"
             elif column == "artifact_digest" and field == "dependencies":
@@ -1201,4 +1222,20 @@ def layered_parsing_guard_products(model=None) -> tuple[NativeProduct, ...]:
     return (
         NativeProduct("semantic_0044_parsing.sql", sql.encode()),
         NativeProduct("semantic_0044_admission.sql", consolidation_products(model)[-1].content),
+    )
+
+
+def macro_event_contract_products(model=None) -> tuple[NativeProduct, ...]:
+    """Forward 0045 connects typed macro policy metadata to shared publication consumers."""
+    guard, _ = layered_parsing_guard_products(model)
+    sql = (
+        "SET LOCAL ROLE corpus_sem_publisher;\n"
+        "ALTER TABLE kb.parsing_layer_node ADD COLUMN macro_event jsonb;\n"
+    )
+    sql += guard.content.decode()
+    physical, _, _ = closure_products(model)
+    sql += "\nDO $reference$" + physical.content.decode().split("DO $reference$", 1)[1]
+    return (
+        NativeProduct("semantic_0045_parsing.sql", sql.encode()),
+        NativeProduct("semantic_0045_admission.sql", consolidation_products(model)[-1].content),
     )

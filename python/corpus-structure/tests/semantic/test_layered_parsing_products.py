@@ -235,3 +235,63 @@ def test_native_semantic_references_resolve_actual_typed_dependency_targets(
             products=PreparedParsingProductSet((checked,)),
         )
         assert read_layered_product(conn, refs[0]) == checked
+
+
+def test_native_macro_event_metadata_preserves_typed_policy_and_rejects_invalid_ranges(
+    semantic_db_engine, semantic_writer_engine, tmp_path
+):
+    from corpus_structure.ingest.macros import MacroSource, read_macros
+    from corpus_structure.ingest.text_product import text_product_artifacts
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    prepared = setup(semantic_db_engine, observations=True, composed=True)
+    source = prepare_parsing_product(product_values(), b"a\xc3\xa9 ")
+    with semantic_writer_engine.begin() as conn:
+        _, task, attempt, _ = _native_build(conn, prepared, source.original, tmp_path)
+        store_parsing_product(conn, task_id=task, attempt=attempt, holder="fixture", product=source)
+        root = ProductReference(task, "source", source.digest)
+        definitions = r"\newcommand{\f}{xy}"
+        payload = text_product_payload(
+            "aé ",
+            root=root.values(),
+            macro_sources=[
+                MacroSource("defs", definitions, read_macros(definitions, source_ref="defs"))
+            ],
+        )
+        product = prepare_layered_product(payload)
+        artifacts = text_product_artifacts(payload)
+        changes = (
+            lambda n: n.pop("macro_event"),
+            lambda n: n["macro_event"].update(status="invented"),
+            lambda n: n["macro_event"].update(selected="true"),
+            lambda n: n["macro_event"].update(status="ignored", selected=True),
+            lambda n: n["macro_event"]["body_ranges"][0].update(end_offset=n["end_offset"] + 1),
+            lambda n: n["macro_event"]["body_ranges"].reverse(),
+            lambda n: n["macro_event"]["body_ranges"][0].update(end_offset=16),
+        )
+        for change in changes:
+            invalid = deepcopy(product.values())
+            event = next(n for n in invalid["nodes"] if n["kind"] == "macro_event")
+            change(event)
+            with pytest.raises(DBAPIError), conn.begin_nested():
+                conn.execute(
+                    text(
+                        "SELECT ops.publish_layered_parsing_product("
+                        ":task,:attempt,'fixture',:contract,:payload,:artifacts)"
+                    ),
+                    dict(
+                        task=task,
+                        attempt=attempt,
+                        contract=product.contract_digest,
+                        payload=canonical_bytes(invalid),
+                        artifacts=list(artifacts),
+                    ),
+                )
+        reference = store_layered_products(
+            conn,
+            task_id=task,
+            attempt=attempt,
+            holder="fixture",
+            products=PreparedParsingProductSet((product,), artifacts=artifacts),
+        )[0]
+        assert read_layered_product(conn, reference) == product
