@@ -812,6 +812,15 @@ def _validate_layered_product(p: dict[str, Any], context: PreparedParsingContext
     nodes = _index(p["nodes"], "node_id")
     relations = _index(p["relationships"], "relationship_id")
     mappings = _index(p["mappings"], "mapping_id")
+    component_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    endpoint_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    mapping_groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for component in p["components"]:
+        component_groups[component["representation_id"]].append(component)
+    for endpoint in p["endpoints"]:
+        endpoint_groups[endpoint["relationship_id"]].append(endpoint)
+    for endpoint in p["mapping_endpoints"]:
+        mapping_groups[endpoint["mapping_id"], endpoint["side"]].append(endpoint)
 
     def extent(row):
         rep = reps.get((row["representation_id"],))
@@ -829,9 +838,7 @@ def _validate_layered_product(p: dict[str, Any], context: PreparedParsingContext
             raise ValueError("original bytes belong to the immutable source root")
         if rep["unit"] != "codepoint" or len(representation_text(rep)) != rep["extent_length"]:
             raise ValueError("layer text representation requires exact codepoint length")
-        rows = _ordered(
-            [c for c in components.values() if c["representation_id"] == rep["representation_id"]]
-        )
+        rows = _ordered(component_groups.get(rep["representation_id"], []))
         position = 0
         for row in rows:
             extent(row)
@@ -903,10 +910,9 @@ def _validate_layered_product(p: dict[str, Any], context: PreparedParsingContext
     from .parsing_contracts import parsing_relationships
 
     profiles = parsing_relationships(context.execution)
+    ordered_endpoints = {identity: _ordered(rows) for identity, rows in endpoint_groups.items()}
     for relation in relations.values():
-        rows = _ordered(
-            [e for e in p["endpoints"] if e["relationship_id"] == relation["relationship_id"]]
-        )
+        rows = ordered_endpoints.get(relation["relationship_id"], [])
         if tuple(e["role"] for e in rows) != tuple(
             e.role for e in profiles[relation["kind"]].endpoints
         ):
@@ -927,20 +933,8 @@ def _validate_layered_product(p: dict[str, Any], context: PreparedParsingContext
         if local(row):
             extent(row)
     for mapping in mappings.values():
-        source = _ordered(
-            [
-                e
-                for e in p["mapping_endpoints"]
-                if e["mapping_id"] == mapping["mapping_id"] and e["side"] == "source"
-            ]
-        )
-        target = _ordered(
-            [
-                e
-                for e in p["mapping_endpoints"]
-                if e["mapping_id"] == mapping["mapping_id"] and e["side"] == "target"
-            ]
-        )
+        source = _ordered(mapping_groups.get((mapping["mapping_id"], "source"), []))
+        target = _ordered(mapping_groups.get((mapping["mapping_id"], "target"), []))
         fidelity = mapping["fidelity"]
         if (
             (fidelity in {"exact", "transformed"} and (not source or not target))
@@ -968,20 +962,20 @@ def _validate_layered_product(p: dict[str, Any], context: PreparedParsingContext
             for identity in interpretation["occurrence_ids"]
         ):
             raise ValueError("interpretation occurrence reference has no local custody")
+    qualified_inputs: dict[str, set[str | None]] = defaultdict(set)
+    for relation in relations.values():
+        if relation["kind"] != "derived_from":
+            continue
+        target, source = ordered_endpoints[relation["relationship_id"]]
+        if local(target) and target.get("node_id") is not None and not local(source):
+            qualified_inputs[target["node_id"]].add(source.get("node_id"))
     for assessment in p["assessments"]:
         evidence = assessment["evidence_ids"]
         if not evidence or any((identity,) not in nodes for identity in evidence):
             raise ValueError("assessment evidence reference has no local node custody")
         inputs = set()
-        for relation in relations.values():
-            if relation["kind"] != "derived_from":
-                continue
-            endpoints = _ordered(
-                [e for e in p["endpoints"] if e["relationship_id"] == relation["relationship_id"]]
-            )
-            target, source = endpoints
-            if local(target) and target.get("node_id") in evidence and not local(source):
-                inputs.add(source.get("node_id"))
+        for identity in evidence:
+            inputs.update(qualified_inputs.get(identity, ()))
         if (
             not assessment["interpretation_ids"]
             or not set(assessment["interpretation_ids"]) <= inputs
