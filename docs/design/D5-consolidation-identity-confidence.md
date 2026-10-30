@@ -787,3 +787,10 @@ M13 binds `X`, `a`, `b`, `\mu`, `\sigma` to the unit; M10 proposes C1–C4.
 **Implemented (scoped verification,2026-10-30).** Scientific ABI3 profiles bind prepared operands, complete conditions and per-candidate numerical validity to the same explicit model used by archived recipes. Polynomial-only cancellation and shared direct evaluations preserve separate consolidation/reference policies. Direct numerical execution remains selected after bounded NumPy/CSE investigation.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+
+## Text and comparison preparation
+
+**Implemented; scoped Tested (2026-10-30).** Alignment prepares operation-owned sides, entity metadata and conservative candidates once. NetworkX SCC/condensation organizes complete-reference invalidation; typed source records retain occurrence identity. SciPy dense assignment preserves global scoring/ties, with component solving only under unique-selection conditions. Entity attributes and claims share one scientific comparison scope.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

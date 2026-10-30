@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "id": "text.preparation",
+  "title": "Token layout representation and segmentation",
+  "group": "production-efficiency",
+  "package": "PE-05",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which source-preserving layout and segmentation realization should PE-05 use?",
+  "answers": [],
+  "method": "Bounded complete-operation comparison with source/output parity and preparation costs retained.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-30_text-layout-segmentation/probe.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "probe.py",
+      "role": null,
+      "sha256": "e6be4a42af9f3f1ebecd3fa912ba9d9b4a38ea5e8ada10c0cc23d23c3789cb51"
+    },
+    {
+      "path": "result.json",
+      "role": null,
+      "sha256": "ecc0eee1c8df6420bb16cd0f2b320472e8689ac8be9d613ce694965b985ade2c"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Persist structured source-build layouts for state/representation and downstream reuse despite near-neutral measured codec cost. Keep current segmentation: four-page reduced-parser parity does not qualify full scope; senter/rules change boundaries. This is bounded warm evidence, not full corpus throughput.",
+  "consumed_by": [
+    "production-efficiency PE-05"
+  ]
+}

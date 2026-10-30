@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "id": "alignment.preparation",
+  "title": "Whole-operation alignment preparation comparison",
+  "group": "production-efficiency",
+  "package": "PE-07",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does operation-owned indexed alignment preserve reports and improve small/larger matching workloads?",
+  "answers": [],
+  "method": "Compare complete side construction and alignment against ea2d306 with one/100 claims, three repeats.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-30_alignment-preparation/compare.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "compare.py",
+      "role": null,
+      "sha256": "3da8475ca3ca9e9c74bb73711147c17dd2282e92229b2d7c37e769f52e121195"
+    },
+    {
+      "path": "results.json",
+      "role": null,
+      "sha256": "1a9fff469bc51b377547afa7de90874b8d701f418559bba9d87f91ef4a705463"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Complete synthetic reports agree. No latency improvement established: ownership/topology offsets saved scans on this shape. Retain explicit model-bound state/dependencies; no corpus/scientific/assembled throughput claim.",
+  "consumed_by": [
+    "production-efficiency PE-06",
+    "production-efficiency PE-07"
+  ]
+}

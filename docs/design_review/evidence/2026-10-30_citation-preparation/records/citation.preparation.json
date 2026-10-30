@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "id": "citation.preparation",
+  "title": "Prepared citation frames and native scoring",
+  "group": "production-efficiency",
+  "package": "PE-07",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does operation-owned citation preparation preserve source outcomes and reduce repeated work?",
+  "answers": [],
+  "method": "Bounded complete-operation comparison with source/output parity and preparation costs retained.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-30_citation-preparation/compare.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "compare.py",
+      "role": null,
+      "sha256": "e48e06d018fc6673494829e64660c13e8c57f0c709d06ed7c35b776a1e539872"
+    },
+    {
+      "path": "results.json",
+      "role": null,
+      "sha256": "ee06099812934766b5df4a080afd9bddbcfd037b5a74116adb02a01b1f77a5f8"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Prepared citation outputs matched baseline excluding elapsed time on bounded single and repeated synthetic workloads. Direct native extractOne remains selected; eager matrix scoring adds unused work. No assembled or corpus-wide claim.",
+  "consumed_by": [
+    "production-efficiency PE-07"
+  ]
+}

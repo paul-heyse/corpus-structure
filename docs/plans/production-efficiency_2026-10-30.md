@@ -77,9 +77,9 @@ Historical archive/source bytes and recorded meaning remain preserved. No databa
 | PE-02 | [Interpretation](production-efficiency/interpretation-and-scientific-analysis.md#PE-02): qualified recognizer/ambiguity decision | Agreed PE-01 semantics; bounded production evidence | Complete · bounded decision; F01 remains open |
 | PE-03 | [Interpretation](production-efficiency/interpretation-and-scientific-analysis.md#PE-03): shared mathematical interpretation and consumer migration | Working PE-01 and selected PE-02 contract | Complete · scoped Tested; §10 |
 | PE-04 | [Scientific analysis](production-efficiency/interpretation-and-scientific-analysis.md#PE-04): prepared comparison | PE-01 policy contracts/PE-03 operands; local repetition removal can start earlier | Complete · scoped Tested; §10 |
-| PE-05 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-05): token reuse and explicit segmentation decision | PE-01 context; RC02 before changed segmentation | Open |
-| PE-06 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-06): scope/eligibility indexes | PE-01 authority and required universe | Open |
-| PE-07 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-07): prepared assignment/citation consumers | PE-06; PE-04 for substantive mathematical comparisons | Open |
+| PE-05 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-05): token reuse and explicit segmentation decision | PE-01 context; RC02 before changed segmentation | Implemented; scoped verification §11 |
+| PE-06 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-06): scope/eligibility indexes | PE-01 authority and required universe | Implemented; scoped verification §11 |
+| PE-07 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-07): prepared assignment/citation consumers | PE-06; PE-04 for substantive mathematical comparisons | Implemented; scoped verification §11 |
 | PE-08 | [Data execution](production-efficiency/data-execution-and-publication.md#PE-08): one owned transport outside retries where valid | Existing ownership/receipt contract; reconcile with PE-01 | Open |
 | PE-09 | [Data execution](production-efficiency/data-execution-and-publication.md#PE-09): resident/spooled capture, trusted builders, graph preparation | PE-01 capture contract, PE-08 ownership, RC04 | Open |
 | PE-10 | [Runtime/adoption](production-efficiency/runtime-preparation-and-adoption.md#PE-10): cheap logical scheduling and bulk source context | PE-01 invocation/dependencies; RC03 before identity change | Open |
@@ -103,9 +103,9 @@ contributors, actual consumer adoption and suitable evidence, not merely a helpe
 | F01 | Contextual recognition and ambiguity execution; PE-01–03 | Open · qualified general Earley retained; recognition/subset limitation remains | Supported interpretation/ambiguity preserved or explicitly versioned; real consumers and production cost route established |
 | F02 | One authorized context and prepared mathematical products; PE-01/03 | Closed for PE-01/03 · shared prepared context/products and consumer checks; no M13 feedback | All source/rule/scientific readers consume the model-derived context and complete dependency keys |
 | F03 | Prepared operands and policy-bound scientific comparison; PE-04/07 | Open · no numeric-as-proof substitution | Repeated base/value work removed; evidence tiers/conditions remain correct; comparison measured separately |
-| F04 | Shared token preparation and segmentation decision; PE-05 | Open · RC02 before changed anchors | Actual ingest/scope consumers migrated; exact offsets retained or new release declared |
-| F05 | Hierarchy/per-symbol scope indexes; PE-06 | Open · authority/tie rules from model | Enclosure/reopen/mention results preserve meaning; repeated flat scans retire |
-| F06 | Candidate/eligibility/comparison indexes and native citation processing; PE-04/06/07 | Open · dependent comparisons remain conditional | No hidden scorer wrapper or repeated invariant preparation; ties/cycles/global candidates preserved |
+| F04 | Shared token preparation and segmentation decision; PE-05 | Closed in PE-05 · current segmentation retained; stored source layout and explicit reconstruction | Actual ingest/scope consumers migrated; exact offsets retained or new release declared |
+| F05 | Hierarchy/per-symbol scope indexes; PE-06 | Closed in PE-06 · indexed source resolution; scoped parity | Enclosure/reopen/mention results preserve meaning; repeated flat scans retire |
+| F06 | Candidate/eligibility/comparison indexes and native citation processing; PE-04/06/07 | Closed in PE-06/07 · dependencies and native scorer connected; scoped checks | No hidden scorer wrapper or repeated invariant preparation; ties/cycles/global candidates preserved |
 | F07 | Compose owned transport and move stable work outside retry; PE-08 | Open · first ownership copy retained | One freeze/canonicalization, same canonical receipts, correct mutation isolation/replay |
 | F08 | Separate logical skips from provider preparation and bulk-load frames; PE-10 | Open · RC03 and source custody | Skips require no provider packet; required logical coverage and effective origin/frame identity remain |
 | F09 | Finalized header-first opening and explicit verification; PE-11 | Open · trust-qualified cache only | Warm hit avoids full payload transfer; untrusted/historical/admission verification remains necessary and effective |
@@ -224,3 +224,20 @@ are retained beside corrected applicable results. Corpus/property, source-method
 model-input/recipe and native/archival checks have separate boundaries. Typing precedes expensive
 qualification; lint-only maintenance does not invalidate those results. The generated SQL retains
 its existing whitespace convention and byte-for-byte derivation checks.
+
+
+## 11. PE-05–PE-07 execution —2026-10-30
+
+The [text/candidate execution receipt](production-efficiency/text-and-candidate-analysis.md#execution-2026-10-30)
+owns implementation details and evidence limits. Structured token artifacts persist on source builds
+and reach M13 through selected-origin reads. Compiler7/profile3/native0037 bind text, alignment and
+placement policy to actual consumers, explicit implementation bytes and installed tokenizer/model
+fingerprints. Native build immutability and application source/artifact validation are distinct.
+F04–F06 are closed within this package's functional scope; wider segmentation adoption and measured
+assembled benefits remain PE-12. F03's shared reference comparison scope now reaches entity identity
+attributes as well as claims. PE-08–PE-12 and F01's recognizer work remain open.
+
+SciPy retains numerical assignment; NetworkX supplies operation-owned dependency topology. Sparse
+matching/CVXPY and eager RapidFuzz matrix scoring were not selected for the existing workload's
+semantics. Bounded text/citation investigations are finalized under their evidence owners. No
+assembled performance, provider or complete-series qualification follows from these scoped results.

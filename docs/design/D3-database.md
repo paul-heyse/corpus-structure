@@ -1731,3 +1731,16 @@ statements. The interim project-local cluster that preceded it was retired on 20
 **Proposed (accepted target,2026-10-30).** Analytical contract variation uses existing immutable release-scoped execution rows and archived products. Forward native revisions change deployment support; historical migration bytes and retained archive meanings remain immutable.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+## Structured source token artifacts
+
+**Implemented; scoped Tested (2026-10-30).** Forward0037 adds nullable JSONB
+`ops.rendition_build.text_layout`, separate from content/anchor identity. Its typed artifact binds
+configuration, execution recipe/model and source digest to absolute token extents, following-space
+flags and atom roles. Application insertion validates source/shape/custody; the database prevents
+build mutation. Run-bound reads follow the selected producing task, including explicit reuse,
+and check the consumer tokenizer configuration. Missing/incompatible history reconstructs;
+matching corrupt artifacts refuse with regeneration instructions. M13 consumes these artifacts;
+analytical token projection remains a future consumer of this structured representation.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

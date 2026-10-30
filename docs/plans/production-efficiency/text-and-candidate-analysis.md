@@ -1,6 +1,6 @@
 # Text preparation, scope indexes and candidate analysis
 
-**Status:** Planned · **Created:** 2026-10-30 · **Packages:** PE-05–PE-07.
+**Status:** Implemented with scoped verification2026-10-30; assembled qualification remains PE-12 · **Created:** 2026-10-30 · **Packages:** PE-05–PE-07.
 
 This document schedules [production review F04–F06](../../design_review/reviews/production-efficiency_2026-10-30.md#F04)
 from review revision `534e956`, against production baseline `7fadeff`. The
@@ -233,3 +233,75 @@ qualification owner. These are production correctness obligations, not authoriza
 testing infrastructure. Proposed performance benefits remain unmeasured until the relevant
 production operation is exercised under named conditions. Update enduring D4/D5/D7/D8 contracts
 when the implemented meanings or workflows change, through PE-00's decision route.
+
+
+## Execution —2026-10-30
+
+**Implemented; scoped Tested.** PE-05–PE-07 now consume analysis profile3 / execution compiler7.
+Forward native0037 adds nullable structured `ops.rendition_build.text_layout`, preserving historical
+content/anchor identity. Artifacts bind producing configuration, execution model, source digest,
+recipe and their token spans/roles; source validation checks coverage, offsets, spacing and atom
+roles. Terminal retries compare the stored artifact. Native guards enforce build immutability;
+typed artifact insertion/source validation is the application boundary, not an independent SQL
+semantic validator. Missing/incompatible historical artifacts reconstruct through the canonical
+producer; matching corrupt artifacts refuse with regeneration instructions.
+
+Ingestion carries layouts through UnitResult. M13 reads the run-selected producing build through
+explicit task reuse, checks the expected sentence configuration and consumes the layout using its
+already admitted rendition. The durable JSONB representation is selected for structured state,
+source-preserving downstream reuse and later analytical projection, despite near-neutral bounded
+codec cost. It is not a claim that storage itself improved latency. No token analytical query is
+introduced by this package. The persisted representation stores spans/roles rather than duplicate
+strings; canonical text supplies token values.
+
+Scope uses ordered interval sweeps and per-symbol lookup, retaining shortest extents, traversal
+ties and strictly earlier reopen sites. Alignment owns prepared sides/metadata and conservative
+candidates; the operation's scientific scope reaches entity attributes. NetworkX SCC/condensation
+organizes mapping-dependent invalidation including absent lookups, remaps, removals and cycles.
+Typed source records remain authoritative. Direct SciPy dense assignment remains selected;
+component solving requires unique row maxima on distinct columns, otherwise the original global
+route preserves tied pair choices. No NetworkX/SciPy conversion round-trip is required.
+
+Citation frames own immutable slices, lazy token/pattern preparation and timeout-safe reuse with
+fresh elapsed-time reporting. Actual proposal/parser callers obtain model-bound placement policy.
+The original native RapidFuzz scorer reaches extractOne directly. Existing precedence, offsets,
+counts and labels remain. Eager cpdist/cdist adds unused work to this staged short-circuit flow;
+sparse matching would require new dummy/zero/tie adaptation without a demonstrated advantage.
+CVXPY is not introduced because current constraints remain an assignment problem; existing SymPy
+preparation/comparison remains the mathematical authority.
+
+The [text investigation](../../design_review/evidence/2026-10-30_text-layout-segmentation/README.md)
+compared all required segmentation candidates. Current segmentation stays active. A reduced
+parser retained four-page boundaries but requires wider qualification before adoption; trained
+senter/rules changed boundaries and require new configuration/release/anchors. The
+[citation investigation](../../design_review/evidence/2026-10-30_citation-preparation/README.md)
+retains bounded whole-operation measurements and source-result parity. Neither establishes a
+full-corpus or assembled throughput benefit. The [alignment comparison](../../design_review/evidence/2026-10-30_alignment-preparation/README.md) preserves complete reports but shows no latency gain on its bounded shape; explicit ownership/dependencies remain the structural benefit. All three investigations have finalized records.
+
+**Verification:** `build/pe567/functional.log` retains the focused sentence/scope/citation/alignment/
+model/proposal suite, including corpus offset cases. `build/pe567/native-verified.log` retains
+actual CLI ingestion/M13 stored reads, configuration mismatch reconstruction, restricted mutation
+refusal, owner-level immutability, native drift refusal and frozen authoring parity. Initial
+migration/descriptor failures remain in `native.log`, `native-corrected.log`, `native-final.log`
+and `native-repaired.log`; corrected selected cases pass. Typing and final maintenance outcomes
+are in STATUS. Full-series/provider/nonfunctional qualification remains PE-12; historical grades,
+operational databases, audit premises and test architecture are unchanged.
+
+
+The broader `just test-all` run is retained at
+`build/test-receipts/qualification/20261030T093202Z-784145`. Its supervisor signal-count test
+failed outside this production scope. Three prior two-argument mathematical-reader fixtures
+also failed; they now use the current three-argument contract and their targeted rerun passed
+(`build/pe567/coverage-fixture.log`). These failures retain their original receipts and receive
+no retroactive passing classification. They do not invalidate the separate focused product
+checks; full-repository qualification is not claimed.
+
+
+Final broader disposition: the run reported2,381 passed/six failed. Besides the supervisor
+signal-count case, the five failures were stale fixtures: three reader arities, a publication
+fixture that changed rows without rebinding prepared state, and a manually supplied retired
+scientific-policy ID. These fixtures now exercise the current contracts without weakening the
+production guards. The12-case affected integration selection passed in
+`build/pe567/integration-corrected.log`. The original broad receipt stays failed; no whole-suite
+rerun or full-repository passing claim follows. `just hygiene` passed, as did the final
+warning-inclusive Pyrefly check. Lint-only formatting preserves applicable functional evidence.

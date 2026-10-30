@@ -1,0 +1,50 @@
+{
+  "baseline": "ea2d306",
+  "boundary": "side construction and complete align_semantic; model preparation excluded",
+  "results": [
+    {
+      "claims_per_side": 1,
+      "complete_report_parity": true,
+      "timings": {
+        "baseline": {
+          "runs": [
+            0.8815392429823987,
+            0.00019632803741842508,
+            0.00011654302943497896
+          ],
+          "median_seconds": 0.00019632803741842508
+        },
+        "prepared": {
+          "runs": [
+            2.6364464209764265,
+            0.0006189389969222248,
+            0.0004056480247527361
+          ],
+          "median_seconds": 0.0006189389969222248
+        }
+      }
+    },
+    {
+      "claims_per_side": 100,
+      "complete_report_parity": true,
+      "timings": {
+        "baseline": {
+          "runs": [
+            0.009698180016130209,
+            0.009815133991651237,
+            0.00972171500325203
+          ],
+          "median_seconds": 0.00972171500325203
+        },
+        "prepared": {
+          "runs": [
+            0.010242915013805032,
+            0.009957030997611582,
+            0.012770002998877317
+          ],
+          "median_seconds": 0.010242915013805032
+        }
+      }
+    }
+  ]
+}

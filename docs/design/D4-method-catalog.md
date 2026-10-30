@@ -1149,3 +1149,10 @@ canonical-form fusion only, status from agent proposals and M19 rules.
 **Implemented (scoped verification,2026-10-30).** Source M09/M11 share compatible rendition-batch preparation while retaining independent logical tasks and outputs. Frozen prepared mathematical inputs lazily produce values. General Earley remains selected after bounded comparison; the recognition limitation and qualified-subset investigation remain open in PE-02.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+
+## Text and comparison preparation
+
+**Implemented; scoped Tested (2026-10-30).** Source segmentation and M13 use one immutable token-layout producer. Source builds retain spans/roles bound to configuration, implementation and content; M13 reads the selected producing task, checks its expected tokenizer configuration and reconstructs historical/incompatible inputs. Interval/per-symbol indexes preserve source selection. Current segmentation remains active after bounded reduced-parser/senter/rule comparison.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

@@ -539,3 +539,10 @@ then the successive `phase0-golden` runs, whose scope resolves the dev set's uni
 **Proposed (accepted target,2026-10-30).** Reference operands use the shared context contract while retaining independent reference evidence and automated grading. New interpretation releases do not regrade or reinterpret historical results.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+
+## Text and comparison preparation
+
+**Implemented; scoped Tested (2026-10-30).** Current semantic evaluation consumes model-bound alignment policy, prepared sides and dependency-aware comparisons. Historical grades remain unchanged. Citation placement owns immutable frame preparation and uses the native RapidFuzz scorer, preserving source spans, precedence, counts and timeout outcomes. Compiler7/profile3/native0037 are scoped verified; assembled qualification remains PE-12.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
