@@ -26,10 +26,11 @@ import os
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from hypothesis import settings as hypothesis_settings
-from sqlalchemy import Connection, Engine
+from sqlalchemy import Connection, Engine, text
 from typer.testing import CliRunner, Result
 
 from corpus_structure.cli.app import app
@@ -41,6 +42,7 @@ from native_test_support import (
     DatabasePolicy,
     DatabaseSetting,
     PgAdmin,
+    SemanticTemplate,
     expected_extensions,
     record_server_context,
     semantic_principals,
@@ -170,10 +172,31 @@ def native_server(native_settings: Settings) -> PgAdmin:
     return server
 
 
+@pytest.fixture(scope="session")
+def semantic_head_template(native_server: PgAdmin) -> Iterator[SemanticTemplate]:
+    """One package-wide fixture definition, shared by semantic and sibling consumers."""
+    from corpus_structure.core.db import extensions
+    from corpus_structure.semantic.migrations import upgrade
+
+    name = f"cs_sem_head_{os.getpid()}_{uuid4().hex[:12]}"
+    with native_server.database(name, native_server.template) as engine:
+        with engine.begin() as conn:
+            extensions.check(conn.execute(text(extensions.FOUND)).all())
+            assert not conn.execute(
+                text("SELECT 1 FROM pg_namespace WHERE nspname IN ('sem','data','kb','meta')")
+            ).first()
+            upgrade(conn)
+        engine.dispose()
+        policy = native_server.policy(name)
+        with native_server.connect() as conn:
+            conn.exec_driver_sql(
+                f'ALTER DATABASE "{name}" ALLOW_CONNECTIONS false IS_TEMPLATE false'
+            )
+        yield SemanticTemplate(name, policy)
+
+
 @pytest.fixture
 def semantic_absent_database(native_server: PgAdmin) -> Iterator[str]:
-    from uuid import uuid4
-
     name = f"cs_sem_init_{os.getpid()}_{uuid4().hex[:12]}"
     with native_server.reserved(name) as reserved:
         yield reserved

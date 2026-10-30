@@ -239,7 +239,7 @@ the [pivot package](../plans/semantic-model-pivot/postgresql-and-publication.md)
 
 > Decision: ADR-0031
 
-**Accepted native test contract (2026-10-29; implementation and qualification owned by SP-I08).**
+**Implemented native test contract (2026-10-29; scoped verification owned by SP-I08).**
 Fresh consumer databases clone a session-built frozen semantic deployment, with explicit
 database ACL/default replay and equality checks. Actual restricted logins and commits remain.
 Cold bootstrap and era-shaped forward upgrades still execute deployment from bare. One leased

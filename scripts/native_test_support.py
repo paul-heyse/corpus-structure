@@ -115,6 +115,12 @@ class DatabasePolicy:
     settings: tuple[DatabaseSetting, ...]
 
 
+@dataclass(frozen=True)
+class SemanticTemplate:
+    name: str
+    policy: DatabasePolicy
+
+
 def semantic_principals() -> dict[str, str]:
     """The provisioning script owns canonical role names, without probing the host."""
     result = subprocess.run(
@@ -157,10 +163,16 @@ class PgAdmin:
         return make_url(self.url).set(database=name).render_as_string(hide_password=False)
 
     @contextmanager
-    def connect(self, name: str = "postgres") -> Generator[Connection]:
-        engine = create_engine(self.url_of(name), poolclass=NullPool, isolation_level="AUTOCOMMIT")
+    def connect(
+        self, name: str = "postgres", *, transactional: bool = False
+    ) -> Generator[Connection]:
+        engine = create_engine(
+            self.url_of(name),
+            poolclass=NullPool,
+            isolation_level="READ COMMITTED" if transactional else "AUTOCOMMIT",
+        )
         try:
-            with engine.connect() as conn:
+            with engine.begin() if transactional else engine.connect() as conn:
                 yield conn
         finally:
             engine.dispose()
@@ -287,9 +299,6 @@ class PgAdmin:
         with self.connect() as conn:
             q = conn.dialect.identifier_preparer.quote
 
-            def literal(value: str) -> str:
-                return "'" + value.replace("'", "''") + "'"
-
             conn.exec_driver_sql(f"ALTER DATABASE {q(name)} OWNER TO {q(policy.owner)}")
             conn.exec_driver_sql(
                 f"ALTER DATABASE {q(name)} CONNECTION LIMIT {policy.connection_limit}"
@@ -309,32 +318,37 @@ class PgAdmin:
                     conn.exec_driver_sql(
                         f"GRANT {grant.privilege} ON DATABASE {q(name)} TO {target}{option}"
                     )
-                conn.exec_driver_sql(f"ALTER DATABASE {q(name)} RESET ALL")
-                for setting in policy.settings:
-                    if not setting.role:
-                        conn.exec_driver_sql(
-                            f"ALTER DATABASE {q(name)} SET {q(setting.key)} "
-                            f"TO {literal(setting.value)}"
-                        )
             finally:
                 conn.exec_driver_sql("RESET ROLE")
-            roles = {
-                setting.role for setting in (*before.settings, *policy.settings) if setting.role
-            }
-            for role in sorted(roles):
-                try:
-                    conn.exec_driver_sql(f"SET ROLE {q(role)}")
-                except DBAPIError as exc:
-                    if getattr(exc.orig, "sqlstate", None) != "42501":
-                        raise
-                    # Restricted logins cannot be impersonated by maintenance. Their existing
-                    # purpose credentials can still perform their own ALTER ROLE settings.
-                    self._replay_role_self(name, role, policy.settings)
-                else:
-                    try:
-                        self._replay_role_settings(conn, name, role, policy.settings)
-                    finally:
-                        conn.exec_driver_sql("RESET ROLE")
+        # These are real transactions on postgres. SET LOCAL must remain in effect through
+        # FROM CURRENT, and target defaults must never shape the replay connection itself.
+        with self.connect(transactional=True) as conn:
+            q = conn.dialect.identifier_preparer.quote
+            conn.exec_driver_sql(f"SET LOCAL ROLE {q(policy.owner)}")
+            conn.exec_driver_sql(f"ALTER DATABASE {q(name)} RESET ALL")
+            for setting in policy.settings:
+                if not setting.role:
+                    conn.execute(
+                        text("SELECT pg_catalog.set_config(:key,:value,true)"),
+                        {"key": setting.key, "value": setting.value},
+                    )
+                    conn.exec_driver_sql(
+                        f"ALTER DATABASE {q(name)} SET {q(setting.key)} FROM CURRENT"
+                    )
+        roles = {setting.role for setting in (*before.settings, *policy.settings) if setting.role}
+        for role in sorted(roles):
+            with self.connect(transactional=True) as conn:
+                authorized = conn.execute(
+                    text("SELECT pg_catalog.pg_has_role(current_user,:role,'SET')"),
+                    {"role": role},
+                ).scalar_one()
+                if authorized:
+                    q = conn.dialect.identifier_preparer.quote
+                    conn.exec_driver_sql(f"SET LOCAL ROLE {q(role)}")
+                    self._replay_role_settings(conn, name, role, policy.settings)
+            if not authorized:
+                # Use only the exact declared purpose login, authenticated on postgres.
+                self._replay_role_self(name, role, policy.settings)
         actual = self.policy(name)
         if actual != policy:
             raise AssertionError(
@@ -349,9 +363,12 @@ class PgAdmin:
         conn.exec_driver_sql(f"ALTER ROLE {q(role)} IN DATABASE {q(name)} RESET ALL")
         for setting in settings:
             if setting.role == role:
-                value = "'" + setting.value.replace("'", "''") + "'"
+                conn.execute(
+                    text("SELECT pg_catalog.set_config(:key,:value,true)"),
+                    {"key": setting.key, "value": setting.value},
+                )
                 conn.exec_driver_sql(
-                    f"ALTER ROLE {q(role)} IN DATABASE {q(name)} SET {q(setting.key)} TO {value}"
+                    f"ALTER ROLE {q(role)} IN DATABASE {q(name)} SET {q(setting.key)} FROM CURRENT"
                 )
 
     def _replay_role_self(
@@ -366,10 +383,10 @@ class PgAdmin:
         engine = create_engine(
             candidates[0].set(database="postgres"),
             poolclass=NullPool,
-            isolation_level="AUTOCOMMIT",
+            isolation_level="READ COMMITTED",
         )
         try:
-            with engine.connect() as conn:
+            with engine.begin() as conn:
                 if conn.exec_driver_sql("SELECT current_user,session_user").one() != (role, role):
                     raise RuntimeError(
                         f"database settings replay for {role!r} did not authenticate as role-self"

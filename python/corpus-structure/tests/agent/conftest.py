@@ -114,16 +114,28 @@ def mention_payloads(content: RenditionContent, rendition_key: str) -> list[Ment
 
 
 def scope_payloads(
-    content: RenditionContent, rendition_key: str, m09_task: int | None, ordinals: dict[Any, int]
+    content: RenditionContent,
+    rendition_key: str,
+    m09_task: int | None,
+    ordinals: dict[tuple[int, int], int],
 ) -> list[ScopePayload]:
     """M13's stored scopes, by I2b's own draft builder; `ordinals` maps a mention's (start, end)
     to its M09 ordinal."""
     from corpus_structure.core.payloads import MentionRef
     from corpus_structure.methods.math.methods import scope_drafts
 
-    refs = {k: MentionRef(task=m09_task, ordinal=i) if m09_task is not None
-            else MentionRef(ordinal=i) for k, i in ordinals.items()}  # fmt: skip
-    drafts = scope_drafts(_rendition(content, rendition_key), analyse(content).scopes, refs)
+    analysis = analyse(content)
+    # The draft builder references the actual analysis occurrences; span ordinals belong only
+    # to this stored-payload fixture's input boundary.
+    refs: dict[int, MentionRef] = {}
+    for mention in analysis.mentions:
+        ordinal = ordinals[(mention.start, mention.end)]
+        refs[id(mention)] = (
+            MentionRef(task=m09_task, ordinal=ordinal)
+            if m09_task is not None
+            else MentionRef(ordinal=ordinal)
+        )
+    drafts = scope_drafts(_rendition(content, rendition_key), analysis.scopes, refs)
     return [d.payload for d in drafts if isinstance(d.payload, ScopePayload)]
 
 

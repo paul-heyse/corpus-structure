@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Generator, Iterator
 from contextlib import AbstractContextManager, contextmanager
-from dataclasses import dataclass
 from uuid import uuid4
 
 import pytest
@@ -18,37 +17,11 @@ from sqlalchemy import Engine, text
 from corpus_structure.core.db import extensions
 from corpus_structure.semantic.migrations import upgrade
 from corpus_structure.settings import Settings
-from native_test_support import DatabasePolicy, PgAdmin, principal_engine
+from native_test_support import PgAdmin, SemanticTemplate, principal_engine
 
 
 def database_name(kind: str) -> str:
     return f"cs_sem_{kind}_{os.getpid()}_{uuid4().hex[:12]}"
-
-
-@dataclass(frozen=True)
-class SemanticTemplate:
-    name: str
-    policy: DatabasePolicy
-
-
-@pytest.fixture(scope="session")
-def semantic_head_template(native_server: PgAdmin) -> Iterator[SemanticTemplate]:
-    name = database_name("head")
-    with native_server.database(name, native_server.template) as engine:
-        with engine.begin() as conn:
-            extensions.check(conn.execute(text(extensions.FOUND)).all())
-            assert not conn.execute(
-                text("SELECT 1 FROM pg_namespace WHERE nspname IN ('sem','data','kb','meta')")
-            ).first()
-            upgrade(conn)
-        # The migration connection has closed before sealing or reading the source policy.
-        engine.dispose()
-        policy = native_server.policy(name)
-        with native_server.connect() as conn:
-            conn.exec_driver_sql(
-                f'ALTER DATABASE "{name}" ALLOW_CONNECTIONS false IS_TEMPLATE false'
-            )
-        yield SemanticTemplate(name, policy)
 
 
 @pytest.fixture

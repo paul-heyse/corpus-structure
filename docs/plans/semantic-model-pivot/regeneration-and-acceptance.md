@@ -86,6 +86,32 @@ Quantitative performance measurements are deferred unless a concrete capacity/ac
 
 ## Authoring versus execution evidence
 
+### Qualification route and explicit required selections
+
+**Implemented supporting route, 2026-10-29; product acceptance remains open.**
+[SP-I08/SP-I09](qualification-infrastructure.md#execution-checkpoint--2026-10-29) owns session
+preparation, posture-preserving clones, streamed reports, watchdogs and artifact classification.
+`just test-all [PYTEST_ARGS...]` records a new invocation under
+`build/test-receipts/qualification/`; it attempts Python and Rust independently. `check` and
+`py-test` remain developer commands. Required-scope selection and applicability belong here,
+not in the reporting plugin or a new registry.
+
+| Obligation | Required selection/context and evidence boundary |
+|---|---|
+| Repository functional/native controls | Default `just test-all` collection, including root process tests and package tests. A missing external server/template/extension/principal/corpus keeps the required obligation blocked. An intentionally inapplicable case requires a stated scope reason. Exact node IDs come from collection events, never overlapping totals. |
+| Infrastructure-specific coverage | Native head/clone policy, cold bootstrap/CLI-init, historical revision, actual principal/workspace/race/cleanup controls; reporter collection/phase/process-loss/skip controls; settings endpoint conflicts and actual bound MCP environment-change journey. The SP-I08/SP-I09 checkpoint owns applicable receipts and repairs. |
+| Rust functions | Native `cargo nextest list --release --workspace --message-format json`, process/JUnit artifacts and actual `rustc --version`. An empty scaffold has no Rust functional coverage and no invented Rust obligation; failed or missing requested execution is not a pass. |
+| Required actual product/provider journeys | SP-09's real statistics/transfer source workflows, configured extraction, native construction, queries/exports, independent automated reference grading and current source-frame continuation. Component fixtures and reporting controls cannot discharge them; no human grading or quality tuning is required. |
+| Nonfunctional checks | Actual applicable typing, source lint, agent/ADR/rule/docs/dependency and Rust checks. Keep each command/outcome; reuse genuinely applicable typing/results instead of rerunning after lint/formatting. Whole hygiene cannot pass while an applicable diagnostic remains unresolved. |
+
+The stdlib classifier consumes selected-node manifests through `--required-from` and retained
+receipts through repeated `--receipt-dir`. It exposes each node's actual reports and unresolved
+required nodes. Session/process health and required-node coverage are separate facts: a failed
+historical invocation stays failed after an applicable targeted repair. The owner assesses
+source/settings/server/driver compatibility; differing source contexts are surfaced rather than
+automatically invalidated by formatting. A complete union needs applicable passing evidence for
+every required node and resolution of required process/provider/nonfunctional obligations.
+
 This plan and its completeness extension were authored from static source, reviews and library documentation. SP-09/SP-10 acceptance scenarios were planned at authoring; the execution checkpoint below records their current partial realization. Existing passing SP-00–SP-07 type/test receipts are retained at the coordinator and are not negated by document or lint maintenance. Documentation publication checks establish document integrity only and are recorded in STATUS; they do not establish new product qualification or authorize unrelated source cleanup.
 
 

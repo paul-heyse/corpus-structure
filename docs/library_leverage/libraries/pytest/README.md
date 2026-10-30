@@ -39,7 +39,7 @@ code under test that runs its own `SIGALRM` deadline. If that code ends its dead
 no timeout at all, silently. This comes from reading the deadline code; it was not probed with
 pytest-timeout installed.
 
-**Streaming alternative (pytest-reportlog, from upstream source; not installed).**
+**Streaming reports (pytest-reportlog 1.0.0; adopted and scoped Tested, 2026-10-29).**
 - `--report-log=<path>` writes one JSON line per `TestReport` and `CollectReport`, flushes after each
   write, and ends with a `SessionFinish` record.
 - Combined with faulthandler-exit, a hang keeps every flushed completed outcome. A call-phase
@@ -48,6 +48,9 @@ pytest-timeout installed.
   runtest hooks must supply exact selection and execution attribution where needed.
 - A missing `SessionFinish` marks an interrupted run.
 - This removes the limit that a missing JUnit file loses every outcome.
+- [SP-I09](../../../plans/semantic-model-pivot/qualification-infrastructure.md) records the actual
+  integration: public-hook selection/phase events, parent command deadline and explicit
+  prerequisite/applicability classification. Reportlog alone does not discharge those duties.
 
 **What remains with the caller:**
 - Mapping outcomes to a qualification vocabulary.

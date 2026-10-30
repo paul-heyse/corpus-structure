@@ -76,7 +76,7 @@ The [execution package](../plans/semantic-model-pivot/model-execution-closure.md
 
 ## Native test deployment equivalence
 
-**Accepted target, 2026-10-29; scoped implementation/verification belongs to
+**Implemented; scoped Tested, 2026-10-29; implementation/verification belongs to
 [SP-I08](../plans/semantic-model-pivot/qualification-infrastructure.md#SP-I08).**
 Ordinary semantic consumers receive fresh committed databases cloned from one session-migrated
 frozen deployment. Database ownership/connection limit, ACL grantors/options and database/role

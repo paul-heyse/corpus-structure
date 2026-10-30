@@ -85,6 +85,16 @@ def test_clone_replays_default_acl_grant_options_and_all_role_settings(native_se
                 f"ALTER DATABASE {q(source)} SET application_name TO 'all-role=setting'"
             )
             conn.exec_driver_sql(
+                f"ALTER DATABASE {q(source)} SET search_path TO public, pg_catalog"
+            )
+            conn.exec_driver_sql(
+                f"ALTER DATABASE {q(source)} SET default_transaction_read_only TO on"
+            )
+            conn.exec_driver_sql(
+                f"ALTER ROLE {q(initial.owner)} IN DATABASE {q(source)} "
+                "SET search_path TO public, pg_catalog"
+            )
+            conn.exec_driver_sql(
                 f"ALTER ROLE {q(initial.owner)} IN DATABASE {q(source)} "
                 "SET statement_timeout TO '1s'"
             )
@@ -92,6 +102,9 @@ def test_clone_replays_default_acl_grant_options_and_all_role_settings(native_se
         assert any(g.grantee == "corpus_sem_reader" and g.grantable for g in expected.grants)
         assert {(s.role, s.key) for s in expected.settings} == {
             ("", "application_name"),
+            ("", "search_path"),
+            ("", "default_transaction_read_only"),
+            (initial.owner, "search_path"),
             (initial.owner, "statement_timeout"),
         }
         with native_server.database(target, source) as clone:
@@ -106,6 +119,10 @@ def test_clone_replays_default_acl_grant_options_and_all_role_settings(native_se
                     conn.exec_driver_sql("SHOW application_name").scalar_one() == "all-role=setting"
                 )
                 assert conn.exec_driver_sql("SHOW statement_timeout").scalar_one() == "1s"
+                assert conn.exec_driver_sql("SHOW search_path").scalar_one() == "public, pg_catalog"
+                assert (
+                    conn.exec_driver_sql("SHOW default_transaction_read_only").scalar_one() == "on"
+                )
             # Replaying acldefault removes explicit grants, settings and nondefault connlimit.
             native_server.replay_policy(target, initial)
             assert native_server.policy(target) == initial
@@ -206,6 +223,36 @@ def test_cleanup_waits_for_authenticated_backend_normal_exit(native_server):
     finally:
         if timer is not None:
             timer.join()
+
+
+def test_leaked_restricted_backend_refuses_drop_then_owner_can_finish_cleanup(
+    native_server, native_settings
+):
+    database = name()
+    reader = principal_engine(native_settings, "read", database)
+    leaked = None
+    # Keep the lease through recovery so a concurrent sweep cannot adopt the retained residue.
+    with native_server.lease(database):
+        try:
+            with (
+                pytest.raises(BaseExceptionGroup, match="cleanup failures") as failure,
+                native_server.database(database, native_server.template),
+            ):
+                leaked = reader.connect()
+                assert leaked.exec_driver_sql("SELECT current_user").scalar_one() == (
+                    reader.url.username
+                )
+            assert any(
+                isinstance(exc, DBAPIError) and getattr(exc.orig, "sqlstate", None) == "55006"
+                for exc in failure.value.exceptions
+            )
+            assert native_server.exists(database)
+        finally:
+            if leaked is not None:
+                leaked.close()
+            reader.dispose()
+            native_server.drop(database)
+        assert not native_server.exists(database)
 
 
 def test_dispose_failure_still_attempts_database_cleanup(native_server, monkeypatch):
@@ -352,9 +399,19 @@ def test_clone_replays_and_removes_actual_restricted_reader_default(native_serve
                 conn.exec_driver_sql(
                     f"ALTER ROLE {q(role)} IN DATABASE {q(source)} SET statement_timeout TO '2s'"
                 )
+                conn.exec_driver_sql(
+                    f"ALTER ROLE {q(role)} IN DATABASE {q(source)} "
+                    "SET search_path TO pg_catalog, public"
+                )
+                conn.exec_driver_sql(
+                    f"ALTER ROLE {q(role)} IN DATABASE {q(source)} "
+                    "SET default_transaction_read_only TO on"
+                )
             expected = native_server.policy(source)
             assert [(s.role, s.key, s.value) for s in expected.settings] == [
-                (role, "statement_timeout", "2s")
+                (role, "default_transaction_read_only", "on"),
+                (role, "search_path", "pg_catalog, public"),
+                (role, "statement_timeout", "2s"),
             ]
             with native_server.connect() as conn:
                 assert not conn.execute(
@@ -366,6 +423,14 @@ def test_clone_replays_and_removes_actual_restricted_reader_default(native_serve
                 try:
                     with target_reader.connect() as conn:
                         assert conn.exec_driver_sql("SHOW statement_timeout").scalar_one() == "2s"
+                        assert (
+                            conn.exec_driver_sql("SHOW search_path").scalar_one()
+                            == "pg_catalog, public"
+                        )
+                        assert (
+                            conn.exec_driver_sql("SHOW default_transaction_read_only").scalar_one()
+                            == "on"
+                        )
                 finally:
                     target_reader.dispose()
                 native_server.replay_policy(target, initial)
