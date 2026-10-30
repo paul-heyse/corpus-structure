@@ -22,8 +22,18 @@ regenerates at the end of a turn; `just ready` re-checks the environment after a
 After the scaffold lockfiles exist, run `bash scripts/setup-env` to prepare this checkout's
 tools. Installed toolchains follow the pin files; setup
 does not install Rust. If using direnv, review `.envrc` and run `direnv allow` once in each
-checkout. Activation removes inherited Python environment paths and performs no installs,
-builds or service startup. Personal overrides belong in ignored `.envrc.local`.
+checkout. Direnv loads local/native settings without installing, building or activating Python.
+Personal overrides belong in ignored `.envrc.local`.
+
+Use `uv run python …`, `uv run pytest …` and `uv run ruff …` for ordinary Python work.
+uv selects the workspace's `.venv` and synchronizes declared dependencies automatically;
+bare Python/tool activation is not required. Agent commands default to `UV_LOCKED=1`, so
+stale lockfiles fail without changing them. Intentional dependency changes explicitly use
+`UV_LOCKED=0 uv add …` (or the corresponding lock command); exact dependency pins still apply.
+For cross-project work, select the tool working directory or use uv's explicit `--project`/
+`--directory` options. `uv run script.py` discovers from the script, while `uv run python
+script.py` selects from the current workspace. Documentation/process recipes retain their
+explicit dependency-free `--no-project` mode with a local `UV_LOCKED=0` override.
 
 ## Documentation locally
 

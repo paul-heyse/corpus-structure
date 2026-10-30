@@ -44,6 +44,6 @@ ownership and supplies the generated section directory. A retired document gets 
 The bundled Pagefind Component UI defaults to Current on each opening. Select Reference or
 Everything explicitly; the publisher offers History only when a published page has that scope.
 Search assets are local and URLs resolve from the module location, supporting root or subpath
-hosting: `uv run --no-project --offline python scripts/docs.py build --base-url /corpus-structure/`
+hosting: `UV_LOCKED=0 uv run --no-project --offline python scripts/docs.py build --base-url /corpus-structure/`
 checks a deployment prefix. The docs-only workflow uses these same commands and uploads the site as
 an artifact; there is no public deployment.

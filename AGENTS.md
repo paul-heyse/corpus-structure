@@ -89,6 +89,10 @@ ordinary development because those changes disrupt build reuse. For an isolated 
 override the config through Cargo's environment variables and report it.
 
 Python is 3.14.10 via `uv` (`.python-version`); run Python tools as `uv run …`.
+No Python activation is required. Agent environments default to `UV_LOCKED=1`; ordinary
+commands synchronize dependencies but refuse stale lockfiles. Deliberate dependency changes
+use `UV_LOCKED=0 uv add …` or the corresponding lock command. Explicit cross-project and
+independent documentation/provider selections keep their own environment boundaries.
 The type checker is **pyrefly**, not pyright or mypy. A subdirectory that is a
 separate Python project with its own environment goes in root ruff's `extend-exclude`. The
 process scripts are stdlib-only and run without a project environment.

@@ -64,7 +64,7 @@ test *args:
 # Every registry dependency pinned exactly (`=x.y.z`) and every git one by its rev; one version
 # per declared family; cargo-deny bans and sources (licences are never a rejection reason)
 deps:
-    uv run --no-project python scripts/check_pins.py
+    UV_LOCKED=0 uv run --no-project python scripts/check_pins.py
     cargo deny --log-level error check bans sources
 
 # ruff lint, applying its safe auto-fixes first
@@ -101,19 +101,19 @@ evidence *args:
 # ADR tooling: new <slug> [--title T] | supersede <ADR-NNNN> <slug> | index | lint | revisit
 [positional-arguments]
 adr *args:
-    @uv run --no-project python scripts/adr.py "$@"
+    @UV_LOCKED=0 uv run --no-project python scripts/adr.py "$@"
 
 # Regenerate the ADR index (part of `turn-end`)
 adr-index:
-    @uv run --no-project python scripts/adr.py index
+    @UV_LOCKED=0 uv run --no-project python scripts/adr.py index
 
 # ADR metadata and index
 adr-lint:
-    uv run --no-project python scripts/adr.py lint
+    UV_LOCKED=0 uv run --no-project python scripts/adr.py lint
 
 # Codex discovery and dead-reference check for agent instructions and skills
 lint-agents:
-    uv run --no-project python scripts/check_agents.py
+    UV_LOCKED=0 uv run --no-project python scripts/check_agents.py
 
 # Fail when `doctor` reports a missing or failing tool (part of `ready`)
 doctor-check:
@@ -150,27 +150,27 @@ doctor:
     for t in just uv git git-lfs gh rg cargo rustc cargo-nextest cargo-insta cargo-deny clang mold sccache ast-grep; do
       printf '%-14s ' "$t"; command -v "$t" >/dev/null && "$t" --version 2>/dev/null | head -1 || echo MISSING
     done
-    printf '%-14s ' python; uv run --no-project python --version
+    printf '%-14s ' python; UV_LOCKED=0 uv run --no-project python --version
     printf '%-14s ' ruff; uv run ruff --version
     printf '%-14s ' pyrefly; uv run pyrefly --version
-    uv run --no-project python scripts/docs.py doctor
+    UV_LOCKED=0 uv run --no-project python scripts/docs.py doctor
 
 # Install declared documentation binaries and isolated test dependencies (network allowed)
 bootstrap-docs:
-    uv run --no-project python scripts/docs.py bootstrap
+    UV_LOCKED=0 uv run --no-project python scripts/docs.py bootstrap
 
 # Build Markdown, Pagefind and offline link/fragment checks without product dependencies
 docs:
-    uv run --no-project --offline --no-python-downloads python scripts/docs.py build
+    UV_LOCKED=0 uv run --no-project --offline --no-python-downloads python scripts/docs.py build
 
 # Existing metadata checks plus a complete publication
 docs-check:
-    uv run --no-project --offline --no-python-downloads python scripts/docs.py check
+    UV_LOCKED=0 uv run --no-project --offline --no-python-downloads python scripts/docs.py check
 
 # Focused documentation/ADR regressions only
 docs-test:
-    uv run --no-project --offline --no-python-downloads python scripts/docs.py test
+    UV_LOCKED=0 uv run --no-project --offline --no-python-downloads python scripts/docs.py test
 
 # Build then serve the finished artifact; no watcher or reindex during serving
 docs-serve port="8000":
-    uv run --no-project --offline --no-python-downloads python scripts/docs.py serve --port {{port}}
+    UV_LOCKED=0 uv run --no-project --offline --no-python-downloads python scripts/docs.py serve --port {{port}}
