@@ -311,6 +311,18 @@ class FakeReader:
     def measurements(self, method: str, metric: str) -> Never:
         raise AssertionError("the prompt digest must not read measurements")
 
+    def parsing_fallback_macros(self) -> Never:
+        raise AssertionError("packet reader does not prepare source macros")
+
+    def source_product_reference(self, document_id: int, content_digest: str) -> Never:
+        raise AssertionError("packet reader does not produce source products")
+
+    def prepare_layered_product(self, payload: Mapping[str, Any]) -> Never:
+        raise AssertionError("packet reader does not prepare derived products")
+
+    def layered_products(self, rendition_id: int, **selection: Any) -> Never:
+        raise AssertionError("packet reader does not inspect derived products")
+
     def require_parsing_operations(self, names: Sequence[str]) -> Never:
         raise AssertionError("the prompt digest must not prepare source parsing")
 

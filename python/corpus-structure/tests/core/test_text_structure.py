@@ -68,6 +68,7 @@ def test_definition_events_and_repeated_argument_default_derivation() -> None:
     assert [(x.start, x.end) for x in (x1, x2)] == [(2, 3), (4, 5)]
     assert x1.origins[0] == x2.origins[0]
     assert [(o.source_ref, o.start, o.end) for o in x1.origins if o.source_ref == "canonical"] == [("canonical", 3, 4)]
+    assert result.invocations[0].definition is not None
     assert result.invocations[0].definition.source_ref == "page:defs"
 
 
