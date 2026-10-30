@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "4"
+EXECUTION_COMPILER_VERSION = "5"
 
 
 @lru_cache(maxsize=1)
@@ -349,6 +349,39 @@ _APPROVED_NATIVE_GUARDS = {
 
 
 @dataclass(frozen=True)
+class AnalysisDemand:
+    id: str
+    prerequisites: tuple[str, ...]
+    dependencies: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class BindingRoleRule:
+    kind: str
+    role: str
+
+
+@dataclass(frozen=True)
+class InputOwnershipContract:
+    id: str
+    concept: str
+    operation: str
+    lifetime: str
+    dependencies: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class AnalysisProfile:
+    id: str
+    version: str
+    demands: tuple[AnalysisDemand, ...]
+    binding_roles: tuple[BindingRoleRule, ...]
+    builtin_functions: tuple[str, ...]
+    local_declaration_rules: tuple[str, ...]
+    ownership: tuple[InputOwnershipContract, ...]
+
+
+@dataclass(frozen=True)
 class ExecutionModelProducts:
     model_id: str
     content: bytes
@@ -365,6 +398,7 @@ class ExecutionModelProducts:
     outcome_translations: tuple[OutcomeTranslation, ...]
     native_guards: tuple[NativeGuardBinding, ...]
     effect_definitions: tuple[EffectDefinition, ...] = ()
+    analysis_profiles: tuple[AnalysisProfile, ...] = ()
 
     def operation(self, name: str) -> OperationContract:
         """Resolve a mandatory operation from this exact release-bound model."""
@@ -477,7 +511,7 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
     data = json.loads(payload)
     if data.get("model_id") != model_id:
         _fail("execution_binding", name, "execution payload identity differs")
-    if data.get("inputs", {}).get("compiler_version") in {"1", "2", "3"}:
+    if data.get("inputs", {}).get("compiler_version") in {"1", "2", "3", "4"}:
         # Retained immutable reader ABI, without allowing historical writes/activation.
         if name not in {
             "reload",
@@ -533,6 +567,10 @@ def bound_execution_model(prepared) -> ExecutionModelProducts:
 @lru_cache(maxsize=16)
 def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts:
     data = json.loads(body)
+    if data.get("inputs", {}).get("compiler_version") not in {"1", "2", "3", "4", "5"}:
+        _fail(
+            "unsupported_execution_abi", model_id, "execution product has no supported compiler ABI"
+        )
     if data.get("model_id") != model_id:
         _fail("execution_binding", model_id, "execution product identity differs")
     return _normalize(
@@ -618,6 +656,9 @@ def _normalize(data: dict[str, Any], model_id: str) -> ExecutionModelProducts:
 
 
 def _validate(products: ExecutionModelProducts) -> None:
+    from .analysis_contracts import validate_analysis_profiles
+
+    validate_analysis_profiles(products)
     c = _index(products.concepts, "concepts")
     r = _index(products.relationships, "relationships")
     lifecycles = _index(products.lifecycles, "lifecycles")
@@ -925,6 +966,12 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     }
     model_id = "execution:" + sha256(canonical_bytes(identity)).hexdigest()
     products = _normalize(data, model_id)
+    if not products.analysis_profiles:
+        _fail(
+            "missing_analysis_profile",
+            inputs.catalog.name,
+            "declare the required analysis preparation profile",
+        )
     normalized = {
         key: value
         for key, value in _PRODUCT_CONVERTER.unstructure(products).items()

@@ -418,8 +418,9 @@ def test_rule_qualifier_defaults_equal_explicit_members(stats: CompiledSchema, s
         qualifiers = views[0].qualifiers
         # The rule language declares STRING, not Python enum objects. Native
         # rule-engine evaluation must receive the same primitives for both forms.
-        assert type(qualifiers.modality) is str and qualifiers.modality == "asserted"
-        assert type(qualifiers.polarity) is str and qualifiers.polarity == "positive"
+        modality, polarity = vars(qualifiers)["modality"], vars(qualifiers)["polarity"]
+        assert type(modality) is str and modality == "asserted"
+        assert type(polarity) is str and polarity == "positive"
         outcomes.append(run_rules(views, stats, site))
     assert outcomes[0] == outcomes[1]
     assert outcomes[0].findings == ()

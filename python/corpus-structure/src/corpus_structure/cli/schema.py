@@ -132,6 +132,8 @@ def derive_(
         from corpus_structure.semantic.contracts import bound_execution_model
         from corpus_structure.semantic.identity import canonical_bytes
         from corpus_structure.semantic.native_products import (
+            NATIVE_PREDECESSOR,
+            NATIVE_REVISION,
             consolidation_products,
             physical_products,
         )
@@ -187,8 +189,8 @@ def derive_(
                 {
                     "release_id": prepared.release_id,
                     "execution_model_id": model.model_id,
-                    "predecessor": "semantic_0032",
-                    "revision": "semantic_0033",
+                    "predecessor": NATIVE_PREDECESSOR,
+                    "revision": NATIVE_REVISION,
                     "products": [{"name": p.name, "sha256": p.digest} for p in forward],
                 }
             )

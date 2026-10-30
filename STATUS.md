@@ -3,11 +3,11 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Current checkpoint
 
-- [Production efficiency plan series](docs/plans/production-efficiency_2026-10-30.md)
-  authored2026-10-30: coordinator plus five supporting plans, PE-00–PE-12. Target Proposed;
-  production implementation not started. Review F01–F11 and RC01–RC04 have explicit routes,
-  shared domain contracts, concrete library mechanisms, investigation gates and adoption scope.
-  Audit premises/documents, testing code and existing pivot statuses remain unchanged.
+- [Production efficiency PE-00/PE-01](docs/plans/production-efficiency_2026-10-30.md#9-pe-00pe-01-execution-2026-10-30)
+  implemented2026-10-30: ADR-0035, trusted analysis contracts/compiler5, canonical context/demand
+  and ownership consumers, forward native0035. Focused acceptance only; PE-02–PE-12 remain open.
+  Existing parser/algorithms remain; no performance or full-series qualification claim.
+  Audit accounts, stored grades, operational databases and unrelated documents are unchanged.
 
 - Remaining SP-09 functional scope and SP-10 applicable required-union qualification are complete
   (Tested). The [regeneration owner](docs/plans/semantic-model-pivot/regeneration-and-acceptance.md#current-execution--2026-10-30)
@@ -28,9 +28,13 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
   missing custody refuses with hash-verified backfill, including empty/reused origin tasks.
 
 ## Verification — 2026-10-30
-
-- **passed (plan authoring):** `just docs-check`, `just turn-end`, `git diff --check`.
-  Documentation only; prior product/typing evidence below retains its original scope.
+- PE-00/PE-01 focused checks: contracts/context, source/read, science/analytics, publication,
+  historical archives, CLI derivation and restricted native admission/CAS/view refusal.
+  Logs: `build/pe01-root/`, `build/pe01-native/`; failed attempts are retained. The owning
+  coordinator §9 owns corrected selections and retained failed attempts.
+- `uv run pyrefly check --min-severity warn --summary=none`: passed, no errors/warnings.
+  Maintenance: `just turn-end`, `just adr-lint`, `uv run ruff check --quiet`,
+  `just docs-check`, `git diff --check` passed. Earlier results retain their original scope.
 
 - **passed:** every final required node has applicable passing setup/call/teardown evidence:
   final default collection2325, required unresolved0. `required-union.json` records the reconciliation.
@@ -50,7 +54,7 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Next
 
-Authorize production-series execution to begin PE-00/PE-01 and independently ready local corrections.
+PE-02 recognizer investigation can use the implemented PE-01 contract; dependent PE-03 and
+independent later packages follow the production-series readiness conditions.
 No remaining SP-09/SP-10 execution obligation in the prior scope. Existing broader-series claims retain
 prior boundaries; this execution does not constitute a new completion audit or capacity/quality claim.
-Unrelated library documents, historical databases and the existing external MCP host are preserved.

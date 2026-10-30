@@ -1913,6 +1913,9 @@ def _project_cut(
         for eid, link in source_links.items()
         if eid in {e.evidence_id for e in batch.evidence}
     }
+    # Assembly was extended with cut-specific selections, provenance and coverage.
+    # Bind once to those final rows before exposing the input to transport consumers.
+    batch = batch.bind_preparation(prepared)
     return CutInput(
         cut["id"],
         job["id"],
@@ -2090,6 +2093,7 @@ def consolidate_cut(
                 sorted(set((*batch.evidence_source, *rows)), key=lambda row: row.evidence_id)
             ),
         )
+    batch = batch.bind_preparation(inputs.prepared)
     receipt = _publish(engine, batch, publish, attempts=attempts)
     with engine.connect() as conn:
         revision = conn.execute(
@@ -3014,18 +3018,33 @@ class ReleasedRulesPolicy:
                         "scientific expression language has no declared reading operation"
                     )
                 if isinstance(raw, dict) and latex is not None and raw.get("language") == "latex":
-                    key = (latex, kind, canonical_bytes(c.macros), c.constants)
-                    if key not in readings:
-                        from corpus_structure.core.evidence import MacroDef
+                    from corpus_structure.core.evidence import MacroDef
 
-                        macros = {
-                            name: MacroDef.model_validate(value) for name, value in c.macros.items()
-                        }
+                    from .analysis_contracts import prepare_interpretation_context
+
+                    macros = {
+                        name: MacroDef.model_validate(value) for name, value in c.macros.items()
+                    }
+                    context = prepare_interpretation_context(
+                        self.prepared,
+                        macros=macros,
+                        constants=c.constants,
+                        bindings=raw.get("bindings", ()),
+                        kind="set_expr" if kind == "set" else "any_value",
+                        demand="interpretation",
+                    )
+                    key = (latex, kind, context.key())
+                    if key not in readings:
                         result = grammar.parse(
                             latex,
                             "set_expr" if kind == "set" else "any_value",
-                            macros,
-                            grammar.MathContext(constants=frozenset(c.constants)),
+                            context.macros,
+                            context.grammar_context,
+                        )
+                        context.validate_result(
+                            produced=("lexical", "occurrences", "interpretation"),
+                            interpretation=result.status.value,
+                            completeness="failed" if result.failure else "complete",
                         )
                         reading = Reading(
                             result.status,

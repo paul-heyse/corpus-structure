@@ -84,7 +84,7 @@ from corpus_structure.methods.math.spans import (
     read_spans,
 )
 
-VERSION = "1"
+VERSION = "2"
 PAYLOAD_VERSION = "1"
 M09, M11, M13 = "extract.math", "normalize.formula", "resolve.symbol_scope"
 _KIND_OF = {  # M11's payload `math_kind` back to the detected kind M13's rules read
@@ -191,10 +191,23 @@ def _content_digest(unit: UnitView) -> str:
     return str(_row(unit.run.reader, unit.ref.unit_id).content_digest)
 
 
-def _readings(ren: _Rendition, cfg: ExtractMathConfig | NormalizeFormulaConfig) -> list[Any]:
+def _readings(
+    ren: _Rendition, cfg: ExtractMathConfig | NormalizeFormulaConfig, reader=None
+) -> list[Any]:
     section = cfg.section()
     macros = tex.effective_macros(ren.content.macros, section.macro_table())
-    return read_spans(ren.content, macros, section.constants, seconds=cfg.parse_seconds)
+    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+
+    context = prepare_interpretation_context(
+        getattr(reader, "prepared", None),
+        macros=macros,
+        constants=section.constants,
+        source_id=ren.key,
+        demand="occurrences",
+    )
+    return read_spans(
+        ren.content, macros, section.constants, seconds=cfg.parse_seconds, prepared_context=context
+    )
 
 
 def _result(
@@ -265,7 +278,7 @@ class NormalizeFormula(_PerRendition):
         out = []
         for unit in units:
             ren = _rendition(ctx.reader, _rendition_id(unit))
-            values = formula_values(_readings(ren, cfg))
+            values = formula_values(_readings(ren, cfg, ctx.reader))
             out.append(_result(unit, value_drafts(ren, values)))
         return out
 
@@ -343,7 +356,7 @@ class ExtractMath(_PerRendition):
         out = []
         for unit in units:
             ren = _rendition(ctx.reader, _rendition_id(unit))
-            readings = _readings(ren, cfg)
+            readings = _readings(ren, cfg, ctx.reader)
             found = extract(readings)
             coverage = tuple(
                 CoverageDraft(

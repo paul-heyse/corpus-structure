@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict, astuple, dataclass, fields
+from dataclasses import asdict, astuple, dataclass, field, fields
 from decimal import Decimal
 from hashlib import sha256
 from typing import Any, Protocol
@@ -322,6 +322,44 @@ class PublicationBatch:
     entity_input: tuple[EntityInputRow, ...] = ()
     fact_input: tuple[FactInputRow, ...] = ()
 
+    _analysis_input: Any = field(default=None, repr=False, compare=False)
+
+    def bind_preparation(
+        self, prepared: PreparedRelease, *, snapshot: Any = None
+    ) -> PublicationBatch:
+        from dataclasses import replace
+        from hashlib import sha256
+
+        from .analysis_contracts import bind_analysis_family
+        from .contracts import execution_payload
+
+        payload = execution_payload(prepared)
+        if payload is None or json.loads(payload)["inputs"]["compiler_version"] != "5":
+            return self
+        owned = bind_analysis_family(prepared, "publication").prepare(
+            release=self.release_id,
+            snapshot=snapshot
+            if snapshot is not None
+            else {"kind": "append_target", "realization": self.realization_id},
+            content=sha256(self.content).hexdigest(),
+        )
+        return replace(self, _analysis_input=owned)
+
+    def validate_preparation(self) -> None:
+        from hashlib import sha256
+
+        if self._analysis_input is None:
+            return  # Explicit base/retained row producer; native admission still applies.
+        owned = self._analysis_input
+        dependencies = dict(owned.dependencies)
+        if (
+            owned.family != "publication"
+            or owned.release_id != self.release_id
+            or dependencies.get("release") != canonical_bytes(self.release_id)
+            or dependencies.get("content") != canonical_bytes(sha256(self.content).hexdigest())
+        ):
+            raise ValueError("publication preparation differs from its actual owned rows")
+
     def __post_init__(self) -> None:
         if any(
             type(value) is not str or not value
@@ -591,6 +629,8 @@ def _publish(
     attempts: int,
 ) -> PublicationReceipt:
     """Single retry owner for both transports; source fencing stays inside publication."""
+    if isinstance(batch, PublicationBatch):
+        batch.validate_preparation()
     if attempts < 1:
         raise ValueError("attempts must be positive")
     for attempt in range(attempts):

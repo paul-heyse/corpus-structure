@@ -44,8 +44,35 @@ OK, AMBIGUOUS, PARTIAL, FAILED = (
 
 
 def P(latex: str, kind: G.Kind = "any_value", **declared: set[str]) -> G.MathResult:
-    context = G.MathContext(**{k: frozenset(v) for k, v in declared.items()})
-    return G.parse(latex, kind, PAGE, context)
+    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+
+    declarations = tuple(
+        {
+            "symbol": symbol,
+            "role": role,
+            "authority": "source",
+            "evidence": "test:declaration",
+            "source_id": "test:expression",
+            "scope": "test:expression",
+            "start": 0,
+            "end": len(latex),
+        }
+        for field, role in (
+            ("functions", "function"),
+            ("variables", "variable"),
+            ("constants", "constant"),
+        )
+        for symbol in declared.get(field, ())
+    )
+    context = prepare_interpretation_context(
+        macros=PAGE,
+        declarations=declarations,
+        kind=kind,
+        source_id="test:expression",
+        scope="test:expression",
+        offset=0,
+    )
+    return G.parse(latex, kind, PAGE, context.grammar_context)
 
 
 def category(result: G.MathResult) -> str | None:
@@ -376,3 +403,17 @@ def test_the_memo_shares_a_parse() -> None:
     assert P("x^2 + y") is first
     assert P("x^2 + y", variables={"x"}) is not first
     assert G.parse("x^2 + y", "any_value", {}) is not first
+
+
+def test_local_definition_records_rule_and_survives_worker_transport():
+    import pickle
+
+    result = P("f(x)=x+1", "formula")
+    assert result.status is OK
+    assert [(d.symbol, d.role, d.rule, d.start, d.end) for d in result.declarations] == [
+        ("f", "function", "function-definition-1", 0, len(result.latex))
+    ]
+    restored = pickle.loads(pickle.dumps(result))
+    assert restored.context == result.context
+    assert restored.declarations == result.declarations
+    assert dict(restored.macros) == dict(result.macros)

@@ -437,9 +437,25 @@ class ReadSession:
         default_factory=dict, repr=False, compare=False
     )
 
+    _analysis_input: Any = field(default=None, init=False, repr=False, compare=False)
+
     def __post_init__(self) -> None:
         if self.binding.release_id != self.prepared.release_id:
             raise WrongRelease("prepared release differs from snapshot binding")
+        # Retained archive ABIs keep their original read contract; new releases
+        # bind the declared read input once for this actual snapshot owner.
+        from .contracts import execution_payload
+
+        payload = execution_payload(self.prepared)
+        if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "5":
+            from .analysis_contracts import bind_analysis_family
+
+            owned = bind_analysis_family(self.prepared, "read").prepare(
+                release=self.binding.release_id,
+                archive=self.prepared.release_id,
+                boundary=asdict(self.binding),
+            )
+            object.__setattr__(self, "_analysis_input", owned)
 
     def scope(self, relation: Any) -> ColumnElement[bool]:
         return scope_clause(self.binding, relation)

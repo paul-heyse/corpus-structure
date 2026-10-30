@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from dataclasses import field as dataclass_field
 from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -55,6 +56,7 @@ from .metadata import PHYSICAL_MODEL_ID, table
 from .types import PreparedRelease
 
 if TYPE_CHECKING:
+    from .analysis_contracts import OwnedAnalysisInput
     from .domain_operations import CutInput
     from .query import ReadSession, SnapshotBinding
 
@@ -133,6 +135,7 @@ class CapturedPacket:
     scale: int = 12
     execution_model_id: str | None = None
     execution_contract: bytes | None = None
+    input_contract: OwnedAnalysisInput | None = dataclass_field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "relations", MappingProxyType(dict(self.relations)))
@@ -159,6 +162,7 @@ class CandidateInput:
 
     execution_model_id: str | None = None
     execution_contract: bytes | None = None
+    input_contract: OwnedAnalysisInput | None = dataclass_field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not self.cut_id or not self.decision_universe:
@@ -252,6 +256,14 @@ class CandidateInput:
             decisions,
             execution_model_id=prepared.execution_model_id,
             execution_contract=execution_payload(prepared),
+            input_contract=_owned_input(
+                prepared,
+                "comparison",
+                release=prepared.release_id,
+                snapshot=asdict(cut.source_binding),
+                universe=decision_universe,
+                policy=compiled.projection_id,
+            ),
         )
 
 
@@ -350,38 +362,26 @@ def _projection_contract(
     prepared: PreparedRelease, kind: str, *, operation_id: str | None = None
 ) -> dict[str, Any]:
     """Resolve finite projection behavior from the admitted semantic descriptor."""
-    import json
+    from .contracts import bound_execution_model, compile_execution_model, trusted_execution_inputs
 
     if prepared.execution_model_id is None:
         if operation_id is not None:
             raise ValueError("candidate operation requires a composed execution model")
-        # The base analytical profile has no operations; its fixed capture protocol is
-        # the same typed product supplied by the trusted companion model.
-        import yaml
-
-        from .contracts import trusted_execution_inputs
-
-        catalog = yaml.safe_load(trusted_execution_inputs().catalog.content)
-        contract = next(p for p in catalog["projections"] if p["id"] == kind)
+        # The explicit base protocol uses the same normalized trusted companion;
+        # never reparse YAML or invent a second projection-policy translation.
+        model = compile_execution_model(trusted_execution_inputs())
     else:
-        model = next(
-            (
-                row
-                for row in prepared.registry_rows
-                if row.kind == "execution_model" and row.name == prepared.execution_model_id
-            ),
-            None,
-        )
-        if model is None:
-            raise ValueError("missing archived execution projection authority")
-        body = json.loads(model.body)
-        contract = next((row for row in body["projections"] if row["id"] == kind), None)
-        if contract is None:
-            raise ValueError("missing named analytical projection contract")
-        if operation_id is not None:
-            operation = next((row for row in body["operations"] if row["id"] == operation_id), None)
-            if operation is None or kind not in operation["projections"]:
-                raise ValueError("operation does not admit the analytical projection")
+        model = bound_execution_model(prepared)
+    projection = next((row for row in model.projections if row.id == kind), None)
+    if projection is None:
+        raise ValueError("missing named analytical projection contract")
+    if operation_id is not None:
+        operation = model.require_operation(operation_id)
+        if kind not in operation.projections:
+            raise ValueError("operation does not admit the analytical projection")
+    contract: dict[str, Any] = asdict(projection)
+    # Existing physical recipe JSON represents ordered declarations as lists.
+    contract["omissions"] = list(projection.omissions)
     expected = {
         "input_kind": kind,
         "universe": {
@@ -596,6 +596,19 @@ def normalize_relation(
     return pa.Table.from_arrays(columns, schema=projection.schema)
 
 
+def _owned_input(prepared: PreparedRelease, family: str, **dependencies: Any):
+    """Bind current preparation; historical analytical reads keep their archived ABI."""
+    import json
+
+    from .analysis_contracts import bind_analysis_family
+    from .contracts import execution_payload
+
+    payload = execution_payload(prepared)
+    if payload is None or json.loads(payload)["inputs"]["compiler_version"] != "5":
+        return None
+    return bind_analysis_family(prepared, family).prepare(**dependencies)
+
+
 def load_packet(
     session: ReadSession, uri: str, *, driver_path: str | None = None
 ) -> AnalyticalPacket:
@@ -649,6 +662,14 @@ def load_packet(
         compiled.profile.scale,
         execution_model_id=session.prepared.execution_model_id,
         execution_contract=execution_payload(session.prepared),
+        input_contract=_owned_input(
+            session.prepared,
+            "capture",
+            release=session.prepared.release_id,
+            snapshot=asdict(compiled.binding),
+            projection=compiled.projection_id,
+            content={"exported_snapshot": snapshot, "projection": compiled.projection_id},
+        ),
     )
 
 
@@ -699,6 +720,13 @@ class AnalysisScope:
         require_payload_operation(
             packet.execution_contract, packet.execution_model_id, "close_analysis"
         )
+        if packet.input_contract is not None and (
+            packet.input_contract.release_id != packet.binding.release_id
+            or packet.input_contract.model_id != packet.execution_model_id
+            or packet.input_contract.family
+            != ("comparison" if isinstance(packet, CandidateInput) else "capture")
+        ):
+            raise ValueError("analytical input differs from its prepared ownership binding")
         if threads < 1:
             raise ValueError("threads must be positive")
         self.packet = packet

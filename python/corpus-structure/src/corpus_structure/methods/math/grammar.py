@@ -79,7 +79,6 @@ from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import _tree
 from corpus_structure.methods.math.transform import (
-    KNOWN_FUNCTIONS,
     NotRepresentable,
     bare,
     symbol_name,
@@ -337,9 +336,21 @@ class MathContext:
     functions: frozenset[str] = frozenset()
     variables: frozenset[str] = frozenset()
     constants: frozenset[str] = frozenset()
+    profile: str = ""
+    definition_rule: str | None = None
+    conflicts: frozenset[str] = frozenset()
 
     def key(self) -> str:
-        return json.dumps([sorted(self.functions), sorted(self.variables), sorted(self.constants)])
+        return json.dumps(
+            [
+                sorted(self.functions),
+                sorted(self.variables),
+                sorted(self.constants),
+                self.profile,
+                self.definition_rule,
+                sorted(self.conflicts),
+            ]
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -370,6 +381,17 @@ class Failure:
     detail: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class LocalDeclaration:
+    """An admitted interpretation rule's expression-local evidence, not entity resolution."""
+
+    symbol: str
+    role: str
+    rule: str
+    start: int
+    end: int
+
+
 @dataclass(frozen=True)
 class MathResult:
     latex: str  # the parsed text
@@ -384,6 +406,18 @@ class MathResult:
     macros: Mapping[str, MacroDef] = field(default_factory=dict)
     classes: MacroClass = field(default_factory=MacroClass)
     context: MathContext = field(default_factory=MathContext)
+    declarations: tuple[LocalDeclaration, ...] = ()
+
+    def __getstate__(self):
+        # MappingProxyType retains owned immutable preparation in-process but is not
+        # pickleable. Worker handoff copies only this small macro table.
+        return {**vars(self), "macros": dict(self.macros)}
+
+    def __setstate__(self, state):
+        from types import MappingProxyType
+
+        for name, value in state.items():
+            object.__setattr__(self, name, MappingProxyType(value) if name == "macros" else value)
 
 
 # ============================================================================ the deadline
@@ -540,8 +574,11 @@ class _Resolver:
         self.macros = macros
         self.sets = dict(classes.sets)
         self.ops = dict(classes.ops)
-        self.functions = {bare(x) for x in context.functions} | set(KNOWN_FUNCTIONS)
-        self.variables = {bare(x) for x in context.variables}
+        conflicts = {bare(x) for x in context.conflicts}
+        self.functions = {bare(x) for x in context.functions} - conflicts
+        self.variables = {bare(x) for x in context.variables} - conflicts
+        self.definition_rule = context.definition_rule
+        self.declarations: list[LocalDeclaration] = []
         self.notes: list[str] = []
         self.unresolved = 0
 
@@ -579,6 +616,8 @@ class _Resolver:
 
     def declare_definitions(self, tree: Tree[Token]) -> None:
         """`g(x) = ...`: the left side applies g to symbols, so g is a function here."""
+        if self.definition_rule is None:
+            return
         for node in tree.iter_subtrees():
             if node.data not in ("eq", "rel_chain") or not node.children:
                 continue
@@ -592,6 +631,11 @@ class _Resolver:
                     name = self.name(reading.children[0])
                     if name not in self.variables and name not in self.functions:
                         self.functions.add(name)
+                        self.declarations.append(
+                            LocalDeclaration(
+                                name, "function", self.definition_rule, 0, len(self.source)
+                            )
+                        )
                         self.notes.append(f"{name} declared a function by its definition")
 
     def lone_symbol_formula(self, node: _tree.Node) -> _tree.Node | None:
@@ -779,7 +823,13 @@ def parse(
     if kind not in STARTS:
         raise ValueError(f"kind {kind!r} is not one of {STARTS}")
     table: Mapping[str, MacroDef] = macros or {}
-    ctx = context or MathContext()
+    if context is None:
+        # The standalone public adapter selects the explicit trusted base profile;
+        # composed production callers supply their already prepared projection.
+        from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+
+        context = prepare_interpretation_context(macros=table, kind=kind).grammar_context
+    ctx = context
     key = (latex, kind, _table_key(table), ctx.key())
     hit = _MEMO.get(key)
     if hit is not None:
@@ -842,7 +892,9 @@ def _reading(base: MathResult, parser: Parser, constants: frozenset[str]) -> Mat
         notes.append(
             f"product or application: {', '.join(sorted(residual))} (undeclared symbol before '(')"
         )
-    if resolver.unresolved or residual:
+    if base.context.conflicts:
+        notes.append("conflicting declared roles: " + ", ".join(sorted(base.context.conflicts)))
+    if resolver.unresolved or residual or base.context.conflicts:
         status = ParseOutcome.AMBIGUOUS
     elif kind == "any_value" and _bare_interval(node):
         status = ParseOutcome.AMBIGUOUS
@@ -860,6 +912,7 @@ def _reading(base: MathResult, parser: Parser, constants: frozenset[str]) -> Mat
         failure=failure if tail else None,
         notes=tuple(notes),
         occurrences=found,
+        declarations=tuple(resolver.declarations),
         tail=tail,
     )
 

@@ -775,3 +775,9 @@ M13 binds `X`, `a`, `b`, `\mu`, `\sigma` to the unit; M10 proposes C1–C4.
 | OPEN-D5-2 | Minimum aligned claims per predicate group before the latent-truth model replaces cold-start weights, and which sources must be merged for conditional independence | Phase 2 calibration experiment |
 | OPEN-D5-3 | Default auto-resolution margin for alternatives, and whether it should exist before calibration | Phase 2 |
 | OPEN-D5-4 | Mention-cluster overlap rule (IoU 0.5 or head sharing) on math-adjacent mentions such as "normally distributed with mean \(\mu\)" | Spike S2 |
+
+## Production-efficiency target
+
+**Proposed (accepted target,2026-10-30).** Each scientific operand retains its own authorized interpretation context. Candidate universes and condition/policy dependencies remain explicit; physical preparation cannot silently prune eligibility or merge occurrence identity.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

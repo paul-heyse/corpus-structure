@@ -189,7 +189,7 @@ class FactValueLowerer:
             typed_value=tuple(self.values[k] for k in sorted(self.values)),
             value_role=tuple(self.roles[k] for k in sorted(self.roles)),
             fact=tuple(self.facts[k] for k in sorted(self.facts)),
-        )
+        ).bind_preparation(self.prepared)
 
 
 def assemble(
@@ -289,4 +289,4 @@ def assemble(
             sorted(membership_support, key=lambda s: (s.entity_id, s.class_id, s.evidence_id))
         ),
         occurrence_establishment=tuple(establishments[k] for k in sorted(establishments)),
-    )
+    ).bind_preparation(prepared)

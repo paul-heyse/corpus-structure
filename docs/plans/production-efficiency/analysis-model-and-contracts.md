@@ -1,6 +1,6 @@
 # Domain-governed analysis contracts and preparation
 
-**Status:** Planned; target Proposed; no production implementation · **Created:**2026-10-30.
+**Status:** Implemented; focused acceptance2026-10-30; later physical realizations remain Proposed · **Created:**2026-10-30.
 [Coordinator](../production-efficiency_2026-10-30.md) owns package state, finding disposition,
 rule decisions and assembled completion. This document owns PE-00/PE-01 and their shared contracts.
 Consumes review F01–F11 where their remedies exchange context, ownership or derived data.
@@ -155,3 +155,24 @@ Generic immutable ownership can be an ordinary type/library contract. Meaningful
 must be declared and connected, but preparation does not require persistence, a new service or
 runtime scheduling state for every capability. Physical execution may fuse several logical
 methods while preserving their separate observations, outcomes and provenance.
+
+## Execution receipt —2026-10-30
+
+PE-00 is recorded by ADR-0035. PE-01 uses the trusted `AnalysisProfile` definitions and the
+canonical `semantic.analysis_contracts` preparation boundary. Execution compiler5 and native0035
+are implemented; historical archives retain explicit read support. Scoped role/declaration and
+demand/dependency validation is connected to production source, rule, scientific and analytical
+consumers. Source/read/invocation inputs and publication ownership use the same admitted family
+contracts. Publication rebinds changed row products and refuses stale content before effects.
+
+Current algorithms remain in place: no new parser, token/candidate index, spooled capture,
+packetless scheduler, shared symbolic-value cache or transport-retry optimization is claimed.
+Those implementations retain PE-02–PE-11 ownership. No audit premises, old pivot status, stored
+grades or operational databases were changed.
+
+The coordinator §9 owns acceptance/disposition and exact remaining boundaries. Relevant commands:
+`uv run pyrefly check --min-severity warn --summary=none`; focused `uv run pytest -q` selections
+recorded under `build/pe01-root/` and `build/pe01-native/`; `just turn-end`; `just adr-lint`;
+`uv run ruff check --quiet`; `just docs-check`; `git diff --check`. Lint-only maintenance preserves
+applicable functional/type receipts. Full-series integrated/provider/performance qualification
+remains PE-12.

@@ -227,6 +227,10 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+**Proposed accepted target (2026-10-30).** Analytical ownership and preparation contracts use existing release-scoped rows and immutable products; physical capture may be resident or detached spooled under one snapshot/custody contract.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
 **Accepted analytical target (2026-10-29).** Read operations share a PostgreSQL snapshot across
 Core control reads and ADBC columnar reads. A DuckDB operation scope owns derived analytical
 execution; publication remains protected PostgreSQL admission, including stale-analysis fencing.
@@ -293,6 +297,10 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Proposed accepted target (2026-10-30).** One admitted interpretation authority governs distinct qualified physical frontends and model-bound context, demand, result and dependency projections. The current parser remains the implementation pending PE-02; source declarations do not depend circularly on later resolution.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
 
 **Implemented with scoped Tested evidence (2026-10-29).** Independent-reference grades use separate protected
 LinkML reference/pass/frame/evaluation definitions; completed knowledge output retains its existing

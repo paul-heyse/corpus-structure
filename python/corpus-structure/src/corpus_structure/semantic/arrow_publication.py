@@ -183,6 +183,7 @@ class AppendPublication:
         Decimal128 overflow clears only the optional numeric projection, never lexical text.
         This adapter is not used by analytical kernels, which supply their result batches.
         """
+        batch.validate_preparation()
         relations = {}
         for name, (row_type, _) in STAGE_TYPES.items():
             names = [f.name for f in fields(row_type)]

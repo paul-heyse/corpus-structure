@@ -679,3 +679,9 @@ and per-iteration agent budgets bound how much Opus is asked to do (§7.4).
 | OPEN-D6-1 | Stage barriers versus per-unit dataflow once the corpus grows beyond first-pass chapters | Phase 2 timing |
 | OPEN-D6-2 | Co-resident or exclusive GPU mode by default, given the S3 model choice | Spikes S3, S7 |
 | OPEN-D6-3 | Default iteration limit and agent budgets that keep debugging output reviewable | Phase 0 practice |
+
+## Production-efficiency target
+
+**Proposed (accepted target,2026-10-30).** Logical skipped invocations may be identified from source/configuration/policy before rendering provider packets. Skipped population, reasons and unknown coverage remain required. Existing packet-dependent scheduling remains implemented until PE-10.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

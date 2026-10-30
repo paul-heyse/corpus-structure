@@ -80,6 +80,25 @@ def run_source_methods(
         )
     if binding.release_id != prepared.release_id:
         raise OperationConflict("run release differs from prepared interpretation")
+    import json
+
+    from corpus_structure.semantic.contracts import execution_payload
+
+    payload = execution_payload(prepared)
+    if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "5":
+        from corpus_structure.semantic.analysis_contracts import bind_analysis_family
+
+        invocation_input = bind_analysis_family(prepared, "invocation").prepare(
+            release=binding.release_id,
+            source={
+                "realization": binding.input_realization_id,
+                "revision": binding.input_revision,
+            },
+            configuration={"methods": configurations or {}, "phase": phase, "domain": domain},
+            policy={"source": policy_source, "agent_mode": agent_mode, "reuse": agent_reuse},
+        )
+        if invocation_input.release_id != prepared.release_id:
+            raise OperationConflict("invocation preparation belongs to another release")
     registry = registry.bind_release(prepared)
     configurations = dict(configurations or {})
     configs = {}

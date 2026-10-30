@@ -358,7 +358,7 @@ items (D7 §3.1) alike. The steps, in this order:
    frame recorded for it, by the same cascade over the rendition's sentences; failing that, its
    items take D5 §5.6's fallback.
    > Status: the frame-wide fallback and re-location on reuse are **Proposed** (2026-10-28)
-   > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
+   > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
    > Status: **Tested** in the spike instruments (2026-10-28): 733 of 735 S0 quotes exact, 2 after spacing, none fuzzy ([s0.stored](../design_review/evidence/2026-10-28_design-spikes/records/s0.stored.json))
    > Status: token-sequence step **Measured on synthetic perturbations only** (2026-10-28, [text-math note L-10](../design_review/evidence/2026-10-28_library-text-math/README.md)): on 527 seeded perturbations of 163 S0 quotes, after the same exact, spacing and macro steps, it finds 523 (spike cascade 504), 428 exact (392), 514 at IoU ≥ 0.9 (488), at most 9 ms per quote (214); dropped-word quotes 98 of 99 exact (spike 43); typos 111 of 132 exact (spike 130; 4 not found at cutoff 80, the cases the character-level fallback is for). 58 of the 163 quotes exceed 64 characters, none 64 tokens. The combined order (token step, then character fallback) is **Proposed**; real S0 quotes never reached a fuzzy step, so S3's local-LLM quotes are the real test
 3. **Check references and types** (`validate`): local refs resolve; subject and object types match
@@ -471,7 +471,7 @@ split one source convention across every pack that reads the source.
 > Status: **Proposed** (2026-10-28)
 
 **Profile vocabulary.** Every key a source profile may set, with the default when it is absent;
-the adapter reads no source fact from anywhere else (ADR-0012):
+the adapter reads no source fact from anywhere else (ADR-0035):
 
 | Key | Value | Default |
 |---|---|---|
@@ -553,7 +553,7 @@ delimiters, the macro source, the encoding) are profile data, never adapter code
   parallelized across processes, not threads. html5lib 1.1 (June 2020) installs from its wheel; its
   sdist does not build on Python 3.14. Its tree construction is not guaranteed to match current
   browsers on newer constructs, and it sets no resource limits.
-> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
 > Status: **Tested** in the S1 adapter (2026-10-28): the generated pattern delimits identically to the scanner on 517 blocks ([s1.profile-delimiting](../design_review/evidence/2026-10-28_design-spikes/records/s1.profile-delimiting.json)); so does the named-list form (2026-10-28, [text-math note L-05](../design_review/evidence/2026-10-28_library-text-math/README.md)), where `$` and `$$` match the longer; the per-block timeout is **Proposed**
 > Status: **Measured** on the 78 Siegrist pages (2026-10-28, [text-math note L-01](../design_review/evidence/2026-10-28_library-text-math/README.md)): with html5parser's default all 29,425 elements are namespaced and the XPath export matches 0 of 2,479 units; with `namespaceHTMLElements=False` none is and it matches 2,479; sniffing finds `utf-8` on every page; 17 parse errors (`unexpected-end-tag` 7, `expected-named-entity` 6, `unexpected-character-after-attribute-value` 3, `unexpected-start-tag-implies-end-tag` 1), 2 data-loss warnings (an attribute named `,`), 1 comment; median 4.2 ms per page (max 23.6 ms), about 20 times libxml2, negligible at this corpus size
 
@@ -757,7 +757,7 @@ they are never found by searching the span for the parsed text. M09's mentions d
 whole-name command terminals: under the spike grammar's prefix-matching `\left` terminal, `x
 \leftarrow y` reads as the product `x·a·r·r·o·w·y` and would yield the symbols `a`, `r`, `o`, `w`
 (M11, spike defect).
-> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
 > Status: **Implemented** in the spike instruments (2026-10-28), exercised by the M13 probe; production code not written
 
 ## 7. LLM proposals and judgments
@@ -903,7 +903,7 @@ Lark's `regex=True` is not needed.
   lines are generated from the token form's declared drop list, and building the grammar fails if
   any `%ignore` terminal of the assembled grammar is not on the list. The tree printer is checked
   against the token form by the property test of D1 §6.2.
-> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
 > Status: **Measured** in the spike instruments (2026-10-28): 976 of 1,532 spans parse on a 78-page sample, the rest ambiguous or failed by recorded category ([s0.instruments-ir2](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments-ir2.json)); coverage is S5's question
 > Status: **Tested** and **Measured** (2026-10-28, [text-math note L-06](../design_review/evidence/2026-10-28_library-text-math/README.md)): with the `edit_terminals` rule, `\leftarrow`, `\leftrightarrow` and `\quadrant` fail honestly as unknown commands, `x \rightarrow 0` parses `ok` with the right tree, and none of the 918 spike-page spans changes status or printed form (checked on 7 cases and those 918 spans, not yet on the 28,956 corpus spans; S5's full run includes it); `\left( a \right)` stays `ambiguous`, a grammar ambiguity for S5. `Lark.save()` raises `NotImplementedError` for Earley and pickling fails; a parser builds in 0.05 s, with 38 distinct parser keys over 78 pages; `ordered_sets=True` gives 1 distinct tree over 3 rebuilds of an ambiguous value; spike-page spans emit `SymPyDeprecationWarning` (non-`Expr` arguments in `Mul`); median 41 ms, max 826 ms per span on the 1,532-span sample
 
@@ -974,7 +974,7 @@ in phase 1, with S5-B's symbols-and-scoping figures (`OPEN-D4-5`, reopened, §12
 S0 annotators' scopes (`m13_probe.*.tsv`), S5. The spike's `m13_binders.py` builds phrase patterns
 by `phrase.split()` and accepts "again" anywhere in a sentence; the port follows the patterns
 above, not those two.
-> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
 > Status: **Measured** on the S0 reference (2026-10-28): 20 of 20 annotated symbol scopes reproduced with the paragraph rule, applied to the sample's own parts only; 18 of 20 without it ([s0.m13-probe-2](../design_review/evidence/2026-10-28_design-spikes/records/s0.m13-probe-2.json))
 > Status: phase 0 without the paragraph rule, its acceptance, and reading M09's observations are **Proposed** (2026-10-28)
 > Status: the `PhraseMatcher` phrases, the sentence-bound "again", the extension guard and the `DependencyMatcher` placement are **Proposed** (2026-10-28, [text-math note L-09](../design_review/evidence/2026-10-28_library-text-math/README.md)); not yet exercised
@@ -1137,3 +1137,9 @@ canonical-form fusion only, status from agent proposals and M19 rules.
 | OPEN-D4-3 | SymPy LaTeX backend (lark or ANTLR) and the macro map that maximizes parse rate | Spike S5 |
 | OPEN-D4-4 | Unit of LLM work: whole `unit`, paragraph, or sentence group; set by S0 output sizes and S3 quality per packet size | Spikes S0, S3; **answered by S0 and S0-R2** for golden and agent packets (2026-10-28): the unit, with query-assembled standing context (§4.1); output budget from batch size; S3 measures local-LLM quality per packet size |
 | OPEN-D4-5 | Whether M13's rule-based scoping reaches the S0 annotators' scopes, or symbol scope must come from the LLM proposal; and what extent a binding in a standalone claim-bearing paragraph takes | Spike S5-B, then phase 1; **reopened** (2026-10-28): S0's 20 of 20 rested on a paragraph rule the probe applied only to the sample's own parts. Phase 0 M13 omits that rule (sentence-initial "if" stays) and is accepted on the S0-R2 standing contexts, 21 of 21, with scopes reported (18 of 20); S5-B's symbols-and-scoping figures and phase 1 decide the paragraph extent (M13) |
+
+## Production-efficiency target
+
+**Proposed (accepted target,2026-10-30).** One interpretation authority may admit qualified physical frontends. The current grammar remains implemented pending PE-02. Shared prepared context reaches source, rule and scientific readers without downstream M13 feedback. Segmentation changes require explicit configuration and new rendition/anchor identities.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

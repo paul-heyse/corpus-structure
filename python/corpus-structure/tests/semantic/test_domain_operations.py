@@ -197,7 +197,10 @@ def fixture(
             ),
         )
         publish_batch(
-            writer, replace(initial, selection=tuple(SelectionRow(f.fact_id) for f in initial.fact))
+            writer,
+            replace(
+                initial, selection=tuple(SelectionRow(f.fact_id) for f in initial.fact)
+            ).bind_preparation(prepared),
         )
     double_source = duplicate or statement_packets == "different"
     original = b'<p id="one">Alice is here.</p>'

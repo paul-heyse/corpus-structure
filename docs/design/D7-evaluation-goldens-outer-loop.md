@@ -533,3 +533,9 @@ then the successive `phase0-golden` runs, whose scope resolves the dev set's uni
 | OPEN-D7-3 | Split granularity: page or chapter (pages within a chapter share running examples) | Phase 1: compare dev–test gaps |
 | OPEN-D7-4 | Whether `ppi_py` (and which version) fits the audit design, or a hand-written PPI mean estimator suffices | Phase 2 |
 | OPEN-D7-5 | Whether the page's full text still helps golden passes once standing context is assembled by query (S0-R2 ran packets only) | A paired comparison on dev units through the golden server's `page-text` variant (§3.2); its results are an evidence record (ADR-0010), never goldens |
+
+## Production-efficiency target
+
+**Proposed (accepted target,2026-10-30).** Reference operands use the shared context contract while retaining independent reference evidence and automated grading. New interpretation releases do not regrade or reinterpret historical results.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

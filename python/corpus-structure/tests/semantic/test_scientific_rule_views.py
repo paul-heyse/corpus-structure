@@ -355,3 +355,29 @@ def test_scientific_report_paths_and_construction_share_linkml_shape():
         validate_reference_science({"units": [{"comparisons": "invalid", "undecided": []}]})
     assert list(error.value.absolute_path) == ["units", 0, "comparisons"]
     assert error.value.validator == "type"
+
+
+def test_consolidation_reads_each_operands_own_roles(monkeypatch):
+    comparator = SemanticComparator({})
+    seen = []
+
+    def compare_math(kind, la, lb, fa, fb, conditions, cform, variables, *, operand_contexts):
+        seen.extend(operand_contexts)
+        return comparator._undecided(kind, fa, fb, "independent role contexts")
+
+    monkeypatch.setattr(comparator, "_math", compare_math)
+    left = {**expression("c+1"), "bindings": [{"symbol": "c", "kind": "constant"}]}
+    right = {**expression("c+2"), "bindings": [{"symbol": "c", "kind": "free"}]}
+    assert comparator.compare(left, right).tier is EvidenceTier.UNDECIDED
+    assert seen[0].grammar_context.constants == frozenset({"c"})
+    assert seen[0].grammar_context.variables == frozenset()
+    assert seen[1].grammar_context.variables == frozenset({"c"})
+    assert seen[1].grammar_context.constants == frozenset()
+
+
+def test_unresolved_operand_cannot_gain_symbolic_agreement():
+    comparator = SemanticComparator({})
+    left = {**expression("x+1"), "bindings": [{"symbol": "x", "kind": "unresolved"}]}
+    result = comparator.compare(left, expression("1+x"))
+    assert result.tier is EvidenceTier.UNDECIDED
+    assert "unresolved expression binding" in result.evidence.detail

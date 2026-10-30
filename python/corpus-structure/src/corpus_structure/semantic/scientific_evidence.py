@@ -417,14 +417,38 @@ class MathematicalEvidence:
         return self.constraints(conditions, variables) if self.constraints is not None else ([], [])
 
     def _read(
-        self, latex: str, kinds: tuple[grammar.Kind, ...], variables: tuple[str, ...]
+        self,
+        latex: str,
+        kinds: tuple[grammar.Kind, ...],
+        variables: tuple[str, ...],
+        *,
+        context=None,
     ) -> MathReading:
-        context = grammar.MathContext(variables=frozenset(variables), constants=self.constants)
+        from .analysis_contracts import prepare_interpretation_context
+
+        context = context or prepare_interpretation_context(
+            getattr(self, "prepared", None),
+            macros=self.macros,
+            constants=self.constants,
+            bindings=tuple({"kind": "free", "symbol": name} for name in variables),
+            demand="symbolic",
+        )
+        if context.unresolved:
+            return MathReading(
+                None,
+                "unanalysed",
+                "unresolved expression binding: " + ", ".join(sorted(context.unresolved)),
+            )
         for kind in kinds:
-            result = grammar.parse(latex, kind, self.macros, context)
+            result = grammar.parse(latex, kind, context.macros, context.grammar_context)
             if result.status in (ParseOutcome.OK, ParseOutcome.PARTIAL):
                 try:
-                    return MathReading(grammar.to_sympy(result), result.status.value)
+                    value = grammar.to_sympy(result)
+                    context.validate_result(
+                        produced=("lexical", "occurrences", "interpretation", "symbolic"),
+                        interpretation=result.status.value,
+                    )
+                    return MathReading(value, result.status.value)
                 except Exception as error:
                     return MathReading(None, result.status.value, f"no SymPy value: {error}")
             if result.status is ParseOutcome.AMBIGUOUS:
@@ -441,11 +465,17 @@ class MathematicalEvidence:
         conds: list[Any],
         cform: str,
         variables: tuple[str, ...],
+        *,
+        operand_contexts=None,
     ) -> ScientificEvidence:
         kinds: tuple[grammar.Kind, ...] = (
             ("set_expr",) if t == "set" else ("formula", "relation", "member")
         )
-        ra, rb = self._read(la, kinds, variables), self._read(lb, kinds, variables)
+        if operand_contexts is None:
+            ra, rb = self._read(la, kinds, variables), self._read(lb, kinds, variables)
+        else:
+            ra = self._read(la, kinds, variables, context=operand_contexts[0])
+            rb = self._read(lb, kinds, variables, context=operand_contexts[1])
         status = f"{ra.status}/{rb.status}"
         if ra.expr is None or rb.expr is None:
             why = f"no SymPy value: {ra.error or ''} {rb.error or ''}".strip()
@@ -807,6 +837,7 @@ class SemanticComparator(MathematicalEvidence):
         if prepared is not None:
             require_scientific_policy(prepared)
         super().__init__(macros, constants)
+        self.prepared = prepared
 
     def _constraints(self, conditions, variables):
         members, relations = [], []
@@ -820,7 +851,16 @@ class SemanticComparator(MathematicalEvidence):
                 raise ValueError(
                     "mathematical restriction requires a supported semantic expression"
                 )
-            return self._read(node["expression"], kinds, variables).expr
+            from .analysis_contracts import prepare_interpretation_context
+
+            context = prepare_interpretation_context(
+                self.prepared,
+                macros=self.macros,
+                constants=self.constants,
+                bindings=node.get("bindings", ()),
+                demand="symbolic",
+            )
+            return self._read(node["expression"], kinds, variables, context=context).expr
 
         def visit(node):
             kind = node["kind"]
@@ -866,15 +906,21 @@ class SemanticComparator(MathematicalEvidence):
                 ScientificEvidence(fa == fb, EvidenceTier.CANONICAL, kind_a, fa, fb)
             )
         if kind_a in {"formula", "set"}:
-            bindings = [ca.get("bindings", ()), cb.get("bindings", ())]
-            names = sorted(
-                grammar_name(str(k))
-                for batch in bindings
-                for k in (
-                    batch if isinstance(batch, Mapping) else [item["symbol"] for item in batch]
+            from .analysis_contracts import prepare_interpretation_context
+
+            contexts = tuple(
+                prepare_interpretation_context(
+                    self.prepared,
+                    macros=self.macros,
+                    constants=self.constants,
+                    bindings=operand.get("bindings", ()),
+                    demand="symbolic",
                 )
+                for operand in (ca, cb)
             )
-            variables = tuple(dict.fromkeys(names))
+            # Pair-wide variables are only for sampling/conditions. Each operand is
+            # interpreted under its own admitted roles, never the other side's roles.
+            variables = tuple(sorted(set().union(*(c.grammar_context.variables for c in contexts))))
             cform = _json(sorted(_json(canonical_restriction(c, self.macros)) for c in conditions))
             evidence = self._math(
                 kind_a,
@@ -885,6 +931,7 @@ class SemanticComparator(MathematicalEvidence):
                 list(conditions),
                 cform,
                 variables,
+                operand_contexts=contexts,
             )
             return decide_consolidation(evidence)
         if kind_a == "interval":
@@ -918,7 +965,7 @@ def json_operand(value: Any) -> Mapping[str, Any]:
     raise ValueError("scientific operand has no faithful comparison shape")
 
 
-def read_reference_operand(value):
+def read_reference_operand(value, *, prepared=None):
     from corpus_structure.core.evidence import MacroDef
     from corpus_structure.core.vocab import ParseOutcome
     from corpus_structure.methods.math import grammar
@@ -937,20 +984,23 @@ def read_reference_operand(value):
         m["name"]: MacroDef(nargs=m["nargs"], body=m["body"], default=m.get("default"))
         for m in macros
     }
-    variables = frozenset(
-        b["symbol"] for b in bindings if b.get("kind") in {"variable", "family_param", "free"}
-    )
-    context = grammar.MathContext(
-        variables=variables,
-        constants=frozenset(b["symbol"] for b in bindings if b.get("kind") == "constant"),
+    from .analysis_contracts import prepare_interpretation_context
+
+    context = prepare_interpretation_context(
+        prepared, macros=env, bindings=tuple(bindings), demand="symbolic"
     )
     for kind in ("set_expr",) if value["kind"] == "set" else ("formula", "relation", "member"):
-        parsed = grammar.parse(value["expression"], kind, env, context)
+        parsed = grammar.parse(value["expression"], kind, context.macros, context.grammar_context)
         if parsed.status is ParseOutcome.AMBIGUOUS:
             return None, "ambiguous expression grammar"
         if parsed.status in {ParseOutcome.OK, ParseOutcome.PARTIAL}:
             try:
-                return grammar.to_sympy(parsed), parsed.status.value
+                result = grammar.to_sympy(parsed)
+                context.validate_result(
+                    produced=("lexical", "occurrences", "interpretation", "symbolic"),
+                    interpretation=parsed.status.value,
+                )
+                return result, parsed.status.value
             except ValueError, TypeError, NotImplementedError:
                 pass
     return None, "expression grammar did not produce a mathematical value"
@@ -980,8 +1030,8 @@ def reference_evidence(
         )
 
     grammar.require_main_thread()
-    x, why_a = read_reference_operand(a)
-    y, why_b = read_reference_operand(b)
+    x, why_a = read_reference_operand(a, prepared=prepared)
+    y, why_b = read_reference_operand(b, prepared=prepared)
     if x is None or y is None:
         return result(False, "undecided", why_a + "; " + why_b)
     try:

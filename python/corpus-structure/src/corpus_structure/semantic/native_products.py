@@ -18,6 +18,9 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
+NATIVE_PREDECESSOR = "semantic_0034"
+NATIVE_REVISION = "semantic_0035"
+
 
 def selected_fact_query():
     """The fixed accepted-fact projection uses the same scoped relationship keys."""
@@ -472,7 +475,9 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
         )
     descriptor["scientific_report_layout"] = layout
     descriptor["supported_effect_versions"] = SUPPORTED_EFFECT_VERSIONS
-    descriptor["execution_abi"] = "4"
+    from .contracts import EXECUTION_COMPILER_VERSION
+
+    descriptor["execution_abi"] = EXECUTION_COMPILER_VERSION
     descriptor["model_id"] = model.model_id
     descriptor["physical_id"] = PHYSICAL_MODEL_ID
     descriptor["inputs"] = [
@@ -722,4 +727,17 @@ def consolidation_products(model=None) -> tuple[NativeProduct, ...]:
     is discarded by assuming that every future model has the same tables or views.
     """
     base = closure_products(model)
-    return (*base, *reference_source_products(base))
+    reference = reference_source_products(base)
+    # The candidate includes the complete physical realization for review. Deployment
+    # on 0034 reuses its relations and installs only the frozen current kernels/descriptor.
+    physical, kernels, admission = base
+    reference_kernels, reference_admission = reference
+    _, separator, required = admission.content.partition(b"$descriptor$;")
+    if not separator:
+        raise ValueError("native admission product lacks its descriptor boundary")
+    return (
+        NativeProduct(f"{NATIVE_REVISION}_physical.sql", physical.content),
+        NativeProduct(f"{NATIVE_REVISION}_kernels.sql", kernels.content),
+        NativeProduct(f"{NATIVE_REVISION}_reference_source.sql", reference_kernels.content),
+        NativeProduct(f"{NATIVE_REVISION}_admission.sql", reference_admission.content + required),
+    )

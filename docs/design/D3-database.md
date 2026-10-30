@@ -1725,3 +1725,9 @@ WAL archiving, and a logical `pg_dump` for version-independent copies.
 **Operation.** `just db-up`, `just db-down`, `just db-status` (`pg_ctlcluster`, `pg_lsclusters`);
 `pg_activity -p 5434` for live sessions; pgBadger over the cluster log for a period's slow
 statements. The interim project-local cluster that preceded it was retired on 2026-10-28, after S6.
+
+## Production-efficiency target
+
+**Proposed (accepted target,2026-10-30).** Analytical contract variation uses existing immutable release-scoped execution rows and archived products. Forward native revisions change deployment support; historical migration bytes and retained archive meanings remain immutable.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

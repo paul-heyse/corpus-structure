@@ -72,8 +72,8 @@ Historical archive/source bytes and recorded meaning remain preserved. No databa
 
 | Package | Owner document / delivered capability | Required readiness | State |
 |---|---|---|---|
-| PE-00 | [Model contracts](production-efficiency/analysis-model-and-contracts.md#PE-00): durable authority decisions | Accepted planning envelope and affected current owners | Open |
-| PE-01 | [Model contracts](production-efficiency/analysis-model-and-contracts.md#PE-01): compiled context/demand/outcome/dependency and ownership contracts | Relevant PE-00 decisions | Open |
+| PE-00 | [Model contracts](production-efficiency/analysis-model-and-contracts.md#PE-00): durable authority decisions | Accepted planning envelope and affected current owners | Complete · ADR-0035 |
+| PE-01 | [Model contracts](production-efficiency/analysis-model-and-contracts.md#PE-01): compiled context/demand/outcome/dependency and ownership contracts | Relevant PE-00 decisions | Complete · scoped Tested; §9 |
 | PE-02 | [Interpretation](production-efficiency/interpretation-and-scientific-analysis.md#PE-02): qualified recognizer/ambiguity decision | Agreed PE-01 semantics; bounded production evidence | Open |
 | PE-03 | [Interpretation](production-efficiency/interpretation-and-scientific-analysis.md#PE-03): shared mathematical interpretation and consumer migration | Working PE-01 and selected PE-02 contract | Open |
 | PE-04 | [Scientific analysis](production-efficiency/interpretation-and-scientific-analysis.md#PE-04): prepared comparison | PE-01 policy contracts/PE-03 operands; local repetition removal can start earlier | Open |
@@ -177,3 +177,29 @@ product qualification or audit refresh was performed while authoring. Publicatio
 recorded in STATUS; they establish document integrity only. The next execution boundary is PE-00/
 PE-01 contract decisions and independent ready local corrections, after authorization to implement
 the production series. Prior semantic-pivot qualification is neither revoked nor enlarged here.
+
+## 9. PE-00/PE-01 execution —2026-10-30
+
+**Implemented; focused acceptance.** ADR-0035 records RC01–RC04 and preserves token keys,
+source facts, quote/scoping contracts and immutable historical meaning. The architectural owners
+separate the accepted target from the current physical implementations. Execution compiler5
+adds trusted analysis profiles, demands, dependency recipes and input ownership; semantic
+compiler13, boundary12 and envelope3 remain unchanged. Forward0035 changes admission support
+without recreating tables or editing historical migration bytes.
+
+Canonical prepared context now reaches M09/M11, rule projection before parsing, and each scientific
+operand/reference independently. Symbol declarations retain role, evidence and scope without
+requiring an Entity. Unsupported/forged authority, unknown binding kinds, dependency overrides,
+unknown ABIs and unsupported ownership profiles refuse. Source/read/invocation/publication and
+capture/comparison boundaries consume release-bound preparation. Publication refuses stale owned
+row metadata before transport or connection acquisition. Retained archives do not gain new
+analysis capabilities; the explicitly supported live semantic-1 base protocol remains available.
+
+Focused checks cover contracts, grammar/worker transfer, source/read operations, scientific
+contexts, analytics, publication, archives, candidate CLI products and real restricted native
+admission/CAS/view refusal. Root logs are under `build/pe01-root/`; native logs, including corrected
+failed attempts, under `build/pe01-native/`. The initial broader focused selection failed four
+stale-preparation cases; their producer/fixture corrections and affected reruns are recorded there.
+This is PE-00/PE-01 acceptance, not full-series qualification, a corpus benchmark or a measured
+speedup. F01–F11 retain their later-package obligations and remain open. Next: PE-02 investigation
+and dependent PE-03 work; independent later packages retain the existing readiness conditions.

@@ -813,6 +813,17 @@ class BoundReader:
         self, conn: Connection, run_id: int, prepared: PreparedRelease, cut_id: int | None = None
     ):
         self.conn, self.run_id, self.prepared, self.cut_id = conn, run_id, prepared, cut_id
+        import json
+
+        from .contracts import execution_payload
+
+        payload = execution_payload(prepared)
+        self._source_contract = None
+        self._source_inputs = {}
+        if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "5":
+            from .analysis_contracts import bind_analysis_family
+
+            self._source_contract = bind_analysis_family(prepared, "source")
 
     def renditions(self) -> Sequence[RunRendition]:
         from corpus_structure.core.method import RunRendition
@@ -831,6 +842,12 @@ class BoundReader:
         ]
 
     def content(self, rendition_id: int) -> RenditionContent:
+        if self._source_contract is not None:
+            self._source_inputs[rendition_id] = self._source_contract.prepare(
+                release=self.prepared.release_id,
+                rendition=rendition_id,
+                profile=self.prepared.execution_model_id,
+            )
         return read_rendition(self.conn, rendition_id, prepared=self.prepared)
 
     def segments(self, rendition_id: int) -> Mapping[str, int]:

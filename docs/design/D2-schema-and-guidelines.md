@@ -1459,7 +1459,7 @@ math:
   constants: ['e', '\pi']
 
 binders:                                               # M13 binder lexicon
-  sentence_initial: [suppose, let, assume, fix, define, consider, recall, if]   # "if": Measured by the S0 M13 probe (2026-10-28, record s0.m13-probe-2), ADR-0012
+  sentence_initial: [suppose, let, assume, fix, define, consider, recall, if]   # "if": Measured by the S0 M13 probe (2026-10-28, record s0.m13-probe-2), ADR-0035
   clause: [where, for]
   reopen: [again]                                      # "Suppose again …" re-opens the section's earlier binding
   section_wide: ["in this section", "throughout this section"]
@@ -1576,3 +1576,9 @@ reserved page holds none. Its golden part is resolved from the set when a run st
 never hand-kept, and the resolved unit list and its hash are recorded in the run's `scope` option (`ops.run.options`, D3 §4), so a later change to the set
 cannot change what a finished run covered. It holds no test page (P0CL-09; operator, 2026-10-28).
 > Status: **Proposed** (2026-10-28)
+
+## Production-efficiency target
+
+**Proposed (accepted target,2026-10-30).** Trusted LinkML execution definitions own analytical context, demands, dependency recipes and outcome dimensions. Runtime adapters consume effective compiled declarations; executable support remains code-owned and closed.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

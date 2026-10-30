@@ -20,6 +20,48 @@ types:
     base: bool
     uri: xsd:boolean
 classes:
+  AnalysisDemand:
+    attributes:
+      id: {range: string, required: true, slot_uri: execution:AnalysisDemand_id}
+      prerequisites: {range: string, multivalued: true, slot_uri: execution:AnalysisDemand_prerequisites}
+      dependencies: {range: string, required: true, multivalued: true, minimum_cardinality: 1, slot_uri: execution:AnalysisDemand_dependencies}
+  BindingRoleRule:
+    attributes:
+      kind: {range: string, required: true, slot_uri: execution:BindingRoleRule_kind}
+      role: {range: AnalysisSymbolRole, required: true, slot_uri: execution:BindingRoleRule_role}
+  InputOwnershipContract:
+    attributes:
+      id: {range: string, required: true, slot_uri: execution:InputOwnershipContract_id}
+      concept: {range: string, required: true, slot_uri: execution:InputOwnershipContract_concept}
+      operation: {range: string, required: true, slot_uri: execution:InputOwnershipContract_operation}
+      lifetime: {range: string, required: true, slot_uri: execution:InputOwnershipContract_lifetime}
+      dependencies: {range: string, required: true, multivalued: true, minimum_cardinality: 1, slot_uri: execution:InputOwnershipContract_dependencies}
+  AnalysisProfile:
+    attributes:
+      id: {range: string, required: true, slot_uri: execution:AnalysisProfile_id}
+      version: {range: string, required: true, slot_uri: execution:AnalysisProfile_version}
+      demands: {range: AnalysisDemand, required: true, multivalued: true, minimum_cardinality: 1, inlined: true, inlined_as_list: true, slot_uri: execution:AnalysisProfile_demands}
+      binding_roles: {range: BindingRoleRule, required: true, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: execution:AnalysisProfile_binding_roles}
+      builtin_functions: {range: string, multivalued: true, slot_uri: execution:AnalysisProfile_builtin_functions}
+      local_declaration_rules: {range: string, multivalued: true, slot_uri: execution:AnalysisProfile_local_declaration_rules}
+      ownership: {range: InputOwnershipContract, required: true, multivalued: true, minimum_cardinality: 1, inlined: true, inlined_as_list: true, slot_uri: execution:AnalysisProfile_ownership}
+  AnalysisSymbolDeclaration:
+    description: Source-local syntactic authority; entity attachment remains a separate binding.
+    attributes:
+      symbol: {range: string, required: true, slot_uri: execution:AnalysisSymbolDeclaration_symbol}
+      role: {range: AnalysisSymbolRole, required: true, slot_uri: execution:AnalysisSymbolDeclaration_role}
+      authority: {range: AnalysisDeclarationAuthority, required: true, slot_uri: execution:AnalysisSymbolDeclaration_authority}
+      evidence: {range: string, required: true, slot_uri: execution:AnalysisSymbolDeclaration_evidence}
+      source_id: {range: string, slot_uri: execution:AnalysisSymbolDeclaration_source_id}
+      scope: {range: string, slot_uri: execution:AnalysisSymbolDeclaration_scope}
+      start: {range: integer, minimum_value: 0, slot_uri: execution:AnalysisSymbolDeclaration_start}
+      end: {range: integer, minimum_value: 0, slot_uri: execution:AnalysisSymbolDeclaration_end}
+  AnalysisComputationResult:
+    attributes:
+      demand: {range: string, required: true, slot_uri: execution:AnalysisComputationResult_demand}
+      produced: {range: string, multivalued: true, slot_uri: execution:AnalysisComputationResult_produced}
+      completeness: {range: AnalysisComputationCompleteness, required: true, slot_uri: execution:AnalysisComputationResult_completeness}
+      interpretation: {range: string, required: true, slot_uri: execution:AnalysisComputationResult_interpretation}
   EffectDefinition:
     attributes:
       id: {range: string, required: true, slot_uri: "execution:EffectDefinition_id"}
@@ -616,6 +658,7 @@ classes:
         required: false
   ExecutionCatalog:
     attributes:
+      analysis_profiles: {range: AnalysisProfile, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: execution:ExecutionCatalog_analysis_profiles}
       effect_definitions:
         range: EffectDefinition
         required: true
@@ -738,6 +781,12 @@ classes:
         required: true
         slot_uri: execution:AttributeDefinition_multivalued
 enums:
+  AnalysisSymbolRole:
+    permissible_values: {function: {}, variable: {}, constant: {}}
+  AnalysisDeclarationAuthority:
+    permissible_values: {profile: {}, source: {}, expression_local: {}, binding: {}}
+  AnalysisComputationCompleteness:
+    permissible_values: {complete: {}, partial: {}, unsupported: {}, failed: {}, unanalysed: {}}
   AnalyticalInputKind:
     permissible_values: {captured: {}, candidate: {}, accepted: {}}
   AnalyticalUniverse:

@@ -100,7 +100,7 @@ a canonical text. Rules for the canonical text:
   one source error never swallows the text after it. A block whose delimiter scan exceeds its
   time bound is `partial` with reason `delimiter scan timeout`. A delimited span the math
   grammar cannot read leaves the segment `ok`: the failure is the value's `parse` status (§6.2),
-  kept with its category (ADR-0012).
+  kept with its category (ADR-0035).
   > Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): 8 of 28,956 math spans are `partial`, each at an unbalanced delimiter in the source, with its reason recorded ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); the profile-generated pattern reproduces the result unchanged ([s1.profile-delimiting](../design_review/evidence/2026-10-28_design-spikes/records/s1.profile-delimiting.json)); the scan timeout is **Proposed** (2026-10-28, [text-math note L-05](../design_review/evidence/2026-10-28_library-text-math/README.md))
 - HTML entities are decoded; whitespace inside a block, outside math, collapses to one space;
   the result is NFC-normalized.
@@ -594,7 +594,7 @@ a string range is a string, not an entity reference:
 
 | Declared range | Canonical form |
 |---|---|
-| `formula`, `set` | token form over the rendition's effective macro table (below; ADR-0012); `symbols`, `sympy` and `parse` stay outside |
+| `formula`, `set` | token form over the rendition's effective macro table (below; ADR-0035); `symbols`, `sympy` and `parse` stay outside |
 | `text`, `phrase` | text form: NFC, whitespace collapsed, case per policy (`fold` by default); a phrase by its text alone, never its offsets, sentence or `coarse` |
 | string identifier (a `string` range with `ci:case` declared) | NFC, whitespace collapsed, the declared case |
 | `enum` | `{enum: <prefixed enum name>, v: <member>}` verbatim |
@@ -700,7 +700,7 @@ LaTeX with `parse: ambiguous`, `partial` or `failed`. A value must parse under i
 range (formula, set, relation, membership); a mismatch is a validation issue, not a silent
 coercion.
 
-> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
 > Status: **Measured** on the spike pages (2026-10-28): 881 of 918 math spans parse; the tree and
 > token forms differ on 4, all at `\big/`, which the sizing rule removes. The property test's two
 > layers are Proposed (S5, phase 0); the drop list's contents are **Interface-checked** against
@@ -714,7 +714,7 @@ coercion.
 > D4 M11); with the whole-name terminals, 877 of 918 spike-page spans agree, and the remaining
 > parsed ones differ at sizing commands
 
-> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
 > Status: **Tested** in the spike instruments (2026-10-28): 86 of 86 S0 values read, canonical forms decided all but a handful of value comparisons ([s0.instruments-ir2](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments-ir2.json)); production code not written
 
 ## 7. Conditions
@@ -1093,3 +1093,9 @@ variance`. The standard deviation `|b|σ` is a `derived` claim, never stated as 
 | OPEN-D1-6 | A `bound` binding kind for symbols bound inside a formula (Σ, ∏, ∫, set-builder), excluded from completeness counts (S0 gap RG-3) | D1 §6.1 and `BindKind` in core.yaml, next schema revision |
 | OPEN-D1-7 | `param_of` targeting a premise claim other than `has_distribution` (a mean stated by `mean_value`, RG-5). Any predicate whose pack declares `ci:param_map` is now a target (§6.1, 2026-10-28); a parameter value stated as a claim's object rather than as a map entry remains open | Next schema revision |
 | OPEN-D1-8 | An extent covering a run of sibling statements (RG-6) | Next schema revision |
+
+## Production-efficiency target
+
+**Proposed (accepted target,2026-10-30).** Symbol-role declarations carry scoped authority independently of consolidated entity attachment. Token keys remain independent of physical recognizers; source occurrences retain rendition custody and exact offsets.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

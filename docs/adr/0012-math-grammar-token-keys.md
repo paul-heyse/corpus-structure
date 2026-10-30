@@ -1,10 +1,10 @@
 ---
 id: ADR-0012
 title: Read math through one extended Lark grammar, key values by the token form, keep source facts as profile data, locate quotes with source offsets
-status: accepted
+status: superseded
 date: 2026-10-28
 supersedes: [ADR-0009]
-superseded-by: null
+superseded-by: ADR-0035
 design: []
 evidence: Tested
 ---

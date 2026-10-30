@@ -8679,3 +8679,37 @@ effect_definitions:
 - id: source_execution
   version: "1"
   meaning: source execution
+
+analysis_profiles:
+- id: mathematical-interpretation
+  version: '1'
+  demands:
+  - id: lexical
+    prerequisites: []
+    dependencies: [grammar, profile, kind, macros]
+  - id: occurrences
+    prerequisites: [lexical]
+    dependencies: [grammar, profile, kind, macros, declarations, scope, missing_declarations]
+  - id: interpretation
+    prerequisites: [occurrences]
+    dependencies: [grammar, transformer, profile, kind, macros, declarations, scope, assumptions, missing_declarations]
+  - id: symbolic
+    prerequisites: [interpretation]
+    dependencies: [grammar, transformer, profile, kind, macros, declarations, scope, assumptions, missing_declarations]
+  - id: scientific
+    prerequisites: [symbolic]
+    dependencies: [grammar, transformer, profile, kind, macros, declarations, scope, assumptions, missing_declarations, conditions, precision, sampling, decision_policy]
+  binding_roles:
+  - {kind: variable, role: variable}
+  - {kind: family_param, role: variable}
+  - {kind: free, role: variable}
+  - {kind: constant, role: constant}
+  builtin_functions: [Gamma]
+  local_declaration_rules: [function-definition-1]
+  ownership:
+  - {id: source, concept: Rendition, operation: execute_source, lifetime: batch, dependencies: [release, rendition, profile]}
+  - {id: comparison, concept: CandidateInput, operation: evaluate, lifetime: scope, dependencies: [release, snapshot, universe, policy]}
+  - {id: publication, concept: AppendPublication, operation: publish, lifetime: operation, dependencies: [release, snapshot, content]}
+  - {id: capture, concept: CapturedPacket, operation: capture_analytics, lifetime: detached, dependencies: [release, snapshot, projection, content]}
+  - {id: invocation, concept: WorkPacket, operation: schedule, lifetime: operation, dependencies: [release, source, configuration, policy]}
+  - {id: read, concept: Archive, operation: reload, lifetime: scope, dependencies: [release, archive, boundary]}

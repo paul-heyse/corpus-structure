@@ -38,7 +38,6 @@ from corpus_structure.core.vocab import BindKind, MathKind, SegmentKind
 from corpus_structure.methods.math import _tree
 from corpus_structure.methods.math.grammar import (
     PARSE_SECONDS,
-    MathContext,
     MathResult,
     Occurrence,
     parse,
@@ -105,14 +104,27 @@ def read_spans(
     constants: Sequence[str] = (),
     *,
     seconds: float = PARSE_SECONDS,
+    prepared_context=None,
 ) -> list[SpanReading]:
     """Parse every math span under `any_value`; `macros` is the effective table
     (`core/tex.py` `effective_macros`), `constants` the pack's `math.constants`."""
-    context = MathContext(constants=frozenset(constants))
-    return [
-        SpanReading(span, parse(span.latex, "any_value", macros, context, seconds=seconds))
-        for span in math_spans(content)
-    ]
+    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+
+    prepared_context = prepared_context or prepare_interpretation_context(
+        macros=macros, constants=constants, demand="occurrences"
+    )
+    context = prepared_context.grammar_context
+    macros = prepared_context.macros
+    readings = []
+    for span in math_spans(content):
+        result = parse(span.latex, "any_value", macros, context, seconds=seconds)
+        prepared_context.validate_result(
+            produced=("lexical", "occurrences", "interpretation"),
+            interpretation=result.status.value,
+            completeness="failed" if result.failure else "complete",
+        )
+        readings.append(SpanReading(span, result))
+    return readings
 
 
 def _free(result: MathResult) -> list[Occurrence]:
