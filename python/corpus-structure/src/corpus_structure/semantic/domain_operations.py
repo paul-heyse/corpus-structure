@@ -121,6 +121,13 @@ def domain_rule_inputs(
             SourceArtifact(
                 "operation/scientific-policy.json", canonical_bytes(scientific_policy_recipe())
             ),
+            *(
+                SourceArtifact(
+                    "operation/" + name,
+                    (Path(__file__).resolve().parents[1] / "model/semantic" / name).read_bytes(),
+                )
+                for name in ("scientific.yaml", "scientific-policies.yaml")
+            ),
             SourceArtifact(
                 "operation/rule-view.yaml",
                 (
@@ -424,6 +431,25 @@ def _known_input(conn, prepared, job, observations):
     if not ids:
         return {}, {}
     f, s = table("data.fact"), table("data.selection")
+    from sqlalchemy import exists
+
+    roles = table("sem.operation_property_role")
+    role_membership = m.alias("role_membership")
+    eligible = exists(
+        select(1)
+        .select_from(role_membership.join(
+            roles,
+            (roles.c.release_id == role_membership.c.release_id)
+            & (roles.c.class_id == role_membership.c.class_id),
+        ))
+        .where(
+            role_membership.c.release_id == f.c.release_id,
+            role_membership.c.realization_id == f.c.realization_id,
+            role_membership.c.entity_id == f.c.subject_id,
+            roles.c.property_id == f.c.property_id,
+            roles.c.role.in_(("identity", "required", "display")),
+        )
+    )
     facts = (
         conn.execute(
             select(f)
@@ -437,6 +463,7 @@ def _known_input(conn, prepared, job, observations):
                 f.c.release_id == job["release_id"],
                 f.c.realization_id == job["input_realization_id"],
                 f.c.subject_id.in_(membership_ids),
+                eligible,
             )
         )
         .mappings()
@@ -493,29 +520,15 @@ def _known_input(conn, prepared, job, observations):
             if prop is None:
                 continue
             value = values[fact["object_value_id"]]
-            required = {
-                name
-                for iri in item["class_iris"]
-                for group in definitions[iri].identity_groups
-                for name in group
-            }
-            display = any(
-                row.kind == "operation_property"
-                and (body := json.loads(row.body)).get("class") == d.name
-                and body.get("property") == prop.iri
-                and body.get("cs:role") == "display"
-                for row in prepared.registry_rows
-            )
-            if prop.name in required or prop.required or display:
-                item["input_facts"].append(
-                    (
-                        fact,
-                        prop,
-                        value,
-                        values[fact["qualification_value_id"]],
-                        definitions[node_by_id[fact["qualification_value_id"]].datatype].name,
-                    )
+            item["input_facts"].append(
+                (
+                    fact,
+                    prop,
+                    value,
+                    values[fact["qualification_value_id"]],
+                    definitions[node_by_id[fact["qualification_value_id"]].datatype].name,
                 )
+            )
             item["fields"][prop.name] = value
             if isinstance(value, str):
                 item["attributes"].append(
@@ -526,14 +539,9 @@ def _known_input(conn, prepared, job, observations):
                         else {"kind": "text", "text": value},
                     }
                 )
-                if any(
-                    row.kind == "operation_property"
-                    and (body := json.loads(row.body)).get("class") == d.name
-                    and body.get("property") == prop.iri
-                    and body.get("cs:role") == "display"
-                    and not prop.multivalued
-                    for row in prepared.registry_rows
-                ):
+                if "display" in prepared.index.property_roles.get(
+                    (d.iri, prop.iri), frozenset()
+                ) and not prop.multivalued:
                     item["label"] = value
     copied = {}
     support = table("data.membership_support")

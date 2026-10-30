@@ -38,6 +38,7 @@ class ValueDecision:
     equal: bool
     outcome: str
     reason: str = ""
+    comparisons: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -81,10 +82,11 @@ class SemanticAlignment:
         default_factory=lambda: {k: [] for k in ("core", "full", "evidence")}
     )
     counts: dict[str, TierCounts] = field(default_factory=dict)
-    undecided: list[dict[str, str]] = field(default_factory=list)
+    undecided: list[dict[str, Any]] = field(default_factory=list)
     field_failures: list[dict[str, Any]] = field(default_factory=list)
     iterations: int = 0
     converged: bool = True
+    comparisons: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self):
         return {
@@ -92,6 +94,7 @@ class SemanticAlignment:
             "scientific_policy": REFERENCE_PROFILE,
             "entity_pairs": self.entity_pairs,
             "matches": self.matches,
+            "comparisons": self.comparisons,
             "tiers": {k: v.as_dict() for k, v in self.counts.items()},
             "undecided": self.undecided,
             "field_failures": self.field_failures,
@@ -219,12 +222,16 @@ def equivalent(
             from corpus_structure.semantic.scientific_evidence import (
                 decide_reference,
                 reference_evidence,
+                comparison_assessment,
             )
 
             decision = decide_reference(
                 reference_evidence(a, b, conditions=conditions, prepared=model)
             )
-            return ValueDecision(decision.equal, decision.tier.value, decision.detail)
+            return ValueDecision(
+                decision.equal, decision.tier.value, decision.detail,
+                (comparison_assessment(decision, context=conditions),),
+            )
         if ka in {"all", "any"}:
             aa, bb = a.get("terms", ()), b.get("terms", ())
             if len(aa) != len(bb):
@@ -245,7 +252,11 @@ def equivalent(
             ]
             matched = _assignment(np.array([[float(v.equal) for v in row] for row in decisions]))
             if len(matched) == len(aa):
-                return ValueDecision(True, "condition")
+                return ValueDecision(
+                    True, "condition", comparisons=tuple(
+                        trace for i, j in matched for trace in decisions[i][j].comparisons
+                    )
+                )
             return ValueDecision(
                 False,
                 "undecided"
@@ -300,6 +311,7 @@ def equivalent(
         return ValueDecision(
             all(d.equal for d in decisions),
             "undecided" if any(d.outcome == "undecided" for d in decisions) else "canonical",
+            comparisons=tuple(trace for d in decisions for trace in d.comparisons),
         )
     if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
         if len(a) != len(b):
@@ -311,6 +323,7 @@ def equivalent(
         return ValueDecision(
             all(d.equal for d in ds),
             "undecided" if any(d.outcome == "undecided" for d in ds) else "canonical",
+            comparisons=tuple(trace for d in ds for trace in d.comparisons),
         )
     return ValueDecision(type(a) is type(b) and a == b, "canonical")
 
@@ -666,6 +679,7 @@ def align_semantic(
         out.iterations = iteration + 1
         weights = np.zeros((len(rr), len(pp)))
         tiers = {}
+        comparison_details = {}
         failures = []
         undecided = []
         for i, r in enumerate(rr):
@@ -687,6 +701,7 @@ def align_semantic(
                             "reference": r["id"],
                             "prediction": p["id"],
                             "reason": value.reason or "value comparison undecided",
+                            "comparisons": list(value.comparisons),
                         }
                     )
                 if not value.equal:
@@ -734,6 +749,11 @@ def align_semantic(
                 )
                 weights[i, j] = size**3 + size**2 * full + size * evidence + overlap
                 tiers[i, j] = (full, evidence)
+                comparison_details[i, j] = [
+                    {"field": field, **trace}
+                    for field, decision in (("object", value), ("qualification", qual))
+                    for trace in decision.comparisons
+                ]
                 if not full:
                     failures.append(
                         {
@@ -764,9 +784,14 @@ def align_semantic(
         pairs = [chosen[i, j] for i, j in _assignment(group_weights)]
         new = {(rr[i]["id"], pp[j]["id"]) for i, j in pairs}
         out.matches = {k: [] for k in ("core", "full", "evidence")}
+        out.comparisons = []
         for i, j in pairs:
             pair = (rr[i]["id"], pp[j]["id"])
             out.matches["core"].append(pair)
+            out.comparisons.extend(
+                {"reference": pair[0], "prediction": pair[1], **trace}
+                for trace in comparison_details[i, j]
+            )
             if tiers[i, j][0]:
                 out.matches["full"].append(pair)
             if tiers[i, j][1]:

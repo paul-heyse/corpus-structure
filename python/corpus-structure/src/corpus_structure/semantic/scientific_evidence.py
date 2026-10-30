@@ -15,6 +15,8 @@ from dataclasses import dataclass, replace
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from functools import lru_cache
+from importlib.resources import files
 from typing import Any, Literal
 
 import numpy as np
@@ -40,9 +42,35 @@ REFERENCE_PROFILE = "reference-evidence-1"
 SCIENTIFIC_POLICY_INPUT = "operation/scientific-policy.json"
 
 
+@lru_cache(maxsize=1)
+def scientific_model():
+    from .prepare import prepare_release
+    from .types import SourceArtifact, SourceBundle
+
+    raw = files("corpus_structure").joinpath("model/semantic/scientific.yaml").read_bytes()
+    return prepare_release(SourceBundle("scientific", (SourceArtifact("scientific", raw),)))
+
+
+@lru_cache(maxsize=1)
+def decision_rules():
+    import yaml
+
+    raw = files("corpus_structure").joinpath("model/semantic/scientific-policies.yaml").read_bytes()
+    rows = tuple(
+        scientific_model().validate_json("DecisionRule", json.dumps(row)).model_dump(mode="json")
+        for row in yaml.safe_load(raw)
+    )
+    keys = [(row["policy_id"], row["evidence_tier"], row["agreement"]) for row in rows]
+    if len(set(keys)) != len(keys):
+        raise ValueError("duplicate scientific decision rule")
+    return rows
+
+
 def scientific_policy_recipe() -> dict[str, Any]:
     return {
-        "abi": "scientific-evidence-1",
+        "abi": "scientific-evidence-2",
+        "decision_rules": list(decision_rules()),
+        "comparison_schema": scientific_model().json_schema("ComparisonAssessment"),
         "consolidation": {
             "profile": CONSOLIDATION_PROFILE,
             "simplify_seconds": SIMPLIFY_SECONDS,
@@ -187,25 +215,55 @@ def parse_scientific_assessment_reason(reason: str | None) -> ScientificAssessme
     return ScientificAssessmentEvidence.model_validate_json(reason)
 
 
-def decide_consolidation(evidence: ScientificEvidence) -> ScientificDecision:
+@lru_cache(maxsize=1)
+def _decision_index():
+    from types import MappingProxyType
+
+    return MappingProxyType({
+        (row["policy_id"], row["evidence_tier"], row["agreement"]): row
+        for row in decision_rules()
+    })
+
+
+def _decide(evidence: ScientificEvidence, policy: str) -> ScientificDecision:
+    agreement = "unknown" if evidence.agreement is None else "agrees" if evidence.agreement else "disagrees"
+    try:
+        rule = _decision_index()[policy, evidence.tier.value, agreement]
+    except KeyError as exc:
+        raise ValueError("scientific evidence has no supported decision binding") from exc
+    detail = evidence.detail
+    if policy == REFERENCE_PROFILE and evidence.tier is EvidenceTier.NUMERIC and evidence.agreement:
+        detail = "no symbolic equivalence proof"
     return ScientificDecision(
-        evidence.agreement is True, evidence.tier, evidence.detail, evidence.grammar, evidence
+        rule["decision"] == "equivalent", EvidenceTier(rule["decision_tier"]),
+        detail, evidence.grammar, evidence,
     )
+
+
+def decide_consolidation(evidence: ScientificEvidence) -> ScientificDecision:
+    return _decide(evidence, CONSOLIDATION_PROFILE)
 
 
 def decide_reference(evidence: ScientificEvidence) -> ScientificDecision:
-    # The reference consumer never promotes agreement at sampled points to equivalence.
-    if evidence.tier is EvidenceTier.NUMERIC and evidence.agreement:
-        return ScientificDecision(
-            False,
-            EvidenceTier.UNDECIDED,
-            "no symbolic equivalence proof",
-            evidence.grammar,
-            evidence,
-        )
-    return ScientificDecision(
-        evidence.agreement is True, evidence.tier, evidence.detail, evidence.grammar, evidence
-    )
+    return _decide(evidence, REFERENCE_PROFILE)
+
+
+def comparison_assessment(decision: ScientificDecision, *, context: Any) -> dict[str, Any]:
+    evidence = decision.evidence
+    outcome = "equivalent" if decision.equal else "undecided" if decision.tier is EvidenceTier.UNDECIDED else "different"
+    return scientific_model().validate_json("ComparisonAssessment", json.dumps({
+        "policy_id": evidence.profile,
+        "evidence_tier": evidence.tier.value,
+        "decision_tier": decision.tier.value,
+        "outcome": outcome,
+        "numeric": evidence.numeric,
+        "valid_points": evidence.valid_points,
+        "grammar": evidence.grammar,
+        "mechanism": evidence.mechanism,
+        "operands": [evidence.a, evidence.b],
+        "context": canonical_bytes(context).decode(),
+        "detail": decision.detail,
+    })).model_dump(mode="json")
 
 
 @dataclass(frozen=True)
@@ -870,6 +928,8 @@ def reference_evidence(
                     and abs(xa - ya) > 1e-9 * max(1, abs(xa), abs(ya))
                 ):
                     return result(False, "numeric", "deterministic counterexample")
+        if valid == 12:
+            return result(True, "numeric", "agreement at deterministic sample points")
         return result(False, "undecided", "no symbolic equivalence proof")
     except (
         ArithmeticError,

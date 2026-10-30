@@ -415,3 +415,16 @@ def test_schema_declared_nary_entity_roles_follow_alignment_without_rewriting_pl
     )
     b["claims"][0]["object"]["note"] = "x"
     assert align_semantic(side(a), side(b), p.bound()).counts["core"].matched == 0
+
+
+def test_successful_scientific_comparison_retains_modelled_explanation():
+    left = {"kind": "expression", "language": "latex", "expression": "x+x",
+            "bindings": [{"kind": "free", "symbol": "x"}]}
+    decision = equivalent(left, {**left, "expression": "2 x"}, {})
+    assert decision.equal
+    assert len(decision.comparisons) == 1
+    trace = decision.comparisons[0]
+    assert trace["evidence_tier"] == trace["decision_tier"] == "symbolic"
+    assert trace["outcome"] == "equivalent"
+    assert trace["policy_id"] == "reference-evidence-1"
+    assert trace["numeric"] == "not_run"

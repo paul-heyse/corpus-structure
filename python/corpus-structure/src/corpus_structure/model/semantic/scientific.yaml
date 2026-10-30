@@ -1,0 +1,38 @@
+id: https://corpus-structure.org/model/semantic/scientific
+name: scientific
+prefixes:
+  linkml: https://w3id.org/linkml/
+types:
+  string: {base: str, uri: "http://www.w3.org/2001/XMLSchema#string"}
+  integer: {base: int, uri: "http://www.w3.org/2001/XMLSchema#integer"}
+default_range: string
+enums:
+  Tier:
+    permissible_values: {canonical: {}, symbolic: {}, numeric: {}, undecided: {}}
+  Agreement:
+    permissible_values: {agrees: {}, disagrees: {}, unknown: {}}
+  Decision:
+    permissible_values: {equivalent: {}, different: {}, undecided: {}}
+  Numeric:
+    permissible_values: {not_run: {}, inconclusive: {}, agreement: {}, counterexample: {}}
+classes:
+  DecisionRule:
+    attributes:
+      policy_id: {required: true}
+      evidence_tier: {range: Tier, required: true}
+      agreement: {range: Agreement, required: true}
+      decision: {range: Decision, required: true}
+      decision_tier: {range: Tier, required: true}
+  ComparisonAssessment:
+    attributes:
+      policy_id: {required: true}
+      evidence_tier: {range: Tier, required: true}
+      decision_tier: {range: Tier, required: true}
+      outcome: {range: Decision, required: true}
+      numeric: {range: Numeric, required: true}
+      valid_points: {range: integer, minimum_value: 0, required: true}
+      grammar: {required: true}
+      mechanism: {required: true}
+      operands: {multivalued: true, required: true, minimum_cardinality: 2, maximum_cardinality: 2}
+      context: {required: true}
+      detail: {required: true}

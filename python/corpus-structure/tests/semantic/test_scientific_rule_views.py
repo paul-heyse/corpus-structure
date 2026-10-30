@@ -301,3 +301,16 @@ classes:
     assert canonical_bytes(scientific_policy_recipe()) == recipe
     with pytest.raises(ValueError, match="runtime differs"):
         require_scientific_policy(prepared)
+
+
+def test_actual_reference_kernel_retains_agreement_before_policy():
+    from corpus_structure.semantic.scientific_evidence import reference_evidence, decide_reference
+
+    a, b = expression("x"), expression("x+0.000000000001")
+    raw = reference_evidence(a, b)
+    assert raw.tier is EvidenceTier.NUMERIC
+    assert raw.agreement is True
+    assert raw.numeric == "agreement" and raw.valid_points == 12
+    decision = decide_reference(raw)
+    assert not decision.equal and decision.tier is EvidenceTier.UNDECIDED
+    assert decision.evidence is raw
