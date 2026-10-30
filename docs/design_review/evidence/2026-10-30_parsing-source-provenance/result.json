@@ -1,0 +1,3543 @@
+{
+  "date": "2026-10-30",
+  "html5lib": "1.1",
+  "lxml": "6.1.3",
+  "claim": "bounded normalized token envelopes and observable native tree mutations",
+  "not_established": [
+    "all-state lexical categorization and malformed-attribute boundaries",
+    "general charset and decoder equivalence beyond selected encodings",
+    "complete text-slot lineage through buffering and reparenting",
+    "canonical projection mapping",
+    "whole-corpus qualification"
+  ],
+  "cases": [
+    {
+      "name": "lexical",
+      "input_sha256": "e64158f93c14a8a12ae02f41b86fa83080bb57c17e0c900a3c48d4946db60b39",
+      "byte_length": 63,
+      "decoded_length": 59,
+      "normalized_length": 58,
+      "encodings_by_pass": [
+        "utf-8"
+      ],
+      "native_tree_and_errors_equal": true,
+      "final_tree": "<html><head/><body><p a=\"x\" empty=\"\">α\n&amp;≂̸</p><!--x--></body></html>",
+      "tokens": [
+        {
+          "type": 3,
+          "name": "p",
+          "data": {
+            "a": "x",
+            "empty": ""
+          },
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 0,
+          "pass": 0,
+          "start": 0,
+          "end": 24,
+          "shared_state_output": false,
+          "source_slice": "<P A=\"x\" a='y' empty=\"\">"
+        },
+        {
+          "type": 1,
+          "data": "α\n",
+          "_probe_id": 1,
+          "pass": 0,
+          "start": 24,
+          "end": 26,
+          "shared_state_output": false,
+          "source_slice": "α\n"
+        },
+        {
+          "type": 1,
+          "data": "&",
+          "_probe_id": 2,
+          "pass": 0,
+          "start": 26,
+          "end": 31,
+          "shared_state_output": false,
+          "source_slice": "&amp;"
+        },
+        {
+          "type": 1,
+          "data": "≂̸",
+          "_probe_id": 3,
+          "pass": 0,
+          "start": 31,
+          "end": 46,
+          "shared_state_output": false,
+          "source_slice": "&NotEqualTilde;"
+        },
+        {
+          "type": 4,
+          "name": "p",
+          "data": [],
+          "selfClosing": false,
+          "_probe_id": 4,
+          "pass": 0,
+          "start": 46,
+          "end": 50,
+          "shared_state_output": false,
+          "source_slice": "</P>"
+        },
+        {
+          "type": 6,
+          "data": "x",
+          "_probe_id": 5,
+          "pass": 0,
+          "start": 50,
+          "end": 58,
+          "shared_state_output": false,
+          "source_slice": "<!--x-->"
+        }
+      ],
+      "pre_emit_attributes": [
+        {
+          "pass": 0,
+          "name": "P",
+          "attributes": [
+            [
+              "a",
+              "x"
+            ],
+            [
+              "a",
+              "y"
+            ],
+            [
+              "empty",
+              ""
+            ]
+          ]
+        }
+      ],
+      "tree_events": [
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 1,
+          "name": "head",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 1,
+          "name": "head",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 2,
+          "name": "body",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 2,
+          "name": "body",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 2,
+          "child": 3,
+          "name": "p",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 3,
+          "name": "p",
+          "source_token": 0,
+          "active_token": 0
+        },
+        {
+          "kind": "text",
+          "parent": 3,
+          "name": "p",
+          "data": "α\n",
+          "before": null,
+          "active_token": 1,
+          "source_tokens": [
+            1
+          ]
+        },
+        {
+          "kind": "text",
+          "parent": 3,
+          "name": "p",
+          "data": "&",
+          "before": null,
+          "active_token": 2,
+          "source_tokens": [
+            2
+          ]
+        },
+        {
+          "kind": "text",
+          "parent": 3,
+          "name": "p",
+          "data": "≂̸",
+          "before": null,
+          "active_token": 3,
+          "source_tokens": [
+            3
+          ]
+        },
+        {
+          "kind": "append",
+          "parent": 2,
+          "child": null,
+          "name": null,
+          "active_token": 5
+        }
+      ],
+      "lexical_partition": [
+        {
+          "category": "tag_delimiter",
+          "start": 0,
+          "end": 1,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 1,
+          "end": 2,
+          "source_slice": "P"
+        },
+        {
+          "category": "attribute_separator",
+          "start": 2,
+          "end": 3,
+          "source_slice": " "
+        },
+        {
+          "category": "attribute_name",
+          "start": 3,
+          "end": 4,
+          "source_slice": "A"
+        },
+        {
+          "category": "attribute_equals",
+          "start": 4,
+          "end": 5,
+          "source_slice": "="
+        },
+        {
+          "category": "attribute_quote",
+          "start": 5,
+          "end": 6,
+          "source_slice": "\""
+        },
+        {
+          "category": "attribute_value",
+          "start": 6,
+          "end": 7,
+          "source_slice": "x"
+        },
+        {
+          "category": "attribute_quote",
+          "start": 7,
+          "end": 8,
+          "source_slice": "\""
+        },
+        {
+          "category": "attribute_separator",
+          "start": 8,
+          "end": 9,
+          "source_slice": " "
+        },
+        {
+          "category": "attribute_name",
+          "start": 9,
+          "end": 10,
+          "source_slice": "a"
+        },
+        {
+          "category": "attribute_equals",
+          "start": 10,
+          "end": 11,
+          "source_slice": "="
+        },
+        {
+          "category": "attribute_quote",
+          "start": 11,
+          "end": 12,
+          "source_slice": "'"
+        },
+        {
+          "category": "attribute_value",
+          "start": 12,
+          "end": 13,
+          "source_slice": "y"
+        },
+        {
+          "category": "attribute_quote",
+          "start": 13,
+          "end": 14,
+          "source_slice": "'"
+        },
+        {
+          "category": "attribute_separator",
+          "start": 14,
+          "end": 15,
+          "source_slice": " "
+        },
+        {
+          "category": "attribute_name",
+          "start": 15,
+          "end": 20,
+          "source_slice": "empty"
+        },
+        {
+          "category": "attribute_equals",
+          "start": 20,
+          "end": 21,
+          "source_slice": "="
+        },
+        {
+          "category": "attribute_quote",
+          "start": 21,
+          "end": 23,
+          "source_slice": "\"\""
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 23,
+          "end": 24,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 24,
+          "end": 26,
+          "source_slice": "α\n"
+        },
+        {
+          "category": "character_reference",
+          "start": 26,
+          "end": 46,
+          "source_slice": "&amp;&NotEqualTilde;"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 46,
+          "end": 48,
+          "source_slice": "</"
+        },
+        {
+          "category": "tag_name",
+          "start": 48,
+          "end": 49,
+          "source_slice": "P"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 49,
+          "end": 50,
+          "source_slice": ">"
+        },
+        {
+          "category": "comment",
+          "start": 50,
+          "end": 58,
+          "source_slice": "<!--x-->"
+        }
+      ],
+      "decoder_contributions": "[bounded groups omitted]",
+      "state_events": [
+        {
+          "pass": 0,
+          "state": "dataState",
+          "start": 0,
+          "end": 1
+        },
+        {
+          "pass": 0,
+          "state": "tagOpenState",
+          "start": 1,
+          "end": 2
+        },
+        {
+          "pass": 0,
+          "state": "tagNameState",
+          "start": 2,
+          "end": 3
+        },
+        {
+          "pass": 0,
+          "state": "beforeAttributeNameState",
+          "start": 3,
+          "end": 4
+        },
+        {
+          "pass": 0,
+          "state": "attributeNameState",
+          "start": 4,
+          "end": 5
+        },
+        {
+          "pass": 0,
+          "state": "beforeAttributeValueState",
+          "start": 5,
+          "end": 6
+        },
+        {
+          "pass": 0,
+          "state": "attributeValueDoubleQuotedState",
+          "start": 6,
+          "end": 7
+        },
+        {
+          "pass": 0,
+          "state": "attributeValueDoubleQuotedState",
+          "start": 7,
+          "end": 8
+        },
+        {
+          "pass": 0,
+          "state": "afterAttributeValueState",
+          "start": 8,
+          "end": 9
+        },
+        {
+          "pass": 0,
+          "state": "beforeAttributeNameState",
+          "start": 9,
+          "end": 10
+        },
+        {
+          "pass": 0,
+          "state": "attributeNameState",
+          "start": 10,
+          "end": 11
+        },
+        {
+          "pass": 0,
+          "state": "beforeAttributeValueState",
+          "start": 11,
+          "end": 12
+        },
+        {
+          "pass": 0,
+          "state": "attributeValueSingleQuotedState",
+          "start": 12,
+          "end": 13
+        },
+        {
+          "pass": 0,
+          "state": "attributeValueSingleQuotedState",
+          "start": 13,
+          "end": 14
+        },
+        {
+          "pass": 0,
+          "state": "afterAttributeValueState",
+          "start": 14,
+          "end": 15
+        },
+        {
+          "pass": 0,
+          "state": "beforeAttributeNameState",
+          "start": 15,
+          "end": 16
+        },
+        {
+          "pass": 0,
+          "state": "attributeNameState",
+          "start": 16,
+          "end": 20
+        },
+        {
+          "pass": 0,
+          "state": "attributeNameState",
+          "start": 20,
+          "end": 21
+        },
+        {
+          "pass": 0,
+          "state": "beforeAttributeValueState",
+          "start": 21,
+          "end": 22
+        },
+        {
+          "pass": 0,
+          "state": "attributeValueDoubleQuotedState",
+          "start": 22,
+          "end": 23
+        },
+        {
+          "pass": 0,
+          "state": "afterAttributeValueState",
+          "start": 23,
+          "end": 24
+        },
+        {
+          "pass": 0,
+          "state": "dataState",
+          "start": 24,
+          "end": 26
+        },
+        {
+          "pass": 0,
+          "state": "dataState",
+          "start": 26,
+          "end": 27
+        },
+        {
+          "pass": 0,
+          "state": "entityDataState",
+          "start": 27,
+          "end": 31
+        },
+        {
+          "pass": 0,
+          "state": "dataState",
+          "start": 31,
+          "end": 32
+        },
+        {
+          "pass": 0,
+          "state": "entityDataState",
+          "start": 32,
+          "end": 46
+        },
+        {
+          "pass": 0,
+          "state": "dataState",
+          "start": 46,
+          "end": 47
+        },
+        {
+          "pass": 0,
+          "state": "tagOpenState",
+          "start": 47,
+          "end": 48
+        },
+        {
+          "pass": 0,
+          "state": "closeTagOpenState",
+          "start": 48,
+          "end": 49
+        },
+        {
+          "pass": 0,
+          "state": "tagNameState",
+          "start": 49,
+          "end": 50
+        },
+        {
+          "pass": 0,
+          "state": "dataState",
+          "start": 50,
+          "end": 51
+        },
+        {
+          "pass": 0,
+          "state": "tagOpenState",
+          "start": 51,
+          "end": 52
+        },
+        {
+          "pass": 0,
+          "state": "markupDeclarationOpenState",
+          "start": 52,
+          "end": 54
+        },
+        {
+          "pass": 0,
+          "state": "commentStartState",
+          "start": 54,
+          "end": 55
+        },
+        {
+          "pass": 0,
+          "state": "commentState",
+          "start": 55,
+          "end": 56
+        },
+        {
+          "pass": 0,
+          "state": "commentEndDashState",
+          "start": 56,
+          "end": 57
+        },
+        {
+          "pass": 0,
+          "state": "commentEndState",
+          "start": 57,
+          "end": 58
+        },
+        {
+          "pass": 0,
+          "state": "dataState",
+          "start": 58,
+          "end": 58
+        }
+      ]
+    },
+    {
+      "name": "foster",
+      "input_sha256": "520df467b55ec64310a83287a28d214691464b76b88ec22dd0805fbf8cf78dca",
+      "byte_length": 31,
+      "decoded_length": 31,
+      "normalized_length": 31,
+      "encodings_by_pass": [
+        "windows-1252"
+      ],
+      "native_tree_and_errors_equal": true,
+      "final_tree": "<html><head/><body>a&amp;b<table><tbody><tr><td>x</td></tr></tbody></table></body></html>",
+      "tokens": [
+        {
+          "type": 3,
+          "name": "table",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 0,
+          "pass": 0,
+          "start": 0,
+          "end": 7,
+          "shared_state_output": false,
+          "source_slice": "<table>"
+        },
+        {
+          "type": 1,
+          "data": "a",
+          "_probe_id": 1,
+          "pass": 0,
+          "start": 7,
+          "end": 8,
+          "shared_state_output": false,
+          "source_slice": "a"
+        },
+        {
+          "type": 1,
+          "data": "&",
+          "_probe_id": 2,
+          "pass": 0,
+          "start": 8,
+          "end": 13,
+          "shared_state_output": false,
+          "source_slice": "&amp;"
+        },
+        {
+          "type": 1,
+          "data": "b",
+          "_probe_id": 3,
+          "pass": 0,
+          "start": 13,
+          "end": 14,
+          "shared_state_output": false,
+          "source_slice": "b"
+        },
+        {
+          "type": 3,
+          "name": "tr",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 4,
+          "pass": 0,
+          "start": 14,
+          "end": 18,
+          "shared_state_output": false,
+          "source_slice": "<tr>"
+        },
+        {
+          "type": 3,
+          "name": "td",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 5,
+          "pass": 0,
+          "start": 18,
+          "end": 22,
+          "shared_state_output": false,
+          "source_slice": "<td>"
+        },
+        {
+          "type": 1,
+          "data": "x",
+          "_probe_id": 6,
+          "pass": 0,
+          "start": 22,
+          "end": 23,
+          "shared_state_output": false,
+          "source_slice": "x"
+        },
+        {
+          "type": 4,
+          "name": "table",
+          "data": [],
+          "selfClosing": false,
+          "_probe_id": 7,
+          "pass": 0,
+          "start": 23,
+          "end": 31,
+          "shared_state_output": false,
+          "source_slice": "</table>"
+        }
+      ],
+      "pre_emit_attributes": [
+        {
+          "pass": 0,
+          "name": "table",
+          "attributes": []
+        },
+        {
+          "pass": 0,
+          "name": "tr",
+          "attributes": []
+        },
+        {
+          "pass": 0,
+          "name": "td",
+          "attributes": []
+        }
+      ],
+      "tree_events": [
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 1,
+          "name": "head",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 1,
+          "name": "head",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 2,
+          "name": "body",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 2,
+          "name": "body",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 2,
+          "child": 3,
+          "name": "table",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 3,
+          "name": "table",
+          "source_token": 0,
+          "active_token": 0
+        },
+        {
+          "kind": "text",
+          "parent": 2,
+          "name": "body",
+          "data": "a&b",
+          "before": 3,
+          "active_token": 4,
+          "source_tokens": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "kind": "append",
+          "parent": 3,
+          "child": 4,
+          "name": "tbody",
+          "active_token": 4
+        },
+        {
+          "kind": "element",
+          "node": 4,
+          "name": "tbody",
+          "source_token": null,
+          "active_token": 4
+        },
+        {
+          "kind": "append",
+          "parent": 4,
+          "child": 5,
+          "name": "tr",
+          "active_token": 4
+        },
+        {
+          "kind": "element",
+          "node": 5,
+          "name": "tr",
+          "source_token": 4,
+          "active_token": 4
+        },
+        {
+          "kind": "append",
+          "parent": 5,
+          "child": 6,
+          "name": "td",
+          "active_token": 5
+        },
+        {
+          "kind": "element",
+          "node": 6,
+          "name": "td",
+          "source_token": 5,
+          "active_token": 5
+        },
+        {
+          "kind": "text",
+          "parent": 6,
+          "name": "td",
+          "data": "x",
+          "before": null,
+          "active_token": 6,
+          "source_tokens": [
+            6
+          ]
+        }
+      ],
+      "lexical_partition": [
+        {
+          "category": "tag_delimiter",
+          "start": 0,
+          "end": 1,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 1,
+          "end": 6,
+          "source_slice": "table"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 6,
+          "end": 7,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 7,
+          "end": 8,
+          "source_slice": "a"
+        },
+        {
+          "category": "character_reference",
+          "start": 8,
+          "end": 13,
+          "source_slice": "&amp;"
+        },
+        {
+          "category": "text",
+          "start": 13,
+          "end": 14,
+          "source_slice": "b"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 14,
+          "end": 15,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 15,
+          "end": 17,
+          "source_slice": "tr"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 17,
+          "end": 19,
+          "source_slice": "><"
+        },
+        {
+          "category": "tag_name",
+          "start": 19,
+          "end": 21,
+          "source_slice": "td"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 21,
+          "end": 22,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 22,
+          "end": 23,
+          "source_slice": "x"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 23,
+          "end": 25,
+          "source_slice": "</"
+        },
+        {
+          "category": "tag_name",
+          "start": 25,
+          "end": 30,
+          "source_slice": "table"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 30,
+          "end": 31,
+          "source_slice": ">"
+        }
+      ],
+      "decoder_contributions": "[bounded groups omitted]"
+    },
+    {
+      "name": "adoption",
+      "input_sha256": "68e8c9873d7fc3568dab8caa54fbecf106ade60f334417cc9eb6ecedc2cdae30",
+      "byte_length": 32,
+      "decoded_length": 32,
+      "normalized_length": 32,
+      "encodings_by_pass": [
+        "windows-1252"
+      ],
+      "native_tree_and_errors_equal": true,
+      "final_tree": "<html><head/><body><p><b>one<i>two</i></b><i>three</i>four</p></body></html>",
+      "tokens": [
+        {
+          "type": 3,
+          "name": "p",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 0,
+          "pass": 0,
+          "start": 0,
+          "end": 3,
+          "shared_state_output": false,
+          "source_slice": "<p>"
+        },
+        {
+          "type": 3,
+          "name": "b",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 1,
+          "pass": 0,
+          "start": 3,
+          "end": 6,
+          "shared_state_output": false,
+          "source_slice": "<b>"
+        },
+        {
+          "type": 1,
+          "data": "one",
+          "_probe_id": 2,
+          "pass": 0,
+          "start": 6,
+          "end": 9,
+          "shared_state_output": false,
+          "source_slice": "one"
+        },
+        {
+          "type": 3,
+          "name": "i",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 3,
+          "pass": 0,
+          "start": 9,
+          "end": 12,
+          "shared_state_output": false,
+          "source_slice": "<i>"
+        },
+        {
+          "type": 1,
+          "data": "two",
+          "_probe_id": 4,
+          "pass": 0,
+          "start": 12,
+          "end": 15,
+          "shared_state_output": false,
+          "source_slice": "two"
+        },
+        {
+          "type": 4,
+          "name": "b",
+          "data": [],
+          "selfClosing": false,
+          "_probe_id": 5,
+          "pass": 0,
+          "start": 15,
+          "end": 19,
+          "shared_state_output": false,
+          "source_slice": "</b>"
+        },
+        {
+          "type": 1,
+          "data": "three",
+          "_probe_id": 6,
+          "pass": 0,
+          "start": 19,
+          "end": 24,
+          "shared_state_output": false,
+          "source_slice": "three"
+        },
+        {
+          "type": 4,
+          "name": "i",
+          "data": [],
+          "selfClosing": false,
+          "_probe_id": 7,
+          "pass": 0,
+          "start": 24,
+          "end": 28,
+          "shared_state_output": false,
+          "source_slice": "</i>"
+        },
+        {
+          "type": 1,
+          "data": "four",
+          "_probe_id": 8,
+          "pass": 0,
+          "start": 28,
+          "end": 32,
+          "shared_state_output": false,
+          "source_slice": "four"
+        }
+      ],
+      "pre_emit_attributes": [
+        {
+          "pass": 0,
+          "name": "p",
+          "attributes": []
+        },
+        {
+          "pass": 0,
+          "name": "b",
+          "attributes": []
+        },
+        {
+          "pass": 0,
+          "name": "i",
+          "attributes": []
+        }
+      ],
+      "tree_events": [
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 1,
+          "name": "head",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 1,
+          "name": "head",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 2,
+          "name": "body",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 2,
+          "name": "body",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 2,
+          "child": 3,
+          "name": "p",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 3,
+          "name": "p",
+          "source_token": 0,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 3,
+          "child": 4,
+          "name": "b",
+          "active_token": 1
+        },
+        {
+          "kind": "element",
+          "node": 4,
+          "name": "b",
+          "source_token": 1,
+          "active_token": 1
+        },
+        {
+          "kind": "text",
+          "parent": 4,
+          "name": "b",
+          "data": "one",
+          "before": null,
+          "active_token": 2,
+          "source_tokens": [
+            2
+          ]
+        },
+        {
+          "kind": "append",
+          "parent": 4,
+          "child": 5,
+          "name": "i",
+          "active_token": 3
+        },
+        {
+          "kind": "element",
+          "node": 5,
+          "name": "i",
+          "source_token": 3,
+          "active_token": 3
+        },
+        {
+          "kind": "text",
+          "parent": 5,
+          "name": "i",
+          "data": "two",
+          "before": null,
+          "active_token": 4,
+          "source_tokens": [
+            4
+          ]
+        },
+        {
+          "kind": "clone",
+          "source": 5,
+          "target": 6,
+          "name": "i",
+          "active_token": 6
+        },
+        {
+          "kind": "append",
+          "parent": 3,
+          "child": 7,
+          "name": "i",
+          "active_token": 6
+        },
+        {
+          "kind": "element",
+          "node": 7,
+          "name": "i",
+          "source_token": null,
+          "active_token": 6
+        },
+        {
+          "kind": "text",
+          "parent": 7,
+          "name": "i",
+          "data": "three",
+          "before": null,
+          "active_token": 6,
+          "source_tokens": [
+            6
+          ]
+        },
+        {
+          "kind": "text",
+          "parent": 3,
+          "name": "p",
+          "data": "four",
+          "before": null,
+          "active_token": 8,
+          "source_tokens": [
+            8
+          ]
+        }
+      ],
+      "lexical_partition": [
+        {
+          "category": "tag_delimiter",
+          "start": 0,
+          "end": 1,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 1,
+          "end": 2,
+          "source_slice": "p"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 2,
+          "end": 4,
+          "source_slice": "><"
+        },
+        {
+          "category": "tag_name",
+          "start": 4,
+          "end": 5,
+          "source_slice": "b"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 5,
+          "end": 6,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 6,
+          "end": 9,
+          "source_slice": "one"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 9,
+          "end": 10,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 10,
+          "end": 11,
+          "source_slice": "i"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 11,
+          "end": 12,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 12,
+          "end": 15,
+          "source_slice": "two"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 15,
+          "end": 17,
+          "source_slice": "</"
+        },
+        {
+          "category": "tag_name",
+          "start": 17,
+          "end": 18,
+          "source_slice": "b"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 18,
+          "end": 19,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 19,
+          "end": 24,
+          "source_slice": "three"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 24,
+          "end": 26,
+          "source_slice": "</"
+        },
+        {
+          "category": "tag_name",
+          "start": 26,
+          "end": 27,
+          "source_slice": "i"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 27,
+          "end": 28,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 28,
+          "end": 32,
+          "source_slice": "four"
+        }
+      ],
+      "decoder_contributions": "[bounded groups omitted]"
+    },
+    {
+      "name": "raw_foreign",
+      "input_sha256": "a3051007c5e3e8060d2e07344c419ec07b5279f51d9fdd87f3b74a5e6b2e31fd",
+      "byte_length": 78,
+      "decoded_length": 78,
+      "normalized_length": 78,
+      "encodings_by_pass": [
+        "windows-1252"
+      ],
+      "native_tree_and_errors_equal": true,
+      "final_tree": "<!DOCTYPE html>\n<html><head><script>if(a&lt;b){x='&amp;amp;'}</script></head><body><ns0:svg xmlns:ns0=\"http://www.w3.org/2000/svg\">a&lt;b&amp;c</ns0:svg></body></html>",
+      "tokens": [
+        {
+          "type": 0,
+          "name": "html",
+          "publicId": null,
+          "systemId": null,
+          "correct": true,
+          "_probe_id": 0,
+          "pass": 0,
+          "start": 0,
+          "end": 15,
+          "shared_state_output": false,
+          "source_slice": "<!doctype html>"
+        },
+        {
+          "type": 3,
+          "name": "script",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 1,
+          "pass": 0,
+          "start": 15,
+          "end": 23,
+          "shared_state_output": false,
+          "source_slice": "<script>"
+        },
+        {
+          "type": 1,
+          "data": "if(a",
+          "_probe_id": 2,
+          "pass": 0,
+          "start": 23,
+          "end": 27,
+          "shared_state_output": false,
+          "source_slice": "if(a"
+        },
+        {
+          "type": 1,
+          "data": "<",
+          "_probe_id": 3,
+          "pass": 0,
+          "start": 27,
+          "end": 28,
+          "shared_state_output": false,
+          "source_slice": "<"
+        },
+        {
+          "type": 1,
+          "data": "b){x='&amp;'}",
+          "_probe_id": 4,
+          "pass": 0,
+          "start": 28,
+          "end": 41,
+          "shared_state_output": false,
+          "source_slice": "b){x='&amp;'}"
+        },
+        {
+          "type": 4,
+          "name": "script",
+          "data": [],
+          "selfClosing": false,
+          "_probe_id": 5,
+          "pass": 0,
+          "start": 41,
+          "end": 50,
+          "shared_state_output": false,
+          "source_slice": "</script>"
+        },
+        {
+          "type": 3,
+          "name": "svg",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 6,
+          "pass": 0,
+          "start": 50,
+          "end": 55,
+          "shared_state_output": false,
+          "source_slice": "<svg>"
+        },
+        {
+          "type": 1,
+          "data": "a<b&c",
+          "_probe_id": 7,
+          "pass": 0,
+          "start": 55,
+          "end": 72,
+          "shared_state_output": false,
+          "source_slice": "<![CDATA[a<b&c]]>"
+        },
+        {
+          "type": 4,
+          "name": "svg",
+          "data": [],
+          "selfClosing": false,
+          "_probe_id": 8,
+          "pass": 0,
+          "start": 72,
+          "end": 78,
+          "shared_state_output": false,
+          "source_slice": "</svg>"
+        }
+      ],
+      "pre_emit_attributes": [
+        {
+          "pass": 0,
+          "name": "script",
+          "attributes": []
+        },
+        {
+          "pass": 0,
+          "name": "svg",
+          "attributes": []
+        }
+      ],
+      "tree_events": [
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 1,
+          "name": "head",
+          "active_token": 1
+        },
+        {
+          "kind": "element",
+          "node": 1,
+          "name": "head",
+          "source_token": null,
+          "active_token": 1
+        },
+        {
+          "kind": "append",
+          "parent": 1,
+          "child": 2,
+          "name": "script",
+          "active_token": 1
+        },
+        {
+          "kind": "element",
+          "node": 2,
+          "name": "script",
+          "source_token": 1,
+          "active_token": 1
+        },
+        {
+          "kind": "text",
+          "parent": 2,
+          "name": "script",
+          "data": "if(a",
+          "before": null,
+          "active_token": 2,
+          "source_tokens": [
+            2
+          ]
+        },
+        {
+          "kind": "text",
+          "parent": 2,
+          "name": "script",
+          "data": "<",
+          "before": null,
+          "active_token": 3,
+          "source_tokens": [
+            3
+          ]
+        },
+        {
+          "kind": "text",
+          "parent": 2,
+          "name": "script",
+          "data": "b){x='&amp;'}",
+          "before": null,
+          "active_token": 4,
+          "source_tokens": [
+            4
+          ]
+        },
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 3,
+          "name": "body",
+          "active_token": 6
+        },
+        {
+          "kind": "element",
+          "node": 3,
+          "name": "body",
+          "source_token": null,
+          "active_token": 6
+        },
+        {
+          "kind": "append",
+          "parent": 3,
+          "child": 4,
+          "name": "svg",
+          "active_token": 6
+        },
+        {
+          "kind": "element",
+          "node": 4,
+          "name": "svg",
+          "source_token": 6,
+          "active_token": 6
+        },
+        {
+          "kind": "text",
+          "parent": 4,
+          "name": "svg",
+          "data": "a<b&c",
+          "before": null,
+          "active_token": 7,
+          "source_tokens": [
+            7
+          ]
+        }
+      ],
+      "lexical_partition": [
+        {
+          "category": "doctype",
+          "start": 0,
+          "end": 15,
+          "source_slice": "<!doctype html>"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 15,
+          "end": 16,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 16,
+          "end": 22,
+          "source_slice": "script"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 22,
+          "end": 23,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 23,
+          "end": 41,
+          "source_slice": "if(a<b){x='&amp;'}"
+        },
+        {
+          "category": "tag",
+          "start": 41,
+          "end": 50,
+          "source_slice": "</script>"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 50,
+          "end": 51,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 51,
+          "end": 54,
+          "source_slice": "svg"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 54,
+          "end": 55,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 55,
+          "end": 72,
+          "source_slice": "<![CDATA[a<b&c]]>"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 72,
+          "end": 74,
+          "source_slice": "</"
+        },
+        {
+          "category": "tag_name",
+          "start": 74,
+          "end": 77,
+          "source_slice": "svg"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 77,
+          "end": 78,
+          "source_slice": ">"
+        }
+      ],
+      "decoder_contributions": "[bounded groups omitted]"
+    },
+    {
+      "name": "bom",
+      "input_sha256": "c9af756371ea876aca0ac02bd1c6b0866027cf173bfdad12e389d9a8915deb02",
+      "byte_length": 11,
+      "decoded_length": 7,
+      "normalized_length": 6,
+      "encodings_by_pass": [
+        "utf-8"
+      ],
+      "native_tree_and_errors_equal": true,
+      "final_tree": "<html><head/><body><p>é\nx</p></body></html>",
+      "tokens": [
+        {
+          "type": 3,
+          "name": "p",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 0,
+          "pass": 0,
+          "start": 0,
+          "end": 3,
+          "shared_state_output": false,
+          "source_slice": "<p>"
+        },
+        {
+          "type": 1,
+          "data": "é\nx",
+          "_probe_id": 1,
+          "pass": 0,
+          "start": 3,
+          "end": 6,
+          "shared_state_output": false,
+          "source_slice": "é\nx"
+        }
+      ],
+      "pre_emit_attributes": [
+        {
+          "pass": 0,
+          "name": "p",
+          "attributes": []
+        }
+      ],
+      "tree_events": [
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 1,
+          "name": "head",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 1,
+          "name": "head",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 2,
+          "name": "body",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 2,
+          "name": "body",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 2,
+          "child": 3,
+          "name": "p",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 3,
+          "name": "p",
+          "source_token": 0,
+          "active_token": 0
+        },
+        {
+          "kind": "text",
+          "parent": 3,
+          "name": "p",
+          "data": "é\nx",
+          "before": null,
+          "active_token": 1,
+          "source_tokens": [
+            1
+          ]
+        }
+      ],
+      "lexical_partition": [
+        {
+          "category": "tag_delimiter",
+          "start": 0,
+          "end": 1,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 1,
+          "end": 2,
+          "source_slice": "p"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 2,
+          "end": 3,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 3,
+          "end": 6,
+          "source_slice": "é\nx"
+        }
+      ],
+      "decoder_contributions": [
+        {
+          "kind": "bom",
+          "bytes": [
+            0,
+            3
+          ],
+          "decoded": [
+            0,
+            0
+          ],
+          "text": ""
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            3,
+            4
+          ],
+          "decoded": [
+            0,
+            1
+          ],
+          "text": "<"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            4,
+            5
+          ],
+          "decoded": [
+            1,
+            2
+          ],
+          "text": "p"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            5,
+            6
+          ],
+          "decoded": [
+            2,
+            3
+          ],
+          "text": ">"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            6,
+            8
+          ],
+          "decoded": [
+            3,
+            4
+          ],
+          "text": "é"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            8,
+            9
+          ],
+          "decoded": [
+            4,
+            5
+          ],
+          "text": "\r"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            9,
+            10
+          ],
+          "decoded": [
+            5,
+            6
+          ],
+          "text": "\n"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            10,
+            11
+          ],
+          "decoded": [
+            6,
+            7
+          ],
+          "text": "x"
+        }
+      ]
+    },
+    {
+      "name": "replacement",
+      "input_sha256": "cc0217002c0261e228982d70d7a2a9fdbcb6bd51b32c961879726c58d0ccfa73",
+      "byte_length": 28,
+      "decoded_length": 28,
+      "normalized_length": 28,
+      "encodings_by_pass": [
+        "utf-8"
+      ],
+      "native_tree_and_errors_equal": true,
+      "final_tree": "<html><head><meta charset=\"utf-8\"/></head><body><p>a�b�A</p></body></html>",
+      "tokens": [
+        {
+          "type": 3,
+          "name": "meta",
+          "data": {
+            "charset": "utf-8"
+          },
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 0,
+          "pass": 0,
+          "start": 0,
+          "end": 20,
+          "shared_state_output": false,
+          "source_slice": "<meta charset=utf-8>"
+        },
+        {
+          "type": 3,
+          "name": "p",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 1,
+          "pass": 0,
+          "start": 20,
+          "end": 23,
+          "shared_state_output": false,
+          "source_slice": "<p>"
+        },
+        {
+          "type": 1,
+          "data": "a�b�A",
+          "_probe_id": 2,
+          "pass": 0,
+          "start": 23,
+          "end": 28,
+          "shared_state_output": false,
+          "source_slice": "a�b�A"
+        }
+      ],
+      "pre_emit_attributes": [
+        {
+          "pass": 0,
+          "name": "meta",
+          "attributes": [
+            [
+              "charset",
+              "utf-8"
+            ]
+          ]
+        },
+        {
+          "pass": 0,
+          "name": "p",
+          "attributes": []
+        }
+      ],
+      "tree_events": [
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 1,
+          "name": "head",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 1,
+          "name": "head",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 1,
+          "child": 2,
+          "name": "meta",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 2,
+          "name": "meta",
+          "source_token": 0,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 3,
+          "name": "body",
+          "active_token": 1
+        },
+        {
+          "kind": "element",
+          "node": 3,
+          "name": "body",
+          "source_token": null,
+          "active_token": 1
+        },
+        {
+          "kind": "append",
+          "parent": 3,
+          "child": 4,
+          "name": "p",
+          "active_token": 1
+        },
+        {
+          "kind": "element",
+          "node": 4,
+          "name": "p",
+          "source_token": 1,
+          "active_token": 1
+        },
+        {
+          "kind": "text",
+          "parent": 4,
+          "name": "p",
+          "data": "a�b�A",
+          "before": null,
+          "active_token": 2,
+          "source_tokens": [
+            2
+          ]
+        }
+      ],
+      "lexical_partition": [
+        {
+          "category": "tag_delimiter",
+          "start": 0,
+          "end": 1,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 1,
+          "end": 5,
+          "source_slice": "meta"
+        },
+        {
+          "category": "attribute_separator",
+          "start": 5,
+          "end": 6,
+          "source_slice": " "
+        },
+        {
+          "category": "attribute_name",
+          "start": 6,
+          "end": 13,
+          "source_slice": "charset"
+        },
+        {
+          "category": "attribute_equals",
+          "start": 13,
+          "end": 14,
+          "source_slice": "="
+        },
+        {
+          "category": "attribute_value",
+          "start": 14,
+          "end": 19,
+          "source_slice": "utf-8"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 19,
+          "end": 21,
+          "source_slice": "><"
+        },
+        {
+          "category": "tag_name",
+          "start": 21,
+          "end": 22,
+          "source_slice": "p"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 22,
+          "end": 23,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 23,
+          "end": 28,
+          "source_slice": "a�b�A"
+        }
+      ],
+      "decoder_contributions": [
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            0,
+            1
+          ],
+          "decoded": [
+            0,
+            1
+          ],
+          "text": "<"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            1,
+            2
+          ],
+          "decoded": [
+            1,
+            2
+          ],
+          "text": "m"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            2,
+            3
+          ],
+          "decoded": [
+            2,
+            3
+          ],
+          "text": "e"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            3,
+            4
+          ],
+          "decoded": [
+            3,
+            4
+          ],
+          "text": "t"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            4,
+            5
+          ],
+          "decoded": [
+            4,
+            5
+          ],
+          "text": "a"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            5,
+            6
+          ],
+          "decoded": [
+            5,
+            6
+          ],
+          "text": " "
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            6,
+            7
+          ],
+          "decoded": [
+            6,
+            7
+          ],
+          "text": "c"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            7,
+            8
+          ],
+          "decoded": [
+            7,
+            8
+          ],
+          "text": "h"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            8,
+            9
+          ],
+          "decoded": [
+            8,
+            9
+          ],
+          "text": "a"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            9,
+            10
+          ],
+          "decoded": [
+            9,
+            10
+          ],
+          "text": "r"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            10,
+            11
+          ],
+          "decoded": [
+            10,
+            11
+          ],
+          "text": "s"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            11,
+            12
+          ],
+          "decoded": [
+            11,
+            12
+          ],
+          "text": "e"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            12,
+            13
+          ],
+          "decoded": [
+            12,
+            13
+          ],
+          "text": "t"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            13,
+            14
+          ],
+          "decoded": [
+            13,
+            14
+          ],
+          "text": "="
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            14,
+            15
+          ],
+          "decoded": [
+            14,
+            15
+          ],
+          "text": "u"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            15,
+            16
+          ],
+          "decoded": [
+            15,
+            16
+          ],
+          "text": "t"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            16,
+            17
+          ],
+          "decoded": [
+            16,
+            17
+          ],
+          "text": "f"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            17,
+            18
+          ],
+          "decoded": [
+            17,
+            18
+          ],
+          "text": "-"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            18,
+            19
+          ],
+          "decoded": [
+            18,
+            19
+          ],
+          "text": "8"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            19,
+            20
+          ],
+          "decoded": [
+            19,
+            20
+          ],
+          "text": ">"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            20,
+            21
+          ],
+          "decoded": [
+            20,
+            21
+          ],
+          "text": "<"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            21,
+            22
+          ],
+          "decoded": [
+            21,
+            22
+          ],
+          "text": "p"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            22,
+            23
+          ],
+          "decoded": [
+            22,
+            23
+          ],
+          "text": ">"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            23,
+            24
+          ],
+          "decoded": [
+            23,
+            24
+          ],
+          "text": "a"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            24,
+            25
+          ],
+          "decoded": [
+            24,
+            25
+          ],
+          "text": "�"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            25,
+            26
+          ],
+          "decoded": [
+            25,
+            26
+          ],
+          "text": "b"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            26,
+            28
+          ],
+          "decoded": [
+            26,
+            28
+          ],
+          "text": "�A"
+        }
+      ]
+    },
+    {
+      "name": "windows1252",
+      "input_sha256": "ba75c0eff8f9200c9770e8328a2ff4ec1d8663449d53d27b8d2008a5a3f9cede",
+      "byte_length": 34,
+      "decoded_length": 34,
+      "normalized_length": 33,
+      "encodings_by_pass": [
+        "windows-1252"
+      ],
+      "native_tree_and_errors_equal": true,
+      "final_tree": "<html><head><meta charset=\"windows-1252\"/></head><body><p>€\nx</p></body></html>",
+      "tokens": [
+        {
+          "type": 3,
+          "name": "meta",
+          "data": {
+            "charset": "windows-1252"
+          },
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 0,
+          "pass": 0,
+          "start": 0,
+          "end": 27,
+          "shared_state_output": false,
+          "source_slice": "<meta charset=windows-1252>"
+        },
+        {
+          "type": 3,
+          "name": "p",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 1,
+          "pass": 0,
+          "start": 27,
+          "end": 30,
+          "shared_state_output": false,
+          "source_slice": "<p>"
+        },
+        {
+          "type": 1,
+          "data": "€\nx",
+          "_probe_id": 2,
+          "pass": 0,
+          "start": 30,
+          "end": 33,
+          "shared_state_output": false,
+          "source_slice": "€\nx"
+        }
+      ],
+      "pre_emit_attributes": [
+        {
+          "pass": 0,
+          "name": "meta",
+          "attributes": [
+            [
+              "charset",
+              "windows-1252"
+            ]
+          ]
+        },
+        {
+          "pass": 0,
+          "name": "p",
+          "attributes": []
+        }
+      ],
+      "tree_events": [
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 1,
+          "name": "head",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 1,
+          "name": "head",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 1,
+          "child": 2,
+          "name": "meta",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 2,
+          "name": "meta",
+          "source_token": 0,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 3,
+          "name": "body",
+          "active_token": 1
+        },
+        {
+          "kind": "element",
+          "node": 3,
+          "name": "body",
+          "source_token": null,
+          "active_token": 1
+        },
+        {
+          "kind": "append",
+          "parent": 3,
+          "child": 4,
+          "name": "p",
+          "active_token": 1
+        },
+        {
+          "kind": "element",
+          "node": 4,
+          "name": "p",
+          "source_token": 1,
+          "active_token": 1
+        },
+        {
+          "kind": "text",
+          "parent": 4,
+          "name": "p",
+          "data": "€\nx",
+          "before": null,
+          "active_token": 2,
+          "source_tokens": [
+            2
+          ]
+        }
+      ],
+      "lexical_partition": [
+        {
+          "category": "tag_delimiter",
+          "start": 0,
+          "end": 1,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 1,
+          "end": 5,
+          "source_slice": "meta"
+        },
+        {
+          "category": "attribute_separator",
+          "start": 5,
+          "end": 6,
+          "source_slice": " "
+        },
+        {
+          "category": "attribute_name",
+          "start": 6,
+          "end": 13,
+          "source_slice": "charset"
+        },
+        {
+          "category": "attribute_equals",
+          "start": 13,
+          "end": 14,
+          "source_slice": "="
+        },
+        {
+          "category": "attribute_value",
+          "start": 14,
+          "end": 26,
+          "source_slice": "windows-1252"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 26,
+          "end": 28,
+          "source_slice": "><"
+        },
+        {
+          "category": "tag_name",
+          "start": 28,
+          "end": 29,
+          "source_slice": "p"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 29,
+          "end": 30,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 30,
+          "end": 33,
+          "source_slice": "€\nx"
+        }
+      ],
+      "decoder_contributions": [
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            0,
+            1
+          ],
+          "decoded": [
+            0,
+            1
+          ],
+          "text": "<"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            1,
+            2
+          ],
+          "decoded": [
+            1,
+            2
+          ],
+          "text": "m"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            2,
+            3
+          ],
+          "decoded": [
+            2,
+            3
+          ],
+          "text": "e"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            3,
+            4
+          ],
+          "decoded": [
+            3,
+            4
+          ],
+          "text": "t"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            4,
+            5
+          ],
+          "decoded": [
+            4,
+            5
+          ],
+          "text": "a"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            5,
+            6
+          ],
+          "decoded": [
+            5,
+            6
+          ],
+          "text": " "
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            6,
+            7
+          ],
+          "decoded": [
+            6,
+            7
+          ],
+          "text": "c"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            7,
+            8
+          ],
+          "decoded": [
+            7,
+            8
+          ],
+          "text": "h"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            8,
+            9
+          ],
+          "decoded": [
+            8,
+            9
+          ],
+          "text": "a"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            9,
+            10
+          ],
+          "decoded": [
+            9,
+            10
+          ],
+          "text": "r"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            10,
+            11
+          ],
+          "decoded": [
+            10,
+            11
+          ],
+          "text": "s"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            11,
+            12
+          ],
+          "decoded": [
+            11,
+            12
+          ],
+          "text": "e"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            12,
+            13
+          ],
+          "decoded": [
+            12,
+            13
+          ],
+          "text": "t"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            13,
+            14
+          ],
+          "decoded": [
+            13,
+            14
+          ],
+          "text": "="
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            14,
+            15
+          ],
+          "decoded": [
+            14,
+            15
+          ],
+          "text": "w"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            15,
+            16
+          ],
+          "decoded": [
+            15,
+            16
+          ],
+          "text": "i"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            16,
+            17
+          ],
+          "decoded": [
+            16,
+            17
+          ],
+          "text": "n"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            17,
+            18
+          ],
+          "decoded": [
+            17,
+            18
+          ],
+          "text": "d"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            18,
+            19
+          ],
+          "decoded": [
+            18,
+            19
+          ],
+          "text": "o"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            19,
+            20
+          ],
+          "decoded": [
+            19,
+            20
+          ],
+          "text": "w"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            20,
+            21
+          ],
+          "decoded": [
+            20,
+            21
+          ],
+          "text": "s"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            21,
+            22
+          ],
+          "decoded": [
+            21,
+            22
+          ],
+          "text": "-"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            22,
+            23
+          ],
+          "decoded": [
+            22,
+            23
+          ],
+          "text": "1"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            23,
+            24
+          ],
+          "decoded": [
+            23,
+            24
+          ],
+          "text": "2"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            24,
+            25
+          ],
+          "decoded": [
+            24,
+            25
+          ],
+          "text": "5"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            25,
+            26
+          ],
+          "decoded": [
+            25,
+            26
+          ],
+          "text": "2"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            26,
+            27
+          ],
+          "decoded": [
+            26,
+            27
+          ],
+          "text": ">"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            27,
+            28
+          ],
+          "decoded": [
+            27,
+            28
+          ],
+          "text": "<"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            28,
+            29
+          ],
+          "decoded": [
+            28,
+            29
+          ],
+          "text": "p"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            29,
+            30
+          ],
+          "decoded": [
+            29,
+            30
+          ],
+          "text": ">"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            30,
+            31
+          ],
+          "decoded": [
+            30,
+            31
+          ],
+          "text": "€"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            31,
+            32
+          ],
+          "decoded": [
+            31,
+            32
+          ],
+          "text": "\r"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            32,
+            33
+          ],
+          "decoded": [
+            32,
+            33
+          ],
+          "text": "\n"
+        },
+        {
+          "kind": "decoder_contribution",
+          "bytes": [
+            33,
+            34
+          ],
+          "decoded": [
+            33,
+            34
+          ],
+          "text": "x"
+        }
+      ]
+    },
+    {
+      "name": "restart",
+      "input_sha256": "8060d8b4ff8f4cb2c42fc6c05b13ff7f689192d4394a36a1881900058a251ed3",
+      "byte_length": 1057,
+      "decoded_length": 1056,
+      "normalized_length": 1056,
+      "encodings_by_pass": [
+        "windows-1252",
+        "utf-8"
+      ],
+      "native_tree_and_errors_equal": true,
+      "final_tree": "[large deterministic prefix omitted from report]",
+      "tokens": [
+        {
+          "type": 3,
+          "name": "p",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 4,
+          "pass": 1,
+          "start": 0,
+          "end": 3,
+          "shared_state_output": false,
+          "source_slice": "<p>"
+        },
+        {
+          "type": 1,
+          "data": "[1025-character deterministic prefix omitted]",
+          "_probe_id": 5,
+          "pass": 1,
+          "start": 3,
+          "end": 1028,
+          "shared_state_output": false,
+          "source_slice": "[1025-character deterministic prefix omitted]"
+        },
+        {
+          "type": 4,
+          "name": "p",
+          "data": [],
+          "selfClosing": false,
+          "_probe_id": 6,
+          "pass": 1,
+          "start": 1028,
+          "end": 1032,
+          "shared_state_output": false,
+          "source_slice": "</p>"
+        },
+        {
+          "type": 3,
+          "name": "meta",
+          "data": {
+            "charset": "utf-8"
+          },
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 7,
+          "pass": 1,
+          "start": 1032,
+          "end": 1052,
+          "shared_state_output": false,
+          "source_slice": "<meta charset=utf-8>"
+        },
+        {
+          "type": 3,
+          "name": "p",
+          "data": {},
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 8,
+          "pass": 1,
+          "start": 1052,
+          "end": 1055,
+          "shared_state_output": false,
+          "source_slice": "<p>"
+        },
+        {
+          "type": 1,
+          "data": "é",
+          "_probe_id": 9,
+          "pass": 1,
+          "start": 1055,
+          "end": 1056,
+          "shared_state_output": false,
+          "source_slice": "é"
+        }
+      ],
+      "pre_emit_attributes": [
+        {
+          "pass": 0,
+          "name": "p",
+          "attributes": []
+        },
+        {
+          "pass": 0,
+          "name": "meta",
+          "attributes": [
+            [
+              "charset",
+              "utf-8"
+            ]
+          ]
+        },
+        {
+          "pass": 1,
+          "name": "p",
+          "attributes": []
+        },
+        {
+          "pass": 1,
+          "name": "meta",
+          "attributes": [
+            [
+              "charset",
+              "utf-8"
+            ]
+          ]
+        },
+        {
+          "pass": 1,
+          "name": "p",
+          "attributes": []
+        }
+      ],
+      "tree_events": [
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 1,
+          "name": "head",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 1,
+          "name": "head",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 2,
+          "name": "body",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 2,
+          "name": "body",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 2,
+          "child": 3,
+          "name": "p",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 3,
+          "name": "p",
+          "source_token": 0,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 2,
+          "child": 4,
+          "name": "meta",
+          "active_token": 3
+        },
+        {
+          "kind": "element",
+          "node": 4,
+          "name": "meta",
+          "source_token": 3,
+          "active_token": 3
+        },
+        {
+          "kind": "encoding_restart"
+        },
+        {
+          "kind": "append",
+          "parent": 5,
+          "child": 6,
+          "name": "head",
+          "active_token": 4
+        },
+        {
+          "kind": "element",
+          "node": 6,
+          "name": "head",
+          "source_token": null,
+          "active_token": 4
+        },
+        {
+          "kind": "append",
+          "parent": 5,
+          "child": 7,
+          "name": "body",
+          "active_token": 4
+        },
+        {
+          "kind": "element",
+          "node": 7,
+          "name": "body",
+          "source_token": null,
+          "active_token": 4
+        },
+        {
+          "kind": "append",
+          "parent": 7,
+          "child": 8,
+          "name": "p",
+          "active_token": 4
+        },
+        {
+          "kind": "element",
+          "node": 8,
+          "name": "p",
+          "source_token": 4,
+          "active_token": 4
+        },
+        {
+          "kind": "append",
+          "parent": 7,
+          "child": 9,
+          "name": "meta",
+          "active_token": 7
+        },
+        {
+          "kind": "element",
+          "node": 9,
+          "name": "meta",
+          "source_token": 7,
+          "active_token": 7
+        },
+        {
+          "kind": "append",
+          "parent": 7,
+          "child": 10,
+          "name": "p",
+          "active_token": 8
+        },
+        {
+          "kind": "element",
+          "node": 10,
+          "name": "p",
+          "source_token": 8,
+          "active_token": 8
+        }
+      ],
+      "lexical_partition": [
+        {
+          "category": "tag_delimiter",
+          "start": 0,
+          "end": 1,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 1,
+          "end": 2,
+          "source_slice": "p"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 2,
+          "end": 3,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 3,
+          "end": 1028,
+          "source_slice": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 1028,
+          "end": 1030,
+          "source_slice": "</"
+        },
+        {
+          "category": "tag_name",
+          "start": 1030,
+          "end": 1031,
+          "source_slice": "p"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 1031,
+          "end": 1033,
+          "source_slice": "><"
+        },
+        {
+          "category": "tag_name",
+          "start": 1033,
+          "end": 1037,
+          "source_slice": "meta"
+        },
+        {
+          "category": "attribute_separator",
+          "start": 1037,
+          "end": 1038,
+          "source_slice": " "
+        },
+        {
+          "category": "attribute_name",
+          "start": 1038,
+          "end": 1045,
+          "source_slice": "charset"
+        },
+        {
+          "category": "attribute_equals",
+          "start": 1045,
+          "end": 1046,
+          "source_slice": "="
+        },
+        {
+          "category": "attribute_value",
+          "start": 1046,
+          "end": 1051,
+          "source_slice": "utf-8"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 1051,
+          "end": 1053,
+          "source_slice": "><"
+        },
+        {
+          "category": "tag_name",
+          "start": 1053,
+          "end": 1054,
+          "source_slice": "p"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 1054,
+          "end": 1055,
+          "source_slice": ">"
+        },
+        {
+          "category": "text",
+          "start": 1055,
+          "end": 1056,
+          "source_slice": "é"
+        }
+      ],
+      "decoder_contributions": "[bounded groups omitted]"
+    },
+    {
+      "name": "malformed",
+      "input_sha256": "3d0a59595def333ddcf37fb9bf3fdccedc081c2cbee7e5fa0557a05fa9bae0d1",
+      "byte_length": 34,
+      "decoded_length": 34,
+      "normalized_length": 34,
+      "encodings_by_pass": [
+        "windows-1252"
+      ],
+      "native_tree_and_errors_equal": true,
+      "final_tree": "<html><head/><body><p a=\"x\"><!--bogus-->text</p></body></html>",
+      "tokens": [
+        {
+          "type": 3,
+          "name": "p",
+          "data": {
+            "a": "x"
+          },
+          "selfClosing": false,
+          "selfClosingAcknowledged": false,
+          "_probe_id": 0,
+          "pass": 0,
+          "start": 0,
+          "end": 13,
+          "shared_state_output": false,
+          "source_slice": "<p a='x' a=y>"
+        },
+        {
+          "type": 6,
+          "data": "bogus",
+          "_probe_id": 1,
+          "pass": 0,
+          "start": 13,
+          "end": 21,
+          "shared_state_output": false,
+          "source_slice": "<!bogus>"
+        },
+        {
+          "type": 1,
+          "data": "text",
+          "_probe_id": 2,
+          "pass": 0,
+          "start": 21,
+          "end": 25,
+          "shared_state_output": false,
+          "source_slice": "text"
+        }
+      ],
+      "pre_emit_attributes": [
+        {
+          "pass": 0,
+          "name": "p",
+          "attributes": [
+            [
+              "a",
+              "x"
+            ],
+            [
+              "a",
+              "y"
+            ]
+          ]
+        }
+      ],
+      "tree_events": [
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 1,
+          "name": "head",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 1,
+          "name": "head",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 0,
+          "child": 2,
+          "name": "body",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 2,
+          "name": "body",
+          "source_token": null,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 2,
+          "child": 3,
+          "name": "p",
+          "active_token": 0
+        },
+        {
+          "kind": "element",
+          "node": 3,
+          "name": "p",
+          "source_token": 0,
+          "active_token": 0
+        },
+        {
+          "kind": "append",
+          "parent": 3,
+          "child": null,
+          "name": null,
+          "active_token": 1
+        },
+        {
+          "kind": "text",
+          "parent": 3,
+          "name": "p",
+          "data": "text",
+          "before": null,
+          "active_token": 2,
+          "source_tokens": [
+            2
+          ]
+        }
+      ],
+      "lexical_partition": [
+        {
+          "category": "tag_delimiter",
+          "start": 0,
+          "end": 1,
+          "source_slice": "<"
+        },
+        {
+          "category": "tag_name",
+          "start": 1,
+          "end": 2,
+          "source_slice": "p"
+        },
+        {
+          "category": "attribute_separator",
+          "start": 2,
+          "end": 3,
+          "source_slice": " "
+        },
+        {
+          "category": "attribute_name",
+          "start": 3,
+          "end": 4,
+          "source_slice": "a"
+        },
+        {
+          "category": "attribute_equals",
+          "start": 4,
+          "end": 5,
+          "source_slice": "="
+        },
+        {
+          "category": "attribute_quote",
+          "start": 5,
+          "end": 6,
+          "source_slice": "'"
+        },
+        {
+          "category": "attribute_value",
+          "start": 6,
+          "end": 7,
+          "source_slice": "x"
+        },
+        {
+          "category": "attribute_quote",
+          "start": 7,
+          "end": 8,
+          "source_slice": "'"
+        },
+        {
+          "category": "attribute_separator",
+          "start": 8,
+          "end": 9,
+          "source_slice": " "
+        },
+        {
+          "category": "attribute_name",
+          "start": 9,
+          "end": 10,
+          "source_slice": "a"
+        },
+        {
+          "category": "attribute_equals",
+          "start": 10,
+          "end": 11,
+          "source_slice": "="
+        },
+        {
+          "category": "attribute_value",
+          "start": 11,
+          "end": 12,
+          "source_slice": "y"
+        },
+        {
+          "category": "tag_delimiter",
+          "start": 12,
+          "end": 13,
+          "source_slice": ">"
+        },
+        {
+          "category": "comment",
+          "start": 13,
+          "end": 21,
+          "source_slice": "<!bogus>"
+        },
+        {
+          "category": "text",
+          "start": 21,
+          "end": 25,
+          "source_slice": "text"
+        },
+        {
+          "category": "unknown",
+          "start": 25,
+          "end": 34,
+          "source_slice": "<unclosed"
+        }
+      ],
+      "decoder_contributions": "[bounded groups omitted]"
+    }
+  ]
+}

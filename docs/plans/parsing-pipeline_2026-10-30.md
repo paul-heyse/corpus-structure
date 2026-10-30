@@ -1,6 +1,7 @@
 # Domain-model-driven parsing pipeline
 
-**Status:** Planned; no production implementation or qualification. **Created:** 2026-10-30.
+**Status:** In progress; PP-00 decisions and PP-02 bounded investigation delivered;
+PP-01/03/04 implementation underway. **Created:** 2026-10-30.
 **Basis:** [functional review](../functional_reviews/parsing-pipeline_2026-10-30.md) and
 [target model](../functional_reviews/parsing-pipeline_2026-10-30_target-model.md), consumed at
 `b3a8313`. Current production baseline remains `599d479`; intervening commits are review/audit
@@ -56,11 +57,11 @@ mechanisms and acceptance rather than maintain a second mutable execution queue.
 
 | Package | Owner / delivered capability | Required readiness | State |
 |---|---|---|---|
-| <a id="PP-00"></a>PP-00 | [Model](parsing-pipeline/model-contracts-and-storage.md#PP-00): decisions and enduring owners | Confirmed envelopes; current decision clauses | Planned |
-| <a id="PP-01"></a>PP-01 | [Model](parsing-pipeline/model-contracts-and-storage.md#PP-01): shared semantic contracts, states, ports and runtime enforcement | Relevant PP-00 decisions; native capability evidence | Planned |
-| <a id="PP-02"></a>PP-02 | [HTML](parsing-pipeline/source-decomposition-and-html.md#PP-02): source-location feasibility and selected integration | PP-01 agreed coordinate/capability slice, not complete schema deployment | Planned; first investigation |
-| <a id="PP-03"></a>PP-03 | [HTML](parsing-pipeline/source-decomposition-and-html.md#PP-03): original/HTML/canonical decomposition and mappings | PP-02 qualified route; enforced relevant PP-01 contracts | Planned |
-| <a id="PP-04"></a>PP-04 | [Model/storage](parsing-pipeline/model-contracts-and-storage.md#PP-04): durable products, native integrity and readers | PP-01 meanings; PP-02 selected mapping requirements before final physical layout | Planned |
+| <a id="PP-00"></a>PP-00 | [Model](parsing-pipeline/model-contracts-and-storage.md#PP-00): decisions and enduring owners | Confirmed envelopes; current decision clauses | Implemented: ADR-0036 and D1–D8 owners; algorithm claims remain Proposed |
+| <a id="PP-01"></a>PP-01 | [Model](parsing-pipeline/model-contracts-and-storage.md#PP-01): shared semantic contracts, states, ports and runtime enforcement | Relevant PP-00 decisions; native capability evidence | In progress: source-product contract slice; operation/interpretation integration remains |
+| <a id="PP-02"></a>PP-02 | [HTML](parsing-pipeline/source-decomposition-and-html.md#PP-02): source-location feasibility and selected integration | PP-01 agreed coordinate/capability slice, not complete schema deployment | Bounded investigation delivered: native instrumentation selected; full producer qualification remains PP-03 |
+| <a id="PP-03"></a>PP-03 | [HTML](parsing-pipeline/source-decomposition-and-html.md#PP-03): original/HTML/canonical decomposition and mappings | PP-02 qualified route; enforced relevant PP-01 contracts | In progress: native producer and canonical contribution capture |
+| <a id="PP-04"></a>PP-04 | [Model/storage](parsing-pipeline/model-contracts-and-storage.md#PP-04): durable products, native integrity and readers | PP-01 meanings; PP-02 selected mapping requirements before final physical layout | In progress: native custody, relational products and protected readers |
 | <a id="PP-05"></a>PP-05 | [Text/math](parsing-pipeline/text-and-mathematical-interpretation.md#PP-05): prose/TeX structure and macro custody | Relevant PP-01 contracts and PP-03 source products | Planned |
 | <a id="PP-06"></a>PP-06 | [Text/math](parsing-pipeline/text-and-mathematical-interpretation.md#PP-06): lazy interpretation and migrated method contracts | PP-05 context/products; PP-04 for durable use; PP-08 ownership before publication | Planned |
 | <a id="PP-07"></a>PP-07 | [Views](parsing-pipeline/extraction-and-relational-views.md#PP-07): source queries, graph/metadata/placement capabilities | PP-01/04 and the concrete PP-03/05/06 products each view consumes | Planned |
@@ -119,6 +120,11 @@ qualification and any benefit measurements. Targeted checks run at coherent pack
 assembled `just test-all` and applicable hygiene wait for all selected functional work. Existing
 valid type/test evidence is not invalidated by lint-only maintenance.
 
-**Current state:** all packages planned. Authoring has changed no runtime, release, database,
-audit premise or earlier qualification record. Next executable work is the PP-00/01 agreement
-and PP-02 feasibility boundary; production implementation requires separate authorization.
+**Current state:** execution of PP-00–PP-04 is authorized. ADR-0036 adds representation-qualified
+coordinates and PostgreSQL original-byte custody while preserving existing canonical evidence,
+rendition identity and grading. The [PP-02 investigation](../design_review/evidence/2026-10-30_parsing-source-provenance/README.md)
+selects narrow instrumentation of pinned html5lib/lxml; nine cases retain native trees and
+diagnostics and demonstrate positive cursor, attribute, mutation, buffered-text and decoder seams.
+Its finalized record is partial: it establishes feasibility, not complete source provenance.
+PP-03 must compose and qualify the actual producer before complete mapping claims are accepted.
+Existing operational databases, earlier qualification and audit premises remain unchanged.

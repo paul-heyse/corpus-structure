@@ -491,6 +491,10 @@ def register_document(
     )
     if any(row[k] != v for k, v in values.items()):
         raise OperationConflict("source identity denotes another source descriptor")
+    conn.execute(
+        text("SELECT ops.retain_source_artifact(:document,:original)"),
+        dict(document=row["id"], original=original),
+    )
     return row["id"]
 
 
@@ -523,6 +527,17 @@ def read_original(
     if row is None:
         _source_read_outcome(prepared, "read_original", "missing")
         raise SourceReadRefused("missing", "retained original document is missing")
+    artifact = table("kb.source_artifact")
+    retained = conn.execute(
+        select(artifact.c.content).where(artifact.c.artifact_digest == row["content_hash"])
+    ).scalar_one_or_none()
+    if retained is not None:
+        data = bytes(retained)
+        if sha256(data).hexdigest() != row["content_hash"]:
+            _source_read_outcome(prepared, "read_original", "invalid")
+            raise SourceReadRefused("invalid", "retained original artifact is corrupt")
+        _source_read_outcome(prepared, "read_original", "source_ready")
+        return data
     try:
         data = Path(row["original_path"]).read_bytes()
     except FileNotFoundError as exc:
@@ -753,6 +768,19 @@ def complete_unit_result(
             raise OperationConflict("terminal rendition build artifact differs")
         if read_rendition(conn, rendition_id, prepared=prepared) != result.rendition:
             raise OperationConflict("terminal rendition result differs from published content")
+    if task["status"] != "running":
+        parsing = table("ops.parsing_product")
+        retained_parsing = conn.execute(
+            select(parsing.c.product_digest).where(parsing.c.task_id == task_id)
+        ).scalar_one_or_none()
+        if (retained_parsing is None) != (result.parsing_product is None):
+            raise OperationConflict("terminal parsing product presence differs")
+    if result.parsing_product is not None:
+        from .parsing_products import store_parsing_product
+
+        store_parsing_product(
+            conn, task_id=task_id, attempt=attempt, holder=holder, product=result.parsing_product
+        )
     rows = []
     for item in items:
         rid = item.get("rendition_id", rendition_id)
@@ -931,6 +959,39 @@ class BoundReader:
             self.prepared,
             row["method_config_id"],
         )
+
+    def parsing_product(self, rendition_id: int, *, producing_task_id: int | None = None):
+        """Resolve only run-selected producing/reused builds; refuse ambiguous history."""
+        from .parsing_products import read_parsing_product
+
+        build, task, chosen = (
+            table("ops.rendition_build"),
+            table("ops.task"),
+            table("ops.run_rendition"),
+        )
+        query = (
+            select(build.c.task_id)
+            .join_from(
+                task, build, build.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id)
+            )
+            .join(
+                chosen,
+                (chosen.c.run_id == task.c.run_id)
+                & (chosen.c.document_id == build.c.document_id)
+                & (chosen.c.rendition_id == build.c.rendition_id),
+            )
+            .where(task.c.run_id == self.run_id, build.c.rendition_id == rendition_id)
+        )
+        if producing_task_id is not None:
+            query = query.where(build.c.task_id == producing_task_id)
+        tasks = self.conn.execute(query.distinct()).scalars().all()
+        if not tasks:
+            return None
+        if len(tasks) != 1:
+            raise OperationConflict(
+                "source selection has multiple parsing product builds; pin a producing task"
+            )
+        return read_parsing_product(self.conn, task_id=tasks[0])
 
     def segments(self, rendition_id: int) -> Mapping[str, int]:
         s = table("kb.segment")

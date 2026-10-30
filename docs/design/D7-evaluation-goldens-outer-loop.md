@@ -27,6 +27,24 @@ JSON field serializers before reference rewriting/revalidation.
 
 > Decision: ADR-0034
 
+## Parsing adoption and independent evidence
+
+**Accepted target; Proposed implementation (2026-10-30).** Parsing-contract migration preserves
+independent reference inputs, preparation scope and decisions. Source interpretation cannot use
+reference decisions to choose symbol roles or resolve ambiguity. Existing canonical evidence,
+citation frames, exact-quote checks and grading policy retain their meanings. Original-source
+ranges and transformation links supply additional provenance with explicit coverage; partial or
+unavailable HTML mapping is neither exact evidence nor complete provenance.
+
+Affected evaluator adapters pin the archived release, rendition and producing products/builds,
+and request the interpretation/assessment capabilities their existing question requires. A
+structure-only result cannot silently replace an interpreted result. Changed canonical content
+or segmentation receives new rendition/anchor identities under D1; existing frame relocation
+and staleness rules continue to apply. PP-06/PP-10 own boundary migration and actual acceptance;
+this decision supplies no new grades, changed evidence policy or qualification claim.
+
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+
 ## 1. The problem and the answer
 
 Goldens are written by **Sonnet 5.5** subagents (ADR-0011); the pipeline escalates to Opus, the
@@ -105,7 +123,7 @@ citation frame ([D1 §10.3](D1-knowledge-representation.md#103-stability-limits)
 derived per rendition by the production quote cascade (D4 §4.3) and recording the rendition they
 were derived on (P0CL-03; operator, 2026-10-28). Evaluation derives them, before it aligns a run on
 that rendition; `write_golden` never does.
-> Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
+> Decision: [ADR-0024](../adr/0024-semantic-release-preparation.md)
 > Status: **Proposed** (2026-10-28)
 
 Sets (`eval.golden_set`) are per split and guideline version. Initial sizes, kept

@@ -2,6 +2,7 @@ id: https://corpus-structure.dev/semantic/contracts
 name: semantic_contracts
 imports:
 - semantic_reference
+- parsing_products
 description: Trusted execution companion types. These are definitions, not domain-extractable
   corpus classes.
 prefixes:

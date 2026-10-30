@@ -198,9 +198,9 @@ def require_archive_fence(connection: Connection) -> None:
     raise ExecutionAdmissionError("native execution archive fence differs from trusted enforcement")
 
 
-# Frozen from reviewed migration ASTs through semantic_0038.
+# Frozen from reviewed migration ASTs through semantic_0041.
 # Schema derive emits the corresponding SQL.
-_DESCRIPTOR_SHA256 = "0c856061a00d95b880595de31fcc7b50a31de1f7e7f519b75cc5f4bcd3b0802c"
+_DESCRIPTOR_SHA256 = "7c66a7ab55d97948aa56177c5ec14282d5f91387e3514a5ff1ed467361ad4ade"
 _REQUIRE_SHA256 = "a78b1df7fae951c92c2d7387ead804e9471e2e257f28e157cfbad09ba5869310"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

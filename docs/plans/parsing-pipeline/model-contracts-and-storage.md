@@ -1,6 +1,7 @@
 # Parsing model, contracts and storage
 
-**Status:** Planned; implementation not started. **Created:** 2026-10-30.
+**Status:** Execution in progress; the coordinator owns package completion and receipts.
+**Created:** 2026-10-30.
 [Coordinator](../parsing-pipeline_2026-10-30.md) owns PP-00/01/04 state and review O01/O02/O03/O06 disposition.
 Consumes the [target](../../functional_reviews/parsing-pipeline_2026-10-30_target-model.md),
 review revision `b3a8313` and current semantic compiler/native foundations.
@@ -148,3 +149,28 @@ may originate in other builds; admit them through named dependency and endpoint 
 than rejecting all cross-build relationships. Pure decoder
 tests cannot replace native/publication checks. PP-09 owns atomic publication/replay, not a
 second copy of its state machine here. PP-10 owns final adopted-consumer qualification.
+
+### Selected realization — 2026-10-30
+
+**Implemented foundation; integration qualification in progress.** Original artifacts use
+content-addressed `kb.source_artifact` bytea custody, retained during document registration rather
+than waiting for successful interpretation. Parsing products bind to `ops.rendition_build.task_id`;
+canonical rendition identity remains separate. Fixed representation, component, node,
+relationship/endpoint and mapping/endpoint tables expose references used by joins. Bulk native
+publication inserts a whole product inside the existing source transaction. The immutable encoded
+manifest is retained alongside those projections and checked on read.
+
+Normalized component rows were selected over opaque compact sequences because extent/category
+inspection, endpoint integrity and ordered mapping joins are required consumers. One row represents
+a meaningful component or contribution extent, never a character by policy; native buffers and
+merged runs stay inside adapters. PostgreSQL primary keys and foreign keys preserve occurrence
+identity and named dependency custody; source products sharing one canonical rendition remain
+separate builds. The manifest provides bounded whole-product transport, while typed query ports
+serve targeted access. This choice adds rows and index work; no throughput or storage saving is
+claimed.
+
+Complete partition, recognition and original-to-canonical provenance remain independent. An exact
+local copy does not prove source origin, and canonical self-copy cannot close provenance coverage.
+The initial finite transformation support refuses nonempty complete-provenance claims until the
+decoder and projection mechanisms are qualified. PP-03 supplies those mechanisms; the full target
+is retained rather than weakened by an availability label.

@@ -27,6 +27,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0033](0033-relational-execution-products.md) | Release-scoped execution rows govern stable protected kernels | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Implemented |  |
 | [ADR-0034](0034-recorded-agent-supervision.md) | Agents execute the semantic queue through supervised or interactive MCP sessions | 2026-10-30 | [§B3](../design/DESIGN.md#section-b3) | Implemented | [ADR-0015](0015-agent-work-queue.md) |
 | [ADR-0035](0035-model-governed-analysis.md) | One interpretation authority governs prepared analytical representations | 2026-10-30 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0012](0012-math-grammar-token-keys.md) |
+| [ADR-0036](0036-representation-qualified-parsing-products.md) | Preserve source custody through representation-qualified parsing products | 2026-10-30 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "html.provenance-seams",
+  "title": "Native HTML5 source-provenance instrumentation seams",
+  "group": "parsing-pipeline",
+  "package": "PP-02",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can narrow instrumentation preserve html5lib HTML5 semantics while exposing source contributions?",
+  "answers": [
+    "PP-02",
+    "ADR-0036"
+  ],
+  "method": "Exercise pinned native and instrumented html5lib/lxml on nine independent source cases; inspect cursor, duplicate attributes, tree mutation, buffered text and decoder contributions.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-30_parsing-source-provenance/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "probe and independent source expectations",
+      "sha256": "2f0f30004049b6691a83cc335604edeb57c7ef8fc289194c2ca659ac2be23118"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "result.json",
+      "role": "bounded observed results",
+      "sha256": "3ff98702ace38f3488cdec11bb58d33c368d38104ddd7313e3115c927fb4c6f1"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Native tree and diagnostic compatibility",
+      "value": 9,
+      "of": 9,
+      "unit": "bounded cases",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Narrow state/stream, pre-emission, tree-mutation and table-buffer hooks support the selected instrumentation route without copying parser algorithms. Complete lexical categorization, composed byte/decoded/newline provenance, final text/tail lineage and canonical projection remain production obligations; nine cases do not qualify complete PP-03 provenance.",
+  "consumed_by": [
+    "PP-02",
+    "PP-03",
+    "ADR-0036"
+  ]
+}

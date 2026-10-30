@@ -17,6 +17,26 @@ conflicts are decided; how confidence is estimated and calibrated; how judgments
 validation set status. Consolidation is methods M17 and M18 of
 [D4](D4-method-catalog.md#11-consolidation-summary) and the only writer of knowledge rows.
 
+## Parsing products and binding demands
+
+**Accepted target; Proposed implementation (2026-10-30).** Binding and consolidation consume
+pinned occurrence, scope and interpretation products under the versioned M09/M11/M13 contracts
+in [D4](D4-method-catalog.md#parsing-operations-and-versioned-method-adoption). Source-local
+declarations and macro authority are inputs to interpretation; resolved downstream entity
+attachments cannot supply those declarations circularly. Structural recognition alone establishes
+neither a mathematical symbol role nor a resolved binding. Repeated occurrences and ordered,
+typed binding/reference edges survive native mathematical simplification.
+
+Evidence remains canonical `Span` custody on the selected rendition. Qualified original/decoded/
+expanded ranges and mappings add explanation without changing evidence anchor or identity rules.
+Consolidation requires the actual interpretation/scope coverage promised by its operation;
+decomposition-only results cannot satisfy that prerequisite. Product selection pins the producing
+build and dependencies even when renditions are content-identical. PP-06/PP-10 own migration of
+scope/binding, quote placement and affected consumers; this target establishes no new binding,
+scientific equivalence, confidence or evidence-grading policy.
+
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+
 ## Shared scientific evidence and analytical inputs
 
 **Implemented, 2026-10-29; scoped verification belongs to [SP-I06/SP-I07](../plans/semantic-model-pivot/release-and-consumer-consolidation.md#SP-I06).**

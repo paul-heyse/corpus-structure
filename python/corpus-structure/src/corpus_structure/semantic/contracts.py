@@ -685,6 +685,9 @@ def trusted_execution_inputs() -> ExecutionModelInputs:
             (
                 SourceArtifact("contracts", root.joinpath("contracts.yaml").read_bytes()),
                 SourceArtifact("semantic_reference", root.joinpath("reference.yaml").read_bytes()),
+                SourceArtifact(
+                    "parsing_products", root.joinpath("parsing-products.yaml").read_bytes()
+                ),
             ),
         ),
         SourceArtifact("execution-model.yaml", root.joinpath("execution-model.yaml").read_bytes()),
@@ -719,6 +722,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("alignment/semantic_alignment.py", "evaluate/semantic_alignment.py"),
                 ("alignment/preparation.py", "evaluate/alignment_preparation.py"),
                 ("text/layouts.py", "semantic/text_layouts.py"),
+                ("parsing/products.py", "semantic/parsing_products.py"),
                 ("placement/cascade.py", "methods/llm/cascade.py"),
             )
         ),
@@ -1150,6 +1154,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "placement/cascade.py",
         "alignment/preparation.py",
         "text/layouts.py",
+        "parsing/products.py",
         "text/model.json",
         "grammar/grammar.py",
         "grammar/extension.lark",

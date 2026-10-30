@@ -349,8 +349,8 @@ def test_source_rendition_fidelity_and_original_change(
             == ren
         )
     original.write_bytes(b"changed")
-    with e.connect() as c, pytest.raises(OperationConflict):
-        read_original(c, doc)
+    with e.connect() as c:
+        assert read_original(c, doc) == b"<p>source</p>"
 
 
 def test_recognizer_terminal_source_boundary_and_coverage(
@@ -780,15 +780,20 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(
         )
         assert len(states) == 5 and "reused" not in states
     raw.write_text("changed after registered input")
-    with pytest.raises(OperationConflict, match="original content changed"):
-        run_source_methods(
-            e,
-            project_id="p",
-            prepared=p,
-            binding=OperationBinding(p.release_id, "z", 0, b"{}"),
-            registry=registry,
-            graph=graph,
-            method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+    retained = run_source_methods(
+        e,
+        project_id="p",
+        prepared=p,
+        binding=OperationBinding(p.release_id, "z", 0, b"{}"),
+        registry=registry,
+        graph=graph,
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+    )
+    assert retained.status == "source_ready"
+    with e.connect() as c:
+        assert (
+            c.execute(select(table("kb.rendition").c.canonical_text)).scalar_one()
+            == "Source\n\n" + body
         )
 
 

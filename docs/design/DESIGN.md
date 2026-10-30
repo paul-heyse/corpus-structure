@@ -227,6 +227,17 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+**Accepted parsing target; Proposed implementation (2026-10-30).** PostgreSQL `bytea` owns
+immutable original bytes once per source content identity, separately linked to document/acquisition
+identity. Representations, partitions, structures, transformations and interpretations have
+immutable build/product custody independent of full canonical rendition-content identity.
+Protected publication and forward native migrations enforce declared custody and completeness;
+[D3](D3-database.md#parsing-product-custody) owns layout and pinned readers. Complete original and
+canonical partitions are required separately. Exact repaired-HTML provenance remains a PP-02
+dependency, with partial/unavailable coverage explicit and no full-fidelity claim.
+
+> Decision: ADR-0036
+
 **Proposed accepted target (2026-10-30).** Analytical ownership and preparation contracts use existing release-scoped rows and immutable products; physical capture may be resident or detached spooled under one snapshot/custody contract.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
@@ -297,6 +308,19 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted parsing target; Proposed implementation (2026-10-30).** Trusted LinkML/execution
+definitions govern representation-qualified source ranges, occurrence relationships, mappings,
+coverage and discrete parsing operations. Existing canonical evidence anchors and full rendition
+identity remain unchanged. Library algorithms implement finite admitted contracts without a
+general workflow interpreter. Retain html5lib HTML5 semantics; version M09/M11/M13 boundary/output
+changes with complete producer and consumer migration. Computation lifecycle, semantic outcomes
+and completeness remain distinct, with independent reference preparation and grading unchanged.
+[D1](D1-knowledge-representation.md#311-representation-qualified-source-products) owns the concepts;
+[D2](D2-schema-and-guidelines.md#parsing-contract-compilation), [D4](D4-method-catalog.md#parsing-operations-and-versioned-method-adoption)
+and D5–D8 own their compilation and consumption. Acceptance here implements no parser or product.
+
+> Decision: ADR-0036
 
 **Proposed accepted target (2026-10-30).** One admitted interpretation authority governs distinct qualified physical frontends and model-bound context, demand, result and dependency projections. The current parser remains the implementation pending PE-02; source declarations do not depend circularly on later resolution.
 

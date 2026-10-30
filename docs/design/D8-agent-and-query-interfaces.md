@@ -76,6 +76,26 @@ and the compiler-10 selected-answer/new-activation matrix remain obligations of 
 until their applicable current-source results are recorded in the owning plan.
 
 
+## Source-product query and explanation boundary
+
+**Accepted target; Proposed implementation (2026-10-30).** Source inspection and explanation
+select pinned run/build products alongside the shared rendition. Reuse follows existing
+producing-task/`reused_task_id` resolution; multiple producing candidates refuse rather than
+silently selecting latest. Typed reads expose representation identity, range unit/bounds,
+component and relationship occurrence identity/order, transformation basis and independently
+reported partition/mapping/interpretation coverage. Exact original ranges are unavailable until
+their adapter supports them; DOM paths and diagnostic lines cannot substitute.
+
+Canonical evidence `Span`, quote placement and citation-frame meanings remain unchanged.
+Packets/frames and query/export consumers migrate where versioned M09/M11/M13 contracts change;
+on-demand requests use archived source/release context and declared capability requirements.
+Missing products may expose declared reconstruction/unavailable support, but matching corrupt
+products refuse and are never silently rebuilt as valid history. Native library objects remain
+owned operation views; query transport does not become another interpretation authority.
+PP-07/PP-10 own consumer implementation and qualification.
+
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+
 ## 1. Surfaces
 
 | Surface | User | Realization | Writes |

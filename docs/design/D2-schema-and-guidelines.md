@@ -115,6 +115,27 @@ process configuration once; it does not supply semantic defaults or merge method
 
 > Decision: ADR-0027
 
+## Parsing contract compilation
+
+**Accepted target; Proposed implementation (2026-10-30).** Extend the trusted LinkML/execution
+compiler with D1's representation-qualified ranges, occurrence relationships, partitions,
+mappings and interpretation products. Effective definitions feed runtime boundaries, JSON Schema,
+Core/native requirements and selected RDF/SHACL views; none independently defines parsing meaning.
+Discrete operation contracts declare applicability, required universe, inputs/results, coverage,
+dependencies and effects. Finite implementation admission remains independent of authored
+declarations; unsupported required semantics refuse before effects. Generic parsing/graph/math
+algorithms stay qualified library code, without a general workflow interpreter.
+
+Partition completeness, mapping coverage, grammatical outcome and computation lifecycle are
+separate model dimensions. Native integrity must enforce cross-record custody, references and
+ordering where required; merely compiling a shape establishes none of these. Validation violations,
+validator failures and unassessed coverage remain distinct. Preserve the existing ontology
+conformance mode: no implicit inference, advanced rules, imports or in-place mutation. PP-01 and
+PP-04 own compilation and native realization; PP-02's unresolved HTML fidelity cannot be admitted
+through optimistic capability metadata.
+
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+
 ## 1. Principles
 
 1. **One declaration per domain.** A domain pack's LinkML schema is the single source for entity

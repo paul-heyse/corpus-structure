@@ -28,6 +28,29 @@ are not the selected production path or a second authority for semantic executio
 
 > Decision: ADR-0027
 
+## Parsing demand and product lifecycle
+
+**Accepted target; Proposed implementation (2026-10-30).** Bind discrete parsing demands to the
+existing prepared operation/dependency and protected effect machinery. Source inspection may
+request decomposition without interpretation; M09/M11/M13 adopt changed demands/results only
+through versioned contracts and complete consumer migration. Prepare release/profile support
+once at a valid operation/batch boundary and pass immutable inputs to pure library kernels;
+token processing performs no database policy lookup. Local lexical/recognition stages need not
+be durable tasks, separate transactions or independently serialized passes.
+
+Separate not-requested, pending/running, available, failed and cancelled computation from
+grammatical/semantic OK, ambiguous, invalid, unsupported or unknown outcomes and from coverage.
+A timeout belongs to an attempt and budget; an unevaluated mathematical object may be an
+available result. Product completeness, raw/canonical partition coverage and mapping fidelity
+remain independent. Seal coherent required products through existing protected publication;
+explicit partial products never satisfy a complete-result contract. Reuse includes producing
+representation/build, frontend/grammar and recipe revisions, macros, context/declarations and
+their absence, demanded capability and assessment policy where consumed. Pin build selection
+using existing reuse resolution rather than selecting the latest content-identical build.
+PP-09 owns publication/replay; no second scheduler or generic workflow interpreter is added.
+
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+
 ## Agent supervision and current retirement boundary
 
 **Implemented, 2026-10-30.** `ci regenerate` may supervise a fresh configured model and a

@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0039"
-NATIVE_REVISION = "semantic_0040"
+NATIVE_PREDECESSOR = "semantic_0040"
+NATIVE_REVISION = "semantic_0041"
 
 
 def selected_fact_query():
@@ -184,6 +184,9 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
             "scientific_decision_rule",
         )
     }
+    from .parsing_products import RELATIONS
+
+    new_tables.update({"kb.source_artifact", "ops.parsing_product", *RELATIONS.values()})
     guards = []
     for name, mode in classified.items():
         if name not in new_tables:
@@ -243,6 +246,7 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     )
     kernels += "\n" + transport
     kernels += "\n" + source.joinpath("execution_projection.sql").read_text()
+    kernels += "\n" + parsing_publication_sql()
     kernels += (
         "\nSET LOCAL ROLE __MIGRATION_OWNER__;\n"
         + source.joinpath("execution_guards.sql").read_text()
@@ -610,7 +614,7 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
                 "primary_key": [column.name for column in relation.primary_key.columns],
                 "foreign_keys": [
                     {
-                        "name": constraint.name,
+                        "name": dialect().identifier_preparer.format_constraint(constraint),
                         "columns": [column.name for column in constraint.columns],
                         "target": constraint.elements[0].target_fullname.rsplit(".", 1)[0],
                         "remote_columns": [
@@ -623,7 +627,10 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
                         "deferred": False,
                         "validated": True,
                     }
-                    for constraint in relation.foreign_key_constraints
+                    for constraint in sorted(
+                        relation.foreign_key_constraints,
+                        key=lambda item: str(dialect().identifier_preparer.format_constraint(item)),
+                    )
                 ],
             }
         )
@@ -782,4 +789,117 @@ def consolidation_products(model=None) -> tuple[NativeProduct, ...]:
         NativeProduct(f"{NATIVE_REVISION}_kernels.sql", kernels.content),
         NativeProduct(f"{NATIVE_REVISION}_reference_source.sql", reference_kernels.content),
         NativeProduct(f"{NATIVE_REVISION}_admission.sql", reference_admission.content + required),
+    )
+
+
+def parsing_products() -> tuple[NativeProduct, ...]:
+    """Author 0041's new relations, CHECK receipt, fenced publication and current admission.
+
+    Older revisions remain byte frozen. The physical CHECK receipt is rendered using the
+    existing native authoring path, including PostgreSQL-normalized CHECK expressions.
+    """
+
+    from .parsing_products import RELATIONS
+
+    new = {"kb.source_artifact", "ops.parsing_product", *RELATIONS.values()}
+    physical, _, _ = closure_products()
+    ddl = "\n".join(
+        product.content.decode()
+        for product in physical_products()
+        if product.name in new or any(product.name.startswith(name + "/") for name in new)
+    )
+    ddl += "\n" + "\n".join(
+        f"ALTER TABLE {name} OWNER TO corpus_sem_publisher;" for name in sorted(new)
+    )
+    ddl += "\nSET LOCAL ROLE corpus_sem_publisher;\n"
+    ddl += "\n".join(
+        f"CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON {name} "
+        "FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();"
+        for name in sorted(new)
+    )
+    sql = parsing_publication_sql()
+    # The reference block starts after ownership and preceding-revision DDL.
+    receipt = physical.content.decode().split("DO $reference$", 1)[1]
+    ddl += "\nDO $reference$" + receipt
+    admission = consolidation_products()[-1].content
+    return (
+        NativeProduct("semantic_0041_parsing.sql", (ddl + "\n" + sql).encode()),
+        NativeProduct("semantic_0041_admission.sql", admission),
+    )
+
+
+def parsing_publication_sql() -> str:
+    """Emit finite native shape guards from the same effective LinkML record definitions.
+
+    PostgreSQL casts must not silently turn JSON strings into integers or discard unknown
+    fields. Record existence, partition and transformation semantics retain their owners.
+    """
+    from pathlib import Path
+
+    from .parsing_products import PARSING_CONTRACT_DIGEST, parsing_contract
+
+    prepared = parsing_contract()
+    definitions = {definition.name: definition for definition in prepared.definitions}
+    vocabularies = {
+        v.enum: tuple(member.value for member in v.members) for v in prepared.vocabularies
+    }
+
+    def quoted(value: str) -> str:
+        return "'" + value.replace("'", "''") + "'"
+
+    def guards(class_name: str, expression: str) -> str:
+        definition = definitions[class_name]
+        fields = ",".join(quoted(prop.name) for prop in definition.properties)
+        invalid = [
+            f"EXISTS(SELECT FROM jsonb_object_keys({expression}) key "
+            f"WHERE key<>ALL(ARRAY[{fields}]))"
+        ]
+        for prop in definition.properties:
+            key = quoted(prop.name)
+            value = f"{expression}->{key}"
+            if prop.required:
+                invalid.append(f"NOT ({expression} ? {key})")
+            if prop.multivalued:
+                predicate = f"jsonb_typeof({value}) IS DISTINCT FROM 'array'"
+            elif prop.range == "ParsingInteger":
+                predicate = (
+                    f"jsonb_typeof({value}) IS DISTINCT FROM 'number' "
+                    f"OR {expression}->>{key} !~ '^[0-9]+$'"
+                )
+            elif prop.range == "ParsingString" or prop.range in vocabularies:
+                predicate = f"jsonb_typeof({value}) IS DISTINCT FROM 'string'"
+                if prop.range in vocabularies:
+                    choices = ",".join(quoted(member) for member in vocabularies[prop.range])
+                    predicate += f" OR {expression}->>{key} NOT IN ({choices})"
+            else:
+                raise ValueError(
+                    f"unsupported required parsing native shape: {class_name}/{prop.name}"
+                )
+            invalid.append(f"({expression} ? {key} AND ({predicate}))")
+        return (
+            f"IF jsonb_typeof({expression}) IS DISTINCT FROM 'object' THEN "
+            f"RAISE EXCEPTION 'parsing record must be an object: {class_name}' "
+            "USING ERRCODE='23514'; END IF;\n"
+            f"IF {' OR '.join(invalid)} THEN "
+            f"RAISE EXCEPTION 'parsing record shape differs: {class_name}' "
+            "USING ERRCODE='23514'; END IF;\n"
+        )
+
+    # All collections are one level of typed records, not arbitrary recursively interpreted rows.
+    shape = guards("ParsingProduct", "product")
+    for prop in definitions["ParsingProduct"].properties:
+        if prop.multivalued:
+            shape += (
+                "FOR parsing_item IN SELECT value FROM jsonb_array_elements("
+                f"COALESCE(product->{quoted(prop.name)},'[]'::jsonb)) LOOP\n"
+            )
+            shape += guards(prop.range, "parsing_item") + "END LOOP;\n"
+    return (
+        Path(__file__)
+        .with_name("sql")
+        .joinpath("parsing_products.sql")
+        .read_text()
+        .replace("-- {parsing_shape_guard}", shape)
+        .replace("{parsing_contract_digest}", PARSING_CONTRACT_DIGEST)
+        .replace("product jsonb;", "product jsonb; parsing_item jsonb;")
     )

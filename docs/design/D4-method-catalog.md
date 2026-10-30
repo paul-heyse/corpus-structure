@@ -11,6 +11,35 @@ lighter on library detail. The library-leverage lane may deepen each card's **Li
 realization** subsection directly; anything that changes a contract goes in a
 `> Library proposal (L-nn):` block for the design owner ([plan](../plans/README.md)).
 
+## Parsing operations and versioned method adoption
+
+**Accepted target; Proposed implementation (2026-10-30).** Discrete model-owned operations cover
+source decomposition, HTML structure recognition, canonical projection, text preparation,
+mathematical interpretation/assessment and source publication. Their prepared contracts declare
+required products, input universe, applicability, typed outcomes, coverage, dependencies and
+effects. Qualified library implementations retain native trees/objects behind owned adapters;
+this does not select a universal serialized AST, arbitrary workflow language or durable task per
+logical operation. Retain html5lib HTML5 repair through lxml. Exact original/repair mapping is a
+PP-02 dependency, independently qualified from complete lexical coverage.
+
+PP-06 may redesign M09/M11/M13 boundaries and outputs through explicit contract versions and
+complete producer/consumer migration. The cards below and current implementation retain their
+interpreted-result promises until that selection changes. Decomposition-only, structural-only,
+interpreted and assessed results are distinct demands; unrequested interpretation is not failed,
+empty or implicitly available. M13 binding/scope consumes the declared occurrence, relationship
+and interpretation capabilities it needs. It cannot accept an older result shape with weakened
+meaning or seed source interpretation from its own downstream resolutions.
+
+Migration covers source profiles, ingest/sentences, M09/M11/M13, quote placement, source
+frames/packets, observations, measurements, consolidation, queries/exports and evaluator
+boundaries wherever their contracts change. PP-10 owns adopted-consumer qualification. Method,
+recipe, demand and implementation revisions participate in their actual dependency identity;
+different build products never collapse merely because canonical rendition content matches.
+Existing evidence strength, grading policy and token-form identity remain governed by their
+current owners; no mathematical equivalence-to-identity change follows from this redesign.
+
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+
 ## 1. The method contract
 
 A method is a Python class in `methods/` (or `ingest/` for M01–M03) registered under a stable

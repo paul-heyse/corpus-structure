@@ -83,8 +83,9 @@ A `Document` is one retained original (an HTML page, a PDF, an email message). I
 `(project, source_uri, content_hash)` where `content_hash` is the SHA-256 of the original bytes.
 
 Each document has a **canonical text**: a deterministic, reading-order linearization produced
-by its ingest adapter. All offsets in the system are character offsets (Unicode code points) into
-a canonical text. Rules for the canonical text:
+by its ingest adapter. Evidence `Span` offsets are Unicode code points into that rendition's
+canonical text. Added source/representation ranges identify their own coordinate space and unit
+under §3.1.1; they never reuse canonical offsets implicitly. Rules for the canonical text:
 
 - Block elements are separated by `\n\n`; list items by `\n`; table cells by `\t` and rows by
   `\n`.
@@ -130,6 +131,49 @@ writing and deduplicates by it, so a content-preserving change (a port, a spaCy 
 fix that changes nothing) keeps every row and key, and a change that alters content produces a
 new rendition beside the old one instead of rewriting it (P0CL-01; operator, 2026-10-28).
 > Status: **Proposed** (2026-10-28)
+
+### 3.1.1 Representation-qualified source products
+
+**Accepted target; Proposed implementation (2026-10-30).** Original source artifacts retain
+immutable bytes in PostgreSQL custody ([D3](D3-database.md#parsing-product-custody)). Artifact
+content identity is separate from document/acquisition identity. A representation names its
+artifact/dependencies, coordinate unit, encoding or transformation recipe and producing build.
+Raw bytes, decoded HTML, canonical text and expanded TeX are distinct representations; a range
+always identifies one representation, its unit and half-open bounds. A decoding failure preserves
+the raw bytes and explicit undecoded coverage.
+
+Complete lexical partitions cover original bytes and the entire canonical representation
+separately, and decoded source when decoding succeeds. Ordered components cover their declared
+representation once without gaps or overlap, retaining whitespace, delimiters, comments, unknown
+material and canonical synthetic separators. A component category asserts lexical identity,
+not resolved meaning. Existing TextLayout remains a useful projection; following-space flags
+and coarse formula atoms alone do not establish this complete partition. Structural nodes can
+overlap above it and carry identified typed relationships with explicit endpoint, role, ordering,
+multiplicity and scope; containment is one relationship, not a universal graph interpretation.
+
+Source artifact, representation, partition, structural occurrence/edge, transformation mapping,
+interpretation/assessment and producing build/product retain distinct identities. Transformation
+mappings connect ordered source and target extent sets with operation/reason, fidelity and
+coverage. Many-to-many, normalized, reordered, excluded, synthetic and derived output remains
+explicit. Macro invocation, arguments, definition/default and fallback authorities name their
+artifact and pinned dependencies. Two `x` occurrences in `x + x` survive an interpretation as
+`2*x`; the coefficient is derived, not a literal occurrence.
+
+Rendition identity remains the full content relation of §3.2: canonical text, complete ordered
+segment tree including status/reason and attributes, sentences and effective macro table.
+Build-specific partition/mapping/interpretation products and parser diagnostics do not enter that
+digest; content-identical builds can share a rendition while retaining different provenance.
+Changed canonical content or segmentation creates a new rendition and anchors. Consumers pin
+the producing build/product through existing reuse resolution and refuse ambiguous selection.
+
+Retain html5lib's HTML5 repaired structure through lxml. Complete original lexical capture and
+exact repair provenance are different obligations. Encoding changes, discarded duplicate
+attributes, implied nodes and reordering require qualified mappings; DOM paths, `sourceline`
+and serialization do not establish exact extents. Exact HTML provenance remains a PP-02
+dependency. Partial/unavailable mapping must remain visible or refuse a consumer requiring
+exact provenance; neither raw nor canonical partition completeness is thereby relaxed.
+
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
 
 ### 3.2 Segments
 
@@ -181,7 +225,7 @@ expand macros by it (§6.2): two builds that read the page's definitions differe
 share a rendition. Content-identical builds by different adapter configurations are one
 rendition, so they share every segment row and every key under it; parser diagnostics,
 exclusion records and the configuration stay on each build (P0CL-01; operator, 2026-10-28).
-> Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
+> Decision: [ADR-0024](../adr/0024-semantic-release-preparation.md)
 > Status: the relation **Tested** for canonical text, segments and sentences (2026-10-28):
 > libxml2 and html5lib renditions of the seven pages S0 and S0-R2 use are identical in them
 > ([s1.rendition-identity](../design_review/evidence/2026-10-28_design-spikes/records/s1.rendition-identity.json));
@@ -209,8 +253,10 @@ outcome (§6.1, the schema's `ParseStatus`), which values carry and segments do 
 
 ### 3.3 Spans
 
-A `Span` is `(rendition, start, end)` with its text. It is the only anchor type: every citation
-of evidence resolves to one or more spans. A span records the smallest segment that contains it.
+A `Span` is `(rendition, start, end)` with its text. It remains the canonical evidence anchor:
+every citation of evidence resolves to one or more spans. Representation-qualified source ranges
+(§3.1.1) are additional anchors for decomposition and transformations, not replacements for this
+evidence contract. A span records the smallest segment that contains it.
 Spans are deduplicated by `(rendition, start, end)` and upserted by the repository layer for
 any writer (ingest, methods, consolidation), so citing an offset never requires owning span rows.
 
