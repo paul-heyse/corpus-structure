@@ -102,6 +102,38 @@ BEGIN
    AND fields.name IN ({macro_event_range_fields})
    AND (extent.first<extent.previous OR extent.first>=extent.last OR extent.last>n.end_offset)) THEN
   RAISE EXCEPTION 'macro-event metadata ranges exceed or disorder their parent extent' USING ERRCODE='23514'; END IF;
+ -- Consumed source declarations retain a typed rule, applicability and qualified evidence view.
+ IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'interpretations','[]'::jsonb)) interpretation
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(interpretation->'declaration_basis','[]'::jsonb)) basis
+  WHERE NOT EXISTS(SELECT FROM sem.registry_row model
+   CROSS JOIN LATERAL jsonb_array_elements(convert_from(model.body,'UTF8')::jsonb->'analysis_profiles') profile
+   WHERE model.release_id=run.release_id AND model.kind='execution_model' AND (profile->'local_declaration_rules') ? (basis->>'rule_id'))
+   OR basis->'declaration'->>'symbol'='' OR basis->'declaration'->>'source_id'='' OR basis->'declaration'->>'evidence'='' OR basis->>'scope_key'=''
+   OR basis->'declaration'->>'scope' IS DISTINCT FROM basis->>'scope_key'
+   OR (basis->'declaration'->>'start')::bigint IS DISTINCT FROM (basis->>'scope_start')::bigint
+   OR (basis->'declaration'->>'end')::bigint IS DISTINCT FROM (basis->>'scope_end')::bigint
+   OR NOT ((basis->>'source_view_start')::bigint<=(basis->>'declaration_start')::bigint
+    AND (basis->>'declaration_start')::bigint<=(basis->>'head_start')::bigint
+    AND (basis->>'head_start')::bigint<(basis->>'head_end')::bigint
+    AND (basis->>'head_end')::bigint<=(basis->>'declaration_end')::bigint
+    AND (basis->>'declaration_end')::bigint<=(basis->>'source_view_end')::bigint
+    AND (basis->>'source_view_end')::bigint<=(basis->>'scope_start')::bigint
+    AND (basis->>'scope_start')::bigint<(basis->>'scope_end')::bigint)) THEN
+  RAISE EXCEPTION 'source declaration rule/applicability basis differs' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'interpretations','[]'::jsonb)) interpretation
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(interpretation->'declaration_basis','[]'::jsonb)) basis
+  WHERE NOT EXISTS(SELECT FROM kb.parsing_layer_relationship relationship
+   JOIN kb.parsing_layer_endpoint target ON target.task_id=relationship.task_id AND target.product_key=relationship.product_key AND target.relationship_id=relationship.relationship_id AND target.ordinal=0
+   JOIN kb.parsing_layer_endpoint source ON source.task_id=relationship.task_id AND source.product_key=relationship.product_key AND source.relationship_id=relationship.relationship_id AND source.ordinal=1
+   JOIN kb.parsing_layer_node view ON view.task_id=source.target_task_id AND view.product_key=source.target_product_key AND view.node_id=source.node_id
+   JOIN kb.parsing_layer_representation representation ON representation.task_id=view.task_id AND representation.product_key=view.product_key AND representation.representation_id=view.representation_id AND representation.unit=view.unit
+   JOIN ops.parsing_layer_product input ON input.task_id=view.task_id AND input.product_key=view.product_key AND input.content_digest=source.target_content_digest
+   WHERE relationship.task_id=p_task AND relationship.product_key=layer_key AND relationship.relationship_id=basis->>'relationship_id' AND relationship.kind='derived_from'
+    AND target.target_task_id=p_task AND target.target_product_key=layer_key AND target.node_id=interpretation->>'interpretation_id'
+    AND input.kind='text' AND view.kind='parse_view' AND view.origin='literal' AND view.unit='codepoint' AND view.representation_id='canonical'
+    AND view.node_id=basis->>'source_view_node_id' AND view.start_offset=(basis->>'source_view_start')::bigint AND view.end_offset=(basis->>'source_view_end')::bigint
+    AND (basis->>'scope_end')::bigint<=representation.extent_length)) THEN
+  RAISE EXCEPTION 'source declaration has no qualified canonical evidence-view custody' USING ERRCODE='23514'; END IF;
  RETURN digest;
 END $layer$;
 REVOKE ALL ON FUNCTION ops.publish_layered_parsing_product(bigint,bigint,text,text,bytea,bytea[]) FROM PUBLIC;

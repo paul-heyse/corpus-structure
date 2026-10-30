@@ -275,6 +275,52 @@ def interpretation_product_payload(
     ]
     if stage == "syntax":
         p["interpretations"] = []
+    else:
+        basis = []
+        for index, consumed in enumerate(operand.source_declarations):
+            relationship_id = f"declaration:{index}"
+            record = {
+                field: getattr(consumed, field)
+                for field in (
+                    "declaration_start",
+                    "declaration_end",
+                    "head_start",
+                    "head_end",
+                    "scope_start",
+                    "scope_end",
+                    "scope_key",
+                    "source_view_start",
+                    "source_view_end",
+                    "source_view_node_id",
+                    "rule_id",
+                )
+            }
+            record["declaration"] = {
+                key: value
+                for key, value in dataclasses.asdict(consumed.declaration).items()
+                if value is not None
+            }
+            record["relationship_id"] = relationship_id
+            basis.append(record)
+            p["relationships"].append(dict(relationship_id=relationship_id, kind="derived_from"))
+            p["endpoints"].extend(
+                [
+                    dict(
+                        relationship_id=relationship_id,
+                        ordinal=0,
+                        role="target",
+                        node_id="interpretation:0",
+                    ),
+                    _external_endpoint(
+                        dependency,
+                        relationship_id=relationship_id,
+                        ordinal=1,
+                        role="source",
+                        node_id=consumed.source_view_node_id,
+                    ),
+                ]
+            )
+        p["interpretations"][0]["declaration_basis"] = basis
     return p
 
 

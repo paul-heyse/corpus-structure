@@ -987,7 +987,7 @@ def parsing_publication_sql(
 
             elif prop.range in {"ParsingBoolean", "boolean"}:
                 predicate = f"jsonb_typeof({value}) IS DISTINCT FROM 'boolean'"
-            elif prop.range == "ParsingInteger":
+            elif prop.range in {"ParsingInteger", "integer"}:
                 predicate = (
                     f"jsonb_typeof({value}) IS DISTINCT FROM 'number' "
                     f"OR {expression}->>{key} !~ '^[0-9]+$'"

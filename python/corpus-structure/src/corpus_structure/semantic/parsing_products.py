@@ -962,6 +962,54 @@ def _validate_layered_product(p: dict[str, Any], context: PreparedParsingContext
             for identity in interpretation["occurrence_ids"]
         ):
             raise ValueError("interpretation occurrence reference has no local custody")
+    declaration_rules = set(context.execution.analysis_profiles[0].local_declaration_rules)
+    for interpretation in p["interpretations"]:
+        for basis in interpretation.get("declaration_basis", ()):
+            declaration = basis["declaration"]
+            if basis["rule_id"] not in declaration_rules:
+                raise ValueError("source declaration basis requires its admitted rule")
+            if (
+                not all(
+                    declaration.get(key) for key in ("symbol", "source_id", "scope", "evidence")
+                )
+                or not basis["scope_key"]
+            ):
+                raise ValueError(
+                    "source declaration basis requires explicit source, scope and evidence"
+                )
+            if (
+                declaration["scope"] != basis["scope_key"]
+                or declaration["start"] != basis["scope_start"]
+                or declaration["end"] != basis["scope_end"]
+            ):
+                raise ValueError("declaration applicability differs from its typed basis")
+            if not (
+                0
+                <= basis["source_view_start"]
+                <= basis["declaration_start"]
+                <= basis["head_start"]
+                < basis["head_end"]
+                <= basis["declaration_end"]
+                <= basis["source_view_end"]
+                <= basis["scope_start"]
+                < basis["scope_end"]
+            ):
+                raise ValueError(
+                    "source declaration/head/view/applicability extents are inconsistent"
+                )
+            relation = relations.get((basis["relationship_id"],))
+            if relation is None or relation["kind"] != "derived_from":
+                raise ValueError("declaration basis requires its source derivation relationship")
+            endpoints = ordered_endpoints[basis["relationship_id"]]
+            target, source = endpoints
+            if (
+                not local(target)
+                or target.get("node_id") != interpretation["interpretation_id"]
+                or local(source)
+                or source.get("node_id") != basis["source_view_node_id"]
+            ):
+                raise ValueError("declaration basis requires its qualified source-view endpoint")
+
     qualified_inputs: dict[str, set[str | None]] = defaultdict(set)
     for relation in relations.values():
         if relation["kind"] != "derived_from":
@@ -1213,7 +1261,22 @@ def select_layered_products(
             custody.c.content_digest == products.c.content_digest,
         )
     )
-    query = select(products).where(
+    header_columns = tuple(
+        products.c[name]
+        for name in (
+            "task_id",
+            "product_key",
+            "content_digest",
+            "root_task_id",
+            "root_product_key",
+            "root_content_digest",
+            "kind",
+            "lifecycle",
+            "semantic_state",
+            "coverage",
+        )
+    )
+    query = select(*header_columns).where(
         products.c.root_task_id.in_(roots),
         or_(products.c.kind == "source", named),
     )
@@ -1297,3 +1360,95 @@ def select_parsing_request_source(conn: Connection, *, run_id: int, root: Produc
     if actual != row.rendition_id:
         raise ValueError("request source selection differs from existing run selection")
     return actual
+
+
+def verified_product_header(
+    conn: Connection,
+    reference: ProductReference,
+    *,
+    context: PreparedParsingContext | None = None,
+) -> SelectedParsingProduct | None:
+    """Verify immutable identity/header in PostgreSQL without transferring the manifest."""
+    from sqlalchemy import String, and_, cast, func
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    products = table("ops.parsing_layer_product")
+    identity = (products.c.task_id == reference.task_id) & (
+        products.c.product_key == reference.product_key
+    )
+    digest = func.encode(func.sha256(products.c.payload), "hex")
+    columns = [column for column in products.c if column.name != "payload"]
+    row = (
+        conn.execute(
+            select(
+                *columns,
+                and_(digest == products.c.content_digest, digest == reference.content_digest).label(
+                    "body_valid"
+                ),
+            ).where(identity)
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        return None
+    if not row["body_valid"] or row["content_digest"] != reference.content_digest:
+        raise ValueError("retained product content identity differs")
+    context = parsing_context_for_task(conn, reference.task_id, context)
+    context.execution.require_operation("read_parsing_product")
+    if row["release_id"] != context.release_id or row["contract_digest"] != context.contract_digest:
+        raise ParsingProductUnavailable("retained product binding is unsupported by this reader")
+    if reference.product_key == "source":
+        conn.execute(
+            text("SELECT ops.require_parsing_product(:task,:contract)"),
+            dict(task=reference.task_id, contract=context.contract_digest),
+        )
+        legacy = table("ops.parsing_product")
+        same = conn.execute(
+            select(
+                and_(
+                    products.c.kind == "source",
+                    products.c.root_task_id == reference.task_id,
+                    products.c.root_product_key == "source",
+                    products.c.root_content_digest == reference.content_digest,
+                    products.c.content_digest == legacy.c.product_digest,
+                    products.c.contract_digest == legacy.c.contract_digest,
+                    products.c.release_id == legacy.c.release_id,
+                    products.c.lifecycle == legacy.c.lifecycle,
+                    products.c.semantic_state == legacy.c.semantic_state,
+                    products.c.coverage == legacy.c.provenance_state,
+                )
+            )
+            .select_from(products)
+            .join(legacy, legacy.c.task_id == products.c.task_id)
+            .where(identity)
+        ).scalar_one()
+    else:
+        manifest = cast(func.convert_from(products.c.payload, "UTF8"), JSONB)
+        checks = [
+            manifest[field].astext == products.c[field]
+            for field in (
+                "product_key",
+                "kind",
+                "operation",
+                "adapter_id",
+                "lifecycle",
+                "semantic_state",
+                "coverage",
+            )
+        ]
+        checks.extend(
+            manifest["root"][field].astext == cast(products.c["root_" + field], String)
+            for field in ("task_id", "product_key", "content_digest")
+        )
+        same = conn.execute(select(and_(*checks)).where(identity)).scalar_one()
+    if same is not True:
+        raise ValueError("retained product registry differs from its immutable manifest")
+    return SelectedParsingProduct(
+        reference,
+        ProductReference(row["root_task_id"], row["root_product_key"], row["root_content_digest"]),
+        row["kind"],
+        row["lifecycle"],
+        row["semantic_state"],
+        row["coverage"],
+    )

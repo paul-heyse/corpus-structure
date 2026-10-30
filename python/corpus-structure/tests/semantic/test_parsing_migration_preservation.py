@@ -198,6 +198,10 @@ def test_populated_abi10_source_survives_forward_guards(
                     receipt["task_id"], "source", receipt["product_digest"]
                 )
                 assert read_layered_product(conn, reference) == product
+                from corpus_structure.semantic.parsing_products import verified_product_header
+
+                header = verified_product_header(conn, reference)
+                assert header is not None and header.reference == reference
                 assert (
                     BoundReader(conn, receipt["run_id"], archived).parsing_product(
                         receipt["rendition_id"]

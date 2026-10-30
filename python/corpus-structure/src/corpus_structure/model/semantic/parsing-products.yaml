@@ -2,6 +2,7 @@ id: https://corpus-structure.dev/semantic/parsing-products
 name: parsing_products
 prefixes:
   pp: https://corpus-structure.dev/parsing/
+  execution: https://corpus-structure.dev/execution/
   xsd: http://www.w3.org/2001/XMLSchema#
 default_prefix: pp
 default_range: ParsingString
@@ -674,6 +675,12 @@ classes:
         minimum_cardinality: 1
   ParsingInterpretation:
     attributes:
+      declaration_basis:
+        range: ParsingSourceDeclarationBasis
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:ParsingInterpretation_declaration_basis
       interpretation_id:
         range: ParsingString
         required: true
@@ -1130,3 +1137,101 @@ classes:
         inlined: true
         inlined_as_list: true
         slot_uri: pp:ParsingMacroEventMetadata_count_ranges
+
+  ParsingSourceFunctionDeclaration:
+    is_a: AnalysisSymbolDeclaration
+    attributes:
+      role:
+        range: string
+        required: true
+        equals_string: function
+        slot_uri: execution:AnalysisSymbolDeclaration_role
+      authority:
+        range: string
+        required: true
+        equals_string: source
+        slot_uri: execution:AnalysisSymbolDeclaration_authority
+      source_id:
+        range: string
+        required: true
+        slot_uri: execution:AnalysisSymbolDeclaration_source_id
+      scope:
+        range: string
+        required: true
+        slot_uri: execution:AnalysisSymbolDeclaration_scope
+      start:
+        range: integer
+        required: true
+        minimum_value: 0
+        slot_uri: execution:AnalysisSymbolDeclaration_start
+      end:
+        range: integer
+        required: true
+        minimum_value: 0
+        slot_uri: execution:AnalysisSymbolDeclaration_end
+  ParsingSourceDeclarationBasis:
+    description: The source-local function declaration consumed by an interpretation, with qualified text
+      custody via its derived_from relationship.
+    attributes:
+      declaration:
+        range: ParsingSourceFunctionDeclaration
+        required: true
+        inlined: true
+        slot_uri: pp:ParsingSourceDeclarationBasis_declaration
+      rule_id:
+        range: string
+        required: true
+        equals_string: function-definition-1
+        slot_uri: pp:ParsingSourceDeclarationBasis_rule_id
+      declaration_start:
+        range: ParsingInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pp:ParsingSourceDeclarationBasis_declaration_start
+      declaration_end:
+        range: ParsingInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pp:ParsingSourceDeclarationBasis_declaration_end
+      head_start:
+        range: ParsingInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pp:ParsingSourceDeclarationBasis_head_start
+      head_end:
+        range: ParsingInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pp:ParsingSourceDeclarationBasis_head_end
+      scope_start:
+        range: ParsingInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pp:ParsingSourceDeclarationBasis_scope_start
+      scope_end:
+        range: ParsingInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pp:ParsingSourceDeclarationBasis_scope_end
+      source_view_start:
+        range: ParsingInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pp:ParsingSourceDeclarationBasis_source_view_start
+      source_view_end:
+        range: ParsingInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pp:ParsingSourceDeclarationBasis_source_view_end
+      scope_key:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingSourceDeclarationBasis_scope_key
+      source_view_node_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingSourceDeclarationBasis_source_view_node_id
+      relationship_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingSourceDeclarationBasis_relationship_id
