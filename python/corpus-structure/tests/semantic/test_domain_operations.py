@@ -1177,7 +1177,8 @@ def test_recorded_math_fallbacks_constants_and_source_override_drive_science(
         semantic_db_engine,
         semantic_writer_engine,
         tmp_path / "source.html",
-        formulas=((r"\A" if operand == "fallback" else r"e^{\ln x}"), "x"),
+        # The declared Euler constant discharges the denominator's nonzero premise.
+        formulas=(r"\A", "x") if operand == "fallback" else (r"\frac{1}{e}", "e^{-1}"),
         math={
             "macros": {r"\A": "100" if source_override else "x", "unused": "z"},
             "constants": ["e", r"\pi"],
@@ -1198,6 +1199,32 @@ def test_recorded_math_fallbacks_constants_and_source_override_drive_science(
             for a in session.explain(rows[0].fact_id).assessments
             if a.operation_id == "scientific.value_equivalence"
         } == {"equivalent"}
+
+
+def test_unqualified_log_domain_is_not_cancelled_into_accepted_equivalence(
+    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+):
+    from corpus_structure.semantic.query import QuerySpec, read_session
+
+    _, _, cut = fixture(
+        semantic_db_engine,
+        semantic_writer_engine,
+        tmp_path / "source.html",
+        formulas=(r"e^{\ln x}", "x"),
+        math={"constants": ["e"]},
+    )
+    consolidate_cut(semantic_writer_engine, cut, "evaluated")
+    with read_session(semantic_reader_engine, "evaluated") as session:
+        cls = session.class_handle("Person")
+        prop = session.property_handle(cls, "name")
+        rows = session.query(QuerySpec(cls, prop)).rows
+        assert not session.query(QuerySpec(cls, prop, "accepted")).rows
+        assert {
+            assessment.outcome
+            for row in rows
+            for assessment in session.explain(row.fact_id).assessments
+            if assessment.operation_id == "scientific.value_equivalence"
+        } == {"undecided"}
 
 
 def test_conflicting_recorded_constant_profiles_refuse_cut(

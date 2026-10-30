@@ -28,6 +28,7 @@ def test_actual_cli_source_scope_agent_unknown_limit_and_cancel(
         prepare_release,
     )
     from corpus_structure.semantic.analytical_profile import analytical_inputs
+    from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.domain_operations import domain_rule_inputs
     from corpus_structure.semantic.observations import prepare_source_inputs
     from corpus_structure.semantic.proposals import proposal_inputs
@@ -38,9 +39,11 @@ def test_actual_cli_source_scope_agent_unknown_limit_and_cancel(
     deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []")
     bundle, deps = prepare_source_inputs(proposal_inputs(bundle, deps), deps)
     bundle, deps = analytical_inputs(bundle, deps)
-    prepared = prepare_release(bundle, deps)
+    deps = composed_dependencies(deps)
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, deps, profile)
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, deps, PreparationProfile(), prepared)
+        persist_release(conn, bundle, deps, profile, prepared)
     corpus = tmp_path / "corpus"
     (corpus / "toy").mkdir(parents=True)
     (corpus / "toy" / "input.html").write_text(

@@ -54,7 +54,9 @@ def cmp(a: Any, b: Any, conds: tuple[Any, ...] = ()) -> tuple[bool, Tier]:
         (s("(0, \\infty)"), s("\\R_+"), (True, Tier.SYMBOLIC)),  # the positive reals
         (s("(0, \\infty)"), s("[0, \\infty)"), (False, Tier.SYMBOLIC)),
         (s("[0, 1] \\cup [1, 2]"), s("[0, 2]"), (True, Tier.SYMBOLIC)),
-        (f("e^{\\ln x}"), f("x"), (True, Tier.SYMBOLIC)),
+        # Unqualified source log definedness is not established over x's domain.
+        # Native cancellation alone cannot prove equivalence of these partial functions.
+        (f("e^{\\ln x}"), f("x"), (False, Tier.UNDECIDED)),
         (
             V.TextValue(t="text", v="Normal "),
             V.TextValue(t="text", v="normal"),

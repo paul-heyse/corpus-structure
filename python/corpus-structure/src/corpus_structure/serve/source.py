@@ -9,10 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from pydantic_core import to_jsonable_python
 from sqlalchemy import Connection, select
 
-from corpus_structure.semantic import parsing_queries
-from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import OperationConflict
-
 
 class SourceRequest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -45,6 +41,9 @@ class SourceResponse(BaseModel):
 
 def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
     """Read a selected product; absence is explicit and never initiates interpretation."""
+    from corpus_structure.semantic import parsing_queries
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.operations import OperationConflict
     from corpus_structure.semantic.parsing_products import (
         select_layered_products,
         verified_product_header,

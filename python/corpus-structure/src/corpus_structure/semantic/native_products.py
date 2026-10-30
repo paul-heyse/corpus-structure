@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0044"
-NATIVE_REVISION = "semantic_0045"
+NATIVE_PREDECESSOR = "semantic_0045"
+NATIVE_REVISION = "semantic_0046"
 
 
 def selected_fact_query():
@@ -916,8 +916,18 @@ def parsing_contract_products(model=None) -> tuple[NativeProduct, ...]:
 
 
 def forward_products(model=None) -> tuple[NativeProduct, ...]:
-    """Typed macro-event publication; frozen 0041-0044 remain untouched."""
-    return macro_event_contract_products(model)
+    """Deploy the layered access paths already declared by the physical model.
+
+    0043 created the layered relations but omitted their separate index products.
+    No record, kernel, archive contract or admission body changes in this revision.
+    """
+    from .parsing_products import LAYER_RELATIONS
+
+    ddl = "SET LOCAL ROLE corpus_sem_publisher;\n"
+    for name in sorted({"ops.parsing_layer_product", *LAYER_RELATIONS.values()}):
+        for index in sorted(metadata.tables[name].indexes, key=lambda item: str(item.name)):
+            ddl += str(CreateIndex(index, if_not_exists=True).compile(dialect=dialect())) + ";\n"
+    return (NativeProduct(f"{NATIVE_REVISION}_indexes.sql", ddl.encode()),)
 
 
 def parsing_publication_sql(

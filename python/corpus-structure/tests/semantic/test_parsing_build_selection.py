@@ -9,7 +9,6 @@ from sqlalchemy import select, text
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import (
     BoundReader,
-    OperationConflict,
     claim_tasks,
     create_task,
     read_rendition,
@@ -87,7 +86,8 @@ def test_competing_builds_require_a_pin_even_when_rendition_content_is_identical
         )
     with semantic_reader_engine.begin() as conn:
         reader = BoundReader(conn, run, prepared)
-        with pytest.raises(OperationConflict, match="multiple parsing product builds"):
+        # ABI 11 routes the source shim through the common selected-product reader.
+        with pytest.raises(ValueError, match="multiple parsing product candidates"):
             reader.parsing_product(rendition)
         assert reader.parsing_product(rendition, producing_task_id=first) == first_product
         assert reader.parsing_product(rendition, producing_task_id=second) == second_product

@@ -9,6 +9,18 @@ from corpus_structure.semantic.contracts import compile_execution_model, trusted
 from corpus_structure.semantic.types import PreparationError
 
 
+def _retained_profile(body, version):
+    """Author the older recipe/stage fixture coherently, not just its version label."""
+    profile = body["analysis_profiles"][0]
+    profile["version"] = version
+    profile["grammar_recipe"] = "extended-lark-2"
+    profile["transformer_recipe"] = "sympy-transform-2"
+    profile["placement_policy"]["recipe"] = "citation-cascade-1"
+    profile.pop("mathematical_conventions", None)
+    profile["demands"] = [d for d in profile["demands"] if d["id"] not in {"structure", "syntax"}]
+    next(d for d in profile["demands"] if d["id"] == "occurrences")["prerequisites"] = ["lexical"]
+
+
 def test_unknown_capture_storage_cannot_self_attest_support():
     inputs = trusted_execution_inputs()
     catalog = yaml.safe_load(inputs.catalog.content)
@@ -43,7 +55,7 @@ def test_previous_execution_capture_retains_projection_recipe_and_no_write_capab
         if effect["id"] == "schedule_pending_or_reused_or_skipped":
             effect["version"] = "1"
     historic["inputs"]["compiler_version"] = version
-    historic["analysis_profiles"][0]["version"] = profile
+    _retained_profile(historic, profile)
     if version == "7":
         historic["analysis_profiles"][0].pop("capture_policy")
     payload = canonical_bytes(historic)
@@ -95,7 +107,7 @@ def test_retained_compiler8_capture_exports_without_current_execution_compilatio
         if effect["id"] == "schedule_pending_or_reused_or_skipped":
             effect["version"] = "1"
     retained["inputs"]["compiler_version"] = "8"
-    retained["analysis_profiles"][0]["version"] = "4"
+    _retained_profile(retained, "4")
     retained["analysis_profiles"][0].pop("invocation_policy", None)
     archived = replace(
         prepared,
