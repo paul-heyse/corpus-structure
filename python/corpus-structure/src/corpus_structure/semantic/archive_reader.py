@@ -36,7 +36,7 @@ from .types import (
     VocabularySnapshot,
 )
 
-# Engine lifetime bounds database authority; keys additionally bind snapshot-observed bytes
+# Engine lifetime bounds database authority; keys bind observed immutable archive headers
 # and the actual validation runtime. Mutable selection, authorization and facts never enter it.
 _OPEN_CACHE: WeakKeyDictionary[Any, OrderedDict[tuple, PreparedRelease]] = WeakKeyDictionary()
 _CACHE_LOCK = RLock()
@@ -296,6 +296,36 @@ def reconstruct_release(
     )
 
 
+def _archive_header(conn: Any, release_id: str):
+    """Observe finalized authority without acquiring archive or manifest payloads.
+
+    Physical tuple markers only invalidate reuse conservatively (including administrative
+    rewrites). They are neither semantic identity nor a replacement for native immutability.
+    """
+    from sqlalchemy import String, literal_column, select
+
+    from .releases import _table
+
+    release = _table("sem.release").alias("archive_release")
+    finalized = _table("sem.release_finalization").alias("archive_finalized")
+    markers = tuple(
+        literal_column(f"{alias}.{name}", type_=String()).cast(String()).label(f"{alias}_{name}")
+        for alias in ("archive_release", "archive_finalized")
+        for name in ("tableoid", "xmin", "ctid")
+    )
+    return conn.execute(
+        select(
+            release.c.release_id,
+            release.c.profile,
+            release.c.content_digest,
+            finalized.c.content_digest.label("finalized_digest"),
+            *markers,
+        )
+        .select_from(release.outerjoin(finalized, finalized.c.release_id == release.c.release_id))
+        .where(release.c.release_id == release_id)
+    ).one_or_none()
+
+
 def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
     """Read a complete archive in one caller-owned snapshot, retaining row coherence checks."""
     from dataclasses import asdict
@@ -314,37 +344,37 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
     )
     from .types import ResolvedDependencies
 
+    header = _archive_header(conn, release_id)
+    if header is None:
+        raise KeyError(release_id)
+    finalized_digest = header.finalized_digest
+    from .determinants import BOUNDARY_LIBRARIES, determinant_version
+
+    runtime = tuple(
+        (name, determinant_version(name)) for name in (*BOUNDARY_LIBRARIES, "linkml-runtime")
+    )
+    cache_key = (tuple(header), runtime)
+    if finalized_digest == header.content_digest:
+        with _CACHE_LOCK:
+            cache = _OPEN_CACHE.get(conn.engine)
+            if cache is not None and cache_key in cache:
+                cache.move_to_end(cache_key)
+                return cache[cache_key]
     relation = _table("sem.release")
     row = (
         conn.execute(select(relation).where(relation.c.release_id == release_id))
         .mappings()
         .one_or_none()
     )
-    if row is None:
-        raise KeyError(release_id)
-    finalization = _table("sem.release_finalization")
-    finalized_digest = conn.execute(
-        select(finalization.c.content_digest).where(finalization.c.release_id == release_id)
-    ).scalar_one_or_none()
-    from .determinants import BOUNDARY_LIBRARIES, determinant_version
-
-    runtime = tuple(
-        (name, determinant_version(name)) for name in (*BOUNDARY_LIBRARIES, "linkml-runtime")
-    )
-    if _digest(bytes(row["prepared_bytes"])) != row["content_digest"]:
-        raise ReleaseConflict("archive digest differs")
-    cache_key = (release_id, row["content_digest"], _digest(bytes(row["manifest_bytes"])), runtime)
-    if finalized_digest == row["content_digest"]:
-        with _CACHE_LOCK:
-            cache = _OPEN_CACHE.get(conn.engine)
-            if cache is not None and cache_key in cache:
-                cache.move_to_end(cache_key)
-                return cache[cache_key]
+    if row is None or (row["profile"], row["content_digest"]) != (
+        header.profile, header.content_digest
+    ):
+        raise ReleaseConflict("archive header changed during opening")
     try:
         archive_bytes, manifest_bytes = bytes(row["prepared_bytes"]), bytes(row["manifest_bytes"])
-        if _digest(archive_bytes) != row["content_digest"] or release_id != "release:" + _digest(
-            manifest_bytes
-        ):
+        if _digest(archive_bytes) != row["content_digest"]:
+            raise ReleaseConflict("archive digest differs")
+        if release_id != "release:" + _digest(manifest_bytes):
             raise ReleaseConflict("archive or manifest identity differs")
         archive, manifest = json.loads(archive_bytes), json.loads(manifest_bytes)
         if archive["format"] not in {
@@ -453,6 +483,9 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
             for name, expected_rows in _projection_rows(prepared).items():
                 _compare_rows(conn, name, release_id, expected_rows)
         else:
+            observed = _archive_header(conn, release_id)
+            if observed is None or tuple(observed) != tuple(header):
+                raise ReleaseConflict("archive header changed during opening")
             with _CACHE_LOCK:
                 cache = _OPEN_CACHE.setdefault(conn.engine, OrderedDict())
                 if cache_key in cache:

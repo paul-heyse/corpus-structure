@@ -356,7 +356,9 @@ def test_warm_cache_does_not_admit_changed_runtime_or_failed_source_verification
         def unavailable(*args, **kwargs):
             raise ValueError("independent exact-source verification failed")
 
-        monkeypatch.setattr(releases, "prepare_release", unavailable)
+        from corpus_structure.semantic import prepare as compiler
+
+        monkeypatch.setattr(compiler, "prepare_release", unavailable)
         with pytest.raises(releases.ReleaseConflict):
             releases.verify_release(conn, prepared.release_id)
         with pytest.raises(releases.ReleaseConflict):
@@ -415,3 +417,143 @@ def test_shared_snapshot_restores_connection_state_after_failure(semantic_reader
     with semantic_reader_engine.connect() as conn:
         assert conn.get_isolation_level() == "READ COMMITTED"
         assert conn.exec_driver_sql("SHOW transaction_read_only").scalar_one() == "off"
+
+
+def test_finalized_warm_open_selects_only_header_without_hashing(semantic_db_engine, monkeypatch):
+    from sqlalchemy import event
+
+    from corpus_structure.semantic import releases
+
+    from .test_releases import stage
+
+    with semantic_db_engine.begin() as conn:
+        _, _, _, prepared = stage(conn)
+        opened = releases.open_release(conn, prepared.release_id)
+        statements = []
+
+        def observe(conn, cursor, statement, parameters, context, executemany):
+            statements.append(statement)
+
+        def unexpected_hash(*args):
+            raise AssertionError("a finalized warm hit must not hash payloads")
+
+        event.listen(conn, "before_cursor_execute", observe)
+        try:
+            with monkeypatch.context() as guarded:
+                guarded.setattr(releases, "_digest", unexpected_hash)
+                assert releases.open_release(conn, prepared.release_id) is opened
+        finally:
+            event.remove(conn, "before_cursor_execute", observe)
+        assert len(statements) == 1
+        assert "release_finalization" in statements[0]
+        assert "prepared_bytes" not in statements[0]
+        assert "manifest_bytes" not in statements[0]
+
+
+def test_cold_open_changed_header_refuses_without_publishing_cache(semantic_db_engine, monkeypatch):
+    from corpus_structure.semantic import archive_reader, releases
+
+    from .test_releases import stage
+
+    with semantic_db_engine.begin() as conn:
+        _, _, _, prepared = stage(conn)
+        with archive_reader._CACHE_LOCK:
+            archive_reader._OPEN_CACHE.pop(conn.engine, None)
+        original = archive_reader._archive_header
+        calls = 0
+
+        def changed_header(connection, release_id):
+            nonlocal calls
+            calls += 1
+            row = original(connection, release_id)
+            if calls == 2:
+                return (*row[:-1], "changed physical tuple")
+            return row
+
+        with monkeypatch.context() as changed:
+            changed.setattr(archive_reader, "_archive_header", changed_header)
+            with pytest.raises(releases.ReleaseConflict, match="header changed"):
+                releases.open_release(conn, prepared.release_id)
+        with archive_reader._CACHE_LOCK:
+            assert not archive_reader._OPEN_CACHE.get(conn.engine)
+        assert releases.open_release(conn, prepared.release_id).release_id == prepared.release_id
+
+
+def test_unfinalized_archive_keeps_full_checks_without_cache(semantic_db_engine, monkeypatch):
+    from sqlalchemy import delete
+
+    from corpus_structure.semantic import archive_reader, releases
+    from corpus_structure.semantic.metadata import table
+
+    from .archive_faults import administrative_archive_edit
+    from .test_releases import stage
+
+    with semantic_db_engine.begin() as conn:
+        _, _, _, prepared = stage(conn)
+        finalized = table("sem.release_finalization")
+        with administrative_archive_edit(conn, finalized):
+            conn.execute(delete(finalized).where(finalized.c.release_id == prepared.release_id))
+        with archive_reader._CACHE_LOCK:
+            archive_reader._OPEN_CACHE.pop(conn.engine, None)
+        compared = []
+        original = releases._compare_rows
+
+        def compare(connection, name, release_id, rows):
+            compared.append(name)
+            return original(connection, name, release_id, rows)
+
+        monkeypatch.setattr(releases, "_compare_rows", compare)
+        one = releases.open_release(conn, prepared.release_id)
+        two = releases.open_release(conn, prepared.release_id)
+        assert one is not two
+        assert compared
+        with archive_reader._CACHE_LOCK:
+            assert not archive_reader._OPEN_CACHE.get(conn.engine)
+
+
+def test_overlapping_cold_archive_opens_publish_one_owner(semantic_db_engine, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from corpus_structure.semantic import archive_reader, releases
+
+    from .test_releases import stage
+
+    with semantic_db_engine.begin() as conn:
+        _, _, _, prepared = stage(conn)
+    with archive_reader._CACHE_LOCK:
+        archive_reader._OPEN_CACHE.pop(semantic_db_engine, None)
+    overlap = Barrier(2)
+    original = archive_reader.reconstruct_release
+
+    def reconstruct(*args, **kwargs):
+        overlap.wait(timeout=15)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(archive_reader, "reconstruct_release", reconstruct)
+
+    def open_one():
+        with semantic_db_engine.connect() as conn:
+            return releases.open_release(conn, prepared.release_id)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(open_one) for _ in range(2)]
+        one, two = [future.result(timeout=30) for future in futures]
+    assert one is two
+
+
+def test_archive_cache_retains_only_eight_recent_products(semantic_db_engine):
+    from corpus_structure.semantic import archive_reader, releases
+
+    from .test_releases import source_bundle, stage
+
+    with semantic_db_engine.begin() as conn:
+        prepared = [stage(conn, source_bundle(f"\n# release {i}\n".encode()))[3] for i in range(9)]
+        opened = [releases.open_release(conn, item.release_id) for item in prepared[:8]]
+        # Touch the oldest product, so eviction must select the second product.
+        assert releases.open_release(conn, prepared[0].release_id) is opened[0]
+        releases.open_release(conn, prepared[8].release_id)
+        with archive_reader._CACHE_LOCK:
+            assert len(archive_reader._OPEN_CACHE[conn.engine]) == 8
+        assert releases.open_release(conn, prepared[0].release_id) is opened[0]
+        assert releases.open_release(conn, prepared[1].release_id) is not opened[1]
