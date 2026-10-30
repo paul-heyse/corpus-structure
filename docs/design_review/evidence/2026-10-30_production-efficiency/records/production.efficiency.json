@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "id": "production.efficiency",
+  "title": "Bounded production preparation and reading costs",
+  "group": "production-efficiency",
+  "package": null,
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What do bounded production-only measurements establish about reading reuse, startup and archive payload size?",
+  "answers": [],
+  "method": "Run production import and rendition/span-reading functions on original source bytes; compare same-process cold/warm reading; inspect installed interfaces and archived byte sizes read-only.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-10-30_production-efficiency/code/profile_page.py",
+    "uv run --no-sync python docs/design_review/evidence/2026-10-30_production-efficiency/code/profile_page.py --no-profile"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "code",
+      "role": "Production-only measurement command",
+      "sha256": "6d4ec6608014e5f6f83a9efe333d6b835966a2e43ce1c5e9bdabda7ef93c9ef7"
+    },
+    {
+      "path": "raw",
+      "role": "Raw measurements, profiles, hardware and interface observations",
+      "sha256": "aa07c4605376cd9b14f4c669bf3eefd6eb19e021183db15a846f2905c94d785c"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Unprofiled page spans",
+      "value": 195,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Unprofiled cold reading",
+      "value": 6.402386293979362,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "Unprofiled warm reading",
+      "value": 0.0015256460173986852,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "Cold CLI import process wall",
+      "value": 1.51,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Bounded startup, archive-size and cold/warm page observations established. Existing parsing memo is effective. Profile instrumentation changes timeout-sensitive behavior, preventing reliable quantitative stage attribution; no replacement speedup or full production throughput established.",
+  "consumed_by": [
+    "production-efficiency review"
+  ]
+}

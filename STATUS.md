@@ -3,6 +3,11 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Current checkpoint
 
+- [Production efficiency design review](docs/design_review/reviews/production-efficiency_2026-10-30.md)
+  published2026-10-30: **Revise**, proposed corrections only. All production facets covered,
+  with analysis depth; audit premises/documents and testing code untouched. Bounded production
+  measurements do not establish full-corpus throughput or replacement speedups.
+
 - Remaining SP-09 functional scope and SP-10 applicable required-union qualification are complete
   (Tested). The [regeneration owner](docs/plans/semantic-model-pivot/regeneration-and-acceptance.md#current-execution--2026-10-30)
   and [coordinator §15](docs/plans/semantic-model-pivot_2026-10-29.md#15-remaining-sp-09sp-10-execution--2026-10-30)
@@ -41,6 +46,7 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Next
 
-No remaining SP-09/SP-10 execution obligation in this scope. Existing broader-series claims retain
+Plan creation can adopt the production-efficiency recommendations before further capability work.
+No remaining SP-09/SP-10 execution obligation in the prior scope. Existing broader-series claims retain
 prior boundaries; this execution does not constitute a new completion audit or capacity/quality claim.
 Unrelated library documents, historical databases and the existing external MCP host are preserved.
