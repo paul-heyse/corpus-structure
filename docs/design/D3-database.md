@@ -1744,3 +1744,14 @@ matching corrupt artifacts refuse with regeneration instructions. M13 consumes t
 analytical token projection remains a future consumer of this structured representation.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+
+## Owned publication and analytical capture
+
+**Implemented; scoped Tested (2026-10-30).** Compiler 8/profile 4/native 0038 admit model-bound
+resident/spooled analytical capture. The physical schema is retained; forward admission and the
+derived-publication kernel consume the frozen analytical ABI. Source primary-key order supplies
+incremental logical hashing. PostgreSQL/ADBC snapshots end before returned high-level analysis;
+detached files/manifests retain schema, source custody, completeness and separate file integrity.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

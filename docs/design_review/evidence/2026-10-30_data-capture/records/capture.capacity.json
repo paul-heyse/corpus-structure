@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "id": "capture.capacity",
+  "title": "Native resident and spooled capture capacity",
+  "group": "production-efficiency",
+  "package": "PE-09",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can a complete file-backed capture exceed configured resident admission and preserve exact content?",
+  "answers": [],
+  "method": "Create a bounded native realization, refuse resident capture at1MiB, capture/export spooled data and compare independently asserted values and logical digest across batch sizes.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-30_data-capture/probe.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "probe.py",
+      "role": null,
+      "sha256": "bb8d6a667fa05d8d91bd00422ce11325019ca66d0bc7f32ff1ba315f9d994ad6"
+    },
+    {
+      "path": "result.json",
+      "role": null,
+      "sha256": "02d99567ab09b12d63578079554d56b16e32b36cc12b12fb71c7438959949cd3"
+    },
+    {
+      "path": "run.log",
+      "role": null,
+      "sha256": "88600653500a4c79b7c4d1ef26912e0e904f5d95657a834db4e9b6f3e4f05ba5"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "evidence rows",
+      "value": 1024,
+      "of": null,
+      "unit": "rows",
+      "note": null
+    },
+    {
+      "name": "source text",
+      "value": 4194304,
+      "of": null,
+      "unit": "characters",
+      "note": null
+    },
+    {
+      "name": "resident admission tested",
+      "value": 1048576,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "spooled capture interval",
+      "value": 0.0747021849997509,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Resident/spooled native capture preserves content across batch sizes; spooled analysis/export succeeds above the configured1MiB resident bound. This is bounded synthetic evidence, not512MiB default capacity or corpus/RSS/throughput qualification.",
+  "consumed_by": [
+    "production-efficiency PE-09"
+  ]
+}

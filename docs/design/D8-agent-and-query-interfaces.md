@@ -423,8 +423,15 @@ never settle a live task or are reused by one (§2.1).
 | OPEN-D8-2 | Whether grouping several small units in one packet lowers agent quality (context interference) | Phase 0 comparison on `core12`; until it decides, `queue_next` serves one unit (§3) |
 | OPEN-D8-3 | How the Claude Code session best launches blind golden passes (subagents with restricted tools) so that passes A and B are verifiably separate | Answered in practice by S0 and S0-R2 (2026-10-28): a fresh subagent per pass, given one input folder and one output folder, told what it may not read, and audited from its transcript (every tool call) rather than its own report; in phase 0 each golden subagent gets its own server process whose instance id is the session reference (§2.2) |
 
-## Production-efficiency target
+## Owned publication and analytical capture
 
-**Proposed (accepted target,2026-10-30).** Resident and detached spooled analytical inputs share exact snapshot, complete-spine and ownership contracts. Resident capture remains implemented; spool adoption belongs to PE-09. CLI/MCP boundaries retain explicit archive and resource lifetimes.
+**Implemented; scoped Tested (2026-10-30).** Resident and detached spooled analytical inputs share
+exact snapshot, complete-spine and ownership contracts. Full CLI export defaults to spooled capture
+through `analytics.capture_mode`, with `--capture-mode resident|spooled` override. Capture settings
+distinguish row batch size, ADBC byte hint, resident admission and DuckDB execution resources.
+`CapturedPacket.iter_batches` streams resident/file data; `to_table` is explicit materialization.
+New exports use semantic-export-2 logical and physical digests; historical formats retain their
+original meaning. Capture close defers disposal until active scopes/readers close; explicit exports
+own their destination. CLI/MCP boundaries retain explicit archive and resource lifetimes.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)

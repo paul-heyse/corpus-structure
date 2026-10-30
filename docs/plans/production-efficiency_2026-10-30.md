@@ -1,6 +1,6 @@
 # Model-governed production efficiency
 
-**Status:** In progress; PE-00–PE-04 implemented with scoped evidence and bounded PE-02 decision · **Created:**2026-10-30.
+**Status:** In progress; PE-00–PE-09 implemented with scoped evidence and bounded investigation decisions · **Created:**2026-10-30.
 **Target maturity:** Proposed. This coordinator owns PE-00–PE-12 package state and current disposition
 of findings scheduled from the [production-efficiency review](../design_review/reviews/production-efficiency_2026-10-30.md).
 Approval to create these documents is not a claim of implementation or measured benefit.
@@ -80,8 +80,8 @@ Historical archive/source bytes and recorded meaning remain preserved. No databa
 | PE-05 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-05): token reuse and explicit segmentation decision | PE-01 context; RC02 before changed segmentation | Implemented; scoped verification §11 |
 | PE-06 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-06): scope/eligibility indexes | PE-01 authority and required universe | Implemented; scoped verification §11 |
 | PE-07 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-07): prepared assignment/citation consumers | PE-06; PE-04 for substantive mathematical comparisons | Implemented; scoped verification §11 |
-| PE-08 | [Data execution](production-efficiency/data-execution-and-publication.md#PE-08): one owned transport outside retries where valid | Existing ownership/receipt contract; reconcile with PE-01 | Open |
-| PE-09 | [Data execution](production-efficiency/data-execution-and-publication.md#PE-09): resident/spooled capture, trusted builders, graph preparation | PE-01 capture contract, PE-08 ownership, RC04 | Open |
+| PE-08 | [Data execution](production-efficiency/data-execution-and-publication.md#PE-08): one owned transport outside retries where valid | Existing ownership/receipt contract; reconcile with PE-01 | Implemented; scoped verification §12 |
+| PE-09 | [Data execution](production-efficiency/data-execution-and-publication.md#PE-09): resident/spooled capture, trusted builders, graph preparation | PE-01 capture contract, PE-08 ownership, RC04 | Implemented; bounded capacity evidence §12 |
 | PE-10 | [Runtime/adoption](production-efficiency/runtime-preparation-and-adoption.md#PE-10): cheap logical scheduling and bulk source context | PE-01 invocation/dependencies; RC03 before identity change | Open |
 | PE-11 | [Runtime/adoption](production-efficiency/runtime-preparation-and-adoption.md#PE-11): cheap product opening/startup | Protected finalization/trust and existing explicit lifecycle | Open |
 | PE-12 | [Runtime/adoption](production-efficiency/runtime-preparation-and-adoption.md#PE-12): integrated adoption/retirement and evidence | All implemented contracts and migrated required consumers | Open |
@@ -106,11 +106,11 @@ contributors, actual consumer adoption and suitable evidence, not merely a helpe
 | F04 | Shared token preparation and segmentation decision; PE-05 | Closed in PE-05 · current segmentation retained; stored source layout and explicit reconstruction | Actual ingest/scope consumers migrated; exact offsets retained or new release declared |
 | F05 | Hierarchy/per-symbol scope indexes; PE-06 | Closed in PE-06 · indexed source resolution; scoped parity | Enclosure/reopen/mention results preserve meaning; repeated flat scans retire |
 | F06 | Candidate/eligibility/comparison indexes and native citation processing; PE-04/06/07 | Closed in PE-06/07 · dependencies and native scorer connected; scoped checks | No hidden scorer wrapper or repeated invariant preparation; ties/cycles/global candidates preserved |
-| F07 | Compose owned transport and move stable work outside retry; PE-08 | Open · first ownership copy retained | One freeze/canonicalization, same canonical receipts, correct mutation isolation/replay |
+| F07 | Compose owned transport and move stable work outside retry; PE-08 | Closed for PE-08 · owned transport composed once and reused by retry | One freeze/canonicalization, same canonical receipts, correct mutation isolation/replay |
 | F08 | Separate logical skips from provider preparation and bulk-load frames; PE-10 | Open · RC03 and source custody | Skips require no provider packet; required logical coverage and effective origin/frame identity remain |
 | F09 | Finalized header-first opening and explicit verification; PE-11 | Open · trust-qualified cache only | Warm hit avoids full payload transfer; untrusted/historical/admission verification remains necessary and effective |
 | F10 | Cheap command registration and owner-local runtime preparation; PE-11 | Open · no new plugin framework | Real CLI/MCP entry points preserve behavior without importing unused analytical kernels |
-| F11 | One capture contract, resident/spooled lowerings; PE-09/12 | Open · RC04 and snapshot ownership | Required larger input can detach before long analytics; complete exact export and cleanup remain |
+| F11 | One capture contract, resident/spooled lowerings; PE-09/12 | Implemented PE-09 · PE-12 assembled capacity/adoption remains open | Required larger input can detach before long analytics; complete exact export and cleanup remain |
 
 Additional review obligations are owned explicitly: constant RDF shape preparation/mutable Graph
 isolation and trusted CandidateInput builder reuse belong to PE-09; native exact-value normalization
@@ -241,3 +241,33 @@ SciPy retains numerical assignment; NetworkX supplies operation-owned dependency
 matching/CVXPY and eager RapidFuzz matrix scoring were not selected for the existing workload's
 semantics. Bounded text/citation investigations are finalized under their evidence owners. No
 assembled performance, provider or complete-series qualification follows from these scoped results.
+
+
+## 12. PE-08–PE-09 execution —2026-10-30
+
+The [data execution receipt](production-efficiency/data-execution-and-publication.md#execution-2026-10-30)
+owns mechanism details, concrete defaults and verification limits. PE-08 composes owned transport
+without duplicate freezing and hoists stable source preparation before retry; revision-dependent
+inference and complete publication remain atomic. PE-09 streams all 26 spine relations into resident
+or spooled products with typed completeness/schema/custody manifests, incremental logical hashes,
+explicit leases and full export. Candidate preparation and immutable SHACL shape reuse reach their
+actual consumers. File integrity remains distinct from semantic content and source authority.
+
+Compiler 8/profile 4/analytical-6/native 0038 carry supported capture meaning. Historical analytical-4/5
+read routes retain their original projection/identity and acquire no new writes. The native guard
+now reads the declared frozen analytical ABI. F07 is closed in this scope; F11's PE-09 implementation
+is complete with bounded real-store evidence, while PE-12 retains assembled capacity/nonfunctional
+and provider adoption. No 512 MiB default/RSS or corpus throughput qualification is inferred.
+
+The [capacity record](../design_review/evidence/2026-10-30_data-capture/README.md) retains actual
+PostgreSQL/ADBC capture, exact resident/spooled equality above a configured resident bound, DuckDB
+file consumption and complete export. Failed/interrupted receipts remain retained at the package.
+PE-10–PE-12 and F01's recognizer work remain open; no audit premises or test architecture changed.
+
+**passed, 2026-10-30:** `just test-all`, receipt
+`build/test-receipts/qualification/20261030T104609Z-191443`: 2,407 Python tests; Rust's empty
+selection is `not_run`. `just hygiene` and warning-inclusive typing passed. A subsequent narrow
+packet-disposal correction passed affected storage/native/archive checks; the package receipt
+records final-source applicability and the corrected missing-import failure. The earlier
+interrupted receipts retain no completion credit. This establishes PE-08–PE-09 acceptance,
+without claiming PE-12 assembled performance or provider qualification.

@@ -1,6 +1,6 @@
 # Data execution and publication efficiency
 
-**Status:** Planned; no implementation or new performance qualification is claimed.  
+**Status:** Implemented; scoped verification2026-10-30; assembled qualification remains PE-12.
 **Created:** 2026-10-30. **Packages:** PE-08–PE-09.  
 **Disposition owner:** [production-efficiency coordinator](../production-efficiency_2026-10-30.md).
 
@@ -190,3 +190,105 @@ Challenge cancellation, empty relations, malformed metadata, signed zero, decima
 borrowed-reader closure and failed atomic publication. Demonstrate that required spooled capture
 releases database scopes before analysis and that resident capture has an honest supported bound.
 Measure memory/latency only for the decision or benefit claimed; no default zero-copy claim follows.
+
+
+## Execution —2026-10-30
+
+**Implemented; scoped Tested.** PE-08 composes an actual owned AppendPublication into derived
+intent through from_transport. Arrow and row producers cross the ownership boundary once; COPY
+still uses pgpq header/batch/finish and Psycopg on the existing SQLAlchemy transaction. Canonical
+publication bytes, lexical numeric fallback and receipt identity remain the existing protocol.
+Consolidation resolves source spans, binds preparation and freezes its source transport before
+the retry owner. Every attempt and ambiguous receipt lookup sees that same actual transport.
+Inference depending on the source receipt's revision remains inside the atomic transaction.
+
+PE-09 realizes one full 26-relation captured contract with resident Arrow tables or owned Parquet
+files. ADBC fetch_record_batch iteration feeds the same exact normalization boundary. Core
+queries order by declared primary keys (text COLLATE C, integer positions numerically); canonical
+typed rows are length-framed and hashed incrementally. There is no global Python row sort,
+whole-relation to_pylist, read_all, or spooled-to-Table rehydration on the ordinary capture path.
+Exact scalar conversion still uses bounded Python Decimal/hexfloat handling where native casts
+would change meaning. Batched normalization is not a claim of zero-copy or constant process RSS.
+
+CaptureManifest/relations/binding and CapturePolicyDefinition are trusted LinkML definitions,
+consumed by generated boundary adapters and finite implementation support. Compiler 8/profile 4,
+analytical-6 and native 0038 carry the new contract and explicit implementation/library determinants.
+Native derived publication consumes the analytical ABI recorded in the frozen descriptor rather
+than a second literal compiler version. Frozen forward products preserve physical tables.
+Historical semantic compiler 10/11 keeps analytical-4; retained prior execution archives keep
+analytical-5 captured reads, without current-policy admission or new write authority.
+Historical exports keep their format meaning; new captured exports use semantic-export-2.
+
+CapturedPacket exposes iter_batches and explicit to_table materialization; FileRelation retains
+schema/count/integrity without pretending to be a table. AnalysisScope registers resident Arrow
+or creates lazy read_parquet views, preserving borrowed readers/connections. Source batches are
+scope/null validated at construction; internally admitted file descriptors carry that result
+without another row-scope scan. File integrity is still checked at read boundaries. External
+file inputs retain full shape/scope/logical validation. Manifests own immutable canonical bytes,
+bind packet identity/schema/count/digests, and separate physical hashes from logical content.
+Export streams and compares actual logical content before publishing a complete destination.
+
+Disposable directories publish their manifest only after every writer closes. CaptureOwner
+prevents new leases after close and removes backing files after active leases finish. Database
+scopes end before high-level capture returns. Exporting-context exit failures close the packet;
+read/write/cancellation failures retain the primary error when teardown also fails. Explicit
+exports retain their destination independently of disposable capture cleanup.
+
+CandidateInput.from_admitted_cut derives and validates source scope once; consolidation no longer
+creates Arrow merely to compare it with its own reconstructed Python universe. Arbitrary external
+from_cut input retains the full expected-universe check. Core SHACL shapes are parsed into cached
+immutable triples and copied with Graph.addN into fresh per-validation graphs. Independent blank
+nodes are standardized apart. Qualified closure, occurrence identity and position multiplicity
+remain; SHACL inference/imports/mutation/advanced rules remain disabled.
+
+### Capacity and concrete defaults
+
+The API keeps resident capture by default; CLI full export selects spooled through AnalyticsSettings
+or --capture-mode. Defaults are 65,536 consumer rows, an 8 MiB ADBC byte hint and 512 MiB retained
+resident Arrow admission. A driver hint is not a hard maximum; a large variable-width value can
+exceed it. DuckDB retains 4 threads/2 GB and its memory limit is not a total-process cap. Resident
+admission counts actual normalized retained Arrow bytes and refuses with a spooled-mode remedy;
+there is no estimator or automatic switch.
+
+The [native capture investigation](../../design_review/evidence/2026-10-30_data-capture/README.md)
+exercises a complete projection with 1,024 evidence rows and 4 MiB source text: a 1 MiB resident limit
+refuses, spooled capture/analysis/export succeeds, and a larger resident admission with different
+batching has identical logical content. This bounded result settles the representation route;
+it does not establish 512 MiB default capacity, whole-process RSS, full-corpus throughput or a
+speedup factor. Broader production capacity/nonfunctional adoption remains PE-12.
+
+### Verification and remaining boundary
+
+build/pe89/core-functional.log retains the initial 84-case analytical/publication/model preparation
+selection. build/pe89/integration.log retains native source/inference atomicity and export integration.
+build/pe89/history-storage-final.log retains 56 passing policy/historical-reader/lifecycle/storage
+cases. Independent cases challenge canonical content, external mutable buffers, retry/ambiguous
+commit, old-reader meaning, exact scalar values, malformed headers, corruption, cancellation,
+cleanup failure and backing-file lifetime. Capacity observations have a finalized evidence record.
+
+Initial native failures include a stale analytical compiler literal; the corrected native guard
+uses the descriptor. scoped-functional-final.log is an interrupted run whose cached implementation
+bytes crossed a later source freeze; it has no acceptance credit. The earlier broad run at
+build/test-receipts/qualification/20261030T104101Z-161695 is incomplete after the retained-reader
+gap was identified, and likewise supplies no completion credit.
+
+**passed, 2026-10-30:** `just test-all`, receipt
+`build/test-receipts/qualification/20261030T104609Z-191443`: 2,407 Python tests, four dependency/
+native warnings, no unresolved required selections and no source/context divergence. Rust selected
+zero tests (`not_run`), supplying no Rust functional coverage. `just hygiene`, `just ready`,
+`just docs-check` and `just evidence` passed; the evidence check retains 37 historical warnings.
+Warning-inclusive Pyrefly reports no errors or warnings, with no new suppressions.
+
+After that broad run, packet context-manager teardown was corrected to preserve a primary error
+when disposal also fails. The affected storage/native/archive selection exercised the final
+production source; its new regression initially failed because its test import was missing.
+That import was corrected, and all eight storage cases passed in
+`build/pe89/cleanup-corrected.log`; warning-inclusive typing passed in
+`build/pe89/types-closeout-final.log`. The native/archive cases in
+`build/pe89/closeout-functional.log` passed. The broad pass remains applicable to unaffected
+behavior; it was not repeated after this narrow cleanup correction. Lint maintenance does not
+invalidate those functional/type results.
+
+PE-08–PE-09 implementation acceptance is complete. PE-12 retains assembled/provider/nonfunctional
+qualification and wider capacity adoption. Operational database migration, historical regrading
+and audit-premise changes were outside this execution scope.

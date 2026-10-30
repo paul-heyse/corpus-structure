@@ -794,3 +794,14 @@ M13 binds `X`, `a`, `b`, `\mu`, `\sigma` to the unit; M10 proposes C1–C4.
 **Implemented; scoped Tested (2026-10-30).** Alignment prepares operation-owned sides, entity metadata and conservative candidates once. NetworkX SCC/condensation organizes complete-reference invalidation; typed source records retain occurrence identity. SciPy dense assignment preserves global scoring/ties, with component solving only under unique-selection conditions. Entity attributes and claims share one scientific comparison scope.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+
+## Owned publication and analytical capture
+
+**Implemented; scoped Tested (2026-10-30).** Derived publication composes an actual owned append
+transport once. Source spans and preparation finalize before retry; the actual staged content
+reaches ambiguous-commit lookup. Source receipt, revision-dependent inference and terminal result
+remain atomic. Candidate input construction derives admitted occurrence/evidence scope once,
+while external inputs retain full independent boundary enforcement.
+
+> Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
