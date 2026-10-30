@@ -525,6 +525,7 @@ dependencies = [
     { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pylatexenc" },
     { name = "pyshacl" },
     { name = "pyyaml" },
     { name = "rapidfuzz" },
@@ -566,6 +567,7 @@ requires-dist = [
     { name = "pyarrow", specifier = "==26.0.0" },
     { name = "pydantic", specifier = "==2.14.1" },
     { name = "pydantic-settings", specifier = "==2.16.1" },
+    { name = "pylatexenc", specifier = "==3.0b2" },
     { name = "pyshacl", specifier = "==0.40.1" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "rapidfuzz", specifier = "==3.14.6" },
@@ -2701,6 +2703,15 @@ wheels = [
 [package.optional-dependencies]
 crypto = [
     { name = "cryptography" },
+]
+
+[[package]]
+name = "pylatexenc"
+version = "3.0b2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/20/51/68a89d104d9b892bf459912367256b1c5222aca544f655303a1981d94755/pylatexenc-3.0b2.tar.gz", hash = "sha256:14c6148c3cabebaff5e488e304abb21024f86fdab7d70bafc9f29d62463a7d9d", size = 260045, upload-time = "2026-07-28T15:26:14.179Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b3/f9/44351165a7f14073e75825769fd1aec61d1da944b61a7296725cc95ff889/pylatexenc-3.0b2-py3-none-any.whl", hash = "sha256:0cd14a2104ec4eaeaaadcab85b2da8c183a5feb39d71301a4db9d033b3e6e349", size = 322323, upload-time = "2026-07-28T15:26:13.172Z" },
 ]
 
 [[package]]

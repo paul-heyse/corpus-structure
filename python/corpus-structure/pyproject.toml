@@ -41,6 +41,7 @@ dependencies = [
     "jsonschema==4.26.0",
     "cattrs==26.2.1",
     "networkx==3.7",
+    "pylatexenc==3.0b2",
 ]
 
 [project.scripts]
