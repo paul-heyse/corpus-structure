@@ -8,13 +8,12 @@ from dataclasses import asdict
 from typing import Any
 
 from corpus_structure.core.evidence import MacroDef
-from corpus_structure.core.text_structure import ADAPTER_ID, capture_text
+from corpus_structure.core.text_structure import (
+    ADAPTER_ID, TEX_COMPONENT_CATEGORIES, TextComponent, canonical_partition, capture_text,
+)
 from corpus_structure.core.tex import MacroBinding, Token, effective_macros, tokens
 from corpus_structure.ingest.macros import MacroEvent, MacroRead, MacroSource
 
-_CATEGORIES = {"word": "control_word", "symbol": "control_symbol", "open": "group_open",
-               "close": "group_close", "param": "parameter", "space": "whitespace",
-               "char": "character"}
 
 
 def text_product_payload(canonical: str, *, root: Mapping[str, Any],
@@ -23,13 +22,16 @@ def text_product_payload(canonical: str, *, root: Mapping[str, Any],
                          fallback_macros: Mapping[str, MacroDef] | None = None,
                          fallback_source_ref: str | None = None,
                          structure: bool = True, product_key: str = "text",
-                         expand_macros: bool = True) -> dict[str, Any]:
+                         expand_macros: bool = True,
+                         canonical_regions: Sequence[TextComponent] = ()) -> dict[str, Any]:
     """Archive complete lexical capture, selected native structure and expansion custody.
 
     ``math_ranges`` uses canonical offsets and explicit source delimiters. An empty sequence
     requests only canonical capture (including text outside sentence blocks). Fallback definitions
     are archived as structured artifacts and a named derived TeX projection, never page bytes.
     ``expand_macros=False`` leaves expansion unrequested while preserving structural specs.
+    Canonical prose uses text/whitespace runs; supplied ``canonical_regions`` retain source
+    categories and boundaries outside declared mathematical ranges.
     """
     fallback = fallback_macros or {}
     if fallback and not fallback_source_ref:
@@ -49,12 +51,18 @@ def text_product_payload(canonical: str, *, root: Mapping[str, Any],
                 raise ValueError("conflicting representation source reference: " + key)
             return
         representations[key] = text
-        p["representations"].append(dict(representation_id=key, kind=kind, unit="codepoint",
-            extent_length=len(text), text_content=text, partition_state="complete", recognition_state="complete"))
-        for ordinal, token in enumerate(tokens(text)):
+        declared = dict(representation_id=key, kind=kind, unit="codepoint",
+            extent_length=len(text), text_content=text, partition_state="complete", recognition_state="complete")
+        p["representations"].append(declared)
+        parts = canonical_partition(text, [(a, b) for a, b, _, _ in math_ranges], regions=canonical_regions) if kind == "canonical" else (
+            TextComponent(TEX_COMPONENT_CATEGORIES[t.kind], t.start, t.end) for t in tokens(text)
+        )
+        for ordinal, part in enumerate(parts):
+            if part.category == "unknown":
+                declared["recognition_state"] = "partial"
             p["components"].append(dict(component_id=f"{key}:{ordinal}", ordinal=ordinal,
-                category=_CATEGORIES[token.kind], representation_id=key, unit="codepoint",
-                start_offset=token.start, end_offset=token.end))
+                category=part.category, representation_id=key, unit="codepoint",
+                start_offset=part.start, end_offset=part.end))
 
     def mapping(operation: str, sources: Sequence[tuple[str, int, int]],
                 targets: Sequence[tuple[str, int, int]], *, reason: str, fidelity: str = "exact",

@@ -5,16 +5,84 @@ single call; only immutable ranges escape. Lexical completeness never asserts sy
 """
 from __future__ import annotations
 
-from collections.abc import Mapping
+import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
+from types import MappingProxyType
 
 from corpus_structure.core.evidence import MacroDef
-from corpus_structure.core.tex import Expansion, MacroBinding, Token, expand, tokens
+from corpus_structure.core.tex import Expansion, MacroBinding, Token, TokenKind, expand, tokens
 
 ADAPTER_ID = "pylatexenc-structure-1"
 IMPLEMENTATION_REVISION = "text-structure-1"
 FRONTEND_REVISION = "pylatexenc-3.0b2"
+
+
+TEX_COMPONENT_CATEGORIES: Mapping[TokenKind, str] = MappingProxyType({
+    "word": "control_word", "symbol": "control_symbol", "open": "group_open",
+    "close": "group_close", "param": "parameter", "space": "whitespace", "char": "character",
+})
+_PROSE_RUNS = re.compile(r"\s+|[^\s]+")
+
+
+@dataclass(frozen=True, slots=True)
+class TextComponent:
+    category: str
+    start: int
+    end: int
+
+
+def canonical_partition(text: str, math_ranges: Sequence[tuple[int, int]], *,
+                        regions: Sequence[TextComponent] = ()) -> tuple[TextComponent, ...]:
+    """Partition canonical prose into uninterpreted runs and declared math into TeX tokens.
+
+    Supplied disjoint regions preserve their boundaries and explicit non-prose categories.
+    The TeX scanner owns whole math ranges, including delimiters; origin/markup boundaries
+    inside those ranges belong to overlapping mappings rather than splitting a control word.
+    """
+    mathematical = sorted(math_ranges)
+    known = sorted(regions, key=lambda row: (row.start, row.end))
+    for rows in (mathematical, [(r.start, r.end) for r in known]):
+        previous = 0
+        for a, b in rows:
+            if not previous <= a < b <= len(text):
+                raise ValueError("canonical partition regions overlap or lie outside source")
+            previous = b
+    out: list[TextComponent] = []
+    region_index = 0
+
+    def runs(a: int, b: int, category: str = "text") -> None:
+        for match in _PROSE_RUNS.finditer(text, a, b):
+            kind = ("whitespace" if match.group().isspace() else "text") if category in {
+                "text", "whitespace", "math"
+            } else category
+            out.append(TextComponent(kind, match.start(), match.end()))
+
+    def prose(a: int, b: int) -> None:
+        nonlocal region_index
+        while a < b:
+            while region_index < len(known) and known[region_index].end <= a:
+                region_index += 1
+            if region_index == len(known) or known[region_index].start >= b:
+                runs(a, b)
+                return
+            region = known[region_index]
+            if a < region.start:
+                runs(a, region.start)
+                a = region.start
+            end = min(b, region.end)
+            runs(a, end, region.category)
+            a = end
+
+    position = 0
+    for a, b in mathematical:
+        prose(position, a)
+        out.extend(TextComponent(TEX_COMPONENT_CATEGORIES[t.kind], a + t.start, a + t.end)
+                   for t in tokens(text[a:b]))
+        position = b
+    prose(position, len(text))
+    return tuple(out)
 
 
 @dataclass(frozen=True, slots=True)

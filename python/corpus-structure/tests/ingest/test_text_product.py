@@ -26,7 +26,7 @@ def test_portable_product_keeps_complete_source_and_definition_dependencies() ->
     assert reps["parse:0"]["text_content"] == r"\f{x}"
     assert reps["expanded:0"]["text_content"] == r"\(D+x+x\)"
     rows = [r for r in result["components"] if r["representation_id"] == "canonical"]
-    assert [(r["start_offset"], r["end_offset"]) for r in rows][:2] == [(0, 1), (1, 2)]
+    assert [(r["category"], r["start_offset"], r["end_offset"]) for r in rows][:2] == [("text", 0, 8), ("whitespace", 8, 9)]
     assert rows[0]["start_offset"] == 0 and rows[-1]["end_offset"] == len(canonical)
     assert all(left["end_offset"] == right["start_offset"] for left, right in zip(rows, rows[1:]))
     assert {d["name"] for d in result["dependencies"]} >= {"source", "page-definitions", "release:math.macros"}
@@ -64,3 +64,44 @@ def test_expansion_demand_can_be_disabled_without_losing_declared_structure(monk
     assert not any(r["kind"] == "expanded" for r in result["representations"])
     macro = next(n for n in result["nodes"] if n["kind"] == "macro" and n["name"] == "f")
     assert (macro["start_offset"], macro["end_offset"]) == (0, 5)
+
+
+def test_canonical_prose_runs_avoid_character_rows_and_preserve_exact_math_tokens():
+    prefix = "Descriptive prose. " * 80
+    math = r"\( x_{1} % $z \)"
+    canonical = prefix + math + " Tail paragraph."
+    start, end = len(prefix), len(prefix) + len(math)
+    value = text_product_payload(canonical, root=ROOT,
+        math_ranges=[(start, end, r"\(", r"\)")], structure=False, expand_macros=False)
+    rows = [r for r in value["components"] if r["representation_id"] == "canonical"]
+    assert len(rows) == 4 * 80 + 14 + 4
+    assert len(rows) < len(canonical) // 4
+    assert [(r["category"], canonical[r["start_offset"]:r["end_offset"]]) for r in rows[:4]] == [
+        ("text", "Descriptive"), ("whitespace", " "), ("text", "prose."), ("whitespace", " "),
+    ]
+    mathematical = [(r["category"], r["start_offset"] - start, r["end_offset"] - start)
+                    for r in rows if start <= r["start_offset"] < end]
+    assert mathematical == [
+        ("control_symbol", 0, 2), ("whitespace", 2, 3), ("character", 3, 4),
+        ("character", 4, 5), ("group_open", 5, 6), ("character", 6, 7),
+        ("group_close", 7, 8), ("whitespace", 8, 9), ("character", 9, 10),
+        ("whitespace", 10, 11), ("character", 11, 12), ("character", 12, 13),
+        ("whitespace", 13, 14), ("control_symbol", 14, 16),
+    ]
+    assert rows[0]["start_offset"] == 0 and rows[-1]["end_offset"] == len(canonical)
+    assert all(a["end_offset"] == b["start_offset"] for a, b in zip(rows, rows[1:]))
+
+
+def test_canonical_partition_preserves_supplied_nonmath_categories_and_boundaries():
+    from corpus_structure.core.text_structure import TextComponent
+    canonical = "before [raw] ?? after"
+    value = text_product_payload(canonical, root=ROOT, canonical_regions=[
+        TextComponent("text", 0, 3), TextComponent("markup", 7, 12), TextComponent("unknown", 13, 15),
+    ], structure=False, expand_macros=False)
+    rows = [r for r in value["components"] if r["representation_id"] == "canonical"]
+    canonical_rep = next(r for r in value["representations"] if r["representation_id"] == "canonical")
+    assert canonical_rep["partition_state"] == "complete" and canonical_rep["recognition_state"] == "partial"
+    assert [(r["category"], r["start_offset"], r["end_offset"]) for r in rows] == [
+        ("text", 0, 3), ("text", 3, 6), ("whitespace", 6, 7), ("markup", 7, 12),
+        ("whitespace", 12, 13), ("unknown", 13, 15), ("whitespace", 15, 16), ("text", 16, 21),
+    ]
