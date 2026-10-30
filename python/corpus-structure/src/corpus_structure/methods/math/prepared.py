@@ -24,6 +24,7 @@ from .transform import NotRepresentable
 if TYPE_CHECKING:
     from corpus_structure.core.text_structure import TextCapture
     from corpus_structure.semantic.analysis_contracts import PreparedInterpretationContext
+    from .source_context import EarlyFunctionDeclaration
 
 _UNSET = object()
 
@@ -151,6 +152,8 @@ class PreparedMathInput:
     source_text: str | None = None
     source_start: int = 0
     parse_start: int = 0
+    source_declarations: tuple[EarlyFunctionDeclaration, ...] = ()
+    source_context_failure: grammar.Failure | None = None
     _lexical: tuple[tex.Token, ...] | None = field(
         default=None, init=False, repr=False, compare=False
     )
@@ -237,6 +240,15 @@ class PreparedMathInput:
 
     def interpretation(self) -> grammar.MathResult:
         """Pure contextual role filtering with correlated alternatives retained."""
+        if self.source_context_failure is not None:
+            status = ParseOutcome.FAILED if self.source_context_failure.category == "timeout" else ParseOutcome.AMBIGUOUS
+            kind = self.kind or self.context.kind
+            if kind not in grammar.STARTS:
+                raise ValueError(f"unsupported mathematical kind {kind!r}")
+            result = grammar.MathResult(self.latex, kind, status,
+                failure=self.source_context_failure, macros=self.context.macros)
+            self._remember("interpretation", result)
+            return result
         if self._reading is None:
             recognized = self.syntax()
             result = grammar.interpret(
@@ -257,6 +269,8 @@ class PreparedMathInput:
         Extraction methods request this capability to retain their interpreted promise;
         syntax and contextual inspection preserve alternatives without native work.
         """
+        if self.source_context_failure is not None:
+            return self.interpretation()
         if self._symbolic_reading is None:
             result = self.interpretation()
             if result.status is ParseOutcome.AMBIGUOUS:

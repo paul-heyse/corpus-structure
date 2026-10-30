@@ -115,20 +115,25 @@ def read_spans(
     *,
     seconds: float = PARSE_SECONDS,
     prepared_context=None,
+    prepared_source=None,
 ) -> list[SpanReading]:
     """Parse every math span under `any_value`; `macros` is the effective table
     (`core/tex.py` `effective_macros`), `constants` the pack's `math.constants`."""
     from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
 
-    prepared_context = prepared_context or prepare_interpretation_context(
-        macros=macros, constants=constants, demand="occurrences"
+    if prepared_source is not None and not prepared_source.operands:
+        return []
+    prepared_context = prepared_context or (
+        prepared_source.operands[0].context if prepared_source is not None else
+        prepare_interpretation_context(macros=macros, constants=constants, demand="occurrences")
     )
     from .prepared import PreparedMathInput
 
     macros = prepared_context.macros
     readings = []
-    for span in math_spans(content):
-        prepared = PreparedMathInput(
+    spans = math_spans(content) if prepared_source is None else prepared_source.spans
+    for index, span in enumerate(spans):
+        prepared = prepared_source.operands[index] if prepared_source is not None else PreparedMathInput(
             prepared_context,
             span.latex,
             "any_value",
@@ -138,7 +143,7 @@ def read_spans(
             parse_start=span.offset,
         )
         result = prepared.symbolic_reading()
-        prepared_context.validate_result(
+        prepared.context.validate_result(
             produced=("lexical", "syntax", "occurrences", "interpretation", "symbolic"),
             interpretation=result.status.value,
             completeness="failed" if result.failure else "complete",

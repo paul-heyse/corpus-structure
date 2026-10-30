@@ -611,6 +611,7 @@ def prepare_interpretation_context(
     assumptions: Any = (),
     demand: str = "interpretation",
     offset: int | None = None,
+    scope_chain: Iterable[str] = (),
 ) -> PreparedInterpretationContext:
     """Prepare once per scope, never resolve current declarations from a historical release."""
     from corpus_structure.core import tex
@@ -665,6 +666,7 @@ def prepare_interpretation_context(
         defaults.setdefault(normalized, []).append(
             SymbolDeclaration(normalized, "function", "profile", profile.id + "/builtin")
         )
+    eligible_scopes = frozenset(scope_chain) | {scope_key}
     explicit: dict[str, list[SymbolDeclaration]] = {}
     adapter = _boundary().adapter("AnalysisSymbolDeclaration")
     for raw in declarations:
@@ -705,7 +707,7 @@ def prepare_interpretation_context(
             )
         if declaration.source_id is not None and declaration.source_id != source_id:
             continue
-        if declaration.scope is not None and declaration.scope != scope_key:
+        if declaration.scope is not None and declaration.scope not in eligible_scopes:
             continue
         if (
             declaration.start is not None

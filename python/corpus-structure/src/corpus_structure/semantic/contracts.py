@@ -796,6 +796,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact("grammar/grammar.py", math.joinpath("grammar.py").read_bytes()),
         SourceArtifact("grammar/extension.lark", math.joinpath("extension.lark").read_bytes()),
         SourceArtifact("grammar/prepared.py", math.joinpath("prepared.py").read_bytes()),
+        SourceArtifact("grammar/source_context.py", math.joinpath("source_context.py").read_bytes()),
         SourceArtifact("grammar/_tree.py", math.joinpath("_tree.py").read_bytes()),
         SourceArtifact("grammar/shipped.lark", shipped.read_bytes()),
         SourceArtifact("transformer/transform.py", math.joinpath("transform.py").read_bytes()),
@@ -1256,6 +1257,8 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "transformer/products.py",
         "libraries.json",
     }
+    if any(profile.get("version") == "6" for profile in data["analysis_profiles"]):
+        required_implementations.add("grammar/source_context.py")
     if set(names) != required_implementations or len(names) != len(set(names)):
         _fail(
             "analysis_implementation_inputs",

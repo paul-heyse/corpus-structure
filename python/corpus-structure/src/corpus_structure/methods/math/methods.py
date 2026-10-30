@@ -225,7 +225,7 @@ class MathReadingsBatch:
 
 
 def _readings(
-    ren: _Rendition, cfg: ExtractMathConfig | NormalizeFormulaConfig, reader=None
+    ren: _Rendition, cfg: ExtractMathConfig | NormalizeFormulaConfig, reader: Reader
 ) -> list[Any]:
     section = cfg.section()
     key = (
@@ -242,18 +242,17 @@ def _readings(
     if batch is not None and key in batch.readings:
         return batch.readings[key]
     macros = tex.effective_macros(ren.content.macros, section.macro_table())
-    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+    from .source_context import prepare_source_math
 
-    context = prepare_interpretation_context(
-        getattr(reader, "prepared", None),
-        macros=macros,
-        constants=section.constants,
-        source_id=ren.key,
-        demand="symbolic",
-    )
-    readings = read_spans(
-        ren.content, macros, section.constants, seconds=cfg.parse_seconds, prepared_context=context
-    )
+    selected = reader.layered_products(ren.id, kind="text", product_key="text")
+    if len(selected) != 1:
+        raise ValueError("mathematical extraction requires exactly one selected text product")
+    reference = selected[0].reference
+    source_id = f"text:{reference.task_id}:{reference.product_key}:{reference.content_digest}"
+    source = prepare_source_math(ren.content, prepared=getattr(reader, "prepared", None),
+        macros=macros, constants=section.constants, source_id=source_id, seconds=cfg.parse_seconds)
+    readings = read_spans(ren.content, macros, section.constants, seconds=cfg.parse_seconds,
+                         prepared_source=source)
     if batch is not None:
         batch.readings[key] = readings
     return readings
