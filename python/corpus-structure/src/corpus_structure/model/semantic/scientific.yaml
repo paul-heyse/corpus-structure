@@ -40,3 +40,11 @@ classes:
       operands: {multivalued: true, required: true, minimum_cardinality: 2, maximum_cardinality: 2}
       context: {required: true}
       detail: {required: true}
+  BoundComparisonAssessment:
+    is_a: ComparisonAssessment
+    attributes:
+      reference: {required: true}
+      prediction: {required: true}
+      field: {required: true}
+      use: {}
+      alignment_basis: {}

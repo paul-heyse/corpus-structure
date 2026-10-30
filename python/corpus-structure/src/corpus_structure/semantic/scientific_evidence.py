@@ -71,6 +71,8 @@ def scientific_policy_recipe() -> dict[str, Any]:
         "abi": "scientific-evidence-2",
         "decision_rules": list(decision_rules()),
         "comparison_schema": scientific_model().json_schema("ComparisonAssessment"),
+        "bound_comparison_schema": scientific_model().json_schema("BoundComparisonAssessment"),
+        "decision_rule_schema": scientific_model().json_schema("DecisionRule"),
         "consolidation": {
             "profile": CONSOLIDATION_PROFILE,
             "simplify_seconds": SIMPLIFY_SECONDS,
