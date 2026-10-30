@@ -146,7 +146,7 @@ def test_empty_scope_metadata_rejection_and_reader_cancellation():
     with pytest.raises(RuntimeError, match="closed"):
         scope.relation("fact")
     tables = dict(packet.relations)
-    tables["fact"] = tables["fact"].replace_schema_metadata(None)
+    tables["fact"] = packet.to_table("fact").replace_schema_metadata(None)
     with pytest.raises(ValueError, match="metadata"):
         AnalysisScope(replace(packet, relations=tables))
 
@@ -643,7 +643,7 @@ def test_native_qualification_key_excludes_provenance_and_preserves_occurrence_v
     )
     with read_session(semantic_reader_engine, z) as session:
         packet = load_packet(session, uri)
-    captured = packet.relations["fact"].to_pylist()
+    captured = packet.to_table("fact").to_pylist()
     assert len({f["qualification_value_id"] for f in captured}) == 2
     assert len({f["qualification_key"] for f in captured}) == 1
     with AnalysisScope(packet) as scope:
@@ -651,7 +651,7 @@ def test_native_qualification_key_excludes_provenance_and_preserves_occurrence_v
             f.fact_id for f in facts
         }
     assert {
-        row["report_qualification_value_id"] for row in packet.relations["occurrence"].to_pylist()
+        row["report_qualification_value_id"] for row in packet.to_table("occurrence").to_pylist()
     } == {"q0", "q1"}
 
 

@@ -218,7 +218,7 @@ def test_compiler10_public_snapshot_reads_survive_unavailable_current_compiler(
         assert (
             next(
                 row
-                for row in packet.relations["typed_value"].to_pylist()
+                for row in packet.to_table("typed_value").to_pylist()
                 if row["value_id"] == "amount"
             )["decimal_lexical"]
             == "1.2300"

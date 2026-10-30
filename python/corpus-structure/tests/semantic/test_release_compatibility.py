@@ -260,7 +260,7 @@ def test_selected_compiler10_answer_survives_new_activation(
             assert (
                 next(
                     row
-                    for row in packet.relations["typed_value"].to_pylist()
+                    for row in packet.to_table("typed_value").to_pylist()
                     if row["value_id"] == "amount"
                 )["decimal_lexical"]
                 == "1.2300"

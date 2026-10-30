@@ -71,7 +71,7 @@ def test_identity_exclusion_snapshot_reader_and_columnar_closure(
         )
         packet = load_packet(session, uri)
         assert {"identity_exclusion", "identity_exclusion_evidence"} <= packet.relations.keys()
-        captured = packet.relations["identity_exclusion"]
+        captured = packet.to_table("identity_exclusion")
         assert captured["exclusion_id"].to_pylist() == [exclusion.exclusion_id]
         assert packet.relations["identity_exclusion_evidence"].num_rows == len(exclusion.evidence)
     with AnalysisScope(packet) as scope:

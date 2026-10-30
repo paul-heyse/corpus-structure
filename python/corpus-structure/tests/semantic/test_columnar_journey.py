@@ -112,7 +112,7 @@ classes:
         packet = load_packet(
             session, uri, driver_path=None if driver_path is None else str(driver_path)
         )
-    numeric = next(r for r in packet.relations["typed_value"].to_pylist() if r["value_id"] == "n")
+    numeric = next(r for r in packet.to_table("typed_value").to_pylist() if r["value_id"] == "n")
     assert numeric["decimal_value"] == Decimal("1.123456789012")
     assert numeric["decimal_lexical"] == "1.1234567890125"
     with AnalysisScope(packet) as scope:

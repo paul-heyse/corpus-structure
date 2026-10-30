@@ -932,10 +932,10 @@ def test_known_input_reference_and_declared_key_converge_with_lineage(
         )
         with read_session(semantic_reader_engine, "evaluated") as session:
             packet = load_packet(session, uri)
-        assert packet.relations["entity_input"].to_pylist()[0]["input_data_revision"] == 1
-        assert len(packet.relations["fact_input"].to_pylist()) == 2
+        assert packet.to_table("entity_input").to_pylist()[0]["input_data_revision"] == 1
+        assert len(packet.to_table("fact_input").to_pylist()) == 2
         assert {
-            row["input_realization_id"] for row in packet.relations["fact_input"].to_pylist()
+            row["input_realization_id"] for row in packet.to_table("fact_input").to_pylist()
         } == {"source"}
 
 
