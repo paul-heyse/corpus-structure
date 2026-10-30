@@ -436,7 +436,8 @@ def compile_projection(
 ) -> CompiledProjection:
     """One trusted physical mapping produces Core selections and their exact Arrow schemas."""
     from corpus_structure.semantic.contracts import require_bound_operation
-    require_bound_operation(prepared, 'compile_projection')
+
+    require_bound_operation(prepared, "compile_projection")
     if prepared.release_id != binding.release_id:
         raise ValueError("projection release differs from snapshot")
     if kind not in {"captured", "candidate"}:
@@ -604,6 +605,7 @@ def load_packet(
     A fresh bulk connection has no data query before SET TRANSACTION SNAPSHOT. It is never pooled.
     """
     from .contracts import execution_payload, require_bound_operation
+
     require_bound_operation(session.prepared, "capture_analytics")
     compiled = compile_projection(session.prepared, session.binding)
     snapshot = session.connection.execute(select(text("pg_export_snapshot()"))).scalar_one()
@@ -690,8 +692,13 @@ class AnalysisScope:
         scratch_path: str | Path | None = None,
     ):
         from .contracts import require_payload_operation
-        require_payload_operation(packet.execution_contract, packet.execution_model_id, "open_analysis")
-        require_payload_operation(packet.execution_contract, packet.execution_model_id, "close_analysis")
+
+        require_payload_operation(
+            packet.execution_contract, packet.execution_model_id, "open_analysis"
+        )
+        require_payload_operation(
+            packet.execution_contract, packet.execution_model_id, "close_analysis"
+        )
         if threads < 1:
             raise ValueError("threads must be positive")
         self.packet = packet

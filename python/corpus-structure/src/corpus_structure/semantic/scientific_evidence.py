@@ -107,8 +107,8 @@ def scientific_policy_recipe() -> dict[str, Any]:
 
 
 def require_scientific_policy(prepared) -> None:
-    from .determinants import scientific_compatible
     from .contracts import bound_execution_model
+    from .determinants import scientific_compatible
 
     if prepared.execution_model_id is not None:
         bound_execution_model(prepared).require_operation("scientific_policy")
@@ -226,14 +226,18 @@ def parse_scientific_assessment_reason(reason: str | None) -> ScientificAssessme
 def _decision_index():
     from types import MappingProxyType
 
-    return MappingProxyType({
-        (row["policy_id"], row["evidence_tier"], row["agreement"]): row
-        for row in decision_rules()
-    })
+    return MappingProxyType(
+        {
+            (row["policy_id"], row["evidence_tier"], row["agreement"]): row
+            for row in decision_rules()
+        }
+    )
 
 
 def _decide(evidence: ScientificEvidence, policy: str) -> ScientificDecision:
-    agreement = "unknown" if evidence.agreement is None else "agrees" if evidence.agreement else "disagrees"
+    agreement = (
+        "unknown" if evidence.agreement is None else "agrees" if evidence.agreement else "disagrees"
+    )
     try:
         rule = _decision_index()[policy, evidence.tier.value, agreement]
     except KeyError as exc:
@@ -242,8 +246,12 @@ def _decide(evidence: ScientificEvidence, policy: str) -> ScientificDecision:
     if policy == REFERENCE_PROFILE and evidence.tier is EvidenceTier.NUMERIC and evidence.agreement:
         detail = "no symbolic equivalence proof"
     return ScientificDecision(
-        rule["decision"] == "equivalent", EvidenceTier(rule["decision_tier"]),
-        detail, evidence.grammar, evidence, policy,
+        rule["decision"] == "equivalent",
+        EvidenceTier(rule["decision_tier"]),
+        detail,
+        evidence.grammar,
+        evidence,
+        policy,
     )
 
 
@@ -257,24 +265,43 @@ def decide_reference(evidence: ScientificEvidence) -> ScientificDecision:
 
 def comparison_assessment(decision: ScientificDecision, *, context: Any) -> dict[str, Any]:
     evidence = decision.evidence
-    outcome = "equivalent" if decision.equal else "undecided" if decision.tier is EvidenceTier.UNDECIDED else "different"
-    return scientific_model().validate_json("ComparisonAssessment", json.dumps({
-        "policy_id": decision.policy,
-        "evidence_profile": evidence.profile,
-        "reference_path": [],
-        "prediction_path": [],
-        "evidence_tier": evidence.tier.value,
-        "agreement": "unknown" if evidence.agreement is None else "agrees" if evidence.agreement else "disagrees",
-        "decision_tier": decision.tier.value,
-        "outcome": outcome,
-        "numeric": evidence.numeric,
-        "valid_points": evidence.valid_points,
-        "grammar": evidence.grammar,
-        "mechanism": evidence.mechanism,
-        "operands": [evidence.a, evidence.b],
-        "context": canonical_bytes(context).decode(),
-        "detail": decision.detail,
-    })).model_dump(mode="json")
+    outcome = (
+        "equivalent"
+        if decision.equal
+        else "undecided"
+        if decision.tier is EvidenceTier.UNDECIDED
+        else "different"
+    )
+    return (
+        scientific_model()
+        .validate_json(
+            "ComparisonAssessment",
+            json.dumps(
+                {
+                    "policy_id": decision.policy,
+                    "evidence_profile": evidence.profile,
+                    "reference_path": [],
+                    "prediction_path": [],
+                    "evidence_tier": evidence.tier.value,
+                    "agreement": "unknown"
+                    if evidence.agreement is None
+                    else "agrees"
+                    if evidence.agreement
+                    else "disagrees",
+                    "decision_tier": decision.tier.value,
+                    "outcome": outcome,
+                    "numeric": evidence.numeric,
+                    "valid_points": evidence.valid_points,
+                    "grammar": evidence.grammar,
+                    "mechanism": evidence.mechanism,
+                    "operands": [evidence.a, evidence.b],
+                    "context": canonical_bytes(context).decode(),
+                    "detail": decision.detail,
+                }
+            ),
+        )
+        .model_dump(mode="json")
+    )
 
 
 @dataclass(frozen=True)

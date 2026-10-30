@@ -17,10 +17,10 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Connection, select, text
 
+from corpus_structure.semantic.contracts import require_bound_operation, require_database_operation
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import ProposalFrame, locate_proposal
 from corpus_structure.semantic.releases import open_release
-from corpus_structure.semantic.contracts import require_bound_operation, require_database_operation
 
 from .semantic_alignment import SemanticSide, TierCounts, align_semantic
 from .semantic_values import entity_references, rewrite_references
@@ -586,7 +586,11 @@ def split_documents(
                 "or explicit archived evaluation policy"
             )
         config = evaluation_config(conn, release_id).split
-    release_id = release_id or conn.scalar(select(table("data.project").c.active_release_id).where(table("data.project").c.project_id == project_id))
+    release_id = release_id or conn.scalar(
+        select(table("data.project").c.active_release_id).where(
+            table("data.project").c.project_id == project_id
+        )
+    )
     if release_id is None:
         raise ReferenceError("split assignment requires an explicitly bound release")
     require_database_operation(conn, release_id, "reference_split")

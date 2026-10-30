@@ -147,10 +147,18 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
             [metadata.tables[name] for name, mode in classified.items() if mode == "intrinsic"]
         )
     ]
-    new_tables = {"sem." + name for name in (
-        "execution_operation", "execution_transition", "execution_edge", "operation_effect",
-        "transition_effect", "operation_property_role", "scientific_decision_rule",
-    )}
+    new_tables = {
+        "sem." + name
+        for name in (
+            "execution_operation",
+            "execution_transition",
+            "execution_edge",
+            "operation_effect",
+            "transition_effect",
+            "operation_property_role",
+            "scientific_decision_rule",
+        )
+    }
     guards = []
     for name, mode in classified.items():
         if name not in new_tables:
@@ -168,14 +176,22 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
             )
     from .routines import _transport_sql, stage_disposal_sql
 
-    kernels = "SET LOCAL ROLE corpus_sem_publisher;\n" + source.joinpath("execution_projection_check.sql").read_text() + "\n" + (
-        source.joinpath("closure.sql")
-        .read_text()
-        .replace("{intrinsic_relations}", ",".join("'" + name + "'" for name in intrinsic))
-        .replace("-- {immutability_guards}", "\n".join(guards))
-        .replace("{transport_disposal}", stage_disposal_sql())
+    kernels = (
+        "SET LOCAL ROLE corpus_sem_publisher;\n"
+        + source.joinpath("execution_projection_check.sql").read_text()
+        + "\n"
+        + (
+            source.joinpath("closure.sql")
+            .read_text()
+            .replace("{intrinsic_relations}", ",".join("'" + name + "'" for name in intrinsic))
+            .replace("-- {immutability_guards}", "\n".join(guards))
+            .replace("{transport_disposal}", stage_disposal_sql())
+        )
     )
-    kernels += "\n" + "\n".join(f"GRANT SELECT ON {name} TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;" for name in sorted(new_tables))
+    kernels += "\n" + "\n".join(
+        f"GRANT SELECT ON {name} TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;"
+        for name in sorted(new_tables)
+    )
     from dataclasses import fields
 
     from .publication import STAGE_TYPES
@@ -192,13 +208,25 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     kernels += "\n" + source.joinpath("exclusions.sql").read_text()
     create, verify, content, insert = _transport_sql("corpus_sem_writer")
     transport = source.joinpath("transport.sql").read_text()
-    for marker, fragment in (("create", create), ("verify", verify), ("content", content), ("insert", insert)):
+    for marker, fragment in (
+        ("create", create),
+        ("verify", verify),
+        ("content", content),
+        ("insert", insert),
+    ):
         transport = transport.replace("{" + marker + "}", fragment)
-    kernels = "\n".join(line for line in kernels.splitlines() if not line.startswith("CREATE TRIGGER native_float_codec"))
+    kernels = "\n".join(
+        line
+        for line in kernels.splitlines()
+        if not line.startswith("CREATE TRIGGER native_float_codec")
+    )
     kernels += "\n" + transport
     kernels += "\n" + source.joinpath("execution_projection.sql").read_text()
-    kernels += "\nSET LOCAL ROLE __MIGRATION_OWNER__;\n" + source.joinpath("execution_guards.sql").read_text() + "\nSET LOCAL ROLE corpus_sem_publisher;\n"
-
+    kernels += (
+        "\nSET LOCAL ROLE __MIGRATION_OWNER__;\n"
+        + source.joinpath("execution_guards.sql").read_text()
+        + "\nSET LOCAL ROLE corpus_sem_publisher;\n"
+    )
 
     row_type, types = STAGE_TYPES["typed_value"]
     signatures = ",".join(
@@ -426,7 +454,7 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     descriptor["views"] = [
         {"relation": "data.selected_fact", "query": str(view_query.compile(dialect=dialect()))}
     ]
-    from .effect_support import SUPPORTED_EFFECTS, SUPPORTED_EFFECT_VERSIONS
+    from .effect_support import SUPPORTED_EFFECT_VERSIONS, SUPPORTED_EFFECTS
 
     bindings = {binding.id: binding for binding in model.implementations}
     descriptor["supported_effects"] = {
@@ -448,7 +476,9 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     def stream(node: Any) -> str:
         return RawStream()(node)
 
-    for raw in parse_sql((kernels + edge_sql).replace("__MIGRATION_OWNER__", "corpus_migration_owner")):
+    for raw in parse_sql(
+        (kernels + edge_sql).replace("__MIGRATION_OWNER__", "corpus_migration_owner")
+    ):
         stmt = raw.stmt
         if isinstance(stmt, ast.CreateFunctionStmt):
             if stmt.returnType is None:
@@ -464,6 +494,7 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
             body = options["as"][0].sval
             previous = functions.get(signature, {})
             from copy import copy
+
             result_type = copy(stmt.returnType)
             result_type.setof = False
             functions[signature] = {

@@ -62,7 +62,8 @@ def run_source_methods(
     or whole-run completion. Source work never chooses an unbound latest interpretation.
     """
     from corpus_structure.semantic.contracts import require_bound_operation
-    require_bound_operation(prepared, 'execute_source')
+
+    require_bound_operation(prepared, "execute_source")
     from hashlib import sha256
 
     from corpus_structure.core.provenance import code_commit

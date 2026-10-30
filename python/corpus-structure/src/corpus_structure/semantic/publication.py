@@ -545,6 +545,7 @@ def stage_batch(connection: Connection, batch: PublicationBatch) -> None:
 def publish_on_connection(connection: Connection, batch: PublicationBatch) -> PublicationReceipt:
     """Stage and validate inside an already SERIALIZABLE transaction; never commit it."""
     from .contracts import require_database_operation
+
     require_database_operation(connection, batch.release_id, "publish")
     stage_batch(connection, batch)
     revision = connection.execute(

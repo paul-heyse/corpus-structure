@@ -304,7 +304,7 @@ classes:
 
 
 def test_actual_reference_kernel_retains_agreement_before_policy():
-    from corpus_structure.semantic.scientific_evidence import reference_evidence, decide_reference
+    from corpus_structure.semantic.scientific_evidence import decide_reference, reference_evidence
 
     a, b = expression("x"), expression("x+0.000000000001")
     raw = reference_evidence(a, b)

@@ -106,11 +106,13 @@ class SemanticAlignment:
     comparisons: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self):
-        from corpus_structure.semantic.scientific_evidence import scientific_model
         import json
 
+        from corpus_structure.semantic.scientific_evidence import scientific_model
+
         comparisons = [
-            scientific_model().validate_json("BoundComparisonAssessment", json.dumps(trace))
+            scientific_model()
+            .validate_json("BoundComparisonAssessment", json.dumps(trace))
             .model_dump(mode="json", exclude_none=True)
             for trace in self.comparisons
         ]

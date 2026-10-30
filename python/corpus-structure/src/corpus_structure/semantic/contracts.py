@@ -371,11 +371,20 @@ class ExecutionModelProducts:
         for operation in self.operations:
             if operation.id == name:
                 return operation
-        raise PreparationError((Diagnostic(
-            "missing_operation", name, "required operation is absent from the bound model",
-            contract_id=name, consumer="bound_execution_model", expected="declared owned operation",
-            actual="missing", remedy="include the required operation in the bound model and derive a new release",
-        ),))
+        raise PreparationError(
+            (
+                Diagnostic(
+                    "missing_operation",
+                    name,
+                    "required operation is absent from the bound model",
+                    contract_id=name,
+                    consumer="bound_execution_model",
+                    expected="declared owned operation",
+                    actual="missing",
+                    remedy="include the required operation in the bound model and derive a new release",
+                ),
+            )
+        )
 
     def require_operation(self, name: str) -> OperationContract:
         """Resolve actual owned effect support; never substitute the installed model."""
@@ -404,18 +413,28 @@ def _validate_effect_support(model: ExecutionModelProducts, operation: Operation
     supported = SUPPORTED_EFFECTS.get(operation.id)
     binding = next(b for b in model.implementations if b.id == operation.implementation)
     actual = {
-        "implementation": operation.implementation, "version": binding.version,
+        "implementation": operation.implementation,
+        "version": binding.version,
         "effects": tuple(sorted(operation.effects)),
-        "transitions": {t.id: tuple(sorted(t.effects)) for t in model.transitions if t.operation == operation.id},
+        "transitions": {
+            t.id: tuple(sorted(t.effects)) for t in model.transitions if t.operation == operation.id
+        },
     }
     if supported != actual:
-        raise PreparationError((Diagnostic(
-            "unsupported_effect_profile", operation.id,
-            "required effects differ from the owned implementation",
-            contract_id=operation.id, consumer=f"{binding.owner}:{binding.symbol}",
-            expected=repr(supported), actual=repr(actual),
-            remedy="implement the required bounded effect profile, then ci schema derive --out <new-directory> and deploy a reviewed forward revision",
-        ),))
+        raise PreparationError(
+            (
+                Diagnostic(
+                    "unsupported_effect_profile",
+                    operation.id,
+                    "required effects differ from the owned implementation",
+                    contract_id=operation.id,
+                    consumer=f"{binding.owner}:{binding.symbol}",
+                    expected=repr(supported),
+                    actual=repr(actual),
+                    remedy="implement the required bounded effect profile, then ci schema derive --out <new-directory> and deploy a reviewed forward revision",
+                ),
+            )
+        )
 
 
 def execution_payload(prepared) -> bytes | None:
@@ -424,7 +443,11 @@ def execution_payload(prepared) -> bytes | None:
         return None
     rows = [row for row in prepared.registry_rows if row.kind == "execution_model"]
     if len(rows) != 1 or rows[0].name != prepared.execution_model_id:
-        _fail("execution_binding", prepared.release_id, "exactly one matching execution product is required")
+        _fail(
+            "execution_binding",
+            prepared.release_id,
+            "exactly one matching execution product is required",
+        )
     return rows[0].body
 
 
@@ -440,19 +463,34 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
             _fail("execution_binding", name, "execution payload requires its model identity")
         return  # Explicit historical semantic-1 base protocol.
     if payload is None:
-        _fail("missing_execution_model", name, "composed operation requires its bound execution payload")
+        _fail(
+            "missing_execution_model",
+            name,
+            "composed operation requires its bound execution payload",
+        )
     data = json.loads(payload)
     if data.get("model_id") != model_id:
         _fail("execution_binding", name, "execution payload identity differs")
     if data.get("inputs", {}).get("compiler_version") in {"1", "2", "3"}:
         # Retained immutable reader ABI, without allowing historical writes/activation.
-        if name not in {"reload", "open_read", "query", "explain", "compile_projection",
-                        "capture_analytics", "open_analysis", "close_analysis", "graph_project", "graph_validate"}:
+        if name not in {
+            "reload",
+            "open_read",
+            "query",
+            "explain",
+            "compile_projection",
+            "capture_analytics",
+            "open_analysis",
+            "close_analysis",
+            "graph_project",
+            "graph_validate",
+        }:
             _fail("unsupported_execution_abi", name, "historical execution products are read-only")
         operation = next((o for o in data["operations"] if o["id"] == name), None)
         if operation is None:
             _fail("missing_operation", name, "historical bound operation is absent")
         from .effect_support import SUPPORTED_EFFECTS
+
         if tuple(sorted(operation["effects"])) != SUPPORTED_EFFECTS[name]["effects"]:
             _fail("unsupported_effect_profile", name, "historical reader effects are incompatible")
         return
@@ -462,17 +500,27 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
 def require_database_operation(connection, release_id: str, name: str) -> None:
     from sqlalchemy import text
 
-    connection.execute(text("SELECT sem.require_execution_operation(:release,:operation)"),
-                       {"release": release_id, "operation": name})
+    connection.execute(
+        text("SELECT sem.require_execution_operation(:release,:operation)"),
+        {"release": release_id, "operation": name},
+    )
 
 
 def bound_execution_model(prepared) -> ExecutionModelProducts:
     """Read a mandatory immutable execution product, without a current-model fallback."""
     if prepared.execution_model_id is None:
-        _fail("missing_execution_model", prepared.release_id, "operation requires a composed execution binding")
+        _fail(
+            "missing_execution_model",
+            prepared.release_id,
+            "operation requires a composed execution binding",
+        )
     rows = [row for row in prepared.registry_rows if row.kind == "execution_model"]
     if len(rows) != 1 or rows[0].name != prepared.execution_model_id:
-        _fail("execution_binding", prepared.release_id, "exactly one matching execution model is required")
+        _fail(
+            "execution_binding",
+            prepared.release_id,
+            "exactly one matching execution model is required",
+        )
     return _bound_execution_model(rows[0].body, prepared.execution_model_id)
 
 
@@ -481,7 +529,9 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
     data = json.loads(body)
     if data.get("model_id") != model_id:
         _fail("execution_binding", model_id, "execution product identity differs")
-    return _normalize({k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}}, model_id)
+    return _normalize(
+        {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}}, model_id
+    )
 
 
 def _fail(code: str, location: str, message: str) -> Never:
@@ -647,12 +697,20 @@ def _validate(products: ExecutionModelProducts) -> None:
     for effect in effects.values():
         supported_version = SUPPORTED_EFFECT_VERSIONS.get(effect.id)
         if effect.version != supported_version or not effect.meaning.strip():
-            raise PreparationError((Diagnostic(
-                "unsupported_effect", effect.id, "unsupported effect identity/version or empty description",
-                contract_id=effect.id, consumer="owned effect implementation",
-                expected=repr(supported_version), actual=effect.version,
-                remedy="implement this effect version and derive a new reviewed release before admission",
-            ),))
+            raise PreparationError(
+                (
+                    Diagnostic(
+                        "unsupported_effect",
+                        effect.id,
+                        "unsupported effect identity/version or empty description",
+                        contract_id=effect.id,
+                        consumer="owned effect implementation",
+                        expected=repr(supported_version),
+                        actual=effect.version,
+                        remedy="implement this effect version and derive a new reviewed release before admission",
+                    ),
+                )
+            )
     for item in (*products.operations, *products.transitions, *products.implementations):
         _refs(item.effects, effects, item.id)
     owned = approved_implementations()
@@ -745,7 +803,11 @@ def _validate(products: ExecutionModelProducts) -> None:
                 "typed input/result contract differs from implementation binding",
             )
         if set(operation.effects) != set(binding.effects):
-            _fail("implementation_effects", operation.id, "operation and implementation effects differ")
+            _fail(
+                "implementation_effects",
+                operation.id,
+                "operation and implementation effects differ",
+            )
         _validate_effect_support(products, operation)
         for edge in operation.transitions:
             if t[edge].operation != operation.id:

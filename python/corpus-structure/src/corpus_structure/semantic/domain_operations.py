@@ -437,11 +437,13 @@ def _known_input(conn, prepared, job, observations):
     role_membership = m.alias("role_membership")
     eligible = exists(
         select(1)
-        .select_from(role_membership.join(
-            roles,
-            (roles.c.release_id == role_membership.c.release_id)
-            & (roles.c.class_id == role_membership.c.class_id),
-        ))
+        .select_from(
+            role_membership.join(
+                roles,
+                (roles.c.release_id == role_membership.c.release_id)
+                & (roles.c.class_id == role_membership.c.class_id),
+            )
+        )
         .where(
             role_membership.c.release_id == f.c.release_id,
             role_membership.c.realization_id == f.c.realization_id,
@@ -539,10 +541,13 @@ def _known_input(conn, prepared, job, observations):
                         else {"kind": "text", "text": value},
                     }
                 )
-                if any(
-                    "display" in prepared.index.property_roles.get((iri, prop.iri), frozenset())
-                    for iri in item["class_iris"]
-                ) and not prop.multivalued:
+                if (
+                    any(
+                        "display" in prepared.index.property_roles.get((iri, prop.iri), frozenset())
+                        for iri in item["class_iris"]
+                    )
+                    and not prop.multivalued
+                ):
                     item["label"] = value
     copied = {}
     support = table("data.membership_support")

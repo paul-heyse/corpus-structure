@@ -1,29 +1,57 @@
 """Actual release-scoped relational execution contracts and native consumers."""
 
 import pytest
-
 from sqlalchemy import text
 
 
 def test_execution_table_posture(semantic_db_engine, admitter):
     with admitter.connect() as conn:
-        expected = next(t for t in conn.scalar(text('SELECT data.execution_contract_descriptor()'))['tables'] if t['relation']=='sem.execution_edge')
-        actual = conn.execute(text("""SELECT pg_get_userbyid(c.relowner) owner,c.relrowsecurity,c.relforcerowsecurity,
+        expected = next(
+            t
+            for t in conn.scalar(text("SELECT data.execution_contract_descriptor()"))["tables"]
+            if t["relation"] == "sem.execution_edge"
+        )
+        actual = (
+            conn.execute(
+                text("""SELECT pg_get_userbyid(c.relowner) owner,c.relrowsecurity,c.relforcerowsecurity,
           (SELECT jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'not_null',a.attnotnull,'identity',a.attidentity::text,'generated',a.attgenerated::text,'default',pg_get_expr(d.adbin,d.adrelid)) ORDER BY a.attnum) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped) columns,
           (SELECT jsonb_agg(jsonb_build_object('name',k.conname,'columns',ARRAY(SELECT a.attname::text FROM unnest(k.conkey) WITH ORDINALITY cols(num,position) JOIN pg_attribute a ON a.attrelid=k.conrelid AND a.attnum=cols.num ORDER BY cols.position),'target',ns.nspname||'.'||remote.relname,'remote_columns',ARRAY(SELECT a.attname::text FROM unnest(k.confkey) WITH ORDINALITY cols(num,position) JOIN pg_attribute a ON a.attrelid=k.confrelid AND a.attnum=cols.num ORDER BY cols.position),'on_update',k.confupdtype::text,'on_delete',k.confdeltype::text,'match',k.confmatchtype::text,'deferrable',k.condeferrable,'deferred',k.condeferred,'validated',k.convalidated) ORDER BY k.conname) FROM pg_constraint k JOIN pg_class remote ON remote.oid=k.confrelid JOIN pg_namespace ns ON ns.oid=remote.relnamespace WHERE k.conrelid=c.oid AND k.contype='f') foreign_keys,
           ARRAY(SELECT name||':'||has_table_privilege(name,c.oid,'SELECT')::text||':'||has_table_privilege(name,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')::text||':'||has_any_column_privilege(name,c.oid,'INSERT,UPDATE,REFERENCES')::text FROM unnest(ARRAY['corpus_sem_writer','corpus_sem_reader','corpus_sem_evaluator','corpus_sem_admitter']) name) acls
-          FROM pg_class c WHERE c.oid='sem.execution_edge'::regclass""")).mappings().one()
-        assert expected['columns']==actual['columns'], repr((expected,dict(actual)))
-        assert expected['foreign_keys']==actual['foreign_keys'], repr((expected,dict(actual)))
-        assert expected['owner']==actual['owner'], repr((expected,dict(actual)))
-        assert all(v.endswith(':true:false:false') for v in actual['acls']),repr((expected,dict(actual)))
+          FROM pg_class c WHERE c.oid='sem.execution_edge'::regclass""")
+            )
+            .mappings()
+            .one()
+        )
+        assert expected["columns"] == actual["columns"], repr((expected, dict(actual)))
+        assert expected["foreign_keys"] == actual["foreign_keys"], repr((expected, dict(actual)))
+        assert expected["owner"] == actual["owner"], repr((expected, dict(actual)))
+        assert all(v.endswith(":true:false:false") for v in actual["acls"]), repr(
+            (expected, dict(actual))
+        )
 
 
-@pytest.mark.parametrize("change", ["unknown", "moved", "transition", "version", "effect_version", "binding_only", "duplicate", "unresolved"])
+@pytest.mark.parametrize(
+    "change",
+    [
+        "unknown",
+        "moved",
+        "transition",
+        "version",
+        "effect_version",
+        "binding_only",
+        "duplicate",
+        "unresolved",
+    ],
+)
 def test_changed_effect_requirements_refuse_before_authoring(change):
     from dataclasses import replace
+
     import yaml
-    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
+
+    from corpus_structure.semantic.contracts import (
+        compile_execution_model,
+        trusted_execution_inputs,
+    )
     from corpus_structure.semantic.types import PreparationError, SourceArtifact
 
     inputs = trusted_execution_inputs()
@@ -31,18 +59,24 @@ def test_changed_effect_requirements_refuse_before_authoring(change):
     operations = {o["id"]: o for o in catalog["operations"]}
     bindings = {b["id"]: b for b in catalog["implementations"]}
     if change == "unknown":
-        catalog["effect_definitions"].append({"id": "delete_archive", "version": "1", "meaning": "delete archived source bytes"})
+        catalog["effect_definitions"].append(
+            {"id": "delete_archive", "version": "1", "meaning": "delete archived source bytes"}
+        )
         operations["archive"]["effects"] = ["delete_archive"]
         bindings["archive"]["effects"] = ["delete_archive"]
     elif change == "moved":
         operations["archive"]["effects"] = ["construct_new_run"]
         bindings["archive"]["effects"] = ["construct_new_run"]
     elif change == "transition":
-        next(t for t in catalog["transitions"] if t["id"] == "run_final_cut")["effects"] = ["immutable_cut"]
+        next(t for t in catalog["transitions"] if t["id"] == "run_final_cut")["effects"] = [
+            "immutable_cut"
+        ]
     elif change == "version":
         bindings["archive"]["version"] = "999"
     elif change == "effect_version":
-        next(e for e in catalog["effect_definitions"] if e["id"] == "persist_exact_archive")["version"] = "2"
+        next(e for e in catalog["effect_definitions"] if e["id"] == "persist_exact_archive")[
+            "version"
+        ] = "2"
     elif change == "binding_only":
         bindings["archive"]["effects"] = ["construct_new_run"]
     elif change == "duplicate":
@@ -50,95 +84,221 @@ def test_changed_effect_requirements_refuse_before_authoring(change):
     else:
         operations["archive"]["effects"] = ["unresolved_required_effect"]
         bindings["archive"]["effects"] = ["unresolved_required_effect"]
-    candidate = replace(inputs, catalog=SourceArtifact(inputs.catalog.name, yaml.safe_dump(catalog).encode()))
+    candidate = replace(
+        inputs, catalog=SourceArtifact(inputs.catalog.name, yaml.safe_dump(catalog).encode())
+    )
     with pytest.raises(PreparationError) as refused:
         compile_execution_model(candidate)
     codes = {d.code for d in refused.value.diagnostics}
-    assert codes & {"unsupported_effect", "unsupported_effect_profile", "implementation_effects", "duplicate_definition", "unresolved_contract_reference"}
+    assert codes & {
+        "unsupported_effect",
+        "unsupported_effect_profile",
+        "implementation_effects",
+        "duplicate_definition",
+        "unresolved_contract_reference",
+    }
     if change in {"moved", "transition", "version", "effect_version"}:
         diagnostic = refused.value.diagnostics[0]
-        assert diagnostic.contract_id and diagnostic.consumer and diagnostic.expected and diagnostic.actual and diagnostic.remedy
+        assert (
+            diagnostic.contract_id
+            and diagnostic.consumer
+            and diagnostic.expected
+            and diagnostic.actual
+            and diagnostic.remedy
+        )
 
 
-def test_candidate_edge_rows_change_native_answer_without_replacing_guard(semantic_db_engine, semantic_writer_engine, admitter):
+def test_candidate_edge_rows_change_native_answer_without_replacing_guard(
+    semantic_db_engine, semantic_writer_engine, admitter
+):
     from dataclasses import replace
+
     import yaml
     from sqlalchemy.exc import DBAPIError
+
     from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
     from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.contracts import trusted_execution_inputs
-    from corpus_structure.semantic.types import SourceArtifact
     from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.types import SourceArtifact
+
     from .test_execution_release import _bundle
 
     inputs = trusted_execution_inputs()
     catalog = yaml.safe_load(inputs.catalog.content)
     transition = next(t for t in catalog["transitions"] if t["id"] == "run_start_source")
     transition["to_states"] = ["consolidating"]
-    candidate = replace(inputs, catalog=SourceArtifact(inputs.catalog.name, yaml.safe_dump(catalog).encode()))
+    candidate = replace(
+        inputs, catalog=SourceArtifact(inputs.catalog.name, yaml.safe_dump(catalog).encode())
+    )
     deps = composed_dependencies(ResolvedDependencies(), candidate)
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(_bundle(), deps, profile)
     with admitter.begin() as conn:
-        before = conn.scalar(text("SELECT prosrc FROM pg_proc WHERE oid='ops.execution_edge(text,text,text,text)'::regprocedure"))
+        before = conn.scalar(
+            text(
+                "SELECT prosrc FROM pg_proc WHERE oid='ops.execution_edge(text,text,text,text)'::regprocedure"
+            )
+        )
         persist_release(conn, _bundle(), deps, profile, prepared)
         conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
     with semantic_writer_engine.connect() as conn:
-        assert conn.scalar(text("SELECT ops.execution_edge(:r,'run','created','consolidating')"), {"r": prepared.release_id}) is True
-        assert conn.scalar(text("SELECT ops.execution_edge(:r,'run','created','running')"), {"r": prepared.release_id}) is False
-        assert conn.scalar(text("SELECT prosrc FROM pg_proc WHERE oid='ops.execution_edge(text,text,text,text)'::regprocedure")) == before
+        assert (
+            conn.scalar(
+                text("SELECT ops.execution_edge(:r,'run','created','consolidating')"),
+                {"r": prepared.release_id},
+            )
+            is True
+        )
+        assert (
+            conn.scalar(
+                text("SELECT ops.execution_edge(:r,'run','created','running')"),
+                {"r": prepared.release_id},
+            )
+            is False
+        )
+        assert (
+            conn.scalar(
+                text(
+                    "SELECT prosrc FROM pg_proc WHERE oid='ops.execution_edge(text,text,text,text)'::regprocedure"
+                )
+            )
+            == before
+        )
     # The unchanged complete start kernel cannot silently execute an edge removed by the model.
     with semantic_db_engine.begin() as conn:
-        with pytest.raises(DBAPIError, match="undeclared operation transition"), conn.begin_nested():
+        with (
+            pytest.raises(DBAPIError, match="undeclared operation transition"),
+            conn.begin_nested(),
+        ):
             conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-            conn.execute(text("SELECT ops.require_transition(:r,'execute_source','created','running')"), {"r": prepared.release_id})
+            conn.execute(
+                text("SELECT ops.require_transition(:r,'execute_source','created','running')"),
+                {"r": prepared.release_id},
+            )
 
 
 @pytest.mark.parametrize("revision", ["semantic_0030", "semantic_0031", "semantic_0032"])
 def test_supported_predecessors_upgrade_to_relational_execution(semantic_database_at, revision):
     from corpus_structure.semantic.migrations import upgrade
+
     with semantic_database_at(revision) as engine, engine.begin() as conn:
         upgrade(conn, "semantic_0033")
-        assert conn.scalar(text("SELECT version_num FROM semantic_alembic_version")) == "semantic_0033"
-        assert conn.scalar(text("SELECT count(*) FROM information_schema.tables WHERE table_schema='sem' AND table_name IN ('execution_operation','execution_transition','execution_edge','operation_effect','transition_effect','operation_property_role','scientific_decision_rule')")) == 7
+        assert (
+            conn.scalar(text("SELECT version_num FROM semantic_alembic_version")) == "semantic_0033"
+        )
+        assert (
+            conn.scalar(
+                text(
+                    "SELECT count(*) FROM information_schema.tables WHERE table_schema='sem' AND table_name IN ('execution_operation','execution_transition','execution_edge','operation_effect','transition_effect','operation_property_role','scientific_decision_rule')"
+                )
+            )
+            == 7
+        )
 
 
 def test_populated_0032_upgrade_preserves_historical_archive(semantic_database_at):
     """A real old archive reaches the forward verifier before finalization replay."""
+    import json
     from dataclasses import asdict
     from hashlib import sha256
-    import json
+
     from corpus_structure.semantic.archive_reader import reconstruct_release
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.migrations import upgrade
     from corpus_structure.semantic.releases import _archive_bytes, _projection_rows
     from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+
     from .test_archive_reader import archived
 
     data, bundle, artifacts = archived()
     profile = PreparationProfile(**data["profile"])
-    old = reconstruct_release(data["products"], bytes.fromhex(data["manifest"]), bundle, profile, artifacts)
+    old = reconstruct_release(
+        data["products"], bytes.fromhex(data["manifest"]), bundle, profile, artifacts
+    )
     archive = _archive_bytes(bundle, ResolvedDependencies(), old)
     rid = old.release_id
     digest = lambda content: sha256(content).hexdigest()
-    payload = {"release": [{"release_id": rid, "parent_release_id": None,
-        "content_digest": digest(archive), "profile": profile.version,
-        "prepared_bytes": "\\x"+archive.hex(), "manifest_bytes": "\\x"+old.manifest.hex()}],
-        "input": [{"release_id": rid, "input_kind": "source", "input_name": source.name,
-            "content": "\\x"+source.content.hex(), "content_digest": source.digest} for source in bundle.sources],
-        "artifact": [{"release_id": rid, "artifact_name": a.kind,"media_type": "application/octet-stream",
-            "content": "\\x"+a.content.hex(), "content_digest": a.digest} for a in artifacts]}
-    for kind, content in (("profile", canonical_bytes(asdict(profile))), ("vocabulary", canonical_bytes([])), ("ontology_sources", canonical_bytes([]))):
-        payload["input"].append({"release_id": rid,"input_kind": kind,"input_name": kind,
-            "content": "\\x"+content.hex(),"content_digest": digest(content)})
-    added = {"execution_operation","execution_transition","execution_edge","operation_effect","transition_effect","operation_property_role","scientific_decision_rule"}
+    payload = {
+        "release": [
+            {
+                "release_id": rid,
+                "parent_release_id": None,
+                "content_digest": digest(archive),
+                "profile": profile.version,
+                "prepared_bytes": "\\x" + archive.hex(),
+                "manifest_bytes": "\\x" + old.manifest.hex(),
+            }
+        ],
+        "input": [
+            {
+                "release_id": rid,
+                "input_kind": "source",
+                "input_name": source.name,
+                "content": "\\x" + source.content.hex(),
+                "content_digest": source.digest,
+            }
+            for source in bundle.sources
+        ],
+        "artifact": [
+            {
+                "release_id": rid,
+                "artifact_name": a.kind,
+                "media_type": "application/octet-stream",
+                "content": "\\x" + a.content.hex(),
+                "content_digest": a.digest,
+            }
+            for a in artifacts
+        ],
+    }
+    for kind, content in (
+        ("profile", canonical_bytes(asdict(profile))),
+        ("vocabulary", canonical_bytes([])),
+        ("ontology_sources", canonical_bytes([])),
+    ):
+        payload["input"].append(
+            {
+                "release_id": rid,
+                "input_kind": kind,
+                "input_name": kind,
+                "content": "\\x" + content.hex(),
+                "content_digest": digest(content),
+            }
+        )
+    added = {
+        "execution_operation",
+        "execution_transition",
+        "execution_edge",
+        "operation_effect",
+        "transition_effect",
+        "operation_property_role",
+        "scientific_decision_rule",
+    }
     for name, rows in _projection_rows(old).items():
         if name not in added:
-            payload[name] = [{k: "\\x"+v.hex() if isinstance(v,bytes) else v for k,v in row.items()} for row in rows]
-    with semantic_database_at("semantic_0032") as engine:
-        with engine.begin() as conn:
-            conn.execute(text("SELECT sem.publish_release_archive(CAST(:payload AS jsonb))"), {"payload": json.dumps(payload)})
-            before = conn.scalar(text("SELECT prepared_bytes FROM sem.release WHERE release_id=:r"), {"r": rid})
-            upgrade(conn,"semantic_0033")
-            assert conn.scalar(text("SELECT prepared_bytes FROM sem.release WHERE release_id=:r"), {"r": rid}) == before
-            assert conn.scalar(text("SELECT count(*) FROM sem.execution_operation WHERE release_id=:r"), {"r": rid}) == 0
+            payload[name] = [
+                {k: "\\x" + v.hex() if isinstance(v, bytes) else v for k, v in row.items()}
+                for row in rows
+            ]
+    with semantic_database_at("semantic_0032") as engine, engine.begin() as conn:
+        conn.execute(
+            text("SELECT sem.publish_release_archive(CAST(:payload AS jsonb))"),
+            {"payload": json.dumps(payload)},
+        )
+        before = conn.scalar(
+            text("SELECT prepared_bytes FROM sem.release WHERE release_id=:r"), {"r": rid}
+        )
+        upgrade(conn, "semantic_0033")
+        assert (
+            conn.scalar(
+                text("SELECT prepared_bytes FROM sem.release WHERE release_id=:r"), {"r": rid}
+            )
+            == before
+        )
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM sem.execution_operation WHERE release_id=:r"),
+                {"r": rid},
+            )
+            == 0
+        )

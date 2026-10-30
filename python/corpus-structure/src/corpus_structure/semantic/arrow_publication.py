@@ -398,6 +398,7 @@ def publish_arrow_on_connection(
 ) -> PublicationReceipt:
     """Stage and publish without committing the SQLAlchemy-owned transaction."""
     from .contracts import require_database_operation
+
     require_database_operation(connection, batch.release_id, "publish_arrow")
     if isinstance(batch, SnapshotDerivedPublication):
         require_database_operation(connection, batch.source.release_id, batch.operation_id)

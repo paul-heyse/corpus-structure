@@ -33,4 +33,6 @@ classes:
         assert roles[definition.iri, props["label"]] == {"display"}
         assert roles[definition.iri, props["compulsory"]] == {"required"}
         assert (definition.iri, props["noise"]) not in roles
-    assert roles[child.iri, next(p.iri for p in child.properties if p.name == "own")] == {"required"}
+    assert roles[child.iri, next(p.iri for p in child.properties if p.name == "own")] == {
+        "required"
+    }

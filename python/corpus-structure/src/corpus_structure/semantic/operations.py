@@ -13,7 +13,7 @@ from hashlib import sha256
 from typing import Any
 
 from pydantic import BaseModel, JsonValue
-from sqlalchemy import Connection, func, insert, select, text, update
+from sqlalchemy import Connection, func, insert, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from corpus_structure.core.evidence import RenditionContent
@@ -190,7 +190,9 @@ def create_task(
 ) -> int:
     r = table("ops.run")
     run = (
-        conn.execute(text("SELECT * FROM ops.lock_execution_run(:run,'schedule')"), {"run": run_id}).mappings().one()
+        conn.execute(text("SELECT * FROM ops.lock_execution_run(:run,'schedule')"), {"run": run_id})
+        .mappings()
+        .one()
     )
     if run["sealed"] or run["status"] not in {"created", "running"}:
         raise OperationConflict("run no longer accepts tasks")

@@ -189,7 +189,11 @@ def fixture(
                     "stated",
                     evidence,
                 )
-                for name, value in [("id", "known:alice"), ("name", "Alice"), *([("note", "irrelevant")] if input_noise else [])]
+                for name, value in [
+                    ("id", "known:alice"),
+                    ("name", "Alice"),
+                    *([("note", "irrelevant")] if input_noise else []),
+                ]
             ),
         )
         publish_batch(
@@ -1225,14 +1229,23 @@ def test_known_input_roles_filter_before_value_hydration(
     from corpus_structure.semantic.query import ReadSession
 
     prepared, run, cut = fixture(
-        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html",
-        known=True, input_noise=True,
+        semantic_db_engine,
+        semantic_writer_engine,
+        tmp_path / "source.html",
+        known=True,
+        input_noise=True,
     )
     with semantic_db_engine.connect() as conn:
-        facts = conn.execute(select(table("data.fact")).where(
-            table("data.fact").c.realization_id == "source"
-        )).mappings().all()
-    noise_ids = {f["object_value_id"] for f in facts if f["property_id"] == "https://example.org/note"}
+        facts = (
+            conn.execute(
+                select(table("data.fact")).where(table("data.fact").c.realization_id == "source")
+            )
+            .mappings()
+            .all()
+        )
+    noise_ids = {
+        f["object_value_id"] for f in facts if f["property_id"] == "https://example.org/note"
+    }
     assert noise_ids
     loaded = set()
     original = ReadSession.load_values
@@ -1245,10 +1258,20 @@ def test_known_input_roles_filter_before_value_hydration(
     consolidate_cut(semantic_writer_engine, cut, "evaluated")
     assert not noise_ids & loaded
     with semantic_db_engine.connect() as conn:
-        assert conn.scalar(select(table("data.entity_input").c.input_entity_id).where(
-            table("data.entity_input").c.run_id == run
-        )) == "known:alice"
-        assert conn.scalar(select(table("data.fact").c.fact_id).where(
-            table("data.fact").c.realization_id == "evaluated",
-            table("data.fact").c.property_id == "https://example.org/note",
-        )) is None
+        assert (
+            conn.scalar(
+                select(table("data.entity_input").c.input_entity_id).where(
+                    table("data.entity_input").c.run_id == run
+                )
+            )
+            == "known:alice"
+        )
+        assert (
+            conn.scalar(
+                select(table("data.fact").c.fact_id).where(
+                    table("data.fact").c.realization_id == "evaluated",
+                    table("data.fact").c.property_id == "https://example.org/note",
+                )
+            )
+            is None
+        )

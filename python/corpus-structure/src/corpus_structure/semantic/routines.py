@@ -26,15 +26,26 @@ def _transport_sql(
         columns = [f.name for f in fields(row_type)]
         from .metadata import table
         from .types import Diagnostic, PreparationError
+
         target = table("data." + name)
-        unknown = set(columns) - set(target.c.keys()) - ({"selected"} if name == "selection" else set())
+        unknown = (
+            set(columns) - set(target.c.keys()) - ({"selected"} if name == "selection" else set())
+        )
         if unknown:
-            raise PreparationError((Diagnostic(
-                "unsupported_transport_shape", name, "transport fields lack a physical target",
-                contract_id=name, consumer="protected publication",
-                expected=repr(tuple(target.c.keys())), actual=repr(tuple(columns)),
-                remedy="add the corresponding physical model fields and forward migration before deriving transport SQL",
-            ),))
+            raise PreparationError(
+                (
+                    Diagnostic(
+                        "unsupported_transport_shape",
+                        name,
+                        "transport fields lack a physical target",
+                        contract_id=name,
+                        consumer="protected publication",
+                        expected=repr(tuple(target.c.keys())),
+                        actual=repr(tuple(columns)),
+                        remedy="add the corresponding physical model fields and forward migration before deriving transport SQL",
+                    ),
+                )
+            )
         definition = ",".join(
             f'"{column}" {typ}' for column, typ in zip(columns, types, strict=True)
         )
