@@ -5,16 +5,74 @@ from contextlib import contextmanager
 import anyio
 import pytest
 from fastmcp import Client
+from fastmcp.exceptions import ToolError
 from sqlalchemy import select, text
 from typer.testing import CliRunner
 
-from corpus_structure.intervene.semantic_server import SemanticProjectSession
+from corpus_structure.intervene.semantic_server import SemanticProjectSession, build_semantic_server
 from corpus_structure.intervene.server import build_server
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import ProposalRefused
 from corpus_structure.semantic.runtime import resolve_source_binding
 
-from .test_agent_resubmission import source_task
+from .test_agent_resubmission import lease_and_read, source_task
+
+
+def test_environment_change_preserves_active_mcp_submission_binding(
+    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+):
+    prepared, run, task, locator = source_task(
+        semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
+    )
+    monkeypatch.setenv(
+        "CORPUS_DATABASE__URL",
+        semantic_writer_engine.url.set(drivername="postgresql").render_as_string(hide_password=False),
+    )
+    monkeypatch.setenv("CORPUS_RUNTIME__DEFAULT_PROJECT", "resubmit")
+
+    async def journey():
+        # Do not inject Settings/session/engine: environment acquisition belongs to the lifespan.
+        async with Client(build_semantic_server()) as client:
+            unit = await lease_and_read(client, run, task)
+            monkeypatch.setenv("CORPUS_RUNTIME__DEFAULT_PROJECT", "changed-project")
+            batch = {
+                "unit_ref": locator,
+                "entities": [{"id": "person", "class_iri": "https://example.org/Person"}],
+                "claims": [{
+                    "id": "name", "subject": "person", "predicate": "https://example.org/name",
+                    "object": {"kind": "text", "text": "Alice"},
+                    "qualification": {"modality": "asserted", "polarity": True},
+                    "establishment": "stated",
+                    "evidence": [{
+                        "sentence": unit["sentences"][0]["id"],
+                        "quote": "Alice is here.", "role": "primary",
+                    }],
+                }],
+            }
+            result = (await client.call_tool(
+                "propose_claims", {"task_id": task, "batch": batch}
+            )).structured_content
+            assert result is not None
+            assert result["status"] == "done" and not result["task_open"]
+            assert result["submission_disposition"] == "completed_accepted"
+            assert (await client.call_tool("queue_status", {"run": run})).structured_content
+        async with Client(build_semantic_server()) as client:
+            with pytest.raises(ToolError, match="does not belong to this semantic project"):
+                await client.call_tool("queue_status", {"run": run})
+
+    anyio.run(journey)
+    with semantic_db_engine.connect() as conn:
+        observation = table("kb.observation")
+        tasks = table("ops.task")
+        assert conn.execute(select(
+            observation.c.task_id, tasks.c.run_id, observation.c.release_id
+        ).join(tasks, tasks.c.id == observation.c.task_id).where(
+            observation.c.task_id == task
+        )).all() == [(task, run, prepared.release_id)]
+        row = conn.execute(select(
+            tasks.c.run_id, tasks.c.status
+        ).where(tasks.c.id == task)).one()
+        assert row == (run, "done")
 
 
 def test_default_project_mcp_observes_run_created_after_startup(

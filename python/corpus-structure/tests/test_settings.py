@@ -86,3 +86,33 @@ def test_report_lists_unknown_names_and_masks_secrets() -> None:
     assert "hunter2" not in report.model_dump_json()
     assert "sk-secret" not in report.model_dump_json()
     assert report.resolved["gpu.mode"] == "auto"
+
+
+@pytest.mark.parametrize("field", ("url", "maintenance_url", "reader_url", "evaluator_url", "admission_url"))
+def test_report_masks_query_credentials_and_preserves_endpoint(field: str) -> None:
+    from urllib.parse import parse_qs, urlsplit
+
+    url = (
+        "postgresql://operator:login-secret@[::1]:5434/owned?host=/srv/pg&port=5434"
+        "&password=query-secret&passfile=/private/auth&sslpassword=ssl-secret"
+        "&custom_token=unknown-secret&sslmode=require"
+    )
+    settings = Settings(database={field: url})
+    report = settings_report(settings, {})
+    rendered = report.resolved[f"database.{field}"]
+    parts = urlsplit(rendered)
+    assert parts.hostname == "::1" and parts.port == 5434
+    query = parse_qs(parts.query)
+    assert query["host"] == ["/srv/pg"] and query["port"] == ["5434"]
+    assert query["sslmode"] == ["require"]
+    for key in ("password", "passfile", "sslpassword", "custom_token"):
+        assert query[key] == [MASK]
+    assert all(secret not in report.model_dump_json() for secret in (
+        "login-secret", "query-secret", "/private/auth", "ssl-secret", "unknown-secret"
+    ))
+
+
+def test_report_masks_endpoint_url_credentials() -> None:
+    settings = Settings(llm={"endpoint": "https://user:secret@example.org/v1?token=opaque"})
+    rendered = settings_report(settings, {}).resolved["llm.endpoint"]
+    assert "secret" not in rendered and "opaque" not in rendered

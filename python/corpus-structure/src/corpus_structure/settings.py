@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
@@ -132,15 +132,30 @@ def known_env_names() -> frozenset[str]:
     return frozenset(names)
 
 
-def _mask_url_password(url: str) -> str:
-    parts = urlsplit(url)
-    if parts.password is None:
-        return url
-    host = parts.hostname or ""
-    if parts.port is not None:
-        host = f"{host}:{parts.port}"
-    netloc = f"{parts.username or ''}:{MASK}@{host}"
-    return urlunsplit(parts._replace(netloc=netloc))
+def _mask_url_credentials(url: str) -> str:
+    # Retain useful routing context; unknown query values may contain credentials. This is
+    # diagnostic rendering only, never a URL used to establish a connection.
+    safe_options = {
+        "host", "hostaddr", "port", "sslmode", "application_name", "connect_timeout",
+        "target_session_attrs", "channel_binding", "gssencmode",
+    }
+    try:
+        parts = urlsplit(url)
+        netloc = parts.netloc
+        if "@" in netloc:
+            authentication, _, host = netloc.rpartition("@")
+            username, separator, _ = authentication.partition(":")
+            if separator:
+                netloc = f"{username}:{MASK}@{host}"
+        query = urlencode([
+            (key, value if key.casefold() in safe_options else MASK)
+            for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        ])
+        return urlunsplit(parts._replace(
+            netloc=netloc, query=query, fragment=MASK if parts.fragment else ""
+        ))
+    except ValueError:
+        return MASK
 
 
 def settings_report(settings: Settings, environ: Mapping[str, str]) -> SettingsReport:
@@ -154,7 +169,8 @@ def settings_report(settings: Settings, environ: Mapping[str, str]) -> SettingsR
             resolved[f"{section}.{field}"] = "" if value is None else str(value)
     for field in ("url", "maintenance_url", "evaluator_url", "reader_url", "admission_url"):
         value = getattr(settings.database, field)
-        resolved[f"database.{field}"] = "" if value is None else _mask_url_password(value)
+        resolved[f"database.{field}"] = "" if value is None else _mask_url_credentials(value)
+    resolved["llm.endpoint"] = _mask_url_credentials(settings.llm.endpoint)
     known = known_env_names()
     unknown = sorted(
         name
