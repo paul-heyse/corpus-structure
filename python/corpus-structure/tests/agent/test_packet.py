@@ -308,6 +308,9 @@ class FakeReader:
     def observations(self, rendition_id: int, method: str, kind: ObservationKind) -> Never:
         raise AssertionError("the prompt digest must not read observations")
 
+    def source_coverage(self, rendition_id: int, method: str) -> Never:
+        raise AssertionError("the prompt digest must not read source coverage")
+
     def measurements(self, method: str, metric: str) -> Never:
         raise AssertionError("the prompt digest must not read measurements")
 

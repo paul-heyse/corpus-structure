@@ -226,6 +226,10 @@ class Reader(Protocol):
         """The run's effective observations of a rendition by method and kind."""
         ...
 
+    def source_coverage(self, rendition_id: int, method: str) -> tuple[SourceCoverageReading, ...]:
+        """Recorded coverage from effective source tasks, independently of emitted assertions."""
+        ...
+
     def measurements(self, method: str, metric: str) -> Sequence[MeasurementView]:
         """Measurements a method wrote, read through reuse."""
         ...
@@ -392,6 +396,18 @@ class CoverageDraft:
             raise ValueError("unsupported coverage outcome")
         if self.outcome != "complete" and not self.reason:
             raise ValueError("incomplete coverage requires a reason")
+
+
+@dataclass(frozen=True, slots=True)
+class SourceCoverageReading:
+    """One immutable source-result coverage row and its effective origin/extent."""
+
+    coverage: CoverageDraft
+    task_id: int
+    release_id: str
+    position: int
+    start: int | None = None
+    end: int | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

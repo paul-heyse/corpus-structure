@@ -482,6 +482,7 @@ def _packet_for_unit(
         guideline=preparation["guideline"],
         configuration=configuration,
         macros=inputs.macros,
+        source_coverage=inputs.source_coverage,
         known_classes={entity.entity_id: entity.classes for entity in references},
         known_entities=tuple(
             KnownProposalEntity(entity.entity_id, entity.label, entity.aliases)

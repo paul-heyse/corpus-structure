@@ -24,7 +24,7 @@ from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
 
 if TYPE_CHECKING:
-    from corpus_structure.methods.llm.packet import SentenceEntry
+    from corpus_structure.methods.llm.packet import SentenceEntry, StandingContextCoverage
 
 
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "agent.yaml"
@@ -526,6 +526,7 @@ class ProposalPacket:
     known_entities: tuple[KnownProposalEntity, ...] = ()
     bootstrap_terms: tuple[str, ...] = ()
     macros: tuple[tuple[str, MacroDef], ...] = ()
+    source_coverage: StandingContextCoverage | None = None
 
     @property
     def schema_hash(self) -> str:
@@ -552,11 +553,13 @@ class ProposalPacket:
                     [asdict(entity) for entity in self.known_entities],
                     self.bootstrap_terms,
                     [(name, macro.model_dump(mode="json")) for name, macro in self.macros],
+                    *([asdict(self.source_coverage)] if self.source_coverage is not None else []),
                 ]
             )
         ).hexdigest()
 
     def parts(self) -> tuple[Part, ...]:
+        from dataclasses import asdict
         from .identity import canonical_bytes
 
         data = {
@@ -584,6 +587,7 @@ class ProposalPacket:
                     ],
                     "bootstrap_terms": self.bootstrap_terms,
                     "macros": {name: macro.model_dump(mode="json") for name, macro in self.macros},
+                    **({"source_coverage": asdict(self.source_coverage)} if self.source_coverage is not None else {}),
                 }
             ).decode(),
         }
@@ -608,6 +612,7 @@ def proposal_packet(
     known_entities: tuple[KnownProposalEntity, ...] = (),
     bootstrap_terms: tuple[str, ...] = (),
     macros: Mapping[str, MacroDef] | None = None,
+    source_coverage: StandingContextCoverage | None = None,
 ) -> ProposalPacket:
     """Bind all model-facing parts and their complete source frame before queuing agent work."""
     from .identity import canonical_bytes
@@ -629,4 +634,5 @@ def proposal_packet(
         tuple(sorted(known_entities, key=lambda entity: entity.entity_id)),
         bootstrap_terms,
         tuple(sorted((macros or {}).items())),
+        source_coverage,
     )

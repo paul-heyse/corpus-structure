@@ -22,24 +22,30 @@ from corpus_structure.methods.math import methods
 def test_extract_math_preserves_partial_read_when_no_mentions_are_emitted(
     monkeypatch, status, tmp_path
 ):
-    ren = SimpleNamespace(
-        content=SimpleNamespace(canonical_text=""), key_of=lambda segment: "page#math1"
+    from corpus_structure.core.evidence import RenditionContent, Segment
+    from corpus_structure.core.vocab import SegmentKind
+    from corpus_structure.semantic.parsing_products import (
+        ProductReference, SelectedParsingProduct, prepare_layered_product,
     )
-    readings = [
-        SimpleNamespace(
-            span=SimpleNamespace(segment=object()),
-            result=SimpleNamespace(status=status, tree=None, occurrences=()),
-        )
-    ]
+
+    latex = {ParseOutcome.FAILED:r"\unknown", ParseOutcome.AMBIGUOUS:"(0,1)",
+             ParseOutcome.PARTIAL:"1,"}[status]
+    segment = Segment(kind=SegmentKind.MATH_INLINE, start=0, end=len(latex))
+    content = RenditionContent(canonical_text=latex, document=Segment(
+        kind=SegmentKind.DOCUMENT, start=0, end=len(latex), children=(segment,)))
+    ren = methods._Rendition(1, "page", "digest", content, {})
+    selected = SelectedParsingProduct(ProductReference(7,"text","b"*64),
+        ProductReference(7,"source","a"*64), "text", "available", "ok", "complete")
+    reader = SimpleNamespace(layered_products=lambda *a, **kw:(selected,),
+                             prepare_layered_product=prepare_layered_product)
     monkeypatch.setattr(methods, "_rendition", lambda reader, identifier: ren)
-    monkeypatch.setattr(methods, "_readings", lambda rendition, config, reader: readings)
     unit = UnitView(UnitRef(TaskUnitType.RENDITION, 1, "page"), SimpleNamespace())
     (result,) = methods.ExtractMath().run(
         [unit],
         methods.ExtractMathConfig(),
         MethodContext(
             unit.run,
-            SimpleNamespace(),
+            reader,
             MethodSettings(data_dir=tmp_path, model_cache=tmp_path / "models"),
             logging.getLogger(__name__),
         ),
@@ -48,7 +54,7 @@ def test_extract_math_preserves_partial_read_when_no_mentions_are_emitted(
     assert not result.observations
     assert result.coverage == (
         CoverageDraft(
-            family=methods.M09, scope="page#math1", outcome="partial", reason=status.value
+            family=methods.M09, scope=ren.key_of(segment), outcome="partial", reason=status.value
         ),
     )
 

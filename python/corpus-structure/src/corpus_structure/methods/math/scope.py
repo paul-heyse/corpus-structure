@@ -40,6 +40,7 @@ import functools
 import heapq
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from spacy.language import Language
@@ -430,3 +431,59 @@ def _with_reopens(sites: Sequence[BindingSite]) -> list[BindingSite]:
                 site = dataclasses.replace(site, reopens=previous[index])
         out.append(site)
     return out
+
+
+@dataclass(frozen=True)
+class ScopeCoverage:
+    """Availability of this method's required inputs and source binding result."""
+
+    segment: Segment
+    outcome: Literal["complete", "partial", "unknown", "unsupported"]
+    reason: str | None = None
+
+
+def scope_coverage(
+    content: RenditionContent,
+    values: Sequence[SpanValue],
+    mentions: Sequence[SymbolMention],
+    scopes: Sequence[Scope],
+) -> list[ScopeCoverage]:
+    """Do not turn missing interpretation or unresolved bindings into covered absence."""
+    from corpus_structure.methods.math.spans import MATH_KINDS
+
+    value_by_span: dict[tuple[int, int], list[SpanValue]] = {}
+    mentions_by_span: dict[tuple[int, int], list[SymbolMention]] = {}
+    scope_by_mention = {id(scope.mention): scope for scope in scopes}
+    for value in values:
+        value_by_span.setdefault((value.segment.start, value.segment.end), []).append(value)
+    for mention in mentions:
+        if not mention.constant:
+            mentions_by_span.setdefault((mention.segment.start, mention.segment.end), []).append(mention)
+    results = []
+    for segment in content.document.walk():
+        if segment.kind not in MATH_KINDS:
+            continue
+        key = segment.start, segment.end
+        interpretations = value_by_span.get(key, [])
+        if len(interpretations) != 1:
+            results.append(ScopeCoverage(segment, "unknown" if not interpretations else "partial",
+                "mathematical interpretation unavailable" if not interpretations else "multiple mathematical interpretations"))
+            continue
+        value = interpretations[0]
+        if value.value.parse is not ParseOutcome.OK:
+            status = value.value.parse
+            unsupported = value.parse_error in {"unknown-command", "unsupported-relation", "environment", "text-in-math"}
+            outcome = "unsupported" if unsupported else "unknown" if not isinstance(status, ParseOutcome) or status is ParseOutcome.FAILED else "partial"
+            description = status.value if isinstance(status, ParseOutcome) else "unavailable"
+            results.append(ScopeCoverage(segment, outcome,
+                "mathematical interpretation " + description + (": " + value.parse_error if value.parse_error else "")))
+            continue
+        source_mentions = mentions_by_span.get(key, [])
+        if value.value.symbols and not source_mentions:
+            results.append(ScopeCoverage(segment, "unknown", "symbol occurrence extraction unavailable"))
+        elif any(id(mention) not in scope_by_mention or scope_by_mention[id(mention)].site is None
+                 for mention in source_mentions):
+            results.append(ScopeCoverage(segment, "partial", "required symbol binding unresolved"))
+        else:
+            results.append(ScopeCoverage(segment, "complete"))
+    return results

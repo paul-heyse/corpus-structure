@@ -1165,6 +1165,38 @@ class BoundReader:
             )
         return out
 
+    def source_coverage(self, rendition_id: int, method: str):
+        """Read immutable source coverage through this run's effective task origins."""
+        from corpus_structure.core.method import CoverageDraft, SourceCoverageReading
+
+        task, result, config, producer = map(table, (
+            "ops.task", "ops.task_result", "ops.method_config", "ops.method"))
+        rendition = table("kb.rendition")
+        query = (select(result.c.body, result.c.task_id, result.c.release_id,
+                        rendition.c.key, func.length(rendition.c.canonical_text).label("source_length")).select_from(task)
+            .join(result, result.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id))
+            .join(config, task.c.method_config_id == config.c.id)
+            .join(producer, config.c.method_id == producer.c.id)
+            .join(rendition, rendition.c.id == task.c.unit_id)
+            .where(task.c.run_id == self.run_id, task.c.unit_type == "rendition",
+                   task.c.unit_id == rendition_id, producer.c.name == method)
+            .order_by(result.c.task_id))
+        if self.cut_id is not None:
+            cut = table("ops.cut_task")
+            query = query.join(cut, cut.c.origin_task_id == result.c.task_id).where(cut.c.cut_id == self.cut_id)
+        segment = table("kb.segment")
+        extents = {row.segment_key: (row.start_offset, row.end_offset) for row in self.conn.execute(
+            select(segment.c.segment_key, segment.c.start_offset, segment.c.end_offset)
+            .where(segment.c.rendition_id == rendition_id))}
+        out = []
+        for row in self.conn.execute(query).mappings():
+            for position, item in enumerate(row["body"].get("coverage", ())):
+                if item.get("family") != method:
+                    continue
+                bounds = (0, row["source_length"]) if item["scope"] == row["key"] else extents.get(item["scope"], (None, None))
+                out.append(SourceCoverageReading(CoverageDraft(**item), row["task_id"], row["release_id"], position, *bounds))
+        return tuple(out)
+
     def measurements(self, method: str, metric: str) -> Sequence[MeasurementView]:
         from corpus_structure.core.method import MeasurementView
         from corpus_structure.core.vocab import MeasurementScope

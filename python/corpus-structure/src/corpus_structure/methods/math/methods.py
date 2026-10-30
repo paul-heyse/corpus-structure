@@ -74,7 +74,7 @@ from corpus_structure.core.vocab import (
 )
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.math.grammar import PARSE_SECONDS
-from corpus_structure.methods.math.scope import Binders, Scope, resolve_scopes
+from corpus_structure.methods.math.scope import Binders, Scope, resolve_scopes, scope_coverage
 from corpus_structure.methods.math.spans import (
     MathRelation,
     SpanValue,
@@ -647,7 +647,25 @@ class SymbolScope(_PerRendition):
                 cfg.sentences,
                 text_layouts={(layout.block_start, layout.block_end): layout for layout in layouts},
             )
-            out.append(_result(unit, scope_drafts(ren, scopes, stored.refs, stored.source_refs)))
+            assessed = scope_coverage(ren.content, stored.values, stored.mentions, scopes)
+            upstream = {row.coverage.scope: row.coverage for row in ctx.reader.source_coverage(ren.id, M09)}
+            coverage = []
+            for item in assessed:
+                key = ren.key_of(item.segment)
+                outcome, reason = item.outcome, item.reason
+                extraction = upstream.get(key)
+                has_mentions = any(not mention.constant and mention.segment == item.segment
+                                   for mention in stored.mentions)
+                if has_mentions and extraction is None:
+                    outcome, reason = "unknown", "upstream symbol extraction coverage unavailable"
+                elif extraction is not None and extraction.outcome != "complete":
+                    outcome, reason = "partial", "upstream symbol extraction: " + (extraction.reason or extraction.outcome)
+                coverage.append(CoverageDraft(family=M13, scope=key, outcome=outcome,
+                    reason=reason, required_capability="interpretation"))
+            if not coverage:
+                coverage.append(CoverageDraft(family=M13, scope=ren.key, outcome="complete"))
+            out.append(_result(unit, scope_drafts(ren, scopes, stored.refs, stored.source_refs),
+                               coverage=tuple(coverage)))
         return out
 
 
