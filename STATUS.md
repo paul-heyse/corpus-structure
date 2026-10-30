@@ -3,10 +3,11 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Current checkpoint
 
-- [Production efficiency design review](docs/design_review/reviews/production-efficiency_2026-10-30.md)
-  published2026-10-30: **Revise**, proposed corrections only. All production facets covered,
-  with analysis depth; audit premises/documents and testing code untouched. Bounded production
-  measurements do not establish full-corpus throughput or replacement speedups.
+- [Production efficiency plan series](docs/plans/production-efficiency_2026-10-30.md)
+  authored2026-10-30: coordinator plus five supporting plans, PE-00–PE-12. Target Proposed;
+  production implementation not started. Review F01–F11 and RC01–RC04 have explicit routes,
+  shared domain contracts, concrete library mechanisms, investigation gates and adoption scope.
+  Audit premises/documents, testing code and existing pivot statuses remain unchanged.
 
 - Remaining SP-09 functional scope and SP-10 applicable required-union qualification are complete
   (Tested). The [regeneration owner](docs/plans/semantic-model-pivot/regeneration-and-acceptance.md#current-execution--2026-10-30)
@@ -28,6 +29,9 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Verification — 2026-10-30
 
+- **passed (plan authoring):** `just docs-check`, `just turn-end`, `git diff --check`.
+  Documentation only; prior product/typing evidence below retains its original scope.
+
 - **passed:** every final required node has applicable passing setup/call/teardown evidence:
   final default collection2325, required unresolved0. `required-union.json` records the reconciliation.
 - **failed, retained:** original default `just test-all`,2295 passed/24 failed. Its aggregate
@@ -46,7 +50,7 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Next
 
-Plan creation can adopt the production-efficiency recommendations before further capability work.
+Authorize production-series execution to begin PE-00/PE-01 and independently ready local corrections.
 No remaining SP-09/SP-10 execution obligation in the prior scope. Existing broader-series claims retain
 prior boundaries; this execution does not constitute a new completion audit or capacity/quality claim.
 Unrelated library documents, historical databases and the existing external MCP host are preserved.

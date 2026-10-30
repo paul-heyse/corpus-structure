@@ -10,6 +10,7 @@ semantic pivot series was added on 2026-10-29:
 | [design-spikes series](design-spikes-s0-s1_2026-10-28.md) | Spike execution, spike evidence and its findings |
 | [phase 0 series](phase-0_2026-10-28.md) | The production build of phase 0 and its findings |
 | [semantic-model pivot](semantic-model-pivot_2026-10-29.md) | Semantic pivot packages, completeness and improvement extensions (SP-I01–SP-I09), and their dependencies; existing phase-0 finding ownership is preserved |
+| [production efficiency](production-efficiency_2026-10-30.md) | Model-governed production analysis, data/runtime efficiency and review F01–F11; planned PE-00–PE-12, with existing pivot completion preserved |
 
 The [phases 1–5 roadmap](roadmap-phases-1-5_2026-10-28.md) is not an execution plan: it says what
 each later phase adds and what decides it, until its detailed plan is written. Cross-references
