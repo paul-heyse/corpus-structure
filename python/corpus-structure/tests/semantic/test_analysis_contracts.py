@@ -176,6 +176,9 @@ def test_explicit_live_base_and_archived_composed_refusal():
         )
     model = compile_execution_model(trusted_execution_inputs())
     historic = json.loads(model.content)
+    for effect in historic["effect_definitions"]:
+        if effect["id"] == "schedule_pending_or_reused_or_skipped":
+            effect["version"] = "1"
     historic["inputs"]["compiler_version"] = "4"
     historic.pop("analysis_profiles")
     archived = replace(
@@ -244,6 +247,9 @@ def test_historical_abi_cannot_self_attest_analysis_capabilities():
     base = prepare_release(trusted_execution_inputs().schema)
     model = compile_execution_model(trusted_execution_inputs())
     changed = json.loads(model.content)
+    for effect in changed["effect_definitions"]:
+        if effect["id"] == "schedule_pending_or_reused_or_skipped":
+            effect["version"] = "1"
     changed["inputs"]["compiler_version"] = "4"
     # Leave all compiler-5 declarations present: their presence does not grant support.
     archived = replace(

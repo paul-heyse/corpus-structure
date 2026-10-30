@@ -105,7 +105,9 @@ from corpus_structure.cli.output import CliState
 
 def forbidden_settings():
     raise AssertionError("registration constructed settings")
-result = CliRunner().invoke(app, json.loads(sys.argv[1]), obj=CliState(settings_factory=forbidden_settings))
+result = CliRunner().invoke(
+    app, json.loads(sys.argv[1]), obj=CliState(settings_factory=forbidden_settings)
+)
 assert result.exit_code == (1 if sys.argv[1] == '["experiment"]' else 0), result.output
 for name in ("sympy", "scipy", "spacy", "pyarrow", "duckdb", "corpus_structure.semantic.prepare"):
     assert name not in sys.modules, name
@@ -124,7 +126,8 @@ def test_archive_opening_import_does_not_acquire_current_compiler() -> None:
         [
             sys.executable,
             "-c",
-            "from corpus_structure.semantic.releases import open_release; import sys; assert 'corpus_structure.semantic.prepare' not in sys.modules",
+            "from corpus_structure.semantic.releases import open_release; "
+            "import sys; assert 'corpus_structure.semantic.prepare' not in sys.modules",
         ],
         capture_output=True,
         text=True,

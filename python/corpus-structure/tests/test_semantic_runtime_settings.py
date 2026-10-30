@@ -27,17 +27,17 @@ def test_restricted_defaults_and_purpose_credentials(monkeypatch):
     monkeypatch.delenv("CORPUS_DATABASE__URL", raising=False)
     monkeypatch.delenv("CORPUS_RUNTIME__DEFAULT_PROJECT", raising=False)
     settings = Settings()
-    assert settings.runtime.default_project == "semantic-pivot"
-    assert "corpus_sem_writer@/corpus_semantic_pivot_20261030" in settings.database.url
+    assert settings.runtime.default_project == "production-efficiency"
+    assert "corpus_sem_writer@/corpus_efficiency_20261030" in settings.database.url
     assert (
-        "corpus_sem_reader@/corpus_semantic_pivot_20261030"
+        "corpus_sem_reader@/corpus_efficiency_20261030"
         in connection_settings(settings, "read").database.url
     )
     assert connection_settings(settings).database.url == settings.database.url
     explicit = Settings(database={"evaluator_url": "postgresql://evaluator:password@"})
     evaluator = make_url(connection_settings(explicit, "evaluate").database.url)
     assert evaluator.username == "evaluator" and evaluator.password == "password"
-    assert evaluator.database == "corpus_semantic_pivot_20261030" and evaluator.host is None
+    assert evaluator.database == "corpus_efficiency_20261030" and evaluator.host is None
     assert evaluator.query == {"host": "/var/run/postgresql", "port": "5434"}
     report = settings_report(explicit, {})
     assert "password" not in report.model_dump_json()

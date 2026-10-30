@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0038"
-NATIVE_REVISION = "semantic_0039"
+NATIVE_PREDECESSOR = "semantic_0039"
+NATIVE_REVISION = "semantic_0040"
 
 
 def selected_fact_query():

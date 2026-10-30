@@ -770,6 +770,9 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
     with monkeypatch.context() as earlier:
         earlier.setattr(source_frames, "capture_source_frame", lambda conn, task_id, packet: None)
         earlier.setattr(source_frames, "backfill_source_frames", lambda engine, run_id: 0)
+        # Construct a retained result from the earlier consolidator, which allowed absent
+        # frames. Current consolidation refuses this state before evaluation can begin.
+        earlier.setattr(source_frames, "load_source_frames", lambda conn, task_ids: {})
         prepared, origin_run, task, locator = source_task(
             semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", composed=True
         )
@@ -848,6 +851,13 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
                     )
             finalize_bound_run(semantic_writer_engine, run, "missing-source-frame-reused")
 
+    from corpus_structure.semantic.operations import OperationConflict
+
+    with (
+        semantic_writer_engine.connect() as conn,
+        pytest.raises(OperationConflict, match="backfill"),
+    ):
+        source_frames.load_source_frames(conn, [task])
     with (
         pytest.raises(ReferenceError, match="backfill_source_frames"),
         semantic_evaluator_engine.begin() as conn,

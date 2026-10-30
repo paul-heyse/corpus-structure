@@ -39,6 +39,9 @@ def test_previous_execution_capture_retains_projection_recipe_and_no_write_capab
     _, _, prepared = prepared_inputs()
     model = compile_execution_model(trusted_execution_inputs())
     historic = json.loads(model.content)
+    for effect in historic["effect_definitions"]:
+        if effect["id"] == "schedule_pending_or_reused_or_skipped":
+            effect["version"] = "1"
     historic["inputs"]["compiler_version"] = version
     historic["analysis_profiles"][0]["version"] = profile
     if version == "7":
@@ -88,6 +91,9 @@ def test_retained_compiler8_capture_exports_without_current_execution_compilatio
     bundle, dependencies, prepared = prepared_inputs()
     model = compile_execution_model(trusted_execution_inputs())
     retained = json.loads(model.content)
+    for effect in retained["effect_definitions"]:
+        if effect["id"] == "schedule_pending_or_reused_or_skipped":
+            effect["version"] = "1"
     retained["inputs"]["compiler_version"] = "8"
     retained["analysis_profiles"][0]["version"] = "4"
     retained["analysis_profiles"][0].pop("invocation_policy", None)
@@ -152,3 +158,17 @@ def test_retained_compiler8_capture_exports_without_current_execution_compilatio
         assert len(values) == 1
         assert values[0]["evidence_id"] == "retained-evidence"
         assert values[0]["source_uri"] == "urn:retained-source"
+
+
+def test_retained_effect_decoder_does_not_authorize_old_effect_in_current_catalog():
+    inputs = trusted_execution_inputs()
+    catalog = yaml.safe_load(inputs.catalog.content)
+    for effect in catalog["effect_definitions"]:
+        if effect["id"] == "schedule_pending_or_reused_or_skipped":
+            effect["version"] = "1"
+    with pytest.raises(PreparationError, match="unsupported effect"):
+        compile_execution_model(
+            replace(
+                inputs, catalog=replace(inputs.catalog, content=yaml.safe_dump(catalog).encode())
+            )
+        )

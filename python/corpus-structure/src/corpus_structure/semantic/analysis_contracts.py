@@ -235,13 +235,12 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 or values[3] <= 0
             ):
                 _fail("unsupported_placement_policy", location, "invalid cutoff/window/timeout")
-        if profile.version in {"4", "5"}:
-            if profile.capture_policy != _supported_capture_policy():
-                _fail(
-                    "unsupported_capture_policy",
-                    location,
-                    "implement capture representation/hash/lifetime support before admission",
-                )
+        if profile.version in {"4", "5"} and profile.capture_policy != _supported_capture_policy():
+            _fail(
+                "unsupported_capture_policy",
+                location,
+                "implement capture representation/hash/lifetime support before admission",
+            )
         demands = {d.id: d for d in profile.demands}
         if len(demands) != len(profile.demands) or set(demands) != set(_REQUIRED_COMPONENTS):
             _fail(

@@ -31,10 +31,14 @@ __all__ = [
 ]
 
 
+_DEFAULT_DEPENDENCIES = ResolvedDependencies()
+_DEFAULT_PROFILE = PreparationProfile()
+
+
 def prepare_release(
     bundle: SourceBundle,
-    dependencies: ResolvedDependencies = ResolvedDependencies(),
-    profile: PreparationProfile = PreparationProfile(),
+    dependencies: ResolvedDependencies = _DEFAULT_DEPENDENCIES,
+    profile: PreparationProfile = _DEFAULT_PROFILE,
 ) -> PreparedRelease:
     """Acquire the compiler only for explicit preparation, not package imports."""
     from .prepare import prepare_release as prepare

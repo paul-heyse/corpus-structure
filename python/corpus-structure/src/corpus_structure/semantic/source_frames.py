@@ -133,7 +133,8 @@ def load_source_frames(conn: Connection, task_ids) -> dict[int, ProposalFrame]:
     missing = set(ids) - headers.keys()
     if missing:
         raise OperationConflict(
-            f"source tasks {sorted(missing)} lack their immutable source frames; verify and backfill them first"
+            f"source tasks {sorted(missing)} lack their immutable source frames; "
+            "verify and backfill them first"
         )
     rendition_ids = sorted({row["rendition_id"] for row in headers.values()})
     texts = {}

@@ -659,8 +659,16 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         )
     if data.get("model_id") != model_id:
         _fail("execution_binding", model_id, "execution product identity differs")
+    # Read validation uses the recorded effect ABI; it never upgrades historical writes.
+    from .effect_support import SUPPORTED_EFFECT_VERSIONS
+
+    effect_versions = dict(SUPPORTED_EFFECT_VERSIONS)
+    if data["inputs"]["compiler_version"] != EXECUTION_COMPILER_VERSION:
+        effect_versions["schedule_pending_or_reused_or_skipped"] = "1"
     return _normalize(
-        {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}}, model_id
+        {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}},
+        model_id,
+        effect_versions=effect_versions,
     )
 
 
@@ -804,7 +812,9 @@ def _product_converter() -> Converter:
 _PRODUCT_CONVERTER = _product_converter()
 
 
-def _normalize(data: dict[str, Any], model_id: str) -> ExecutionModelProducts:
+def _normalize(
+    data: dict[str, Any], model_id: str, *, effect_versions: Mapping[str, str] | None = None
+) -> ExecutionModelProducts:
     # Version is already checked by the admitted LinkML catalog boundary.
     fields = {key: value for key, value in data.items() if key != "version"}
     try:
@@ -813,11 +823,13 @@ def _normalize(data: dict[str, Any], model_id: str) -> ExecutionModelProducts:
         )
     except Exception as exc:
         _fail("contract_product", "ExecutionCatalog", "; ".join(transform_error(exc)))
-    _validate(products)
+    _validate(products, effect_versions=effect_versions)
     return products
 
 
-def _validate(products: ExecutionModelProducts) -> None:
+def _validate(
+    products: ExecutionModelProducts, *, effect_versions: Mapping[str, str] | None = None
+) -> None:
     from .analysis_contracts import validate_analysis_profiles
 
     validate_analysis_profiles(products)
@@ -904,7 +916,9 @@ def _validate(products: ExecutionModelProducts) -> None:
 
     effects = _index(products.effect_definitions, "effect_definitions")
     for effect in effects.values():
-        supported_version = SUPPORTED_EFFECT_VERSIONS.get(effect.id)
+        supported_version = (
+            SUPPORTED_EFFECT_VERSIONS if effect_versions is None else effect_versions
+        ).get(effect.id)
         if effect.version != supported_version or not effect.meaning.strip():
             raise PreparationError(
                 (
