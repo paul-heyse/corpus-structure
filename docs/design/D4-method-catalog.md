@@ -13,14 +13,14 @@ realization** subsection directly; anything that changes a contract goes in a
 
 ## Parsing operations and versioned method adoption
 
-**Accepted target; Proposed implementation (2026-10-30).** Discrete model-owned operations cover
+**Accepted target; source scope implemented as qualified below (2026-10-30).** Discrete model-owned operations cover
 source decomposition, HTML structure recognition, canonical projection, text preparation,
 mathematical interpretation/assessment and source publication. Their prepared contracts declare
 required products, input universe, applicability, typed outcomes, coverage, dependencies and
 effects. Qualified library implementations retain native trees/objects behind owned adapters;
 this does not select a universal serialized AST, arbitrary workflow language or durable task per
-logical operation. Retain html5lib HTML5 repair through lxml. Exact original/repair mapping is a
-PP-02 dependency, independently qualified from complete lexical coverage.
+logical operation. Retain html5lib HTML5 repair through lxml. Supported original/repair mapping is qualified independently from complete lexical coverage;
+PP-02 selected the native instrumentation route.
 
 PP-06 may redesign M09/M11/M13 boundaries and outputs through explicit contract versions and
 complete producer/consumer migration. The cards below and current implementation retain their
@@ -37,6 +37,16 @@ recipe, demand and implementation revisions participate in their actual dependen
 different build products never collapse merely because canonical rendition content matches.
 Existing evidence strength, grading policy and token-form identity remain governed by their
 current owners; no mathematical equivalence-to-identity change follows from this redesign.
+
+**Implemented and scoped Tested — source ingestion (2026-10-30).** M01 requires admitted
+`decompose_source`, `recognize_html` and `project_canonical` support before computation. Per-operation
+html5lib tokenizer/stream/tree hooks preserve native algorithms and carry original occurrences;
+canonical normalization/serialization emits contributions at transformation time. Source-product
+preparation runs inside each document's failure boundary. Exact selected codec/content agreement,
+HTML5 ASCII whitespace and byte-safe decoded NUL are qualified. See [execution mechanisms and
+evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution).
+M09/M11/M13 redesign and lazy mathematical demands remain PP-05/06/10; their existing promises
+are unchanged.
 
 > Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
 

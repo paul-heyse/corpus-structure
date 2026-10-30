@@ -1,6 +1,7 @@
 # Parsing model, contracts and storage
 
-**Status:** Execution in progress; the coordinator owns package completion and receipts.
+**Status:** PP-00/01/04 implemented with scoped source-product qualification;
+[coordinator execution](../parsing-pipeline_2026-10-30.md#pp0004-execution) owns completion and receipts.
 **Created:** 2026-10-30.
 [Coordinator](../parsing-pipeline_2026-10-30.md) owns PP-00/01/04 state and review O01/O02/O03/O06 disposition.
 Consumes the [target](../../functional_reviews/parsing-pipeline_2026-10-30_target-model.md),
@@ -152,7 +153,7 @@ second copy of its state machine here. PP-10 owns final adopted-consumer qualifi
 
 ### Selected realization — 2026-10-30
 
-**Implemented foundation; integration qualification in progress.** Original artifacts use
+**Implemented and scoped Tested (2026-10-30).** Original artifacts use
 content-addressed `kb.source_artifact` bytea custody, retained during document registration rather
 than waiting for successful interpretation. Parsing products bind to `ops.rendition_build.task_id`;
 canonical rendition identity remains separate. Fixed representation, component, node,
@@ -171,6 +172,24 @@ claimed.
 
 Complete partition, recognition and original-to-canonical provenance remain independent. An exact
 local copy does not prove source origin, and canonical self-copy cannot close provenance coverage.
-The initial finite transformation support refuses nonempty complete-provenance claims until the
-decoder and projection mechanisms are qualified. PP-03 supplies those mechanisms; the full target
-is retained rather than weakened by an availability label.
+PP-03 now supplies qualified decoder and projection mechanisms: complete `canonical_output`
+provenance must be rooted through admitted transformations to raw input or admitted synthetic
+production. Unknown origin remains partial. Decoder/normalization fidelity is not exact copying,
+and completeness does not promise exact attribution for every repaired HTML node.
+
+Execution compiler 10 binds actual decomposition, HTML recognition, canonical projection and
+source-product publication/read support. Interpretation/assessment shapes and operations are
+connected declarations; future required adapters refuse before effects until PP-05/06 supply them.
+Prepared contexts use exact archived execution input bytes, not generated artifact rows, and are
+reused across the operation/reader lifetime. Model-derived Literal-tagged node variants and
+relationship definitions feed both runtime and native checks. Native 0042 adds final contracts,
+byte-safe decoded text and missing component indexes without modifying frozen 0041.
+
+Typed bounded readers serve component extents/categories, ordered relationship endpoints,
+mappings and multi-hop origin tracing with explicit limits/cycles/partiality. Matching corruption
+refuses; reused tasks select their actual producer; competing source builds require a pin. Actual
+restricted writes, retained-source reads, invalid products, separate content-identical builds,
+concurrent run-before-task publication and 0040→0042 preservation are exercised in the
+[scoped implementation evidence](../../design_review/evidence/2026-10-30_parsing-source-provenance/implementation.md).
+PP-08/09's source publication prerequisite is integrated, while their broader lifecycle/adoption
+work remains with those packages. PP-10 still owns final whole-series adopted-consumer acceptance.

@@ -134,7 +134,7 @@ new rendition beside the old one instead of rewriting it (P0CL-01; operator, 202
 
 ### 3.1.1 Representation-qualified source products
 
-**Accepted target; Proposed implementation (2026-10-30).** Original source artifacts retain
+**Accepted target; source scope implemented as qualified below (2026-10-30).** Original source artifacts retain
 immutable bytes in PostgreSQL custody ([D3](D3-database.md#parsing-product-custody)). Artifact
 content identity is separate from document/acquisition identity. A representation names its
 artifact/dependencies, coordinate unit, encoding or transformation recipe and producing build.
@@ -169,9 +169,16 @@ the producing build/product through existing reuse resolution and refuse ambiguo
 Retain html5lib's HTML5 repaired structure through lxml. Complete original lexical capture and
 exact repair provenance are different obligations. Encoding changes, discarded duplicate
 attributes, implied nodes and reordering require qualified mappings; DOM paths, `sourceline`
-and serialization do not establish exact extents. Exact HTML provenance remains a PP-02
-dependency. Partial/unavailable mapping must remain visible or refuse a consumer requiring
+and serialization do not establish exact extents. PP-02 selected native instrumentation; supported fidelity is qualified below. Partial/unavailable mapping must remain visible or refuse a consumer requiring
 exact provenance; neither raw nor canonical partition completeness is thereby relaxed.
+
+**Implemented and scoped Tested — PP-00–PP-04 (2026-10-30).** Original bytea custody,
+raw/decoded/canonical complete partitions, identified HTML structural relationships and build-bound
+transformation products are implemented. The qualified `canonical_output` universe traces through
+admitted decoding/normalization or synthetic production; it is not a promise of exact byte copying
+or origin for every repaired node. Unknown origin remains partial. Expanded TeX and mathematical
+interpretation/assessment are future PP-05/06 scope. [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
+own the selected qualification boundary.
 
 > Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
 

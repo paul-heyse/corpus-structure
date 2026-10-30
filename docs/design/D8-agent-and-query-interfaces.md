@@ -78,7 +78,7 @@ until their applicable current-source results are recorded in the owning plan.
 
 ## Source-product query and explanation boundary
 
-**Accepted target; Proposed implementation (2026-10-30).** Source inspection and explanation
+**Accepted target; source scope implemented as qualified below (2026-10-30).** Source inspection and explanation
 select pinned run/build products alongside the shared rendition. Reuse follows existing
 producing-task/`reused_task_id` resolution; multiple producing candidates refuse rather than
 silently selecting latest. Typed reads expose representation identity, range unit/bounds,
@@ -93,6 +93,15 @@ Missing products may expose declared reconstruction/unavailable support, but mat
 products refuse and are never silently rebuilt as valid history. Native library objects remain
 owned operation views; query transport does not become another interpretation authority.
 PP-07/PP-10 own consumer implementation and qualification.
+
+**Implemented and scoped Tested — internal source readers (2026-10-30).** BoundReader exposes
+retained original bytes, prepared source products and pinned producer selection. Typed bounded
+queries expose components by extent/category, ordered relationship endpoints and mappings;
+multi-hop origin tracing reports partiality, cycles and limits explicitly. Empty half-open
+queries return no rows. Competing builds refuse without a pin, reuse resolves the original
+producer, and matching corruption refuses. [Scoped execution evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
+covers native readback and migrated M01 consumers; broader CLI/MCP views and math-dependent
+packet/export migration remain PP-07/10.
 
 > Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
 

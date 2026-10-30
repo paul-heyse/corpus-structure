@@ -117,7 +117,7 @@ process configuration once; it does not supply semantic defaults or merge method
 
 ## Parsing contract compilation
 
-**Accepted target; Proposed implementation (2026-10-30).** Extend the trusted LinkML/execution
+**Accepted target; source scope implemented as qualified below (2026-10-30).** Extend the trusted LinkML/execution
 compiler with D1's representation-qualified ranges, occurrence relationships, partitions,
 mappings and interpretation products. Effective definitions feed runtime boundaries, JSON Schema,
 Core/native requirements and selected RDF/SHACL views; none independently defines parsing meaning.
@@ -131,8 +131,17 @@ separate model dimensions. Native integrity must enforce cross-record custody, r
 ordering where required; merely compiling a shape establishes none of these. Validation violations,
 validator failures and unassessed coverage remain distinct. Preserve the existing ontology
 conformance mode: no implicit inference, advanced rules, imports or in-place mutation. PP-01 and
-PP-04 own compilation and native realization; PP-02's unresolved HTML fidelity cannot be admitted
+PP-04 own compilation and native realization; unsupported HTML fidelity cannot be admitted
 through optimistic capability metadata.
+
+**Implemented and scoped Tested — PP-01/04 (2026-10-30).** Parsing LinkML shapes include
+Literal-discriminated structural node variants and separate lifecycle/outcome/coverage fields.
+Execution compiler 10 and finite adapter admission consume effective relationship roles,
+cardinalities and ordering in runtime/native enforcement. Prepared contracts read the archived
+execution input bundle once per reader/operation boundary. Decomposition/HTML recognition/projection
+and product publication/read operations are executable; future text/math declarations have no
+adapter binding and required execution refuses before effects. [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
+retain independent invalid-input and native enforcement results.
 
 > Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
 

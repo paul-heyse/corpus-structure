@@ -227,14 +227,16 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
-**Accepted parsing target; Proposed implementation (2026-10-30).** PostgreSQL `bytea` owns
+**Accepted parsing target; PP-00–PP-04 source scope implemented and scoped Tested (2026-10-30).** PostgreSQL `bytea` owns
 immutable original bytes once per source content identity, separately linked to document/acquisition
 identity. Representations, partitions, structures, transformations and interpretations have
 immutable build/product custody independent of full canonical rendition-content identity.
 Protected publication and forward native migrations enforce declared custody and completeness;
 [D3](D3-database.md#parsing-product-custody) owns layout and pinned readers. Complete original and
-canonical partitions are required separately. Exact repaired-HTML provenance remains a PP-02
-dependency, with partial/unavailable coverage explicit and no full-fidelity claim.
+canonical partitions are required separately. Rooted `canonical_output` lineage is qualified
+through admitted transformations/synthetic production; exact copying and repaired-node attribution
+remain distinct. [Scoped execution evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
+covers source capture, native storage, publication and readers, not the whole series.
 
 > Decision: ADR-0036
 
@@ -309,7 +311,7 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
-**Accepted parsing target; Proposed implementation (2026-10-30).** Trusted LinkML/execution
+**Accepted parsing target; PP-00–PP-04 source scope implemented and scoped Tested (2026-10-30).** Trusted LinkML/execution
 definitions govern representation-qualified source ranges, occurrence relationships, mappings,
 coverage and discrete parsing operations. Existing canonical evidence anchors and full rendition
 identity remain unchanged. Library algorithms implement finite admitted contracts without a
@@ -318,7 +320,9 @@ changes with complete producer and consumer migration. Computation lifecycle, se
 and completeness remain distinct, with independent reference preparation and grading unchanged.
 [D1](D1-knowledge-representation.md#311-representation-qualified-source-products) owns the concepts;
 [D2](D2-schema-and-guidelines.md#parsing-contract-compilation), [D4](D4-method-catalog.md#parsing-operations-and-versioned-method-adoption)
-and D5–D8 own their compilation and consumption. Acceptance here implements no parser or product.
+and D5–D8 own their compilation and consumption. Source capture/runtime/native consumers are
+implemented; future text/math operations remain unbound declarations until PP-05/06. Broader
+consumer/adoption work remains PP-07–PP-10.
 
 > Decision: ADR-0036
 

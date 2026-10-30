@@ -42,7 +42,7 @@ revision and keeps only the explanatory prose. Column comments that would repeat
 
 ## Parsing product custody
 
-**Accepted target; Proposed implementation (2026-10-30).** PostgreSQL `bytea` retains immutable
+**Accepted target; source scope implemented as qualified below (2026-10-30).** PostgreSQL `bytea` retains immutable
 original bytes once per source content identity, separately linked to document/acquisition identity.
 Decoding failure does not discard custody. Acquired files and exports are inputs or derived
 artifacts; recovering the retained original does not depend on an external file remaining present.
@@ -50,8 +50,8 @@ Representations, partitions, structural occurrences/edges, mappings and interpre
 immutable product/build bindings independent of a shared content-identical rendition. Preserve
 the full rendition digest defined by D1, including segments, sentences and effective macros.
 
-PP-04 chooses compact typed partitions versus normalized component rows against extent/category
-inspection, canonical-to-original tracing and ordered relationship reads. No per-character rows,
+PP-04 selected normalized component rows for extent/category inspection, canonical-to-original
+tracing and ordered relationship reads, with an immutable whole-product manifest for transport. No per-character rows,
 dense mapping matrix or new generic graph store is required. Relationships needed for joins or
 native integrity retain explicit identity and endpoints; typed payloads do not hide those references.
 Generate shared Core metadata from the trusted physical model and deploy frozen forward migrations;
@@ -62,9 +62,20 @@ custody, not unrestricted cross-build references or a blanket prohibition on the
 Bounded readers pin run/build selection and reuse the existing producing-task/`reused_task_id`
 resolution. Multiple candidate builds refuse; no implicit latest selection. Missing products may
 declare reconstruction/unavailable support, while a matching corrupt product refuses. Complete
-partition and exact mapping coverage are independent read claims. PP-02 still investigates exact
-HTML provenance; this target neither deploys native storage nor establishes full source fidelity.
+partition and exact mapping coverage are independent read claims. PP-02 selected native instrumentation; the implementation below establishes its supported
+source fidelity without universal exact repair-attribution claims.
 PP-09 retains atomic publication/replay ownership.
+
+**Implemented and scoped Tested — PP-04 (2026-10-30).** `kb.source_artifact` captures
+original bytes during registration before parsing; M01 reads retained bytes. Fixed physical-model
+Core tables store normalized meaningful components, nodes, relationships/endpoints and
+mappings/endpoints plus the immutable manifest. This layout supports actual extent/category,
+ordered-edge and multi-hop origin queries; it adds rows/index work without a claimed storage or
+throughput saving. Frozen 0041/0042 preserve prior source/rendition rows. Existing atomic unit
+completion includes source products; native publication locks run before task. Pinned/reused
+reads, separate builds sharing one rendition, ambiguity/corruption refusal and actual concurrent
+publication are covered by [scoped execution evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution).
+Broader publication/adoption remains PP-09/10.
 
 > Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
 

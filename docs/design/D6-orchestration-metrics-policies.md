@@ -30,7 +30,7 @@ are not the selected production path or a second authority for semantic executio
 
 ## Parsing demand and product lifecycle
 
-**Accepted target; Proposed implementation (2026-10-30).** Bind discrete parsing demands to the
+**Accepted target; source scope implemented as qualified below (2026-10-30).** Bind discrete parsing demands to the
 existing prepared operation/dependency and protected effect machinery. Source inspection may
 request decomposition without interpretation; M09/M11/M13 adopt changed demands/results only
 through versioned contracts and complete consumer migration. Prepare release/profile support
@@ -48,6 +48,14 @@ representation/build, frontend/grammar and recipe revisions, macros, context/dec
 their absence, demanded capability and assessment policy where consumed. Pin build selection
 using existing reuse resolution rather than selecting the latest content-identical build.
 PP-09 owns publication/replay; no second scheduler or generic workflow interpreter is added.
+
+**Implemented and scoped Tested — source lifetime/publication prerequisite (2026-10-30).**
+An immutable prepared parsing context is loaded from exact archived execution inputs and reused
+across a BoundReader/operation, with no per-token database policy lookup. Source products join
+existing unit completion/replay and reuse selection; required future unbound operations refuse
+before effects. Native direct publication follows enclosing run then task lock order, exercised
+with an actual blocker and concurrent writer. [Scoped execution](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
+does not close broader PP-08 cancellation, demand-driven math or PP-09/10 adoption.
 
 > Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
 

@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "id": "source.products",
+  "title": "Connected source products and native publication qualification",
+  "group": "parsing-pipeline",
+  "package": "PP-04",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Are the PP-00–PP-04 original/decoded/canonical source products connected to model contracts, native storage and actual consumers?",
+  "answers": [
+    "PP-00",
+    "PP-01",
+    "PP-02",
+    "PP-03",
+    "PP-04"
+  ],
+  "method": "Independent extent and category fixtures, native restricted publication/read/migration/concurrency tests, complete current-corpus products, affected consumer tests and warning-inclusive typing; retain each failed invocation and its affected repairs.",
+  "commands": [
+    "uv run pytest (selected node IDs and reproducible commands retained in commands.txt)",
+    "just types",
+    "just ready"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "implementation.md",
+      "role": "accepted scope, selected mechanisms and failure/applicability account",
+      "sha256": "708c19f9b628824a693fc15fa24b5c1405b45bcb381346abc08f8fb28160783c"
+    },
+    {
+      "path": "commands.txt",
+      "role": "native-report-derived reproducible selections",
+      "sha256": "f2bd6da258941dd62ed7a768052ff24a6c47c359835445fc865de1f66975b938"
+    },
+    {
+      "path": "raw/implementation",
+      "role": "root diagnostics and native pytest receipts including failures",
+      "sha256": "dc9d28f52a08068edb69c10507ffb845c1e93b965ea0adb13d2e01f8fc28b23f"
+    },
+    {
+      "path": "raw/foundation",
+      "role": "earlier foundation receipts",
+      "sha256": "a3389710bfe83e54c1823d6d5f27bcff6df68b20970f262d3a5f2738916438bf"
+    }
+  ],
+  "depends_on": [
+    "html.provenance-seams"
+  ],
+  "results": [
+    {
+      "name": "Initial affected invocation passed cases",
+      "value": 451,
+      "of": 454,
+      "unit": "cases",
+      "note": "Invocation failed; three failures repaired through named affected reruns."
+    },
+    {
+      "name": "Current-corpus complete source products",
+      "value": 78,
+      "of": 78,
+      "unit": "pages",
+      "note": "One corpus test; no speed or universal input claim."
+    },
+    {
+      "name": "Final native publication passed cases before observer repair",
+      "value": 8,
+      "of": 9,
+      "unit": "cases",
+      "note": "Invocation failed; the ninth concurrent case passed separately after test observer repair."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Selected PP-00–PP-04 source-product scope is implemented and has scoped functional/native qualification, including all 78 current pages and concurrent publication. Complete canonical-output provenance is qualified transformation lineage, not universal exact repair attribution. Future parsing packages, broader adoption and performance remain unclaimed.",
+  "consumed_by": [
+    "PP-00",
+    "PP-01",
+    "PP-03",
+    "PP-04",
+    "PP-08",
+    "PP-09"
+  ]
+}

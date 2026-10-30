@@ -1,6 +1,6 @@
 # Source decomposition and HTML interpretation
 
-**Planned · 2026-10-30.** Target claims are **Proposed**. This supporting plan develops
+**PP-02/03 implemented and scoped Tested · 2026-10-30.** Unqualified future target claims remain **Proposed**. This supporting plan develops
 [PP-02](../parsing-pipeline_2026-10-30.md#PP-02) and
 [PP-03](../parsing-pipeline_2026-10-30.md#PP-03); the coordinator owns execution state,
 finding/opportunity dispositions, shared decisions and assembled acceptance. This document is
@@ -124,7 +124,33 @@ mechanisms or bounded candidates, not claims of assembled support.
 PP-02 must distinguish a library supporting complete lexical capture from one supporting enough
 tree-construction lineage. Pairing two libraries is viable only with an explicit bridge that
 qualifies differences in encoding, tokenization and HTML5 repair; matching node spelling is not
-that bridge. No established lexical frontend has yet been selected by this plan.
+that bridge. The [bounded PP-02 investigation](../../design_review/evidence/2026-10-30_parsing-source-provenance/README.md)
+selects instrumentation of the pinned native tokenizer/tree builder. Its result establishes
+positive seams, independently from the producer qualification below.
+
+### Selected native composition — 2026-10-30
+
+**Implemented and scoped Tested (2026-10-30).** The adapter injects an owned tokenizer
+subclass through `HTMLParser._parse`, observes the upstream emission loop and tracks stream
+`char`/`charsUntil`/`unget` consumption. Tokenizer state implementations and HTML5 tree-construction
+algorithms remain upstream. Pre-emission attributes preserve duplicates before native first-value
+selection. Per-operation lxml builder subclasses carry occurrence and text/tail contribution
+identity through insertion, cloning and reparenting. A wrapper around
+`InTableTextPhase.flushCharacters` supplies ordered original token identities across its joined
+buffer; the current token alone is insufficient. No global monkeypatch is selected.
+
+Decoder contribution groups and newline preprocessing connect the original byte representation
+to the native normalized decoded representation. Encoding restarts discard abandoned sidecars.
+The canonical producer emits projection contributions during its existing whitespace/NFC and
+serialization operations; synthetic profile markers and separators retain producing rules.
+Private-hook review belongs to the html5lib upgrade responsibility, including the stream/emission
+loop, lxml node mutation methods and table-text phase. Library pins and archived implementation
+inputs bind the selected mechanism. Probe traces are diagnostic evidence; production uses merged
+runs and immutable buffers rather than retaining an event or database row per character.
+
+The investigation's nine cases do not establish complete lexical distinctions or full origin
+coverage. Producer tests and native publication must qualify the actual products. Unknown origin
+remains unknown; normalization or decoding cannot be relabelled as an exact byte copy.
 
 ## Execution packages
 
@@ -254,3 +280,29 @@ an actual migrated consumer may be described qualitatively. Existing historical 
 their dates and scope. Plan-authoring checks are read-only source/document inspection;
 implementation, probes and product qualification are **not_run** here. The coordinator records
 current outcomes and open prerequisites at the linked PP owners.
+
+## Delivered source-product scope — 2026-10-30
+
+PP-02's selected seams now drive the actual producer and PP-04 storage/read path. Native
+lexical distinctions include duplicate/empty/unclosed attributes, quoted/unquoted values,
+comments, doctypes, raw text and malformed fragments; HTML5 ASCII whitespace preserves NBSP
+in unquoted values. Native selected codec identity, actual decoded-content agreement, byte
+contribution groups and newline handling preserve representation-qualified source custody.
+The final tree carries qualified node names, structural/text/attribute relationships and ordered
+text-slot contributions. Canonical whitespace/NFC, exclusions and separators emit mappings at
+the transformation. Decoded NUL uses binary-safe UTF-8 transport.
+
+All 78 current pages pass complete original/decoded/canonical partition and rooted
+`canonical_output` provenance contracts, alongside independent category/extent and native repair
+cases. Complete transformed lineage is not exact copying or universal repair attribution. Unknown
+origin stays partial. Actual M01 reads retained PostgreSQL bytes, requires the admitted source
+operations before computation and publishes the product atomically with the rendition. Reused
+reads resolve the producer; historical unavailable and competing/corrupt products retain their
+explicit outcomes. Source acquisition remains durable on later parsing failure.
+
+[Implementation evidence](../../design_review/evidence/2026-10-30_parsing-source-provenance/implementation.md)
+and the [coordinator execution](../parsing-pipeline_2026-10-30.md#pp0004-execution)
+record native migration/publication/concurrency, affected consumer checks, typing and original
+failed/repaired invocations. These supersede the plan-authoring `not_run` boundary for the
+implemented source scope only. Future prose/TeX/math, extraction views, broader runtime/adoption
+and quantitative benefits remain with PP-05–PP-10.
