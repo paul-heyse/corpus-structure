@@ -10,14 +10,12 @@ import typer
 from rich.table import Table
 
 from corpus_structure.cli.output import JsonOpt, emit, state
-from corpus_structure.semantic.query import read_snapshot
-from corpus_structure.serve.journey import QueryRefused, parse_run, select_run, serve_query
-from corpus_structure.serve.queries import GENERIC
-from corpus_structure.serve.registry import QueryRegistryError, build_registry
 
 
 @contextmanager
 def refusal(json: bool):
+    from corpus_structure.serve.registry import QueryRegistryError
+
     from .failures import failure_boundary
 
     with failure_boundary(json, expected=(QueryRegistryError,)):
@@ -25,6 +23,9 @@ def refusal(json: bool):
 
 
 def context(conn: Any, project: str | None, run: str) -> tuple[str, int, Any]:
+    from corpus_structure.serve.journey import QueryRefused, parse_run, select_run
+    from corpus_structure.serve.queries import GENERIC
+    from corpus_structure.serve.registry import build_registry
     from sqlalchemy import select
 
     from corpus_structure.schema.pack import DOMAINS
@@ -97,6 +98,8 @@ def query(
     projection: Literal["occurrence", "fact", "accepted"] = "accepted",
     json: JsonOpt = False,
 ) -> None:
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.serve.journey import QueryRefused, parse_run, select_run, serve_query
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     params = {}

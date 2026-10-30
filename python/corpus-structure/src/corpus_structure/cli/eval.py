@@ -8,7 +8,6 @@ import typer
 
 from corpus_structure.cli.golden import output, reference_session
 from corpus_structure.cli.output import JsonOpt
-from corpus_structure.evaluate.semantic import reference_evaluate
 
 eval_app = typer.Typer(
     help="Grade completed knowledge against independent semantic references.", no_args_is_help=True
@@ -24,6 +23,7 @@ def evaluate(
     json: JsonOpt = False,
 ):
     """Persist core, qualified-full and evidence P/R/F1 with exact pass-C snapshots."""
+    from corpus_structure.evaluate.semantic import reference_evaluate
     with reference_session(ctx, project, json=json) as (conn, pid):
         result = reference_evaluate(conn, project_id=pid, run_id=run, set_id=set_id)
     output(result, json)

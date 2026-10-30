@@ -10,10 +10,6 @@ import typer
 
 from corpus_structure.cli.output import JsonOpt, state
 from corpus_structure.cli.query import context, refusal
-from corpus_structure.semantic.analytics import load_packet
-from corpus_structure.semantic.query import read_snapshot
-from corpus_structure.serve.export import export_packet
-from corpus_structure.serve.journey import bind_session
 
 
 def export(
@@ -27,6 +23,10 @@ def export(
     project: str | None = None,
     json: JsonOpt = False,
 ):
+    from corpus_structure.semantic.analytics import load_packet
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.serve.export import export_packet
+    from corpus_structure.serve.journey import bind_session
     from corpus_structure.semantic.runtime import connection_settings, open_runtime_engine
 
     settings = state(ctx).settings()

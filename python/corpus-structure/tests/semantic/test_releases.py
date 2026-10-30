@@ -97,13 +97,15 @@ def test_archive_is_exact_offline_and_idempotent(semantic_db_engine: Engine, mon
     with semantic_db_engine.begin() as conn:
         bundle, dependencies, profile, prepared = stage(conn)
         calls = []
-        compiler = releases.prepare_release
+        from corpus_structure.semantic import prepare as preparation
+
+        compiler = preparation.prepare_release
 
         def counted(*args):
             calls.append(args)
             return compiler(*args)
 
-        monkeypatch.setattr(releases, "prepare_release", counted)
+        monkeypatch.setattr(preparation, "prepare_release", counted)
         assert (
             releases.persist_release(conn, bundle, dependencies, profile, prepared)
             == prepared.release_id
@@ -214,7 +216,9 @@ def test_changed_compiler_version_refuses_before_reprepare(semantic_db_engine: E
         def unexpected(*args):
             pytest.fail("a changed compiler must refuse before recompilation")
 
-        monkeypatch.setattr(releases, "prepare_release", unexpected)
+        from corpus_structure.semantic import prepare as preparation
+
+        monkeypatch.setattr(preparation, "prepare_release", unexpected)
         with pytest.raises(releases.ReleaseConflict, match="compiler library versions"):
             releases.load_release(conn, prepared.release_id)
 

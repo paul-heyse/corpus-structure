@@ -12,21 +12,20 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from pydantic import BaseModel
 
 from corpus_structure.core.evidence import MacroDef, RenditionContent
 from corpus_structure.core.locators import LocatorIndex
-from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Step
-from corpus_structure.methods.llm.packet import SentenceEntry
 from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 
-from .analysis_contracts import prepare_placement_policy
-from .prepare import preview_schema
-from .publication import native_constraints
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
+
+if TYPE_CHECKING:
+    from corpus_structure.methods.llm.packet import SentenceEntry
+
 
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "agent.yaml"
 _EMPTY_DEPENDENCIES = ResolvedDependencies()
@@ -48,6 +47,8 @@ def proposal_inputs(
     bundle = observation_inputs(bundle, model_content=observation_content)
     if {source.name for source in bundle.sources} & {"agent", "agent-root"}:
         raise ValueError("reserved agent module name already supplied")
+    from .prepare import preview_schema
+
     candidate = preview_schema(bundle, dependencies)
     module = yaml.safe_load(_MODEL.read_bytes() if model_content is None else model_content)
     qualification = next((d for d in candidate.classes if d.name == qualification_class), None)
@@ -264,6 +265,8 @@ def _check_references(
                 raise ProposalRefused("identity exclusion endpoint is outside the bound packet")
     from .reference_positions import class_reference_value, reference_position
 
+    from .publication import native_constraints
+
     constraints = native_constraints(prepared)
 
     def check_value(value, definition, prop):
@@ -453,6 +456,10 @@ def locate_proposal(
         if statement["kind"] != "outside":
             statement["anchor"] = statement_anchor(statement["anchor"], frame)
     sentences = {sentence.id: sentence for sentence in frame.sentences}
+    from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Step
+
+    from .analysis_contracts import prepare_placement_policy
+
     cascade = Cascade(
         frame.text,
         [FrameSentence(s.id, s.start, s.end) for s in frame.sentences],

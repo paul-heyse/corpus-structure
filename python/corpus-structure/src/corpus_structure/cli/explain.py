@@ -8,8 +8,6 @@ import typer
 
 from corpus_structure.cli.output import JsonOpt, emit, state
 from corpus_structure.cli.query import context, refusal
-from corpus_structure.semantic.query import read_snapshot
-from corpus_structure.serve.explain import explain as explain_query
 
 app = typer.Typer(help="Explain a claim or unit.")
 
@@ -22,6 +20,8 @@ def _explain(
     project: str | None,
     json: bool,
 ) -> None:
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.serve.explain import explain as explain_query
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     settings = state(ctx).settings()

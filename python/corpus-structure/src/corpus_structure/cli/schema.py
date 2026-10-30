@@ -11,14 +11,12 @@ from rich.table import Table
 
 from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.output import JsonOpt, emit
-from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
-from corpus_structure.semantic.query import read_snapshot
-from corpus_structure.semantic.refusals import SemanticRefusal
-from corpus_structure.semantic.releases import ReleaseConflict
-from corpus_structure.semantic.types import PreparationError
 
 
 def refusal(json):
+    from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
+    from corpus_structure.semantic.releases import ReleaseConflict
+    from corpus_structure.semantic.types import PreparationError
     return failure_boundary(
         json, expected=(PreparationError, ReleaseConflict, ExecutionAdmissionError)
     )
@@ -53,6 +51,7 @@ def compile_(
     out: Annotated[Path | None, typer.Option("--out")] = None,
     json_: JsonOpt = False,
 ):
+    from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.regeneration import prepare_packs
 
     domain = domain or ["statistics"]
@@ -92,6 +91,8 @@ def check_(
     json_: JsonOpt = False,
 ):
     """Check candidate packs or fully verify an archived release without changing it."""
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.refusals import SemanticRefusal
     if release is None:
         return compile_(domain or ["statistics"], domains, None, json_)
     from corpus_structure.cli.output import state
@@ -126,6 +127,7 @@ def derive_(
     json_: JsonOpt = False,
 ):
     """Emit reviewed candidate products to a new directory; never deploy or overwrite history."""
+    from corpus_structure.semantic.refusals import SemanticRefusal
     with refusal(json_):
         if out.exists():
             raise SemanticRefusal("derivation requires a new --out directory")

@@ -22,7 +22,6 @@ from sqlalchemy import Connection, select
 from .determinants import BYTE_LIBRARIES as _LIBRARIES
 from .determinants import BYTE_LIBRARIES_V11, determinant_version
 from .identity import canonical_bytes
-from .prepare import prepare_release
 from .types import (
     SEMANTIC_COMPILER_VERSION,
     PreparationProfile,
@@ -386,6 +385,8 @@ def persist_release(
     _validate_manifest(bundle, dependencies, profile, prepared)
     require_bound_operation(prepared, "archive")
     if profile.compiler_version == "13":
+        from .prepare import prepare_release
+
         derived = prepare_release(bundle, dependencies, profile)
         if _archive_bytes(bundle, dependencies, derived) != _archive_bytes(
             bundle, dependencies, prepared
@@ -554,6 +555,8 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
         manifest = json.loads(bytes(row["manifest_bytes"]))
         if manifest["libraries"] != {name: determinant_version(name) for name in _LIBRARIES}:
             raise ReleaseConflict("archived compiler library versions differ")
+        from .prepare import prepare_release
+
         prepared = prepare_release(bundle, dependencies, profile)
         _validate_manifest(bundle, dependencies, profile, prepared)
         if (
