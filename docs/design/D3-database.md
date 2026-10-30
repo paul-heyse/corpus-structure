@@ -74,6 +74,21 @@ The [execution package](../plans/semantic-model-pivot/model-execution-closure.md
 
 > Decision: ADR-0031
 
+## Native test deployment equivalence
+
+**Accepted target, 2026-10-29; scoped implementation/verification belongs to
+[SP-I08](../plans/semantic-model-pivot/qualification-infrastructure.md#SP-I08).**
+Ordinary semantic consumers receive fresh committed databases cloned from one session-migrated
+frozen deployment. Database ownership/connection limit, ACL grantors/options and database/role
+defaults are replayed explicitly and checked for equivalence; PostgreSQL template copying alone
+does not preserve these policies. Restricted purpose credentials and independent privilege
+expectations remain. Cold bootstrap, CLI initialization and historical era-shaped upgrades run
+the real deployment independently. The existing leased lifecycle owns authenticated test
+databases, closes resources and waits boundedly for backend exit without FORCE or new terminate
+rights. Semantic templates expire with the session; the legacy cache keeps its existing lifetime.
+
+> Decision: ADR-0032
+
 ## Composed-model admission fence
 
 **Implemented; scoped Tested, 2026-10-29.** semantic_0022 originally refused semantic-2

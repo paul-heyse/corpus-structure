@@ -239,6 +239,14 @@ the [pivot package](../plans/semantic-model-pivot/postgresql-and-publication.md)
 
 > Decision: ADR-0031
 
+**Accepted native test contract (2026-10-29; implementation and qualification owned by SP-I08).**
+Fresh consumer databases clone a session-built frozen semantic deployment, with explicit
+database ACL/default replay and equality checks. Actual restricted logins and commits remain.
+Cold bootstrap and era-shaped forward upgrades still execute deployment from bare. One leased
+test lifecycle owns cleanup without forced termination. [D3](D3-database.md) owns this boundary.
+
+> Decision: ADR-0032
+
 **Implemented; scoped Tested (2026-10-29).** The transitioned composed-model boundary now
 uses finite trusted lifecycle/conditional guards and protected terminal effects. Completed output
 is a relationship, enforced atomically with run completion; measurement rows derive from immutable
