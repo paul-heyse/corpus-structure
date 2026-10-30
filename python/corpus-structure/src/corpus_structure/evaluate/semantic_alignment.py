@@ -438,7 +438,7 @@ def equivalent(
     return ValueDecision(type(a) is type(b) and a == b, "canonical")
 
 
-def _entity_pairs(ref, pred, prepared, out):
+def _entity_pairs(ref, pred, prepared, out, science_scope):
     import yaml
 
     from corpus_structure.core.keys import LabelRules, normalize_label
@@ -482,22 +482,31 @@ def _entity_pairs(ref, pred, prepared, out):
         for s in pred.batch.get("statements", ())
     ]
 
+    # Prepare metadata once per owned side; repeated predicates retain their final occurrence.
+    attribute_maps = {
+        id(entity): {x["predicate"]: x["value"] for x in entity.get("attributes", ())}
+        for entity in (*ra, *pa)
+    }
+    attribute_positions = {
+        id(entity): {item["predicate"]: i for i, item in enumerate(entity.get("attributes", ()))}
+        for entity in (*ra, *pa)
+    }
+    properties = {iri: {p.name: p for p in d.properties} for iri, d in definitions.items()}
+    entity_ranges = {d.name for d in prepared.definitions if d.name == "Entity" or "Entity" in d.ancestors}
+
     def attributes(entity):
-        return {x["predicate"]: x["value"] for x in entity.get("attributes", ())}
+        return attribute_maps[id(entity)]
 
     attribute_comparisons: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
     def compare_attribute(a, b, property_iri, left, right, entity_map, *, use, **kwargs):
-        decision = equivalent(left, right, entity_map, **kwargs)
+        kwargs.setdefault("model", prepared)
+        decision = equivalent(left, right, entity_map, science_scope=science_scope, **kwargs)
         if decision.comparisons:
 
             def path(entity):
                 # attributes() uses the last occurrence of a repeated predicate as well.
-                index = max(
-                    i
-                    for i, item in enumerate(entity.get("attributes", ()))
-                    if item["predicate"] == property_iri
-                )
+                index = attribute_positions[id(entity)][property_iri]
                 return ["attributes", str(index), "value"]
 
             traces = attribute_comparisons.setdefault((a["id"], b["id"]), [])
@@ -526,28 +535,39 @@ def _entity_pairs(ref, pred, prepared, out):
         declaration = definitions.get(entity["class_iri"])
         if not declaration:
             return ()
-        props = {p.name: p for p in declaration.properties}
+        props = properties[entity["class_iri"]]
         return tuple(
             group
             for group in declaration.identity_groups
             if group != ("id",)
             and any(
                 props[n].range
-                in {
-                    d.name
-                    for d in prepared.definitions
-                    if d.name == "Entity" or "Entity" in d.ancestors
-                }
+                in entity_ranges
                 for n in group
             )
         )
 
+    prepared_names = {id(entity): names(entity) for entity in (*ra, *pa)}
+    prepared_groups = {id(entity): identity_groups(entity) for entity in (*ra, *pa)}
+    prepared_dependent = {id(entity): dependent_groups(entity) for entity in (*ra, *pa)}
+    # Eligibility includes inherited classes; absent names never discard identity-key routes.
+    eligible = {
+        i: tuple(j for j, b in enumerate(pa) if compatible(a["class_iri"], b["class_iri"]))
+        for i, a in enumerate(ra)
+    }
+    normalized = {}
+    for entity in (*ra, *pa):
+        for case in (CaseRule.FOLD, CaseRule.PRESERVE):
+            normalized[id(entity), case] = tuple(
+                (label if case is CaseRule.PRESERVE else _text(label),
+                 normalize_label(label, compact(entity["class_iri"]), rules, case))
+                for label in prepared_names[id(entity)]
+            )
     weights = np.zeros((len(ra), len(pa)))
     bases = {}
     for i, a in enumerate(ra):
-        for j, b in enumerate(pa):
-            if not compatible(a["class_iri"], b["class_iri"]):
-                continue
+        for j in eligible[i]:
+            b = pa[j]
             known_a = ref.known_ids.get(a["id"])
             known_b = pred.known_ids.get(b["id"])
             if known_a and known_b:
@@ -558,7 +578,7 @@ def _entity_pairs(ref, pred, prepared, out):
             declaration = definitions.get(a["class_iri"])
             if declaration:
                 aa, bb = attributes(a), attributes(b)
-                props_by_name = {p.name: p for p in declaration.properties}
+                props_by_name = properties[a["class_iri"]]
                 incompatible = False
                 for group in declaration.identity_groups:
                     if group == ("id",) or not all(
@@ -605,7 +625,7 @@ def _entity_pairs(ref, pred, prepared, out):
             scope_a, scope_b = a.get("scope"), b.get("scope")
             if (scope_a or scope_b) and scope_a != scope_b:
                 continue
-            if dependent_groups(a) or dependent_groups(b):
+            if prepared_dependent[id(a)] or prepared_dependent[id(b)]:
                 continue
             declaration = definitions.get(a["class_iri"])
             symbol_iri = (
@@ -631,7 +651,6 @@ def _entity_pairs(ref, pred, prepared, out):
                 weights[i, j] = 0.9
                 bases[i, j] = "local_symbol"
                 continue
-            labels_a, labels_b = names(a), names(b)
             definition = definitions.get(a["class_iri"])
             case = (
                 CaseRule.PRESERVE
@@ -641,16 +660,12 @@ def _entity_pairs(ref, pred, prepared, out):
                 )
                 else CaseRule.FOLD
             )
-            for la in filter(None, labels_a):
-                for lb in filter(None, labels_b):
-                    if la == lb if case is CaseRule.PRESERVE else _text(la) == _text(lb):
+            for exact_a, alias_a in normalized[id(a), case]:
+                for exact_b, alias_b in normalized[id(b), case]:
+                    if exact_a == exact_b:
                         weights[i, j] = 1
                         bases[i, j] = "label"
-                    elif (
-                        normalize_label(la, compact(a["class_iri"]), rules, case)
-                        == normalize_label(lb, compact(b["class_iri"]), rules, case)
-                        and weights[i, j] < 0.9
-                    ):
+                    elif alias_a == alias_b and weights[i, j] < 0.9:
                         weights[i, j] = 0.9
                         bases[i, j] = "alias_normalization"
     # Equal best candidates are an ambiguity, not permission to let array order choose identity.
@@ -689,10 +704,10 @@ def _entity_pairs(ref, pred, prepared, out):
         for a in ra:
             if a["id"] in mapping:
                 continue
-            groups = identity_groups(a)
+            groups = prepared_groups[id(a)]
             if not groups:
                 continue
-            props = {p.name: p for p in definitions[a["class_iri"]].properties}
+            props = properties[a["class_iri"]]
             aa = attributes(a)
             matches = []
             for b in pa:
@@ -756,9 +771,15 @@ def align_semantic(
         raise ValueError("alignment sides refer to different source units")
     from corpus_structure.semantic.scientific_evidence import ReferenceComparisonScope
 
+    from corpus_structure.semantic.analysis_contracts import prepare_alignment_policy
+    from .alignment_preparation import OwnedSide, CandidateComparisons, independent_assignment
+
+    policy = prepare_alignment_policy(prepared)
+    # Own nested input records before preparing any operation-local indexes or reusable results.
+    ref_side, pred_side = OwnedSide.from_side(ref), OwnedSide.from_side(pred)
     science_scope = ReferenceComparisonScope(prepared)
     out = SemanticAlignment(ref.unit)
-    emap = _entity_pairs(ref, pred, prepared, out)
+    emap = _entity_pairs(ref_side, pred_side, prepared, out, science_scope)
     entity_comparisons = tuple(out.comparisons)
     qualification_name = next(
         (
@@ -808,7 +829,7 @@ def align_semantic(
                 result.append(c)
         return result
 
-    rr, pp = unique(ref), unique(pred)
+    rr, pp = unique(ref_side), unique(pred_side)
 
     def groups(side, claims):
         ids = {c["id"]: i for i, c in enumerate(claims)}
@@ -828,125 +849,107 @@ def align_semantic(
             result.setdefault(root(i), []).append(i)
         return list(result.values())
 
-    rg, pg = groups(ref, rr), groups(pred, pp)
+    rg, pg = groups(ref_side, rr), groups(pred_side, pp)
+    comparisons = CandidateComparisons(prepared, rr, pp, emap, qualified_meaning, qualification_name)
+    reference_spans, prediction_spans = tuple(map(_spans, rr)), tuple(map(_spans, pp))
+
+    def sentence_locators(claim):
+        return frozenset(
+            e["locator"] for e in claim.get("evidence", ())
+            if e.get("outcome") == "located" and e.get("locator")
+        )
+
+    reference_sentences, prediction_sentences = tuple(map(sentence_locators, rr)), tuple(map(sentence_locators, pp))
+    geometry = {}
+    for i, j in comparisons.edges:
+        ratios = tuple(
+            _overlap(a, b) / max(1, max(a[1], b[1]) - min(a[0], b[0]))
+            for a in reference_spans[i] for b in prediction_spans[j]
+        )
+        overlap = max(ratios, default=0)
+        geometry[i, j] = (bool(reference_sentences[i] & prediction_sentences[j]) or overlap > 0, overlap)
+    reference_group = {i: gi for gi, members in enumerate(rg) for i in members}
+    prediction_group = {j: gj for gj, members in enumerate(pg) for j in members}
     claim_map = {}
     last = None
     size = min(len(rg), len(pg)) + 1
-    for iteration in range(8):
+    for iteration in range(policy.max_iterations):
         out.iterations = iteration + 1
         weights = np.zeros((len(rr), len(pp)))
         tiers = {}
         comparison_details = {}
         failures = []
         undecided = []
-        for i, r in enumerate(rr):
-            for j, p in enumerate(pp):
-                if emap.get(r["subject"]) != p["subject"] or r["predicate"] != p["predicate"]:
-                    continue
-                value = equivalent(
-                    r["object"],
-                    p["object"],
-                    emap,
-                    claim_map,
-                    conditions=r.get("qualification", {}).get("condition"),
-                    model=prepared,
-                    science_scope=science_scope,
-                    range_name="Value",
-                )
-                if value.outcome == "undecided":
-                    undecided.append(
-                        {
-                            "reference": r["id"],
-                            "prediction": p["id"],
-                            "reason": value.reason or "value comparison undecided",
-                            "comparisons": list(value.comparisons),
-                        }
-                    )
-                if not value.equal:
-                    continue
-                qual = equivalent(
-                    qualified_meaning(r.get("qualification", {})),
-                    qualified_meaning(p.get("qualification", {})),
-                    emap,
-                    claim_map,
-                    model=prepared,
-                    science_scope=science_scope,
-                    range_name=qualification_name,
-                )
-                same_statement = (not r.get("statement") and not p.get("statement")) or bool(
-                    r.get("statement")
-                    and p.get("statement")
-                    and emap.get(r["statement"]) == p["statement"]
-                )
-                full = (
-                    qual.equal
-                    and same_statement
-                    and r.get("statement_role") == p.get("statement_role")
-                )
-                same_sentence = bool(
+        comparisons.update(claim_map)
+        for i, j in comparisons.edges:
+            r, p = rr[i], pp[j]
+            value = comparisons.compare(i, j, "object", emap, claim_map, science_scope, equivalent)
+            if value.outcome == "undecided":
+                undecided.append(
                     {
-                        e["locator"]
-                        for e in r.get("evidence", ())
-                        if e.get("outcome") == "located" and e.get("locator")
-                    }
-                    & {
-                        e["locator"]
-                        for e in p.get("evidence", ())
-                        if e.get("outcome") == "located" and e.get("locator")
+                        "reference": r["id"],
+                        "prediction": p["id"],
+                        "reason": value.reason or "value comparison undecided",
+                        "comparisons": list(value.comparisons),
                     }
                 )
-                evidence = full and (
-                    same_sentence or any(_overlap(a, b) > 0 for a in _spans(r) for b in _spans(p))
-                )
-                overlap = max(
-                    (
-                        _overlap(a, b) / max(1, max(a[1], b[1]) - min(a[0], b[0]))
-                        for a in _spans(r)
-                        for b in _spans(p)
-                    ),
-                    default=0,
-                )
-                weights[i, j] = size**3 + size**2 * full + size * evidence + overlap
-                tiers[i, j] = (full, evidence)
-                comparison_details[i, j] = [
+            if not value.equal:
+                continue
+            qual = comparisons.compare(i, j, "qualification", emap, claim_map, science_scope, equivalent)
+            same_statement = (not r.get("statement") and not p.get("statement")) or bool(
+                r.get("statement")
+                and p.get("statement")
+                and emap.get(r["statement"]) == p["statement"]
+            )
+            full = (
+                qual.equal
+                and same_statement
+                and r.get("statement_role") == p.get("statement_role")
+            )
+            located_overlap, overlap = geometry[i, j]
+            evidence = full and located_overlap
+            weights[i, j] = size**3 + size**2 * full + size * evidence + overlap
+            tiers[i, j] = (full, evidence)
+            comparison_details[i, j] = [
+                {
+                    "field": field,
+                    **trace,
+                    "reference_path": [field, *trace["reference_path"]],
+                    "prediction_path": [field, *trace["prediction_path"]],
+                }
+                for field, decision in (("object", value), ("qualification", qual))
+                for trace in decision.comparisons
+            ]
+            if not full:
+                failures.append(
                     {
-                        "field": field,
-                        **trace,
-                        "reference_path": [field, *trace["reference_path"]],
-                        "prediction_path": [field, *trace["prediction_path"]],
+                        "reference": r["id"],
+                        "prediction": p["id"],
+                        "fields": ["qualification" if not qual.equal else "statement_context"],
                     }
-                    for field, decision in (("object", value), ("qualification", qual))
-                    for trace in decision.comparisons
-                ]
-                if not full:
-                    failures.append(
-                        {
-                            "reference": r["id"],
-                            "prediction": p["id"],
-                            "fields": ["qualification" if not qual.equal else "statement_context"],
-                        }
-                    )
-                if qual.outcome == "undecided":
-                    undecided.append(
-                        {
-                            "reference": r["id"],
-                            "prediction": p["id"],
-                            "reason": "qualification comparison undecided",
-                            "comparisons": list(qual.comparisons),
-                        }
-                    )
+                )
+            if qual.outcome == "undecided":
+                undecided.append(
+                    {
+                        "reference": r["id"],
+                        "prediction": p["id"],
+                        "reason": "qualification comparison undecided",
+                        "comparisons": list(qual.comparisons),
+                    }
+                )
         group_weights = np.zeros((len(rg), len(pg)))
         chosen = {}
-        for gi, ris in enumerate(rg):
-            for gj, pis in enumerate(pg):
-                candidates = [(weights[i, j], i, j) for i in ris for j in pis if weights[i, j] > 0]
-                if candidates:
-                    score, i, j = max(
-                        candidates, key=lambda c: (c[0], rr[c[1]]["id"], pp[c[2]]["id"])
-                    )
-                    group_weights[gi, gj] = score
-                    chosen[gi, gj] = (i, j)
-        pairs = [chosen[i, j] for i, j in _assignment(group_weights)]
+        for i, j in comparisons.edges:
+            if weights[i, j] <= 0:
+                continue
+            gi, gj = reference_group[i], prediction_group[j]
+            existing = chosen.get((gi, gj))
+            if existing is None or (weights[i, j], rr[i]["id"], pp[j]["id"]) > (
+                weights[existing], rr[existing[0]]["id"], pp[existing[1]]["id"]
+            ):
+                group_weights[gi, gj] = weights[i, j]
+                chosen[gi, gj] = (i, j)
+        pairs = [chosen[i, j] for i, j in independent_assignment(group_weights)]
         new = {(rr[i]["id"], pp[j]["id"]) for i, j in pairs}
         out.matches = {k: [] for k in ("core", "full", "evidence")}
         out.comparisons = list(entity_comparisons)

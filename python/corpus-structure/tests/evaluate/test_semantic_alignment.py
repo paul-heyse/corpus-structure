@@ -41,7 +41,7 @@ class AlignmentFixture:
         )
         return PreparedRelease(
             "fixture:alignment",
-            b"{}",
+            b'{"profile":{"version":"semantic-1","compiler_version":"13"}}',
             self.definitions,
             (),
             self.registry_rows,
@@ -636,3 +636,96 @@ def test_whole_alignment_retains_admitted_binding_children_and_original_position
         assert traces[1]["prediction_path"] == ["object", "bindings", "1", "measure"]
         assert traces[2]["reference_path"] == traces[2]["prediction_path"] == ["object"]
         assert all(trace["outcome"] == "equivalent" for trace in traces)
+
+
+def test_alignment_preparation_owns_nested_input_and_source_indexes():
+    from corpus_structure.evaluate.alignment_preparation import OwnedSide
+
+    original = batch()
+    known = {"p": "known"}
+    anchors = {"p": [(0, 5)]}
+    owned = OwnedSide.from_side(side(original, known_ids=known, anchors=anchors))
+    original["entities"][0]["label"] = "Changed"
+    original["claims"][0]["object"]["text"] = "Changed"
+    known["p"] = "changed"
+    anchors["p"].append((8, 10))
+    assert owned.batch["entities"][0]["label"] == "Alice"
+    assert owned.batch["claims"][0]["object"]["text"] == "Alice"
+    assert owned.known_ids["p"] == "known"
+    assert owned.anchors["p"] == ((0, 5),)
+
+
+def test_component_assignment_preserves_global_pairs_for_ties_and_rectangles():
+    import numpy as np
+    from scipy.optimize import linear_sum_assignment
+
+    from corpus_structure.evaluate.alignment_preparation import independent_assignment
+
+    rng = np.random.default_rng(6)
+    cases = [np.eye(20), np.zeros((0, 3)), np.zeros((3, 0)), np.zeros((5, 7))]
+    cases.extend(rng.integers(0, 4, size=(rows, cols)).astype(float) for rows in range(1, 9) for cols in range(1, 9))
+    for weights in cases:
+        rows, cols = linear_sum_assignment(weights, maximize=True)
+        expected = [(int(i), int(j)) for i, j in zip(rows, cols, strict=True) if weights[i, j] > 0]
+        assert independent_assignment(weights) == expected
+
+
+def test_dependency_invalidation_includes_absence_remapping_removal_and_cycles():
+    from corpus_structure.evaluate.alignment_preparation import CandidateComparisons
+    from corpus_structure.evaluate.semantic_alignment import ValueDecision
+
+    model = admitted_scientific_model()
+    reference: list[dict[str, Any]] = [
+        {"id": "a", "subject": "r", "predicate": "p", "object": {"kind": "claim", "ref": "b"}},
+        {"id": "b", "subject": "r", "predicate": "p", "object": {"kind": "claim", "ref": "a"}},
+        {"id": "literal", "subject": "r", "predicate": "other", "object": {"kind": "text", "text": "fixed"}},
+    ]
+    prediction: list[dict[str, Any]] = [
+        {"id": "x", "subject": "s", "predicate": "p", "object": {"kind": "claim", "ref": "y"}},
+        {"id": "y", "subject": "s", "predicate": "p", "object": {"kind": "claim", "ref": "x"}},
+        {"id": "fixed", "subject": "s", "predicate": "other", "object": {"kind": "text", "text": "fixed"}},
+    ]
+    for claim in (*reference, *prediction):
+        value = claim["object"]
+        claim["object"] = {"kind": "text", "text": "fixed"}
+        claim["qualification"] = {"modality": "asserted", "polarity": True}
+        if value["kind"] == "claim":
+            claim["qualification"]["condition"] = value
+    operation = CandidateComparisons(model, reference, prediction, {"r": "s"}, dict, "Qualification")
+    calls = []
+
+    def compare(left, right, entities, claims, **kwargs):
+        calls.append((left, dict(claims)))
+        if "condition" in left:
+            return ValueDecision(claims.get(left["condition"]["ref"]) == right["condition"]["ref"], "reference")
+        return ValueDecision(left == right, "canonical")
+
+    # A dormant candidate remains present while its source endpoint is unknown.
+    assert (0, 0) in operation.edges
+    assert not operation.compare(0, 0, "qualification", {}, {}, None, compare).equal
+    assert operation.compare(2, 2, "qualification", {}, {}, None, compare).equal
+    assert len(calls) == 2
+    operation.update({"b": "y"})
+    assert operation.compare(0, 0, "qualification", {}, {"b": "y"}, None, compare).equal
+    operation.compare(2, 2, "qualification", {}, {"b": "y"}, None, compare)
+    assert len(calls) == 3  # the unrelated invariant literal survived the change
+    operation.update({"b": "x"})
+    assert not operation.compare(0, 0, "qualification", {}, {"b": "x"}, None, compare).equal
+    operation.update({})
+    assert not operation.compare(0, 0, "qualification", {}, {}, None, compare).equal
+    assert len(calls) == 5
+
+
+def test_undecided_comparisons_are_retried_instead_of_cached():
+    from corpus_structure.evaluate.alignment_preparation import CandidateComparisons
+    from corpus_structure.evaluate.semantic_alignment import ValueDecision
+
+    model = admitted_scientific_model()
+    claims: list[dict[str, Any]] = [{"id": "a", "subject": "r", "predicate": "p", "object": {"kind": "text", "text": "x"}}]
+    claims[0]["qualification"] = {"modality": "asserted", "polarity": True}
+    operation = CandidateComparisons(model, claims, claims, {"r": "r"}, dict, "Qualification")
+    outcomes = iter([ValueDecision(False, "undecided", "timeout"), ValueDecision(True, "canonical")])
+    def compare(*args, **kwargs):
+        return next(outcomes)
+    assert not operation.compare(0, 0, "object", {}, {}, None, compare).equal
+    assert operation.compare(0, 0, "object", {}, {}, None, compare).equal
