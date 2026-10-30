@@ -43,3 +43,12 @@ def test_portable_product_keeps_complete_source_and_definition_dependencies() ->
 def test_fallback_requires_named_custody() -> None:
     with pytest.raises(ValueError, match="explicit dependency source reference"):
         text_product_payload("x", root=ROOT, fallback_macros={r"\x": MacroDef(body="x")})
+
+
+def test_structured_fallback_does_not_reparse_or_repair_its_body() -> None:
+    result = text_product_payload(r"\f", root=ROOT, math_ranges=[(0, 2, None, None)],
+        fallback_macros={r"\f": MacroDef(body="{")}, fallback_source_ref="release:math.macros")
+    reps = {r["representation_id"]: r for r in result["representations"]}
+    assert reps["expanded:0"]["text_content"] == "{"
+    event = next(n for n in result["nodes"] if n["kind"] == "macro_definition")
+    assert json.loads(event["value"])["body"] == "{"

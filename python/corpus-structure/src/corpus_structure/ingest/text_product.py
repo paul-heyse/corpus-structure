@@ -9,8 +9,8 @@ from typing import Any
 
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.text_structure import ADAPTER_ID, capture_text
-from corpus_structure.core.tex import MacroBinding, effective_macros, tokens
-from corpus_structure.ingest.macros import MacroSource, read_macros
+from corpus_structure.core.tex import MacroBinding, Token, effective_macros, tokens
+from corpus_structure.ingest.macros import MacroEvent, MacroRead, MacroSource
 
 _CATEGORIES = {"word": "control_word", "symbol": "control_symbol", "open": "group_open",
                "close": "group_close", "param": "parameter", "space": "whitespace",
@@ -95,14 +95,35 @@ def text_product_payload(canonical: str, *, root: Mapping[str, Any],
                                    sort_keys=True, ensure_ascii=False, separators=(",", ":"))
         artifact_ref = str(fallback_source_ref)
         representation(artifact_ref, artifact_text, "artifact")
-        lines = []
+        lines: list[str] = []
+        events: list[MacroEvent] = []
+        projection_ref = artifact_ref + ":definitions"
+        offset = 0
+
+        def shifted(value: str, at: int) -> tuple[Token, ...]:
+            return tuple(Token(t.kind, t.text, at + t.start, at + t.end) for t in tokens(value))
+
         for name, definition in sorted(fallback.items()):
             count = f"[{definition.nargs}]" if definition.nargs else ""
             default = f"[{definition.default}]" if definition.default is not None else ""
-            lines.append(r"\newcommand{" + name + "}" + count + default + "{" + definition.body + "}")
+            prefix = r"\newcommand{" + name + "}" + count + default + "{"
+            line = prefix + definition.body + "}"
+            body_start = offset + len(prefix)
+            default_start = offset + len(r"\newcommand{") + len(name) + 1 + len(count) + 1
+            count_start = offset + len(r"\newcommand{") + len(name) + 2
+            events.append(MacroEvent(projection_ref,
+                Token("word", r"\newcommand", offset, offset + len(r"\newcommand")),
+                name, shifted(name, offset + len(r"\newcommand{")),
+                shifted(definition.body, body_start),
+                shifted(definition.default, default_start) if definition.default is not None else (),
+                shifted(str(definition.nargs), count_start) if definition.nargs else (),
+                offset, offset + len(line), "accepted", definition))
+            lines.append(line)
+            offset += len(line) + 1
         projected = "\n".join(lines)
-        projection_ref = artifact_ref + ":definitions"
-        read = read_macros(projected, source_ref=projection_ref)
+        # The fallback table is already structured input. Construct its projection directly:
+        # re-reading generated TeX could alter malformed-but-retained bodies or defaults.
+        read = MacroRead(dict(fallback), [], tuple(tokens(projected)), tuple(events))
         sources.insert(0, MacroSource(projection_ref, projected, read))
         mapping("project", [(artifact_ref, 0, len(artifact_text))], [(projection_ref, 0, len(projected))],
                 reason="structured fallback table to derived TeX artifact; no raw text offset claim", fidelity="transformed")
