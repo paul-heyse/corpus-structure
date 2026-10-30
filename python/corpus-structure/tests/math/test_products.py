@@ -59,3 +59,29 @@ def test_source_endpoint_cannot_drop_its_product_qualification():
     del p["endpoints"][1]["target_content_digest"]
     with pytest.raises(ValueError, match="product reference"):
         prepare_layered_product(p)
+
+
+def test_syntax_transport_does_not_prepare_contextual_interpretation():
+    operand = value("f(x)")
+    p = prepare_layered_product(interpretation_product_payload(operand, root=ROOT,
+        text_product=TEXT, source_node_id="view:0", stage="syntax")).values()
+    assert p["semantic_state"] == "unknown"
+    assert p["interpretations"] == []
+    assert operand.state("interpretation").work == "not_requested"
+    assert operand.state("symbolic").work == "not_requested"
+
+
+def test_symbolic_transport_keeps_requested_native_evidence():
+    p = prepare_layered_product(interpretation_product_payload(value("x+x"), root=ROOT,
+        text_product=TEXT, source_node_id="view:0", stage="symbolic")).values()
+    assert p["semantic_state"] == "ok"
+    assert '"format":"sympy-srepr-1"' in p["nodes"][0]["value"]
+    assert "Mul(Integer(2), Symbol('x'))" in p["nodes"][0]["value"]
+
+
+def test_unsupported_symbolic_transport_retains_source_capture():
+    p = prepare_layered_product(interpretation_product_payload(value(r"x \pm y"), root=ROOT,
+        text_product=TEXT, source_node_id="view:0", stage="symbolic")).values()
+    assert p["semantic_state"] == "unsupported"
+    assert p["coverage"] == "partial"
+    assert p["representations"][0]["text_content"] == r"x \pm y"

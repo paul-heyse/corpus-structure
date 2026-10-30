@@ -144,3 +144,21 @@ def test_native_demand_refuses_off_main_thread():
     worker.start()
     worker.join()
     assert len(failures) == 1 and isinstance(failures[0], grammar.OffMainThread)
+
+
+def test_timeout_attempt_does_not_poison_a_later_native_request(monkeypatch):
+    value = operand("x")
+    original = grammar.to_sympy
+    calls = []
+    def transient(reading, **options):
+        calls.append(None)
+        if len(calls) == 1:
+            raise grammar.Expired()
+        return original(reading, **options)
+    monkeypatch.setattr(grammar, "to_sympy", transient)
+    with pytest.raises(grammar.Expired):
+        value.symbolic_value()
+    assert value.state("symbolic").work == "failed"
+    assert value.symbolic_value() == sympy.Symbol("x")
+    assert value.state("symbolic").outcome == "resolved"
+    assert len(calls) == 2

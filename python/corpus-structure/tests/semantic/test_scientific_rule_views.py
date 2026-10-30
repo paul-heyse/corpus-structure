@@ -449,3 +449,14 @@ def test_symbolic_conversion_timeout_remains_unavailable_and_transient(monkeypat
     assert calls == ["x", "x"]
     value, reason = read_reference_operand(expression("x"))
     assert value is None and "timeout" in reason
+
+
+def test_cancelled_denominator_holes_do_not_establish_partial_function_equality():
+    from corpus_structure.semantic.scientific_evidence import reference_evidence
+
+    decision = SemanticComparator({}).compare(expression("x/x"), expression("1"))
+    assert decision.tier is EvidenceTier.UNDECIDED
+    assert "definedness" in decision.detail
+    reference = reference_evidence(expression("x/x"), expression("1"))
+    assert reference.tier is EvidenceTier.UNDECIDED
+    assert "definedness" in reference.detail

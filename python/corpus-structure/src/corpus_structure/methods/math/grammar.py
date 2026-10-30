@@ -19,7 +19,11 @@ body: `\\mathbb{R|N|Z|Q|C}` as a set, another `\\mathbb{X}` or `\\text`/`\\opera
 `\\mathrm` of two or more letters as an operator, a bare typeface wrapper as a style; anything else
 is not in the grammar (and is expanded only in token forms).
 
-**`parse(latex, kind, macros, context)`** reads `latex` under a typed start symbol (`any_value`
+**Stages.** `syntax` recognizes positioned alternatives without native mathematics;
+`interpret` applies source/profile roles without constructing native values. Its explicit
+`symbolic=True` option additionally tests native equivalence after role filtering. Production
+consumers enter these stages through operation-owned `PreparedMathInput`. The standalone
+`parse(latex, kind, macros, context)` adapter retains the stronger historical reading under a typed start symbol (`any_value`
 by default) with the rendition's effective macro table (`core/tex.py` `effective_macros`) and the
 declared context. The result holds a `ParseOutcome` (`partial` when only trailing `.`, `,`, `;`
 was dropped), the detected kind, the tree, the failure with its category, notes, and the symbol
@@ -39,8 +43,9 @@ occurrences with offsets into `latex`.
   unbounded and once hung for over eleven minutes). Expiry gives category `timeout`. The timer works
   only on a process's main thread, so `parse` raises `OffMainThread` anywhere else: a misplaced
   caller fails loudly instead of running without a limit.
-- **Memo.** A bounded per-process memo keyed by (latex, kind, macro table, context) lets M09 and
-  M11 share a parse in one process. Timeouts are not memoized.
+- **Memo.** The standalone adapter retains a bounded per-process memo keyed by (latex, kind,
+  macro table, context). Production M09/M11 share operation-owned prepared readings through
+  their source batch. Timeouts are not memoized.
 """
 
 from __future__ import annotations
