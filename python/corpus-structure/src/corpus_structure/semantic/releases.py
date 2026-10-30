@@ -383,8 +383,8 @@ def persist_release(
     """
     from .contracts import require_bound_operation
 
-    require_bound_operation(prepared, "archive")
     _validate_manifest(bundle, dependencies, profile, prepared)
+    require_bound_operation(prepared, "archive")
     if profile.compiler_version == "13":
         derived = prepare_release(bundle, dependencies, profile)
         if _archive_bytes(bundle, dependencies, derived) != _archive_bytes(
