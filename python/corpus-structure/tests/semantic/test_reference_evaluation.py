@@ -152,6 +152,41 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
                 "f1": 1.0,
             }
         assert report.reference_snapshot[0]["pass_id"] == c
+        # Exercise the protected SQL consumer with an independently changed report, bypassing
+        # Python construction deliberately. Nested comparisons must reach the same policy rows.
+        nested = copy.deepcopy(report.result)
+        comparison = {
+            "policy_id": "reference-evidence-1", "evidence_profile": "reference-evidence-1",
+            "reference_path": [], "prediction_path": [], "evidence_tier": "canonical",
+            "agreement": "agrees", "decision_tier": "canonical", "outcome": "equivalent",
+            "numeric": "not_run", "valid_points": 0, "grammar": "text", "mechanism": "canonical",
+            "operands": ["Alice", "Alice"], "context": "{}", "detail": "equal canonical text",
+        }
+        nested["units"][0]["comparisons"].append({**comparison,
+            "reference": "reference_name", "prediction": "prediction_name", "field": "object"})
+        nested["units"][0]["undecided"].append({"comparisons": [copy.deepcopy(comparison)]})
+        from corpus_structure.semantic.scientific_evidence import validate_reference_science
+        validate_reference_science(nested)
+
+        def record_native(result):
+            return conn.scalar(text(
+                "SELECT eval.record_reference_evaluation(:p,:run,:set,"
+                "CAST(:snapshot AS jsonb),CAST(:result AS jsonb))"
+            ), {"p": "resubmit", "run": run, "set": made["set_id"],
+                "snapshot": json.dumps(report.reference_snapshot), "result": json.dumps(result)})
+
+        assert record_native(nested) > report.id
+        for location in ("direct", "nested"):
+            changed_policy = copy.deepcopy(nested)
+            selected = (changed_policy["units"][0]["comparisons"][0] if location == "direct"
+                        else changed_policy["units"][0]["undecided"][-1]["comparisons"][0])
+            selected["outcome"] = "different" if selected["outcome"] != "different" else "equivalent"
+            with pytest.raises(DBAPIError, match="scientific decision differs"), conn.begin_nested():
+                record_native(changed_policy)
+        missing = copy.deepcopy(nested)
+        del missing["units"][0]["comparisons"]
+        with pytest.raises(DBAPIError, match="scientific report array differs"), conn.begin_nested():
+            record_native(missing)
         first_report = report.id
     # A changed adjudication creates a new grade while the old snapshot stays immutable.
     with evaluator.begin() as conn:

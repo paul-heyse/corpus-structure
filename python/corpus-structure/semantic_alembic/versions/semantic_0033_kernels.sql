@@ -1121,27 +1121,40 @@ GRANT EXECUTE ON FUNCTION ops.lock_execution_run(bigint,text) TO corpus_sem_writ
 
 CREATE OR REPLACE FUNCTION eval.guard_scientific_decisions() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $scientific$
-DECLARE r text;
+DECLARE r text; recipe jsonb; rule jsonb; parent jsonb;
 BEGIN
  SELECT release_id INTO STRICT r FROM eval.reference_set WHERE id=NEW.set_id;
  PERFORM sem.require_execution_operation(r,'reference_grade');
  IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN RETURN NEW; END IF;
- IF jsonb_typeof(NEW.result->'units') IS DISTINCT FROM 'array'
-  OR jsonb_typeof(NEW.result->'undecided') IS DISTINCT FROM 'array' THEN
-  RAISE EXCEPTION 'scientific report requires typed units and undecided arrays' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM jsonb_array_elements((NEW.result->'units')||(NEW.result->'undecided')) unit
-  WHERE jsonb_typeof(unit) IS DISTINCT FROM 'object' OR jsonb_typeof(unit->'comparisons') IS DISTINCT FROM 'array') THEN
-  RAISE EXCEPTION 'scientific report unit requires comparisons array' USING ERRCODE='23514'; END IF;
-
+ SELECT convert_from(content,'UTF8')::jsonb INTO STRICT recipe FROM sem.artifact
+ WHERE release_id=r AND artifact_name='operation/scientific-policy.json';
+ IF jsonb_typeof(recipe->'comparison_paths') IS DISTINCT FROM 'array'
+  OR jsonb_typeof(recipe->'array_rules') IS DISTINCT FROM 'array' THEN
+  RAISE EXCEPTION 'scientific report recipe lacks supported paths and array rules' USING ERRCODE='23514'; END IF;
+ BEGIN
+  FOR rule IN SELECT value FROM jsonb_array_elements(recipe->'array_rules') LOOP
+   FOR parent IN SELECT jsonb_path_query(NEW.result,('strict '||(rule->>'parent_path'))::jsonpath) LOOP
+    IF jsonb_typeof(parent) IS DISTINCT FROM 'object'
+     OR (((rule->>'required')::boolean OR parent ? (rule->>'field'))
+         AND jsonb_typeof(parent->(rule->>'field')) IS DISTINCT FROM 'array') THEN
+     RAISE EXCEPTION 'scientific report array differs at %.%',rule->>'parent_path',rule->>'field'
+      USING ERRCODE='23514'; END IF;
+   END LOOP;
+  END LOOP;
+ EXCEPTION WHEN data_exception THEN
+  RAISE EXCEPTION 'scientific report structure differs from bound model' USING ERRCODE='23514';
+ END;
+ -- Container shape is established above; lax missing-member handling preserves optional leaves.
  IF EXISTS(
   SELECT FROM (
-   SELECT comparison FROM jsonb_array_elements(COALESCE(NEW.result->'units','[]'::jsonb)||COALESCE(NEW.result->'undecided','[]'::jsonb)) unit
-   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(unit->'comparisons','[]'::jsonb)) comparison
-  ) reported LEFT JOIN sem.scientific_decision_rule rule
-   ON rule.release_id=r AND rule.policy_id=reported.comparison->>'policy_id'
-   AND rule.evidence_tier=reported.comparison->>'evidence_tier' AND rule.agreement=reported.comparison->>'agreement'
-  WHERE rule.policy_id IS NULL OR rule.decision IS DISTINCT FROM reported.comparison->>'outcome'
-   OR rule.decision_tier IS DISTINCT FROM reported.comparison->>'decision_tier'
+   SELECT comparison FROM jsonb_array_elements_text(recipe->'comparison_paths') path
+   CROSS JOIN LATERAL jsonb_path_query(NEW.result,path.value::jsonpath) comparison
+  ) reported LEFT JOIN sem.scientific_decision_rule decision
+   ON decision.release_id=r AND decision.policy_id=reported.comparison->>'policy_id'
+   AND decision.evidence_tier=reported.comparison->>'evidence_tier'
+   AND decision.agreement=reported.comparison->>'agreement'
+  WHERE decision.policy_id IS NULL OR decision.decision IS DISTINCT FROM reported.comparison->>'outcome'
+   OR decision.decision_tier IS DISTINCT FROM reported.comparison->>'decision_tier'
  ) THEN RAISE EXCEPTION 'scientific decision differs from bound evidence policy' USING ERRCODE='23514'; END IF;
  RETURN NEW;
 END $scientific$;
