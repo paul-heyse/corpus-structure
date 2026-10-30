@@ -102,12 +102,20 @@ def test_source_declaration_requires_custody_and_ordered_extent():
 
 def test_demand_completion_is_separate_from_interpretation():
     occurrences = context(demand="occurrences")
-    occurrences.validate_result(produced=["lexical", "occurrences"], interpretation="unanalysed")
+    occurrences.validate_result(
+        produced=["lexical", "syntax", "occurrences"], interpretation="unanalysed"
+    )
     with pytest.raises(PreparationError):
-        occurrences.validate_result(produced=["lexical", "occurrences"], interpretation="ok")
+        occurrences.validate_result(
+            produced=["lexical", "occurrences"], interpretation="unanalysed"
+        )
+    with pytest.raises(PreparationError):
+        occurrences.validate_result(
+            produced=["lexical", "syntax", "occurrences"], interpretation="ok"
+        )
     with pytest.raises(PreparationError):
         context(demand="symbolic").validate_result(
-            produced=["lexical", "occurrences", "interpretation"], interpretation="ok"
+            produced=["lexical", "syntax", "occurrences", "interpretation"], interpretation="ok"
         )
     context(demand="symbolic").validate_result(
         produced=[], interpretation="unsupported", completeness="unsupported"
@@ -132,7 +140,10 @@ def test_scientific_key_requires_policy_and_conditions():
 def test_dependency_and_callable_capabilities_are_not_self_attested():
     inputs = trusted_execution_inputs()
     body = yaml.safe_load(inputs.catalog.content)
-    body["analysis_profiles"][0]["demands"][2]["dependencies"].remove("scope")
+    occurrences = next(
+        d for d in body["analysis_profiles"][0]["demands"] if d["id"] == "occurrences"
+    )
+    occurrences["dependencies"].remove("scope")
     with pytest.raises(PreparationError, match="consequential dependencies"):
         compile_execution_model(
             replace(inputs, catalog=replace(inputs.catalog, content=yaml.safe_dump(body).encode()))
@@ -163,7 +174,7 @@ def test_owned_input_enforces_exact_release_and_dependencies():
 
 def test_explicit_live_base_and_archived_composed_refusal():
     base = prepare_release(trusted_execution_inputs().schema)
-    assert prepare_interpretation_context(base, macros={}).profile.version == "5"
+    assert prepare_interpretation_context(base, macros={}).profile.version == "6"
     import json
 
     from corpus_structure.semantic.identity import canonical_bytes
@@ -379,7 +390,9 @@ def test_current_compilation_and_preparation_refuse_retained_analysis_profile():
             RegistryRow("execution_model", current.model_id, canonical_bytes(body)),
         ),
     )
-    with pytest.raises(PreparationError, match="historical archives are read-only"):
+    # Relabeling the current stage graph is invalid before the historical-read-only
+    # preparation guard: profile 1 does not declare syntax/structure demands.
+    with pytest.raises(PreparationError, match="declare .*demands"):
         prepare_interpretation_context(altered, macros={})
 
 

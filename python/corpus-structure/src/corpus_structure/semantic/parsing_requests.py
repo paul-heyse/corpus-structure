@@ -206,7 +206,7 @@ def _products(
     root: ProductReference,
     text_reference: ProductReference,
     text_payload: Mapping[str, Any],
-    content: RenditionContent,
+    content: RenditionContent | None,
     context,
     prepared,
     section: Mapping[str, Any],
@@ -295,7 +295,7 @@ def _products(
     else:
         from corpus_structure.methods.math.source_context import prepare_source_math
 
-        if content.canonical_text != canonical:
+        if content is None or content.canonical_text != canonical:
             raise ParsingRequestUnavailable(
                 "source_mismatch", "selected source and text products disagree on canonical content"
             )
@@ -452,12 +452,14 @@ def request_parsing(
                 "wrong_product", "text product does not name this available pinned source root"
             )
         _selected_views(text_payload, config)
-        renditions = table("kb.rendition")
-        content = RenditionContent.model_validate(
-            conn.scalar(
-                select(renditions.c.content).where(renditions.c.id == origin["rendition_id"])
+        content = None
+        if demand in {"interpretation", "symbolic", "assessment"}:
+            renditions = table("kb.rendition")
+            content = RenditionContent.model_validate(
+                conn.scalar(
+                    select(renditions.c.content).where(renditions.c.id == origin["rendition_id"])
+                )
             )
-        )
         source_binding = binding_of(conn, origin["id"])
         section = _math_section(source_binding.dependencies)
         params = config.model_dump(mode="json")

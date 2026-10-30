@@ -771,12 +771,16 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("text/sentences.py", "ingest/sentences.py"),
                 ("text/structure.py", "core/text_structure.py"),
                 ("text/products.py", "ingest/text_product.py"),
+                ("text/tex.py", "core/tex.py"),
+                ("text/macros.py", "ingest/macros.py"),
                 ("capture/analytics.py", "semantic/analytics.py"),
                 ("invocation/scheduler.py", "orchestrate/semantic.py"),
                 ("invocation/packet.py", "methods/llm/packet.py"),
                 ("invocation/source_frames.py", "semantic/source_frames.py"),
                 ("invocation/proposals.py", "semantic/proposals.py"),
                 ("invocation/server.py", "intervene/semantic_server.py"),
+                ("invocation/method.py", "core/method.py"),
+                ("invocation/operations.py", "semantic/operations.py"),
                 ("capture/storage.py", "semantic/capture_storage.py"),
                 ("publication/arrow.py", "semantic/arrow_publication.py"),
                 ("graph/ontology.py", "semantic/ontology.py"),
@@ -788,6 +792,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("parsing/products.py", "semantic/parsing_products.py"),
                 ("parsing/contracts.py", "semantic/parsing_contracts.py"),
                 ("parsing/queries.py", "semantic/parsing_queries.py"),
+                ("parsing/requests.py", "semantic/parsing_requests.py"),
                 ("ingest/methods.py", "ingest/methods.py"),
                 ("ingest/source_capture.py", "ingest/source_capture.py"),
                 ("placement/cascade.py", "methods/llm/cascade.py"),
@@ -796,7 +801,11 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact("grammar/grammar.py", math.joinpath("grammar.py").read_bytes()),
         SourceArtifact("grammar/extension.lark", math.joinpath("extension.lark").read_bytes()),
         SourceArtifact("grammar/prepared.py", math.joinpath("prepared.py").read_bytes()),
-        SourceArtifact("grammar/source_context.py", math.joinpath("source_context.py").read_bytes()),
+        SourceArtifact(
+            "grammar/source_context.py", math.joinpath("source_context.py").read_bytes()
+        ),
+        SourceArtifact("grammar/spans.py", math.joinpath("spans.py").read_bytes()),
+        SourceArtifact("grammar/methods.py", math.joinpath("methods.py").read_bytes()),
         SourceArtifact("grammar/_tree.py", math.joinpath("_tree.py").read_bytes()),
         SourceArtifact("grammar/shipped.lark", shipped.read_bytes()),
         SourceArtifact("transformer/transform.py", math.joinpath("transform.py").read_bytes()),
@@ -836,6 +845,10 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                         "networkx",
                         "rapidfuzz",
                         "regex",
+                        "html5lib",
+                        "lxml",
+                        "cssselect2",
+                        "pylatexenc",
                     )
                 }
             ),
@@ -1221,6 +1234,14 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     data = _collection_defaults(
         "ExecutionCatalog", data, {d.name: d for d in companion.definitions}
     )
+    if not data["analysis_profiles"] or any(
+        profile["version"] != "6" for profile in data["analysis_profiles"]
+    ):
+        _fail(
+            "missing_analysis_profile",
+            inputs.catalog.name,
+            "declare the required analysis preparation profile",
+        )
     names = tuple(item.name for item in inputs.implementations)
     required_implementations = {
         "invocation/scheduler.py",
@@ -1258,7 +1279,18 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "libraries.json",
     }
     if any(profile.get("version") == "6" for profile in data["analysis_profiles"]):
-        required_implementations.add("grammar/source_context.py")
+        required_implementations.update(
+            {
+                "grammar/source_context.py",
+                "grammar/spans.py",
+                "grammar/methods.py",
+                "text/tex.py",
+                "text/macros.py",
+                "parsing/requests.py",
+                "invocation/method.py",
+                "invocation/operations.py",
+            }
+        )
     if set(names) != required_implementations or len(names) != len(set(names)):
         _fail(
             "analysis_implementation_inputs",
@@ -1281,12 +1313,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         _normalize(data, model_id),
         implementation_digests=tuple((item.name, item.digest) for item in inputs.implementations),
     )
-    if not products.analysis_profiles or any(p.version != "6" for p in products.analysis_profiles):
-        _fail(
-            "missing_analysis_profile",
-            inputs.catalog.name,
-            "declare the required analysis preparation profile",
-        )
     normalized = {
         key: value
         for key, value in _PRODUCT_CONVERTER.unstructure(products).items()
