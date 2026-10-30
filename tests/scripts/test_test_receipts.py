@@ -5,8 +5,12 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import signal
+import subprocess
 import sys
+import time
 import uuid
+from contextlib import suppress
 from pathlib import Path
 
 import pytest
@@ -495,3 +499,131 @@ def test_non_timeout_leader_exit_settles_owned_descendant(tmp_path: Path, exit_c
     retained = os.environ.get("QUALIFICATION_CONTROL_RECEIPTS")
     if retained:
         shutil.copytree(tmp_path, Path(retained) / uuid.uuid4().hex)
+
+
+@pytest.mark.parametrize("termination", [signal.SIGTERM, signal.SIGINT])
+def test_external_supervisor_signal_drains_group_finalizes_and_stops_rust(
+    tmp_path: Path, termination: signal.Signals
+) -> None:
+    if os.name != "posix":
+        pytest.skip("owned process-group signal control requires POSIX")
+    descendant = tmp_path / "descendant.pid"
+    source = tmp_path / "test_supervised.py"
+    source.write_text(
+        "import subprocess,sys,time\nfrom pathlib import Path\n"
+        "def test_a_completed():\n    assert 17 + 25 == 42\n"
+        "def test_b_active():\n"
+        "    child=subprocess.Popen([sys.executable,'-c',"
+        "'import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(60)'])\n"
+        f"    Path({str(descendant)!r}).write_text(str(child.pid))\n"
+        "    time.sleep(60)\n"
+    )
+    out = tmp_path / "receipts"
+    script = Path(__file__).resolve().parents[2] / "scripts/test_receipts.py"
+    unrelated = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True
+    )
+    supervisor = None
+    try:
+        with (
+            (tmp_path / "runner.stdout").open("wb") as stdout,
+            (tmp_path / "runner.stderr").open("wb") as stderr,
+        ):
+            supervisor = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(script),
+                    "run",
+                    "--out-dir",
+                    str(out),
+                    "--command-timeout",
+                    "60",
+                    "--test-timeout",
+                    "60",
+                    "--",
+                    str(source),
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                start_new_session=True,
+            )
+            deadline = time.monotonic() + 20
+            while not descendant.exists() and time.monotonic() < deadline:
+                assert supervisor.poll() is None, (tmp_path / "runner.stderr").read_text()
+                time.sleep(0.02)
+            assert descendant.exists(), "isolated active child did not start"
+            started = time.monotonic()
+            supervisor.send_signal(termination)
+            time.sleep(0.2)
+            supervisor.send_signal(termination)  # Cleanup must survive another parent signal.
+            assert supervisor.wait(timeout=15) == 1
+            assert time.monotonic() - started < 15
+        result = json.loads((out / "classification.json").read_text())
+        process = json.loads((out / "pytest.process.json").read_text())
+        runner = json.loads((out / "runner.process.json").read_text())
+        assert runner["interruption"] == termination.name
+        assert runner["signals"] == [termination.name, termination.name]
+        assert process["interruption"] == termination.name
+        assert process["cancelled"] is True
+        assert process["owned_group_cleanup"]["signals"] == ["SIGTERM", "SIGKILL"]
+        assert result["status"] == "incomplete"
+        completed = next(
+            value
+            for node, value in result["receipts"][0]["nodes"].items()
+            if node.endswith("test_a_completed")
+        )
+        assert completed["status"] == "passed"
+        assert json.loads((out / "rust-state.json").read_text())["status"] == "not_run"
+        assert not list(out.glob("rustc.*"))
+        assert not list(out.glob("nextest*"))
+        pid = int(descendant.read_text())
+        stat = Path(f"/proc/{pid}/stat")
+        assert not stat.exists() or stat.read_text().split(")", 1)[1].split()[0] == "Z"
+        assert unrelated.poll() is None
+    finally:
+        if supervisor is not None and supervisor.poll() is None:
+            os.killpg(supervisor.pid, signal.SIGKILL)
+            supervisor.wait(timeout=5)
+        if descendant.exists():
+            with suppress(ProcessLookupError):
+                os.kill(int(descendant.read_text()), signal.SIGKILL)
+        unrelated.terminate()
+        unrelated.wait(timeout=5)
+    retained = os.environ.get("QUALIFICATION_CONTROL_RECEIPTS")
+    if retained:
+        shutil.copytree(tmp_path, Path(retained) / uuid.uuid4().hex)
+
+
+def test_parent_cancellation_between_commands_cannot_be_classified_as_pass(tmp_path: Path) -> None:
+    receipt(tmp_path, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    (tmp_path / "runner.process.json").write_text('{"interruption":"SIGTERM"}')
+    result = classify_receipt(tmp_path)
+    assert result["status"] == "incomplete"
+    assert result["nodes"]["a"]["status"] == "passed"
+    assert "supervising runner interrupted" in result["stream_errors"]
+
+
+def test_cleanup_error_finalizes_receipt_and_cancels_later_commands(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import test_receipts
+
+    def failed_cleanup(_child: object) -> dict[str, object]:
+        raise RuntimeError("isolated drain failure")
+
+    monkeypatch.setattr(test_receipts, "_stop_group", failed_cleanup)
+    sentinel = tmp_path / "unexpected-later-work"
+    with test_receipts.supervision(tmp_path):
+        first = run_process([sys.executable, "-c", "pass"], tmp_path, "first", timeout=3)
+        later = run_process(
+            [sys.executable, "-c", f"from pathlib import Path; Path({str(sentinel)!r}).touch()"],
+            tmp_path,
+            "later",
+            timeout=3,
+        )
+    assert first["cleanup_error"] == "RuntimeError: isolated drain failure"
+    assert first["returncode"] == 0
+    assert first["cancelled"] is True
+    assert json.loads((tmp_path / "first.process.json").read_text()) == first
+    assert later["returncode"] is None and later["cancelled"] is True
+    assert not sentinel.exists()

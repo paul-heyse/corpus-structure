@@ -18,13 +18,74 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 from collections import defaultdict
-from contextlib import suppress
+from collections.abc import Generator
+from contextlib import contextmanager, suppress
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 SESSION_TIMEOUT = 14400
 TEST_TIMEOUT = 900
+
+
+@dataclass
+class RunControl:
+    """One invocation's sticky cancellation; signal handlers never interrupt cleanup."""
+
+    started: float = field(default_factory=time.time)
+    interruption: str | None = None
+    interrupted_at: float | None = None
+    signals: list[str] = field(default_factory=list)
+
+    def cancel(self, reason: str) -> None:
+        if self.interruption is None:
+            self.interruption = reason
+            self.interrupted_at = time.time()
+
+    def signal(self, number: int, _frame: object) -> None:
+        name = signal.Signals(number).name
+        self.signals.append(name)
+        self.cancel(name)
+
+    def persist(self, directory: Path) -> None:
+        write_json(
+            directory / "runner.process.json",
+            {
+                "pid": os.getpid(),
+                "started": self.started,
+                "finished": time.time(),
+                "interruption": self.interruption,
+                "interrupted_at": self.interrupted_at,
+                "signals": self.signals,
+            },
+        )
+
+
+_CONTROL: ContextVar[RunControl | None] = ContextVar("qualification_control", default=None)
+
+
+@contextmanager
+def supervision(directory: Path) -> Generator[RunControl]:
+    existing = _CONTROL.get()
+    if existing is not None:
+        yield existing
+        return
+    control = RunControl()
+    token = _CONTROL.set(control)
+    previous = {number: signal.getsignal(number) for number in (signal.SIGINT, signal.SIGTERM)}
+    try:
+        for number in previous:
+            signal.signal(number, control.signal)
+        yield control
+    finally:
+        try:
+            control.persist(directory)
+        finally:
+            for number, handler in previous.items():
+                signal.signal(number, handler)
+            _CONTROL.reset(token)
 
 
 def write_json(path: Path, value: object) -> None:
@@ -63,6 +124,20 @@ def run_process(
     timeout: float = SESSION_TIMEOUT,
 ) -> dict[str, Any]:
     """Bound the owned process group; never signal application/database processes by name."""
+    with supervision(directory) as control:
+        return _run_process(argv, directory, prefix, control, cwd=cwd, env=env, timeout=timeout)
+
+
+def _run_process(
+    argv: list[str],
+    directory: Path,
+    prefix: str,
+    control: RunControl,
+    *,
+    cwd: Path,
+    env: dict[str, str] | None,
+    timeout: float,
+) -> dict[str, Any]:
     result: dict[str, Any] = {
         "argv": argv,
         "cwd": str(cwd),
@@ -71,6 +146,11 @@ def run_process(
     }
     child: subprocess.Popen[bytes] | None = None
     try:
+        if control.interruption is not None:
+            result["interruption"] = control.interruption
+            result["cancelled"] = True
+            result["returncode"] = None
+            return result
         with (
             (directory / f"{prefix}.stdout").open("xb") as stdout,
             (directory / f"{prefix}.stderr").open("xb") as stderr,
@@ -79,18 +159,33 @@ def run_process(
                 argv, cwd=cwd, env=env, stdout=stdout, stderr=stderr, start_new_session=True
             )
             result["pid"] = child.pid
-            try:
-                child.wait(timeout=timeout)
-            except (subprocess.TimeoutExpired, KeyboardInterrupt) as error:
-                result["interruption"] = type(error).__name__
-            # A completed or abruptly exiting leader can leave children holding native resources.
-            # Always settle its authenticated start_new_session group, preserving the leader result.
-            result["owned_group_cleanup"] = _stop_group(child)
-            result["returncode"] = child.returncode
+            deadline = time.monotonic() + timeout
+            while child.poll() is None and control.interruption is None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    result["interruption"] = "TimeoutExpired"
+                    break
+                with suppress(subprocess.TimeoutExpired):
+                    child.wait(timeout=min(0.1, remaining))
+            if control.interruption is not None:
+                result["interruption"] = control.interruption
     except OSError as error:
         result["launch_error"] = str(error)
         result["returncode"] = None
     finally:
+        if child is not None:
+            # Always settle the authenticated start_new_session group, including abrupt exits.
+            try:
+                result["owned_group_cleanup"] = _stop_group(child)
+            except Exception as error:
+                result["cleanup_error"] = f"{type(error).__name__}: {error}"
+                control.cancel("owned process group cleanup failed")
+            result["returncode"] = child.poll()
+            if (result.get("owned_group_cleanup") or {}).get("group_present_after_cleanup"):
+                control.cancel("owned process group remains after cleanup")
+        if control.interruption is not None:
+            result["interruption"] = control.interruption
+            result["cancelled"] = True
         result["finished"] = time.time()
         write_json(directory / f"{prefix}.process.json", result)
     return result
@@ -195,7 +290,7 @@ def run_rust(directory: Path, *, timeout: float = SESSION_TIMEOUT) -> None:
         ),
     ):
         process = run_process(argv, directory, prefix, timeout=timeout)
-        if process.get("interruption") == "KeyboardInterrupt":
+        if _cancelled(process):
             write_json(
                 directory / "rust-state.json",
                 {
@@ -209,7 +304,7 @@ def run_rust(directory: Path, *, timeout: float = SESSION_TIMEOUT) -> None:
     junit = ROOT / "target/nextest/qualification/junit.xml"
     before = junit.stat().st_mtime_ns if junit.exists() else None
     env = {**os.environ, "INSTA_UPDATE": "no"}
-    run_process(
+    process = run_process(
         [
             "cargo",
             "nextest",
@@ -227,6 +322,20 @@ def run_rust(directory: Path, *, timeout: float = SESSION_TIMEOUT) -> None:
     )
     if junit.exists() and junit.stat().st_mtime_ns != before:
         shutil.copyfile(junit, directory / "nextest.junit.xml")
+
+
+def _cancelled(process: dict[str, Any]) -> bool:
+    control = _CONTROL.get()
+    return (
+        bool(control and control.interruption)
+        or bool(process.get("cancelled"))
+        or process.get("interruption")
+        in {
+            "KeyboardInterrupt",
+            "SIGINT",
+            "SIGTERM",
+        }
+    )
 
 
 def _properties(reports: list[dict[str, Any]]) -> dict[str, Any]:
@@ -328,6 +437,12 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
     if process.get("interruption") or process.get("launch_error"):
         errors.append("process interrupted or failed to launch")
     cleanup = process.get("owned_group_cleanup", {})
+    runner_path = directory / "runner.process.json"
+    runner = read_json(runner_path) if runner_path.exists() else {}
+    if runner.get("interruption"):
+        errors.append("supervising runner interrupted")
+    if process.get("cleanup_error"):
+        errors.append("owned process group cleanup failed")
     if cleanup.get("descendants_after_leader_exit"):
         errors.append("owned descendants survived the process leader exit")
     if cleanup.get("group_present_after_cleanup"):
@@ -357,6 +472,7 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         "active_phases": list(active.values()),
         "worker_loss": worker_loss,
         "process": process,
+        "runner": runner,
         "process_failed": process_failed,
         "session_finishes": session_finishes,
         "reporting_complete": not errors and not worker_loss,
@@ -513,46 +629,48 @@ def main(argv: list[str] | None = None) -> int:
     else:
         directory = args.out_dir.resolve()
         directory.mkdir(parents=True, exist_ok=False)
-        versions: dict[str, str | None] = {}
-        for package in ("pytest", "pytest-reportlog", "hypothesis", "psycopg", "SQLAlchemy"):
-            try:
-                versions[package] = importlib.metadata.version(package)
-            except importlib.metadata.PackageNotFoundError:
-                versions[package] = None
-        write_json(
-            directory / "invocation.json",
-            {
-                "argv": sys.argv if argv is None else argv,
-                "cwd": str(Path.cwd()),
-                "source": source_identity(),
-                "python": sys.version,
-                "versions": versions,
-                "hypothesis_profile": "ci",
-                "session_timeout": args.command_timeout,
-                "test_timeout": args.test_timeout,
-                "python_only": args.python_only,
-            },
-        )
-        pytest_args = args.pytest_args
-        if pytest_args[:1] == ["--"]:
-            pytest_args = pytest_args[1:]
-        process = run_python(
-            directory, pytest_args, timeout=args.command_timeout, test_timeout=args.test_timeout
-        )
-        if not args.python_only and process.get("interruption") != "KeyboardInterrupt":
-            run_rust(directory, timeout=args.command_timeout)
-        elif not args.python_only:
+        with supervision(directory) as control:
+            versions: dict[str, str | None] = {}
+            for package in ("pytest", "pytest-reportlog", "hypothesis", "psycopg", "SQLAlchemy"):
+                try:
+                    versions[package] = importlib.metadata.version(package)
+                except importlib.metadata.PackageNotFoundError:
+                    versions[package] = None
             write_json(
-                directory / "rust-state.json",
+                directory / "invocation.json",
                 {
-                    "status": "not_run",
-                    "applicability": "unknown",
-                    "functional_coverage": False,
-                    "reason": "cancelled after Python child drained",
+                    "argv": sys.argv if argv is None else argv,
+                    "cwd": str(Path.cwd()),
+                    "source": source_identity(),
+                    "python": sys.version,
+                    "versions": versions,
+                    "hypothesis_profile": "ci",
+                    "session_timeout": args.command_timeout,
+                    "test_timeout": args.test_timeout,
+                    "python_only": args.python_only,
                 },
             )
-        result = classify([directory])
-        write_json(directory / "classification.json", result)
+            pytest_args = args.pytest_args
+            if pytest_args[:1] == ["--"]:
+                pytest_args = pytest_args[1:]
+            process = run_python(
+                directory, pytest_args, timeout=args.command_timeout, test_timeout=args.test_timeout
+            )
+            if not args.python_only and not _cancelled(process):
+                run_rust(directory, timeout=args.command_timeout)
+            elif not args.python_only:
+                write_json(
+                    directory / "rust-state.json",
+                    {
+                        "status": "not_run",
+                        "applicability": "unknown",
+                        "functional_coverage": False,
+                        "reason": "cancelled after Python child drained",
+                    },
+                )
+            control.persist(directory)
+            result = classify([directory])
+            write_json(directory / "classification.json", result)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0 if result["status"] == "passed" else 1
 
