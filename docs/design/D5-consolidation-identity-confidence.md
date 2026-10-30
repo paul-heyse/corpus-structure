@@ -28,7 +28,10 @@ SymPy numerical fallback is never relabeled symbolic proof. Assessments persist 
 reason envelope containing policy, mechanism, numerical status, operands and exact context; existing
 explanations expose that evidence. Reference reports also retain successful and undecided
 comparison evidence, the policy that actually decided it, acquisition profile and exact recursive
-operand paths; these explanations do not change scoring tiers or existing stored grades. Authored LinkML logical views drive typed rule-engine OBJECT
+operand paths. LinkML report types also derive the JSON Schema presence requirements and native
+JSON traversal; required report arrays may be empty. Protected reference persistence consumes
+those same paths and the release's scientific decision rows, refusing incompatible layouts or
+decisions. These explanations do not change scoring tiers or existing stored grades. Authored LinkML logical views drive typed rule-engine OBJECT
 accessors, nullable fields, arrays and maps; actual accessor values are validated. Rule contexts
 retain explicit decimal precision, closed vocabulary and nondeterminism restrictions.
 

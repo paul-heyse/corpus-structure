@@ -94,7 +94,7 @@ def scientific_report_layout():
 
 
 def scientific_report_schema():
-    schema = scientific_model().json_schema("ReferenceScientificReport")
+    schema: dict[str, Any] = scientific_model().json_schema("ReferenceScientificReport")
     for row in scientific_model().registry_rows:
         if row.kind != "operation_property":
             continue
