@@ -24,6 +24,14 @@ from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.pool import NullPool
 
 from corpus_structure.core.db import extensions
+from corpus_structure.core.db.ownership import (
+    DatabaseCreation,
+    DatabaseReservation,
+    OwnedDatabase,
+    acknowledged_database,
+    is_owned_stamp,
+    stamp_owned,
+)
 from corpus_structure.settings import Settings
 from test_prerequisites import PrerequisiteUnavailable
 
@@ -188,22 +196,28 @@ class PgAdmin:
     def exists(self, name: str) -> bool:
         return name in self.names(name)
 
-    def create(self, name: str, template: str) -> None:
+    def create(
+        self, name: str, template: str, *, creation: DatabaseCreation | None = None
+    ) -> OwnedDatabase:
         # CREATE deliberately refuses a collision; a name is never disposal authority.
+        creation = creation or DatabaseCreation(DatabaseReservation.new(name))
+        if creation.reservation.name != name:
+            raise ValueError("creation reservation names another database")
         with self.connect() as conn:
             conn.execute(text(f"CREATE DATABASE {quote(name)} TEMPLATE {quote(template)}"))
-            self.tag(conn, name)
+            owned = creation.acknowledge(conn)
+            self.tag(conn, name, owned)
+            return owned
 
-    def tag(self, conn: Connection, name: str) -> None:
-        conn.exec_driver_sql(
-            f"COMMENT ON DATABASE {quote(name)} IS 'corpus-structure owned test database'"
-        )
+    def tag(self, conn: Connection, name: str, owned: OwnedDatabase) -> None:
+        if owned.reservation.name != name:
+            raise ValueError("ownership acknowledgement names another database")
+        stamp_owned(conn, owned)
 
     def drop(self, name: str) -> None:
-        self._drop(name, require_comment=True)
+        self._drop(name)
 
-    def _drop(self, name: str, *, require_comment: bool) -> None:
-        # An absent-name reservation also authenticates creation before a stamp can be written.
+    def _drop(self, name: str, *, owned: OwnedDatabase | None = None) -> None:
         # libpq close can precede the backend's final exit. Never terminate other logins.
         deadline = time.monotonic() + 2.0
         while True:
@@ -211,15 +225,21 @@ class PgAdmin:
                 with self.connect() as conn:
                     row = conn.execute(
                         text(
-                            "SELECT pg_get_userbyid(datdba), shobj_description(oid,'pg_database'), "
+                            "SELECT oid,pg_get_userbyid(datdba),"
+                            " shobj_description(oid,'pg_database'), "
                             "current_user FROM pg_database WHERE datname=:name"
                         ),
                         {"name": name},
                     ).one_or_none()
                     if row is None:
                         return
-                    owner, comment, user = row
-                    if owner != user or (require_comment and not self.owned_comment(comment)):
+                    oid, owner, comment, user = row
+                    authenticated = (
+                        oid == owned.oid and owner == owned.owner
+                        if owned is not None
+                        else self.owned_comment(comment, oid)
+                    )
+                    if owner != user or not authenticated:
                         raise RuntimeError(f"refusing to drop unauthenticated database {name!r}")
                     conn.execute(text(f"DROP DATABASE {quote(name)}"))
                 return
@@ -229,9 +249,11 @@ class PgAdmin:
                 time.sleep(0.05)
 
     @staticmethod
-    def owned_comment(comment: str | None) -> bool:
-        return comment == "corpus-structure owned test database" or bool(
-            STAMP.fullmatch(comment or "")
+    def owned_comment(comment: str | None, oid: int) -> bool:
+        return (
+            comment == "corpus-structure owned test database"
+            or bool(STAMP.fullmatch(comment or ""))
+            or is_owned_stamp(comment, oid)
         )
 
     def check_roles(self, principals: Mapping[str, str]) -> None:
@@ -400,20 +422,24 @@ class PgAdmin:
             engine.dispose()
 
     @contextmanager
-    def reserved(self, name: str) -> Generator[str]:
-        """Lease an absent bootstrap name and authenticate its owner before cleanup."""
+    def reserved(self, name: str) -> Generator[DatabaseReservation]:
+        """Lease an absent bootstrap name; only a creation acknowledgement permits cleanup."""
         with self.lease(name):
             if self.exists(name):
                 raise RuntimeError(f"reserved database name already exists: {name!r}")
             primary: BaseException | None = None
+            reservation = DatabaseReservation.new(name)
             try:
-                yield name
+                yield reservation
             except BaseException as exc:
                 primary = exc
                 raise
             finally:
                 try:
-                    self._drop(name, require_comment=False)
+                    with self.connect() as conn:
+                        owned = acknowledged_database(conn, reservation)
+                    if owned is not None:
+                        self._drop(name, owned=owned)
                 except BaseException as cleanup:
                     if primary is not None:
                         raise BaseExceptionGroup(
@@ -439,31 +465,28 @@ class PgAdmin:
                 raise RuntimeError(f"reserved database name already exists: {name!r}")
             engine: Engine | None = None
             failure: BaseException | None = None
-            collision = False
+            creation = DatabaseCreation(DatabaseReservation.new(name))
             try:
-                try:
-                    self.create(name, source)
-                except DBAPIError as exc:
-                    # A concurrent CREATE collision supplies no disposal authority.
-                    collision = getattr(exc.orig, "sqlstate", None) == "42P04"
-                    raise
+                self.create(name, source, creation=creation)
                 engine = create_engine(self.url_of(name), poolclass=NullPool)
                 if policy is not None:
                     self.replay_policy(name, policy)
                 yield engine
             except BaseException as exc:
                 failure = exc
+                if creation.owned is None:
+                    exc.add_note(
+                        f"CREATE for {name!r} was not acknowledged; any database at that name "
+                        "is preserved without disposal authority"
+                    )
                 raise
             finally:
                 failures: list[BaseException] = []
                 cleanups: list[Callable[[], None]] = []
                 if engine is not None:
                     cleanups.append(engine.dispose)
-                if not collision:
-                    # The lease and verified initial absence authorize this operation's new
-                    # database even if CREATE was cancelled or its following stamp failed.
-                    # _drop still authenticates the actual owner before issuing DROP.
-                    cleanups.append(lambda: self._drop(name, require_comment=False))
+                if creation.owned is not None:
+                    cleanups.append(lambda: self._drop(name, owned=creation.owned))
                 for cleanup in cleanups:
                     try:
                         cleanup()
@@ -547,7 +570,7 @@ class PgAdmin:
         with self.connect() as conn:
             rows = conn.execute(
                 text(
-                    "SELECT datname, shobj_description(oid, 'pg_database'), "
+                    "SELECT datname, shobj_description(oid, 'pg_database'),oid, "
                     "datdba=current_user::regrole FROM pg_database"
                     " WHERE starts_with(datname, 'ci_test_') OR starts_with(datname, :tpl)"
                     " OR starts_with(datname, 'cs_sem_')"
@@ -556,8 +579,8 @@ class PgAdmin:
                 {"tpl": TEMPLATE_PREFIX},
             ).all()
             failures: list[BaseException] = []
-            for name, comment, owned in rows:
-                if not owned or not self.owned_comment(comment):
+            for name, comment, oid, owned in rows:
+                if not owned or not self.owned_comment(comment, oid):
                     continue
                 if name.startswith(TEMPLATE_PREFIX):
                     if (

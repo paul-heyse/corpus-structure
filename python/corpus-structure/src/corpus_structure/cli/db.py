@@ -66,10 +66,24 @@ def _quote(name: str) -> str:
     return f'"{name}"'
 
 
-def _create(admin: Any, name: str, template: str) -> bool:
+def _create(admin: Any, name: str, template: str, creation_token: str | None = None) -> bool:
     from sqlalchemy import create_engine, text
 
     from corpus_structure.core.db import extensions
+    from corpus_structure.core.db.ownership import (
+        DatabaseCreation,
+        DatabaseReservation,
+        stamp_owned,
+    )
+
+    try:
+        creation = (
+            DatabaseCreation(DatabaseReservation(name, creation_token))
+            if creation_token is not None
+            else None
+        )
+    except ValueError as error:
+        raise DbRefused(str(error)) from error
 
     with admin.connect() as conn:
         encoding = conn.execute(text("SHOW server_encoding")).scalar()
@@ -77,6 +91,8 @@ def _create(admin: Any, name: str, template: str) -> bool:
             raise DbRefused(f"the server encoding is {encoding}, not UTF-8: {extensions.PROVISION}")
         exists = conn.execute(text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": name})
         if exists.scalar() is not None:
+            if creation is not None:
+                raise DbRefused(f"creation-only database already exists: {name!r}")
             return False
         found = conn.execute(text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": template})
         if found.scalar() is None:
@@ -94,6 +110,8 @@ def _create(admin: Any, name: str, template: str) -> bool:
         probe.dispose()  # a template must have no connection while it is cloned
     with admin.connect() as conn:
         conn.execute(text(f"CREATE DATABASE {_quote(name)} TEMPLATE {_quote(template)}"))
+        if creation is not None:
+            stamp_owned(conn, creation.acknowledge(conn))
     return True
 
 
@@ -124,7 +142,7 @@ def _migrate(engine: Any, name: str, created: bool) -> DbReport:
     )
 
 
-def _run(ctx: typer.Context, json_: bool, create: bool) -> None:
+def _run(ctx: typer.Context, json_: bool, create: bool, creation_token: str | None = None) -> None:
     from sqlalchemy.exc import OperationalError
 
     from corpus_structure.core.db.extensions import ExtensionVersionMismatch
@@ -136,7 +154,9 @@ def _run(ctx: typer.Context, json_: bool, create: bool) -> None:
         connection_settings(settings, "maintenance").database.sqlalchemy_url
     )
     try:
-        created = _create(admin, name, settings.database.template) if create else False
+        created = (
+            _create(admin, name, settings.database.template, creation_token) if create else False
+        )
         report = _migrate(engine, name, created)
     except (DbRefused, ExtensionVersionMismatch) as error:
         stderr_console().print(str(error))
@@ -152,9 +172,15 @@ def _run(ctx: typer.Context, json_: bool, create: bool) -> None:
 
 
 @db_app.command("init")
-def init(ctx: typer.Context, json_: JsonOpt = False) -> None:
+def init(
+    ctx: typer.Context,
+    json_: JsonOpt = False,
+    creation_token: str | None = typer.Option(
+        None, "--creation-token", help="Require a new database and acknowledge its disposal owner."
+    ),
+) -> None:
     """Create the database from the template, check it and upgrade it to head."""
-    _run(ctx, json_, create=True)
+    _run(ctx, json_, create=True, creation_token=creation_token)
 
 
 @db_app.command("migrate")

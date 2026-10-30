@@ -35,6 +35,7 @@ from typer.testing import CliRunner, Result
 
 from corpus_structure.cli.app import app
 from corpus_structure.cli.output import CliState
+from corpus_structure.core.db.ownership import DatabaseReservation
 from corpus_structure.settings import Settings
 from native_test_support import (
     TEMPLATE_RETENTION,
@@ -196,7 +197,7 @@ def semantic_head_template(native_server: PgAdmin) -> Iterator[SemanticTemplate]
 
 
 @pytest.fixture
-def semantic_absent_database(native_server: PgAdmin) -> Iterator[str]:
+def semantic_absent_database(native_server: PgAdmin) -> Iterator[DatabaseReservation]:
     name = f"cs_sem_init_{os.getpid()}_{uuid4().hex[:12]}"
     with native_server.reserved(name) as reserved:
         yield reserved

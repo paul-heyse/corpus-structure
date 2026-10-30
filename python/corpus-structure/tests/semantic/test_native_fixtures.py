@@ -312,10 +312,10 @@ def test_create_stamp_failure_drops_just_created_unstamped_database(native_serve
     database = name()
     original_tag = native_server.tag
 
-    def fail_stamp(conn, target):
+    def fail_stamp(conn, target, owned):
         if target == database:
             raise RuntimeError("stamp failed after CREATE")
-        original_tag(conn, target)
+        original_tag(conn, target, owned)
 
     monkeypatch.setattr(native_server, "tag", fail_stamp)
     with (
@@ -356,11 +356,11 @@ def test_create_collision_never_disposes_the_other_database(native_server, monke
     database = name()
     create = native_server.create
 
-    def concurrent_create(target, source):
+    def concurrent_create(target, source, **kwargs):
         # Simulate a noncooperating creator after our absent-name check.
         with native_server.connect() as conn:
             conn.exec_driver_sql(f'CREATE DATABASE "{target}" TEMPLATE template0')
-        create(target, source)
+        create(target, source, **kwargs)
 
     monkeypatch.setattr(native_server, "create", concurrent_create)
     try:
@@ -385,6 +385,29 @@ def test_create_collision_never_disposes_the_other_database(native_server, monke
     finally:
         with native_server.connect() as conn:
             conn.exec_driver_sql(f'DROP DATABASE IF EXISTS "{database}"')
+
+
+def test_unknown_create_cancellation_never_disposes_an_intervening_database(
+    native_server, monkeypatch
+):
+    database = name()
+
+    def unknown_create(target, _source, **_kwargs):
+        with native_server.connect() as actor:
+            actor.exec_driver_sql(f'CREATE DATABASE "{target}" TEMPLATE template0')
+        raise KeyboardInterrupt("CREATE outcome unavailable")
+
+    monkeypatch.setattr(native_server, "create", unknown_create)
+    try:
+        with (
+            pytest.raises(KeyboardInterrupt, match="outcome unavailable"),
+            native_server.database(database, native_server.template),
+        ):
+            pytest.fail("unacknowledged CREATE must never expose an engine")
+        assert native_server.exists(database)
+    finally:
+        with native_server.connect() as actor:
+            actor.exec_driver_sql(f'DROP DATABASE IF EXISTS "{database}"')
 
 
 def test_clone_replays_and_removes_actual_restricted_reader_default(native_server, native_settings):
