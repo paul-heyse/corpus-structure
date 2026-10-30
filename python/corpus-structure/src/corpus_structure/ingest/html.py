@@ -90,6 +90,9 @@ from corpus_structure.ingest.profile import (
     compile_profile,
 )
 from corpus_structure.ingest.sentences import SentenceConfig
+from corpus_structure.ingest.source_capture import (
+    CaptureParser, Contribution, Extent, Projection, SourceCapture, SourceProduct, source_union,
+)
 
 K = SegmentKind
 
@@ -189,6 +192,7 @@ class IngestResult:
     page: str
     parse_detail: ParseDetail
     text_layouts: tuple[sentences.TextLayout, ...] = ()
+    parsing_product: SourceProduct | None = None
 
 
 # --- The walk ----------------------------------------------------------------------------------
@@ -202,10 +206,20 @@ class Run:
     events: list[dict[str, Any]] = field(default_factory=list)  # raw offsets
     size: int = 0
 
-    def add(self, text: str | None) -> None:
+    origins: list[tuple[int, int, Contribution]] = field(default_factory=list)
+
+    def add(self, text: str | None, origins: tuple[Contribution, ...] = ()) -> None:
         if text:
+            start = self.size
             self.pieces.append(text)
             self.size += len(text)
+            if not origins:
+                origins = (Contribution(len(text), (), "unavailable run origin"),)
+            for origin in origins:
+                self.origins.append((start, start + origin.length, origin))
+                start += origin.length
+            if start != self.size:
+                raise ValueError("source contribution differs from run extent")
 
     def raw(self) -> str:
         return "".join(self.pieces)
@@ -236,10 +250,12 @@ class Node:
     markup: list[dict[str, Any]] = field(default_factory=list)
     element: Any = None
     summary: bool = False
+    projections: list[Projection] = field(default_factory=list)
 
     def shift(self, d: int) -> None:
         self.start += d
         self.end += d
+        self.projections = [p.shifted(d) for p in self.projections]
         for event in self.markup:
             event["start"] += d
             event["end"] += d
@@ -253,7 +269,8 @@ class Node:
 
 
 class _Walker:
-    def __init__(self, root: Any, compiled: CompiledProfile) -> None:
+    def __init__(self, root: Any, compiled: CompiledProfile, capture: SourceCapture) -> None:
+        self.capture = capture
         self.profile = compiled.profile
         self.roles: dict[Any, list[Rule]] = {}
         self.role_conflicts: list[RoleConflict] = []
@@ -295,7 +312,15 @@ class _Walker:
                 rule=rules[0].name, tag=el.tag, classes=tuple(_classes(el)), chars=len(text)
             )
         )
+        self.capture.exclude(el, f"source-profile exclusion: {rules[0].name}")
         return rules[0].name
+
+    def text(self, run: Run, element: Any, slot: str) -> None:
+        run.add(getattr(element, slot), self.capture.slot(element, slot))
+
+    @staticmethod
+    def synthetic(run: Run, text: str, reason: str) -> None:
+        run.add(text, (Contribution(len(text), (), reason, synthetic=True),))
 
     def is_block(self, el: Any) -> bool:
         return el.tag in TAG_KIND or el.tag in TRANSPARENT or self.has(el, "unit")
@@ -334,23 +359,23 @@ class _Walker:
                 ReferenceRender.EMPTY: "",
             }[references[-1].data]
             self.refs_rendered += 1
-            run.add(text)
+            self.synthetic(run, text, "source-profile reference marker")
             run.events.append(
                 {"markup": "ref", "start": start, "end": run.size, "href": href, "rendered": text}
             )
             return
         quotes = el.tag == "q" and render.q is QuoteRender.QUOTES
         if quotes:
-            run.add("“")
+            self.synthetic(run, "“", "source-profile opening quotation mark")
         if el.tag == "br":
-            run.add(" ")
-        run.add(el.text)
+            self.synthetic(run, " ", "HTML br separator")
+        self.text(run, el, "text")
         for child in el:
             if isinstance(child.tag, str):
                 self.inline(child, run)
-            run.add(child.tail)
+            self.text(run, child, "tail")
         if quotes:
-            run.add("”")
+            self.synthetic(run, "”", "source-profile closing quotation mark")
             run.events.append({"markup": "quote", "start": start, "end": run.size})
         if el.tag == "dfn":
             run.events.append({"markup": "dfn", "start": start, "end": run.size})
@@ -370,22 +395,24 @@ class _Walker:
         run = Run()
         marker = self.list_marker(el) if el.tag == "li" else ""
         if marker:
-            run.add(marker)
+            self.synthetic(run, marker, "source-profile list marker")
             run.events.append({"markup": "list_marker", "start": 0, "end": len(marker)})
-        run.add(el.text)
+        self.text(run, el, "text")
 
         def flush() -> None:
             nonlocal run
             if run.raw().strip():
                 blk.children.append(run)
+            elif run.pieces:
+                self.capture.exclusions.append((source_union(origin for _, _, origin in run.origins), "canonical whitespace-only run"))
             run = Run()
 
         for child in el:
             if not isinstance(child.tag, str):  # a comment: skipped, its tail kept
-                run.add(child.tail)
+                self.text(run, child, "tail")
                 continue
             if self.excluded(child):
-                run.add(child.tail)
+                self.text(run, child, "tail")
                 continue
             if self.transparent(child):
                 flush()
@@ -395,7 +422,7 @@ class _Walker:
                 blk.children.append(self.build(child))
             else:
                 self.inline(child, run)
-            run.add(child.tail)
+            self.text(run, child, "tail")
         flush()
         if kind is K.DOCUMENT:
             blk.children = self.sectionize(blk.children)
@@ -459,7 +486,7 @@ def _hint_attr(hint: BlockHint) -> dict[str, JsonValue]:
 
 def _process_run(
     run: Run, walker: _Walker
-) -> tuple[str, list[Node], list[dict[str, Any]], str | None]:
+) -> tuple[str, list[Node], list[dict[str, Any]], str | None, list[Projection]]:
     """A run's canonical text, its math segments, its markup (offsets in the text) and, when the
     delimiter scan timed out, the reason its block is partial."""
     raw = run.raw()
@@ -497,10 +524,17 @@ def _process_run(
         bounds |= {clamp(pos[span.start]), clamp(pos[span.end])}
     for event in run.events:
         bounds |= {clamp(pos[event["start"]]), clamp(pos[event["end"]])}
+    for start, end, origin in run.origins:
+        if origin.synthetic:
+            bounds |= {clamp(pos[start]), clamp(pos[end])}
     ordered = sorted(bounds)
     newmap: dict[int, int] = {}
     pieces: list[str] = []
+    projections: list[Projection] = []
     acc = 0
+    origin_index = 0
+    math_index = 0
+    math_ranges = [(clamp(pos[span.start]), clamp(pos[span.end])) for span in scan.spans]
     for a, b in itertools.pairwise(ordered):
         newmap[a] = acc
         chunk = text[a:b]
@@ -508,6 +542,25 @@ def _process_run(
         if normalized != chunk:
             walker.unicode_changed.append(UnicodeChange(before=chunk[:80], after=normalized[:80]))
         pieces.append(normalized)
+        while origin_index < len(run.origins) and clamp(pos[run.origins[origin_index][1]]) <= a:
+            origin_index += 1
+        origins = []
+        candidate = origin_index
+        while candidate < len(run.origins) and clamp(pos[run.origins[candidate][0]]) < b:
+            start, end, origin = run.origins[candidate]
+            if clamp(pos[end]) > a:
+                origins.append(origin)
+            candidate += 1
+        while math_index < len(math_ranges) and math_ranges[math_index][1] <= a:
+            math_index += 1
+        if normalized:
+            synthetic = bool(origins) and all(origin.synthetic for origin in origins)
+            category = "marker" if synthetic else "math" if math_index < len(math_ranges) and math_ranges[math_index][0] <= a < b <= math_ranges[math_index][1] else "text"
+            known = bool(origins) and all(origin.sources or origin.synthetic for origin in origins)
+            reasons = [origin.reason for origin in origins]
+            if not synthetic:
+                reasons.append("whitespace collapse and NFC canonical projection")
+            projections.append(Projection(acc, acc + len(normalized), source_union(origins), category, "; ".join(dict.fromkeys(reasons)), synthetic, known))
         acc += len(normalized)
     newmap[length] = acc
     text = "".join(pieces)
@@ -530,7 +583,7 @@ def _process_run(
         {**event, "start": mapped(event["start"]), "end": mapped(event["end"])}
         for event in run.events
     ]
-    return text, math, markup, delimit.TIMEOUT_REASON if scan.timed_out else None
+    return text, math, markup, delimit.TIMEOUT_REASON if scan.timed_out else None, projections
 
 
 def _separator(kind: SegmentKind) -> str:
@@ -550,7 +603,7 @@ def _serialize(blk: Block, walker: _Walker) -> tuple[str, Node]:
     for child in blk.children:
         own: Node | None
         if isinstance(child, Run):
-            text, math, markup, timeout = _process_run(child, walker)
+            text, math, markup, timeout, projections = _process_run(child, walker)
             if not text:
                 continue
             if blk.kind in TEXT_BLOCKS and not has_blocks:
@@ -580,12 +633,15 @@ def _serialize(blk: Block, walker: _Walker) -> tuple[str, Node]:
                 placed = [own]
         else:
             text, own = _serialize(child, walker)
+            projections = own.projections
             if not text:
                 continue
             placed = [own]
         if parts:
             parts.append(sep)
+            node.projections.append(Projection(offset, offset + len(sep), (), "canonical_separator", f"{blk.kind.value} canonical separator", True))
             offset += len(sep)
+        node.projections.extend(p.shifted(offset) for p in projections)
         for segment in placed:
             segment.shift(offset)
             node.children.append(segment)
@@ -796,9 +852,9 @@ def _markup_drafts(
 # --- The function ------------------------------------------------------------------------------
 
 
-def parse(raw: bytes) -> tuple[Any, ParseDetail]:
-    """html5lib's tree of the original bytes, and the parser's diagnostics."""
-    parser = html5parser.HTMLParser(namespaceHTMLElements=False)  # stateful: one per document
+def _parse_with_capture(raw: bytes) -> tuple[Any, ParseDetail, SourceCapture]:
+    """Native html5lib tree, diagnostics and operation-owned source capture."""
+    parser = CaptureParser()  # stateful: one per document
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", DataLossWarning)
         root = html5parser.document_fromstring(raw, guess_charset=False, parser=parser)
@@ -810,6 +866,11 @@ def parse(raw: bytes) -> tuple[Any, ParseDetail]:
         ),
         data_loss_warnings=sum(1 for w in caught if issubclass(w.category, DataLossWarning)),
     )
+    return root, detail, SourceCapture(raw, parser)
+
+
+def parse(raw: bytes) -> tuple[Any, ParseDetail]:
+    root, detail, _ = _parse_with_capture(raw)
     return root, detail
 
 
@@ -844,9 +905,12 @@ def build_rendition_with_elements(
             f"{source_uri!r} is not matched by the profile's applies_to {prof.applies_to!r}"
         )
     page = page_of(source_uri, prof.root)
-    root, detail = parse(raw)
-    walker = _Walker(root, compiled)
+    root, detail, capture = _parse_with_capture(raw)
+    walker = _Walker(root, compiled, capture)
     macros, macro_notes = _macro_table(root, walker)
+    head = root.find("head")
+    if head is not None:
+        capture.exclude(head, "canonical reading-body selection")
     body = root.find("body")
     tree = walker.build(body)
     text, top = _serialize(tree, walker)
@@ -877,6 +941,7 @@ def build_rendition_with_elements(
         page=page,
         parse_detail=detail,
         text_layouts=text_layouts,
+        parsing_product=capture.finish(text, tuple(top.projections)),
     )
     elements = {
         SegmentRef(n.kind, n.start, n.end): n.element

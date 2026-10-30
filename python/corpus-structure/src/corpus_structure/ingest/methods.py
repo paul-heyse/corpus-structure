@@ -32,9 +32,7 @@ each segment's id and key. A measurement-only result is `empty`.
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Iterable, Sequence
-from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -47,6 +45,7 @@ from corpus_structure.core.method import (
     Digest,
     MethodContext,
     ObservationDraft,
+    Reader,
     Resources,
     SourceProfileRef,
     SourceRunContext,
@@ -181,19 +180,17 @@ class IngestHtml:
                 out.append(_failed(unit, f"no document {unit.ref.unit_id}"))
                 continue
             try:
-                built = _build(row, compiled, sentences)
+                built = _build(row, compiled, sentences, ctx.reader.original(int(row.id)))
+                result = _result(unit, built, ctx.reader)
             except Exception as error:  # the document's task fails with the error (§3.3)
                 ctx.logger.warning("ingest.html: %s: %s", row.source_uri, error)
                 out.append(_failed(unit, f"{type(error).__name__}: {error}"))
                 continue
-            out.append(_result(unit, built))
+            out.append(result)
         return out
 
 
-def _build(row: Any, compiled: CompiledProfile, sentences: SentenceConfig) -> IngestResult:
-    raw = Path(row.original_path).read_bytes()
-    if hashlib.sha256(raw).hexdigest() != row.content_hash:
-        raise MethodRefused(f"{row.original_path} no longer holds the document's original bytes")
+def _build(row: Any, compiled: CompiledProfile, sentences: SentenceConfig, raw: bytes) -> IngestResult:
     return build_rendition(
         raw, compiled, sentences, source_uri=row.source_uri, document_key=row.key
     )
@@ -203,7 +200,7 @@ def _failed(unit: UnitView, error: str) -> UnitResult:
     return UnitResult(ref=unit.ref, outcome=ObservationOutcome.FAILED, error=error)
 
 
-def _result(unit: UnitView, built: IngestResult) -> UnitResult:
+def _result(unit: UnitView, built: IngestResult, reader: Reader) -> UnitResult:
     drafts = tuple(
         ObservationDraft(
             kind=ObservationKind.AUTHOR_MARKUP,
@@ -221,6 +218,7 @@ def _result(unit: UnitView, built: IngestResult) -> UnitResult:
         rendition=built.content,
         parse_detail=built.parse_detail.to_json(),
         text_layouts=built.text_layouts,
+        parsing_product=reader.prepare_parsing_product(built.parsing_product.values(), built.parsing_product.original) if built.parsing_product is not None else None,
     )
 
 

@@ -228,6 +228,16 @@ class Reader(Protocol):
         """The run's guideline body."""
         ...
 
+    def prepare_parsing_product(
+        self, payload: Mapping[str, Any], original: bytes
+    ) -> PreparedParsingProduct:
+        """Validate source products with the producing run's archived parsing contract."""
+        ...
+
+    def original(self, document_id: int) -> bytes:
+        """The retained original bytes under this reader's admitted project/run custody."""
+        ...
+
     def connection(self) -> AbstractContextManager[Any]:
         """A read-only connection for method-specific queries (A1's known entities)."""
         ...
