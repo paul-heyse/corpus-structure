@@ -77,7 +77,8 @@ def test_init_refuses_extensions_at_other_versions(
     monkeypatch.setattr(extensions, "expected_extensions", lambda path=None: wrong)
     result = cli("db", "init", settings=lambda: settings(native_server, name))
     assert result.exit_code == 1
-    assert "vector 0.8.7 (expected 0.0.1)" in result.stderr and "just db-provision" in result.stderr
+    error = " ".join(result.stderr.split())
+    assert "vector 0.8.7 (expected 0.0.1)" in error and "just db-provision" in error
     assert not native_server.exists(name)
 
 
@@ -159,7 +160,9 @@ def test_cli_subprocess_acknowledges_creation_before_failed_migration(native_ser
                 timeout=30,
             )
             assert result.returncode == 1, result.stderr
-            assert "legacy database refused" in result.stderr
+            refusal = json.loads(result.stdout)
+            assert refusal["error"]["code"] == "DbRefused"
+            assert "legacy database refused" in refusal["error"]["message"]
             with native_server.connect() as connection:
                 oid, comment = connection.execute(
                     text(

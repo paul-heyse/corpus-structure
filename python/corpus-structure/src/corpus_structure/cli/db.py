@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from rich.console import RenderableType
 from rich.table import Table
 
-from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
+from corpus_structure.cli.output import JsonOpt, emit, state
 
 db_app = typer.Typer(help="Create or migrate the database.", no_args_is_help=True)
 
@@ -143,8 +143,7 @@ def _migrate(engine: Any, name: str, created: bool) -> DbReport:
 
 
 def _run(ctx: typer.Context, json_: bool, create: bool, creation_token: str | None = None) -> None:
-    from sqlalchemy.exc import OperationalError
-
+    from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.core.db.extensions import ExtensionVersionMismatch
 
     settings = state(ctx).settings()
@@ -154,17 +153,13 @@ def _run(ctx: typer.Context, json_: bool, create: bool, creation_token: str | No
         connection_settings(settings, "maintenance").database.sqlalchemy_url
     )
     try:
-        created = (
-            _create(admin, name, settings.database.template, creation_token) if create else False
-        )
-        report = _migrate(engine, name, created)
-    except (DbRefused, ExtensionVersionMismatch) as error:
-        stderr_console().print(str(error))
-        raise typer.Exit(code=1) from None
-    except OperationalError as error:
-        reason = str(error.orig or error).strip().splitlines()[0]
-        stderr_console().print(f"cannot reach the database ({reason}); see D3 §13")
-        raise typer.Exit(code=1) from None
+        with failure_boundary(json_, expected=(DbRefused, ExtensionVersionMismatch)):
+            created = (
+                _create(admin, name, settings.database.template, creation_token)
+                if create
+                else False
+            )
+            report = _migrate(engine, name, created)
     finally:
         admin.dispose()
         engine.dispose()
