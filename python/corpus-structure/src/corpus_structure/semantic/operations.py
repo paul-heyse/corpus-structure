@@ -694,7 +694,7 @@ def complete_unit_result(
     holder: str,
     prepared: PreparedRelease,
     result: UnitResult,
-    method: Method[Any],
+    method: Method[Any] | OperationDescriptor,
     configuration_hash: str,
     source: str,
 ) -> CompletionResult:
@@ -968,18 +968,23 @@ class BoundReader:
         import json
         from corpus_structure.core.evidence import MacroDef
 
+        from types import MappingProxyType
+        cached = getattr(self, "_parsing_fallback", None)
+        if cached is not None:
+            return cached
         binding = binding_of(self.conn, self.run_id)
         archived = json.loads(binding.dependencies)
         sections = []
         for operation in archived.get("operations", {}).values():
             section = operation.get("parameters", {}).get("math")
             if section is not None:
-                sections.append(section)
+                sections.append(section.get("macros", {}))
         if sections and any(section != sections[0] for section in sections[1:]):
             raise OperationConflict("source capture has competing fallback macro contexts; select one admitted configuration")
-        section = sections[0] if sections else {"macros": {}}
+        macros = sections[0] if sections else {}
         reference = f"run:{self.run_id}:dependencies:{binding.dependency_digest}:math"
-        return reference, {name: MacroDef(body=body) for name, body in section.get("macros", {}).items()}
+        self._parsing_fallback = (reference, MappingProxyType({name: MacroDef(body=body) for name, body in macros.items()}))
+        return self._parsing_fallback
 
     def prepare_layered_product(self, payload):
         from .parsing_products import parsing_context_for_release, prepare_layered_product

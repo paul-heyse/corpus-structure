@@ -718,11 +718,13 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(
             ).all()
         )
         assert states["ingest.html"] == "empty" and states["profile.segments"] == "empty"
-        assert (
-            states["extract.math"] == "reused"
-            and states["normalize.formula"] == "reused"
-            and states["resolve.symbol_scope"] == "reused"
-        )
+        # A new source build needs newly anchored products even when canonical content
+        # is identical. Ordinary replay above still reuses the complete result.
+        expected_math = "done" if "\\(" in body else "empty"
+        assert states["extract.math"] == expected_math
+        assert states["normalize.formula"] == expected_math
+        if "\\(" in body:
+            assert states["resolve.symbol_scope"] == "done"
         assert len(c.execute(select(table("ops.rendition_build"))).all()) == 2
         assert len(c.execute(select(table("ops.parsing_product"))).all()) == 2
         assert BoundReader(c, report.run_id, p).parsing_product(rendition_id) == source_product

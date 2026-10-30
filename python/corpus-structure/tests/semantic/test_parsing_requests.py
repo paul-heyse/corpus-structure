@@ -82,6 +82,7 @@ def test_native_weak_requests_use_pinned_inputs_and_leave_source_sealed(
             products = select_layered_products(conn, run_id=result.run_id, rendition_id=rendition)
             assert {p.kind for p in products} == {"source", "text"}
             product = read_layered_product(conn, next(r for r in result.products if r.product_key == "text"))
+            assert product is not None
             artifacts = [r["text_content"] for r in product.values()["representations"] if r["kind"] == "artifact"]
             assert any('"body":"OLD"' in a for a in artifacts)
             source = conn.execute(select(table("ops.run").c.sealed, table("ops.run").c.status).where(table("ops.run").c.id == source_run)).one()
@@ -108,6 +109,7 @@ def test_native_syntax_request_does_not_interpret_or_construct_symbolic_values(
     assert result.inputs == (root, text)
     with semantic_reader_engine.begin() as conn:
         product = read_layered_product(conn, next(r for r in result.products if r.product_key == "math"))
+        assert product is not None
         if demand == "syntax":
             assert product.values()["interpretations"] == []
             assert product.values()["semantic_state"] == "unknown"
@@ -128,10 +130,14 @@ def test_native_symbolic_and_named_assessment_publish_new_immutable_products(
     with semantic_reader_engine.begin() as conn:
         products = select_layered_products(conn, run_id=assessed.run_id, rendition_id=rendition)
         assert {p.kind for p in products} == {"source", "text", "interpretation", "assessment"}
-        value = read_layered_product(conn, next(r for r in symbolic.products if r.product_key == "math")).values()
+        product = read_layered_product(conn, next(r for r in symbolic.products if r.product_key == "math"))
+        assert product is not None
+        value = product.values()
         details = json.loads(value["nodes"][0]["value"])
         assert details["native_evidence"]["text"] == "Integer(1)"
-        assessment = read_layered_product(conn, next(r for r in assessed.products if r.product_key == "assessment")).values()
+        product = read_layered_product(conn, next(r for r in assessed.products if r.product_key == "assessment"))
+        assert product is not None
+        assessment = product.values()
         details = json.loads(assessment["nodes"][0]["value"])
         assert details["question"] == "definedness"
         assert details["conditions"][0]["requirement"] == "nonzero"
@@ -214,6 +220,7 @@ def test_native_request_uses_archived_fallback_after_current_configuration_chang
     assert result.status == "source_ready", result.diagnostic
     with semantic_reader_engine.begin() as conn:
         product = read_layered_product(conn, next(p for p in result.products if p.product_key == "math"))
+        assert product is not None
         assert json.loads(product.values()["nodes"][0]["value"])["native_evidence"]["text"] == "Reals"
 
 

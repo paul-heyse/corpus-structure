@@ -199,6 +199,14 @@ def _content_digest(unit: UnitView) -> str:
     return str(_row(unit.run.reader, unit.ref.unit_id).content_digest)
 
 
+def _source_product_digest(unit: UnitView) -> dict[str, Any]:
+    """Whole-result reuse includes source custody; pure values have their own stage keys."""
+    selected = unit.run.reader.layered_products(_rendition_id(unit), kind="text", product_key="text")
+    if len(selected) != 1:
+        raise ValueError("mathematical task requires one selected source-bound text product")
+    return {"rendition": _content_digest(unit), "text_product": selected[0].reference.values()}
+
+
 @dataclass
 class MathReadingsBatch:
     """Owned by one source execution batch, shared by compatible logical methods."""
@@ -340,7 +348,7 @@ class NormalizeFormula(_PerRendition):
     Config = NormalizeFormulaConfig
 
     def input_digest(self, unit: UnitView, cfg: NormalizeFormulaConfig) -> Digest:
-        return Digest(canonical_json({"rendition": _content_digest(unit)}))
+        return Digest(canonical_json(_source_product_digest(unit)))
 
     def run(
         self, units: Sequence[UnitView], cfg: NormalizeFormulaConfig, ctx: MethodContext
@@ -420,7 +428,7 @@ class ExtractMath(_PerRendition):
     Config = ExtractMathConfig
 
     def input_digest(self, unit: UnitView, cfg: ExtractMathConfig) -> Digest:
-        return Digest(canonical_json({"rendition": _content_digest(unit)}))
+        return Digest(canonical_json(_source_product_digest(unit)))
 
     def run(
         self, units: Sequence[UnitView], cfg: ExtractMathConfig, ctx: MethodContext
