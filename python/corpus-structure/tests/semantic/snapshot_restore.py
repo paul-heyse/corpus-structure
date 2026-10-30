@@ -13,7 +13,11 @@ def restore_finished_metadata(conn: Connection, relation: Table) -> Generator[No
     Keep foreign keys/checks active. Only the named table's enabled user triggers pause;
     ownership, trigger state and role are restored before any acceptance operation runs.
     """
-    if relation.schema is None or relation.fullname not in {"ops.run", "ops.input_cut", "ops.completed_result"}:
+    if relation.schema is None or relation.fullname not in {
+        "ops.run",
+        "ops.input_cut",
+        "ops.completed_result",
+    }:
         raise ValueError("only finished-result fixture metadata can be restored")
     quote = conn.dialect.identifier_preparer.quote
     previous = conn.scalar(text("SELECT current_user"))

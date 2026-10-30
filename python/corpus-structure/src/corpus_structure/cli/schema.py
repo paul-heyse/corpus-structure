@@ -9,16 +9,20 @@ import typer
 from pydantic import BaseModel
 from rich.table import Table
 
-from corpus_structure.cli.output import JsonOpt, emit
 from corpus_structure.cli.failures import failure_boundary
-from corpus_structure.semantic.refusals import SemanticRefusal
-from corpus_structure.semantic.types import PreparationError
-from corpus_structure.semantic.releases import ReleaseConflict
+from corpus_structure.cli.output import JsonOpt, emit
 from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
+from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.releases import ReleaseConflict
+from corpus_structure.semantic.types import PreparationError
 
 
 def refusal(json):
-    return failure_boundary(json, expected=(PreparationError, ReleaseConflict, ExecutionAdmissionError))
+    return failure_boundary(
+        json, expected=(PreparationError, ReleaseConflict, ExecutionAdmissionError)
+    )
+
 
 schema_app = typer.Typer(help="Compile a composed semantic release.", no_args_is_help=True)
 
@@ -99,10 +103,8 @@ def check_(
             raise SemanticRefusal("select either --domain or --release")
         with (
             open_runtime_engine(state(ctx).settings(), "ci-schema-check", purpose="read") as engine,
-            engine.connect() as conn,
-            conn.begin(),
+            read_snapshot(engine) as conn,
         ):
-            conn.exec_driver_sql("SET TRANSACTION READ ONLY")
             prepared = verify_release(conn, release)
         emit(
             CompileResult(
@@ -127,15 +129,20 @@ def derive_(
     with refusal(json_):
         if out.exists():
             raise SemanticRefusal("derivation requires a new --out directory")
-        from corpus_structure.semantic.regeneration import prepare_packs
         from corpus_structure.semantic.contracts import bound_execution_model
-        from corpus_structure.semantic.native_products import consolidation_products, physical_products
         from corpus_structure.semantic.identity import canonical_bytes
+        from corpus_structure.semantic.native_products import (
+            consolidation_products,
+            physical_products,
+        )
+        from corpus_structure.semantic.regeneration import prepare_packs
 
         selected = domain or ["statistics"]
         if any(Path(name).name != name for name in selected):
             raise SemanticRefusal("domain must name a pack under --domains")
-        bundle, _deps, _profile, prepared = prepare_packs(tuple(domains / name for name in selected))
+        bundle, _deps, _profile, prepared = prepare_packs(
+            tuple(domains / name for name in selected)
+        )
         model = bound_execution_model(prepared)
         bootstrap_products = physical_products()
         forward = consolidation_products(model)
@@ -146,7 +153,9 @@ def derive_(
             (out / (artifact.kind.replace("/", "_") + ".artifact")).write_bytes(artifact.content)
         (out / "sources").mkdir()
         for source in bundle.sources:
-            (out / "sources" / (source.name.replace("/", "_") + ".yaml")).write_bytes(source.content)
+            (out / "sources" / (source.name.replace("/", "_") + ".yaml")).write_bytes(
+                source.content
+            )
         native = out / "native"
         native.mkdir()
         bootstrap = native / "bootstrap"
@@ -156,21 +165,44 @@ def derive_(
         for product in forward:
             (native / product.name).write_bytes(product.content)
         from corpus_structure.semantic.releases import _projection_rows
+
         projections = _projection_rows(prepared)
-        projected = {name: values for name, values in projections.items() if name in {
-            "execution_operation", "execution_transition", "execution_edge", "operation_effect",
-            "transition_effect", "operation_property_role", "scientific_decision_rule",
-        }}
+        projected = {
+            name: values
+            for name, values in projections.items()
+            if name
+            in {
+                "execution_operation",
+                "execution_transition",
+                "execution_edge",
+                "operation_effect",
+                "transition_effect",
+                "operation_property_role",
+                "scientific_decision_rule",
+            }
+        }
         (native / "release-projections.json").write_bytes(canonical_bytes(projected))
-        (native / "authoring.json").write_bytes(canonical_bytes({
-            "release_id": prepared.release_id, "execution_model_id": model.model_id,
-            "predecessor": "semantic_0032", "revision": "semantic_0033",
-            "products": [{"name": p.name, "sha256": p.digest} for p in forward],
-        }))
-        emit(CompileResult(packs=selected, release_id=prepared.release_id,
-             execution_model_id=prepared.execution_model_id,
-             artifacts=[ArtifactRow(kind=a.kind, hash=a.digest) for a in prepared.artifacts]),
-             json=json_, render=_render)
+        (native / "authoring.json").write_bytes(
+            canonical_bytes(
+                {
+                    "release_id": prepared.release_id,
+                    "execution_model_id": model.model_id,
+                    "predecessor": "semantic_0032",
+                    "revision": "semantic_0033",
+                    "products": [{"name": p.name, "sha256": p.digest} for p in forward],
+                }
+            )
+        )
+        emit(
+            CompileResult(
+                packs=selected,
+                release_id=prepared.release_id,
+                execution_model_id=prepared.execution_model_id,
+                artifacts=[ArtifactRow(kind=a.kind, hash=a.digest) for a in prepared.artifacts],
+            ),
+            json=json_,
+            render=_render,
+        )
 
 
 def register(app: typer.Typer):

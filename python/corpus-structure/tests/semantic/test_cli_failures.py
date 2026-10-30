@@ -189,3 +189,63 @@ def test_actual_database_check_preserves_native_admission_diagnostic(
             conn.exec_driver_sql(
                 "REVOKE EXECUTE ON FUNCTION data.require_execution_release(text) FROM PUBLIC"
             )
+
+
+@pytest.mark.parametrize("route", ["schema", "db_check"])
+@pytest.mark.parametrize("kind", ["retry", "fencing", "defect", "bug"])
+def test_actual_archive_query_failure_reaches_cli_unchanged(
+    cli, semantic_db_engine, semantic_reader_engine, route, kind
+):
+    from sqlalchemy import Engine, event
+
+    from corpus_structure.core.db.store import FENCING_CONSTRAINT
+    from corpus_structure.settings import Settings
+
+    from .test_releases import stage
+
+    with semantic_db_engine.begin() as conn:
+        _, _, _, prepared = stage(conn)
+    settings = Settings(
+        database={
+            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+                hide_password=False
+            )
+        }
+    )
+    if kind == "retry":
+        failure = DBAPIError(None, None, psycopg.errors.SerializationFailure("retry"))
+    elif kind == "fencing":
+
+        class Fenced(Exception):
+            sqlstate = "23505"
+            diag = SimpleNamespace(constraint_name=FENCING_CONSTRAINT)
+
+        failure = DBAPIError(None, None, Fenced("fenced"))
+    elif kind == "defect":
+        failure = DBAPIError(None, None, psycopg.errors.UndefinedColumn("broken SQL"))
+    else:
+        failure = RuntimeError("unexpected archive program defect")
+    called = []
+
+    def fail_archived_input(conn, cursor, statement, parameters, context, executemany):
+        if "FROM sem.input" in statement:
+            called.append(statement)
+            raise failure
+
+    args = (
+        ("schema", "check", "--release", prepared.release_id, "--json")
+        if route == "schema"
+        else ("db", "check", "--release", prepared.release_id, "--json")
+    )
+    event.listen(Engine, "before_cursor_execute", fail_archived_input)
+    try:
+        result = cli(*args, settings=lambda: settings)
+    finally:
+        event.remove(Engine, "before_cursor_execute", fail_archived_input)
+    assert called, result.output
+    assert result.exit_code != 0
+    if kind == "bug":
+        assert result.exception is failure
+        assert '"error"' not in result.stdout
+    else:
+        assert json.loads(result.stdout)["error"]["code"] == "database_" + kind

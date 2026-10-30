@@ -16,6 +16,7 @@ from weakref import WeakKeyDictionary
 
 import yaml
 from cattrs import Converter
+from cattrs.errors import BaseValidationError
 from linkml_runtime.linkml_model import SchemaDefinition, SchemaDefinitionName
 from linkml_runtime.loaders import yaml_loader
 from linkml_runtime.utils.schemaview import SchemaView
@@ -465,5 +466,12 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
         return prepared
     except ReleaseConflict:
         raise
-    except Exception as exc:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        IndexError,
+        BaseValidationError,
+        yaml.YAMLError,
+    ) as exc:
         raise ReleaseConflict(f"cannot open exact release {release_id}: {exc}") from exc

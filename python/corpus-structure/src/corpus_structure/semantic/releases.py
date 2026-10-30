@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .authored_sql import AuthoredSQL
 
+import yaml
+from cattrs.errors import BaseValidationError
 from sqlalchemy import Connection, select
 
 from .determinants import BYTE_LIBRARIES as _LIBRARIES
@@ -563,7 +565,14 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
         return prepared
     except ReleaseConflict:
         raise
-    except Exception as exc:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        IndexError,
+        BaseValidationError,
+        yaml.YAMLError,
+    ) as exc:
         raise ReleaseConflict(f"cannot reconstruct exact release {release_id}: {exc}") from exc
 
 
