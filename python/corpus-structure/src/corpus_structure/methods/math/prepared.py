@@ -22,6 +22,7 @@ from .transform import NotRepresentable, transform
 
 if TYPE_CHECKING:
     from corpus_structure.semantic.analysis_contracts import PreparedInterpretationContext
+    from corpus_structure.core.text_structure import TextCapture
 
 _UNSET = object()
 
@@ -61,7 +62,7 @@ class PreparedMathInput:
     source_start: int = 0
     parse_start: int = 0
     _lexical: tuple[tex.Token, ...] | None = field(default=None, init=False, repr=False, compare=False)
-    _structure: Any = field(default=None, init=False, repr=False, compare=False)
+    _structure: TextCapture | None = field(default=None, init=False, repr=False, compare=False)
     _syntax: grammar.MathResult | None = field(default=None, init=False, repr=False, compare=False)
     _reading: grammar.MathResult | None = field(default=None, init=False, repr=False, compare=False)
     _symbolic_reading: grammar.MathResult | None = field(default=None, init=False, repr=False, compare=False)
@@ -91,7 +92,7 @@ class PreparedMathInput:
         assert self._lexical is not None
         return self._lexical
 
-    def structure(self):
+    def structure(self) -> TextCapture:
         """Source structure through the existing pure structural owner, never Earley."""
         if self._structure is None:
             from corpus_structure.core.text_structure import capture_text
@@ -102,6 +103,7 @@ class PreparedMathInput:
             object.__setattr__(self, "_structure", result)
             coverage = "complete" if result.structure_outcome == "available" else "partial"
             self._states["structure"] = StageState("available", coverage, result.structure_outcome)
+        assert self._structure is not None
         return self._structure
 
     def _remember(self, demand: str, result: grammar.MathResult) -> bool:
@@ -117,12 +119,10 @@ class PreparedMathInput:
     def syntax(self) -> grammar.MathResult:
         if self._syntax is None:
             self.lexical()
-            from typing import cast
-
             kind = self.kind or self.context.kind
             if kind not in grammar.STARTS:
                 raise ValueError(f"unsupported mathematical kind {kind!r}")
-            result = grammar.syntax(self.latex, cast(grammar.Kind, kind),
+            result = grammar.syntax(self.latex, kind,
                                     self.context.macros, seconds=self.seconds)
             if self._remember("syntax", result):
                 object.__setattr__(self, "_syntax", result)

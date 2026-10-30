@@ -270,7 +270,9 @@ def _math_products(ren: _Rendition, readings, reader: Reader, method: str):
             raise ValueError("mathematical extraction lost its operation-owned preparation")
         payload = interpretation_product_payload(
             reading.prepared, root=text.root, text_product=text.reference,
-            source_node_id=f"view:{index}", product_key=f"math:{method}:{index}", symbolic=True,
+            source_node_id=f"view:{index}",
+            product_key=f"math:{method}:{reading.span.segment.start}:{reading.span.segment.end}:"
+                        + reading.prepared.context.stage_key("interpretation")[:16], symbolic=True,
         )
         products.append(reader.prepare_layered_product(payload))
     return PreparedParsingProductSet(products=tuple(products), required=tuple(p.product_key for p in products))

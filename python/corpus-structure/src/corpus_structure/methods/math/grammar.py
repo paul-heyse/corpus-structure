@@ -340,6 +340,7 @@ class MathContext:
     profile: str = ""
     definition_rule: str | None = None
     conflicts: frozenset[str] = frozenset()
+    conventions: tuple[str, ...] = ("naturals-zero-1", "set-builder-real-domain-1")
 
     def key(self) -> str:
         return json.dumps(
@@ -350,6 +351,7 @@ class MathContext:
                 self.profile,
                 self.definition_rule,
                 sorted(self.conflicts),
+                self.conventions,
             ]
         )
 
@@ -589,6 +591,7 @@ class _Resolver:
         conflicts = {bare(x) for x in context.conflicts}
         self.functions = {bare(x) for x in context.functions} - conflicts
         self.variables = {bare(x) for x in context.variables} - conflicts
+        self.conventions = context.conventions
         self.definition_rule = context.definition_rule
         self.declarations: list[LocalDeclaration] = []
         self.notes: list[str] = []
@@ -771,7 +774,8 @@ class _SymbolicResolver(_Resolver):
             if key not in self._values:
                 try:
                     self._values[key] = transform(
-                        reading, self.source, self.macros, self.sets, self.ops
+                        reading, self.source, self.macros, self.sets, self.ops,
+                        conventions=self.conventions
                     )
                 except Exception:
                     self._values[key] = None
@@ -1061,7 +1065,9 @@ def to_sympy(result: MathResult, *, symbol_factory=None) -> Any:
         raise Ambiguous("; ".join(result.notes))
     sets, ops = dict(result.classes.sets), dict(result.classes.ops)
     try:
-        options = {} if symbol_factory is None else {"symbol_factory": symbol_factory}
+        options: dict[str, Any] = {"conventions": result.context.conventions}
+        if symbol_factory is not None:
+            options["symbol_factory"] = symbol_factory
         value = transform(result.tree, result.latex, result.macros, sets, ops, **options)
     except VisitError as error:
         cause = error.orig_exc

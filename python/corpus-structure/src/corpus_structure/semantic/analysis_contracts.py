@@ -244,6 +244,11 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 location,
                 "implement capture representation/hash/lifetime support before admission",
             )
+        if profile.version == "6" and profile.mathematical_conventions != (
+            "naturals-zero-1", "set-builder-real-domain-1"
+        ):
+            _fail("unsupported_mathematical_convention", location,
+                  "qualify native convention construction before changing its admitted meaning")
         demands = {d.id: d for d in profile.demands}
         if len(demands) != len(profile.demands) or set(demands) != (set(_REQUIRED_COMPONENTS) if profile.version == "6" else set(_REQUIRED_COMPONENTS) - {"structure", "syntax"}):
             _fail(
@@ -495,6 +500,7 @@ class PreparedInterpretationContext:
             profile=self.profile.id,
             definition_rule="function-definition-1" if self.allow_local_definitions else None,
             conflicts=self.conflicts,
+            conventions=self.profile.mathematical_conventions,
         )
 
     def key(self) -> str:

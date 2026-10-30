@@ -116,12 +116,14 @@ class ToSympy(TransformToSymPyExpr):
 
     def __init__(self, sets: Mapping[str, str], ops: Mapping[str, str],
                  symbol_factory: Callable[[str], Any] = sympy.Symbol,
-                 bound_symbols: Mapping[str, Any] | None = None) -> None:
+                 bound_symbols: Mapping[str, Any] | None = None,
+                 conventions: tuple[str, ...] = ("naturals-zero-1", "set-builder-real-domain-1")) -> None:
         super().__init__()
         self.sets = sets
         self.ops = ops
         self.symbol_factory = symbol_factory
         self.bound_symbols = bound_symbols or {}
+        self.conventions = conventions
 
     # ---- arithmetic: operands must be expressions (no deprecated non-Expr Mul or Add)
     def add(self, tokens: list[Any]) -> Any:
@@ -192,6 +194,8 @@ class ToSympy(TransformToSymPyExpr):
         else:  # \mathbb { X }
             letter = str(tokens[2])
             rest = tokens[4:]
+        if letter == "N" and "naturals-zero-1" not in self.conventions:
+            raise NotRepresentable("natural-number convention is not admitted")
         base = _SET_LETTER[letter]
         i = 0
         if i < len(rest) and isinstance(rest[i], str) and rest[i] in ("+", "-"):
@@ -236,6 +240,8 @@ class ToSympy(TransformToSymPyExpr):
         if isinstance(head, sympy.Contains):
             variable, base = head.args
         else:
+            if "set-builder-real-domain-1" not in self.conventions:
+                raise NotRepresentable("unqualified set-builder domain is not admitted")
             variable, base = head, sympy.S.Reals
         if not isinstance(variable, sympy.Symbol):
             raise NotRepresentable("set builder over an expression")
@@ -405,6 +411,7 @@ def transform(
     ops: Mapping[str, str],
     *,
     symbol_factory: Callable[[str], Any] = sympy.Symbol,
+    conventions: tuple[str, ...] = ("naturals-zero-1", "set-builder-real-domain-1"),
 ) -> Any:
     """The SymPy value of `tree` (read from `source`); raises `VisitError` around failures.
 
@@ -416,6 +423,6 @@ def transform(
     with warnings.catch_warnings():
         warnings.simplefilter("error", SymPyDeprecationWarning)
         try:
-            return ToSympy(sets, ops, symbol_factory, bound_symbols).transform(named)
+            return ToSympy(sets, ops, symbol_factory, bound_symbols, conventions).transform(named)
         except SymPyDeprecationWarning as error:
             raise NotRepresentable(f"a path SymPy deprecates: {error}".splitlines()[0]) from error

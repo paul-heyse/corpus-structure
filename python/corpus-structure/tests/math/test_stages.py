@@ -46,7 +46,7 @@ def test_symbolic_equivalence_is_an_explicit_stronger_request():
     assert value.interpretation().status is ParseOutcome.AMBIGUOUS
     assert value.symbolic_reading().status is ParseOutcome.OK
     assert value.interpretation().status is ParseOutcome.AMBIGUOUS
-    assert value.symbolic_value() == sympy.Symbol("a") * sympy.Symbol("b") / sympy.Symbol("c")
+    assert value.symbolic_value() == sympy.Mul(sympy.Symbol("a"), sympy.Symbol("b"), sympy.Pow(sympy.Symbol("c"), -1))
 
 
 def test_original_delimiters_and_exact_occurrence_offsets_remain_separate():
@@ -57,7 +57,7 @@ def test_original_delimiters_and_exact_occurrence_offsets_remain_separate():
         ("x", 14, 15), (" ", 15, 16), ("$", 16, 17),
     ]
     assert [(o.start, o.end) for o in value.reading().occurrences] == [(0, 1), (2, 3)]
-    assert value.symbolic_value() == 2 * sympy.Symbol("x")
+    assert value.symbolic_value() == sympy.Mul(2, sympy.Symbol("x"))
 
 
 def test_ask_and_refine_do_not_read_ambient_assumptions():

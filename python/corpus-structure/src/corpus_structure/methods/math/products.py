@@ -112,7 +112,7 @@ def interpretation_product_payload(
                    declarations=[dataclasses.asdict(d) for d in reading.declarations],
                    failure=None if reading.failure is None else dataclasses.asdict(reading.failure),
                    definedness=[] if stage == "syntax" else [dataclasses.asdict(c) for c in operand.definedness()],
-                   conventions=["N denotes Naturals0", "unqualified set-builder domain is Reals"],
+                   conventions=operand.context.profile.mathematical_conventions,
                    requested_native_equivalence=symbolic)
     p["nodes"] = [dict(node_id="interpretation:0", kind="math", origin="literal", name=reading.kind or reading.requested,
                        value=canonical_bytes(details).decode(), representation_id="parse_input",
