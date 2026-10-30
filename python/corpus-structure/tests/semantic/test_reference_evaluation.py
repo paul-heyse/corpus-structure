@@ -208,36 +208,39 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
         from .archive_faults import administrative_archive_edit
 
         for layout in ("empty", "partial", "moved"):
-            with semantic_db_engine.begin() as admin:
-                with administrative_archive_edit(admin, table("sem.artifact")):
-                    original = bytes(
-                        admin.scalar(
-                            text(
-                                "SELECT content FROM sem.artifact WHERE release_id=:r "
-                                "AND artifact_name='operation/scientific-policy.json'"
-                            ),
-                            {"r": _prepared.release_id},
-                        )
-                    )
-                    altered = json.loads(original)
-                    if layout == "empty":
-                        altered["comparison_paths"], altered["array_rules"] = [], []
-                    elif layout == "partial":
-                        altered["comparison_paths"] = altered["comparison_paths"][:1]
-                    else:
-                        altered["comparison_paths"][0] = "$.unconsumed[*].comparisons[*]"
-                    encoded = json.dumps(altered).encode()
-                    admin.execute(
+            with (
+                semantic_db_engine.begin() as admin,
+                administrative_archive_edit(admin, table("sem.artifact")),
+            ):
+                original = bytes(
+                    admin.scalar(
                         text(
-                            "UPDATE sem.artifact SET content=:content,content_digest=:digest "
-                            "WHERE release_id=:r AND artifact_name='operation/scientific-policy.json'"
+                            "SELECT content FROM sem.artifact WHERE release_id=:r "
+                            "AND artifact_name='operation/scientific-policy.json'"
                         ),
-                        {
-                            "content": encoded,
-                            "digest": sha256(encoded).hexdigest(),
-                            "r": _prepared.release_id,
-                        },
+                        {"r": _prepared.release_id},
                     )
+                )
+                altered = json.loads(original)
+                if layout == "empty":
+                    altered["comparison_paths"], altered["array_rules"] = [], []
+                elif layout == "partial":
+                    altered["comparison_paths"] = altered["comparison_paths"][:1]
+                else:
+                    altered["comparison_paths"][0] = "$.unconsumed[*].comparisons[*]"
+                encoded = json.dumps(altered).encode()
+                admin.execute(
+                    text(
+                        "UPDATE sem.artifact SET content=:content,content_digest=:digest "
+                        "WHERE release_id=:r "
+                        "AND artifact_name='operation/scientific-policy.json'"
+                    ),
+                    {
+                        "content": encoded,
+                        "digest": sha256(encoded).hexdigest(),
+                        "r": _prepared.release_id,
+                    },
+                )
             try:
                 with (
                     pytest.raises(DBAPIError, match="unsupported scientific report layout"),
@@ -245,19 +248,22 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
                 ):
                     record_native(nested)
             finally:
-                with semantic_db_engine.begin() as admin:
-                    with administrative_archive_edit(admin, table("sem.artifact")):
-                        admin.execute(
-                            text(
-                                "UPDATE sem.artifact SET content=:content,content_digest=:digest "
-                                "WHERE release_id=:r AND artifact_name='operation/scientific-policy.json'"
-                            ),
-                            {
-                                "content": original,
-                                "digest": sha256(original).hexdigest(),
-                                "r": _prepared.release_id,
-                            },
-                        )
+                with (
+                    semantic_db_engine.begin() as admin,
+                    administrative_archive_edit(admin, table("sem.artifact")),
+                ):
+                    admin.execute(
+                        text(
+                            "UPDATE sem.artifact SET content=:content,content_digest=:digest "
+                            "WHERE release_id=:r "
+                            "AND artifact_name='operation/scientific-policy.json'"
+                        ),
+                        {
+                            "content": original,
+                            "digest": sha256(original).hexdigest(),
+                            "r": _prepared.release_id,
+                        },
+                    )
         for location in ("direct", "nested"):
             changed_policy = copy.deepcopy(nested)
             selected = (

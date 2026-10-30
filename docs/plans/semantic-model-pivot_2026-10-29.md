@@ -1,12 +1,12 @@
 # Semantic-model pivot — series coordinator
 
-**Status:** Improvement integration planned in §14; production remains partial. Completion-audited at `ad4593f` (2026-10-29), including all partial/open scope.
+**Status:** SP-I01–SP-I09 selected scope implemented and scoped Tested (§14, 2026-10-30); original production/operational acceptance remains partial. Audit baselines and current dispositions are retained in §13.
 The foundation and many scoped mechanisms are implemented; complete model governance and the
 series are **not complete**. Current package states, findings, deviations and next work are in
 §13. Earlier receipts retain their original scope and are not whole-series qualification.
-**Created:** 2026-10-29 · **Revised:** 2026-10-29.
-**Claim strength:** Source-inspected audit conclusions plus explicitly dated scoped Tested evidence;
-no new product/native/provider qualification or broad performance/accuracy claim.
+**Created:** 2026-10-29 · **Revised:** 2026-10-30.
+**Claim strength:** Source-inspected audit conclusions and dated scoped Tested native/consumer evidence;
+no operational regeneration, whole-series qualification or performance/accuracy claim.
 
 ## 1. Scope, authority and baseline
 
@@ -702,23 +702,23 @@ affected packages link here instead of duplicating mutable findings.
 | **CA-03 · implementation** | Original defect: named-query coverage considered only present family records, allowing a missing required member to become absent. `serve/journey.py:234–244` now resolves `required_coverage` from the actual run/family/scope/member universe before classifying an empty result. | **Named defect corrected by SP-I05; source-confirmed 2026-10-29, scoped checkpoint evidence retained.** Missing-member and partial-scope meaning is now shared with the primitive query route. Remaining named continuation and CLI adapter gaps have separate owners CA-15–CA-17; this correction does not close all SP-08 or provider acceptance. |
 | **CA-04 · implementation/model correspondence** | Original defects conflated readiness/task protocol, hold decisions, scientific alternatives and submission enforcement. Actual constructors now consume release-bound result dimensions through `semantic/operation_results.py`, `orchestrate/semantic.py`, `intervene/semantic.py`, `semantic/operations.py` and `domain_operations.py`; submission enforcement belongs to the composed session/read/packet/attempt/native path. | **Named result/enforcer defects corrected by SP-I01; source-confirmed 2026-10-29, original 450-case scoped evidence retained.** Distinct finite dimensions are validated where results are constructed. This is not maintained correspondence for arbitrary changed effects (CA-06), complete CLI translation (CA-15), or retention of raw/persisted scientific evidence (CA-18/CA-19). |
 | **CA-05 · implementation/model attribution** | Original defect accepted a nonempty caller label without resolving the bound graph ProjectionContract. `GraphProjectionBinding.from_release` now resolves the exact execution-model contract and validation operation; graph construction/validation consumes the bound source/kind/precision/omission/lifetime and closure requirements. | **Named attribution defect corrected by SP-I01; source-confirmed 2026-10-29, original scoped graph evidence retained.** Unknown/incompatible contract attribution is no longer merely caller-declared. CA-06 remains the distinct maintained correspondence obligation; this does not claim whole-series graph/provider qualification. |
-| **CA-06 · maintained model/effect correspondence** | Finite edge derivation and current effect controls now exist, but `semantic/contracts.py` stores transition/operation/implementation `effects` without a consumer or validation against enforcing kernels. `native_products.py:205–230,436–440` derives edges and rebases descriptor identity/digests independently of those declarations. A changed trusted effect can therefore acquire matching metadata while retaining the old kernel behavior. | **SP-I02 remains partial**, with SP-I01/SP-I03 consumers. Establish bounded supported-effect correspondence or an actionable refusal before rebasing/admission of an unrecognized effect change; retain independent changed-effect expectations. Current callable/body hashes and tests of today's behavior do not discharge this existing obligation. No generic workflow/proof engine or disconnected exception is required. |
+| **CA-06 · Maintained operation/effect correspondence** | Versioned effect definitions, independent implementation support and transition refinements govern preparation, native admission and protected complete operations. Changed unsupported requirements refuse before rebasing; bounded row variation executes through the stable native guard. | **SP-I02: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
 | **CA-07 · retirement** | Current entry points route semantically, but public dormant legacy DB code remains: `orchestrate/runs.py:216–228` retains old meta.project/key-scheme run construction; old context/routing readers and core/db exported legacy metadata/overlay remain. Searches found no current caller of the old run constructor/routing path. | **SP-09.** Finish the explicit superseded-production-route/projection retirement obligation, extracting genuinely retained helpers such as code_commit/RunError. Do not call this a demonstrated live current bypass or delete useful pure/source algorithms. Verify current entrypoint/library inventory no longer offers retired admitted writers/readers. |
 | **CA-08 · authority/documentation** | Current defaults and ADR-0030's fresh automatic extractor coexist with §B3/accepted ADR-0015's “pipeline never calls the agent”; detailed D3/D6/D7/D8 pages still describe earlier selected routes as current/future. B5 alone does not reconcile those owners. | **SP-00/SP-09.** Reconcile the accepted new regeneration behavior with B3 and enduring owners through the required successor ADR/decision route; accepted ADRs remain immutable. Update current contracts and remove contradictory current claims, preserving unrelated unfinished legacy targets. No runtime failure is inferred solely from stale prose. |
 | **CA-09 · qualification accounting** | SP-06 explicitly names mid-run environment-change and cross-field-error controls. The original audit located neither a bound-run mid-execution receipt nor an applicable cross-field invariant. | **Closed for the named settings obligations; scoped Tested by SP-I08/SP-I09, 2026-10-29.** An actual environment-created MCP submission preserves its original task/run/release after environment change; a fresh server consumes the changed selection. Existing purpose resolution supplies the real cross-field invariant, independently tested for database/host/port/query conflicts. The [qualification checkpoint](semantic-model-pivot/qualification-infrastructure.md#execution-checkpoint--2026-10-29) owns applicable receipts. This does not close SP-06 binding adoption or SP-10 product acceptance. |
 | **CA-10 · qualification/evidence** | The original audit had no complete functional/native/provider/nonfunctional union: collection failed, the repaired broad run remained incomplete, full hygiene was not_run and Ruff had 64 diagnostics. Five older evidence-record errors and unfinalized local timing hashes were also recorded. | **SP-10 remains open**, with existing evidence owners for older records. SP-I08/SP-I09 now supply actionable streamed reports, a passing affected union and settings evidence; their [checkpoint](semantic-model-pivot/qualification-infrastructure.md#execution-checkpoint--2026-10-29) owns current commands, retained interrupted broad output and remaining lint boundaries. Complete required corpus/provider/nonfunctional obligations without expanding into unrelated old-plan repairs. Earlier scoped/type passes retain credit; lint does not require repeating them. Local timing is not an audited capacity/speed benefit. |
 | **CA-11 · scope reconciliation** | SP-00 initially promises patterns and declared occurrence/context scopes; the PostgreSQL package/admission explicitly refuses native patterns and occurrence/context grouping. ADR-0025 calls these limitations rather than capability completion; no current required workflow using those placements was found. | **SP-00/SP-C02 · scope reconciled, scoped Tested 2026-10-29 (ADR-0031).** The operator selected a bounded native profile; pattern and occurrence/context integrity refuse rather than claim delivery. The SP-I01–SP-I03 450-case union exercises admission and current required workflows. Faithfully implement any required construct or settle the supported-profile decision through its owner. Safe refusal is valid behavior but is not delivery of the refused capability; neither arbitrary OWL support nor a generic regex/grouping engine is silently added. |
-| **CA-12 · incomplete native authoring** | `semantic/routines.py:17–78` retains transport creation/verification/content/insertion derivation without callers. `cli/schema.py:123–135` emits `physical_products` and `consolidation_products`; the latter discards generated edge/view replacement SQL (`native_products.py:633–636`), although `closure_products` derives it at `219–249`. Disposal is connected; the remaining selected authoring advantages are not. | **SP-I02.** Connect the retained transport emitter or a justified equivalent and preserve changed finite-edge/Core-view SQL through actual candidate authoring outputs. Independently change transport/edge/view contracts and verify usable outputs or an explicit unsupported-change refusal. Preserve frozen deployed history. No blocker justifying omission was located. |
-| **CA-13 · lazy boundary identity** | Opening overlapping `B→C`, then `A→B→C` closures overwrites `_boundary_models` while keeping earlier adapters (`archive_reader.py:265`, `boundary.py:209`, `types.py:229,370`). The pure control `audit.lazy-boundary-identity` observed replaced B/C classes: the dictionary passes but the same-release previously validated C instance fails `model_type`. | **SP-I04.** Preserve canonical per-release model/adapter identity across overlapping requested closures, including property adapters and load order. Retain demand loading; eager rebuilding is not an unexplained equivalent. Verify the public validation boundary and overlapping/concurrent requests. No storage corruption or admission bypass is inferred. |
-| **CA-14 · release transition qualification** | Required compatibility matrix and acceptance cases were not located for compiler-11 archives, cache/database isolation, equal-JSON-Schema changed acceptance/Pydantic-core context, or a selected completed compiler-10 answer across new activation. Genuine compiler-10 ordinary realization query/explain/ADBC/export evidence exists, but does not establish these scenarios. | **SP-I04.** Supply the promised matrix and independent transition/cache/runtime controls, including actual required old selected-answer dependencies. This is missing required verification, not a demonstrated failure of every reader or cache. Do not relabel ordinary v10 reading or an aggregate pass count as these receipts. |
-| **CA-15 · remaining CLI refusal conflation** | Current `cli/golden.py:50–52` catches ValueError/LookupError/DBAPIError as `refused`; `cli/eval.py` consumes that session. `cli/regenerate.py:209` also conflates broad failures. The typed domain/DBAPI classifier does not reach all current routes. | **SP-I05.** Complete actual CLI adapter adoption: expected typed refusals, transient/fencing database outcomes and unexpected defects remain distinct. Exercise real dispatch, retaining cancellation and proposal correction accounting. Generic happy-path equivalence is not a blocker or completion of the selected classification improvement. |
-| **CA-16 · named continuation taxonomy** | `serve/journey.py:180–191,212–223` collapses wrong query/version/parameters/release/realization/revision/projection into StaleToken. Named CLI responses expose that same class; primitive WrongRelease/StaleSnapshot distinctions do not reach this consumer. | **SP-I05.** Consolidate continuation identity validation and preserve machine-readable wrong-binding versus stale-state distinctions through named query/CLI output. Existing token identity checks retain credit; distinguish their presence from completion of the planned public taxonomy. |
-| **CA-17 · duplicate snapshot ownership** | `cli/explain.py:31–35` and `cli/export.py:31–34` still own manual REPEATABLE READ/read-only blocks instead of the selected shared `read_snapshot` owner and SQLAlchemy `postgresql_readonly=True` path. Current behavior appears equivalent; no concrete blocker for adoption was found. | **SP-I05.** Adopt the common opener or establish a necessary equivalent preserving one maintained snapshot/lifetime owner. This is an uncompleted library/ownership consolidation, not evidence that every current snapshot is inconsistent. |
-| **CA-18 · evidence prematurely reduced by policy** | After finite numerical agreement, `semantic/scientific_evidence.py:843–873` returns UNDECIDED rather than agreement evidence; the evidence numeric status becomes inconclusive. The reference policy's later agreement→undecided decision cannot receive the observed agreement from the actual kernel. | **SP-I06.** Retain actual agreement/counterexample/unavailable evidence before applying the existing consumer policy. Preserve reference grading behavior and test the actual kernel-to-policy path; a manually constructed NUMERIC evidence test is insufficient. No regrading or scientific policy change is authorized. |
-| **CA-19 · evaluation explanation loss** | `evaluate/semantic_alignment.py:224–227,675–695` reduces then discards successful scientific tiers/evidence. Persisted reference matches retain pair IDs and global policy; scoring `tiers` describe core/full/evidence levels, not canonical/symbolic/numeric scientific tiers. | **SP-I06.** Carry the versioned comparison evidence and decision policy into actual persisted reference assessments/explanations, including successful comparisons. Consolidation's typed envelope remains credited. Do not change grade policy or introduce a parallel evidence service. |
-| **CA-20 · omitted database property restriction** | `_known_input` uses the new Core membership subquery, but selects and hydrates every selected fact/value graph for all input members (`semantic/domain_operations.py:427–460`), then computes identity/required/display eligibility in Python (`491–519`). Selected prepared property-role sets and database-side restriction were skipped without a located blocker. | **SP-I07.** Prepare roles once and restrict fact selection/hydration to the semantically required input/display universe while preserving complete global entity identity candidates. Existing post-resolution support/exclusion closure is retained. This does not require streaming, native recursion or a benchmark. |
-| **CA-21 · unauthenticated reserved-name disposal** | `scripts/native_test_support.py:403–416` checks absence then drops with `require_comment=False`. A same-owner actor can create the name before CLI initialization, whose `_create` adopts an existing database; the reservation later drops it. The `database()` collision guard does not protect this separate `reserved()` route. | **SP-I08.** Authenticate the operation's actual creation/database identity before adoption and cleanup; preserve an intervening database after collision/cancellation. Add a reserved CLI-path race control. A shared or exclusive cooperative lease alone does not authenticate a noncooperating creator. |
-| **CA-22 · supervisor termination cleanup** | `scripts/test_receipts.py:78–95` starts a detached child session, but catches only timeout/KeyboardInterrupt and installs no parent SIGTERM handler. SIGTERM to the runner bypasses owned-group drain/process-receipt finalization; its child can outlive the supervising deadline. | **SP-I09.** Handle supported external termination, drain only the owned group, preserve interruption receipts and prevent later Rust execution. Verify actual parent SIGTERM with an isolated control. Existing child-kill/Ctrl-C cases retain credit; no impossible guarantee for uncatchable SIGKILL is implied. |
+| **CA-12 · Complete native authoring** | One exact-candidate bundle emits Core physical/view products, row projections, protected transport and frozen forward kernels. Insertion order follows the shared foreign-key graph; changed/unmapped contracts have actual CLI output or located refusal controls. | **SP-I02: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
+| **CA-13 · Canonical lazy boundary identity** | One release runtime reuses canonical classes/adapters and publishes staged closures atomically. Overlap, recursive/abstract, failure and concurrent public-instance controls pass while unrelated classes remain demand-built. | **SP-I04: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
+| **CA-14 · Release transition qualification** | Genuine compiler-10/11/12 fixtures, compiler-13 runtime/cache/database controls and selected old-answer/new-activation query/explain/ADBC/export controls pass at focused native scope. | **SP-I04: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
+| **CA-15 · Typed actual consumer failures** | Golden/evaluation/regeneration/schema/database routes and deep archive adapters preserve owned refusals, SQLSTATE retry/fencing/defects, unexpected bugs and cancellation. Actual registered dispatch controls cover the lower boundaries. | **SP-I05: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
+| **CA-16 · Modeled continuation taxonomy** | Shared model-bound validation preserves wrong-binding and stale reasons through primitive/named/CLI routes, including query-version staleness and original-run pinning. Existing wire formats remain. | **SP-I05: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
+| **CA-17 · Shared snapshot ownership** | Explain/export/schema/database consumers use the shared repeatable-read/read-only owner; ADBC completes within its source lifetime. Actual pool/reset/cancellation controls retain the intended boundaries. | **SP-I05: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
+| **CA-18 · Raw scientific evidence** | The actual numeric kernel retains agreement and valid points before the archived decision mapping. Reference agreement still decides undecided; acquisition profile and selected policy are distinct. | **SP-I06: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
+| **CA-19 · Persisted scientific explanation closure** | Selected entity/key/local-symbol, expression-binding and claim/qualification traces retain counterparts and paths. LinkML report schemas drive reusable JSON Schema validation and native traversal/policy-row enforcement, including nested/empty-array/tampering controls. | **SP-I06: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
+| **CA-20 · Database property restriction** | Prepared effective roles are immutable rows used in a Core correlated EXISTS before fact/value hydration. Complete global candidates and inherited facets remain; a native noise-value control proves the narrowing reaches loading. | **SP-I07: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
+| **CA-21 · Acknowledged database ownership** | Both acquisition paths require operation nonce, OID and owner acknowledgement for cleanup. Creation-only CLI refuses an intervening database; uncertain creation cannot confer disposal authority. Actual collision/cancellation controls pass. | **SP-I08: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
+| **CA-22 · Owned supervisor termination** | A runner-scoped SIGTERM/SIGINT latch controls bounded waiting, owned-group drain and receipt finalization. Repeated signals cannot launch later Rust or erase completed reports; actual parent-signal controls pass. | **SP-I09: closed for the named obligation; implemented and scoped Tested, 2026-10-30.** Focused evidence and final scope are in §14. |
 
 Source paths in the finding table are relative to `python/corpus-structure/src/corpus_structure`
 for Python modules and `python/corpus-structure/semantic_alembic/versions` for frozen SQL.
@@ -777,7 +777,7 @@ implementation, incomplete qualification, bounded benefits; no disconnected exce
 
 ## 14. Improvement integration (2026-10-29)
 
-**Planned; no implementation progress claimed.** Consume
+**Selected scope implemented and scoped Tested, 2026-10-30.** Originally consumes
 [improvement review I01–I11](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md)
 at `1f66fd4`, reconciled with authoring baseline `8578710` (product `ad4593f`). The newly committed
 broader diagnostic account is separately owned; this integration does not silently adopt its
@@ -791,9 +791,11 @@ fingerprint, diagnostic or unsupported-profile label substitutes for missing beh
 
 ### Accepted planning decisions and rule routes
 
-The operator explicitly selected all three recommended options on 2026-10-29. These are target
-choices accepted for planning; execution must establish the successor authority before depending
-on them. Accepted ADRs are immutable. No production deployment follows from this document update.
+The operator selected all three recommended options on 2026-10-29. ADR-0031 realizes the
+opening/admission choices, ADR-0032 owns native fixture equivalence, and ADR-0033 extends the
+relational execution realization. The table retains the accepted requirements and original routes;
+these decisions are established, not pending. Accepted ADRs are immutable. No operational
+deployment follows from this scoped implementation.
 
 | Decision | Accepted consequence | Required route / dependent work |
 |---|---|---|
@@ -812,7 +814,7 @@ extractor conflict is scheduled successor-decision work, not silently repaired p
 
 Three new documents own added integrated work; the original eight retain their contract meanings,
 original package IDs and dated evidence. There is one coordinator queue/disposition owner.
-Original packages do not become complete merely because additional remediation is planned.
+Original packages do not become complete merely because this additional remediation is complete.
 
 | Package | Owning document / responsibility | Working input and readiness / closure contribution |
 |---|---|---|
@@ -826,20 +828,9 @@ Original packages do not become complete merely because additional remediation i
 | SP-I08 | [Qualification](semantic-model-pivot/qualification-infrastructure.md#SP-I08): session native preparation and posture | PR-03 and actual role/workspace contract from SP-I03; cold fixture/consumer contract preparation can proceed earlier. |
 | SP-I09 | [Qualification](semantic-model-pivot/qualification-infrastructure.md#SP-I09): streamed outcome/watchdog/required-union accounting | Existing test route, independent of product corrections. Supplies actionable final qualification, not a substitute for real native/provider tests. |
 
-**Current completion audit at `d004504`: SP-I01/SP-I03 have their selected implementation;
-SP-I02 and SP-I04–SP-I09 are partial.** The audit below and CA-06/CA-12–CA-22 own remaining
-obligations. Earlier 450/697/805-case scoped receipts retain their actual credit; none alone
-establishes the omitted authoring, consumer or failure-path behavior. The
-[release/consumer checkpoint](semantic-model-pivot/release-and-consumer-consolidation.md#execution-checkpoint--2026-10-29)
-and [qualification checkpoint](semantic-model-pivot/qualification-infrastructure.md#execution-checkpoint--2026-10-29)
-retain mechanisms and exact evidence boundaries with their corrected local conclusions.
-Operational SP-09 and complete SP-10 qualification remain separate. Whole-tree Pyrefly passed;
-whole-repository lint diagnostics and final functional coverage retain their exact current
-outcomes in that checkpoint rather than treating earlier scoped results as complete acceptance.
-The [model-execution checkpoint](semantic-model-pivot/model-execution-closure.md#execution-checkpoint--2026-10-29) retains SP-I01–SP-I03 foundation evidence. Semantic definitions, generated declarations and manifests retain
-one writer per integrated slice; logical readiness does not imply safe parallel edits. One root
-author/integrator reconciles shared changes. Focused source/library/design advice is used only
-for actual open contracts, not a fixed recurring role sequence or another broad audit.
+**Current execution: SP-I01–SP-I09 selected scope is implemented and scoped Tested,
+2026-10-30; all 975 required nodes have applicable passing evidence.** CA-06/CA-12–CA-22 retain their single disposition rows in §13;
+the current closure and original audit boundary are detailed below.
 
 ### Recommendation and opportunity selection
 
@@ -936,72 +927,62 @@ selection, implementation and verified completion remain separate claims.
 
 ### Completion audit — all SP-I01–SP-I09, 2026-10-29
 
-**Audit complete as an assessment; improvement scope is not complete.** Baseline was clean
-`d00450452a42c0d2484b7db7b5824f54b8dad22b`. Scope is all three improvement plans, their accepted
-target narratives and execution choices, PR-01–PR-03, review I01–I11 and materially affected
-consumers. The implementation checkpoints were evidence, not authority for narrowing acceptance.
-Fresh independent reviewers covered native/model execution, archive opening, and consumer/science/
-analytical integration; the coordinator independently inspected receipt coverage and key seams.
+The independent audit at clean `d004504` found twelve obligations: CA-06 and CA-12–CA-22.
+Its failed lazy-boundary record and the original 450/697/805-case receipts remain dated evidence;
+their scopes and overlap do not change through later implementation. The audit's scope included
+actual library advantages, preservation, consumers and required compatibility controls.
 
-| Package | Implementation and actual library realization | Remaining obligation |
-|---|---|---|
-| SP-I01 | Contextual LinkML induction/ancestry, aliases/references, Pydantic/jsonschema purposes/results and finite values, frozen cattrs products, actual result constructors and RDFLib/PySHACL graph contract/lifetime consumers are connected. No new package-local implementation gap found within ADR-0031's accepted profile. | Retains scoped evidence; I02 effect correspondence and I04 opening integration do not become complete through this judgment. |
-| SP-I02 | Core DDL/CreateView, pglast physical checks, finite edge derivation, current frozen reconciliation and bounded Alembic comparison are present. The actual authoring route omits selected transport and edge/view outputs; declared effects have no maintained enforcing correspondence. | **Partial:** CA-06, CA-12. |
-| SP-I03 | Intrinsic/value-child immutability, complete restricted archive publication/replay/CAS, separate live deployment admission, purpose-safe sequential psycopg pools/NullPool, protected inference workspace and exact codec are connected. No new package-local implementation gap found in the supported boundary. | Retains scoped evidence; this is not certification of unrecognized changed effects or full product/provider acceptance. |
-| SP-I04 | Explicit acquisition/pure composition, LinkML import/induction isolation, archived products, shared builder/index, demand adapters, open/verify separation and runtime determinants reach consumers. Overlapping lazy construction breaks model identity; promised transition/cache/runtime cases are unverified. | **Partial:** CA-13, CA-14. |
-| SP-I05 | Public scoped Core reads/hydration, exact predicates, required-universe coverage, validated reference visitor, finite fields and some typed CLI/MCP adapters are adopted. Other current consumers retain old error, token and snapshot ownership paths. | **Partial:** CA-15–CA-17. |
-| SP-I06 | Semantic scientific functions, preserved distinct policies, consolidation envelopes and actual typed rule-engine OBJECT/ARRAY/MAPPING/NULLABLE accessors are present. Reference agreement evidence and persisted successful-comparison explanations are lost. | **Partial:** CA-18, CA-19. |
-| SP-I07 | Actual DuckDB relation.query/TEMP macros/query_table, Core identity subqueries, complete identity universe, retained used-evidence closure, Arrow metadata/exactness and PG/ADBC/pgpq lifetimes/fencing are present. Prepared property-role predicates do not reach fact selection before hydration. | **Partial:** CA-20. |
-| SP-I08 | Package-wide native template, fresh commits/logins, normalized ACL/default replay with real transactions and SET FROM CURRENT, cold/revision controls and most leased cleanup paths are implemented. Reserved CLI creation lacks operation-authenticated disposal. | **Partial:** CA-21. |
-| SP-I09 | Actual reportlog flushing/public hooks, pytest thread watchdog, parent bound, native subprocess/Rust artifacts, explicit prerequisites/selection, Hypothesis route and CA-09 MCP/settings controls are present. Parent SIGTERM bypasses the supervisor's cleanup path. | **Partial:** CA-22. |
+#### Execution closure — 2026-10-30
 
-For each selected feature the audit followed intended advantage → actual library call → consumer
-→ preserved guarantee. A substitute is acceptable only with a concrete blocker and preserved
-guarantees. Reportlog's absent manifest/phase-start API is a documented blocker addressed by the
-small public-hook companion. PostgreSQL list/default semantics are correctly delegated to
-set_config/SET FROM CURRENT. Native cloning instead of pytest-postgresql is the accepted route.
-No comparable blocker was located for skipped transport authoring, Core property-role filtering
-or shared snapshot adoption; equivalent current output does not close those planned improvements.
+**Selected implementation and scoped qualification complete, 2026-10-30.** The required union
+covers 975 distinct nodes. Source `c122457` plus the bounded invalid-manifest ordering correction
+at `2bcbfe7` has applicable evidence as detailed below. The approved
+execution addresses all twelve obligations structurally. ADR-0033 records the release-row/native
+realization; ADR-0031's bounded supported profile and immutable historical reading remain.
+Original SP-09/SP-10 operational regeneration/corpus/provider work is outside this execution.
 
-Explicitly deferred streaming/delta rounds, persisted keys, alternate graph/analytical backends
-and attrs/msgspec remain deferred, not missing installations. ADR-0031's native pattern/grouping
-profile is an accepted scope decision. Neither of those decisions excuses the selected gaps.
+| Packages | Current model and actual library realization |
+|---|---|
+| SP-I01/SP-I02/SP-I03 | Contextual LinkML definitions normalize through frozen cattrs products into one mandatory execution lookup and seven intrinsic relational projections. Required effect IDs/versions, implementation profiles and transition refinements are checked against independent code support. Native admission and complete protected lifecycle operations consume those rows; shared Core DDL/CreateView, pglast and bounded Alembic checks remain. Candidate output includes actual transport, projection rows, kernels and forward products. Core foreign-key order drives insertion with its declared identity dependency. |
+| SP-I04 | One canonical demand-built Pydantic runtime, staged model_rebuild/TypeAdapter publication and synchronized field adapters preserve overlapping/concurrent identities. Genuine compiler-10/11/12 archives and compiler-13 products have explicit reader/verification/runtime/cache controls. A selected old answer survives new activation through actual query/explanation/ADBC/export dependencies. |
+| SP-I05 | Real CLI/MCP/serving consumers share typed refusal/SQLSTATE distinctions, modeled continuation reasons and a single SQLAlchemy repeatable-read/read-only snapshot owner. Archive/compiler boundaries preserve infrastructure and programming failures rather than relabel them. |
+| SP-I06 | LinkML evidence/policy/report types derive JSON Schema validation and native traversal. Draft202012Validator checks the generated schema once and is reused with located errors. Raw evidence, actual decision policy, entity/binding/claim counterparts and recursive paths survive actual report persistence. Native policy-row/layout checks prevent independent guard interpretation; policies and existing grades remain unchanged. |
+| SP-I07 | One effective identity/required/display role index supplies immutable rows; Core membership/role EXISTS restricts fact/value hydration before loading, preserving complete global candidates and used evidence closure. DuckDB native bindings, Arrow metadata/exactness, ADBC snapshot lifetimes and pgpq fencing remain. |
+| SP-I08/SP-I09 | Acknowledged name/nonce/owner/OID governs creation-only CLI acquisition and cleanup. Sticky supervisor cancellation owns process groups and durable interruption receipts. Actual native races, failure windows, SIGTERM/SIGINT, retained reports and no-later-Rust controls pass at focused scope. |
 
-#### Verification and benefit boundaries
+Semantic compiler 13/execution compiler 4 retain boundary ABI 12/archive envelope 3. Frozen 0033
+adds the stable relations/guards; old revisions and old archive bytes remain unchanged. Supported
+edge/role/policy variation becomes release rows. A changed algorithmic requirement without actual
+support refuses with contract, consumer, expected/actual and remediation through existing
+`schema check`, `schema derive` and `db check` owners. No generic workflow engine or alignment lint
+was introduced. Explicitly deferred streaming/delta/backends remain deferred.
 
-- **450 cases:** retain the original dated SP-I01–SP-I03 command/tool-session qualification.
-  Standalone raw receipts were not available in the inspected checkout, so this audit does not
-  claim to independently reconstruct that historical count or rerun it.
-- **697 cases:** independently parsed the selected collection and original XML receipts without
-  calling the production classifier: 697 selected nodes have passing reports, none unmapped or
-  uncovered. The files also retain 11 failure reports and repeated passing cases; those are not
-  summed into distinct coverage or relabelled passing invocations.
-- **805 cases:** independently reconstructed collection sets and successful setup/call/teardown,
-  protocol finish and session/process status from raw JSONL: all 805 selected nodes have passing
-  evidence across the six named receipts. Source fingerprints differ. The documented replay/
-  fixture-owner changes have bounded controls; selection coverage is not proof that all accepted
-  requirements were selected. CA-14 and the source-inspected omissions remain outstanding.
-- **One new database/provider-free control:** archived lazy closure reuse failed model-instance
-  conformance under Pydantic 2.14.1/Python 3.14.10. The finalized evidence record
-  [audit.lazy-boundary-identity](../design_review/evidence/2026-10-29_semantic-improvement-completion-audit/README.md)
-  informs CA-13. No application source, migrations, operational data or grading was repaired.
-- The interrupted 78-page corpus run remains failed/incomplete. Original SP-09/SP-10 explicitly
-  own actual product/provider and complete broad qualification, so their open corpus/provider
-  work does not itself manufacture another implementation defect in every improvement package.
-  It also cannot discharge support-package gaps or justify an unrecorded scope reduction.
-- Existing warning-aware type and scoped hygiene receipts retain credit; the 19 untouched Ruff
-  diagnostics still prevent full repository hygiene. Formatting/lint did not invalidate passing
-  typing/tests, and this audit did not repeat those campaigns. Documentation checks cover the
-  audit edits only. Structural reuse/ownership/native binding benefits are supported; no new
-  speed, memory, capacity or extraction-quality benefit is claimed or required by this scope.
+Verification receipts are under `build/test-receipts/closure-integration/`, with worker provenance
+under its `native-worker/` and the retained `closure-support/`, `closure-science/`,
+`closure-qualification/` and `ca-closure/archive-worker-20261029/` receipts. The first combined
+967-case invocation remains **failed: 943 passed/24 failed**. It identified transport dependency
+ordering, an independently authored report path and outdated writer/schema test scaffolding.
+Those defects and their focused controls were corrected; failed raw reports are not overwritten.
+The later combined invocation `final-union/` retains **974 passed/1 failed** with complete
+reporting. Its single failure was the invalid-manifest diagnostic ordering; identity verification
+now precedes bound operation lookup. `manifest-order/` **passed 52 release controls** on that
+correction and `publication-order/` **passed one restricted publication control**. These overlap:
+**975 distinct required nodes have applicable passing setup/call/teardown and protocol finishes**;
+none is unresolved. `scope-union-command.json` records the exact classifier command using the
+actual collection manifest. Its aggregate remains **failed**, correctly preserving the failed
+invocation; no failed command is relabelled passed. `scope-independent.json` separately reconstructs
+all 975 from raw collection, report and protocol events without using the production classifier.
 
-Next execution is the bounded remaining work in CA-06/CA-12–CA-22, followed by affected evidence
-and the still-owned SP-09/SP-10 obligations. This audit authorizes plan/status corrections, not
-production repairs. Finding disposition remains in the existing table above; supporting plans
-link there rather than maintain duplicate mutable ledgers.
+The release correction changes error precedence only for inconsistent archive identity, covered
+by the complete 52-case release selection and protected publication. Valid source/consumer paths
+retain their applicable combined-run results. Later formatting/string splitting, unused-local
+removal and equivalent context-manager grouping do not invalidate typing or functional results.
+This is scoped-union qualification, not a claim that one final full command exited zero.
 
-The new conformance record was finalized through the existing evidence owner. Global
-`just evidence` remains **failed** with five older-record errors (two unresolved references and
-three missing hashes) plus 37 warnings; the new record adds no validation error. Existing
-evidence/index/catalog machinery was reused, not replaced. Publication/maintenance results for
-these documentation edits are recorded in STATUS; no lint-triggered test/type repetition occurs.
+Warning-aware `uv run pyrefly check --min-severity warn --summary=none` passed with zero errors or
+warnings before the final combined run; no suppressions were added. Formatting does not invalidate
+that result. Targeted native checks used isolated databases, not operational deployments.
+Changed-file Ruff, `just lint-agents adr-lint docs-check deps`, and diff/publication checks passed.
+Repository-wide Ruff retains 18 unrelated diagnostics; full repository hygiene is not claimed.
+Earlier full corpus/provider qualification and five older evidence-record errors retain their owners. Structural reuse, shared semantics and predicate placement are
+established; no speed, capacity, memory or extraction-quality benefit is claimed.

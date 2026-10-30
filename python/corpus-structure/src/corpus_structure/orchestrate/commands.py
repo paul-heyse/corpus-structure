@@ -253,7 +253,7 @@ def finalize_bound_run(engine: Engine, run_id: int, output_realization_id: str):
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.operations import seal_cut
 
-    r, t = table("ops.run"), table("ops.task")
+    t = table("ops.task")
     with engine.begin() as conn:
         row = (
             conn.execute(text("SELECT * FROM ops.lock_finalization_run(:run)"), {"run": run_id})

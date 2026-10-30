@@ -1,6 +1,6 @@
 # Model-to-execution closure and protected native products
 
-**Status:** SP-I01/SP-I03 implemented within the accepted boundary; SP-I02 partial; scoped receipts retained · **Created/Revised:** 2026-10-29. Consumes improvement review
+**Status:** Selected scope complete; implemented and scoped Tested · **Created/Revised:** 2026-10-30. Consumes improvement review
 [I01](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I01),
 [I02](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I02),
 [I03](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I03),
@@ -265,35 +265,41 @@ regrade, performance benchmark or complete SP-10 qualification is claimed. `just
 (276 canonical pages, zero link errors). Formatting/import cleanup preserved functional evidence; no
 type/test rerun was triggered by lint. Remaining series work is recorded in the coordinator and STATUS.
 
-## Completion audit — 2026-10-29
+## Completion audit and closure — 2026-10-30
 
-**Assessed at clean `d004504`; SP-I02 is partial.**
-[Coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
-owns the combined SP-I01–SP-I09 audit and current CA-06/CA-12 disposition. This audit used the
-accepted pre-execution target and actual consumers, rather than taking this checkpoint's
-implementation summary as completion authority.
+**Implemented and scoped Tested, 2026-10-30.** The audit at `d004504`
+identified CA-06/CA-12; the coordinator retains their single disposition home. ADR-0033 records
+the selected structural realization, extending ADR-0031 without changing its supported profile.
 
-SP-I01's contextual LinkML induction/ancestry, normalized bindings/reference positions, shared
-Pydantic/jsonschema purposes and result constructors, frozen cattrs products and bound RDFLib/
-PySHACL graph consumers are implemented within ADR-0031's accepted native profile. SP-I03's
-meaning-closure guards, restricted complete admission/replay/CAS, purpose-safe sequential psycopg
-pools lent to NullPool, protected inference workspace and exact codec are connected. No additional
-package-local implementation gap was established for those selected mechanisms. Their integration
-still depends on the remaining native correspondence and archive/consumer work.
+One immutable execution binding resolves operation, implementation/version, required effects,
+transition refinements and outcomes. Independent code-owned support profiles reject unknown,
+moved or incompatible requirements with located expected/actual/remedy diagnostics. Native
+admission and complete protected operations consume the same release-scoped projections;
+body hashes remain custody checks. Task claiming retains its set-based SKIP LOCKED batch.
+Lifecycle mutation grants are narrowed; protected locking/finalization replaces direct writer DML.
 
-SP-I02 uses real Core DDL/CreateView, pglast checks, finite-edge derivation, frozen forward
-reconciliation and bounded Alembic comparison. However:
+Seven fixed relations hold operation/transition/edge/effect requirements, effective property roles
+and scientific decision rules. Effect versions are rows, not PostgreSQL CHECK vocabulary lists.
+Publication/replay compares complete projected sets and closes them intrinsically at finalization.
+Supported edge and role variation becomes additional release data rather than regenerated global
+function literals. Unknown semantic support refuses before descriptor rebasing or admission.
 
-- **CA-12:** the retained transport generator has no actual authoring caller. Candidate derivation
-  uses consolidation products that discard generated edge/view replacement SQL. Working frozen
-  current routines do not establish the promised maintained authoring route. Connect those
-  products, or establish an equivalent with a concrete blocker and preserved advantages.
-- **CA-06:** effect declarations are stored but do not constrain the supported effect kernels or
-  cause refusal when changed. Regenerating model identity/body digests is insufficient. Supply
-  bounded correspondence and independent changed-effect cases; no general proof engine is needed.
+Candidate authoring prepares once and emits Core DDL/CreateView, transport, exact projection rows,
+owned kernels, manifest and ordered forward products. Transport insertion follows Core foreign-key
+dependencies plus the declared value-role/fact identity dependency; invalid explicit orders refuse.
+Creation, verification, content, insertion and disposal share this contract. Frozen revision 0033
+realizes it; 0031/0032 remain unchanged. Populated historical upgrades and CHECK/kernel variants
+retain independent controls. Semantic compiler 13/execution compiler 4 retain boundary ABI 12 and
+archive envelope 3; old readers do not gain current write authority.
 
-The original 450-case dated command/tool-session receipt retains its scope. Standalone raw reports
-for independently recounting it were not located; this audit did not rerun it. Later 697/805-case
-selected unions were independently reconstructed, with overlap left unadded. None closes the
-source-inspected omissions. New native/provider campaigns and production repairs were **not_run**.
-Benefits established here are structural ownership/reuse; no new speed or quality claim follows.
+Focused native controls passed for effect references/versions/bindings, changed edge rows, actual
+CLI output/refusal, native posture, populated upgrades and protected operations. The first combined
+967-case invocation retained 943 passes/24 failures: these exposed transport ordering, a duplicated
+scientific report layout and outdated test actors/assertions. Their corrected controls passed;
+that invocation remains failed. Final scope and receipts belong to the coordinator closure.
+Earlier 450/697/805-case receipts retain their dated credit; no counts are added or relabelled.
+
+The coordinator's closure owns 975 required nodes with applicable passing evidence across the
+combined and focused repair receipts. It explicitly preserves the failed combined invocation,
+source applicability, independent raw reconstruction and the lack of a single final full zero-exit
+command. This scoped completion does not close original SP-09/SP-10 or full repository hygiene.

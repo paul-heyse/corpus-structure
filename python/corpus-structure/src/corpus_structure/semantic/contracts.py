@@ -381,7 +381,9 @@ class ExecutionModelProducts:
                     consumer="bound_execution_model",
                     expected="declared owned operation",
                     actual="missing",
-                    remedy="include the required operation in the bound model and derive a new release",
+                    remedy=(
+                        "include the required operation in the bound model and derive a new release"
+                    ),
                 ),
             )
         )
@@ -431,7 +433,11 @@ def _validate_effect_support(model: ExecutionModelProducts, operation: Operation
                     consumer=f"{binding.owner}:{binding.symbol}",
                     expected=repr(supported),
                     actual=repr(actual),
-                    remedy="implement the required bounded effect profile, then ci schema derive --out <new-directory> and deploy a reviewed forward revision",
+                    remedy=(
+                        "implement the required bounded effect profile, then "
+                        "ci schema derive --out <new-directory> and deploy a reviewed "
+                        "forward revision"
+                    ),
                 ),
             )
         )
@@ -707,7 +713,10 @@ def _validate(products: ExecutionModelProducts) -> None:
                         consumer="owned effect implementation",
                         expected=repr(supported_version),
                         actual=effect.version,
-                        remedy="implement this effect version and derive a new reviewed release before admission",
+                        remedy=(
+                            "implement this effect version and derive a new reviewed "
+                            "release before admission"
+                        ),
                     ),
                 )
             )

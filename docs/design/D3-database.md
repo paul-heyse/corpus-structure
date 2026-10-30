@@ -106,10 +106,10 @@ old read success never authorizes current writes or activation.
 
 ## Native test deployment equivalence
 
-**Partially implemented; scoped Tested, 2026-10-29; implementation/verification belongs to
+**Implemented; focused Tested, 2026-10-30; integrated qualification belongs to
 [SP-I08](../plans/semantic-model-pivot/qualification-infrastructure.md#SP-I08).**
-The completion audit retains CA-21 for operation-authenticated reserved CLI creation/cleanup;
-the target below is not relaxed to permit that gap.
+Creation and cleanup use acknowledged operation nonce, database OID and owner, including the
+reserved CLI route; uncertain creation or an intervening database confers no disposal authority.
 Ordinary semantic consumers receive fresh committed databases cloned from one session-migrated
 frozen deployment. Database ownership/connection limit, ACL grantors/options and database/role
 defaults are replayed explicitly and checked for equivalence; PostgreSQL template copying alone

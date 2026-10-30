@@ -152,7 +152,8 @@ def test_candidate_edge_rows_change_native_answer_without_replacing_guard(
     with admitter.begin() as conn:
         before = conn.scalar(
             text(
-                "SELECT prosrc FROM pg_proc WHERE oid='ops.execution_edge(text,text,text,text)'::regprocedure"
+                "SELECT prosrc FROM pg_proc WHERE "
+                "oid='ops.execution_edge(text,text,text,text)'::regprocedure"
             )
         )
         persist_release(conn, _bundle(), deps, profile, prepared)
@@ -175,22 +176,23 @@ def test_candidate_edge_rows_change_native_answer_without_replacing_guard(
         assert (
             conn.scalar(
                 text(
-                    "SELECT prosrc FROM pg_proc WHERE oid='ops.execution_edge(text,text,text,text)'::regprocedure"
+                    "SELECT prosrc FROM pg_proc WHERE "
+                    "oid='ops.execution_edge(text,text,text,text)'::regprocedure"
                 )
             )
             == before
         )
     # The unchanged complete start kernel cannot silently execute an edge removed by the model.
-    with semantic_db_engine.begin() as conn:
-        with (
-            pytest.raises(DBAPIError, match="undeclared operation transition"),
-            conn.begin_nested(),
-        ):
-            conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-            conn.execute(
-                text("SELECT ops.require_transition(:r,'execute_source','created','running')"),
-                {"r": prepared.release_id},
-            )
+    with (
+        semantic_db_engine.begin() as conn,
+        pytest.raises(DBAPIError, match="undeclared operation transition"),
+        conn.begin_nested(),
+    ):
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        conn.execute(
+            text("SELECT ops.require_transition(:r,'execute_source','created','running')"),
+            {"r": prepared.release_id},
+        )
 
 
 @pytest.mark.parametrize("revision", ["semantic_0030", "semantic_0031", "semantic_0032"])
@@ -205,7 +207,10 @@ def test_supported_predecessors_upgrade_to_relational_execution(semantic_databas
         assert (
             conn.scalar(
                 text(
-                    "SELECT count(*) FROM information_schema.tables WHERE table_schema='sem' AND table_name IN ('execution_operation','execution_transition','execution_edge','operation_effect','transition_effect','operation_property_role','scientific_decision_rule')"
+                    "SELECT count(*) FROM information_schema.tables WHERE table_schema='sem' "
+                    "AND table_name IN ('execution_operation','execution_transition',"
+                    "'execution_edge','operation_effect','transition_effect',"
+                    "'operation_property_role','scientific_decision_rule')"
                 )
             )
             == 7
@@ -393,40 +398,42 @@ def test_native_admission_rejects_unimplemented_scientific_layout(
         persist_release(connection, bundle, dependencies, profile, prepared)
     # Independently challenge native compatibility after the compiler has verified its source.
     # Only the authenticated administrator can inject this formerly admitted/corrupt recipe.
-    with semantic_db_engine.begin() as admin:
-        with administrative_archive_edit(admin, table("sem.artifact")):
-            original = bytes(
-                admin.scalar(
-                    text(
-                        "SELECT content FROM sem.artifact WHERE release_id=:release "
-                        "AND artifact_name='operation/scientific-policy.json'"
-                    ),
-                    {"release": prepared.release_id},
-                )
-            )
-            recipe = json.loads(original)
-            if change == "empty":
-                recipe["comparison_paths"], recipe["array_rules"] = [], []
-            elif change == "partial":
-                recipe["comparison_paths"] = recipe["comparison_paths"][:1]
-            elif change == "moved":
-                recipe["comparison_paths"][0] = "$.unconsumed[*].comparisons[*]"
-            else:
-                next(rule for rule in recipe["array_rules"] if rule["field"] == "units")[
-                    "required"
-                ] = False
-            encoded = json.dumps(recipe).encode()
-            admin.execute(
+    with (
+        semantic_db_engine.begin() as admin,
+        administrative_archive_edit(admin, table("sem.artifact")),
+    ):
+        original = bytes(
+            admin.scalar(
                 text(
-                    "UPDATE sem.artifact SET content=:content,content_digest=:digest "
-                    "WHERE release_id=:release AND artifact_name='operation/scientific-policy.json'"
+                    "SELECT content FROM sem.artifact WHERE release_id=:release "
+                    "AND artifact_name='operation/scientific-policy.json'"
                 ),
-                {
-                    "content": encoded,
-                    "digest": sha256(encoded).hexdigest(),
-                    "release": prepared.release_id,
-                },
+                {"release": prepared.release_id},
             )
+        )
+        recipe = json.loads(original)
+        if change == "empty":
+            recipe["comparison_paths"], recipe["array_rules"] = [], []
+        elif change == "partial":
+            recipe["comparison_paths"] = recipe["comparison_paths"][:1]
+        elif change == "moved":
+            recipe["comparison_paths"][0] = "$.unconsumed[*].comparisons[*]"
+        else:
+            next(rule for rule in recipe["array_rules"] if rule["field"] == "units")["required"] = (
+                False
+            )
+        encoded = json.dumps(recipe).encode()
+        admin.execute(
+            text(
+                "UPDATE sem.artifact SET content=:content,content_digest=:digest "
+                "WHERE release_id=:release AND artifact_name='operation/scientific-policy.json'"
+            ),
+            {
+                "content": encoded,
+                "digest": sha256(encoded).hexdigest(),
+                "release": prepared.release_id,
+            },
+        )
     with (
         pytest.raises(DBAPIError, match="unsupported scientific report layout"),
         admitter.begin() as connection,

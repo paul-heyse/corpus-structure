@@ -189,7 +189,8 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
         )
     )
     kernels += "\n" + "\n".join(
-        f"GRANT SELECT ON {name} TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;"
+        f"GRANT SELECT ON {name} TO corpus_sem_writer,corpus_sem_reader,"
+        "corpus_sem_admitter,corpus_sem_evaluator;"
         for name in sorted(new_tables)
     )
     from dataclasses import fields

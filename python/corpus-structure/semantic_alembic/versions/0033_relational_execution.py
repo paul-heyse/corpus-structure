@@ -26,7 +26,8 @@ def upgrade() -> None:
         )
     conn.exec_driver_sql("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA sem TO " + owner)
     conn.exec_driver_sql(
-        "GRANT EXECUTE ON FUNCTION ops.lock_execution_run(bigint,text),ops.require_transition(text,text,text,text),ops.execution_edge(text,text,text,text) TO "
+        "GRANT EXECUTE ON FUNCTION ops.lock_execution_run(bigint,text),"
+        "ops.require_transition(text,text,text,text),ops.execution_edge(text,text,text,text) TO "
         + owner
     )
     conn.exec_driver_sql("SET LOCAL ROLE " + owner)

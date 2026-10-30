@@ -1,6 +1,6 @@
 # Qualification infrastructure and outcome accounting
 
-**Status:** SP-I08/SP-I09 partial after completion audit; scoped receipts retained · **Created/Revised:** 2026-10-29. Consumes improvement review
+**Status:** Selected scope complete; implemented and scoped Tested · **Created/Revised:** 2026-10-30. Consumes improvement review
 [I10](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I10) and
 [I11](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I11), CBO-010/011 and CA-09/10.
 [Coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
@@ -105,7 +105,7 @@ Documentation checks establish publication integrity only.
 
 ## Execution checkpoint — 2026-10-29
 
-**Delivered mechanisms; scoped Tested, with remaining implementation below.** Source is the SP-I08/SP-I09 changes following `8170926`, with
+**Earlier scoped checkpoint; the current completed implementation and integrated boundary are below.** Source is the SP-I08/SP-I09 changes following `8170926`, with
 the acceptance fixture dependency repair described in verification. SP-09 operational work and
 SP-10 complete qualification retain their owners. No operational database, selected answer,
 automated grade or existing MCP host was regenerated or restarted.
@@ -243,35 +243,35 @@ warnings, not Pyrefly diagnostics. No latency, capacity or extraction-quality be
 SP-09 operational workflows and complete SP-10 functional/provider/nonfunctional acceptance
 remain open; this supporting package adds no human grading or regrading obligation.
 
-## Completion audit — 2026-10-29
+## Completion audit and closure — 2026-10-30
 
-**SP-I08 and SP-I09 are partial at clean `d004504`.** This package assessment is part of the
-all-SP-I01–SP-I09 audit, not a separate declaration that the rest of the series is complete.
-[Coordinator findings](../semantic-model-pivot_2026-10-29.md#findings-and-remaining-obligations)
-own CA-21/CA-22 and actionable closure.
+**SP-I08/SP-I09 implemented and scoped Tested, 2026-10-30.**
+Coordinator findings retain CA-21/CA-22 disposition; CA-09 stays closed for its named settings
+obligations. The `d004504` audit found missing acquisition and supervisor lifecycle ownership.
 
-- **CA-21 / SP-I08:** the reserved CLI database route authenticates a database owner but not the
-  operation that created it. An intervening same-owner creator can have its database adopted by
-  CLI initialization and later dropped by `reserved(... require_comment=False)`. The explicit
-  CREATE-collision protection tested for `database()` does not cover this route. Authenticate
-  creation/identity before cleanup and verify a reserved-path collision/cancellation case.
-- **CA-22 / SP-I09:** external SIGTERM to the supervising runner bypasses its timeout/Ctrl-C
-  handler and detached-child drain. Implement supported termination handling, preserve process
-  receipts and prevent subsequent Rust work; an actual parent-signal control must discriminate
-  this path from existing killed-child and KeyboardInterrupt controls.
+DatabaseReservation/OwnedDatabase carry name, operation nonce, owner and catalog OID. Reserved
+CLI initialization is creation-only and acknowledges ownership before migration; ordinary init
+remains idempotent. Cleanup rechecks acknowledged identity, never infers disposal authority from
+initial absence or an uncertain CREATE outcome. Both acquisition routes retain collision/cancellation
+residue they cannot authenticate. Actual native controls passed for same-owner intervening creation,
+CLI handoff, migration/tag/engine failure and legacy fixture compatibility. Leases, policy replay,
+independent teardown settlement and bounded normal backend-exit retries remain; FORCE is not used.
 
-The audit credited actual PostgreSQL cloning, normalized ACL/default capture, SQLAlchemy real
-transactions with parameterized set_config/SET FROM CURRENT, role-self credentials, canonical
-principals, cold/revision migrations and most authenticated cleanup paths. It also credited
-reportlog's actual flushed output, public hook gap-filling, pytest's thread watchdog, explicit
-required manifests/prerequisites, Hypothesis replay, Rust empty-selection handling and CA-09's
-real MCP/settings journey. No API-name-only substitute closed an obligation.
+A runner-scoped sticky cancellation state owns SIGTERM/SIGINT across launch, bounded waiting,
+owned-group draining and receipt finalization. Cancellation prevents later Rust work, including
+between commands; parent interruption cannot become a complete invocation. Actual process controls
+passed for repeated signals, descendant draining, retained completed reports and unrelated process
+survival. Reportlog/public hooks, thread watchdog, Hypothesis replay and explicit required manifests
+remain in use. Rust's empty selection supplies no functional coverage.
 
-The root independently parsed raw selected manifests, setup/call/teardown records, protocol
-finishes and session/process status rather than using the classifier as its own oracle. All
-805 selected nodes have applicable passing records across the six named receipts, with source
-contexts surfaced. These are valid selected-scope results, not coverage of the two missing
-paths. CA-09 stays closed for its named settings obligations; CA-10 and original SP-09/SP-10
-remain open. The interrupted corpus campaign and 19 untouched lint diagnostics do not become
-passes or automatically invalidate earlier scoped typing/tests. No new test/native/provider
-campaign or production repair was performed for these two source-conclusive findings.
+Focused support receipts retain 78 distinct applicable passing nodes with earlier failed sessions
+unchanged; these overlap other selections and are not added to them. The final integrated command
+uses the updated native head and actual consumer union. The original failed/interrupted corpus run,
+older evidence-record errors and full SP-09/SP-10 obligations remain with their original owners.
+Formatting does not invalidate scoped typing/tests; source changes were reassessed by their actual
+consumer impact. The coordinator records final qualification and benefits separately.
+
+The coordinator's closure owns 975 required nodes with applicable passing evidence across the
+combined and focused repair receipts. It explicitly preserves the failed combined invocation,
+source applicability, independent raw reconstruction and the lack of a single final full zero-exit
+command. This scoped completion does not close original SP-09/SP-10 or full repository hygiene.

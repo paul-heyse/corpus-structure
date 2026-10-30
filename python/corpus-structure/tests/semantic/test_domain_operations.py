@@ -1228,7 +1228,7 @@ def test_known_input_roles_filter_before_value_hydration(
 ):
     from corpus_structure.semantic.query import ReadSession
 
-    prepared, run, cut = fixture(
+    _prepared, run, cut = fixture(
         semantic_db_engine,
         semantic_writer_engine,
         tmp_path / "source.html",

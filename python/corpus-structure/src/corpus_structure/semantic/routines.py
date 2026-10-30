@@ -62,7 +62,10 @@ def _transport_sql(
                         consumer="protected publication",
                         expected=repr(tuple(target.c.keys())),
                         actual=repr(tuple(columns)),
-                        remedy="add the corresponding physical model fields and forward migration before deriving transport SQL",
+                        remedy=(
+                            "add the corresponding physical model fields and forward migration "
+                            "before deriving transport SQL"
+                        ),
                     ),
                 )
             )
