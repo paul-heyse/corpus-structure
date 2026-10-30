@@ -32,14 +32,14 @@ def test_frame_owns_input_collections_and_anchor_specific_decisions() -> None:
 
 
 def test_native_scorer_reaches_sentence_selection(monkeypatch: pytest.MonkeyPatch) -> None:
-    original = module.process.extractOne
+    original = module.process.extract_iter
     scorers = []
 
     def extract(*args, **kwargs):
         scorers.append(kwargs["scorer"])
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(module.process, "extractOne", extract)
+    monkeypatch.setattr(module.process, "extract_iter", extract)
     frame = Cascade(
         "Nothing related. The scale parameter is positive.",
         [FrameSentence("a", 0, 16), FrameSentence("b", 17, 49)],
@@ -97,3 +97,21 @@ def test_declared_policy_controls_fuzzy_acceptance() -> None:
     assert Cascade(text, sentences).locate("the nonnegativ integer", "a").found
     strict = PlacementPolicy(token_cutoff=100, char_cutoff=100, pick_cutoff=100)
     assert not Cascade(text, sentences, policy=strict).locate("the nonnegativ integer", "a").found
+
+
+def test_exact_placement_retains_competitors_and_fidelity():
+    frame = Cascade("same same", [FrameSentence("a", 0, 9)])
+    found = frame.locate("same", "a")
+    assert found.fidelity == "exact"
+    assert found.eligible_candidates == 2
+    assert [(c.start, c.end) for c in found.candidates] == [(0, 4), (5, 9)]
+    assert found.examined_sentences == 1
+
+
+def test_fuzzy_placement_has_coordinate_qualified_edit_witness():
+    frame = Cascade("The scale parameter is positive.", [FrameSentence("a", 0, 32)])
+    found = frame.locate("The scale parametr is positive", "a")
+    assert found.found and found.fidelity == "heuristic"
+    assert found.alignment
+    assert any(edit.operation != "equal" for edit in found.alignment)
+    assert all(0 <= edit.canonical_start <= edit.canonical_end <= 32 for edit in found.alignment)

@@ -238,6 +238,14 @@ through admitted transformations/synthetic production; exact copying and repaire
 remain distinct. [Scoped execution evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
 covers source capture, native storage, publication and readers, not the whole series.
 
+**Accepted target; implementation in progress (2026-10-30).** Deferred parsing results are
+immutable product layers with explicit root source-build and dependency custody. Weak lexical,
+structure and syntax requests do not implicitly construct symbolic values. Existing protected
+publication and archived read authority govern the layers; PP-05–PP-10 own implementation and
+qualification. Method/output versions migrate with their consumers.
+
+> Decision: ADR-0037
+
 > Decision: ADR-0036
 
 **Proposed accepted target (2026-10-30).** Analytical ownership and preparation contracts use existing release-scoped rows and immutable products; physical capture may be resident or detached spooled under one snapshot/custody contract.

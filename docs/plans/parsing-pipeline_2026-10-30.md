@@ -1,7 +1,7 @@
 # Domain-model-driven parsing pipeline
 
 **Status:** In progress; PP-00–PP-04 implemented with scoped source-product qualification;
-PP-05–PP-10 remain as bounded below. **Created:** 2026-10-30.
+PP-05–PP-10 execution in progress; scoped acceptance remains as bounded below. **Created:** 2026-10-30.
 **Basis:** [functional review](../functional_reviews/parsing-pipeline_2026-10-30.md) and
 [target model](../functional_reviews/parsing-pipeline_2026-10-30_target-model.md), consumed at
 `b3a8313`. Execution builds on `bac7a27`; product commits `799d894`, `3bc09bc` and `334da0f`
@@ -171,3 +171,29 @@ operational adoption. Native tests used owned fixtures; existing operational dat
 answers/grades, prior qualification and audit premises remain unchanged. No parser speedup, universal
 HTML coverage or full-series domain completeness is inferred. PP-05–PP-07/10 and broader PP-08/09
 remain as in §3; O01–O07 retain their full cross-package closure obligations in §4.
+
+## 8. Remaining-scope execution — 2026-10-30
+
+**In progress; Proposed until qualified.** The operator authorized PP-05–PP-10 on the
+`abd3878` baseline. ADR-0037 records immutable layered products, explicit demand stages and
+versioned consumers. The shared product registry and qualified endpoints extend existing native
+publication; legacy root manifests and frozen 0041/0042 retain their bytes. Text, interpretation
+and assessment products append rather than modifying completed source products.
+
+The implementation uses pylatexenc **3.0b2**, not the stable-2 candidate: version-3 parsing-state
+controls preserve the existing percent/dollar policy for structure-only requests. The total
+scanner/token-form identity stays unchanged. Lark 1.3.1 and SymPy 1.14.0 remain pinned; syntax
+and contextual reading are native-value-free, with explicit stronger symbolic construction.
+M09/M11 version 4, M13 version 3 and changed payload version 2 migrate their actual consumers.
+
+Runtime retains process-main-thread mathematical deadlines and native batching; nested deadlines
+compose explicitly. PP-07 placement uses version-2 recipe, cutoff-filtered candidates and native
+alignment witnesses. Source CLI/MCP readers and Arrow/Parquet export share pinned custody.
+Tokenizers/Parsel, optional publisher/article extraction, source NetworkX topology, ORM navigation,
+SPPF conversion and compiled numeric kernels are deferred until their named alignment, extraction,
+topology, ambiguity or repeated-numerical consumers justify adoption. Their absence does not
+defer any mandatory capture, attribution, query or placement obligation.
+
+Targeted failures and repairs are retained under `build/parsing-remaining` during implementation.
+The final evidence owner will retain the required receipts. No full-suite qualification, fresh
+operational adoption or remaining-package completion is claimed by this execution account.
