@@ -44,3 +44,13 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 F01's recognition opportunity remains with its owning interpretation package. Current runtime
 scope is complete; assess future source/workload growth against the recorded capacity limits.
+
+## Mathematical decomposition review — 2026-10-30
+
+[Completed review](docs/functional_reviews/symbolic-math-decomposition_2026-10-30.md) proposes
+a complete categorized source partition with start/end ranges, explicit parse views and shared
+on-demand SymPy interpretation/assessment. It retains excluded components and distinguishes
+source occurrences from mathematical values. Adoption, plan changes and implementation remain
+separate. The review changes no audit premises or existing qualification conclusions; product
+tests were not rerun for this documentation-only inquiry.
+Review documentation: **passed** `just docs-check` and `just turn-end`.
