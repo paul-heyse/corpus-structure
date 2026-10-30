@@ -1,240 +1,271 @@
 # Support structure, composition and domain authority
 
-Findings about where test support lives, what it restates and how tests couple to production
-artifacts and to each other. FP-01, FP-03, FP-04, FP-06, DP-01, DP-06, DP-17, DP-24, A1/A2/A3,
-and [companion](../design_principles/core/test-assessment.md) §2 and §5. Baseline, scope and
-method are in the [README](README.md). Paths are relative to `python/corpus-structure/` unless
-they start at the repository root.
+Findings about where test support lives, what it restates and how tests couple to production artifacts,
+to boundaries and to each other. FP-01, FP-02, FP-03, FP-04, FP-06, DP-01, DP-06, DP-17, DP-24, A1/A2/A3,
+and [companion](../design_principles/core/test-assessment.md) §2 and §5. Baseline, scope and method are in
+the [README](README.md). Paths are relative to `python/corpus-structure/` unless they start at the
+repository root.
 
 Several strengths bound the findings below:
-- The semantic database fixture is one small, explicit fixture with real restricted principals.
-- Hostile tests build a valid batch through production and then tamper with it, so the negative
-  input reaches the native boundary.
-- `tests/semantic/test_migrations.py` checks the migrated catalog against the declared physical
-  metadata, and no test pins migration revision ids, so adding a migration (SC1) is cheap for
-  schema conformance.
-- The CLI hooks that journeys patch are documented (`src/corpus_structure/cli/orchestrate.py`).
-- `tests/semantic/test_arrow_publication.py` says explicitly that its small registry avoids "application
-  preparation or semantic result oracle". That independence is deliberate, and
-  [DTA-008](#dta-008) concerns how such copies are maintained, not whether they should exist.
+- Consumers see an `Engine`, so a change to the lifecycle mechanism concentrates in two conftests and the
+  lifecycle's own controls (SC8).
+- Real releases now supply native catalogs: `test_publication.py:147-172`, `test_operations.py:114-116`.
+- Hostile tests build a valid batch through production and then tamper with it, so the negative input
+  reaches the native boundary.
+- Fault helpers reach their intended boundaries. `tests/semantic/archive_faults.py` and `snapshot_restore.py`
+  restrict targets, pause only named triggers and restore state, and a renamed trigger fails loudly.
+- `tests/semantic/test_migrations.py` checks the migrated catalog against declared physical metadata, and
+  `test_native_closure.py:313-333` byte-compares derived products with committed revisions.
+- Wrap-and-count observations with a positive assertion are sound against route removal
+  (`test_occurrence_context.py:225-230`, `test_query.py:459-476`).
+
+<a id="dta-016"></a>
+
+## DTA-016 — Journeys labelled "actual" stop short of the production wire, pool and failure boundary
+
+**Principles:** FP-02, FP-05, FP-06, DP-23; companion §5, §6, §3.
+**Subject:** implemented (`tests/semantic/test_runtime_entrypoints.py`, `test_semantic_mcp.py`,
+`test_agent_resubmission.py`, `test_source_routing.py`, `test_operations.py`; `tests/test_cli.py`,
+`tests/db/test_store.py`; `src/corpus_structure/core/db/store.py`, `src/corpus_structure/cli/status.py`).
+
+**Diagnosis.** Stand-ins are placed at the most consequential boundaries, and the stand-ins' differences
+from production are not recorded. Three boundaries share this.
+
+*Connection layer.* Both production and the harness use SQLAlchemy `NullPool`
+(`store.py:78-98`; `scripts/native_test_support.py:662`). The difference sits underneath: production draws
+from `psycopg_pool` with reused backends, a bounded `max_size`, `check_connection` and the runtime principal
+check, while the harness opens a fresh unbounded backend per checkout with none of that.
+- Reaching the production layer: `test_runtime_entrypoints.py:37` (one write journey), `test_serving.py:574-684`
+  and `test_cli_failures.py:152`, `:196` (reads), `test_interop.py:57-72`, `test_alternate_principal.py:67`,
+  `tests/acceptance/test_regeneration.py`.
+- Not reaching it: `orchestrate.ENGINE` is patched at `test_source_routing.py:99`, `:254`,
+  `test_runtime_entrypoints.py:157`, `:233`, `test_operations.py:887` and `test_known_reference_mcp.py:266`,
+  which cover `project init`, `run`, `run finalize`, `run cancel`, `direct`, `tasks` and `status`.
+- What could differ: `consolidate_cut` runs a read-only snapshot, a read-only cut, a writable span insert and
+  a SERIALIZABLE publication on one engine (`semantic/domain_operations.py:230-234`, `:619-623`, `:2029`), and
+  on `min_size=1` these can be one backend. `read_snapshot` claims "SQLAlchemy/psycopg reset ownership"
+  (`semantic/query.py:336`), but its restoration is asserted on a `NullPool` engine, where closing discards the
+  session, so the assertion cannot detect a leak on a reused session. Real-pool reset evidence exists for
+  `SERIALIZABLE` (`test_interop.py:57-72`), not for `postgresql_readonly`. The library chain reads as correct, and
+  no defect is expected; what is absent is regression protection.
+
+*Wire and host.* Every tool journey uses `fastmcp.Client(server)`, an in-memory transport carrying message
+objects. The single subprocess test stops at `initialize` (`test_runtime_entrypoints.py:176-214`). So framing,
+the process boundary, `.mcp.json`, the child configuration with `--semantic-run` (no test reference beyond a
+docstring), the published tool schema (`list_tools` only on a synthetic server), concurrent calls and disconnect
+go unobserved. `…survives_session_restart…` calls `release_claim` first (`test_agent_resubmission.py:302-311`),
+and a killed host never does.
+
+*Failure boundary.* The store's real exhaustion and lost-connection branches have no real exercise, and a control shows the
+result. On 2026-10-30, with `CORPUS_DATABASE__URL` and `CORPUS_DATABASE__READER_URL` pointed at a nonexistent socket:
+- **`ci query claims --project p` ends in an uncaught `PoolTimeout: pool initialization incomplete after 30.0 sec`** with a traceback and exit 1, not
+  `database_retry`. `failure_boundary` catches `DBAPIError` (`cli/failures.py:23`), and `pool.wait` (`store.py:93`) fails before SQLAlchemy can wrap
+  anything. *Inferred* from source for the other `failure_boundary` commands (`schema check`, `db check`, `regenerate`, `golden`).
+- `ci status` handles this case and reports settings, which is the only path `tests/test_cli.py:41` stubs.
+  `test_cli_failures.py:194-251` injects only `DBAPIError` after the engine is open, so no test sees the raw error.
+
+Two narrower results, from pure controls with no database:
+- `create_engine("postgresql+psycopg://", creator=<raises PoolTimeout>, poolclass=NullPool).connect()` raises `sqlalchemy.exc.OperationalError`, which
+  `cli/status.py:103` does not catch, and nothing above it handles it. So a checkout failure after pool start escapes the path its comment calls
+  "unreachable". The window is narrow: `pool.wait` must succeed and the next checkout must time out.
+- `classify_error` returns `retry` for `PoolTimeout`, `PoolClosed` and `TooManyRequests` (`store.py:112-114`), because they subclass
+  `psycopg.OperationalError` with no SQLSTATE. Retry is defensible for the first and third. Only `PoolClosed` is wrong, and no route reaching it
+  was identified (`pool.close()` runs at `store.py:59-67`, `:96`; other holders not traced).
+
+**Claim at risk.** The labels: `test_actual_cli_source_scope_agent_unknown_limit_and_cancel`,
+`test_cli_finalization_returns_real_receipt_and_exact_replay`, "Native semantic-run MCP dispatch". Dispatch and logic
+are real, but connection supply, registry and transport are replaced.
+
+**Consequence.** A regression in pool reset, `_open_engine`, principal gating or pool sizing on the finalize route, or
+a `fastmcp`/`mcp` bump (SC6), could pass the suite and first show in an operational run. And the ordinary failure of a
+database being down or refusing credentials produces a traceback on the query path, not the structured refusal these routes
+promise (DP-21). `open_runtime_engine` also runs the principal check on open (`semantic/runtime.py:80-83`), so a `DBAPIError` from an
+unmigrated target would likewise escape `ci status` (*Inferred;* not run).
+
+**Footprint.**
+- *Known:* the sites above and the controls' results. Reachability beyond the observed `ci query` run is *Inferred*.
+- *Inferred:* other journeys using the in-memory client, by search.
+- *Suspected:* JSON adapter differences for non-finite floats, because `configure` installs `allow_nan=False`
+  (`store.py:41-49`) and the harness does not. The failure class would differ, not valid data.
+
+**Counterevidence.**
+- `build_semantic_server()` without injection runs a real pooled lifespan through a full lease, read and propose
+  (`test_runtime_entrypoints.py:37`).
+- `ENGINE` and `PHASE0` are declared seams, are thin, and hand in the correct writer. Stubbing them makes `run` hermetic
+  against the real pack, a legitimate isolation choice.
+- `docs/design_review/evidence/2026-10-30_runtime-adoption/README.md` records real provider runs through a run-bound
+  MCP child and fresh stdio discovery. That is real evidence at one source state, not a regression check.
+- A search for session-state leakage found none on the live path: temp tables use `ON COMMIT DROP`, the only advisory
+  lock is transaction-scoped and settings use `SET LOCAL` (not extended to `semantic_alembic/versions`).
+- The worst outcome of the failure-boundary defects is an unstructured error, not wrong data. It fails closed and it is loud.
+
+**Uncertainty.** Whether a killed-host restart or concurrent tool calls matter enough. No defect is claimed for them.
+
+**Leads (optional).** Extend the stdio exchange past `initialize` to `tools/list` and one tool call. Run one finalize
+route through the unstubbed `_open_engine` with `max_size=1`, which would force one backend to carry the read-only, write
+and SERIALIZABLE sequence and would surface nested acquisition.
+
+**Bears on:** SC6 and SC8; the runtime principal gate on stubbed routes (SC7); `database_retry` meaning.
 
 <a id="dta-005"></a>
 
-## DTA-005 — Each native journey assembles its own release; no shared or product composition is exercised
+## DTA-005 — A product composer now exists, but native journeys mostly do not consume it
+
+**Lineage.** Formerly "Each native journey assembles its own release; no shared or product composition is exercised".
 
 **Principles:** FP-04, FP-03, DP-06, DP-01 by analogy, A2/A3; companion §2, §1.
-**Subject:** implemented (18 modules under `tests/semantic` that read
-`src/corpus_structure/model/semantic/core.yaml` by repository path, plus
-`tests/semantic/test_statistics_model.py` and `test_statistics_cut.py`).
+**Subject:** implemented (`src/corpus_structure/semantic/regeneration.py:46-300`; `tests/semantic`).
 
-**Diagnosis.**
-- No production code loads `model/semantic/core.yaml` or `domains/statistics/semantic.yaml` to
-  compose a release.
-- Production loaders exist only for the agent, observations, metrics, physical, analytics and
-  contracts models (`src/corpus_structure/semantic/*.py`).
-- Every test that needs a release therefore writes its own recipe:
-  - read `core.yaml` by path;
-  - choose the bundle root and import name;
-  - layer `proposal_inputs` / `observation_inputs`, or `prepare_source_inputs` /
-    `analytical_inputs`, and `domain_rule_inputs`;
-  - then call `prepare_release` and `persist_release`.
+**Diagnosis.** The prior premise that no production code composes a release is gone. `regeneration.py` has `prepare_pack`,
+`acquire_pack`, `compose_pack_inputs` and `prepare_packs`, which `cli/regenerate.py` and `cli/schema.py` consume. Tests
+that do consume it: `test_pack_acquisition.py`, `test_analysis_contracts.py:311-327`, `test_execution_projection.py:338-341`
+(the native product-composed statistics release in `tests/semantic`) and `test_trace_reference_fixture.py:41`, `:121` (not
+native). In `tests/semantic`, 23 modules still call layering helpers and 44 call `prepare_release(`. Many are deliberately
+minimal, and nothing marks which.
 
-The recipes already differ:
+| Choice | Product | `test_statistics_cut.py:52-72` | `test_known_reference_mcp.py:53-80` |
+|---|---|---|---|
+| Core import name | `semantic_core` | `semantic_core` | `core` |
+| Metric layer | `prepare_source_inputs` | `observation_inputs` | `observation_inputs` |
+| Rules | pack and core, aliases, execution model | pack and core only | `rules: []` |
+| Operation artifacts (methods, policies, slices, profiles) | present | absent | absent |
+| Scientific rebinding | yes | no | no |
 
-| Choice | One variant | Another variant |
-|---|---|---|
-| Core import name | `semantic_core` (`test_domain_operations.py`, `test_statistics_cut.py`) | `core` (`test_semantic_mcp.py`) |
-| Metric dependencies | `prepare_source_inputs`, which adds them (`test_source_routing.py:36-43`) | bare `observation_inputs`, which does not |
-| Rules | core and domain rules (`test_statistics_cut.py`) | domain rules only (`test_domain_operations.py`) |
-| Analytics layer | present | absent |
+`test_statistics_cut.py:1` says "Actual released statistics relations", but the release it persists is not what
+`prepare_pack(domains/statistics)` produces.
 
-Even the "actual CLI" journey passes in a release that the test built out of band
-(`test_source_routing.py:36-43`, then `--semantic-release`).
-
-**Consequence.**
-- Tier-1 evidence describes releases the tests assembled, not one product composition. A mismatch
-  with whatever composition the consumer migration and regeneration packages introduce is not
-  detected.
-- Adding a second pack or a dynamic class (SC5), or changing the layering order, means editing
-  about 15–20 modules.
-- Under SC2, release ids differ by recipe, which obstructs reproducing a failure across tests.
+**Consequence.** SC5 now has one product owner and some direct evidence. Native journeys (cut, MCP, finalize, reference
+evaluation through `source_task`) still describe test-assembled releases, so a defect specific to product artifacts or
+rebinding reaches only the narrower consumers. [DTA-015](evidence-and-discrimination.md#dta-015) is an instance: aliases
+reach only the product composition's route, and the journeys that would exercise them on a composed release do not supply them.
 
 **Footprint.**
-- *Known:* the 18 modules found by searching `tests/semantic` for the `core.yaml` path, plus the
-  statistics modules.
-- *Inferred:* each new consumer test will add another recipe rather than consume one.
+- *Known:* the counts and table above.
+- *Inferred:* each new consumer test adds a recipe rather than consuming one.
 
-**Counterevidence.**
-- The layer helpers themselves are single owners (`observations.py`, `proposals.py`,
-  `analytical_profile.py`).
-- Some variations may be deliberate minimal releases; nothing marks which ones.
+**Counterevidence.** Minimal schemas are a legitimate isolation choice, and migrating them is not implied. `tests/acceptance/test_regeneration.py`
+exercises real preparation. The gap is now a choice rather than a necessity.
 
-**Uncertainty.** Whether a production composer is planned. No plan text naming one was found
-(search of the pivot documents for core.yaml, semantic.yaml and pack composition).
+**Leads (optional).** Test builders that parameterize a product composition where the claim is about the real pack.
 
-**Leads (optional).** One owned composition entry point, with test builders that parameterize only
-what each case needs.
-
-**Bears on:** SP-08 consumer migration; SP-09 clean regeneration ("actual source workflows for
-statistics"); the phase-0 rescoping of domain packs.
-
-<a id="dta-008"></a>
-
-## DTA-008 — Hand-written stand-ins for production-written release, catalog and descriptor artifacts are not tied to what production writes
-
-**Principles:** FP-04, DP-01, DP-24, FP-02; companion §1, §5.
-**Subject:** implemented (`tests/semantic/test_operations.py`, `test_publication.py`,
-`test_arrow_publication.py`, `test_inference.py`, `test_execution_native.py`;
-`src/corpus_structure/semantic/publication.py:396-402`; `src/corpus_structure/semantic/sql/validation.sql:46-56`).
-
-**Diagnosis.** Several tier-1 tests write rows by hand that production writes through
-`persist_release` and the publication catalog. Nothing ties their shape to the writer.
-
-- **Stand-in release rows.** The `sem.release` rows have `content_digest="test"`,
-  `prepared_bytes=b"{}"` and `manifest_bytes=b"{}"`. They appear in `test_operations.py` (`setup`),
-  `test_publication.py`, `test_arrow_publication.py` and `test_inference.py`.
-  - `test_operations.setup()` writes such a row by default but returns the real in-memory
-    `PreparedRelease`.
-  - Its consumers therefore run operations against a database release that cannot be loaded and
-    whose content disagrees with the object they hold. Only `archive=True` or `observations=True`
-    persists a real one.
-- **Hand-written catalog rows.** These are `class_definition`, `property_definition`,
-  `property_applicability.constraints` and `identity_slot` rows, written by hand in
-  `test_publication.py` and `test_arrow_publication.py` (a second copy of the same registry) and in
-  `test_inference.py`, which also hand-writes `inference_rule` bodies.
-  - Their `constraints` JSON (`{"name", "inlined", "case_policy"}`) omits `native_range`, which
-    `publication.native_constraints` always writes (`publication.py:399`).
-  - So publication SQL takes its `COALESCE(constraints->>'native_range', range_name)` fallback
-    (`validation.sql:46,48,56`), a branch that production catalogs never take.
-  - Hand-written `conditional_rule`/`conditional_atom` rows appear in `test_execution_native.py:36-43`.
-- **Hand-built method descriptors.**
-  - About 30 `record_method` calls in `tests/semantic` pass hand-built `SimpleNamespace`
-    descriptors, mostly without `unit_type` or `Config`.
-  - `record_method(method: Any)` tolerates the missing fields, so most operations tests exercise
-    the NULL-tolerant branch rather than the typed descriptor's binding.
-
-**Consequence.**
-- A migration that adds a required column or check to `sem.release` or the catalog tables (SC1)
-  forces edits in at least six modules.
-- A compiler change to constraint keys (SC2) leaves these publication and inference tests passing
-  on an obsolete catalog shape. Only the roughly 19 modules that go through `persist_release` would
-  expose a writer/kernel mismatch, and only for the keys they exercise.
-- A guard that begins loading or validating the persisted release (SC3) would fail every
-  default-`setup()` consumer with failures unrelated to that guard. Meanwhile the stand-ins cannot
-  challenge release integrity at all.
-
-**Footprint.**
-- *Known:* the sites cited.
-- *Suspected:* other consequential constraint keys that are exercised only through hand-written
-  catalogs. A key-by-key comparison of the SQL readers with the seeds would settle this.
-
-**Counterevidence.**
-- Isolating native publication from the compiler is a legitimate independence choice (companion §1).
-- Most `setup()` consumers need only foreign-key plumbing for the release id.
-- The NULL tolerance in `record_method` was introduced for unresolved legacy method metadata, not
-  only for these test descriptors.
-- Unit-type and configuration binding is covered where `test_execution_native.py` supplies both
-  fields.
-
-**Related.** [DTA-009](#dta-009) (the helpers that host the stand-ins).
-
-**Bears on:** physical-catalog evolution; SP-10 release/archive integrity; later protected writers.
+**Bears on:** SC5; the phase-0 rescoping of domain packs; real-pack evidence in [DTA-004](retirement-transfer.md#dta-004).
 
 <a id="dta-009"></a>
 
 ## DTA-009 — Shared scenario builders live inside test modules, and their flags and defaults shape other modules' claims
 
-**Principles:** FP-06, FP-01, FP-03, DP-17; companion §2 (case-defining inputs visible at the
-call site), §3.
+**Principles:** FP-06, FP-01, FP-03, DP-17; companion §2, §3.
 **Subject:** implemented (`tests/semantic`).
 
-**Diagnosis.** `tests/semantic` has no support module. Builders written for one test module are
-imported by others. At reconciliation, nine modules import from other test modules:
+**Diagnosis.** The two new support modules are fault helpers. Scenario builders still live in test modules, and the
+footprint has grown: **35 modules import from other test modules, from 14 hosts** (nine modules at the prior baseline; regex
+`from .test_x import` over `tests/semantic`).
 
-| Helper | Defined in | Imported by |
-|---|---|---|
-| `setup` | `test_operations.py` | `test_execution_native` (several local imports), `test_native_source_selection`, `test_native_agent_hold`, `test_packet_input_snapshot` |
-| `fixture` (about 370 lines, 18 keyword flags) | `test_domain_operations.py:50` | `test_evaluation_boundaries`, `test_occurrence_context`, `test_source_routing` |
-| `Z`, `candidate`, `seed` | `test_query.py` | `test_alternative_groups` |
-| `C`, `R`, `Z`, `batch`, `seed` | `test_publication.py` | `test_execution_native` |
-| `source_task`, `lease_and_read` | `test_agent_resubmission.py` | `test_composed_journey` |
+| Host | Main helpers | Importing modules |
+|---|---|---:|
+| `test_agent_resubmission` | `source_task`, `lease_and_read` | 9 |
+| `test_domain_operations` | `fixture`, `locate_proposal` | 4 |
+| `test_operations`, `test_analytics`, `test_proposals`, `test_publication`, `test_releases`, `test_archive_reader` | `setup` and others | 4 each |
+| `test_execution_release`, `test_identity_exclusions` | | 3, 2 |
+| `test_query`, `test_conditional_rules`, `test_inference`, `test_ontology` | | 1 each |
 
-Their hidden defaults and coupled flags decide what downstream tests check:
-- **`setup()`'s default stand-in release** ([DTA-008](#dta-008)).
-- **`fixture(two_reports=True)`** also makes `Person` globally scoped and case-preserving
-  (`test_domain_operations.py:88-89`) and adds bindings. A test that asks for "two reports" silently
-  gets global identity scope as well.
-- **`test_occurrence_context.py:45`** replaces the late-bound `locate_proposal` name inside the other
-  module's namespace (`monkeypatch.setattr(fixture.__module__ + ".locate_proposal", …)`), so its
-  scenario depends on how that helper resolves names internally.
-- **Magic expected values fixed by hidden structure.** For example, `test_source_routing.py:166`
-  asserts `total == 7`, a number set by the patched PHASE0 stage graph and visible nowhere at the
-  call site.
-- **Generic names with different meanings in tier 1:** `setup` (`test_operations` versus
-  `test_inference`), `seed` (`test_query`, `test_publication`, `test_arrow_publication`) and
-  `fixture` (`test_domain_operations` versus `test_fact_references`). `test_execution_native`
-  imports both a `setup` and a `seed`.
+Hidden defaults and coupled flags decide what downstream tests check:
+- `fixture` (`test_domain_operations.py:57-564`, 508 lines, 19 keyword flags). `two_reports` also makes `Person` globally
+  scoped and case-preserving (`:99-100`). `known` changes the run binding's `data_revision`, adds `unique_keys` and sets
+  `raw["entities"] = []`. `statement_packets` is three-valued. `local_known`, `broken` and `second_math` are inert alone.
+  `graph`, `nary`, `formulas`, `claim_chain` and `cycle` rewrite `raw` in sequence, so combinations are order-determined.
+- `test_occurrence_context.py:45` patches `fixture.__module__ + ".locate_proposal"`, so its scenario depends on how the helper
+  resolves names.
+- Magic numbers fixed by hidden structure: `test_source_routing.py:227` `total == 7`, and `test_operations.py:660`, `:686`, `:781`.
+  A new stage edits at least four sites.
+- `archive=` on `test_operations.setup` is a dead parameter (`:26`, passed only at `:860`).
+
+A module-level compile adds a further dependency: `test_publication.py:144` and `test_arrow_publication.py:41` run
+`R = fixture_model()[1].release_id` at import, and `test_analysis_boundaries`, `test_execution_native` and the database-free
+`test_shared_math` inherit it. A preparation failure for this small fixture becomes a collection error across five modules,
+which withholds unrelated results on a default run (*Inferred*). `_qualification_schema` (`test_publication.py:722-724`) now
+ignores its arguments.
 
 **Consequence.**
-- A change to a hub made for one consumer's case alters other modules' scenarios. This amplifies
-  churn: `test_operations.py` changed in 35 commits and `test_domain_operations.py` in 19 since
-  2026-10-27. It also obstructs diagnosis.
-- If `fixture` stops calling `locate_proposal` by that name, the patch at `:45` stops applying.
+- A change to a hub for one consumer's case alters other modules' scenarios, which amplifies churn and obstructs diagnosis. Churn
+  has moved from `setup` to `fixture` (`c50a747..HEAD`: `test_domain_operations` 9 commits, `test_agent_resubmission` 6,
+  `test_operations` 3). The prior account's "35 and 19 commits" could not be reproduced and is not carried forward.
+- A focused run inherits import-time work.
 
 **Footprint.**
-- *Known:* the sites cited.
-- *Suspected:* other `setup`/`fixture` flag combinations with similar coupling; not all 18 flags
-  were traced.
+- *Known:* the sites cited. `world` in tier-3 support has shrunk to two definitions.
+- *Inferred:* the collection-error consequence.
 
-**Counterevidence.**
-- Most consumers assert behaviour that the current defaults support.
-- The `:45` patch would most likely fail loudly rather than pass, because its assertions check the
-  authored roles.
+**Counterevidence.** Shared real-route setup also closed part of [DTA-008](#dta-008), so this is a consolidation with a benefit.
+Hub failures are mostly setup-shaped and loud. The only silent shaping of a consumer found is the `two_reports` scope coupling.
+`source_task` has five flags visible at call sites.
 
-**Related.** The same cause recurs in tier-3 support, where `world` is defined in 12 places with
-different scopes and meanings ([retirement transfer](retirement-transfer.md)).
-
-**Bears on:** every package that adds native semantic tests; selective runs; failure diagnosis.
+**Bears on:** every package adding native semantic tests; selective runs; failure diagnosis.
 
 <a id="dta-012"></a>
 
-## DTA-012 — Tier-2 support restates source and pack declarations across directories
+## DTA-012 — Support restates source and pack declarations, and file-path loading defeats its own caches
 
-**Principles:** FP-04, DP-01, DP-06; companion §2.
-**Subject:** implemented (conftests under `tests/{llm,math,evaluate,evaluate/golden,agent,consolidate,db,ingest}`;
+**Principles:** FP-04, DP-01, DP-06, FP-07; companion §2, §8.
+**Subject:** implemented (conftests under `tests/{llm,evaluate,ingest,agent,consolidate,db}`; `tests/math_support.py`;
 `tests/validate/support.py`).
 
-**Diagnosis.** The recipe for "the production rendition of a reference page" is restated in eight
-conftests:
-- the vendored or corpus root;
-- `ROOT = "siegrist_random/random"`;
-- the Siegrist profile and the default `SentenceConfig`;
-- `source_uri=f"{ROOT}/{page}"`.
+**Diagnosis.**
+- The recipe for "the production rendition of a reference page" is restated at `tests/ingest/conftest.py:22-35`,
+  `tests/llm/conftest.py:46`, `:95-105`, `tests/evaluate/conftest.py:43`, `:83-95`, `tests/math_support.py:43`, `:116-123`, and locally
+  in `tests/math/test_scope.py`, `tests/ingest/test_corpus.py` and `test_renditions.py`. `"siegrist_random/random"` is literal at 11 sites.
+- `PACK_MACROS` has three copies (`tests/llm/conftest.py:57`, `tests/evaluate/conftest.py:46`, `tests/math_support.py:54`), and
+  `tests/agent/conftest.py:40` derives from `domains/statistics/methods.yaml`. The math copy now states a real reason: it retains
+  the independent historical oracle configuration (`tests/math_support.py:11`). The llm and evaluate docstrings still say "until that
+  file exists", though it exists.
+- `tests/validate/support.py:47-63` loads other test files by path, and `test_batch.py:26-32`, `test_runner.py:41-45` and
+  `test_views.py:48-57` each load `support.py` separately. Each load is a new module object with its own `@cache`, so caches hold
+  only within one test module, and renditions and A0 parses are rebuilt per consumer. `sys.modules["validate_support"]` is overwritten on
+  each load.
+- Sharing mechanisms remain mixed: fixtures, file-path loads, `helpers` fixtures, relative imports of test modules, and `db_support`
+  (`tests/conftest.py:139-155`), which hand-mirrors nine names on the reasoning that the conftest is unimportable, though those helpers
+  moved to an importable module.
 
-The declarations that own this are in `sources/siegrist.yaml`. `PACK_MACROS` is copied in the
-llm, math and evaluate conftests (`tests/llm/conftest.py:57`). Its docstring says it lives there
-"until that file exists"; the file now exists (`domains/statistics/methods.yaml`), and
-`tests/agent/conftest.py:54` already derives from it.
-
-`tests/validate/support.py:57-63` loads `tests/llm/conftest.py` and `tests/schema/test_packs.py` by
-file path. That gives each a second module identity and separate caches, and couples tier-3 support
-to a tier-2 conftest's internals. Sharing mechanisms are mixed: fixtures, file-path `importlib`
-loads, `helpers` fixtures that expose conftests, and relative imports of test modules. This follows
-from `--import-mode=importlib` with only `tests/semantic` being a package.
-
-**Consequence.** If the source root or URI convention changes, document keys derived from
-`source_uri` in the frozen `data/` reference sets diverge from production keys without failing.
-Each copy must also be edited separately.
+**Consequence.** If the source root or URI convention changes, keys derived from `source_uri` in frozen reference sets diverge without
+failing, and each copy needs a separate edit. A `methods.yaml` macro change leaves these suites green against the old table: right for
+parity tests, unstated for `test_align.py` and `test_equivalence.py`.
 
 **Footprint.**
-- *Known:* the sites cited.
-- *Drift status:* the `PACK_MACROS` copy currently equals `methods.yaml`, so there is a drift risk
-  but no drift yet.
+- *Known:* the sites cited. The three macro copies currently equal `methods.yaml` (computed 2026-10-30), so there is no drift yet.
 
-**Counterevidence.**
-- The profile itself goes through production `load_profile`/`compile_profile` once per site. That
-  repeats execution, not meaning, and the execution cost is immaterial.
-- `spaCy` loading is cached on a frozen config.
+**Counterevidence.** A rendition build is about 0.2 s per page in-process under [the receipt's conditions](execution-and-qualification.md#measurements),
+so repeating seven pages across four caches is immaterial. Grammar analysis is costlier and also runs through independent implementations and caches
+(`tests/agent/conftest.py:58-82`, `tests/math_support.py:116-146`) over overlapping pages: math session fixtures take 18.18 s and 22.55 s, and first touches of pages in
+`test_packet.py` total about 50 s. Attributing that time to analysis is *Inferred*, and worker wall time is not CPU time. Most of this support serves code under [DTA-014](retirement-transfer.md#dta-014),
+so any remedy follows that decision.
 
-**Bears on:** tier-2 foundations the pivot reuses (ingest, llm, math); phase-0 rescoping of source
-profiles.
+**Bears on:** source-profile changes in the phase-0 rescoping.
+
+<a id="dta-008"></a>
+
+## DTA-008 — Hand-built method descriptors exercise a tolerant branch of `record_method`
+
+**Lineage.** Formerly "Hand-written stand-ins for production-written release, catalog and descriptor artifacts are not tied to what
+production writes".
+
+**Closed, with positive evidence.** Stand-in `sem.release` rows and hand-written catalog rows are gone. `test_publication.py:147-172` seeds
+through real `prepare_release` and `persist_release`, `test_arrow_publication.py:47-50` delegates to it, `test_operations.setup` always persists
+a real release (`:114-116`) and `test_inference.setup` prepares a real schema. A search of the tests for `prepared_bytes=b`,
+`content_digest="test"` and inserts into `sem.*` catalog tables finds only deliberate cases: a tamper (`test_release_compatibility.py:400`), a
+historical persister replay (`test_native_closure.py:429-435`) and a denied insert (`test_native_fixtures.py:175`). `test_native_closure.py:68`, `:85` also insert into `sem.input`, as finalized-release denials. Publication tests no longer
+take the `native_range` fallback. The closure's price is in [DTA-009](#dta-009).
+
+**Principles:** FP-04, DP-01, DP-24, FP-02; companion §1, §5. **Subject:** implemented (`tests/semantic`;
+`src/corpus_structure/semantic/operations.py:145-149`, `:166`).
+
+**Diagnosis (what remains).** An AST count of `SimpleNamespace` calls carrying a name, version and family finds 26 sites in `tests/semantic`,
+13 untyped (no `unit_type` or `Config`). `test_operations.py` has 10 with one typed, and `test_native_agent_hold`, `test_native_source_selection`,
+`test_packet_input_snapshot` and `test_semantic_mcp` are also untyped. `record_method` keeps `hasattr` tolerance.
+
+**Consequence.** Mostly SC1 and SC3 coupling rather than concealed defects: no guard depending on the method's `unit_type` value was found, because
+`execution_guards.sql` reads the task's column. Other readers of `ops.method.unit_type` were not fully traced.
+
+**Counterevidence.** Typed descriptors appear in `test_execution_native` (6/6), `test_domain_operations`, `test_agent_resubmission`, `test_serving` and
+`test_statistics_cut`. The tolerance was introduced for unresolved legacy method metadata.
+
+**Bears on:** physical-catalog evolution.

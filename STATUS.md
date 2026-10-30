@@ -54,3 +54,7 @@ source occurrences from mathematical values. Adoption, plan changes and implemen
 separate. The review changes no audit premises or existing qualification conclusions; product
 tests were not rerun for this documentation-only inquiry.
 Review documentation: **passed** `just docs-check` and `just turn-end`.
+
+## Test audit — 2026-10-30
+[Account](docs/design_review/test-audit/README.md) refreshed in full at `599d479`: 20 findings, unscheduled; DTA-015/016 are production causes and its open questions await the operator.
+Audit documentation: **passed** `just docs-check` and `just turn-end`; product tests **not_run** (read-only audit, documentation change only).
