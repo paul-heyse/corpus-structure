@@ -198,6 +198,10 @@ class Reader(Protocol):
     """What a method reads, already scoped to its run: upstream outputs only through reuse and the
     run's rendition selection (O1 implements it; P0CL-02)."""
 
+    def require_parsing_operations(self, names: Sequence[str]) -> None:
+        """Refuse unsupported parsing operations against this run's archived contract."""
+        ...
+
     def renditions(self) -> Sequence[RunRendition]:
         """The run's documents and its rendition of each."""
         ...

@@ -252,3 +252,18 @@ def test_parse_detail_records_the_parser(pages: list[Page]) -> None:
     assert sum(len(p.result.parse_detail.parser_errors) for p in pages) == 17
     assert sum(p.result.parse_detail.data_loss_warnings for p in pages) == 2
     assert all(p.result.parse_detail.role_conflicts == () for p in pages)
+
+
+def test_corpus_source_products_reach_the_trusted_partition_and_origin_boundary(
+    pages: list[Page],
+) -> None:
+    from corpus_structure.semantic.parsing_products import prepare_parsing_product
+
+    for page in pages:
+        product = page.result.parsing_product
+        assert product is not None, page.path
+        prepared = prepare_parsing_product(product.values(), product.original)
+        assert prepared.original == page.raw, page.path
+        values = prepared.values()
+        assert values["provenance_universe"] == "canonical_output", page.path
+        assert values["provenance_state"] == "complete", page.path

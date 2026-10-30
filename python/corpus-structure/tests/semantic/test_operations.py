@@ -600,7 +600,7 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(
     from corpus_structure.orchestrate.semantic import run_source_methods
     from corpus_structure.semantic.operations import register_document
 
-    p = setup(semantic_db_engine, observations=True)
+    p = setup(semantic_db_engine, observations=True, composed=True)
     e = semantic_writer_engine
     raw = tmp_path / "input.html"
     raw.write_text("<html><body><h1>Source</h1><p>" + body + "</p></body></html>")
@@ -652,6 +652,13 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(
     )
     assert report.status == "source_ready" and report.cut_id is not None
     with e.connect() as c:
+        from corpus_structure.semantic.operations import BoundReader
+
+        rendition_id = c.execute(select(table("kb.rendition").c.id)).scalar_one()
+        source_product = BoundReader(c, report.run_id, p).parsing_product(rendition_id)
+        assert source_product is not None
+        assert source_product.original == raw.read_bytes()
+        assert source_product.values()["provenance_state"] == "complete"
         assert (
             c.execute(select(table("kb.rendition").c.canonical_text)).scalar_one()
             == "Source\n\n" + body
@@ -674,6 +681,7 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(
     )
     assert replay.cut_id is not None
     with e.connect() as c:
+        assert BoundReader(c, replay.run_id, p).parsing_product(rendition_id) == source_product
         statuses = (
             c.execute(
                 select(table("ops.task").c.status).where(
@@ -716,6 +724,9 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(
             and states["resolve.symbol_scope"] == "reused"
         )
         assert len(c.execute(select(table("ops.rendition_build"))).all()) == 2
+        assert len(c.execute(select(table("ops.parsing_product"))).all()) == 2
+        assert BoundReader(c, report.run_id, p).parsing_product(rendition_id) == source_product
+        assert BoundReader(c, fresh_run.run_id, p).parsing_product(rendition_id) == source_product
         assert len(c.execute(select(table("kb.rendition"))).all()) == 1
         assert (
             len(

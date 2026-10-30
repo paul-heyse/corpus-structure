@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0040"
-NATIVE_REVISION = "semantic_0041"
+NATIVE_PREDECESSOR = "semantic_0041"
+NATIVE_REVISION = "semantic_0042"
 
 
 def selected_fact_query():
@@ -273,7 +273,8 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     kernels = kernels.replace("{typed_value_stage_verify}", typed_verify)
     model = compile_execution_model(trusted_execution_inputs()) if model is None else model
     for operation in model.operations:
-        model.require_operation(operation.id)
+        if operation.implementation is not None:
+            model.require_operation(operation.id)
     edge_sql = ""  # Finite edges are immutable release rows consumed by stable guards.
     physical = "\n".join(
         product.content.decode()
@@ -486,7 +487,16 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
             **SUPPORTED_EFFECTS[operation.id],
         }
         for operation in model.operations
+        if operation.implementation is not None
     }
+    from dataclasses import asdict
+
+    from .parsing_contracts import parsing_relationships
+
+    descriptor["parsing_relationship_profiles"] = {
+        kind: asdict(relation) for kind, relation in parsing_relationships(model).items()
+    }
+    descriptor["parsing_adapters"] = [asdict(adapter) for adapter in model.parsing_adapters]
     from .scientific_evidence import scientific_report_layout
 
     layout = scientific_report_layout()
@@ -828,6 +838,79 @@ def parsing_products() -> tuple[NativeProduct, ...]:
     )
 
 
+def parsing_contract_products(model=None) -> tuple[NativeProduct, ...]:
+    """Author 0042's typed source additions and operation/native admission deltas."""
+    from sqlalchemy.schema import CheckConstraint
+
+    additions = {
+        "kb.parsing_representation": ("text_content_utf8_base64",),
+        "kb.parsing_node": (
+            "name",
+            "value",
+            "ordinal",
+            "attribute_outcome",
+            "name_start_offset",
+            "name_end_offset",
+            "value_start_offset",
+            "value_end_offset",
+        ),
+        "kb.parsing_relationship": ("ordinal",),
+    }
+    ddl = "SET LOCAL ROLE corpus_sem_publisher;\n"
+    for relation, columns in additions.items():
+        for name in columns:
+            column = metadata.tables[relation].c[name]
+            ddl += (
+                f"ALTER TABLE {relation} ADD COLUMN {name} "
+                f"{column.type.compile(dialect=dialect())};\n"
+            )
+    for name in (
+        "kb.parsing_representation",
+        "kb.parsing_node",
+        "kb.parsing_relationship",
+        "kb.parsing_endpoint",
+        "kb.parsing_mapping",
+        "kb.parsing_component",
+    ):
+        ddl += (
+            "DO $checks$ DECLARE item record; BEGIN FOR item IN SELECT conname "
+            "FROM pg_constraint WHERE conrelid='"
+            + name
+            + "'::regclass AND contype='c' LOOP EXECUTE format('ALTER TABLE "
+            + name
+            + " DROP CONSTRAINT %I',item.conname); END LOOP; END $checks$;\n"
+        )
+        for constraint in sorted(
+            metadata.tables[name].constraints, key=lambda item: str(item.name or "")
+        ):
+            if isinstance(constraint, CheckConstraint):
+                ddl += (
+                    str(
+                        AddConstraint(constraint, isolate_from_table=False).compile(
+                            dialect=dialect()
+                        )
+                    )
+                    + ";\n"
+                )
+    from .parsing_products import RELATIONS
+
+    for relation in sorted({"kb.source_artifact", "ops.parsing_product", *RELATIONS.values()}):
+        for index in sorted(metadata.tables[relation].indexes, key=lambda item: str(item.name)):
+            ddl += str(CreateIndex(index, if_not_exists=True).compile(dialect=dialect())) + ";\n"
+    physical, _, _ = closure_products(model)
+    ddl += "\nDO $reference$" + physical.content.decode().split("DO $reference$", 1)[1]
+    ddl += "\n" + parsing_publication_sql()
+    return (
+        NativeProduct("semantic_0042_parsing.sql", ddl.encode()),
+        NativeProduct("semantic_0042_admission.sql", consolidation_products(model)[-1].content),
+    )
+
+
+def forward_products(model=None) -> tuple[NativeProduct, ...]:
+    """Emit the current forward revision, shared by the CLI and frozen-product comparison."""
+    return parsing_contract_products(model)
+
+
 def parsing_publication_sql() -> str:
     """Emit finite native shape guards from the same effective LinkML record definitions.
 
@@ -847,8 +930,21 @@ def parsing_publication_sql() -> str:
     def quoted(value: str) -> str:
         return "'" + value.replace("'", "''") + "'"
 
-    def guards(class_name: str, expression: str) -> str:
+    def invalid_record(class_name: str, expression: str) -> str:
         definition = definitions[class_name]
+        if definition.abstract:
+            members = [
+                d.name for d in definitions.values() if class_name in d.ancestors and not d.abstract
+            ]
+            if not members:
+                raise ValueError(
+                    f"abstract parsing boundary has no concrete variants: {class_name}"
+                )
+            return (
+                "("
+                + " AND ".join("(" + invalid_record(name, expression) + ")" for name in members)
+                + ")"
+            )
         fields = ",".join(quoted(prop.name) for prop in definition.properties)
         invalid = [
             f"EXISTS(SELECT FROM jsonb_object_keys({expression}) key "
@@ -866,7 +962,7 @@ def parsing_publication_sql() -> str:
                     f"jsonb_typeof({value}) IS DISTINCT FROM 'number' "
                     f"OR {expression}->>{key} !~ '^[0-9]+$'"
                 )
-            elif prop.range == "ParsingString" or prop.range in vocabularies:
+            elif prop.range in {"ParsingString", "string"} or prop.range in vocabularies:
                 predicate = f"jsonb_typeof({value}) IS DISTINCT FROM 'string'"
                 if prop.range in vocabularies:
                     choices = ",".join(quoted(member) for member in vocabularies[prop.range])
@@ -876,11 +972,26 @@ def parsing_publication_sql() -> str:
                     f"unsupported required parsing native shape: {class_name}/{prop.name}"
                 )
             invalid.append(f"({expression} ? {key} AND ({predicate}))")
+            if prop.equals_string is not None:
+                invalid.append(
+                    f"{expression}->>{key} IS DISTINCT FROM {quoted(prop.equals_string)}"
+                )
+            if prop.minimum is not None:
+                invalid.append(
+                    f"({expression} ? {key} AND ({expression}->>{key})::numeric < {prop.minimum})"
+                )
+            if prop.maximum is not None:
+                invalid.append(
+                    f"({expression} ? {key} AND ({expression}->>{key})::numeric > {prop.maximum})"
+                )
+        return " OR ".join(invalid)
+
+    def guards(class_name: str, expression: str) -> str:
         return (
             f"IF jsonb_typeof({expression}) IS DISTINCT FROM 'object' THEN "
             f"RAISE EXCEPTION 'parsing record must be an object: {class_name}' "
             "USING ERRCODE='23514'; END IF;\n"
-            f"IF {' OR '.join(invalid)} THEN "
+            f"IF {invalid_record(class_name, expression)} THEN "
             f"RAISE EXCEPTION 'parsing record shape differs: {class_name}' "
             "USING ERRCODE='23514'; END IF;\n"
         )

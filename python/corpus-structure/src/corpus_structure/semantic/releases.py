@@ -278,6 +278,8 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
         bindings = {binding.id: binding for binding in execution.implementations}
         effects = {effect.id: effect.version for effect in execution.effect_definitions}
         for operation in execution.operations:
+            if operation.implementation is None:
+                continue
             binding = bindings[operation.implementation]
             rows["execution_operation"].append(
                 {

@@ -82,9 +82,9 @@ def test_all_transitioned_families_and_measurement_context(products):
         "execution.reference_evaluation.v1",
         "execution.selected_result.v1",
     )
-    assert {op.implementation for op in products.operations} == set(approved_implementations()) - {
-        "locate"
-    }
+    assert {
+        op.implementation for op in products.operations if op.implementation is not None
+    } == set(approved_implementations()) - {"locate"}
     for binding in products.implementations:
         implementation = approved_implementations()[binding.id]
         assert binding.owner == implementation.__module__.removeprefix("corpus_structure.")

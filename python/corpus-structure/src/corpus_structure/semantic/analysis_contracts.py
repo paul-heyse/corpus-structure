@@ -371,7 +371,12 @@ def _standalone_model():
 def _profile(prepared: PreparedRelease | None):
     import json
 
-    from .contracts import _fail, bound_execution_model, execution_payload
+    from .contracts import (
+        EXECUTION_COMPILER_VERSION,
+        _fail,
+        bound_execution_model,
+        execution_payload,
+    )
 
     if prepared is None:
         model = _standalone_model()
@@ -390,11 +395,15 @@ def _profile(prepared: PreparedRelease | None):
     else:
         model = bound_execution_model(prepared)
         payload = execution_payload(prepared)
-        if payload is None or json.loads(payload).get("inputs", {}).get("compiler_version") != "9":
+        if (
+            payload is None
+            or json.loads(payload).get("inputs", {}).get("compiler_version")
+            != EXECUTION_COMPILER_VERSION
+        ):
             _fail(
                 "unsupported_analysis_abi",
                 model.model_id,
-                "analysis preparation requires execution compiler 9; "
+                f"analysis preparation requires execution compiler {EXECUTION_COMPILER_VERSION}; "
                 "historical archives are read-only",
             )
     if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "5":

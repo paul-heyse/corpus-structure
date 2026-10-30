@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "9"
+EXECUTION_COMPILER_VERSION = "10"
 
 
 @lru_cache(maxsize=1)
@@ -34,6 +34,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from types import MappingProxyType
 
     from corpus_structure.evaluate import semantic as references
+    from corpus_structure.ingest import html, source_capture
     from corpus_structure.intervene.semantic import ProposalSession
     from corpus_structure.orchestrate import project, semantic
 
@@ -47,6 +48,7 @@ def approved_implementations() -> Mapping[str, Any]:
         observations,
         ontology,
         operations,
+        parsing_products,
         prepare,
         proposals,
         publication,
@@ -81,6 +83,12 @@ def approved_implementations() -> Mapping[str, Any]:
             "read_original": operations.read_original,
             "store_rendition": operations.store_rendition,
             "read_rendition": operations.read_rendition,
+            "prepare_parsing_product": parsing_products.prepare_parsing_product,
+            "publish_parsing_product": parsing_products.store_parsing_product,
+            "read_parsing_product": parsing_products.read_parsing_product,
+            "decompose_source": source_capture.lexical_partition,
+            "recognize_html": html._parse_with_capture,
+            "project_canonical": html._serialize,
             "bind_report": observations.bind_result,
             "packet": proposals.proposal_packet,
             "locate": proposals.locate_proposal,
@@ -267,7 +275,7 @@ class OperationContract:
     outcome_domain: str
     dependencies: tuple[str, ...]
     precision: str
-    implementation: str
+    implementation: str | None = field(default=None, kw_only=True)
     transitions: tuple[str, ...]
     projections: tuple[str, ...]
 
@@ -457,6 +465,20 @@ class AnalysisProfile:
 
 
 @dataclass(frozen=True)
+class ParsingAdapterSupport:
+    adapter_id: str
+    implementation_revision: str
+    frontend_revision: str
+    coordinate_fidelity: str
+    repair_policy: str
+    ambiguity_policy: str
+    lifetime: str
+    capabilities: tuple[str, ...]
+    provenance_universe: str
+    grammar_revision: str | None = field(default=None, kw_only=True)
+
+
+@dataclass(frozen=True)
 class ExecutionModelProducts:
     model_id: str
     content: bytes
@@ -475,6 +497,7 @@ class ExecutionModelProducts:
     effect_definitions: tuple[EffectDefinition, ...] = ()
     analysis_profiles: tuple[AnalysisProfile, ...] = ()
     implementation_digests: tuple[tuple[str, str], ...] = ()
+    parsing_adapters: tuple[ParsingAdapterSupport, ...] = ()
 
     def operation(self, name: str) -> OperationContract:
         """Resolve a mandatory operation from this exact release-bound model."""
@@ -522,6 +545,21 @@ class ExecutionModelProducts:
 def _validate_effect_support(model: ExecutionModelProducts, operation: OperationContract) -> None:
     from .effect_support import SUPPORTED_EFFECTS
 
+    if operation.implementation is None:
+        raise PreparationError(
+            (
+                Diagnostic(
+                    "unsupported_operation",
+                    "operations/" + operation.id,
+                    "operation is declared but has no qualified producer implementation",
+                    contract_id=operation.id,
+                    consumer="bound_execution_model",
+                    expected="independently qualified implementation binding",
+                    actual="unbound declaration",
+                    remedy="qualify the producer and its consumers, then derive a new release",
+                ),
+            )
+        )
     supported = SUPPORTED_EFFECTS.get(operation.id)
     binding = next(b for b in model.implementations if b.id == operation.implementation)
     actual = {
@@ -653,6 +691,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "7",
         "8",
         "9",
+        "10",
     }:
         _fail(
             "unsupported_execution_abi", model_id, "execution product has no supported compiler ABI"
@@ -663,7 +702,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
     from .effect_support import SUPPORTED_EFFECT_VERSIONS
 
     effect_versions = dict(SUPPORTED_EFFECT_VERSIONS)
-    if data["inputs"]["compiler_version"] != EXECUTION_COMPILER_VERSION:
+    if data["inputs"]["compiler_version"] not in {"9", "10"}:
         effect_versions["schedule_pending_or_reused_or_skipped"] = "1"
     return _normalize(
         {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}},
@@ -723,6 +762,10 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("alignment/preparation.py", "evaluate/alignment_preparation.py"),
                 ("text/layouts.py", "semantic/text_layouts.py"),
                 ("parsing/products.py", "semantic/parsing_products.py"),
+                ("parsing/contracts.py", "semantic/parsing_contracts.py"),
+                ("parsing/queries.py", "semantic/parsing_queries.py"),
+                ("ingest/methods.py", "ingest/methods.py"),
+                ("ingest/source_capture.py", "ingest/source_capture.py"),
                 ("placement/cascade.py", "methods/llm/cascade.py"),
             )
         ),
@@ -1011,7 +1054,8 @@ def _validate(
         _refs(operation.inputs, c, operation.id)
         _refs(operation.results, c, operation.id)
         _refs(operation.applicability, i, operation.id)
-        _refs((operation.implementation,), b, operation.id)
+        if operation.implementation is not None:
+            _refs((operation.implementation,), b, operation.id)
         _refs(operation.transitions, t, operation.id)
         _refs(operation.projections, p, operation.id)
         _refs((operation.outcome_domain,), domains, operation.id)
@@ -1023,6 +1067,14 @@ def _validate(
         domain = domains[operation.outcome_domain]
         if domain.authority == "code" and not set(operation.outcomes) <= set(domain.values):
             _fail("operation_outcome", operation.id, "outcome outside code-owned domain")
+        if operation.implementation is None:
+            if operation.effects or operation.transitions or operation.projections:
+                _fail(
+                    "unbound_operation_effects",
+                    "operations/" + operation.id,
+                    "unbound declarations cannot authorize effects, transitions or projections",
+                )
+            continue
         binding = b[operation.implementation]
         if set(operation.inputs) != set(binding.input_concepts) or set(operation.results) != set(
             binding.result_concepts
@@ -1042,6 +1094,10 @@ def _validate(
         for edge in operation.transitions:
             if t[edge].operation != operation.id:
                 _fail("operation_transition", operation.id, edge)
+    if any(concept.id == "ParsingProduct" for concept in products.concepts):
+        from .parsing_contracts import validate_parsing_contracts
+
+        validate_parsing_contracts(products)
     for projection in products.projections:
         _refs(projection.sources, c, projection.id)
         _refs(projection.relationships, r, projection.id)
@@ -1155,6 +1211,10 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "alignment/preparation.py",
         "text/layouts.py",
         "parsing/products.py",
+        "parsing/contracts.py",
+        "parsing/queries.py",
+        "ingest/methods.py",
+        "ingest/source_capture.py",
         "text/model.json",
         "grammar/grammar.py",
         "grammar/extension.lark",

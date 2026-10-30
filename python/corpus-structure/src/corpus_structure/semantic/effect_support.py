@@ -6,6 +6,42 @@ They are compatibility requirements, never evidence that hashing code proves its
 """
 
 SUPPORTED_EFFECTS = {
+    "decompose_source": {
+        "effects": (),
+        "implementation": "decompose_source",
+        "transitions": {},
+        "version": "1",
+    },
+    "recognize_html": {
+        "effects": (),
+        "implementation": "recognize_html",
+        "transitions": {},
+        "version": "1",
+    },
+    "project_canonical": {
+        "effects": (),
+        "implementation": "project_canonical",
+        "transitions": {},
+        "version": "1",
+    },
+    "prepare_parsing_product": {
+        "effects": (),
+        "implementation": "prepare_parsing_product",
+        "transitions": {},
+        "version": "1",
+    },
+    "publish_parsing_product": {
+        "effects": ("atomic_native_publication", "preserve_original_normalized_distinction"),
+        "implementation": "publish_parsing_product",
+        "transitions": {},
+        "version": "1",
+    },
+    "read_parsing_product": {
+        "effects": (),
+        "implementation": "read_parsing_product",
+        "transitions": {},
+        "version": "1",
+    },
     "activate": {
         "effects": ("atomic_parent_generation_cas",),
         "implementation": "activate",

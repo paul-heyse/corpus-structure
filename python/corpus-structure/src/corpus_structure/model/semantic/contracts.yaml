@@ -551,7 +551,6 @@ classes:
         slot_uri: execution:OperationContract_precision
       implementation:
         range: string
-        required: true
         slot_uri: execution:OperationContract_implementation
       inputs:
         range: string
@@ -755,6 +754,8 @@ classes:
         required: false
   ExecutionCatalog:
     attributes:
+      parsing_adapters: {range: ParsingAdapterSupport, multivalued: true, inlined: true, inlined_as_list: true}
+
       analysis_profiles: {range: AnalysisProfile, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: execution:ExecutionCatalog_analysis_profiles}
       effect_definitions:
         range: EffectDefinition

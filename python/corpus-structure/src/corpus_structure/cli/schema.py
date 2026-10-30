@@ -140,6 +140,7 @@ def derive_(
             NATIVE_PREDECESSOR,
             NATIVE_REVISION,
             consolidation_products,
+            forward_products,
             physical_products,
         )
         from corpus_structure.semantic.regeneration import prepare_packs
@@ -152,7 +153,8 @@ def derive_(
         )
         model = bound_execution_model(prepared)
         bootstrap_products = physical_products()
-        forward = consolidation_products(model)
+        forward = forward_products(model)
+        review = consolidation_products(model)
         # Finish derivation before creating the requested output or reporting success.
         out.mkdir(parents=True)
         (out / "manifest.json").write_bytes(prepared.manifest)
@@ -171,6 +173,10 @@ def derive_(
             (bootstrap / (product.name.replace("/", "_") + ".sql")).write_bytes(product.content)
         for product in forward:
             (native / product.name).write_bytes(product.content)
+        review_dir = native / "review"
+        review_dir.mkdir()
+        for product in review:
+            (review_dir / product.name).write_bytes(product.content)
         from corpus_structure.semantic.releases import _projection_rows
 
         projections = _projection_rows(prepared)
@@ -197,6 +203,9 @@ def derive_(
                     "predecessor": NATIVE_PREDECESSOR,
                     "revision": NATIVE_REVISION,
                     "products": [{"name": p.name, "sha256": p.digest} for p in forward],
+                    "review_products": [
+                        {"name": "review/" + p.name, "sha256": p.digest} for p in review
+                    ],
                 }
             )
         )

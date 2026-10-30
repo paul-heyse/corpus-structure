@@ -91,7 +91,12 @@ from corpus_structure.ingest.profile import (
 )
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.ingest.source_capture import (
-    CaptureParser, Contribution, Extent, Projection, SourceCapture, SourceProduct, source_union,
+    CaptureParser,
+    Contribution,
+    Projection,
+    SourceCapture,
+    SourceProduct,
+    source_union,
 )
 
 K = SegmentKind
@@ -404,7 +409,12 @@ class _Walker:
             if run.raw().strip():
                 blk.children.append(run)
             elif run.pieces:
-                self.capture.exclusions.append((source_union(origin for _, _, origin in run.origins), "canonical whitespace-only run"))
+                self.capture.exclusions.append(
+                    (
+                        source_union(origin for _, _, origin in run.origins),
+                        "canonical whitespace-only run",
+                    )
+                )
             run = Run()
 
         for child in el:
@@ -555,12 +565,29 @@ def _process_run(
             math_index += 1
         if normalized:
             synthetic = bool(origins) and all(origin.synthetic for origin in origins)
-            category = "marker" if synthetic else "math" if math_index < len(math_ranges) and math_ranges[math_index][0] <= a < b <= math_ranges[math_index][1] else "text"
+            category = (
+                "marker"
+                if synthetic
+                else "math"
+                if math_index < len(math_ranges)
+                and math_ranges[math_index][0] <= a < b <= math_ranges[math_index][1]
+                else "text"
+            )
             known = bool(origins) and all(origin.sources or origin.synthetic for origin in origins)
             reasons = [origin.reason for origin in origins]
             if not synthetic:
                 reasons.append("whitespace collapse and NFC canonical projection")
-            projections.append(Projection(acc, acc + len(normalized), source_union(origins), category, "; ".join(dict.fromkeys(reasons)), synthetic, known))
+            projections.append(
+                Projection(
+                    acc,
+                    acc + len(normalized),
+                    source_union(origins),
+                    category,
+                    "; ".join(dict.fromkeys(reasons)),
+                    synthetic,
+                    known,
+                )
+            )
         acc += len(normalized)
     newmap[length] = acc
     text = "".join(pieces)
@@ -639,7 +666,16 @@ def _serialize(blk: Block, walker: _Walker) -> tuple[str, Node]:
             placed = [own]
         if parts:
             parts.append(sep)
-            node.projections.append(Projection(offset, offset + len(sep), (), "canonical_separator", f"{blk.kind.value} canonical separator", True))
+            node.projections.append(
+                Projection(
+                    offset,
+                    offset + len(sep),
+                    (),
+                    "canonical_separator",
+                    f"{blk.kind.value} canonical separator",
+                    True,
+                )
+            )
             offset += len(sep)
         node.projections.extend(p.shifted(offset) for p in projections)
         for segment in placed:

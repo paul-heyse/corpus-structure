@@ -7,13 +7,16 @@ establish endpoint custody. Bulk publication uses a fenced native function, neve
 
 from __future__ import annotations
 
+import base64
 import json
+from bisect import bisect_left, bisect_right
+from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Connection, select, text
 
@@ -21,6 +24,9 @@ from .identity import canonical_bytes
 from .metadata import table
 from .prepare import prepare_release
 from .types import PreparedRelease, SourceArtifact, SourceBundle
+
+if TYPE_CHECKING:
+    from .contracts import ExecutionModelProducts
 
 PARSING_MODEL = Path(__file__).resolve().parents[1] / "model/semantic/parsing-products.yaml"
 PARSING_CONTRACT_DIGEST = sha256(PARSING_MODEL.read_bytes()).hexdigest()
@@ -53,9 +59,117 @@ class ParsingProductUnavailable(ValueError):
 @lru_cache(maxsize=1)
 def parsing_contract() -> PreparedRelease:
     """Reuse the admitted compiler and its cached, frozen Pydantic boundary adapters."""
-    return prepare_release(
-        SourceBundle("parsing", (SourceArtifact("parsing", PARSING_MODEL.read_bytes()),))
+    from .contracts import trusted_execution_inputs
+
+    return _parsing_boundary(trusted_execution_inputs().schema)
+
+
+@lru_cache(maxsize=16)
+def _parsing_boundary(bundle: SourceBundle) -> PreparedRelease:
+    return prepare_release(bundle)
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedParsingContext:
+    """One archived schema/execution binding reused by pure kernels and pinned readers."""
+
+    release_id: str | None
+    boundary: PreparedRelease
+    execution: ExecutionModelProducts
+    contract_digest: str
+
+
+def prepare_parsing_context(
+    prepared: PreparedRelease, execution_schema: SourceBundle
+) -> PreparedParsingContext:
+    """Prepare from explicitly supplied archived inputs, without database/default lookup."""
+    from .contracts import bound_execution_model, execution_payload
+
+    model = bound_execution_model(prepared)
+    if not any(c.id == "ParsingProduct" for c in model.concepts):
+        raise ParsingProductUnavailable(
+            "bound execution model has no supported parsing contract profile"
+        )
+    payload = execution_payload(prepared)
+    if payload is None:
+        raise ParsingProductUnavailable("parsing context requires a composed execution binding")
+    manifest = json.loads(payload)["inputs"]["schema"]
+    actual = {
+        "root": execution_schema.root,
+        "sources": [{"name": s.name, "sha256": s.digest} for s in execution_schema.sources],
+    }
+    if actual != manifest:
+        raise ValueError(
+            "explicit parsing schema inputs differ from the archived execution binding"
+        )
+    source = next((s for s in execution_schema.sources if s.name == "parsing_products"), None)
+    if source is None:
+        raise ParsingProductUnavailable("archived execution model has no parsing schema")
+    return PreparedParsingContext(
+        prepared.release_id, _parsing_boundary(execution_schema), model, source.digest
     )
+
+
+def parsing_context_for_release(
+    conn: Connection, prepared: PreparedRelease
+) -> PreparedParsingContext:
+    """Acquire original dependency bytes once at an explicit archive entry boundary."""
+    from .contracts import execution_payload
+
+    payload = execution_payload(prepared)
+    if payload is None:
+        raise ParsingProductUnavailable("parsing context requires a composed execution binding")
+    manifest = json.loads(payload)["inputs"]["schema"]
+    inputs = table("sem.input")
+    names = ["execution/schema/" + s["name"] for s in manifest["sources"]]
+    rows = conn.execute(
+        select(inputs.c.input_name, inputs.c.content).where(
+            inputs.c.release_id == prepared.release_id,
+            inputs.c.input_kind == "dependency",
+            inputs.c.input_name.in_(names),
+        )
+    ).mappings()
+    sources = {r["input_name"]: bytes(r["content"]) for r in rows}
+    if set(sources) != set(names):
+        raise ValueError("archived parsing schema dependency custody is incomplete")
+    bundle = SourceBundle(
+        manifest["root"],
+        tuple(
+            SourceArtifact(s["name"], sources["execution/schema/" + s["name"]])
+            for s in manifest["sources"]
+        ),
+    )
+    return prepare_parsing_context(prepared, bundle)
+
+
+@lru_cache(maxsize=1)
+def _trusted_parsing_context() -> PreparedParsingContext:
+    from .contracts import compile_execution_model, trusted_execution_inputs
+
+    return PreparedParsingContext(
+        None,
+        parsing_contract(),
+        compile_execution_model(trusted_execution_inputs()),
+        PARSING_CONTRACT_DIGEST,
+    )
+
+
+def parsing_context_for_task(
+    conn: Connection, task_id: int, context: PreparedParsingContext | None = None
+) -> PreparedParsingContext:
+    from .releases import open_release
+
+    task, run = table("ops.task"), table("ops.run")
+    release = conn.execute(
+        select(run.c.release_id)
+        .join_from(task, run, task.c.run_id == run.c.id)
+        .where(task.c.id == task_id)
+    ).scalar_one()
+    if context is not None:
+        if context.release_id != release:
+            raise ValueError("parsing context differs from the producing task release")
+        return context
+    return parsing_context_for_release(conn, open_release(conn, release))
 
 
 def _index(rows: list[dict[str, Any]], *keys: str) -> dict[Any, dict[str, Any]]:
@@ -84,7 +198,28 @@ def _covers(extents: list[tuple[int, int]], length: int) -> bool:
     return end == length
 
 
-def _validate_product(p: dict[str, Any], original: bytes) -> None:
+def representation_text(row: Mapping[str, Any]) -> str:
+    """Decode the one explicit text variant without losing embedded NUL code points."""
+    plain, encoded = row.get("text_content"), row.get("text_content_utf8_base64")
+    if isinstance(plain, str) and encoded is None:
+        if "\x00" in plain:
+            raise ValueError("NUL source text requires the binary-safe representation variant")
+        return plain
+    if plain is None and isinstance(encoded, str):
+        return base64.b64decode(encoded, validate=True).decode("utf8", errors="strict")
+    raise ValueError("text representation requires exactly one typed content variant")
+
+
+def _validate_product(p: dict[str, Any], original: bytes, context: PreparedParsingContext) -> None:
+    from .parsing_contracts import parsing_relationships
+
+    relationship_profiles = parsing_relationships(context.execution)
+    adapter_id = p.get("adapter_id")
+    adapter = next(
+        (a for a in context.execution.parsing_adapters if a.adapter_id == adapter_id), None
+    )
+    if adapter_id is not None and adapter is None:
+        raise ValueError("parsing product adapter is not admitted by its bound execution contract")
     if p["artifact_digest"] != sha256(original).hexdigest():
         raise ValueError("original artifact digest differs")
     if p["lifecycle"] not in {"available", "failed", "cancelled"}:
@@ -95,7 +230,30 @@ def _validate_product(p: dict[str, Any], original: bytes) -> None:
     relations = _index(p["relationships"], "relationship_id")
     mappings = _index(p["mappings"], "mapping_id")
     dependencies = _index(p["dependencies"], "name")
+    relation_endpoints: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    mapping_endpoints: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    target_rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for endpoint in p["endpoints"]:
+        relation_endpoints[endpoint["relationship_id"]].append(endpoint)
+    for endpoint in p["mapping_endpoints"]:
+        mapping_endpoints[endpoint["mapping_id"], endpoint["side"]].append(endpoint)
+        if endpoint["side"] == "target" and endpoint.get("target_task_id") is None:
+            target_rows[endpoint["representation_id"]].append(endpoint)
+    target_index = {}
+    for representation, rows in target_rows.items():
+        rows.sort(key=lambda row: (row["start_offset"], row["end_offset"]))
+        maximum = 0
+        prefix = []
+        for row in rows:
+            maximum = max(maximum, row["end_offset"])
+            prefix.append(maximum)
+        target_index[representation] = ([row["start_offset"] for row in rows], prefix, rows)
     originals = [rep for rep in reps.values() if rep["kind"] == "original"]
+    text_values = {
+        rep["representation_id"]: representation_text(rep)
+        for rep in reps.values()
+        if rep["kind"] != "original"
+    }
     if len(originals) != 1:
         raise ValueError("one original byte representation is required, including decoding failure")
     if sum(rep["kind"] == "canonical" for rep in reps.values()) != 1:
@@ -105,13 +263,12 @@ def _validate_product(p: dict[str, Any], original: bytes) -> None:
             if (
                 rep["unit"] != "byte"
                 or rep.get("text_content") is not None
+                or rep.get("text_content_utf8_base64") is not None
                 or rep["extent_length"] != len(original)
             ):
                 raise ValueError("original representation must retain its exact byte space")
-        elif (
-            rep["unit"] != "codepoint"
-            or not isinstance(rep.get("text_content"), str)
-            or rep["extent_length"] != len(rep["text_content"])
+        elif rep["unit"] != "codepoint" or rep["extent_length"] != len(
+            text_values[rep["representation_id"]]
         ):
             raise ValueError("text representation must declare its codepoint length")
         if rep["kind"] == "decoded" and any(
@@ -139,7 +296,41 @@ def _validate_product(p: dict[str, Any], original: bytes) -> None:
                 raise ValueError("literal node requires its representation-qualified extent")
             extent(row)
         elif any(key in row for key in fields) or not row.get("origin_reason"):
-            raise ValueError("synthetic node requires a reason and no fabricated literal extent")
+            raise ValueError("nonliteral node requires a reason and no fabricated literal extent")
+        if (
+            row["kind"] == "text"
+            and row["origin"] == "derived"
+            and (
+                row.get("name") not in {"text", "tail"}
+                or "value" not in row
+                or row.get("ordinal") not in {0, 1}
+            )
+        ):
+            raise ValueError("derived final text slot requires its location, value and ordinal")
+        if row["kind"] == "attribute" and (
+            not row.get("name")
+            or "value" not in row
+            or "ordinal" not in row
+            or row["ordinal"] < 0
+            or row.get("attribute_outcome") not in {"retained", "discarded_duplicate", "unknown"}
+        ):
+            raise ValueError(
+                "attribute occurrence requires its name, value, ordinal and native outcome"
+            )
+        for prefix in ("name", "value"):
+            start, end = row.get(prefix + "_start_offset"), row.get(prefix + "_end_offset")
+            if (start is None) != (end is None) or (
+                start is not None
+                and (
+                    row["kind"] != "attribute"
+                    or row["origin"] != "literal"
+                    or not row["start_offset"] <= start <= end <= row["end_offset"]
+                )
+            ):
+                raise ValueError(
+                    "attribute lexical subrange must be paired and contained "
+                    "in its literal occurrence"
+                )
     for rep in reps.values():
         rows = _ordered(
             [r for r in components.values() if r["representation_id"] == rep["representation_id"]]
@@ -182,23 +373,52 @@ def _validate_product(p: dict[str, Any], original: bytes) -> None:
             raise ValueError("endpoint has no local occurrence custody")
     containment = {}
     for relation in relations.values():
-        rows = _ordered(
-            [r for r in p["endpoints"] if r["relationship_id"] == relation["relationship_id"]]
-        )
+        rows = _ordered(relation_endpoints[relation["relationship_id"]])
         if len(rows) < 2:
             raise ValueError("relationship requires at least two ordered endpoints")
-        expected_roles = {
-            "contains": ("parent", "child"),
-            "structural_parent": ("parent", "child"),
-            "reference": ("source", "target"),
-            "binds": ("invocation", "definition"),
-            "derived_from": ("target", "source"),
-            "sequence": ("source", "target"),
-        }[relation["kind"]]
+        expected_roles = tuple(
+            endpoint.role for endpoint in relationship_profiles[relation["kind"]].endpoints
+        )
         if tuple(row["role"] for row in rows) != expected_roles:
             raise ValueError(
                 "relationship endpoints differ from the supported ordered role contract"
             )
+        if relation["kind"] == "attribute_of":
+            if any(
+                row.get("target_task_id") is not None or row.get("node_id") is None for row in rows
+            ):
+                raise ValueError("attribute ownership requires local structural occurrences")
+            attribute, owner = (nodes[(row["node_id"],)] for row in rows)
+            if attribute["kind"] != "attribute" or owner["kind"] != "element":
+                raise ValueError("attribute ownership requires an attribute and an element")
+        if relation["kind"] == "text_of":
+            if any(
+                row.get("target_task_id") is not None or row.get("node_id") is None for row in rows
+            ):
+                raise ValueError("text ownership requires local structural occurrences")
+            slot, owner = (nodes[(row["node_id"],)] for row in rows)
+            if (
+                slot["kind"] != "text"
+                or slot["origin"] != "derived"
+                or owner["kind"] not in {"element", "comment"}
+            ):
+                raise ValueError(
+                    "text ownership requires a derived final slot and its native owner"
+                )
+        if (
+            relation["kind"] == "derived_from"
+            and rows[0].get("target_task_id") is None
+            and rows[0].get("node_id") is not None
+        ):
+            target = nodes[(rows[0]["node_id"],)]
+            if (
+                target["kind"] == "text"
+                and target["origin"] == "derived"
+                and relation.get("ordinal") is None
+            ):
+                raise ValueError(
+                    "final text source contributions require explicit relationship order"
+                )
         if relation["kind"] in {"contains", "structural_parent"}:
             if (
                 len(rows) != 2
@@ -246,16 +466,17 @@ def _validate_product(p: dict[str, Any], original: bytes) -> None:
     for mapping in mappings.values():
         counts = {}
         for side in ("source", "target"):
-            counts[side] = len(
-                _ordered(
-                    [
-                        r
-                        for r in p["mapping_endpoints"]
-                        if r["mapping_id"] == mapping["mapping_id"] and r["side"] == side
-                    ]
-                )
-            )
+            counts[side] = len(_ordered(mapping_endpoints[mapping["mapping_id"], side]))
         fidelity = mapping["fidelity"]
+        if fidelity == "transformed" and (
+            adapter is None
+            or "mapping/" + mapping["operation"] not in adapter.capabilities
+            or not all(counts.values())
+        ):
+            raise ValueError(
+                "transformed contribution requires its admitted adapter/operation "
+                "and both extent sets"
+            )
         if (
             (fidelity == "exact" and not all(counts.values()))
             or (fidelity == "synthetic" and (counts["source"] or not counts["target"]))
@@ -265,9 +486,10 @@ def _validate_product(p: dict[str, Any], original: bytes) -> None:
         if fidelity == "exact":
             if mapping["operation"] != "copy":
                 raise ValueError("exact mapping requires the supported copy transformation")
-            endpoints = [
-                r for r in p["mapping_endpoints"] if r["mapping_id"] == mapping["mapping_id"]
-            ]
+            endpoints = (
+                mapping_endpoints[mapping["mapping_id"], "source"]
+                + mapping_endpoints[mapping["mapping_id"], "target"]
+            )
             if len({r["unit"] for r in endpoints}) != 1:
                 raise ValueError("exact copy cannot substitute byte and codepoint spaces")
             if all(r.get("target_task_id") is None for r in endpoints):
@@ -279,7 +501,7 @@ def _validate_product(p: dict[str, Any], original: bytes) -> None:
                         if rep["unit"] == "byte":
                             part = original[endpoint["start_offset"] : endpoint["end_offset"]]
                         else:
-                            part = rep["text_content"][
+                            part = text_values[rep["representation_id"]][
                                 endpoint["start_offset"] : endpoint["end_offset"]
                             ].encode("utf8")
                         parts.append(part)
@@ -287,25 +509,63 @@ def _validate_product(p: dict[str, Any], original: bytes) -> None:
                 if values["source"] != values["target"]:
                     raise ValueError("exact copy mapping content differs")
     if p["provenance_state"] == "complete":
-        if any(rep["kind"] == "canonical" and rep["extent_length"] for rep in reps.values()):
+        if p.get("provenance_universe", "canonical_output") != "canonical_output":
+            raise ValueError("unsupported provenance universe")
+
+        established: set[tuple[str, int, int]] = set()
+
+        def rooted(representation: str, start: int, end: int, path: frozenset[str]) -> bool:
+            key = (representation, start, end)
+            if key in established:
+                return True
+            if start == end or reps[(representation,)]["kind"] == "original":
+                return True
+            if len(path) >= 64:
+                return False
+            covered = []
+            starts, prefix, targets = target_index.get(representation, ([], [], []))
+            for target in targets[bisect_right(prefix, start) : bisect_left(starts, end)]:
+                if target["end_offset"] <= start:
+                    continue
+                mapping = mappings[(target["mapping_id"],)]
+                if mapping["mapping_id"] in path or mapping["fidelity"] == "unknown":
+                    return False
+                if mapping["fidelity"] == "synthetic":
+                    if adapter is None or "mapping/synthetic" not in adapter.capabilities:
+                        return False
+                else:
+                    sources = mapping_endpoints[mapping["mapping_id"], "source"]
+                    if not sources or any(
+                        r.get("target_task_id") is not None
+                        or not rooted(
+                            r["representation_id"],
+                            r["start_offset"],
+                            r["end_offset"],
+                            path | {mapping["mapping_id"]},
+                        )
+                        for r in sources
+                    ):
+                        return False
+                covered.append(
+                    (
+                        max(start, target["start_offset"]) - start,
+                        min(end, target["end_offset"]) - start,
+                    )
+                )
+            valid = _covers(covered, end - start)
+            if valid:
+                established.add(key)
+            return valid
+
+        if any(
+            rep["kind"] == "canonical"
+            and not rooted(rep["representation_id"], 0, rep["extent_length"], frozenset())
+            for rep in reps.values()
+        ):
             raise ValueError(
-                "complete original-to-canonical provenance requires a "
-                "qualified decoding/projection transform"
+                "complete provenance requires a qualified decoding/projection transform "
+                "rooted in original bytes or admitted synthetic rules"
             )
-        if any(m["fidelity"] == "unknown" for m in mappings.values()):
-            raise ValueError("unknown mapping cannot establish complete provenance")
-        for rep in reps.values():
-            if rep["kind"] == "canonical" and not _covers(
-                [
-                    (r["start_offset"], r["end_offset"])
-                    for r in p["mapping_endpoints"]
-                    if r["side"] == "target"
-                    and r.get("target_task_id") is None
-                    and r["representation_id"] == rep["representation_id"]
-                ],
-                rep["extent_length"],
-            ):
-                raise ValueError("complete provenance leaves canonical material unmapped")
 
 
 @dataclass(frozen=True, slots=True)
@@ -325,25 +585,42 @@ class PreparedParsingProduct:
 
 
 def prepare_parsing_product(
-    payload: Mapping[str, Any], original_bytes: bytes | bytearray | memoryview
+    payload: Mapping[str, Any],
+    original_bytes: bytes | bytearray | memoryview,
+    *,
+    context: PreparedParsingContext | None = None,
 ) -> PreparedParsingProduct:
+    context = _trusted_parsing_context() if context is None else context
+    context.execution.require_operation("prepare_parsing_product")
     original_bytes = bytes(original_bytes)
-    value = (
-        parsing_contract()
-        .validate_json("ParsingProduct", json.dumps(dict(payload)))
-        .model_dump(mode="json")
+    value = context.boundary.validate_json("ParsingProduct", json.dumps(dict(payload))).model_dump(
+        mode="json"
     )
     for key in COLLECTIONS:
         value.setdefault(key, [])
-    _validate_product(value, original_bytes)
-    return PreparedParsingProduct(canonical_bytes(value), original_bytes, PARSING_CONTRACT_DIGEST)
+    value.setdefault("provenance_universe", "canonical_output")
+    _validate_product(value, original_bytes, context)
+    return PreparedParsingProduct(canonical_bytes(value), original_bytes, context.contract_digest)
 
 
 def store_parsing_product(
-    conn: Connection, *, task_id: int, attempt: int, holder: str, product: PreparedParsingProduct
+    conn: Connection,
+    *,
+    task_id: int,
+    attempt: int,
+    holder: str,
+    product: PreparedParsingProduct,
+    context: PreparedParsingContext | None = None,
 ) -> str:
     """Publish only behind the same running-attempt custody as source completion."""
-    checked = prepare_parsing_product(product.values(), product.original)
+    from .contracts import require_database_operation
+
+    context = parsing_context_for_task(conn, task_id, context)
+    context.execution.require_operation("publish_parsing_product")
+    if context.release_id is None:
+        raise ValueError("publication requires the producing task's archived release")
+    require_database_operation(conn, context.release_id, "publish_parsing_product")
+    checked = prepare_parsing_product(product.values(), product.original, context=context)
     if checked != product:
         raise ValueError("parsing contract or canonical payload differs")
     return conn.execute(
@@ -362,7 +639,9 @@ def store_parsing_product(
     ).scalar_one()
 
 
-def read_parsing_product(conn: Connection, *, task_id: int) -> PreparedParsingProduct | None:
+def read_parsing_product(
+    conn: Connection, *, task_id: int, context: PreparedParsingContext | None = None
+) -> PreparedParsingProduct | None:
     """A pinned missing product is unavailable; a matching corrupt product refuses."""
     products, artifacts = table("ops.parsing_product"), table("kb.source_artifact")
     row = (
@@ -378,9 +657,17 @@ def read_parsing_product(conn: Connection, *, task_id: int) -> PreparedParsingPr
         return None
     if row["original"] is None:
         raise ValueError("retained parsing product has lost its original artifact custody")
-    if row["contract_digest"] != PARSING_CONTRACT_DIGEST:
+    context = parsing_context_for_task(conn, task_id, context)
+    context.execution.require_operation("read_parsing_product")
+    conn.execute(
+        text("SELECT ops.require_parsing_product(:task,:contract)"),
+        {"task": task_id, "contract": context.contract_digest},
+    )
+    if row["contract_digest"] != context.contract_digest:
         raise ParsingProductUnavailable("retained parsing contract is unsupported by this reader")
-    result = prepare_parsing_product(json.loads(bytes(row["payload"])), bytes(row["original"]))
+    result = prepare_parsing_product(
+        json.loads(bytes(row["payload"])), bytes(row["original"]), context=context
+    )
     if result.digest != row["product_digest"] or result.contract_digest != row["contract_digest"]:
         raise ValueError("retained parsing product digest/contract differs")
     values = result.values()

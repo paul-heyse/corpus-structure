@@ -29,8 +29,11 @@ enums:
       partial: *id003
       unknown: *id003
       unsupported: *id003
+  ProvenanceUniverse:
+    permissible_values: {canonical_output: {}}
   MappingFidelity:
     permissible_values:
+      transformed: {}
       exact: &id004 {}
       synthetic: *id004
       excluded: *id004
@@ -56,27 +59,33 @@ enums:
       unknown: *id007
   ComponentCategory:
     permissible_values:
-      markup: &id008 {}
-      text: *id008
-      whitespace: *id008
-      comment: *id008
-      math: *id008
-      reference: *id008
-      unknown: *id008
-      tag_open: &id009 {}
-      tag_close: *id009
-      tag_name: *id009
-      attribute_name: *id009
-      attribute_value: *id009
-      attribute_delimiter: *id009
-      character_reference: *id009
-      doctype: *id009
-      raw_text: *id009
-      malformed: *id009
-      canonical_separator: *id009
-      marker: *id009
+      attribute_name: {}
+      attribute_value: {}
+      attribute_delimiter: {}
+      tag_open: {}
+      tag_close: {}
+      tag_name: {}
+      doctype: {}
+      raw_text: {}
+      character_reference: {}
+      malformed: {}
+      canonical_separator: {}
+      marker: {}
+      encoding_marker: {}
+      markup: {}
+      text: {}
+      whitespace: {}
+      comment: {}
+      math: {}
+      reference: {}
+      unknown: {}
+  TextSlotLocation:
+    permissible_values: {text: {}, tail: {}}
+  AttributeOutcome:
+    permissible_values: {retained: {}, discarded_duplicate: {}, unknown: {}}
   StructuralKind:
     permissible_values:
+      attribute: {}
       document: &id010 {}
       element: *id010
       text: *id010
@@ -86,6 +95,8 @@ enums:
       symbol: *id010
   RelationshipKind:
     permissible_values:
+      text_of: {}
+      attribute_of: {}
       contains: &id011 {}
       reference: *id011
       binds: *id011
@@ -94,6 +105,9 @@ enums:
       structural_parent: {}
   EndpointRole:
     permissible_values:
+      text: {}
+      attribute: {}
+      owner: {}
       parent: &id012 {}
       child: *id012
       source: *id012
@@ -119,6 +133,7 @@ enums:
       source-products-v1: {}
   NodeOrigin:
     permissible_values:
+      derived: {}
       literal: &id014 {}
       synthetic: *id014
 classes:
@@ -144,6 +159,8 @@ classes:
         minimum_value: 0
   ParsingRepresentation:
     attributes:
+      text_content_utf8_base64: {range: ParsingString, slot_uri: pp:ParsingRepresentation_text_content_utf8_base64}
+
       representation_id:
         range: ParsingString
         required: true
@@ -199,6 +216,7 @@ classes:
         slot_uri: pp:ParsingComponent_category
     is_a: ParsingExtent
   ParsingNode:
+    abstract: true
     attributes:
       node_id:
         range: ParsingString
@@ -233,8 +251,171 @@ classes:
       origin_reason:
         range: ParsingString
         slot_uri: pp:ParsingNode_origin_reason
+      name:
+        range: ParsingString
+        slot_uri: pp:ParsingNode_name
+      ordinal:
+        range: ParsingInteger
+        slot_uri: pp:ParsingNode_ordinal
+  ParsingDocumentNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: document
+        slot_uri: pp:ParsingDocumentNode_kind
+  ParsingElementNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: element
+        slot_uri: pp:ParsingElementNode_kind
+  ParsingCommentNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: comment
+        slot_uri: pp:ParsingCommentNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingNode_value
+  ParsingMathNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: math
+        slot_uri: pp:ParsingMathNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingNode_value
+  ParsingGroupNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: group
+        slot_uri: pp:ParsingGroupNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingNode_value
+  ParsingSymbolNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: symbol
+        slot_uri: pp:ParsingSymbolNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingNode_value
+  ParsingAttributeNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: attribute
+        slot_uri: pp:ParsingAttributeNode_kind
+      origin:
+        range: string
+        required: true
+        slot_uri: pp:ParsingNode_origin
+        equals_string: literal
+      representation_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingNode_representation_id
+      unit:
+        range: CoordinateUnit
+        required: true
+        slot_uri: pp:ParsingNode_unit
+      start_offset:
+        range: ParsingInteger
+        required: true
+        slot_uri: pp:ParsingNode_start_offset
+        minimum_value: 0
+      end_offset:
+        range: ParsingInteger
+        required: true
+        slot_uri: pp:ParsingNode_end_offset
+        minimum_value: 0
+      name:
+        range: ParsingString
+        slot_uri: pp:ParsingNode_name
+        required: true
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingNode_value
+        required: true
+      ordinal:
+        range: ParsingInteger
+        slot_uri: pp:ParsingNode_ordinal
+        required: true
+        minimum_value: 0
+      attribute_outcome:
+        range: AttributeOutcome
+        slot_uri: pp:ParsingNode_attribute_outcome
+        required: true
+      name_start_offset:
+        range: ParsingInteger
+        slot_uri: pp:ParsingNode_name_start_offset
+        required: false
+      name_end_offset:
+        range: ParsingInteger
+        slot_uri: pp:ParsingNode_name_end_offset
+        required: false
+      value_start_offset:
+        range: ParsingInteger
+        slot_uri: pp:ParsingNode_value_start_offset
+        required: false
+      value_end_offset:
+        range: ParsingInteger
+        slot_uri: pp:ParsingNode_value_end_offset
+        required: false
+  ParsingTextSlotNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: text
+        slot_uri: pp:ParsingTextSlotNode_kind
+      origin:
+        range: string
+        required: true
+        slot_uri: pp:ParsingNode_origin
+        equals_string: derived
+      origin_reason:
+        range: ParsingString
+        slot_uri: pp:ParsingNode_origin_reason
+        required: true
+      name:
+        range: TextSlotLocation
+        slot_uri: pp:ParsingNode_name
+        required: true
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingNode_value
+        required: true
+      ordinal:
+        range: ParsingInteger
+        slot_uri: pp:ParsingNode_ordinal
+        required: true
+        minimum_value: 0
+        maximum_value: 1
   ParsingRelationship:
     attributes:
+      ordinal: {range: ParsingInteger, minimum_value: 0, slot_uri: pp:ParsingRelationship_ordinal}
+
       relationship_id:
         range: ParsingString
         required: true
@@ -335,6 +516,10 @@ classes:
         slot_uri: pp:ParsingDependency_artifact_digest
   ParsingProduct:
     attributes:
+      provenance_universe: {range: ProvenanceUniverse, slot_uri: pp:ParsingProduct_provenance_universe}
+
+      adapter_id: {range: ParsingString, slot_uri: pp:ParsingProduct_adapter_id}
+
       recipe:
         range: ParsingRecipe
         required: true
@@ -411,3 +596,157 @@ classes:
         multivalued: true
         inlined: true
         inlined_as_list: true
+  ParsingAdapterSupport:
+    attributes:
+      provenance_universe: {range: ProvenanceUniverse, required: true, slot_uri: pp:ParsingAdapterSupport_provenance_universe}
+
+      adapter_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_adapter_id
+      implementation_revision:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_implementation_revision
+      frontend_revision:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_frontend_revision
+      grammar_revision:
+        range: ParsingString
+        required: false
+        slot_uri: pp:ParsingAdapterSupport_grammar_revision
+      coordinate_fidelity:
+        range: MappingFidelity
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_coordinate_fidelity
+      repair_policy:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_repair_policy
+      ambiguity_policy:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_ambiguity_policy
+      lifetime:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_lifetime
+      capabilities:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_capabilities
+        multivalued: true
+        minimum_cardinality: 1
+  ParsingInterpretation:
+    attributes:
+      interpretation_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingInterpretation_interpretation_id
+      product_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingInterpretation_product_id
+      occurrence_ids:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingInterpretation_occurrence_ids
+        multivalued: true
+        minimum_cardinality: 1
+      context_digest:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingInterpretation_context_digest
+      declaration_digest:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingInterpretation_declaration_digest
+      assumption_digest:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingInterpretation_assumption_digest
+      adapter_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingInterpretation_adapter_id
+      semantic_state:
+        range: ParsingMeaning
+        required: true
+        slot_uri: pp:ParsingInterpretation_semantic_state
+      coverage:
+        range: ParsingCoverage
+        required: true
+        slot_uri: pp:ParsingInterpretation_coverage
+      alternative_group:
+        range: ParsingString
+        required: false
+        slot_uri: pp:ParsingInterpretation_alternative_group
+  ParsingAssessment:
+    attributes:
+      assessment_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAssessment_assessment_id
+      product_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAssessment_product_id
+      interpretation_ids:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAssessment_interpretation_ids
+        multivalued: true
+        minimum_cardinality: 1
+      question:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAssessment_question
+      conditions_digest:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAssessment_conditions_digest
+      algorithm_revision:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAssessment_algorithm_revision
+      policy_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAssessment_policy_id
+      outcome:
+        range: ParsingMeaning
+        required: true
+        slot_uri: pp:ParsingAssessment_outcome
+      coverage:
+        range: ParsingCoverage
+        required: true
+        slot_uri: pp:ParsingAssessment_coverage
+      evidence_ids:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAssessment_evidence_ids
+        multivalued: true
+        minimum_cardinality: 1
+  ParsingUnresolvedReference:
+    attributes:
+      reference_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingUnresolvedReference_reference_id
+      product_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingUnresolvedReference_product_id
+      source_occurrence_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingUnresolvedReference_source_occurrence_id
+      target_hint:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingUnresolvedReference_target_hint
+      reason:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingUnresolvedReference_reason

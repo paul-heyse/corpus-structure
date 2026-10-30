@@ -190,7 +190,7 @@ def test_exact_copy_checks_contents_and_complete_origin_universe():
         prepare_parsing_product(p, b"a\xc3\xa9 ")
 
 
-def _native_build(conn, prepared, original, tmp_path, *, hash_suffix="one"):
+def _native_build(conn, prepared, original, tmp_path, *, hash_suffix="one", content=None):
     from corpus_structure.core.evidence import RenditionContent, Segment
     from corpus_structure.core.vocab import SegmentKind
     from corpus_structure.semantic.operations import (
@@ -247,9 +247,10 @@ def _native_build(conn, prepared, original, tmp_path, *, hash_suffix="one"):
         input_hash=hash_suffix,
     )
     claim = claim_tasks(conn, run_id=run, config_id=config, holder="fixture")[0]
-    content = RenditionContent(
-        canonical_text="aé ", document=Segment(kind=SegmentKind.DOCUMENT, start=0, end=3)
-    )
+    if content is None:
+        content = RenditionContent(
+            canonical_text="aé ", document=Segment(kind=SegmentKind.DOCUMENT, start=0, end=3)
+        )
     rendition = store_rendition(
         conn,
         run_id=run,
@@ -376,7 +377,7 @@ def test_native_refuses_invalid_foreign_keys_units_scope_and_claims(
             c.execute(
                 text(
                     "SELECT ops.publish_parsing_product("
-                        ":task,:attempt,'fixture',:contract,:payload,:original)"
+                    ":task,:attempt,'fixture',:contract,:payload,:original)"
                 ),
                 dict(
                     task=task,

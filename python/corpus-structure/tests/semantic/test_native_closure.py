@@ -317,14 +317,14 @@ def test_model_products_match_frozen_forward_revision():
     from sqlalchemy.schema import CreateTable
 
     from corpus_structure.semantic.metadata import metadata
-    from corpus_structure.semantic.native_products import consolidation_products
+    from corpus_structure.semantic.native_products import forward_products
 
     versions = Path(__file__).resolve().parents[2] / "semantic_alembic/versions"
     before = {
         name: str(CreateTable(relation).compile(dialect=dialect()))
         for name, relation in metadata.tables.items()
     }
-    for product in consolidation_products():
+    for product in forward_products():
         assert versions.joinpath(product.name).read_bytes() == product.content
     assert before == {
         name: str(CreateTable(relation).compile(dialect=dialect()))

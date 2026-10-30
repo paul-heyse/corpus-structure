@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Never
@@ -309,6 +310,15 @@ class FakeReader:
 
     def measurements(self, method: str, metric: str) -> Never:
         raise AssertionError("the prompt digest must not read measurements")
+
+    def require_parsing_operations(self, names: Sequence[str]) -> Never:
+        raise AssertionError("the prompt digest must not prepare source parsing")
+
+    def prepare_parsing_product(self, payload: Mapping[str, Any], original: bytes) -> Never:
+        raise AssertionError("the prompt digest must not prepare source products")
+
+    def original(self, document_id: int) -> Never:
+        raise AssertionError("the prompt digest must not read original source bytes")
 
     def connection(self) -> Never:
         raise AssertionError("the prompt digest must not open a connection")

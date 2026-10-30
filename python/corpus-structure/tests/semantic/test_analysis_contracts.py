@@ -260,7 +260,11 @@ def test_historical_abi_cannot_self_attest_analysis_capabilities():
             RegistryRow("execution_model", model.model_id, canonical_bytes(changed)),
         ),
     )
-    with pytest.raises(PreparationError, match="requires execution compiler 9"):
+    from corpus_structure.semantic.contracts import EXECUTION_COMPILER_VERSION
+
+    with pytest.raises(
+        PreparationError, match=f"requires execution compiler {EXECUTION_COMPILER_VERSION}"
+    ):
         prepare_interpretation_context(archived, macros={})
 
 

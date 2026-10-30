@@ -2637,6 +2637,7 @@ classes:
       newline_policy:
         range: string
         required: false
+      text_content_utf8_base64: {range: string, required: false}
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -2652,8 +2653,8 @@ classes:
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.parsing_product.task_id"}]'
       ph:checks: '["kind IN (''original'',''decoded'',''canonical'',''expanded'')",
         "unit IN (''byte'',''codepoint'')", "extent_length >= 0", "(unit = ''byte''
-        AND kind = ''original'' AND text_content IS NULL) OR (unit = ''codepoint'' AND
-        kind <> ''original'' AND text_content IS NOT NULL AND extent_length = char_length(text_content))",
+        AND kind = ''original'' AND text_content IS NULL AND text_content_utf8_base64 IS NULL) OR (unit = ''codepoint'' AND
+        kind <> ''original'' AND num_nonnulls(text_content,text_content_utf8_base64)=1 AND (text_content IS NULL OR extent_length = char_length(text_content)))",
         "partition_state IN (''complete'',''partial'',''unknown'',''unsupported'')",
         "recognition_state IN (''complete'',''partial'',''unknown'',''unsupported'')",
         "kind <> ''decoded'' OR (encoding IS NOT NULL AND decoder IS NOT NULL AND newline_policy
@@ -2700,8 +2701,7 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.parsing_product.task_id"},
         {"columns": ["task_id", "representation_id", "unit"], "target": "kb.parsing_representation.task_id,representation_id,unit"}]'
-      ph:checks: '["start_offset >= 0 AND end_offset >= start_offset", "end_offset >
-        start_offset", "ordinal >= 0", "category IN (''markup'',''text'',''whitespace'',''comment'',''math'',''reference'',''unknown'')"]'
+      ph:checks: '["start_offset >= 0 AND end_offset >= start_offset", "end_offset > start_offset", "ordinal >= 0"]'
       ph:indexes: '[["task_id", "representation_id", "start_offset", "end_offset"],
         ["task_id", "category"]]'
   parsing_node:
@@ -2735,6 +2735,22 @@ classes:
       origin_reason:
         range: string
         required: false
+      name:
+        range: string
+        required: false
+      value:
+        range: string
+        required: false
+      ordinal:
+        range: integer
+        required: false
+      attribute_outcome:
+        range: string
+        required: false
+      name_start_offset: {range: integer, required: false}
+      name_end_offset: {range: integer, required: false}
+      value_start_offset: {range: integer, required: false}
+      value_end_offset: {range: integer, required: false}
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -2744,10 +2760,8 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.parsing_product.task_id"},
         {"columns": ["task_id", "representation_id", "unit"], "target": "kb.parsing_representation.task_id,representation_id,unit"}]'
-      ph:checks: '["(origin = ''literal'' AND num_nonnulls(representation_id,unit,start_offset,end_offset)
-        = 4 AND origin_reason IS NULL) OR (origin = ''synthetic'' AND num_nonnulls(representation_id,unit,start_offset,end_offset)
-        = 0 AND origin_reason IS NOT NULL)", "start_offset >= 0 AND end_offset >= start_offset",
-        "kind IN (''document'',''element'',''text'',''comment'',''math'',''group'',''symbol'')"]'
+      ph:checks: '["(origin = ''literal'' AND num_nonnulls(representation_id,unit,start_offset,end_offset) = 4 AND origin_reason IS NULL) OR (origin IN (''synthetic'',''derived'') AND num_nonnulls(representation_id,unit,start_offset,end_offset) = 0 AND origin_reason IS NOT NULL)", "start_offset >= 0 AND end_offset >= start_offset"]'
+
   parsing_dependency:
     in_subset:
     - kb
@@ -2793,6 +2807,7 @@ classes:
       kind:
         range: string
         required: true
+      ordinal: {range: integer, required: false}
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -2801,7 +2816,8 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.parsing_product.task_id"}]'
-      ph:checks: '["kind IN (''contains'',''reference'',''binds'',''derived_from'',''sequence'')"]'
+      ph:checks: '[]'
+
   parsing_endpoint:
     in_subset:
     - kb
@@ -2842,9 +2858,8 @@ classes:
         {"columns": ["target_task_id", "component_id"], "target": "kb.parsing_component.task_id,component_id"},
         {"columns": ["target_task_id", "node_id"], "target": "kb.parsing_node.task_id,node_id"},
         {"columns": ["task_id", "dependency_name", "target_task_id"], "target": "kb.parsing_dependency.task_id,name,target_task_id"}]'
-      ph:checks: '["ordinal >= 0", "(component_id IS NULL) <> (node_id IS NULL)", "(task_id
-        = target_task_id AND dependency_name IS NULL) OR (task_id <> target_task_id
-        AND dependency_name IS NOT NULL)", "role IN (''parent'',''child'',''source'',''target'',''invocation'',''argument'',''definition'',''default'',''fallback'',''member'')"]'
+      ph:checks: '["ordinal >= 0", "(component_id IS NULL) <> (node_id IS NULL)", "(task_id = target_task_id AND dependency_name IS NULL) OR (task_id <> target_task_id AND dependency_name IS NOT NULL)"]'
+
   parsing_mapping:
     in_subset:
     - kb
@@ -2872,8 +2887,8 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.parsing_product.task_id"}]'
-      ph:checks: '["fidelity IN (''exact'',''synthetic'',''excluded'',''unknown'')",
-        "operation IN (''decode'',''normalize'',''copy'',''repair'',''exclude'',''expand'',''project'',''synthetic'')"]'
+      ph:checks: '[]'
+
   parsing_mapping_endpoint:
     in_subset:
     - kb
@@ -2916,6 +2931,7 @@ classes:
         - side
         - ordinal
     annotations:
+      ph:indexes: '[["task_id", "representation_id", "side", "start_offset", "end_offset"], ["target_task_id", "representation_id", "side", "start_offset", "end_offset"], ["target_task_id", "representation_id", "start_offset", "end_offset"]]'
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id", "mapping_id"], "target": "kb.parsing_mapping.task_id,mapping_id"},
         {"columns": ["target_task_id", "representation_id", "unit"], "target": "kb.parsing_representation.task_id,representation_id,unit"},
@@ -2923,4 +2939,3 @@ classes:
       ph:checks: '["start_offset >= 0 AND end_offset >= start_offset", "ordinal >= 0",
         "side IN (''source'',''target'')", "(task_id = target_task_id AND dependency_name
         IS NULL) OR (task_id <> target_task_id AND dependency_name IS NOT NULL)"]'
-      ph:indexes: '[["target_task_id", "representation_id", "start_offset", "end_offset"]]'

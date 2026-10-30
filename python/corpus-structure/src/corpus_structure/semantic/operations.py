@@ -909,6 +909,41 @@ class BoundReader:
             )
         return read_rendition(self.conn, rendition_id, prepared=self.prepared)
 
+    def original(self, document_id: int) -> bytes:
+        """Read retained source bytes only within this reader's run/project binding."""
+        document, run = table("kb.document"), table("ops.run")
+        permitted = self.conn.execute(
+            select(document.c.id)
+            .join_from(document, run, document.c.project_id == run.c.project_id)
+            .where(
+                document.c.id == document_id,
+                run.c.id == self.run_id,
+                run.c.release_id == self.prepared.release_id,
+            )
+        ).scalar_one_or_none()
+        if permitted is None:
+            raise OperationConflict("original source is outside the bound run/project")
+        return read_original(self.conn, document_id, prepared=self.prepared)
+
+    def prepare_parsing_product(self, payload, original):
+        from .parsing_products import parsing_context_for_release, prepare_parsing_product
+
+        context = getattr(self, "_parsing_context", None)
+        if context is None:
+            context = parsing_context_for_release(self.conn, self.prepared)
+            self._parsing_context = context
+        return prepare_parsing_product(payload, original, context=context)
+
+    def require_parsing_operations(self, names: Sequence[str]) -> None:
+        from .parsing_products import parsing_context_for_release
+
+        context = getattr(self, "_parsing_context", None)
+        if context is None:
+            context = parsing_context_for_release(self.conn, self.prepared)
+            self._parsing_context = context
+        for name in names:
+            context.execution.require_operation(name)
+
     def text_layouts(
         self, rendition_id: int, expected_config, content: RenditionContent | None = None
     ):

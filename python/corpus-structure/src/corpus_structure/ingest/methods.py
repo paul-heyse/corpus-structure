@@ -12,14 +12,15 @@
 **`ingest.html`.** Its `Config` names a source profile (`SourceProfileRef`) and a sentence
 configuration (`ConfigRef`), both resolved into its hash by the registry, so a run's configuration
 is the resolved profile and sentence step. Its units are the run's corpus documents. Each original
-is read from its registered path and checked against the document's content hash; the pure
-`build_rendition` then gives the content, the markup drafts and the build's diagnostics. The
+is read through the run's original-byte port and checked against the document's content hash;
+PostgreSQL custody is authoritative, with a verified file fallback for historical acquisitions.
+The pure `build_rendition` gives the content, the markup drafts and the build's diagnostics. The
 digest is the document key, which hashes the project, the source URI and the bytes' hash: the
 markup drafts name their segments by key on this rendition, and a segment key depends on the
 document key (D1 §10.1), so the output depends on all three. A document the profile does not apply
-to, an original that changed, or an exception while building fails that document's task; the
-other units of the batch are unaffected. A result with no markup is `empty`, and O1 writes an ingest
-task with its rendition `done` either way (D3 §8).
+to, unavailable or corrupt original custody, or an exception while building fails that document's
+task; the other units of the batch are unaffected. A result with no markup is `empty`, and O1
+writes an ingest task with its rendition `done` either way (D3 §8).
 
 The `author_markup` drafts carry their spans where the markup has one (a `dfn` term, a link) and
 otherwise lie on the rendition; every value names its segment by key (`segment`), and a
@@ -170,6 +171,9 @@ class IngestHtml:
         self, units: Sequence[UnitView], cfg: IngestConfig, ctx: MethodContext
     ) -> Sequence[UnitResult]:
         profile, sentences = cfg.resolved()
+        ctx.reader.require_parsing_operations(
+            ("decompose_source", "recognize_html", "project_canonical")
+        )
         compiled = compile_profile(profile)
         with ctx.reader.connection() as conn:
             documents = _documents(conn, [u.ref.unit_id for u in units if u.ref.unit_id])
@@ -190,7 +194,9 @@ class IngestHtml:
         return out
 
 
-def _build(row: Any, compiled: CompiledProfile, sentences: SentenceConfig, raw: bytes) -> IngestResult:
+def _build(
+    row: Any, compiled: CompiledProfile, sentences: SentenceConfig, raw: bytes
+) -> IngestResult:
     return build_rendition(
         raw, compiled, sentences, source_uri=row.source_uri, document_key=row.key
     )
@@ -218,7 +224,11 @@ def _result(unit: UnitView, built: IngestResult, reader: Reader) -> UnitResult:
         rendition=built.content,
         parse_detail=built.parse_detail.to_json(),
         text_layouts=built.text_layouts,
-        parsing_product=reader.prepare_parsing_product(built.parsing_product.values(), built.parsing_product.original) if built.parsing_product is not None else None,
+        parsing_product=reader.prepare_parsing_product(
+            built.parsing_product.values(), built.parsing_product.original
+        )
+        if built.parsing_product is not None
+        else None,
     )
 
 

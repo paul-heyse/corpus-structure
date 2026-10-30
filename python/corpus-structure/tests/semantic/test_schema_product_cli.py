@@ -4,17 +4,21 @@ import json
 
 
 def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
+    from corpus_structure.semantic.native_products import NATIVE_PREDECESSOR, NATIVE_REVISION
+
     checked = cli("schema", "check", "--json")
     assert checked.exit_code == 0, checked.output
     assert json.loads(checked.stdout)["execution_model_id"]
     target = tmp_path / "candidate"
     derived = cli("schema", "derive", "--out", str(target), "--json")
     assert derived.exit_code == 0, derived.output
-    assert (target / "native/semantic_0040_kernels.sql").is_file()
+    assert (target / f"native/{NATIVE_REVISION}_parsing.sql").is_file()
+    assert (target / f"native/review/{NATIVE_REVISION}_kernels.sql").is_file()
     assert (target / "native/bootstrap/data.fact.sql").is_file()
     authoring = json.loads((target / "native/authoring.json").read_bytes())
-    assert authoring["predecessor"] == "semantic_0039"
-    assert authoring["revision"] == "semantic_0040"
+    assert authoring["predecessor"] == NATIVE_PREDECESSOR
+    assert authoring["revision"] == NATIVE_REVISION
+    assert any(p["name"].endswith("_physical.sql") for p in authoring["review_products"])
     before = (target / "manifest.json").read_bytes()
     refused = cli("schema", "derive", "--out", str(target))
     assert refused.exit_code == 1
@@ -59,7 +63,9 @@ def test_derive_preserves_changed_core_view_sql(cli, tmp_path, monkeypatch):
     target = tmp_path / "changed-view"
     result = cli("schema", "derive", "--out", str(target), "--json")
     assert result.exit_code == 0, result.output
-    physical = (target / "native/semantic_0040_physical.sql").read_text()
+    physical = (
+        target / f"native/review/{native_products.NATIVE_REVISION}_physical.sql"
+    ).read_text()
     assert "CREATE OR REPLACE VIEW data.selected_fact" in physical
     assert "LIMIT 3" in physical
     projected = json.loads((target / "native/release-projections.json").read_bytes())
