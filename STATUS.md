@@ -45,15 +45,15 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 F01's recognition opportunity remains with its owning interpretation package. Current runtime
 scope is complete; assess future source/workload growth against the recorded capacity limits.
 
-## Parsing reviews — 2026-10-30
+## Parsing-pipeline planning — 2026-10-30
 
-[Pipeline review](docs/functional_reviews/parsing-pipeline_2026-10-30.md) and its target extend
-[mathematical decomposition](docs/functional_reviews/symbolic-math-decomposition_2026-10-30.md):
-retain html5lib, model complete original/canonical decomposition and transformation relations,
-and extend current operation contracts with native adapters and on-demand interpretation.
-Exact HTML source mapping needs qualification. Recommendations remain Proposed; adoption and
-implementation are separate. No audit premises or existing qualification conclusions changed.
-Review docs: **passed** `just docs-check`, `just turn-end`; product tests not rerun (docs only).
+[New series](docs/plans/parsing-pipeline_2026-10-30.md) captures the parsing review and target:
+PP-00–PP-10 cover complete original/canonical decomposition, connected contracts, native
+adapters, demand-driven interpretation, views and adoption. Exact HTML provenance is an early
+investigation; html5lib remains the structural baseline. Versioned method redesign is allowed
+with full consumer migration. All packages are Planned, with no production implementation.
+Prior qualification and audit premises remain unchanged; product tests not rerun (docs only).
+Plan documentation: **passed** `just docs-check`, `just turn-end` and `git diff --check`.
 
 ## Test audit — 2026-10-30
 [Account](docs/design_review/test-audit/README.md) refreshed in full at `599d479`: 20 findings, unscheduled; DTA-015/016 are production causes and its open questions await the operator.
