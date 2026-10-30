@@ -512,3 +512,72 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
             conn.scalar(select(table("ops.task").c.status).where(table("ops.task").c.id == task))
             == "cancelled"
         )
+
+
+@pytest.mark.parametrize(
+    "packet,reason,valid",
+    [
+        (None, None, False),
+        ("packet:owned", "scope", False),
+        (None, "scope", True),
+        ("packet:owned", None, True),
+    ],
+)
+def test_invocation_effect_enforces_agent_packet_disposition(
+    semantic_db_engine, semantic_writer_engine, packet, reason, valid
+):
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.operations import (
+        OperationBinding,
+        create_run,
+        create_task,
+        record_method,
+    )
+
+    from .test_operations import setup
+
+    prepared = setup(semantic_db_engine, composed=True)
+    with semantic_writer_engine.begin() as conn:
+        run = create_run(
+            conn,
+            project_id="p",
+            binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
+            kind="full",
+            options={},
+            code_commit="test",
+        )
+        config = record_method(
+            conn,
+            SimpleNamespace(
+                name="agent-disposition",
+                version="1",
+                family="agent",
+                tier="agent",
+                confidence_source=None,
+                unit_type="run",
+                Config=NativeTestConfig,
+            ),
+            "default",
+            {},
+            "configuration:disposition",
+        )
+
+        def insert():
+            return create_task(
+                conn,
+                run_id=run,
+                config_id=config,
+                stage="propose",
+                unit_type="run",
+                input_hash="input:disposition",
+                packet_hash=packet,
+                agent=True,
+                skip_reason=reason,
+            )
+
+        if valid:
+            assert insert()
+        else:
+            with pytest.raises(DBAPIError, match="packet presence differs"), conn.begin_nested():
+                insert()

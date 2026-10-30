@@ -10,11 +10,11 @@ def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
     target = tmp_path / "candidate"
     derived = cli("schema", "derive", "--out", str(target), "--json")
     assert derived.exit_code == 0, derived.output
-    assert (target / "native/semantic_0038_kernels.sql").is_file()
+    assert (target / "native/semantic_0039_kernels.sql").is_file()
     assert (target / "native/bootstrap/data.fact.sql").is_file()
     authoring = json.loads((target / "native/authoring.json").read_bytes())
-    assert authoring["predecessor"] == "semantic_0037"
-    assert authoring["revision"] == "semantic_0038"
+    assert authoring["predecessor"] == "semantic_0038"
+    assert authoring["revision"] == "semantic_0039"
     before = (target / "manifest.json").read_bytes()
     refused = cli("schema", "derive", "--out", str(target))
     assert refused.exit_code == 1
@@ -59,7 +59,7 @@ def test_derive_preserves_changed_core_view_sql(cli, tmp_path, monkeypatch):
     target = tmp_path / "changed-view"
     result = cli("schema", "derive", "--out", str(target), "--json")
     assert result.exit_code == 0, result.output
-    physical = (target / "native/semantic_0038_physical.sql").read_text()
+    physical = (target / "native/semantic_0039_physical.sql").read_text()
     assert "CREATE OR REPLACE VIEW data.selected_fact" in physical
     assert "LIMIT 3" in physical
     projected = json.loads((target / "native/release-projections.json").read_bytes())

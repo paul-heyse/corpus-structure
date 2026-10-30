@@ -641,9 +641,9 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
         from .source_frames import load_source_frames, packet_bound_source_tasks
 
         required_origins = packet_bound_source_tasks(job["id"], cut_id=cut_id).subquery()
-        source_frames = load_source_frames(conn, conn.execute(
-            select(required_origins.c.id).distinct()
-        ).scalars())
+        source_frames = load_source_frames(
+            conn, conn.execute(select(required_origins.c.id).distinct()).scalars()
+        )
         descriptors = {}
         o, t, seg = table("kb.observation"), table("ops.task"), table("kb.segment")
         config, method = table("ops.method_config"), table("ops.method")
@@ -715,7 +715,10 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
             }
             descriptors[source["id"]] = descriptor
             report = reports_by_id[source["id"]]
-            if report["payload_definition"] == "AgentStoredBatch" and report["task_id"] in source_frames:
+            if (
+                report["payload_definition"] == "AgentStoredBatch"
+                and report["task_id"] in source_frames
+            ):
                 descriptor["frame"] = source_frames[report["task_id"]]
 
         tasks = (

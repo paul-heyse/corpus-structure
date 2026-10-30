@@ -21,7 +21,12 @@ def test_unknown_capture_storage_cannot_self_attest_support():
         )
 
 
-def test_previous_execution_capture_retains_projection_recipe_and_no_write_capability():
+@pytest.mark.parametrize(
+    "version,profile,recipe", [("7", "3", "analytical-5"), ("8", "4", "analytical-6")]
+)
+def test_previous_execution_capture_retains_projection_recipe_and_no_write_capability(
+    version, profile, recipe
+):
     import json
 
     from corpus_structure.semantic.analytics import _historical_capture, _projection_recipe
@@ -34,9 +39,10 @@ def test_previous_execution_capture_retains_projection_recipe_and_no_write_capab
     _, _, prepared = prepared_inputs()
     model = compile_execution_model(trusted_execution_inputs())
     historic = json.loads(model.content)
-    historic["inputs"]["compiler_version"] = "7"
-    historic["analysis_profiles"][0]["version"] = "3"
-    historic["analysis_profiles"][0].pop("capture_policy")
+    historic["inputs"]["compiler_version"] = version
+    historic["analysis_profiles"][0]["version"] = profile
+    if version == "7":
+        historic["analysis_profiles"][0].pop("capture_policy")
     payload = canonical_bytes(historic)
     archived = replace(
         prepared,
@@ -47,7 +53,7 @@ def test_previous_execution_capture_retains_projection_recipe_and_no_write_capab
         ),
     )
     assert _historical_capture(archived)
-    assert _projection_recipe(archived, "captured")[1] == "analytical-5"
+    assert _projection_recipe(archived, "captured")[1] == recipe
     require_payload_operation(payload, model.model_id, "capture_analytics")
     with pytest.raises(PreparationError, match="read-only"):
         require_payload_operation(payload, model.model_id, "publish")

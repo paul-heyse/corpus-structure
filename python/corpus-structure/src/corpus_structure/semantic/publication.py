@@ -331,10 +331,13 @@ class PublicationBatch:
         from hashlib import sha256
 
         from .analysis_contracts import bind_analysis_family
-        from .contracts import execution_payload
+        from .contracts import EXECUTION_COMPILER_VERSION, execution_payload
 
         payload = execution_payload(prepared)
-        if payload is None or json.loads(payload)["inputs"]["compiler_version"] != "8":
+        if (
+            payload is None
+            or json.loads(payload)["inputs"]["compiler_version"] != EXECUTION_COMPILER_VERSION
+        ):
             return self
         owned = bind_analysis_family(prepared, "publication").prepare(
             release=self.release_id,

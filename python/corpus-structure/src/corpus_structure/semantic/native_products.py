@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0037"
-NATIVE_REVISION = "semantic_0038"
+NATIVE_PREDECESSOR = "semantic_0038"
+NATIVE_REVISION = "semantic_0039"
 
 
 def selected_fact_query():
@@ -759,6 +759,15 @@ def consolidation_products(model=None) -> tuple[NativeProduct, ...]:
     if not separator:
         raise ValueError("native admission product lacks its descriptor boundary")
     return (
+        NativeProduct(
+            f"{NATIVE_REVISION}_guards.sql",
+            Path(__file__)
+            .with_name("sql")
+            .joinpath("execution_guards.sql")
+            .read_text()
+            .split("CREATE OR REPLACE FUNCTION ops.guard_execution_run", 1)[0]
+            .encode(),
+        ),
         NativeProduct(f"{NATIVE_REVISION}_derived.sql", derived_publication_sql().encode()),
         NativeProduct(
             f"{NATIVE_REVISION}_text_layout.sql",

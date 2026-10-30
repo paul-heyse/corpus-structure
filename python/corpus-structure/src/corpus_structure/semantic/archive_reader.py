@@ -367,7 +367,8 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
         .one_or_none()
     )
     if row is None or (row["profile"], row["content_digest"]) != (
-        header.profile, header.content_digest
+        header.profile,
+        header.content_digest,
     ):
         raise ReleaseConflict("archive header changed during opening")
     try:

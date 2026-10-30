@@ -263,9 +263,8 @@ def _check_references(
             universe = entities if endpoint["kind"] == "local" else known
             if endpoint["target"] not in universe:
                 raise ProposalRefused("identity exclusion endpoint is outside the bound packet")
-    from .reference_positions import class_reference_value, reference_position
-
     from .publication import native_constraints
+    from .reference_positions import class_reference_value, reference_position
 
     constraints = native_constraints(prepared)
 

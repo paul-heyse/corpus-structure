@@ -278,11 +278,19 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
 
         if profile.version == "5":
             from .contracts import InvocationPolicyDefinition
+
             if profile.invocation_policy != InvocationPolicyDefinition(
-                "invocation-logical-1", "invocation-packet-1",
-                ("release", "source", "configuration", "policy", "unit"), "absent", "required"
+                "invocation-logical-1",
+                "invocation-packet-1",
+                ("release", "source", "configuration", "policy", "unit"),
+                "absent",
+                "required",
             ):
-                _fail("unsupported_invocation_policy", location, "implement the declared invocation policy before admission")
+                _fail(
+                    "unsupported_invocation_policy",
+                    location,
+                    "implement the declared invocation policy before admission",
+                )
 
         def visit(name: str, path: frozenset[str], declared: dict, at: str) -> None:
             if name in path:
@@ -856,8 +864,14 @@ def _supported_capture_policy():
     """Finite reader support is independent of current release compilation/admission."""
     from .contracts import CapturePolicyDefinition
 
-    return CapturePolicyDefinition(("resident", "spooled"), "semantic-capture-1", "canonical-rows-1",
-                                   "primary-key-c", "full-spine", "parquet")
+    return CapturePolicyDefinition(
+        ("resident", "spooled"),
+        "semantic-capture-1",
+        "canonical-rows-1",
+        "primary-key-c",
+        "full-spine",
+        "parquet",
+    )
 
 
 def prepare_capture_policy(prepared: PreparedRelease | None = None):
@@ -883,9 +897,17 @@ def validate_capture_manifest(manifest):
     return normalized
 
 
-def invocation_identity(prepared: PreparedRelease | None, *, release: str, source: Any,
-                        configuration: Any, policy: Any, unit: Any,
-                        skip_reason: str | None, packet_hash: str | None) -> str:
+def invocation_identity(
+    prepared: PreparedRelease | None,
+    *,
+    release: str,
+    source: Any,
+    configuration: Any,
+    policy: Any,
+    unit: Any,
+    skip_reason: str | None,
+    packet_hash: str | None,
+) -> str:
     """One admitted policy governs disjoint logical skips and executable packet identity."""
     _, profile = _profile(prepared)
     if prepared is not None and release != prepared.release_id:
@@ -894,12 +916,18 @@ def invocation_identity(prepared: PreparedRelease | None, *, release: str, sourc
     assert recipe is not None
     if (skip_reason is None) != (packet_hash is not None):
         raise ValueError("invocation packet presence differs from its disposition")
+
     def digest(value):
         return sha256(canonical_bytes(value)).hexdigest()
+
     decision = {
         "recipe": recipe.logical_recipe if skip_reason is not None else recipe.executable_recipe,
-        "release": release, "source": digest(source), "configuration": digest(configuration),
-        "policy": digest(policy), "unit": digest(unit), "disposition": skip_reason or "execute",
+        "release": release,
+        "source": digest(source),
+        "configuration": digest(configuration),
+        "policy": digest(policy),
+        "unit": digest(unit),
+        "disposition": skip_reason or "execute",
     }
     if packet_hash is not None:
         decision["packet"] = packet_hash

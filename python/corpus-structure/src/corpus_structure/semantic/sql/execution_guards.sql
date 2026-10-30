@@ -11,6 +11,11 @@ BEGIN
   IF NEW.status IN ('pending','awaiting_agent') AND (NEW.status='awaiting_agent')<>agent THEN
    RAISE EXCEPTION 'task channel differs from method contract' USING ERRCODE='23514'; END IF;
   IF NEW.status='skipped' AND nullif(NEW.reason,'') IS NULL THEN RAISE EXCEPTION 'skipped task requires reason' USING ERRCODE='23514'; END IF;
+  IF agent AND EXISTS (SELECT 1 FROM sem.operation_effect e WHERE e.release_id=NEW.release_id
+    AND e.operation_id='schedule' AND e.effect_id='schedule_pending_or_reused_or_skipped' AND e.effect_version='2')
+    AND ((NEW.status='skipped' AND NEW.packet_hash IS NOT NULL)
+      OR (NEW.status<>'skipped' AND NEW.packet_hash IS NULL)) THEN
+   RAISE EXCEPTION 'agent packet presence differs from invocation disposition' USING ERRCODE='23514'; END IF;
   RETURN NEW;
  END IF;
  prior:=ops.execution_task_state(OLD);

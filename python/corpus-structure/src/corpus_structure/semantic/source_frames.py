@@ -112,16 +112,23 @@ def load_source_frames(conn: Connection, task_ids) -> dict[int, ProposalFrame]:
     headers = {}
     coordinates = {}
     for start in range(0, len(ids), 512):
-        chunk = ids[start:start + 512]
-        headers.update((row["task_id"], row) for row in conn.execute(
-            select(frames).where(frames.c.task_id.in_(chunk))
-        ).mappings())
-        for row in conn.execute(select(
-            sentences.c.task_id, sentences.c.sentence_id, sentences.c.locator,
-            segments.c.start_offset, segments.c.end_offset,
-        ).join(segments, segments.c.id == sentences.c.segment_id)
-          .where(sentences.c.task_id.in_(chunk))
-          .order_by(sentences.c.task_id, sentences.c.sentence_id)):
+        chunk = ids[start : start + 512]
+        headers.update(
+            (row["task_id"], row)
+            for row in conn.execute(select(frames).where(frames.c.task_id.in_(chunk))).mappings()
+        )
+        for row in conn.execute(
+            select(
+                sentences.c.task_id,
+                sentences.c.sentence_id,
+                sentences.c.locator,
+                segments.c.start_offset,
+                segments.c.end_offset,
+            )
+            .join(segments, segments.c.id == sentences.c.segment_id)
+            .where(sentences.c.task_id.in_(chunk))
+            .order_by(sentences.c.task_id, sentences.c.sentence_id)
+        ):
             coordinates.setdefault(row.task_id, []).append(ProposalSentence(*row[1:]))
     missing = set(ids) - headers.keys()
     if missing:
@@ -131,10 +138,19 @@ def load_source_frames(conn: Connection, task_ids) -> dict[int, ProposalFrame]:
     rendition_ids = sorted({row["rendition_id"] for row in headers.values()})
     texts = {}
     for start in range(0, len(rendition_ids), 512):
-        texts.update(conn.execute(select(renditions.c.id, renditions.c.canonical_text)
-          .where(renditions.c.id.in_(rendition_ids[start:start + 512]))).all())
-    return {task_id: ProposalFrame(row["unit_ref"], texts[row["rendition_id"]],
-                tuple(coordinates.get(task_id, ()))) for task_id, row in headers.items()}
+        texts.update(
+            conn.execute(
+                select(renditions.c.id, renditions.c.canonical_text).where(
+                    renditions.c.id.in_(rendition_ids[start : start + 512])
+                )
+            ).all()
+        )
+    return {
+        task_id: ProposalFrame(
+            row["unit_ref"], texts[row["rendition_id"]], tuple(coordinates.get(task_id, ()))
+        )
+        for task_id, row in headers.items()
+    }
 
 
 def load_source_frame(conn: Connection, task_id: int) -> ProposalFrame:

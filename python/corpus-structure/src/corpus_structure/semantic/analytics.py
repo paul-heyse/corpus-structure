@@ -572,6 +572,8 @@ def _projection_recipe(prepared: PreparedRelease, kind: str) -> tuple[Any, str]:
     """Historical capture retains its archived projection ABI; it admits no new work."""
     import json
 
+    from .contracts import execution_payload
+
     compiler = str(json.loads(prepared.manifest)["profile"]["compiler_version"])
     if compiler not in {"10", "11"}:
         if _historical_capture(prepared):
@@ -579,7 +581,14 @@ def _projection_recipe(prepared: PreparedRelease, kind: str) -> tuple[Any, str]:
                 raise ValueError(
                     "historical analytical recipe supports retained capture reads only"
                 )
-            return _projection_contract(prepared, kind), "analytical-5"
+            payload = execution_payload(prepared)
+            assert payload is not None
+            version = json.loads(payload)["inputs"]["compiler_version"]
+            if version not in {"1", "2", "3", "4", "5", "6", "7", "8"}:
+                raise ValueError("unsupported historical analytical recipe")
+            return _projection_contract(prepared, kind), (
+                "analytical-6" if version == "8" else "analytical-5"
+            )
         return _projection_contract(prepared, kind), COMPILER_VERSION
     if kind != "captured":
         raise ValueError("historical analytical recipe supports retained capture reads only")
@@ -772,10 +781,13 @@ def _owned_input(prepared: PreparedRelease, family: str, **dependencies: Any):
     import json
 
     from .analysis_contracts import bind_analysis_family
-    from .contracts import execution_payload
+    from .contracts import EXECUTION_COMPILER_VERSION, execution_payload
 
     payload = execution_payload(prepared)
-    if payload is None or json.loads(payload)["inputs"]["compiler_version"] != "8":
+    if (
+        payload is None
+        or json.loads(payload)["inputs"]["compiler_version"] != EXECUTION_COMPILER_VERSION
+    ):
         return None
     return bind_analysis_family(prepared, family).prepare(**dependencies)
 
@@ -881,7 +893,7 @@ def load_packet(
                 bulk.rollback()
         manifest = (
             None
-            if historical
+            if _projection_recipe(session.prepared, "captured")[1] != "analytical-6"
             else finish_manifest(
                 owner,
                 asdict(compiled.binding),

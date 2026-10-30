@@ -1120,8 +1120,11 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     )
     names = tuple(item.name for item in inputs.implementations)
     required_implementations = {
-        "invocation/scheduler.py", "invocation/packet.py", "invocation/source_frames.py",
-        "invocation/proposals.py", "invocation/server.py",
+        "invocation/scheduler.py",
+        "invocation/packet.py",
+        "invocation/source_frames.py",
+        "invocation/proposals.py",
+        "invocation/server.py",
         "text/sentences.py",
         "capture/analytics.py",
         "capture/storage.py",

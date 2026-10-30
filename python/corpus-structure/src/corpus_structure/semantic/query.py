@@ -444,10 +444,13 @@ class ReadSession:
             raise WrongRelease("prepared release differs from snapshot binding")
         # Retained archive ABIs keep their original read contract; new releases
         # bind the declared read input once for this actual snapshot owner.
-        from .contracts import execution_payload
+        from .contracts import EXECUTION_COMPILER_VERSION, execution_payload
 
         payload = execution_payload(self.prepared)
-        if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "8":
+        if (
+            payload is not None
+            and json.loads(payload)["inputs"]["compiler_version"] == EXECUTION_COMPILER_VERSION
+        ):
             from .analysis_contracts import bind_analysis_family
 
             owned = bind_analysis_family(self.prepared, "read").prepare(

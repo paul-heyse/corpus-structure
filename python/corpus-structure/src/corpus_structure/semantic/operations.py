@@ -842,13 +842,16 @@ class BoundReader:
         self.conn, self.run_id, self.prepared, self.cut_id = conn, run_id, prepared, cut_id
         import json
 
-        from .contracts import execution_payload
+        from .contracts import EXECUTION_COMPILER_VERSION, execution_payload
 
         payload = execution_payload(prepared)
         self._source_contract = None
         self._source_inputs = {}
         self.math_readings_batch = None
-        if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "8":
+        if (
+            payload is not None
+            and json.loads(payload)["inputs"]["compiler_version"] == EXECUTION_COMPILER_VERSION
+        ):
             from .analysis_contracts import bind_analysis_family
 
             self._source_contract = bind_analysis_family(prepared, "source")
