@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "audit.lazy-boundary-identity",
+  "title": "Overlapping lazy closures replace same-release Pydantic models",
+  "group": "semantic-model-pivot",
+  "package": "SP-I04",
+  "finalized": "2026-10-29",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does opening an overlapping lazy boundary preserve previously validated same-release model identities?",
+  "answers": [
+    "SP-I04",
+    "CA-13"
+  ],
+  "method": "Prepare and reconstruct a small A-to-B-to-C domain entirely in memory; validate B, request A, then validate the original C instance and its dictionary through the B property adapter.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-29_semantic-improvement-completion-audit/lazy_boundary_identity.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "lazy_boundary_identity.py",
+      "role": "isolated production-API conformance control",
+      "sha256": "167a102da189375f963339fed73f66aca8f447fb64afc8b98faeb4b55f0230ef"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "original JSON observations and stderr",
+      "sha256": "13af97e7f4151b2fa697723bf3b53695b87bb0f4d7973021f3ef70d61257baea"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "B and C model identity preserved",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Equivalent dictionary accepted",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Previously validated same-release instance accepted",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Validation error",
+      "value": "model_type",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Pydantic version",
+      "value": "2.14.1",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Python version",
+      "value": "3.14.10",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "The public property adapter rejects its own release's previously validated nested instance after another lazy closure replaces the underlying model classes. Demand loading is present but canonical model reuse is incomplete. This is a validation boundary defect, not evidence of storage corruption or a changed grading result.",
+  "consumed_by": [
+    "SP-I04",
+    "CA-13",
+    "semantic-model-pivot coordinator §14 completion audit"
+  ]
+}

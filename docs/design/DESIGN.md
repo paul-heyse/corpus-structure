@@ -239,11 +239,12 @@ the [pivot package](../plans/semantic-model-pivot/postgresql-and-publication.md)
 
 > Decision: ADR-0031
 
-**Implemented native test contract (2026-10-29; scoped verification owned by SP-I08).**
+**Native test contract with partial implementation (2026-10-29; scoped verification owned by SP-I08).**
 Fresh consumer databases clone a session-built frozen semantic deployment, with explicit
 database ACL/default replay and equality checks. Actual restricted logins and commits remain.
 Cold bootstrap and era-shaped forward upgrades still execute deployment from bare. One leased
-test lifecycle owns cleanup without forced termination. [D3](D3-database.md) owns this boundary.
+test lifecycle owns cleanup without forced termination. CA-21 retains the reserved-name ownership
+gap; [D3](D3-database.md) owns this boundary.
 
 > Decision: ADR-0032
 

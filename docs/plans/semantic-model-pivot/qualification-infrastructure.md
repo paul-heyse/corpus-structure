@@ -1,6 +1,6 @@
 # Qualification infrastructure and outcome accounting
 
-**Status:** Implemented; scoped verification and remaining acceptance below · **Created/Revised:** 2026-10-29. Consumes improvement review
+**Status:** SP-I08/SP-I09 partial after completion audit; scoped receipts retained · **Created/Revised:** 2026-10-29. Consumes improvement review
 [I10](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I10) and
 [I11](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I11), CBO-010/011 and CA-09/10.
 [Coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
@@ -105,7 +105,7 @@ Documentation checks establish publication integrity only.
 
 ## Execution checkpoint — 2026-10-29
 
-**Implemented; scoped Tested.** Source is the SP-I08/SP-I09 changes following `8170926`, with
+**Delivered mechanisms; scoped Tested, with remaining implementation below.** Source is the SP-I08/SP-I09 changes following `8170926`, with
 the acceptance fixture dependency repair described in verification. SP-09 operational work and
 SP-10 complete qualification retain their owners. No operational database, selected answer,
 automated grade or existing MCP host was regenerated or restarted.
@@ -242,3 +242,36 @@ failure/hang/kill streams remain under `reporter-controls-20261029/` and
 warnings, not Pyrefly diagnostics. No latency, capacity or extraction-quality benefit was measured.
 SP-09 operational workflows and complete SP-10 functional/provider/nonfunctional acceptance
 remain open; this supporting package adds no human grading or regrading obligation.
+
+## Completion audit — 2026-10-29
+
+**SP-I08 and SP-I09 are partial at clean `d004504`.** This package assessment is part of the
+all-SP-I01–SP-I09 audit, not a separate declaration that the rest of the series is complete.
+[Coordinator findings](../semantic-model-pivot_2026-10-29.md#findings-and-remaining-obligations)
+own CA-21/CA-22 and actionable closure.
+
+- **CA-21 / SP-I08:** the reserved CLI database route authenticates a database owner but not the
+  operation that created it. An intervening same-owner creator can have its database adopted by
+  CLI initialization and later dropped by `reserved(... require_comment=False)`. The explicit
+  CREATE-collision protection tested for `database()` does not cover this route. Authenticate
+  creation/identity before cleanup and verify a reserved-path collision/cancellation case.
+- **CA-22 / SP-I09:** external SIGTERM to the supervising runner bypasses its timeout/Ctrl-C
+  handler and detached-child drain. Implement supported termination handling, preserve process
+  receipts and prevent subsequent Rust work; an actual parent-signal control must discriminate
+  this path from existing killed-child and KeyboardInterrupt controls.
+
+The audit credited actual PostgreSQL cloning, normalized ACL/default capture, SQLAlchemy real
+transactions with parameterized set_config/SET FROM CURRENT, role-self credentials, canonical
+principals, cold/revision migrations and most authenticated cleanup paths. It also credited
+reportlog's actual flushed output, public hook gap-filling, pytest's thread watchdog, explicit
+required manifests/prerequisites, Hypothesis replay, Rust empty-selection handling and CA-09's
+real MCP/settings journey. No API-name-only substitute closed an obligation.
+
+The root independently parsed raw selected manifests, setup/call/teardown records, protocol
+finishes and session/process status rather than using the classifier as its own oracle. All
+805 selected nodes have applicable passing records across the six named receipts, with source
+contexts surfaced. These are valid selected-scope results, not coverage of the two missing
+paths. CA-09 stays closed for its named settings obligations; CA-10 and original SP-09/SP-10
+remain open. The interrupted corpus campaign and 19 untouched lint diagnostics do not become
+passes or automatically invalidate earlier scoped typing/tests. No new test/native/provider
+campaign or production repair was performed for these two source-conclusive findings.

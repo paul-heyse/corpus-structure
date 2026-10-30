@@ -1,6 +1,6 @@
 # Model-to-execution closure and protected native products
 
-**Status:** Implemented; scoped verification passed · **Created/Revised:** 2026-10-29. Consumes improvement review
+**Status:** SP-I01/SP-I03 implemented within the accepted boundary; SP-I02 partial; scoped receipts retained · **Created/Revised:** 2026-10-29. Consumes improvement review
 [I01](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I01),
 [I02](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I02),
 [I03](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I03),
@@ -202,7 +202,8 @@ and generating SQL are earlier usable milestones, not permission to admit an une
 
 ## Execution checkpoint — 2026-10-29
 
-**Implemented and scoped Tested, 2026-10-29.** SP-I01–SP-I03 are implemented. ADR-0031 records
+**Delivered mechanisms and scoped Tested evidence, 2026-10-29.** The completion audit below
+finds SP-I02's retained authoring/effect-correspondence work incomplete. ADR-0031 records
 restricted admission, archive opening/verification separation and the explicitly bounded native
 profile. This reconciles CA-11's original scope promise; native unsupported-profile refusals are
 independently exercised. The parent pivot and SP-10 qualification remain incomplete.
@@ -263,3 +264,36 @@ schema/data, existing runs, grades and running MCP processes were not changed. N
 regrade, performance benchmark or complete SP-10 qualification is claimed. `just turn-end`, scoped `uv run ruff check`, `git diff --check` and `just docs-check` passed
 (276 canonical pages, zero link errors). Formatting/import cleanup preserved functional evidence; no
 type/test rerun was triggered by lint. Remaining series work is recorded in the coordinator and STATUS.
+
+## Completion audit — 2026-10-29
+
+**Assessed at clean `d004504`; SP-I02 is partial.**
+[Coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
+owns the combined SP-I01–SP-I09 audit and current CA-06/CA-12 disposition. This audit used the
+accepted pre-execution target and actual consumers, rather than taking this checkpoint's
+implementation summary as completion authority.
+
+SP-I01's contextual LinkML induction/ancestry, normalized bindings/reference positions, shared
+Pydantic/jsonschema purposes and result constructors, frozen cattrs products and bound RDFLib/
+PySHACL graph consumers are implemented within ADR-0031's accepted native profile. SP-I03's
+meaning-closure guards, restricted complete admission/replay/CAS, purpose-safe sequential psycopg
+pools lent to NullPool, protected inference workspace and exact codec are connected. No additional
+package-local implementation gap was established for those selected mechanisms. Their integration
+still depends on the remaining native correspondence and archive/consumer work.
+
+SP-I02 uses real Core DDL/CreateView, pglast checks, finite-edge derivation, frozen forward
+reconciliation and bounded Alembic comparison. However:
+
+- **CA-12:** the retained transport generator has no actual authoring caller. Candidate derivation
+  uses consolidation products that discard generated edge/view replacement SQL. Working frozen
+  current routines do not establish the promised maintained authoring route. Connect those
+  products, or establish an equivalent with a concrete blocker and preserved advantages.
+- **CA-06:** effect declarations are stored but do not constrain the supported effect kernels or
+  cause refusal when changed. Regenerating model identity/body digests is insufficient. Supply
+  bounded correspondence and independent changed-effect cases; no general proof engine is needed.
+
+The original 450-case dated command/tool-session receipt retains its scope. Standalone raw reports
+for independently recounting it were not located; this audit did not rerun it. Later 697/805-case
+selected unions were independently reconstructed, with overlap left unadded. None closes the
+source-inspected omissions. New native/provider campaigns and production repairs were **not_run**.
+Benefits established here are structural ownership/reuse; no new speed or quality claim follows.

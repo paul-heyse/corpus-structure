@@ -1,6 +1,6 @@
 # Release products and consumer consolidation
 
-**Status:** Implemented with scoped qualification · **Created/Revised:** 2026-10-29. Consumes improvement review
+**Status:** SP-I04–SP-I07 partial after completion audit; scoped receipts retained · **Created/Revised:** 2026-10-29. Consumes improvement review
 [I04–I09](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I04) and its
 CBO judgments, with [model-execution closure](model-execution-closure.md) products.
 [Coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
@@ -189,7 +189,8 @@ premises rather than rediscover those selections.
 
 ## Execution checkpoint — 2026-10-29
 
-**Implemented; scoped Tested, 2026-10-29; source commit `b1e23ed`.** Compiler 12,
+**Delivered mechanisms; scoped Tested, 2026-10-29; source commit `b1e23ed`.** The completion
+audit below finds remaining implementation and required verification in all four packages. Compiler 12,
 archive 3 and boundary 12 form one transition with semantic-domain-3 and rule-view ABI 1.
 ADR-0031 already supplies the opening/verification decision; no duplicate successor is needed.
 Compiler-10/11 reads retain explicit historical boundaries and analytical-4 capture recipes.
@@ -254,3 +255,38 @@ missing producer fates and continuation-page knowledge. Old test interfaces were
 real atomic evaluation/inference, captured Arrow snapshots and generated source locators while
 retaining independent expected rows. Historical compiler-10 bytes/IDs and frozen migrations
 were preserved; operational regeneration, selected runs and reference grades were not changed.
+
+## Completion audit — 2026-10-29
+
+**All SP-I04–SP-I07 are partial at clean `d004504`.** The
+[coordinator's current findings](../semantic-model-pivot_2026-10-29.md#findings-and-remaining-obligations)
+own CA-13–CA-20 and their closure. This conclusion assesses the accepted target and actual current
+consumers, including the selected library advantages; the 697-case checkpoint is not authority
+to omit unselected acceptance scenarios or leave an improvement unused.
+
+| Package | Delivered mechanisms receiving credit | Remaining accepted work |
+|---|---|---|
+| SP-I04 | Explicit immutable acquisition/pure composition; LinkML import map/induction and generator isolation; shared product-backed builder/index, demand adapters, open/verify distinction, runtime/byte determinants and genuine v10 read paths. | **CA-13:** overlapping lazy closures replace canonical Pydantic classes and invalidate an already validated same-release instance. **CA-14:** promised compatibility matrix and compiler-11/selected-old-answer/new-activation, cache/database and equal-schema changed-acceptance scenarios remain unverified. |
+| SP-I05 | Scoped Core readers/binders, archived required-universe coverage, exact typed object predicates, validated release-derived reference visitor, archived reference interpretation and annotated finite fields. Typed refusal mapping reaches some real CLI/MCP consumers. | **CA-15:** golden/eval/regenerate retain broad refusal catches. **CA-16:** named continuations erase wrong-binding/stale distinctions. **CA-17:** explain/export retain separate manual snapshot opening instead of the shared SQLAlchemy opener; no blocker for adoption was located. |
+| SP-I06 | Semantic scientific functions and preserved consumer policies; typed consolidation envelopes; actual rule-engine OBJECT/accessors with checked ARRAY/MAPPING/NULLABLE behavior, semantic authored views and deliberate ABI transition. | **CA-18:** reference evidence prematurely applies its undecided policy after observed agreement. **CA-19:** evaluation drops successful scientific tiers/context before persisting reference reports. Preserve decision policy and scores; the missing work is evidence/consumer realization, not a regrade. |
+| SP-I07 | Actual DuckDB relation.query/TEMP table macros/query_table; Core identity subqueries, complete global candidates and post-resolution evidence carrying; PG/ADBC snapshot ownership, Arrow metadata/exactness and protected pgpq publication. | **CA-20:** Core prepared property-role restrictions do not reach fact selection; unrelated values are hydrated before Python filtering. Keep complete identity candidates while narrowing the fact/value work. |
+
+The new isolated, database/provider-free
+[lazy-boundary control](../../design_review/evidence/2026-10-29_semantic-improvement-completion-audit/README.md)
+failed conformance under Pydantic 2.14.1: B/C identities changed after loading A, the dictionary
+remained accepted, and the original validated C instance raised `model_type`. Canonical reuse
+must be restored while retaining the selected demand-loading advantage; reverting to eager
+construction without a concrete blocker would not discharge the plan.
+
+The root independently reconstructed the 697 selected nodes from original XML and collection:
+all have passing reports; 11 historical failure reports and duplicate passes remain in the raw
+files. It independently reconstructed the later 805-case selected union as well. Those receipts
+retain their bounded credit and source applicability; they do not establish the omitted scenarios
+or source-inspected consumer work. No broad functional/provider campaign, native migration,
+grading or production repair was run by this audit. Structural benefits remain distinct from
+unmeasured speed/capacity/quality claims.
+
+Shared-opening, property-predicate and native-binding advantages are assessed at actual callers,
+not by imported API names. Equivalent behavior alone is insufficient where a selected improvement
+was skipped without a documented blocker. The explicitly deferred streaming/delta/backends remain
+outside this accepted scope.
