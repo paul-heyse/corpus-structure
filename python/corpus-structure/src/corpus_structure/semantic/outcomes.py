@@ -52,7 +52,23 @@ SelectionOutcome = Literal["accepted", "rejected", "candidate", "ambiguous"]
 ReadOutcome = Literal["source_ready", "missing", "invalid", "unsupported"]
 
 
+ContinuationOutcome = Literal[
+    "continued",
+    "invalid_token",
+    "wrong_query",
+    "wrong_parameters",
+    "wrong_release",
+    "wrong_realization",
+    "wrong_projection",
+    "wrong_profile",
+    "stale_revision",
+    "stale_version",
+    "unavailable_result",
+]
+
+
 CODE_OUTCOME_DOMAINS = {
+    "continuation": get_args(ContinuationOutcome),
     "read": get_args(ReadOutcome),
     "readiness": get_args(ReadinessOutcome),
     "hold_decision": get_args(HoldOutcome),

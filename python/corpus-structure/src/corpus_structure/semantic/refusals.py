@@ -36,3 +36,36 @@ def tool_refusals(*expected: type[Exception]):
         return invoke
 
     return decorate
+
+
+class ContinuationRefusal(SemanticRefusal):
+    """A continuation cannot be used, with a stable machine-readable reason."""
+
+    reason = "invalid_token"
+
+    def __init__(self, message: str, *, reason: str | None = None):
+        super().__init__(message)
+        if reason is not None:
+            self.reason = reason
+
+
+class InvalidContinuation(ContinuationRefusal):
+    """The token or query-owned cursor is malformed or unsupported."""
+
+
+class WrongBinding(ContinuationRefusal):
+    """The token describes another request identity."""
+
+    reason = "wrong_query"
+
+
+class WrongRelease(WrongBinding):
+    """A handle or selector belongs to another semantic release."""
+
+    reason = "wrong_release"
+
+
+class StaleSnapshot(ContinuationRefusal):
+    """The bound revision or implementation no longer supports continuation."""
+
+    reason = "stale_revision"

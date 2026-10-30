@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import base64
-import binascii
-import json
 from collections.abc import Mapping
 from typing import Any, Literal
 
@@ -12,13 +10,19 @@ from pydantic import JsonValue
 from sqlalchemy import Connection, select
 
 from corpus_structure.core.canonical import canonical_json, digest
+from corpus_structure.semantic.continuations import decode_continuation, validate_continuation
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import (
     ReadSession,
     SnapshotBinding,
     bind_completed_result,
 )
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusals import (
+    InvalidContinuation,
+    SemanticRefusal,
+    StaleSnapshot,
+    WrongBinding,
+)
 from corpus_structure.serve.protocol import DomainQuery, QueryContext, QueryResult, Scope
 
 PROMOTED = "promoted"
@@ -28,7 +32,7 @@ class QueryRefused(SemanticRefusal):
     """A query that cannot name an authoritative completed result."""
 
 
-class StaleToken(QueryRefused):
+class StaleToken(InvalidContinuation):
     pass
 
 
@@ -75,6 +79,8 @@ def select_run(conn: Connection, project_id: str, run: int | str = PROMOTED) -> 
 def bind_session(conn: Connection, run_id: int) -> ReadSession:
     try:
         return bind_completed_result(conn, run_id)
+    except WrongBinding, StaleSnapshot, InvalidContinuation:
+        raise
     except SemanticRefusal as error:
         raise QueryRefused(str(error)) from error
 
@@ -130,24 +136,7 @@ def encode_token(
 
 
 def decode_token(token: str) -> dict[str, Any]:
-    try:
-        body = json.loads(base64.urlsafe_b64decode(token.encode("ascii")))
-    except binascii.Error, ValueError:
-        raise StaleToken("not a page token") from None
-    if not isinstance(body, dict) or set(body) != {
-        "run",
-        "query",
-        "version",
-        "params",
-        "position",
-        "release",
-        "realization",
-        "revision",
-        "projection",
-        "arithmetic",
-    }:
-        raise StaleToken("not a page token")
-    return body
+    return decode_continuation(token, kind="named")
 
 
 def serve_query(
@@ -177,19 +166,12 @@ def serve_query(
     body: dict[str, Any] | None = None
     if page_token is not None:
         body = decode_token(page_token)
-        if body["query"] != query.name:
-            raise StaleToken(f"the token continues {body['query']!r}, not {query.name!r}")
-        if body["version"] != query.version:
-            raise StaleToken(
-                f"stale token: {query.name} is version {query.version}, the token's is "
-                f"{body['version']}"
-            )
-        if body["params"] != params_digest(dumped):
-            raise StaleToken("stale token: the parameters differ from the journey's")
         try:
             run_id = check_finished(conn, parse_run(body["run"]))
         except QueryRefused as error:
-            raise StaleToken(f"stale token: {error}") from None
+            raise StaleSnapshot(
+                f"continuation result is unavailable: {error}", reason="unavailable_result"
+            ) from error
         position = body["position"]
         validate_position = getattr(query, "validate_position", None)
         if validate_position is not None:
@@ -209,17 +191,21 @@ def serve_query(
         projection=projection,
     )
     binding = ctx.session.binding
-    if body is not None and any(
-        body[k] != v
-        for k, v in {
-            "release": binding.release_id,
-            "realization": binding.realization_id,
-            "revision": binding.data_revision,
-            "projection": projection,
-            "arithmetic": "exact",
-        }.items()
-    ):
-        raise StaleToken("stale token: semantic snapshot or projection differs")
+    if body is not None:
+        validate_continuation(
+            ctx.session.prepared,
+            body,
+            {
+                "release": binding.release_id,
+                "realization": binding.realization_id,
+                "query": query.name,
+                "params": params_digest(dumped),
+                "projection": projection,
+                "arithmetic": "exact",
+                "revision": binding.data_revision,
+                "version": query.version,
+            },
+        )
     for bound in (max_rows, max_chars):
         if bound is not None and bound <= 0:
             raise QueryRefused("page bounds must be positive")

@@ -27,23 +27,25 @@ def export(
 
     settings = state(ctx).settings()
     with refusal(json):
-        with open_runtime_engine(settings, application_name="ci-export", purpose="read") as engine:
-            with read_snapshot(engine) as conn:
-                _, rid, _ = context(
-                    conn,
-                    project or (settings.runtime.default_project if run == "promoted" else None),
-                    run,
-                )
-                session = bind_session(conn, rid)
-                # The ADBC reader imports this exact native transaction snapshot.
-                uri = connection_settings(settings, "read").database.url
-                packet = load_packet(
-                    session,
-                    uri,
-                    driver_path=str(settings.analytics.adbc_driver_path)
-                    if settings.analytics.adbc_driver_path
-                    else None,
-                )
+        with (
+            open_runtime_engine(settings, application_name="ci-export", purpose="read") as engine,
+            read_snapshot(engine) as conn,
+        ):
+            _, rid, _ = context(
+                conn,
+                project or (settings.runtime.default_project if run == "promoted" else None),
+                run,
+            )
+            session = bind_session(conn, rid)
+            # The ADBC reader imports this exact native transaction snapshot.
+            uri = connection_settings(settings, "read").database.url
+            packet = load_packet(
+                session,
+                uri,
+                driver_path=str(settings.analytics.adbc_driver_path)
+                if settings.analytics.adbc_driver_path
+                else None,
+            )
         manifest = export_packet(packet, out, format=format)
         typer.echo(
             __import__("json").dumps({"path": str(out), "manifest": manifest}) if json else str(out)

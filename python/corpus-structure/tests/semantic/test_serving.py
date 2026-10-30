@@ -14,9 +14,10 @@ from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.analytics import SPINE, load_packet
 from corpus_structure.semantic.query import Explanation as FactExplanation
 from corpus_structure.semantic.query import read_session
+from corpus_structure.semantic.refusals import StaleSnapshot, WrongBinding
 from corpus_structure.serve.explain import UnitExplanation, explain
 from corpus_structure.serve.export import export_packet
-from corpus_structure.serve.journey import QueryRefused, StaleToken, serve_query
+from corpus_structure.serve.journey import QueryRefused, serve_query
 from corpus_structure.serve.queries import GENERIC
 from corpus_structure.serve.registry import build_registry
 from corpus_structure.serve.results import (
@@ -223,7 +224,7 @@ def test_named_semantic_pages_explanations_and_source_search(
                 run=run,
                 max_chars=1,
             )
-        with pytest.raises(StaleToken, match="parameters differ"):
+        with pytest.raises(WrongBinding, match="params"):
             serve_query(
                 conn,
                 registry,
@@ -246,7 +247,7 @@ def test_named_semantic_pages_explanations_and_source_search(
         assert any(row["text"] == "Alice is here." for row in matches.rows)
         token = json.loads(base64.urlsafe_b64decode(first.next_page_token))
         token["revision"] += 1
-        with pytest.raises(StaleToken, match="snapshot"):
+        with pytest.raises(StaleSnapshot, match="revision"):
             serve_query(
                 conn,
                 registry,
@@ -255,7 +256,7 @@ def test_named_semantic_pages_explanations_and_source_search(
                 run=run,
                 page_token=base64.urlsafe_b64encode(json.dumps(token).encode()).decode(),
             )
-        with pytest.raises(StaleToken, match="projection"):
+        with pytest.raises(WrongBinding, match="projection"):
             serve_query(
                 conn,
                 registry,
@@ -631,6 +632,32 @@ def test_real_cli_query_explain_and_export_dispatch(
     )
     assert invalid_cursor.exit_code == 1
     assert json.loads(invalid_cursor.stdout)["error"]["code"] == "StaleToken"
+    for field, changed, code, reason in (
+        ("query", "entities", "WrongBinding", "wrong_query"),
+        ("params", "other", "WrongBinding", "wrong_parameters"),
+        ("version", "removed", "StaleSnapshot", "stale_version"),
+        ("release", "release:other", "WrongRelease", "wrong_release"),
+        ("realization", "other", "WrongBinding", "wrong_realization"),
+        ("revision", 999, "StaleSnapshot", "stale_revision"),
+        ("projection", "fact", "WrongBinding", "wrong_projection"),
+        ("arithmetic", "rounded", "WrongBinding", "wrong_profile"),
+    ):
+        body = json.loads(base64.urlsafe_b64decode(page["next_page_token"]))
+        body[field] = changed
+        token = base64.urlsafe_b64encode(json.dumps(body).encode()).decode()
+        refused = cli(
+            "query",
+            "claims",
+            "--param",
+            "predicate=https://example.org/name",
+            "--page-token",
+            token,
+            "--json",
+            settings=lambda: settings,
+        )
+        assert refused.exit_code == 1, refused.output
+        error = json.loads(refused.stdout)["error"]
+        assert (error["code"], error["reason"]) == (code, reason)
     fact = page["rows"][0]["fact"]["fact_id"]
     explained = cli(
         "explain", "claim", fact, "--run", str(run), "--json", settings=lambda: settings

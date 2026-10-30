@@ -7,7 +7,6 @@ provide historical reads. SQL selections and strict output adaptation are one op
 from __future__ import annotations
 
 import base64
-import binascii
 import json
 from collections import defaultdict
 from collections.abc import Generator
@@ -48,15 +47,8 @@ if TYPE_CHECKING:
     from .ontology import QualifiedGraphProjection
 
 
-from .refusals import SemanticRefusal
-
-
-class StaleSnapshot(SemanticRefusal):
-    """The live realization revision no longer matches a continuation."""
-
-
-class WrongRelease(SemanticRefusal):
-    """A handle or selector belongs to another semantic release."""
+from .refusals import SemanticRefusal, WrongRelease
+from .refusals import StaleSnapshot as StaleSnapshot
 
 
 @dataclass(frozen=True)
@@ -924,26 +916,20 @@ class ReadSession:
     def _after(self, spec: QuerySpec, token: str | None) -> str | None:
         if token is None:
             return None
-        try:
-            value = json.loads(base64.urlsafe_b64decode(token.encode()))
-            if set(value) != {"release", "realization", "revision", "query", "after"}:
-                raise SemanticRefusal("unexpected continuation fields")
-            if value["release"] != self.binding.release_id:
-                raise WrongRelease("continuation differs from snapshot release")
-            if value["realization"] != self.binding.realization_id:
-                raise SemanticRefusal("continuation differs from realization")
-            if value["query"] != self._fingerprint(spec) or type(value["after"]) is not str:
-                raise SemanticRefusal(
-                    "continuation differs from query parameters/projection/order/profile"
-                )
-            if (
-                type(value["revision"]) is not int
-                or value["revision"] != self.binding.data_revision
-            ):
-                raise StaleSnapshot("data changed; restart query in a new snapshot")
-            return value["after"]
-        except (KeyError, json.JSONDecodeError, UnicodeError, binascii.Error, TypeError) as exc:
-            raise SemanticRefusal("invalid continuation") from exc
+        from .continuations import decode_continuation, validate_continuation
+
+        value = decode_continuation(token, kind="primitive")
+        validate_continuation(
+            self.prepared,
+            value,
+            {
+                "release": self.binding.release_id,
+                "realization": self.binding.realization_id,
+                "query": self._fingerprint(spec),
+                "revision": self.binding.data_revision,
+            },
+        )
+        return value["after"]
 
     def _token(self, spec: QuerySpec, after: str) -> str:
         return base64.urlsafe_b64encode(
