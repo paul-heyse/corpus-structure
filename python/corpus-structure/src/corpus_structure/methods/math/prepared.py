@@ -60,7 +60,7 @@ class PreparedMathInput:
     source_text: str | None = None
     source_start: int = 0
     parse_start: int = 0
-    _lexical: Any = field(default=None, init=False, repr=False, compare=False)
+    _lexical: tuple[tex.Token, ...] | None = field(default=None, init=False, repr=False, compare=False)
     _structure: Any = field(default=None, init=False, repr=False, compare=False)
     _syntax: grammar.MathResult | None = field(default=None, init=False, repr=False, compare=False)
     _reading: grammar.MathResult | None = field(default=None, init=False, repr=False, compare=False)
@@ -88,6 +88,7 @@ class PreparedMathInput:
                                    end=t.end + self.source_start) for t in tex.tokens(text))
             object.__setattr__(self, "_lexical", result)
             self._states["lexical"] = StageState("available", "complete", "unanalysed")
+        assert self._lexical is not None
         return self._lexical
 
     def structure(self):
@@ -116,7 +117,12 @@ class PreparedMathInput:
     def syntax(self) -> grammar.MathResult:
         if self._syntax is None:
             self.lexical()
-            result = grammar.syntax(self.latex, self.kind or self.context.kind,
+            from typing import cast
+
+            kind = self.kind or self.context.kind
+            if kind not in grammar.STARTS:
+                raise ValueError(f"unsupported mathematical kind {kind!r}")
+            result = grammar.syntax(self.latex, cast(grammar.Kind, kind),
                                     self.context.macros, seconds=self.seconds)
             if self._remember("syntax", result):
                 object.__setattr__(self, "_syntax", result)
@@ -198,6 +204,17 @@ class PreparedMathInput:
                                               self.parse_start + where[1],
                                               self.latex[where[0]:where[1]]))
         return tuple(sorted(found, key=lambda item: (item.start, item.end, item.expression)))
+
+    def unproved_definedness(self) -> tuple[str, ...]:
+        """Restrictions still required after native facts, before comparison policies."""
+        required = set()
+        with grammar.deadline(self.seconds):
+            for condition in self.definedness():
+                denominator = PreparedMathInput(self.context, condition.expression, kind="formula",
+                                                seconds=self.seconds).symbolic_value()
+                if self.premises.ask(sympy.Q.nonzero(denominator)) is not True:
+                    required.add(tex.token_form(condition.expression, self.context.macros))
+        return tuple(sorted(required))
 
     def assess(self, question: str, *, predicate: str | None = None) -> MathAssessment:
         key = question, predicate

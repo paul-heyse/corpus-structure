@@ -20,9 +20,9 @@ def test_symbolic_preparation_is_lazy_and_reuses_one_value(monkeypatch):
     calls = []
     original = grammar.to_sympy
 
-    def convert(reading):
+    def convert(reading, **options):
         calls.append(reading)
-        return original(reading)
+        return original(reading, **options)
 
     monkeypatch.setattr(grammar, "to_sympy", convert)
     prepared = PreparedMathInput(context(), "x + 1")
@@ -37,9 +37,9 @@ def test_unrepresentability_is_stable_in_the_same_operation(monkeypatch):
     calls = []
     original = grammar.to_sympy
 
-    def convert(reading):
+    def convert(reading, **options):
         calls.append(reading)
-        return original(reading)
+        return original(reading, **options)
 
     monkeypatch.setattr(grammar, "to_sympy", convert)
     prepared = PreparedMathInput(context(), r"x \pm y")
@@ -51,7 +51,7 @@ def test_unrepresentability_is_stable_in_the_same_operation(monkeypatch):
 
 def test_transient_timeout_is_not_retained(monkeypatch):
     calls = []
-    original = grammar.parse
+    original = grammar.syntax
 
     def parse(*args, **kwargs):
         calls.append(None)
@@ -61,7 +61,7 @@ def test_transient_timeout_is_not_retained(monkeypatch):
             )
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(grammar, "parse", parse)
+    monkeypatch.setattr(grammar, "syntax", parse)
     prepared = PreparedMathInput(context(), "x")
     failure = prepared.reading().failure
     assert failure is not None and failure.category == "timeout"

@@ -249,14 +249,43 @@ def _readings(
     return readings
 
 
+def _math_products(ren: _Rendition, readings, reader: Reader, method: str):
+    """Bind real extracted occurrences to exactly one run-selected source/text build."""
+    if not readings:
+        return None
+    from corpus_structure.semantic.parsing_products import PreparedParsingProductSet
+
+    from .prepared import PreparedMathInput
+    from .products import interpretation_product_payload
+
+    selected = reader.layered_products(ren.id, kind="text", product_key="text")
+    if len(selected) != 1:
+        raise ValueError("mathematical extraction requires exactly one selected text product")
+    text = selected[0]
+    if text.lifecycle != "available":
+        raise ValueError("selected mathematical text product is unavailable")
+    products = []
+    for index, reading in enumerate(readings):
+        if not isinstance(reading.prepared, PreparedMathInput):
+            raise ValueError("mathematical extraction lost its operation-owned preparation")
+        payload = interpretation_product_payload(
+            reading.prepared, root=text.root, text_product=text.reference,
+            source_node_id=f"view:{index}", product_key=f"math:{method}:{index}", symbolic=True,
+        )
+        products.append(reader.prepare_layered_product(payload))
+    return PreparedParsingProductSet(products=tuple(products), required=tuple(p.product_key for p in products))
+
+
 def _result(
     unit: UnitView,
     drafts: Sequence[ObservationDraft[Any]],
     *,
     coverage: tuple[CoverageDraft, ...] = (),
+    products=None,
 ) -> UnitResult:
     outcome = ObservationOutcome.PRODUCED if drafts else ObservationOutcome.EMPTY
-    return UnitResult(ref=unit.ref, outcome=outcome, observations=tuple(drafts), coverage=coverage)
+    return UnitResult(ref=unit.ref, outcome=outcome, observations=tuple(drafts), coverage=coverage,
+                      parsing_products=products)
 
 
 def _rendition_id(unit: UnitView) -> int:
@@ -317,8 +346,10 @@ class NormalizeFormula(_PerRendition):
         out = []
         for unit in units:
             ren = _rendition(ctx.reader, _rendition_id(unit))
-            values = formula_values(_readings(ren, cfg, ctx.reader))
-            out.append(_result(unit, value_drafts(ren, values)))
+            readings = _readings(ren, cfg, ctx.reader)
+            values = formula_values(readings)
+            products = _math_products(ren, readings, ctx.reader, M11)
+            out.append(_result(unit, value_drafts(ren, values), products=products))
         return out
 
 
@@ -409,7 +440,8 @@ class ExtractMath(_PerRendition):
                 for reading in readings
             )
             out.append(
-                _result(unit, math_drafts(ren, found.mentions, found.relations), coverage=coverage)
+                _result(unit, math_drafts(ren, found.mentions, found.relations), coverage=coverage,
+                        products=_math_products(ren, readings, ctx.reader, M09))
             )
         return out
 

@@ -67,6 +67,16 @@ class SpanReading:
     result: MathResult
     prepared: object | None = None
 
+    def __getstate__(self):
+        # Preparation is operation/process owned. Transport finished source-shaped
+        # readings without native handles, contexts or caches to a different owner.
+        return self.span, self.result
+
+    def __setstate__(self, state):
+        object.__setattr__(self, "span", state[0])
+        object.__setattr__(self, "result", state[1])
+        object.__setattr__(self, "prepared", None)
+
 
 def _inner(text: str, segment: Segment) -> tuple[int, int]:
     opener, closer = segment.attrs.get("open"), segment.attrs.get("close")

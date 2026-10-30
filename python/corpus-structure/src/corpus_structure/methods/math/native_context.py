@@ -93,9 +93,18 @@ class NativePremises:
                                      function.__closure__)
                 clone.__kwdefaults__ = function.__kwdefaults__
                 namespace[name] = clone
-        namespace["handlers_dict"] = {
-            name: namespace[handler.__name__] for name, handler in native.handlers_dict.items()
-        }
+        handlers = {}
+        for name, handler in native.handlers_dict.items():
+            if handler.__module__ == native.__name__:
+                handlers[name] = namespace[handler.__name__]
+            else:
+                # Native matrix handlers live in their expression modules. Give
+                # those functions the same isolated ask boundary as scalar handlers.
+                external = {**handler.__globals__, "ask": namespace["ask"],
+                            "refine": namespace["refine"]}
+                handlers[name] = FunctionType(handler.__code__, external, handler.__name__,
+                                              handler.__defaults__, handler.__closure__)
+        namespace["handlers_dict"] = handlers
         return namespace["refine"](expression, self.predicate)
 
     def native_symbols(self, names):

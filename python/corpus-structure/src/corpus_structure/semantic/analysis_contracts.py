@@ -230,6 +230,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                     0 <= v <= 100
                     for v in (policy.token_cutoff, policy.char_cutoff, policy.pick_cutoff)
                 )
+                or (profile.version == "6" and not 1 <= policy.candidate_limit <= 10000)
                 or policy.token_pad < 0
                 or values[0] < 0
                 or not 0 <= values[1] <= 1
@@ -861,6 +862,7 @@ def prepare_placement_policy(prepared: PreparedRelease | None = None):
     assert policy is not None
     return PlacementPolicy(
         recipe=policy.recipe,
+        candidate_limit=policy.candidate_limit,
         token_cutoff=policy.token_cutoff,
         token_pad=policy.token_pad,
         char_cutoff=policy.char_cutoff,
