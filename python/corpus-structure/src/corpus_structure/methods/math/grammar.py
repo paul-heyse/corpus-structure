@@ -23,7 +23,8 @@ is not in the grammar (and is expanded only in token forms).
 `interpret` applies source/profile roles without constructing native values. Its explicit
 `symbolic=True` option additionally tests native equivalence after role filtering. Production
 consumers enter these stages through operation-owned `PreparedMathInput`. The standalone
-`parse(latex, kind, macros, context)` adapter retains the stronger historical reading under a typed start symbol (`any_value`
+`parse(latex, kind, macros, context)` adapter retains the stronger historical reading under
+a typed start symbol (`any_value`
 by default) with the rendition's effective macro table (`core/tex.py` `effective_macros`) and the
 declared context. The result holds a `ParseOutcome` (`partial` when only trailing `.`, `,`, `;`
 was dropped), the detected kind, the tree, the failure with its category, notes, and the symbol

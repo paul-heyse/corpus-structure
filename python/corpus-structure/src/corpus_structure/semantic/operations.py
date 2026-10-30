@@ -982,7 +982,8 @@ class BoundReader:
                 sections.append(section.get("macros", {}))
         if sections and any(section != sections[0] for section in sections[1:]):
             raise OperationConflict(
-                "source capture has competing fallback macro contexts; select one admitted configuration"
+                "source capture has competing fallback macro contexts; "
+                "select one admitted configuration"
             )
         macros = sections[0] if sections else {}
         reference = f"run:{self.run_id}:dependencies:{binding.dependency_digest}:math"

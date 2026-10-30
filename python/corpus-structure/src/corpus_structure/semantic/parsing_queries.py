@@ -515,6 +515,7 @@ def trace_layered_origins(
         tuple[Any, str, int, int, tuple[dict[str, Any], ...], tuple[tuple[Any, str, int, int], ...]]
     ] = deque([(reference, representation_id, start, end, (), ())])
     cache = {}
+    indexes: dict[Any, dict[str, Any]] = {}
     contributions = []
     outcome = "complete"
     examined = 0
@@ -562,8 +563,25 @@ def trace_layered_origins(
                     )
                 contributions.append(entry)
             continue
-        values = product.values()
-        reps = {row["representation_id"]: row for row in values["representations"]}
+        index = indexes.get(ref)
+        if index is None:
+            values = product.values()
+            grouped: dict[str, list[dict[str, Any]]] = {}
+            targets_by_rep: dict[str, list[dict[str, Any]]] = {}
+            for endpoint in values["mapping_endpoints"]:
+                grouped.setdefault(endpoint["mapping_id"], []).append(endpoint)
+                if endpoint["side"] == "target" and endpoint.get("target_task_id") is None:
+                    targets_by_rep.setdefault(endpoint["representation_id"], []).append(endpoint)
+            index = dict(
+                representations={row["representation_id"]: row for row in values["representations"]},
+                mappings={row["mapping_id"]: row for row in values["mappings"]},
+                endpoints=grouped,
+                targets=targets_by_rep,
+                artifacts={d["artifact_digest"] for d in values["dependencies"] if d["kind"] == "artifact"},
+                artifact_digests={},
+            )
+            indexes[ref] = index
+        reps = index["representations"]
         rep = reps.get(rep_id)
         if rep is None or not 0 <= first <= last <= rep["extent_length"]:
             raise ValueError("origin extent is outside its qualified representation")
@@ -579,12 +597,10 @@ def trace_layered_origins(
             )
             continue
         extent["unit"] = rep["unit"]
-        text_value = representation_text(rep)
-        digest = sha256(text_value.encode("utf8")).hexdigest()
-        artifacts = {
-            d["artifact_digest"] for d in values["dependencies"] if d["kind"] == "artifact"
-        }
-        if digest in artifacts:
+        if rep_id not in index["artifact_digests"]:
+            index["artifact_digests"][rep_id] = sha256(representation_text(rep).encode("utf8")).hexdigest()
+        digest = index["artifact_digests"][rep_id]
+        if digest in index["artifacts"]:
             contributions.append(
                 dict(
                     kind="artifact",
@@ -594,14 +610,11 @@ def trace_layered_origins(
                 )
             )
             continue
-        mappings = {row["mapping_id"]: row for row in values["mappings"]}
+        mappings = index["mappings"]
         selected = {
             row["mapping_id"]
-            for row in values["mapping_endpoints"]
-            if row["side"] == "target"
-            and row.get("target_task_id") is None
-            and row["representation_id"] == rep_id
-            and row["start_offset"] < last
+            for row in index["targets"].get(rep_id, ())
+            if row["start_offset"] < last
             and row["end_offset"] > first
         }
         covered = []
@@ -618,7 +631,7 @@ def trace_layered_origins(
                 operation=mapping["operation"],
                 fidelity=mapping["fidelity"],
             )
-            endpoints = [e for e in values["mapping_endpoints"] if e["mapping_id"] == mapping_id]
+            endpoints = index["endpoints"][mapping_id]
             targets = [
                 e
                 for e in endpoints
@@ -632,7 +645,8 @@ def trace_layered_origins(
                 if e["start_offset"] < last and e["end_offset"] > first
             )
             if mapping["fidelity"] == "unknown":
-                outcome = "partial"
+                if outcome != "cycle":
+                    outcome = "partial"
                 contributions.append(
                     dict(
                         kind="unavailable",
@@ -646,7 +660,7 @@ def trace_layered_origins(
                 (e for e in endpoints if e["side"] == "source"), key=lambda e: e["ordinal"]
             )
             if not sources:
-                if mapping["operation"] != "synthetic":
+                if mapping["operation"] != "synthetic" and outcome != "cycle":
                     outcome = "partial"
                 contributions.append(
                     dict(

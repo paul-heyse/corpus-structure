@@ -136,11 +136,12 @@ through optimistic capability metadata.
 
 **Implemented and scoped Tested — PP-01/04 (2026-10-30).** Parsing LinkML shapes include
 Literal-discriminated structural node variants and separate lifecycle/outcome/coverage fields.
-Execution compiler 10 and finite adapter admission consume effective relationship roles,
+Execution compiler 11 and finite adapter admission consume effective relationship roles,
 cardinalities and ordering in runtime/native enforcement. Prepared contracts read the archived
 execution input bundle once per reader/operation boundary. Decomposition/HTML recognition/projection
-and product publication/read operations are executable; future text/math declarations have no
-adapter binding and required execution refuses before effects. [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
+and product publication/read operations are executable. Layered text, interpretation and
+assessment adapters are bound under profile 6. Macro-event selection uses discriminated typed
+metadata rather than explanatory value strings. Unsupported required recipes refuse before effects. [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
 retain independent invalid-input and native enforcement results.
 
 > Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)

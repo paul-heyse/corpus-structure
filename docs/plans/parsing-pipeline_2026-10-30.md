@@ -172,6 +172,8 @@ answers/grades, prior qualification and audit premises remain unchanged. No pars
 HTML coverage or full-series domain completeness is inferred. PP-05–PP-07/10 and broader PP-08/09
 remain as in §3; O01–O07 retain their full cross-package closure obligations in §4.
 
+<a id="remaining-scope-execution"></a>
+
 ## 8. Remaining-scope execution — 2026-10-30
 
 **In progress; Proposed until qualified.** The operator authorized PP-05–PP-10 on the

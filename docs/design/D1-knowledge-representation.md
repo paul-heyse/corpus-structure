@@ -176,8 +176,11 @@ exact provenance; neither raw nor canonical partition completeness is thereby re
 raw/decoded/canonical complete partitions, identified HTML structural relationships and build-bound
 transformation products are implemented. The qualified `canonical_output` universe traces through
 admitted decoding/normalization or synthetic production; it is not a promise of exact byte copying
-or origin for every repaired node. Unknown origin remains partial. Expanded TeX and mathematical
-interpretation/assessment are future PP-05/06 scope. [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
+or origin for every repaired node. Unknown origin remains partial. Layered text products retain expanded TeX, parse views and many-to-many macro derivations.
+Versioned mathematical products retain distinct occurrences, interpretation context, source
+definedness and named assessments without using native values as source identity. Their
+implementation and remaining assembled acceptance are owned by
+[PP-05–PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution). [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
 own the selected qualification boundary.
 
 > Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)

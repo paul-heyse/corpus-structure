@@ -52,10 +52,14 @@ PP-09 owns publication/replay; no second scheduler or generic workflow interpret
 **Implemented and scoped Tested — source lifetime/publication prerequisite (2026-10-30).**
 An immutable prepared parsing context is loaded from exact archived execution inputs and reused
 across a BoundReader/operation, with no per-token database policy lookup. Source products join
-existing unit completion/replay and reuse selection; required future unbound operations refuse
-before effects. Native direct publication follows enclosing run then task lock order, exercised
+existing unit completion/replay and reuse selection. The layered extension binds text,
+interpretation and assessment adapters; unsupported operation recipes still refuse before effects. Native direct publication follows enclosing run then task lock order, exercised
 with an actual blocker and concurrent writer. [Scoped execution](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
-does not close broader PP-08 cancellation, demand-driven math or PP-09/10 adoption.
+retains its source-only scope. The layered implementation composes nested main-thread deadlines,
+shares operation-owned native preparation and publishes complete product sets under the same
+attempt/source fences. Explicit archived requests reuse successful compatible tasks; failures
+remain retryable attempts, and cancellation drains the owned run. Broader qualification and
+operational adoption are recorded separately at PP-10.
 
 > Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
 

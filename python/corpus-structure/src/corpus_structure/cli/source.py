@@ -23,14 +23,14 @@ def _read(ctx: typer.Context, **values):
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.source import SourceRequest, inspect_source
 
-    with failure_boundary(True, expected=(ValueError, OperationConflict, NoResultFound)):
-        with (
-            open_runtime_engine(
-                state(ctx).settings(), application_name="ci-source", purpose="read"
-            ) as engine,
-            read_snapshot(engine) as conn,
-        ):
-            return inspect_source(conn, SourceRequest(**values))
+    with (
+        failure_boundary(True, expected=(ValueError, OperationConflict, NoResultFound)),
+        open_runtime_engine(
+            state(ctx).settings(), application_name="ci-source", purpose="read"
+        ) as engine,
+        read_snapshot(engine) as conn,
+    ):
+        return inspect_source(conn, SourceRequest(**values))
 
 
 @app.command("products")

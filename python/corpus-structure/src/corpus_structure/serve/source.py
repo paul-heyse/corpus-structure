@@ -74,7 +74,8 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
             outcome="unavailable",
             rows=[],
             diagnostics=[
-                "This archived release has no source-product capability; rebuild in an explicitly selected current parsing realization."
+                "This archived release has no source-product capability; "
+                "rebuild in an explicitly selected current parsing realization."
             ],
         )
     require_bound_operation(prepared, "read_parsing_product")
@@ -100,7 +101,8 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
             outcome="unavailable",
             rows=[],
             diagnostics=[
-                "No retained product for this selection; rebuild or request the required capability under its admitted recipe."
+                "No retained product for this selection; rebuild or request the "
+                "required capability under its admitted recipe."
             ],
         )
     if request.view == "products":
@@ -133,7 +135,8 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
             or any(step["fidelity"] != "exact" for row in rows for step in row["path"])
         ):
             raise OperationConflict(
-                "exact origin is unavailable for this transformed or incomplete contribution; inspect the qualified trace"
+                "exact origin is unavailable for this transformed or incomplete contribution; "
+                "inspect the qualified trace"
             )
         return SourceResponse(**base, outcome=traced["outcome"], rows=rows)
     if isinstance(product, PreparedParsingProduct):

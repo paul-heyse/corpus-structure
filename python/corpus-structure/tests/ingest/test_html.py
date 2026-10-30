@@ -326,7 +326,8 @@ def test_a_document_outside_the_profiles_applies_to_is_refused(profile: Compiled
 
 
 def test_macro_sources_keep_itertext_and_decoded_slot_origins(profile: CompiledProfile) -> None:
-    body = r'<div class="latex">\newcommand{\f}{<b>A</b>&amp;B}</div><div class="latex">\renewcommand{\f}{C}</div><p>Text.</p>'
+    body = (r'<div class="latex">\newcommand{\f}{<b>A</b>&amp;B}</div>'
+            r'<div class="latex">\renewcommand{\f}{C}</div><p>Text.</p>')
     result = run(profile, body)
     first, second = result.macro_sources
     assert first.text == r"\newcommand{\f}{A&B}"

@@ -1,6 +1,6 @@
 # Runtime preparation and protected parsing-product publication
 
-**State:** Planned; Proposed target, 2026-10-30. No implementation or qualification is claimed.
+**State:** Implemented mechanisms; assembled acceptance remains with PP-10, 2026-10-30.
 **Scope:** PP-08 and PP-09. Current package state, opportunity dispositions and execution order
 belong to the [coordinator](../parsing-pipeline_2026-10-30.md).
 

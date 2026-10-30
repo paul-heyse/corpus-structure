@@ -911,6 +911,37 @@ def parse(raw: bytes) -> tuple[Any, ParseDetail]:
     return root, detail
 
 
+def _macro_fragments(el: Any, walker: _Walker) -> tuple[str, tuple[MacroFragment, ...]]:
+    pieces: list[str] = []
+    fragments: list[MacroFragment] = []
+    position = 0
+
+    def slot(node: Any, name: str) -> None:
+        nonlocal position
+        value = getattr(node, name) or ""
+        pieces.append(value)
+        for contribution in walker.capture.slot(node, name):
+            fragments.append(
+                MacroFragment(
+                    position,
+                    position + contribution.length,
+                    tuple((s.start, s.end) for s in contribution.sources),
+                    contribution.reason,
+                )
+            )
+            position += contribution.length
+
+    def collect(node: Any) -> None:
+        if isinstance(node.tag, str):
+            slot(node, "text")
+        for child in node:
+            collect(child)
+            slot(child, "tail")
+
+    collect(el)
+    return "".join(pieces), tuple(fragments)
+
+
 def _macro_table(
     root: Any, walker: _Walker
 ) -> tuple[dict[str, MacroDef], list[str], tuple[MacroSource, ...]]:
@@ -920,35 +951,9 @@ def _macro_table(
     for el in root.iter():
         if not isinstance(el.tag, str) or not walker.has(el, "macros"):
             continue
-        pieces: list[str] = []
-        fragments: list[MacroFragment] = []
-        position = 0
-
-        def slot(node: Any, name: str) -> None:
-            nonlocal position
-            value = getattr(node, name) or ""
-            pieces.append(value)
-            for contribution in walker.capture.slot(node, name):
-                fragments.append(
-                    MacroFragment(
-                        position,
-                        position + contribution.length,
-                        tuple((s.start, s.end) for s in contribution.sources),
-                        contribution.reason,
-                    )
-                )
-                position += contribution.length
-
-        def collect(node: Any) -> None:
-            if isinstance(node.tag, str):
-                slot(node, "text")
-            for child in node:
-                collect(child)
-                slot(child, "tail")
-
-        collect(el)
+        macro_text, fragments = _macro_fragments(el, walker)
         source = "page-macros:" + str(len(sources))
-        read = read_macros("".join(pieces), source_ref=source)
+        read = read_macros(macro_text, source_ref=source)
         for name, definition in read.table.items():
             if name in table:
                 if table[name] != definition:

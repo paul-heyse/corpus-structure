@@ -75,7 +75,16 @@ throughput saving. Frozen 0041/0042 preserve prior source/rendition rows. Existi
 completion includes source products; native publication locks run before task. Pinned/reused
 reads, separate builds sharing one rendition, ambiguity/corruption refusal and actual concurrent
 publication are covered by [scoped execution evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution).
-Broader publication/adoption remains PP-09/10.
+**Implemented — layered extension, 2026-10-30.** The common immutable product registry adds
+source-root-qualified text, interpretation and assessment products. Fixed `kb.parsing_layer_*`
+relations retain components, nodes, independent edges/endpoints, mapping memberships and
+interpretation/evidence references. Named product dependencies resolve exact task/key/digest
+custody; same-named nodes cannot impersonate interpretation records. Typed macro-event
+metadata carries selection status and local ranges through shared and native validation.
+Forward 0043/0044 retain the frozen source revisions and ABI-10 read support while refusing
+new execution/admission under that archive. Final 0045 is the current authoring revision;
+[PP-09/10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
+own its freeze, assembled acceptance and fresh operational adoption.
 
 > Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
 

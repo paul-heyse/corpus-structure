@@ -322,7 +322,7 @@ def build_semantic_server(
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
     def inspect_source(ctx: Context, request: SourceRequest) -> SourceResponse:
-        """Inspect a pinned source product or trace qualified origins; performs no interpretation."""
+        """Inspect pinned source products and qualified origins without interpretation."""
         from corpus_structure.semantic.query import read_snapshot
         from corpus_structure.serve.source import inspect_source as inspect_selected
 

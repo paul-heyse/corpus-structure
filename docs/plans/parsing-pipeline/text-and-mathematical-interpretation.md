@@ -1,6 +1,6 @@
 # Text structure and context-bound mathematical interpretation
 
-**Planned · 2026-10-30.** All target design is **Proposed**. This supporting plan develops
+**Implementation in progress · 2026-10-30.** The coordinator owns current qualification. This supporting plan develops
 [PP-05](../parsing-pipeline_2026-10-30.md#PP-05) and
 [PP-06](../parsing-pipeline_2026-10-30.md#PP-06). The coordinator is the sole owner of current
 package state, opportunity/finding dispositions, shared decisions and assembled acceptance.

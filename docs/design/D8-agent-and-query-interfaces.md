@@ -100,8 +100,14 @@ queries expose components by extent/category, ordered relationship endpoints and
 multi-hop origin tracing reports partiality, cycles and limits explicitly. Empty half-open
 queries return no rows. Competing builds refuse without a pin, reuse resolves the original
 producer, and matching corruption refuses. [Scoped execution evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
-covers native readback and migrated M01 consumers; broader CLI/MCP views and math-dependent
-packet/export migration remain PP-07/10.
+covers native readback and migrated M01 consumers. **Implemented — public layered readers,
+2026-10-30:** `ci source products|inspect|trace|export|request` and the read-only MCP
+`inspect_source` tool share the pinned source service. Queries retain half-open units,
+build/product identity, partial/limit outcomes and explicit exact-fidelity refusal.
+Arrow/Parquet export derives fields from shared physical metadata and streams bounded batches.
+On-demand work creates a new source-ready operation using archived inputs; it does not mutate
+the original source run or assert independently graded completion. CLI/MCP transport, provider
+and adoption acceptance remain with [PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution).
 
 > Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
 

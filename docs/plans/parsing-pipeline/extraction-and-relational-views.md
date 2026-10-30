@@ -1,6 +1,6 @@
 # Extraction and relational views
 
-**State:** Planned; Proposed target, 2026-10-30. No implementation or qualification is claimed.
+**State:** Implemented mechanisms; assembled acceptance remains with PP-10, 2026-10-30.
 **Scope:** PP-07. Current package state, opportunity dispositions and execution order belong to the
 [coordinator](../parsing-pipeline_2026-10-30.md#PP-07).
 
@@ -267,3 +267,26 @@ primary/installed sources; version additions remain deliberate exact pins. Usefu
 Candidate feasibility is resolved within PP-07 before dependent consumers commit to it. Source
 fidelity limitations remain owned by the coordinator's PP-02/PP-03 route even if an optional
 extraction candidate is deferred; library availability or schema conformance cannot close them.
+
+## Selected implementation mechanisms — 2026-10-30
+
+The coordinator's remaining-scope execution account owns current qualification. The implementation
+uses Core range/category predicates, ordered endpoints and a cycle-safe recursive `UNION` for
+selected prerequisite closure. Public source inspection/trace and bounded batch exports consume
+those selected products. Canonical packet/frame consumers retain their existing canonical
+anchor contract; they do not claim original offsets. M09/M11/M13 consume selected text products.
+Placement recipe `citation-cascade-2` uses RapidFuzz cutoff-filtered candidate populations,
+`partial_ratio_alignment` and Levenshtein edit witnesses while retaining tie, coarse and failure
+semantics. The versioned policy participates in the admitted analysis profile.
+
+| Capability | Selected disposition and concrete revisit trigger |
+|---|---|
+| Source role selection | Retain compiled cssselect2 against the existing repaired tree. A query requiring namespace-aware structural predicates beyond those roles triggers a compiled XPath assessment; no second tree parse is justified now. |
+| Parsel selector facade | Deferred: no current caller exposes a selector dialect or needs composition beyond the compiled roles. Revisit when such a caller removes actual duplicated selection logic. |
+| Embedded JSON-LD/Microdata/RDFa | Deferred optional observation family: current packs have no publisher-metadata method/output contract. Revisit with a selected attributed-declaration consumer and its supported syntax/base-URL/location contract. Original excluded bytes and source inspection remain available now. |
+| Trafilatura article/heuristic metadata | Deferred optional derived view: no current extraction consumer requests a heuristic article subset. Revisit when a named reader needs that subset and can preserve its incomplete-view identity and excluded context. |
+| NetworkX source graph | Deferred: current inspection, ordering and tracing questions are bounded relational reads, not graph algorithms. A source topology/cycle-analysis consumer with a declared universe triggers direct MultiDiGraph projection, including isolates and edge occurrence keys. |
+| SQLAlchemy ORM navigation | Deferred: no mutable entity-navigation consumer replaces the fixed immutable product/read model. Revisit only with such a consumer; Core/native integrity remains authoritative. |
+
+These are dispositions of conditional candidates, not deferrals of mandatory decomposition,
+source attribution, independent edge identity, quote placement or public inspection.

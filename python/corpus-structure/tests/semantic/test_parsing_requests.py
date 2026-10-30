@@ -40,7 +40,7 @@ from corpus_structure.semantic.parsing_requests import ParsingRequestUnavailable
 from .test_operations import setup
 
 
-def source_build(admin, writer, tmp_path, *, canonical="x+x", macros=None):
+def source_build(admin, writer, tmp_path, *, canonical="x+x", macros=None, ranges=None):
     from types import SimpleNamespace
 
     from pydantic import create_model
@@ -105,7 +105,10 @@ def source_build(admin, writer, tmp_path, *, canonical="x+x", macros=None):
                 kind=SegmentKind.DOCUMENT,
                 start=0,
                 end=len(canonical),
-                children=(Segment(kind=SegmentKind.MATH_INLINE, start=0, end=len(canonical)),),
+                children=tuple(
+                    Segment(kind=SegmentKind.MATH_INLINE, start=a, end=b)
+                    for a, b in (ranges or [(0, len(canonical))])
+                ),
             ),
         )
         rendition = store_rendition(
@@ -125,7 +128,7 @@ def source_build(admin, writer, tmp_path, *, canonical="x+x", macros=None):
         payload = text_product_payload(
             canonical,
             root=root.values(),
-            math_ranges=[(0, len(canonical), None, None)],
+            math_ranges=[(a, b, None, None) for a, b in (ranges or [(0, len(canonical))])],
             fallback_macros={n: MacroDef(body=b) for n, b in (macros or {}).items()},
             fallback_source_ref="fixture:archived-math",
             structure=False,
@@ -291,6 +294,41 @@ def test_native_symbolic_and_named_assessment_publish_new_immutable_products(
         details = json.loads(assessment["nodes"][0]["value"])
         assert details["question"] == "definedness"
         assert details["conditions"][0]["requirement"] == "nonzero"
+
+
+def test_native_request_uses_prior_source_definition_with_qualified_basis(
+    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
+):
+    _, _, root, text, _ = source_build(
+        semantic_db_engine, semantic_writer_engine, tmp_path,
+        canonical="f(t)=t^2 f(x)", ranges=[(0, 8), (9, 13)],
+    )
+    result = request_parsing(
+        semantic_writer_engine, root=root, text_product=text,
+        demand="interpretation", math_index=1, code_commit="request-source-definition",
+    )
+    assert result.status == "source_ready", result.diagnostic
+    with semantic_reader_engine.begin() as conn:
+        retained = read_layered_product(conn, result.products[0])
+        assert retained is not None
+        product = retained.values()
+    assert product["semantic_state"] == "ok"
+    basis = product["interpretations"][0]["declaration_basis"]
+    assert len(basis) == 1
+    declaration = basis[0]
+    assert declaration["declaration"]["symbol"] == "f"
+    assert declaration["declaration"]["role"] == "function"
+    assert declaration["rule_id"] == "function-definition-1"
+    assert (declaration["declaration_start"], declaration["declaration_end"]) == (0, 8)
+    assert (declaration["head_start"], declaration["head_end"]) == (0, 4)
+    assert declaration["source_view_node_id"] == "view:0"
+    endpoints = [e for e in product["endpoints"]
+                 if e["relationship_id"] == declaration["relationship_id"]]
+    source = next(e for e in endpoints if e["role"] == "source")
+    assert source["node_id"] == "view:0"
+    assert source["target_task_id"] == text.task_id
+    assert source["target_product_key"] == text.product_key
+    assert source["target_content_digest"] == text.content_digest
 
 
 def test_native_invalid_pin_and_selector_refuse_before_new_run(

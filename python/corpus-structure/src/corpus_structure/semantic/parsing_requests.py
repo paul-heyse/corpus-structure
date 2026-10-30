@@ -15,7 +15,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine, select
 
-from corpus_structure.core.evidence import MacroDef
+from corpus_structure.core.evidence import MacroDef, RenditionContent
 from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import MethodFamily, MethodTier, ObservationOutcome, TaskUnitType
 from corpus_structure.ingest.macros import MacroFragment, MacroSource, read_macros
@@ -206,6 +206,7 @@ def _products(
     root: ProductReference,
     text_reference: ProductReference,
     text_payload: Mapping[str, Any],
+    content: RenditionContent,
     context,
     prepared,
     section: Mapping[str, Any],
@@ -272,22 +273,53 @@ def _products(
 
     view = views[0]
     a, b = view["start_offset"], view["end_offset"]
-    mathematical_context = prepare_interpretation_context(
-        prepared,
-        macros=effective_macros(page_table, fallback),
-        constants=section.get("constants", ()),
-        source_id=f"source:{root.task_id}:{root.content_digest}",
-        scope=dict(root=root.values(), node=view["node_id"]),
-        demand="scientific" if config.demand == "assessment" else config.demand,
-    )
-    operand = PreparedMathInput(
-        mathematical_context,
-        canonical[a:b],
-        seconds=config.seconds,
-        source_text=canonical[a:b],
-        source_start=a,
-        parse_start=a,
-    )
+    source_id = f"text:{text_reference.task_id}:{text_reference.product_key}:{text_reference.content_digest}"
+    macros = effective_macros(page_table, fallback)
+    if config.demand == "syntax":
+        mathematical_context = prepare_interpretation_context(
+            prepared,
+            macros=macros,
+            constants=section.get("constants", ()),
+            source_id=source_id,
+            scope=dict(root=root.values(), node=view["node_id"]),
+            demand="syntax",
+        )
+        operand = PreparedMathInput(
+            mathematical_context,
+            canonical[a:b],
+            seconds=config.seconds,
+            source_text=canonical[a:b],
+            source_start=a,
+            parse_start=a,
+        )
+    else:
+        from corpus_structure.methods.math.source_context import prepare_source_math
+
+        if content.canonical_text != canonical:
+            raise ParsingRequestUnavailable(
+                "source_mismatch", "selected source and text products disagree on canonical content"
+            )
+        source_math = prepare_source_math(
+            content,
+            prepared=prepared,
+            macros=macros,
+            constants=section.get("constants", ()),
+            source_id=source_id,
+            seconds=config.seconds,
+            through_offset=b,
+            demand="scientific" if config.demand == "assessment" else config.demand,
+            source_views={
+                (node["start_offset"], node["end_offset"]): node["node_id"]
+                for node in text_payload["nodes"] if node["kind"] == "parse_view"
+            },
+        )
+        matches = [op for op in source_math.operands
+                   if op.parse_start == a and op.parse_start + len(op.latex) == b]
+        if len(matches) != 1:
+            raise ParsingRequestUnavailable(
+                "selector_invalid", "selected parse view does not identify one archived source expression"
+            )
+        operand = matches[0]
     selected_text = text_reference
     stage = "symbolic" if config.demand == "assessment" else config.demand
     math_payload = interpretation_product_payload(
@@ -415,6 +447,10 @@ def request_parsing(
                 "wrong_product", "text product does not name this available pinned source root"
             )
         _selected_views(text_payload, config)
+        renditions = table("kb.rendition")
+        content = RenditionContent.model_validate(
+            conn.scalar(select(renditions.c.content).where(renditions.c.id == origin["rendition_id"]))
+        )
         source_binding = binding_of(conn, origin["id"])
         section = _math_section(source_binding.dependencies)
         params = config.model_dump(mode="json")
@@ -489,6 +525,7 @@ def request_parsing(
             root=root,
             text_reference=text_product,
             text_payload=text_payload,
+            content=content,
             context=context,
             prepared=prepared,
             section=section,
