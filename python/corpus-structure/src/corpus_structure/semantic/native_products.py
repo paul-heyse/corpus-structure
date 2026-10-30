@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0041"
-NATIVE_REVISION = "semantic_0042"
+NATIVE_PREDECESSOR = "semantic_0042"
+NATIVE_REVISION = "semantic_0043"
 
 
 def selected_fact_query():
@@ -184,9 +184,17 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
             "scientific_decision_rule",
         )
     }
-    from .parsing_products import RELATIONS
+    from .parsing_products import LAYER_RELATIONS, RELATIONS
 
-    new_tables.update({"kb.source_artifact", "ops.parsing_product", *RELATIONS.values()})
+    new_tables.update(
+        {
+            "kb.source_artifact",
+            "ops.parsing_product",
+            *RELATIONS.values(),
+            "ops.parsing_layer_product",
+            *LAYER_RELATIONS.values(),
+        }
+    )
     guards = []
     for name, mode in classified.items():
         if name not in new_tables:
@@ -246,6 +254,7 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     )
     kernels += "\n" + transport
     kernels += "\n" + source.joinpath("execution_projection.sql").read_text()
+    kernels += "\n" + layered_parsing_publication_sql()
     kernels += "\n" + parsing_publication_sql()
     kernels += (
         "\nSET LOCAL ROLE __MIGRATION_OWNER__;\n"
@@ -908,10 +917,12 @@ def parsing_contract_products(model=None) -> tuple[NativeProduct, ...]:
 
 def forward_products(model=None) -> tuple[NativeProduct, ...]:
     """Emit the current forward revision, shared by the CLI and frozen-product comparison."""
-    return parsing_contract_products(model)
+    return layered_parsing_contract_products(model)
 
 
-def parsing_publication_sql() -> str:
+def parsing_publication_sql(
+    *, shape_class: str = "ParsingProduct", template: str = "parsing_products.sql"
+) -> str:
     """Emit finite native shape guards from the same effective LinkML record definitions.
 
     PostgreSQL casts must not silently turn JSON strings into integers or discard unknown
@@ -967,6 +978,12 @@ def parsing_publication_sql() -> str:
                 if prop.range in vocabularies:
                     choices = ",".join(quoted(member) for member in vocabularies[prop.range])
                     predicate += f" OR {expression}->>{key} NOT IN ({choices})"
+            elif prop.range in definitions:
+                predicate = (
+                    f"jsonb_typeof({value}) IS DISTINCT FROM 'object' OR ("
+                    + invalid_record(prop.range, value)
+                    + ")"
+                )
             else:
                 raise ValueError(
                     f"unsupported required parsing native shape: {class_name}/{prop.name}"
@@ -997,8 +1014,8 @@ def parsing_publication_sql() -> str:
         )
 
     # All collections are one level of typed records, not arbitrary recursively interpreted rows.
-    shape = guards("ParsingProduct", "product")
-    for prop in definitions["ParsingProduct"].properties:
+    shape = guards(shape_class, "product")
+    for prop in definitions[shape_class].properties:
         if prop.multivalued:
             shape += (
                 "FOR parsing_item IN SELECT value FROM jsonb_array_elements("
@@ -1008,9 +1025,155 @@ def parsing_publication_sql() -> str:
     return (
         Path(__file__)
         .with_name("sql")
-        .joinpath("parsing_products.sql")
+        .joinpath(template)
         .read_text()
         .replace("-- {parsing_shape_guard}", shape)
         .replace("{parsing_contract_digest}", PARSING_CONTRACT_DIGEST)
         .replace("product jsonb;", "product jsonb; parsing_item jsonb;")
+    )
+
+
+def _layer_insert_fragments() -> tuple[str, str, str]:
+    """Finite set-based projections from the common physical metadata, not authored SQL names."""
+    from .parsing_products import LAYER_RELATIONS, RELATIONS
+
+    source = []
+    layered = []
+    backfill = []
+    for field, name in LAYER_RELATIONS.items():
+        relation = metadata.tables[name]
+        columns = [c.name for c in relation.columns]
+        if field in {"interpretations", "assessments"}:
+            identity = "interpretation_id" if field == "interpretations" else "assessment_id"
+            state = "semantic_state" if field == "interpretations" else "outcome"
+            values = [
+                "p_task",
+                "layer_key",
+                f"item->>'{identity}'",
+                f"item->>'{state}'",
+                "item->>'coverage'",
+                "convert_to(item::text,'UTF8')",
+            ]
+            layered.append(
+                f"INSERT INTO {name}({','.join(columns)}) SELECT {','.join(values)} "
+                f"FROM jsonb_array_elements(COALESCE(product->'{field}','[]'::jsonb)) item;"
+            )
+            continue
+        values = []
+        for column in columns:
+            if column == "task_id":
+                value = "p_task"
+            elif column == "product_key":
+                value = "layer_key"
+            elif column == "target_task_id":
+                value = (
+                    "COALESCE(item.target_task_id,p_task)"
+                    if field != "dependencies"
+                    else "item.target_task_id"
+                )
+            elif column == "target_product_key":
+                value = (
+                    "COALESCE(item.target_product_key,layer_key)"
+                    if field != "dependencies"
+                    else "item.target_product_key"
+                )
+            elif column == "target_content_digest":
+                value = (
+                    "COALESCE(item.target_content_digest,digest)"
+                    if field != "dependencies"
+                    else "item.target_content_digest"
+                )
+            else:
+                value = "item." + column
+            values.append(value)
+        layered.append(
+            f"INSERT INTO {name}({','.join(columns)}) SELECT {','.join(values)} "
+            f"FROM jsonb_populate_recordset(NULL::{name},"
+            f"COALESCE(product->'{field}','[]'::jsonb)) item;"
+        )
+        old = RELATIONS[field]
+        values = []
+        for column in columns:
+            if column in {"product_key", "target_product_key"}:
+                value = "'source'"
+            elif column == "target_content_digest":
+                value = (
+                    "(SELECT product_digest FROM ops.parsing_product target "
+                    "WHERE target.task_id=item.target_task_id)"
+                )
+            elif column == "kind" and field == "dependencies":
+                value = "'product'"
+            elif column == "artifact_digest" and field == "dependencies":
+                value = "NULL"
+            else:
+                value = "item." + column
+            values.append(value)
+        insert = (
+            f"INSERT INTO {name}({','.join(columns)}) SELECT {','.join(values)} FROM {old} item"
+        )
+        source.append(insert + " WHERE item.task_id=p_task;")
+        backfill.append(insert + " ON CONFLICT DO NOTHING;")
+    return "\n".join(source), "\n".join(layered), "\n".join(backfill)
+
+
+def layered_parsing_publication_sql() -> str:
+    source, layers, _ = _layer_insert_fragments()
+    return (
+        parsing_publication_sql(
+            shape_class="LayeredParsingProduct", template="layered_parsing_products.sql"
+        )
+        .replace("-- {source_projections}", source)
+        .replace("-- {layer_projections}", layers)
+    )
+
+
+def layered_parsing_contract_products(model=None) -> tuple[NativeProduct, ...]:
+    """Forward 0043 preserves sources under one product publication contract."""
+    from .parsing_products import LAYER_RELATIONS
+
+    names = {"ops.parsing_layer_product", *LAYER_RELATIONS.values()}
+    ddl = (
+        "SET LOCAL ROLE corpus_sem_publisher;\n"
+        "GRANT REFERENCES ON kb.source_artifact TO __MIGRATION_OWNER__;\n"
+        "SET LOCAL ROLE __MIGRATION_OWNER__;\n"
+    )
+    ddl += "\n".join(
+        p.content.decode()
+        for p in physical_products()
+        if p.name in names or any(p.name.startswith(name + "/") for name in names)
+    )
+    ddl += "\n" + "\n".join(
+        f"ALTER TABLE {name} OWNER TO corpus_sem_publisher;" for name in sorted(names)
+    )
+    ddl += (
+        "\nSET LOCAL ROLE corpus_sem_publisher;\n"
+        "REVOKE REFERENCES ON kb.source_artifact FROM __MIGRATION_OWNER__;\n"
+    )
+    ddl += "\n".join(
+        f"CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON {name} "
+        "FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();"
+        for name in sorted(names)
+    )
+    ddl += "\n" + "\n".join(
+        f"GRANT SELECT ON {name} TO corpus_sem_writer,corpus_sem_reader,"
+        "corpus_sem_admitter,corpus_sem_evaluator;"
+        for name in sorted(names)
+    )
+    ddl += "\n" + layered_parsing_publication_sql() + "\n" + parsing_publication_sql()
+    # Populate all registry identities before adding cross-source projections/dependencies.
+    ddl += (
+        "\nINSERT INTO ops.parsing_layer_product(task_id,product_key,content_digest,release_id,"
+        "kind,root_task_id,root_product_key,root_content_digest,contract_digest,operation,"
+        "adapter_id,lifecycle,semantic_state,coverage,payload) SELECT task_id,'source',"
+        "product_digest,release_id,'source',task_id,'source',product_digest,contract_digest,"
+        "'project_canonical',COALESCE(convert_from(payload,'UTF8')::jsonb->>'adapter_id',"
+        "'legacy-source'),lifecycle,semantic_state,provenance_state,payload "
+        "FROM ops.parsing_product;\n"
+    )
+    ddl += _layer_insert_fragments()[2]
+    physical, _, _ = closure_products(model)
+    ddl += "\nDO $reference$" + physical.content.decode().split("DO $reference$", 1)[1]
+    return (
+        NativeProduct("semantic_0043_parsing.sql", ddl.encode()),
+        NativeProduct("semantic_0043_admission.sql", consolidation_products(model)[-1].content),
     )

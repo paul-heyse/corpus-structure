@@ -26,7 +26,7 @@ BEGIN
  expected:=data.execution_contract_descriptor()->'parsing_relationship_profiles';
  SELECT jsonb_object_agg(substring(value->>'id' FROM 9),value) INTO actual FROM jsonb_array_elements(model->'relationships')
  WHERE expected ? substring(value->>'id' FROM 9);
- IF expected IS NULL OR actual IS DISTINCT FROM expected OR model->'parsing_adapters' IS DISTINCT FROM data.execution_contract_descriptor()->'parsing_adapters' THEN
+ IF expected IS NULL OR actual IS DISTINCT FROM expected OR EXISTS(SELECT FROM jsonb_array_elements(model->'parsing_adapters') actual_adapter WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(data.execution_contract_descriptor()->'parsing_adapters') supported_adapter WHERE supported_adapter=actual_adapter)) THEN
   RAISE EXCEPTION 'unsupported parsing relationship profile; qualify implementation and deploy forward revision' USING ERRCODE='23514'; END IF;
 END $parsing_contract$;
 REVOKE ALL ON FUNCTION sem.require_parsing_contract(text) FROM PUBLIC;
@@ -222,6 +222,7 @@ BEGIN
  IF product->>'provenance_state'='complete' AND (product->>'provenance_universe' IS DISTINCT FROM 'canonical_output'
  OR EXISTS(SELECT FROM kb.parsing_representation r WHERE r.task_id=p_task AND r.kind='canonical' AND NOT ops.parsing_origin_known(p_task,r.representation_id,0,r.extent_length,ARRAY[]::text[],adapter))) THEN
   RAISE EXCEPTION 'complete canonical-output provenance is not rooted in original bytes/admitted synthetic rules' USING ERRCODE='23514'; END IF;
+ PERFORM ops.register_parsing_source(p_task);
  RETURN digest;
 END $parsing$;
 REVOKE ALL ON FUNCTION ops.publish_parsing_product(bigint,bigint,text,text,bytea,bytea) FROM PUBLIC;

@@ -34,10 +34,10 @@ def approved_implementations() -> Mapping[str, Any]:
     from types import MappingProxyType
 
     from corpus_structure.core.text_structure import capture_text
-    from corpus_structure.methods.math.prepared import interpret_parsing_math, assess_parsing_math
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.ingest import html, source_capture
     from corpus_structure.intervene.semantic import ProposalSession
+    from corpus_structure.methods.math.prepared import assess_parsing_math, interpret_parsing_math
     from corpus_structure.orchestrate import project, semantic
 
     from . import (
@@ -755,6 +755,8 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
             SourceArtifact(name, root.joinpath(*path.split("/")).read_bytes())
             for name, path in (
                 ("text/sentences.py", "ingest/sentences.py"),
+                ("text/structure.py", "core/text_structure.py"),
+                ("text/products.py", "ingest/text_product.py"),
                 ("capture/analytics.py", "semantic/analytics.py"),
                 ("invocation/scheduler.py", "orchestrate/semantic.py"),
                 ("invocation/packet.py", "methods/llm/packet.py"),
@@ -783,7 +785,10 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact("grammar/_tree.py", math.joinpath("_tree.py").read_bytes()),
         SourceArtifact("grammar/shipped.lark", shipped.read_bytes()),
         SourceArtifact("transformer/transform.py", math.joinpath("transform.py").read_bytes()),
-        SourceArtifact("transformer/native_context.py", math.joinpath("native_context.py").read_bytes()),
+        SourceArtifact(
+            "transformer/native_context.py", math.joinpath("native_context.py").read_bytes()
+        ),
+        SourceArtifact("transformer/products.py", math.joinpath("products.py").read_bytes()),
         SourceArtifact(
             "text/model.json",
             canonical_bytes(
@@ -1209,6 +1214,8 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "invocation/proposals.py",
         "invocation/server.py",
         "text/sentences.py",
+        "text/structure.py",
+        "text/products.py",
         "capture/analytics.py",
         "capture/storage.py",
         "publication/arrow.py",
@@ -1232,6 +1239,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "grammar/shipped.lark",
         "transformer/transform.py",
         "transformer/native_context.py",
+        "transformer/products.py",
         "libraries.json",
     }
     if set(names) != required_implementations or len(names) != len(set(names)):

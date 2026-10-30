@@ -17,14 +17,27 @@ from corpus_structure.semantic.types import PreparationError
 from .test_parsing_products import _native_build, product_values
 
 
-def test_future_operations_are_declarations_without_executable_support():
+def test_actual_producer_operations_are_admitted_but_unbound_declarations_refuse():
     model = compile_execution_model(trusted_execution_inputs())
-    for name in ("prepare_parsing_text", "interpret_parsing_math", "assess_parsing_math"):
-        assert model.operation(name).implementation is None
-        with pytest.raises(PreparationError, match="no qualified producer"):
-            model.require_operation(name)
-    for name in ("decompose_source", "recognize_html", "project_canonical"):
+    names = (
+        "prepare_parsing_text",
+        "interpret_parsing_math",
+        "assess_parsing_math",
+        "decompose_source",
+        "recognize_html",
+        "project_canonical",
+    )
+    for name in names:
         assert model.require_operation(name).implementation == name
+    operation = model.operation("assess_parsing_math")
+    unbound = replace(
+        model,
+        operations=tuple(
+            replace(o, implementation=None) if o.id == operation.id else o for o in model.operations
+        ),
+    )
+    with pytest.raises(PreparationError, match="no qualified producer"):
+        unbound.require_operation(operation.id)
 
 
 def test_node_variants_derive_literal_tags_and_forbid_attribute_fields_on_elements():
