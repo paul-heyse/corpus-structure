@@ -6,6 +6,10 @@ They are compatibility requirements, never evidence that hashing code proves its
 """
 
 SUPPORTED_EFFECTS = {
+    "prepare_parsing_text": {"effects": (), "implementation": "prepare_parsing_text", "transitions": {}, "version": "1"},
+    "interpret_parsing_math": {"effects": (), "implementation": "interpret_parsing_math", "transitions": {}, "version": "1"},
+    "assess_parsing_math": {"effects": (), "implementation": "assess_parsing_math", "transitions": {}, "version": "1"},
+
     "decompose_source": {
         "effects": (),
         "implementation": "decompose_source",

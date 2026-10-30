@@ -66,6 +66,7 @@ classes:
       ambiguity: {range: string, required: true, slot_uri: execution:AlignmentPolicyDefinition_ambiguity}
   PlacementPolicyDefinition:
     attributes:
+      candidate_limit: {range: integer, required: true, minimum_value: 1}
       recipe: {range: string, required: true, slot_uri: execution:PlacementPolicyDefinition_recipe}
       token_cutoff: {range: integer, required: true, slot_uri: execution:PlacementPolicyDefinition_token_cutoff}
       token_pad: {range: integer, required: true, slot_uri: execution:PlacementPolicyDefinition_token_pad}

@@ -2939,3 +2939,538 @@ classes:
       ph:checks: '["start_offset >= 0 AND end_offset >= start_offset", "ordinal >= 0",
         "side IN (''source'',''target'')", "(task_id = target_task_id AND dependency_name
         IS NULL) OR (task_id <> target_task_id AND dependency_name IS NOT NULL)"]'
+  parsing_layer_product:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      root_task_id:
+        range: integer
+        required: true
+      root_product_key:
+        range: string
+        required: true
+      root_content_digest:
+        range: string
+        required: true
+      contract_digest:
+        range: string
+        required: true
+      operation:
+        range: string
+        required: true
+      adapter_id:
+        range: string
+        required: true
+      lifecycle:
+        range: string
+        required: true
+      semantic_state:
+        range: string
+        required: true
+      coverage:
+        range: string
+        required: true
+      payload:
+        range: bytes
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+      key0:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns": ["release_id"],
+        "target": "sem.release.release_id"}, {"columns": ["root_task_id"], "target": "ops.rendition_build.task_id"}]'
+      ph:checks: '["content_digest = encode(sha256(payload),''hex'')", "kind IN (''source'',''text'',''interpretation'',''assessment'')",
+        "product_key <> ''''", "root_product_key = ''source''", "lifecycle IN (''available'',''failed'',''cancelled'')",
+        "semantic_state IN (''ok'',''ambiguous'',''invalid'',''unsupported'',''unknown'')", "coverage
+        IN (''complete'',''partial'',''unknown'',''unsupported'')"]'
+  parsing_layer_representation:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      representation_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      unit:
+        range: string
+        required: true
+      extent_length:
+        range: integer
+        required: true
+      text_content:
+        range: string
+        required: false
+      partition_state:
+        range: string
+        required: true
+      recognition_state:
+        range: string
+        required: true
+      encoding:
+        range: string
+        required: false
+      decoder:
+        range: string
+        required: false
+      newline_policy:
+        range: string
+        required: false
+      text_content_utf8_base64:
+        range: string
+        required: false
+      product_key:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - representation_id
+      unique_0:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - representation_id
+        - unit
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.parsing_layer_product.task_id,product_key"}]'
+      ph:checks: '["kind IN (''original'',''decoded'',''canonical'',''expanded'',''artifact'',''parse_view'')",
+        "unit IN (''byte'',''codepoint'')", "extent_length >= 0", "(unit = ''byte'' AND kind = ''original''
+        AND text_content IS NULL AND text_content_utf8_base64 IS NULL) OR (unit = ''codepoint'' AND kind
+        <> ''original'' AND num_nonnulls(text_content,text_content_utf8_base64)=1 AND (text_content IS
+        NULL OR extent_length = char_length(text_content)))", "partition_state IN (''complete'',''partial'',''unknown'',''unsupported'')",
+        "recognition_state IN (''complete'',''partial'',''unknown'',''unsupported'')", "kind <> ''decoded''
+        OR (encoding IS NOT NULL AND decoder IS NOT NULL AND newline_policy IS NOT NULL)"]'
+  parsing_layer_component:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      component_id:
+        range: string
+        required: true
+      ordinal:
+        range: integer
+        required: true
+      category:
+        range: string
+        required: true
+      representation_id:
+        range: string
+        required: true
+      unit:
+        range: string
+        required: true
+      start_offset:
+        range: integer
+        required: true
+      end_offset:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - component_id
+      unique_0:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - representation_id
+        - ordinal
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.parsing_layer_product.task_id,product_key"},
+        {"columns": ["task_id", "product_key", "representation_id", "unit"], "target": "kb.parsing_layer_representation.task_id,product_key,representation_id,unit"}]'
+      ph:checks: '["start_offset >= 0 AND end_offset >= start_offset", "end_offset > start_offset", "ordinal
+        >= 0"]'
+      ph:indexes: '[["task_id", "representation_id", "start_offset", "end_offset"], ["task_id", "category"]]'
+  parsing_layer_node:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      node_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      representation_id:
+        range: string
+        required: false
+      unit:
+        range: string
+        required: false
+      start_offset:
+        range: integer
+        required: false
+      end_offset:
+        range: integer
+        required: false
+      origin:
+        range: string
+        required: true
+      origin_reason:
+        range: string
+        required: false
+      name:
+        range: string
+        required: false
+      value:
+        range: string
+        required: false
+      ordinal:
+        range: integer
+        required: false
+      attribute_outcome:
+        range: string
+        required: false
+      name_start_offset:
+        range: integer
+        required: false
+      name_end_offset:
+        range: integer
+        required: false
+      value_start_offset:
+        range: integer
+        required: false
+      value_end_offset:
+        range: integer
+        required: false
+      product_key:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - node_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.parsing_layer_product.task_id,product_key"},
+        {"columns": ["task_id", "product_key", "representation_id", "unit"], "target": "kb.parsing_layer_representation.task_id,product_key,representation_id,unit"}]'
+      ph:checks: '["(origin = ''literal'' AND num_nonnulls(representation_id,unit,start_offset,end_offset)
+        = 4 AND origin_reason IS NULL) OR (origin IN (''synthetic'',''derived'') AND num_nonnulls(representation_id,unit,start_offset,end_offset)
+        = 0 AND origin_reason IS NOT NULL)", "start_offset >= 0 AND end_offset >= start_offset"]'
+  parsing_layer_relationship:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      relationship_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      ordinal:
+        range: integer
+        required: false
+      product_key:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - relationship_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.parsing_layer_product.task_id,product_key"}]'
+      ph:checks: '[]'
+  parsing_layer_endpoint:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      relationship_id:
+        range: string
+        required: true
+      ordinal:
+        range: integer
+        required: true
+      role:
+        range: string
+        required: true
+      target_task_id:
+        range: integer
+        required: true
+      component_id:
+        range: string
+        required: false
+      node_id:
+        range: string
+        required: false
+      dependency_name:
+        range: string
+        required: false
+      product_key:
+        range: string
+        required: true
+      target_product_key:
+        range: string
+        required: true
+      target_content_digest:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - relationship_id
+        - ordinal
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "relationship_id"], "target": "kb.parsing_layer_relationship.task_id,product_key,relationship_id"},
+        {"columns": ["target_task_id", "target_product_key", "component_id"], "target": "kb.parsing_layer_component.task_id,product_key,component_id"},
+        {"columns": ["target_task_id", "target_product_key", "node_id"], "target": "kb.parsing_layer_node.task_id,product_key,node_id"},
+        {"columns": ["target_task_id", "target_product_key", "target_content_digest"], "target": "ops.parsing_layer_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["ordinal >= 0", "(component_id IS NULL) <> (node_id IS NULL)", "(task_id = target_task_id
+        AND dependency_name IS NULL) OR (task_id <> target_task_id AND dependency_name IS NOT NULL)"]'
+  parsing_layer_mapping:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      mapping_id:
+        range: string
+        required: true
+      operation:
+        range: string
+        required: true
+      reason:
+        range: string
+        required: true
+      fidelity:
+        range: string
+        required: true
+      product_key:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - mapping_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.parsing_layer_product.task_id,product_key"}]'
+      ph:checks: '[]'
+  parsing_layer_mapping_endpoint:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      mapping_id:
+        range: string
+        required: true
+      side:
+        range: string
+        required: true
+      ordinal:
+        range: integer
+        required: true
+      target_task_id:
+        range: integer
+        required: true
+      dependency_name:
+        range: string
+        required: false
+      representation_id:
+        range: string
+        required: true
+      unit:
+        range: string
+        required: true
+      start_offset:
+        range: integer
+        required: true
+      end_offset:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      target_product_key:
+        range: string
+        required: true
+      target_content_digest:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - mapping_id
+        - side
+        - ordinal
+    annotations:
+      ph:indexes: '[["task_id", "representation_id", "side", "start_offset", "end_offset"], ["target_task_id",
+        "representation_id", "side", "start_offset", "end_offset"], ["target_task_id", "representation_id",
+        "start_offset", "end_offset"]]'
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "mapping_id"], "target": "kb.parsing_layer_mapping.task_id,product_key,mapping_id"},
+        {"columns": ["target_task_id", "target_product_key", "representation_id", "unit"], "target": "kb.parsing_layer_representation.task_id,product_key,representation_id,unit"},
+        {"columns": ["target_task_id", "target_product_key", "target_content_digest"], "target": "ops.parsing_layer_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["start_offset >= 0 AND end_offset >= start_offset", "ordinal >= 0", "side IN (''source'',''target'')",
+        "(task_id = target_task_id AND dependency_name IS NULL) OR (task_id <> target_task_id AND dependency_name
+        IS NOT NULL)"]'
+  parsing_layer_dependency:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      name:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      target_task_id:
+        range: integer
+        required: false
+      target_product_key:
+        range: string
+        required: false
+      target_content_digest:
+        range: string
+        required: false
+      artifact_digest:
+        range: string
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - name
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.parsing_layer_product.task_id,product_key"},
+        {"columns": ["target_task_id", "target_product_key", "target_content_digest"], "target": "ops.parsing_layer_product.task_id,product_key,content_digest"},
+        {"columns": ["artifact_digest"], "target": "kb.source_artifact.artifact_digest"}]'
+      ph:checks: '["kind IN (''product'',''artifact'')", "name <> ''''", "(kind=''product'' AND target_task_id
+        IS NOT NULL AND target_product_key IS NOT NULL AND target_content_digest IS NOT NULL AND artifact_digest
+        IS NULL) OR (kind=''artifact'' AND target_task_id IS NULL AND target_product_key IS NULL AND target_content_digest
+        IS NULL AND artifact_digest IS NOT NULL)"]'
+  parsing_layer_interpretation:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      interpretation_id:
+        range: string
+        required: true
+      semantic_state:
+        range: string
+        required: true
+      coverage:
+        range: string
+        required: true
+      payload:
+        range: bytes
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - interpretation_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.parsing_layer_product.task_id,product_key"}]'
+      ph:checks: '["coverage IN (''complete'',''partial'',''unknown'',''unsupported'')"]'
+  parsing_layer_assessment:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      assessment_id:
+        range: string
+        required: true
+      semantic_state:
+        range: string
+        required: true
+      coverage:
+        range: string
+        required: true
+      payload:
+        range: bytes
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - assessment_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.parsing_layer_product.task_id,product_key"}]'
+      ph:checks: '["coverage IN (''complete'',''partial'',''unknown'',''unsupported'')"]'

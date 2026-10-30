@@ -19,6 +19,8 @@ enums:
       codepoint: *id001
   RepresentationKind:
     permissible_values:
+      artifact: {}
+      parse_view: {}
       original: &id002 {}
       decoded: *id002
       canonical: *id002
@@ -59,6 +61,12 @@ enums:
       unknown: *id007
   ComponentCategory:
     permissible_values:
+      control_word: {}
+      control_symbol: {}
+      group_open: {}
+      group_close: {}
+      parameter: {}
+      character: {}
       attribute_name: {}
       attribute_value: {}
       attribute_delimiter: {}
@@ -85,6 +93,17 @@ enums:
     permissible_values: {retained: {}, discarded_duplicate: {}, unknown: {}}
   StructuralKind:
     permissible_values:
+      macro: {}
+      unknown_macro: {}
+      chars: {}
+      environment: {}
+      subscript: {}
+      superscript: {}
+      specials: {}
+      parse_view: {}
+      macro_definition: {}
+      macro_event: {}
+      macro_invocation: {}
       attribute: {}
       document: &id010 {}
       element: *id010
@@ -136,6 +155,16 @@ enums:
       derived: {}
       literal: &id014 {}
       synthetic: *id014
+  ParsingProductKind:
+    permissible_values:
+      source: {}
+      text: {}
+      interpretation: {}
+      assessment: {}
+  ParsingDependencyKind:
+    permissible_values:
+      product: {}
+      artifact: {}
 classes:
   ParsingExtent:
     attributes:
@@ -750,3 +779,284 @@ classes:
         range: ParsingString
         required: true
         slot_uri: pp:ParsingUnresolvedReference_reason
+  ParsingProductReference:
+    attributes:
+      task_id:
+        range: ParsingInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pp:ParsingProductReference_task_id
+      product_key:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingProductReference_product_key
+      content_digest:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingProductReference_content_digest
+  LayeredParsingEndpoint:
+    attributes:
+      target_product_key:
+        range: ParsingString
+        required: false
+        slot_uri: pp:LayeredParsingEndpoint_target_product_key
+      target_content_digest:
+        range: ParsingString
+        required: false
+        slot_uri: pp:LayeredParsingEndpoint_target_content_digest
+    is_a: ParsingEndpoint
+  LayeredParsingMappingEndpoint:
+    attributes:
+      target_product_key:
+        range: ParsingString
+        required: false
+        slot_uri: pp:LayeredParsingMappingEndpoint_target_product_key
+      target_content_digest:
+        range: ParsingString
+        required: false
+        slot_uri: pp:LayeredParsingMappingEndpoint_target_content_digest
+    is_a: ParsingMappingEndpoint
+  LayeredParsingDependency:
+    attributes:
+      name:
+        range: ParsingString
+        required: true
+        slot_uri: pp:LayeredParsingDependency_name
+      kind:
+        range: ParsingDependencyKind
+        required: true
+        slot_uri: pp:LayeredParsingDependency_kind
+      target_task_id:
+        range: ParsingInteger
+        required: false
+        minimum_value: 1
+        slot_uri: pp:LayeredParsingDependency_target_task_id
+      target_product_key:
+        range: ParsingString
+        required: false
+        slot_uri: pp:LayeredParsingDependency_target_product_key
+      target_content_digest:
+        range: ParsingString
+        required: false
+        slot_uri: pp:LayeredParsingDependency_target_content_digest
+      artifact_digest:
+        range: ParsingString
+        required: false
+        slot_uri: pp:LayeredParsingDependency_artifact_digest
+  LayeredParsingProduct:
+    attributes:
+      product_key:
+        range: ParsingString
+        required: true
+        slot_uri: pp:LayeredParsingProduct_product_key
+      kind:
+        range: ParsingProductKind
+        required: true
+        slot_uri: pp:LayeredParsingProduct_kind
+      root:
+        range: ParsingProductReference
+        required: true
+        inlined: true
+        slot_uri: pp:LayeredParsingProduct_root
+      operation:
+        range: ParsingString
+        required: true
+        slot_uri: pp:LayeredParsingProduct_operation
+      adapter_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:LayeredParsingProduct_adapter_id
+      lifecycle:
+        range: ParsingLifecycle
+        required: true
+        slot_uri: pp:LayeredParsingProduct_lifecycle
+      semantic_state:
+        range: ParsingMeaning
+        required: true
+        slot_uri: pp:LayeredParsingProduct_semantic_state
+      coverage:
+        range: ParsingCoverage
+        required: true
+        slot_uri: pp:LayeredParsingProduct_coverage
+      representations:
+        range: ParsingRepresentation
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:LayeredParsingProduct_representations
+      components:
+        range: ParsingComponent
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:LayeredParsingProduct_components
+      nodes:
+        range: ParsingNode
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:LayeredParsingProduct_nodes
+      relationships:
+        range: ParsingRelationship
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:LayeredParsingProduct_relationships
+      endpoints:
+        range: LayeredParsingEndpoint
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:LayeredParsingProduct_endpoints
+      mappings:
+        range: ParsingMapping
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:LayeredParsingProduct_mappings
+      mapping_endpoints:
+        range: LayeredParsingMappingEndpoint
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:LayeredParsingProduct_mapping_endpoints
+      dependencies:
+        range: LayeredParsingDependency
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:LayeredParsingProduct_dependencies
+      interpretations:
+        range: ParsingInterpretation
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:LayeredParsingProduct_interpretations
+      assessments:
+        range: ParsingAssessment
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pp:LayeredParsingProduct_assessments
+
+  ParsingMacroNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: macro
+        slot_uri: pp:ParsingMacroNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingMacroNode_value
+  ParsingUnknownMacroNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: unknown_macro
+        slot_uri: pp:ParsingUnknownMacroNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingUnknownMacroNode_value
+  ParsingCharsNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: chars
+        slot_uri: pp:ParsingCharsNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingCharsNode_value
+  ParsingEnvironmentNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: environment
+        slot_uri: pp:ParsingEnvironmentNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingEnvironmentNode_value
+  ParsingSubscriptNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: subscript
+        slot_uri: pp:ParsingSubscriptNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingSubscriptNode_value
+  ParsingSuperscriptNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: superscript
+        slot_uri: pp:ParsingSuperscriptNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingSuperscriptNode_value
+  ParsingSpecialsNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: specials
+        slot_uri: pp:ParsingSpecialsNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingSpecialsNode_value
+  ParsingParseViewNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: parse_view
+        slot_uri: pp:ParsingParseViewNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingParseViewNode_value
+  ParsingMacroDefinitionNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: macro_definition
+        slot_uri: pp:ParsingMacroDefinitionNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingMacroDefinitionNode_value
+  ParsingMacroEventNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: macro_event
+        slot_uri: pp:ParsingMacroEventNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingMacroEventNode_value
+  ParsingMacroInvocationNode:
+    is_a: ParsingNode
+    attributes:
+      kind:
+        range: string
+        required: true
+        equals_string: macro_invocation
+        slot_uri: pp:ParsingMacroInvocationNode_kind
+      value:
+        range: ParsingString
+        slot_uri: pp:ParsingMacroInvocationNode_value

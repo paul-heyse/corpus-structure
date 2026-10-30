@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "10"
+EXECUTION_COMPILER_VERSION = "11"
 
 
 @lru_cache(maxsize=1)
@@ -33,6 +33,8 @@ def approved_implementations() -> Mapping[str, Any]:
     """Resolve only application-written imports, never catalog-authored module strings."""
     from types import MappingProxyType
 
+    from corpus_structure.core.text_structure import capture_text
+    from corpus_structure.methods.math.prepared import interpret_parsing_math, assess_parsing_math
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.ingest import html, source_capture
     from corpus_structure.intervene.semantic import ProposalSession
@@ -83,6 +85,9 @@ def approved_implementations() -> Mapping[str, Any]:
             "read_original": operations.read_original,
             "store_rendition": operations.store_rendition,
             "read_rendition": operations.read_rendition,
+            "prepare_parsing_text": capture_text,
+            "interpret_parsing_math": interpret_parsing_math,
+            "assess_parsing_math": assess_parsing_math,
             "prepare_parsing_product": parsing_products.prepare_parsing_product,
             "publish_parsing_product": parsing_products.store_parsing_product,
             "read_parsing_product": parsing_products.read_parsing_product,
@@ -415,6 +420,7 @@ class AlignmentPolicyDefinition:
 @dataclass(frozen=True)
 class PlacementPolicyDefinition:
     recipe: str
+    candidate_limit: int = field(default=5, kw_only=True)
     token_cutoff: int
     token_pad: int
     char_cutoff: int
@@ -692,6 +698,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "8",
         "9",
         "10",
+        "11",
     }:
         _fail(
             "unsupported_execution_abi", model_id, "execution product has no supported compiler ABI"
@@ -702,7 +709,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
     from .effect_support import SUPPORTED_EFFECT_VERSIONS
 
     effect_versions = dict(SUPPORTED_EFFECT_VERSIONS)
-    if data["inputs"]["compiler_version"] not in {"9", "10"}:
+    if data["inputs"]["compiler_version"] not in {"9", "10", "11"}:
         effect_versions["schedule_pending_or_reused_or_skipped"] = "1"
     return _normalize(
         {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}},
