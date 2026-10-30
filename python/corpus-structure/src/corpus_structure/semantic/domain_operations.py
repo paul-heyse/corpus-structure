@@ -1965,29 +1965,8 @@ def consolidate_cut(
         raise DomainOperationRefused("scientific policy belongs to another release")
     binding = inputs.source_binding
     compiled = compile_projection(inputs.prepared, binding, kind="candidate")
-    evidence_type = pa.list_(pa.struct([pa.field("evidence_id", pa.string())]))
-    links = {o.occurrence_id: [] for o in inputs.batch.occurrence}
-    for link in inputs.batch.occurrence_evidence:
-        links[link.occurrence_id].append({"evidence_id": link.evidence_id})
-    candidates = pa.Table.from_pylist(
-        [
-            {
-                "fact_id": o.fact_id,
-                "occurrence_id": o.occurrence_id,
-                "evidence": links[o.occurrence_id],
-            }
-            for o in inputs.batch.occurrence
-        ],
-        schema=pa.schema(
-            [
-                pa.field("fact_id", pa.string()),
-                pa.field("occurrence_id", pa.string()),
-                pa.field("evidence", evidence_type),
-            ]
-        ),
-    )
-    packet = CandidateInput.from_cut(
-        inputs.prepared, inputs, candidates=candidates, decision_universe=policy.version
+    packet = CandidateInput.from_admitted_cut(
+        inputs.prepared, inputs, decision_universe=policy.version
     )
     with AnalysisScope(packet) as scope:
         fused = scope.fuse(scope.relation("candidate_input")).to_arrow_table()

@@ -207,7 +207,7 @@ class CandidateInput:
             raise ValueError("candidate relation has wrong compiled shape")
         if any(relation[name].null_count for name in ("fact_id", "occurrence_id", "evidence")):
             raise ValueError("candidate relation contains missing identifiers/support sets")
-        if len(set(relation["occurrence_id"].to_pylist())) != relation.num_rows:
+        if pc.call_function("count_distinct", [relation["occurrence_id"]]).as_py() != relation.num_rows:
             raise ValueError("candidate relation repeats an occurrence identity")
         object.__setattr__(self, "relations", MappingProxyType(dict(self.relations)))
 
@@ -218,6 +218,27 @@ class CandidateInput:
         cut: CutInput,
         *,
         candidates: pa.Table,
+        decision_universe: str,
+    ) -> CandidateInput:
+        """Validate an externally supplied relation against the complete admitted cut."""
+        return cls._from_cut(prepared, cut, candidates=candidates,
+                             decision_universe=decision_universe)
+
+    @classmethod
+    def from_admitted_cut(
+        cls, prepared: PreparedRelease, cut: CutInput, *, decision_universe: str
+    ) -> CandidateInput:
+        """Derive owned Arrow rows from an admitted cut without converting them back.
+
+        The source records, rather than a caller assertion about an Arrow table, establish
+        this construction route. External tables retain the independent from_cut boundary.
+        """
+        return cls._from_cut(prepared, cut, candidates=None,
+                             decision_universe=decision_universe)
+
+    @classmethod
+    def _from_cut(
+        cls, prepared: PreparedRelease, cut: CutInput, *, candidates: pa.Table | None,
         decision_universe: str,
     ) -> CandidateInput:
         if (
@@ -239,10 +260,16 @@ class CandidateInput:
             raise ValueError("candidate cut requires a distinct bound output and run")
         contract = _projection_contract(prepared, "candidate", operation_id="evaluate")
         compiled = compile_projection(prepared, cut.source_binding, kind="candidate")
-        evidence: dict[str, list[dict[str, str]]] = {
-            row.occurrence_id: [] for row in cut.batch.occurrence
-        }
+        evidence: dict[str, list[dict[str, str]]] = {}
+        facts = {row.fact_id for row in cut.batch.fact}
+        evidence_ids = {row.evidence_id for row in cut.batch.evidence}
+        for row in cut.batch.occurrence:
+            if row.occurrence_id in evidence or row.fact_id not in facts:
+                raise ValueError("candidate cut has duplicate occurrences or missing facts")
+            evidence[row.occurrence_id] = []
         for link in cut.batch.occurrence_evidence:
+            if link.occurrence_id not in evidence or link.evidence_id not in evidence_ids:
+                raise ValueError("candidate evidence is outside cut source universe")
             evidence[link.occurrence_id].append({"evidence_id": link.evidence_id})
         expected = [
             {
@@ -252,7 +279,9 @@ class CandidateInput:
             }
             for row in cut.batch.occurrence
         ]
-        if (
+        if candidates is None:
+            candidates = pa.Table.from_pylist(expected, schema=CANDIDATE_SCHEMA)
+        elif (
             not candidates.schema.remove_metadata().equals(CANDIDATE_SCHEMA)
             or candidates.to_pylist() != expected
         ):

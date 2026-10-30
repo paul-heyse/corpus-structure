@@ -15,6 +15,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
+from functools import lru_cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import MappingProxyType
@@ -42,7 +43,8 @@ from linkml_term_validator.plugins import (
 )
 from oaklib import get_adapter
 from pyshacl import validate
-from rdflib import Graph, Literal, Namespace, URIRef
+from rdflib import BNode, Graph, Literal, Namespace, URIRef
+from rdflib.term import Node
 from rdflib.namespace import RDF
 
 CS = Namespace("https://corpus-structure.dev/semantic/")
@@ -917,9 +919,10 @@ def qualified_validation_graph(projection: QualifiedGraphProjection) -> Graph:
     return projection.graph()
 
 
-def qualified_projection_shapes() -> Graph:
-    """Core shapes target reified statements, structural records and positional members."""
-    return Graph().parse(
+@lru_cache(maxsize=1)
+def _qualified_shape_triples() -> tuple[tuple[Node, Node, Node], ...]:
+    """Prepare immutable core triples once; mutable graphs remain operation-owned."""
+    return tuple(Graph().parse(
         data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix cs: <https://corpus-structure.dev/semantic/> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
@@ -953,7 +956,29 @@ cs:ScopedNodeShape a sh:NodeShape; sh:targetSubjectsOf cs:projection;
               sh:minInclusive 0; sh:minCount 1; sh:maxCount 1] .
 ''',
         format="turtle",
-    )
+    ))
+
+
+def _add_isolated_triples(
+    destination: Graph, triples: Iterable[tuple[Node, Node, Node]]
+) -> None:
+    """Merge an independent graph with its blank-node namespace standardized apart."""
+    remapped: dict[BNode, BNode] = {}
+
+    def node(value: Node) -> Node:
+        if isinstance(value, BNode):
+            return remapped.setdefault(value, BNode())
+        return value
+
+    destination.addN((node(s), node(p), node(o), destination) for s, p, o in triples)
+
+
+def qualified_projection_shapes() -> Graph:
+    """Fresh core shapes: callers may mutate them without changing later validation."""
+    graph = Graph()
+    _add_isolated_triples(graph, _qualified_shape_triples())
+    return graph
+
 
 
 def validate_projected_graph(
@@ -961,7 +986,7 @@ def validate_projected_graph(
 ) -> GraphValidation:
     selected = qualified_projection_shapes()
     if shapes is not None:
-        selected += shapes
+        _add_isolated_triples(selected, shapes)
     try:
         result = validate_graph(qualified_validation_graph(projection), selected, ontology)
     except (GraphShapeError, GraphExecutionError) as exc:
