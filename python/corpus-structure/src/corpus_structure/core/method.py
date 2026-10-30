@@ -51,7 +51,7 @@ from corpus_structure.core.vocab import (
 
 if typing.TYPE_CHECKING:
     from corpus_structure.ingest.sentences import TextLayout
-    from corpus_structure.semantic.parsing_products import PreparedParsingProduct
+    from corpus_structure.semantic.parsing_products import PreparedParsingProduct, PreparedParsingProductSet, PreparedLayeredParsingProduct, ProductReference
 
 
 # --- Digests and payload hashes ----------------------------------------------------------------
@@ -238,6 +238,18 @@ class Reader(Protocol):
         """Validate source products with the producing run's archived parsing contract."""
         ...
 
+    def parsing_fallback_macros(self) -> tuple[str, Mapping[str, Any]]:
+        """Effective fallback definitions with an exact archived-release source reference."""
+        ...
+
+    def source_product_reference(self, document_id: int, content_digest: str) -> ProductReference:
+        """The claimed source task identity, bound by the runner before pure work."""
+        ...
+
+    def prepare_layered_product(self, payload: Mapping[str, Any]) -> PreparedLayeredParsingProduct:
+        """Prepare derived products using this run's archived common contract."""
+        ...
+
     def original(self, document_id: int) -> bytes:
         """The retained original bytes under this reader's admitted project/run custody."""
         ...
@@ -386,6 +398,7 @@ class UnitResult:
     parse_detail: Mapping[str, JsonValue] | None = None
     text_layouts: tuple[TextLayout, ...] = ()
     parsing_product: PreparedParsingProduct | None = None
+    parsing_products: PreparedParsingProductSet | None = None
     coverage: tuple[CoverageDraft, ...] = ()
 
     def __post_init__(self) -> None:

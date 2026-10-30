@@ -781,6 +781,16 @@ def complete_unit_result(
         store_parsing_product(
             conn, task_id=task_id, attempt=attempt, holder=holder, product=result.parsing_product
         )
+    if result.parsing_products is not None:
+        from .parsing_products import store_layered_products
+
+        if task["status"] != "running":
+            products_table = table("ops.parsing_layer_product")
+            retained = dict(conn.execute(select(products_table.c.product_key, products_table.c.content_digest).where(products_table.c.task_id == task_id, products_table.c.kind != "source")).all())
+            proposed = {p.product_key: p.digest for p in result.parsing_products.products}
+            if retained != proposed:
+                raise OperationConflict("terminal parsing product set differs")
+        store_layered_products(conn, task_id=task_id, attempt=attempt, holder=holder, products=result.parsing_products)
     rows = []
     for item in items:
         rid = item.get("rendition_id", rendition_id)
@@ -876,6 +886,7 @@ class BoundReader:
         self._source_contract = None
         self._source_inputs = {}
         self.math_readings_batch = None
+        self.source_tasks: dict[int, int] = {}
         if (
             payload is not None
             and json.loads(payload)["inputs"]["compiler_version"] == EXECUTION_COMPILER_VERSION
@@ -924,6 +935,28 @@ class BoundReader:
         if permitted is None:
             raise OperationConflict("original source is outside the bound run/project")
         return read_original(self.conn, document_id, prepared=self.prepared)
+
+    def bind_source_tasks(self, tasks: Mapping[int, int]) -> None:
+        """Bind one claimed batch; task identity never comes from a fabricated placeholder."""
+        if any(document < 1 or task < 1 for document, task in tasks.items()):
+            raise ValueError("source task binding requires real document/task identities")
+        self.source_tasks = dict(tasks)
+
+    def source_product_reference(self, document_id: int, content_digest: str):
+        from .parsing_products import ProductReference
+
+        if document_id not in self.source_tasks:
+            raise OperationConflict("source product task identity has not been bound for this batch")
+        return ProductReference(self.source_tasks[document_id], "source", content_digest)
+
+    def prepare_layered_product(self, payload):
+        from .parsing_products import parsing_context_for_release, prepare_layered_product
+
+        context = getattr(self, "_parsing_context", None)
+        if context is None:
+            context = parsing_context_for_release(self.conn, self.prepared)
+            self._parsing_context = context
+        return prepare_layered_product(payload, context=context)
 
     def prepare_parsing_product(self, payload, original):
         from .parsing_products import parsing_context_for_release, prepare_parsing_product
@@ -995,38 +1028,18 @@ class BoundReader:
             row["method_config_id"],
         )
 
-    def parsing_product(self, rendition_id: int, *, producing_task_id: int | None = None):
-        """Resolve only run-selected producing/reused builds; refuse ambiguous history."""
-        from .parsing_products import read_parsing_product
+    def layered_products(self, rendition_id: int, **selection):
+        """Common immutable product selection for the run and its reused producers."""
+        from .parsing_products import select_layered_products
 
-        build, task, chosen = (
-            table("ops.rendition_build"),
-            table("ops.task"),
-            table("ops.run_rendition"),
-        )
-        query = (
-            select(build.c.task_id)
-            .join_from(
-                task, build, build.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id)
-            )
-            .join(
-                chosen,
-                (chosen.c.run_id == task.c.run_id)
-                & (chosen.c.document_id == build.c.document_id)
-                & (chosen.c.rendition_id == build.c.rendition_id),
-            )
-            .where(task.c.run_id == self.run_id, build.c.rendition_id == rendition_id)
-        )
-        if producing_task_id is not None:
-            query = query.where(build.c.task_id == producing_task_id)
-        tasks = self.conn.execute(query.distinct()).scalars().all()
-        if not tasks:
-            return None
-        if len(tasks) != 1:
-            raise OperationConflict(
-                "source selection has multiple parsing product builds; pin a producing task"
-            )
-        return read_parsing_product(self.conn, task_id=tasks[0])
+        return select_layered_products(self.conn, run_id=self.run_id, rendition_id=rendition_id, **selection)
+
+    def parsing_product(self, rendition_id: int, *, producing_task_id: int | None = None):
+        """Compatibility root shim through the common qualified product selector."""
+        from .parsing_products import read_layered_product
+
+        selected = self.layered_products(rendition_id, kind="source", producing_task_id=producing_task_id)
+        return read_layered_product(self.conn, selected[0].reference) if selected else None
 
     def segments(self, rendition_id: int) -> Mapping[str, int]:
         s = table("kb.segment")

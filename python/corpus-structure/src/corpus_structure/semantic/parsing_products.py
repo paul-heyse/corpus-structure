@@ -690,3 +690,279 @@ def read_parsing_product(
         ):
             raise ValueError(f"retained parsing relational projection differs: {relation}")
     return result
+
+
+@dataclass(frozen=True, slots=True)
+class ProductReference:
+    """Immutable product identity, separate from its source rendition/content identity."""
+
+    task_id: int
+    product_key: str
+    content_digest: str
+
+    def __post_init__(self) -> None:
+        if isinstance(self.task_id, bool) or self.task_id < 1 or not self.product_key:
+            raise ValueError("product reference requires a producing task and product key")
+        if len(self.content_digest) != 64 or any(c not in "0123456789abcdef" for c in self.content_digest):
+            raise ValueError("product reference requires its SHA-256 content digest")
+
+    def values(self) -> dict[str, Any]:
+        return dict(task_id=self.task_id, product_key=self.product_key, content_digest=self.content_digest)
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedLayeredParsingProduct:
+    """Common deep immutable transport for every derived parsing-product kind."""
+
+    payload: bytes
+    contract_digest: str
+
+    @property
+    def digest(self) -> str:
+        return sha256(self.payload).hexdigest()
+
+    @property
+    def product_key(self) -> str:
+        return self.values()["product_key"]
+
+    def values(self) -> dict[str, Any]:
+        return json.loads(self.payload)
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedParsingProductSet:
+    """One atomic completion's immutable set; dependencies follow declared order."""
+
+    products: tuple[PreparedLayeredParsingProduct, ...] = ()
+    required: tuple[str, ...] = ()
+    artifacts: tuple[bytes, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.products, tuple) or not isinstance(self.required, tuple):
+            raise TypeError("product sets and required keys must be immutable tuples")
+        if not isinstance(self.artifacts, tuple) or any(not isinstance(a, bytes) for a in self.artifacts):
+            raise TypeError("artifact custody requires immutable byte tuples")
+        keys = tuple(p.product_key for p in self.products)
+        if len(keys) != len(set(keys)) or len(self.required) != len(set(self.required)):
+            raise ValueError("product keys must be unique within a completion")
+        if not set(self.required) <= set(keys):
+            raise ValueError("required product is missing from completion")
+        for product in self.products:
+            if product.product_key in self.required and product.values()["lifecycle"] != "available":
+                raise ValueError("required product is not available")
+
+
+LAYER_RELATIONS = {key: value.replace("parsing_", "parsing_layer_") for key, value in RELATIONS.items()}
+LAYER_RELATIONS.update(interpretations="kb.parsing_layer_interpretation", assessments="kb.parsing_layer_assessment")
+LAYER_OPERATIONS = {"text": "prepare_parsing_text", "interpretation": "interpret_parsing_math", "assessment": "assess_parsing_math"}
+
+
+def _validate_layered_product(p: dict[str, Any], context: PreparedParsingContext) -> None:
+    """Occurrence, coordinate, dependency and meaning checks beyond record shapes."""
+    if p["kind"] not in LAYER_OPERATIONS or p["operation"] != LAYER_OPERATIONS[p["kind"]]:
+        raise ValueError("derived product kind differs from its producing operation")
+    context.execution.require_operation(p["operation"])
+    adapter = next((a for a in context.execution.parsing_adapters if a.adapter_id == p["adapter_id"]), None)
+    capability = {"text": "text/lexical-partition", "interpretation": "math/interpretation", "assessment": "math/assessment"}[p["kind"]]
+    if adapter is None or capability not in adapter.capabilities:
+        raise ValueError("product kind has no admitted producer adapter capability")
+    if not p["product_key"] or p["product_key"] == "source":
+        raise ValueError("derived products require a non-root product key")
+    root = ProductReference(**p["root"])
+    if root.product_key != "source":
+        raise ValueError("product root must identify the explicit source build")
+    if p["lifecycle"] not in {"available", "failed", "cancelled"}:
+        raise ValueError("only terminal products may be published")
+    deps = _index(p["dependencies"], "name")
+    for dep in deps.values():
+        fields = ("target_task_id", "target_product_key", "target_content_digest")
+        if dep["kind"] == "product":
+            if any(k not in dep for k in fields) or "artifact_digest" in dep:
+                raise ValueError("product dependency requires a qualified product reference")
+            ProductReference(dep["target_task_id"], dep["target_product_key"], dep["target_content_digest"])
+        elif any(k in dep for k in fields) or not dep.get("artifact_digest"):
+            raise ValueError("immutable artifact dependency cannot invent a producing product")
+    reps = _index(p["representations"], "representation_id")
+    components = _index(p["components"], "component_id")
+    nodes = _index(p["nodes"], "node_id")
+    relations = _index(p["relationships"], "relationship_id")
+    mappings = _index(p["mappings"], "mapping_id")
+    def extent(row):
+        rep = reps.get((row["representation_id"],))
+        if rep is None or rep["unit"] != row["unit"] or not 0 <= row["start_offset"] <= row["end_offset"] <= rep["extent_length"]:
+            raise ValueError("layer extent lacks representation custody or has invalid coordinate bounds")
+    for rep in reps.values():
+        if rep["kind"] == "original":
+            raise ValueError("original bytes belong to the immutable source root")
+        if rep["unit"] != "codepoint" or len(representation_text(rep)) != rep["extent_length"]:
+            raise ValueError("layer text representation requires exact codepoint length")
+        rows = _ordered([c for c in components.values() if c["representation_id"] == rep["representation_id"]])
+        position = 0
+        for row in rows:
+            extent(row)
+            if row["start_offset"] < position or row["start_offset"] == row["end_offset"]:
+                raise ValueError("layer partition overlaps or has empty components")
+            if rep["partition_state"] == "complete" and row["start_offset"] != position:
+                raise ValueError("complete layer partition has a gap")
+            position = row["end_offset"]
+        if rep["partition_state"] == "complete" and position != rep["extent_length"]:
+            raise ValueError("partial layer partition cannot establish completeness")
+        if rep["recognition_state"] == "complete" and any(c["category"] == "unknown" for c in rows):
+            raise ValueError("unknown components cannot establish complete recognition")
+    for row in components.values():
+        extent(row)
+    for row in nodes.values():
+        fields = ("representation_id", "unit", "start_offset", "end_offset")
+        if row["origin"] == "literal":
+            if any(k not in row for k in fields):
+                raise ValueError("literal node requires its exact extent")
+            extent(row)
+        elif any(k in row for k in fields) or not row.get("origin_reason"):
+            raise ValueError("nonliteral node requires a reason without a fabricated extent")
+    def local(row):
+        fields = ("target_task_id", "target_product_key", "target_content_digest")
+        if not any(k in row for k in fields):
+            if row.get("dependency_name") is not None:
+                raise ValueError("local endpoint cannot claim external dependency custody")
+            return True
+        if any(k not in row for k in fields):
+            raise ValueError("endpoint product reference must include task, key and digest")
+        dep = deps.get((row.get("dependency_name"),))
+        if dep is None or dep["kind"] != "product" or any(dep[k] != row[k] for k in fields):
+            raise ValueError("external endpoint requires its exact named product dependency")
+        return False
+    _index(p["endpoints"], "relationship_id", "ordinal")
+    from .parsing_contracts import parsing_relationships
+
+    profiles = parsing_relationships(context.execution)
+    for relation in relations.values():
+        rows = _ordered([e for e in p["endpoints"] if e["relationship_id"] == relation["relationship_id"]])
+        if tuple(e["role"] for e in rows) != tuple(e.role for e in profiles[relation["kind"]].endpoints):
+            raise ValueError("layer relationship endpoint roles differ from contract")
+    for row in p["endpoints"]:
+        if (row["relationship_id"],) not in relations or (row.get("component_id") is None) == (row.get("node_id") is None):
+            raise ValueError("relationship endpoint requires one occurrence and its relationship")
+        if local(row) and ((row.get("component_id"),) not in components and (row.get("node_id"),) not in nodes):
+            raise ValueError("local layer endpoint occurrence is missing")
+    _index(p["mapping_endpoints"], "mapping_id", "side", "ordinal")
+    for row in p["mapping_endpoints"]:
+        if (row["mapping_id"],) not in mappings:
+            raise ValueError("mapping endpoint has no transformation")
+        if local(row):
+            extent(row)
+    for mapping in mappings.values():
+        source = _ordered([e for e in p["mapping_endpoints"] if e["mapping_id"] == mapping["mapping_id"] and e["side"] == "source"])
+        target = _ordered([e for e in p["mapping_endpoints"] if e["mapping_id"] == mapping["mapping_id"] and e["side"] == "target"])
+        fidelity = mapping["fidelity"]
+        if (fidelity in {"exact", "transformed"} and (not source or not target)) or (fidelity == "synthetic" and (source or not target)) or (fidelity == "excluded" and (not source or target)):
+            raise ValueError("mapping fidelity differs from ordered contribution extents")
+        if fidelity == "exact" and (mapping["operation"] != "copy" or len({e["unit"] for e in source + target}) != 1):
+            raise ValueError("exact layer copy requires matching coordinate spaces")
+    _index(p["interpretations"], "interpretation_id")
+    _index(p["assessments"], "assessment_id")
+    if (p["kind"] != "interpretation" and p["interpretations"]) or (p["kind"] != "assessment" and p["assessments"]):
+        raise ValueError("semantic records differ from their product kind")
+    if any(r["product_id"] != p["product_key"] for r in p["interpretations"] + p["assessments"]):
+        raise ValueError("semantic record product identity differs")
+
+
+def prepare_layered_product(payload: Mapping[str, Any], *, context: PreparedParsingContext | None = None) -> PreparedLayeredParsingProduct:
+    """Compile all producer envelopes through the shared LinkML boundary and contract."""
+    context = _trusted_parsing_context() if context is None else context
+    context.execution.require_operation("prepare_parsing_product")
+    value = context.boundary.validate_json("LayeredParsingProduct", json.dumps(dict(payload))).model_dump(mode="json")
+    for field in LAYER_RELATIONS:
+        value.setdefault(field, [])
+    _validate_layered_product(value, context)
+    return PreparedLayeredParsingProduct(canonical_bytes(value), context.contract_digest)
+
+
+def store_layered_products(conn: Connection, *, task_id: int, attempt: int, holder: str, products: PreparedParsingProductSet, context: PreparedParsingContext | None = None) -> tuple[ProductReference, ...]:
+    """Publish a completion set inside its caller's transaction, behind the native fence."""
+    context = parsing_context_for_task(conn, task_id, context)
+    context.execution.require_operation("publish_parsing_product")
+    results = []
+    for product in products.products:
+        checked = prepare_layered_product(product.values(), context=context)
+        if checked != product:
+            raise ValueError("layered product canonical bytes/contract differ")
+        digest = conn.execute(text("SELECT ops.publish_layered_parsing_product(:task,:attempt,:holder,:contract,:payload,:artifacts)"),dict(task=task_id,attempt=attempt,holder=holder,contract=product.contract_digest,payload=product.payload,artifacts=list(products.artifacts))).scalar_one()
+        results.append(ProductReference(task_id,product.product_key,digest))
+    return tuple(results)
+
+
+def read_layered_product(conn: Connection, reference: ProductReference, *, context: PreparedParsingContext | None = None) -> PreparedLayeredParsingProduct | PreparedParsingProduct | None:
+    """Pinned immutable read: missing is unavailable, matching corruption always refuses."""
+    if reference.product_key == "source":
+        product = read_parsing_product(conn, task_id=reference.task_id, context=context)
+        if product is not None and product.digest != reference.content_digest:
+            raise ValueError("source product reference digest differs")
+        return product
+    relation = table("ops.parsing_layer_product")
+    row = conn.execute(select(relation).where(relation.c.task_id == reference.task_id,relation.c.product_key == reference.product_key)).mappings().one_or_none()
+    if row is None:
+        return None
+    if row["content_digest"] != reference.content_digest or sha256(bytes(row["payload"])).hexdigest() != reference.content_digest:
+        raise ValueError("retained layer product content identity differs")
+    context = parsing_context_for_task(conn, reference.task_id, context)
+    if context.contract_digest != row["contract_digest"]:
+        raise ParsingProductUnavailable("retained layer contract is unsupported")
+    result = prepare_layered_product(json.loads(bytes(row["payload"])),context=context)
+    if result.digest != reference.content_digest:
+        raise ValueError("retained layer payload is not canonical")
+    for field, name in LAYER_RELATIONS.items():
+        projection = table(name)
+        actual = []
+        for native in conn.execute(select(projection).where(projection.c.task_id == reference.task_id,projection.c.product_key == reference.product_key)).mappings():
+            if field in {"interpretations","assessments"}:
+                actual.append(json.loads(bytes(native["payload"])))
+                continue
+            item = {k:v for k,v in native.items() if k not in {"task_id","product_key"} and v is not None}
+            if item.get("target_task_id") == reference.task_id and item.get("target_product_key") == reference.product_key:
+                for key in ("target_task_id","target_product_key","target_content_digest"):
+                    item.pop(key,None)
+            actual.append(item)
+        if sorted(canonical_bytes(r) for r in actual) != sorted(canonical_bytes(r) for r in result.values()[field]):
+            raise ValueError("retained layer relational projection differs: " + name)
+    return result
+
+
+@dataclass(frozen=True, slots=True)
+class SelectedParsingProduct:
+    reference: ProductReference
+    root: ProductReference
+    kind: str
+    lifecycle: str
+    semantic_state: str
+    coverage: str
+
+
+def select_layered_products(conn: Connection, *, run_id: int, rendition_id: int, kind: str | None = None, product_key: str | None = None, producing_task_id: int | None = None, root_task_id: int | None = None, limit: int = 1000) -> tuple[SelectedParsingProduct, ...]:
+    """Resolve run-selected/reused producers; ambiguous candidates require an explicit pin."""
+    from sqlalchemy import func, or_
+
+    if isinstance(limit, bool) or not 1 <= limit <= 10000:
+        raise ValueError("product selection limit must be between 1 and 10000")
+    products, task, build, chosen = (table(n) for n in ("ops.parsing_layer_product", "ops.task", "ops.rendition_build", "ops.run_rendition"))
+    # Source selection and derived selection use the same registry. The source build belongs
+    # to the selected rendition; derived products belong to effective tasks of this run.
+    selected_roots = select(build.c.task_id).join_from(task, build, build.c.task_id == func.coalesce(task.c.reused_task_id,task.c.id)).join(chosen,(chosen.c.run_id == task.c.run_id)&(chosen.c.document_id == build.c.document_id)&(chosen.c.rendition_id == build.c.rendition_id)).where(task.c.run_id == run_id,build.c.rendition_id == rendition_id)
+    selected_tasks = select(func.coalesce(task.c.reused_task_id,task.c.id)).where(task.c.run_id == run_id)
+    query = select(products).where(products.c.root_task_id.in_(selected_roots),or_(products.c.kind == "source",products.c.task_id.in_(selected_tasks)))
+    if kind is not None:
+        query = query.where(products.c.kind == kind)
+    if product_key is not None:
+        query = query.where(products.c.product_key == product_key)
+    if producing_task_id is not None:
+        query = query.where(products.c.task_id == producing_task_id)
+    if root_task_id is not None:
+        query = query.where(products.c.root_task_id == root_task_id)
+    rows = conn.execute(query.order_by(products.c.product_key,products.c.task_id).limit(limit+1)).mappings().all()
+    if len(rows) > limit:
+        raise ValueError("product selection exceeds its declared limit")
+    counts: dict[str,int] = defaultdict(int)
+    for row in rows:
+        counts[row["product_key"]] += 1
+    if any(v>1 for v in counts.values()) or len({row["root_task_id"] for row in rows}) > 1:
+        raise ValueError("multiple parsing product candidates; pin producing task and root build")
+    return tuple(SelectedParsingProduct(ProductReference(row["task_id"],row["product_key"],row["content_digest"]),ProductReference(row["root_task_id"],row["root_product_key"],row["root_content_digest"]),row["kind"],row["lifecycle"],row["semantic_state"],row["coverage"]) for row in rows)
