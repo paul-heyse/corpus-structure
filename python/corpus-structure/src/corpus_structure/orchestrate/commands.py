@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, JsonValue
-from sqlalchemy import Connection, Engine
+from sqlalchemy import Connection, Engine, text
 
 from corpus_structure.core.vocab import TaskStatus
 
@@ -256,7 +256,7 @@ def finalize_bound_run(engine: Engine, run_id: int, output_realization_id: str):
     r, t = table("ops.run"), table("ops.task")
     with engine.begin() as conn:
         row = (
-            conn.execute(select(r).where(r.c.id == run_id).with_for_update())
+            conn.execute(text("SELECT * FROM ops.lock_finalization_run(:run)"), {"run": run_id})
             .mappings()
             .one_or_none()
         )
