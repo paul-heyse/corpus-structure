@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import select as select_io
+import signal
 import subprocess
 from pathlib import Path
 
@@ -20,6 +22,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", type=int, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--default", action="store_true", help="Use the default project MCP session.")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     with open_runtime_engine(Settings(), "parsing-consumer-observer", purpose="read") as engine:
@@ -76,9 +79,13 @@ def main() -> None:
 
     responses = []
     with (args.out / "stdio.stderr").open("w") as log:
+        command = ["uv", "run", "ci", "mcp", "serve"]
+        if not args.default:
+            command.extend(["--semantic-run", str(args.run)])
         process = subprocess.Popen(
-            ["uv", "run", "ci", "mcp", "serve", "--semantic-run", str(args.run)],
+            command,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, text=True,
+            start_new_session=True,
         )
         assert process.stdin is not None and process.stdout is not None
 
@@ -115,16 +122,17 @@ def main() -> None:
                     value = json.loads(next(c["text"] for c in result["content"]
                                             if c["type"] == "text"))
                 assert value["rows"] and value["product_digest"]
+            rpc(6, "tools/call", dict(name="queue_status", arguments={}))
         finally:
             process.stdin.close()
             try:
                 process.wait(timeout=10)
             except subprocess.TimeoutExpired:
-                process.terminate()
+                os.killpg(process.pid, signal.SIGTERM)
                 try:
                     process.wait(timeout=5)
                 except subprocess.TimeoutExpired:
-                    process.kill()
+                    os.killpg(process.pid, signal.SIGKILL)
                     process.wait()
     print(json.dumps(dict(run_id=args.run, rendition_id=rendition, root_task=root,
                           cli_commands=len(commands), stdio_responses=len(responses))))

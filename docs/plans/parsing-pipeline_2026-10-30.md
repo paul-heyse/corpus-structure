@@ -1,7 +1,7 @@
 # Domain-model-driven parsing pipeline
 
-**Status:** In progress; PP-00–PP-04 implemented with scoped source-product qualification;
-PP-05–PP-10 execution in progress; scoped acceptance remains as bounded below. **Created:** 2026-10-30.
+**Status:** Implemented and scoped Tested, PP-00–PP-10; required-union and fresh operational
+adoption completed 2026-10-30. Performance benefits remain unmeasured. **Created:** 2026-10-30.
 **Basis:** [functional review](../functional_reviews/parsing-pipeline_2026-10-30.md) and
 [target model](../functional_reviews/parsing-pipeline_2026-10-30_target-model.md), consumed at
 `b3a8313`. Execution builds on `bac7a27`; product commits `799d894`, `3bc09bc` and `334da0f`
@@ -57,17 +57,17 @@ mechanisms and acceptance rather than maintain a second mutable execution queue.
 
 | Package | Owner / delivered capability | Required readiness | State |
 |---|---|---|---|
-| <a id="PP-00"></a>PP-00 | [Model](parsing-pipeline/model-contracts-and-storage.md#PP-00): decisions and enduring owners | Confirmed envelopes; current decision clauses | Implemented: ADR-0036 and D1–D8 owners; source implementation scoped below, future method redesign remains Proposed |
-| <a id="PP-01"></a>PP-01 | [Model](parsing-pipeline/model-contracts-and-storage.md#PP-01): shared semantic contracts, states, ports and runtime enforcement | Relevant PP-00 decisions; native capability evidence | Implemented: source shapes/relationships/states, prepared runtime/native admission and ports; future interpretation adapters explicitly unbound for PP-05/06 |
+| <a id="PP-00"></a>PP-00 | [Model](parsing-pipeline/model-contracts-and-storage.md#PP-00): decisions and enduring owners | Confirmed envelopes; current decision clauses | Implemented: ADR-0036/0037 and enduring D1–D8 owners; adopted versioned boundaries |
+| <a id="PP-01"></a>PP-01 | [Model](parsing-pipeline/model-contracts-and-storage.md#PP-01): shared semantic contracts, states, ports and runtime enforcement | Relevant PP-00 decisions; native capability evidence | Implemented and Tested: execution compiler 11/profile 6, typed layers, demands, relations and native enforcement |
 | <a id="PP-02"></a>PP-02 | [HTML](parsing-pipeline/source-decomposition-and-html.md#PP-02): source-location feasibility and selected integration | PP-01 agreed coordinate/capability slice, not complete schema deployment | Implemented: selected native instrumentation and version-bound maintenance seams; partial probe distinct from producer qualification |
 | <a id="PP-03"></a>PP-03 | [HTML](parsing-pipeline/source-decomposition-and-html.md#PP-03): original/HTML/canonical decomposition and mappings | PP-02 qualified route; enforced relevant PP-01 contracts | Implemented and scoped Tested: complete partitions, native HTML structure and rooted canonical-output mappings; 78-page product coverage |
-| <a id="PP-04"></a>PP-04 | [Model/storage](parsing-pipeline/model-contracts-and-storage.md#PP-04): durable products, native integrity and readers | PP-01 meanings; PP-02 selected mapping requirements before final physical layout | Implemented and scoped Tested: original bytea custody, relational products, native 0041/0042, protected publication and pinned bounded readers |
-| <a id="PP-05"></a>PP-05 | [Text/math](parsing-pipeline/text-and-mathematical-interpretation.md#PP-05): prose/TeX structure and macro custody | Relevant PP-01 contracts and PP-03 source products | Planned |
-| <a id="PP-06"></a>PP-06 | [Text/math](parsing-pipeline/text-and-mathematical-interpretation.md#PP-06): lazy interpretation and migrated method contracts | PP-05 context/products; PP-04 for durable use; PP-08 ownership before publication | Planned |
-| <a id="PP-07"></a>PP-07 | [Views](parsing-pipeline/extraction-and-relational-views.md#PP-07): source queries, graph/metadata/placement capabilities | PP-01/04 and the concrete PP-03/05/06 products each view consumes | Planned |
-| <a id="PP-08"></a>PP-08 | [Runtime](parsing-pipeline/runtime-and-publication.md#PP-08): scope-bound preparation/workers/cancellation | Agreed PP-01 ownership; existing algorithms suffice for early work | Partial prerequisite slice: source-ingest prepared context/lifetime; broader runtime/cancellation remains |
-| <a id="PP-09"></a>PP-09 | [Publication](parsing-pipeline/runtime-and-publication.md#PP-09): coherent build publication and pinned read selection | PP-04; concrete producer contracts; PP-08 lifetimes | Partial prerequisite slice: atomic source completion/replay and pinned reads; broader products/adoption remains |
-| <a id="PP-10"></a>PP-10 | [Adoption](parsing-pipeline/adoption-and-acceptance.md#PP-10): complete migration, operational adoption and qualification | All selected functional scope integrated; PP-09 active | Planned |
+| <a id="PP-04"></a>PP-04 | [Model/storage](parsing-pipeline/model-contracts-and-storage.md#PP-04): durable products, native integrity and readers | PP-01 meanings; PP-02 selected mapping requirements before final physical layout | Implemented and Tested: common immutable registry, qualified endpoints, protected publication and bounded verified readers |
+| <a id="PP-05"></a>PP-05 | [Text/math](parsing-pipeline/text-and-mathematical-interpretation.md#PP-05): prose/TeX structure and macro custody | Relevant PP-01 contracts and PP-03 source products | Implemented and Tested: complete capture, pylatexenc structure, typed macro metadata and artifact derivations; 78-page capture |
+| <a id="PP-06"></a>PP-06 | [Text/math](parsing-pipeline/text-and-mathematical-interpretation.md#PP-06): lazy interpretation and migrated method contracts | PP-05 context/products; PP-04 for durable use; PP-08 ownership before publication | Implemented and Tested: explicit stages, early scoped declarations, M09/M11 v4 and M13 v3, actual packet coverage |
+| <a id="PP-07"></a>PP-07 | [Views](parsing-pipeline/extraction-and-relational-views.md#PP-07): source queries, graph/metadata/placement capabilities | PP-01/04 and the concrete PP-03/05/06 products each view consumes | Implemented and Tested: relational inspection/trace, RapidFuzz placement, CLI/MCP and batch exports; conditional choices below |
+| <a id="PP-08"></a>PP-08 | [Runtime](parsing-pipeline/runtime-and-publication.md#PP-08): scope-bound preparation/workers/cancellation | Agreed PP-01 ownership; existing algorithms suffice for early work | Implemented and Tested: operation-owned preparation, nested deadlines, cancellation and successful request reuse |
+| <a id="PP-09"></a>PP-09 | [Publication](parsing-pipeline/runtime-and-publication.md#PP-09): coherent build publication and pinned read selection | PP-04; concrete producer contracts; PP-08 lifetimes | Implemented and Tested: native 0043–0046, coherent completion, exact dependencies and ABI-10 read-only preservation |
+| <a id="PP-10"></a>PP-10 | [Adoption](parsing-pipeline/adoption-and-acceptance.md#PP-10): complete migration, operational adoption and qualification | All selected functional scope integrated; PP-09 active | Implemented and required-union Tested: three actual provider journeys, consumers, independent grades, default cutover and preservation |
 
 The initial execution route is PP-00 plus the PP-01 coordinate/capability agreement, then PP-02.
 Do not elaborate or deploy an exact-provenance implementation around an unsettled mechanism.
@@ -82,13 +82,13 @@ The mathematical review's same-numbered O-items are separate references, not mer
 
 | Item | Component / correction and value | Disposition and dependencies | Closure check |
 |---|---|---|---|
-| O01 | Source/HTML/model: complete partitions and explicit mapping/custody | Open; PP-01–05/09 | Every declared representation covered; exact/synthetic/unavailable mapping remains truthful and queryable. |
-| O02 | Model/ports: owned parsing semantics and actual native consumers | Open; PP-00/01 plus all producers | New convention changes its authoritative definition and supported adapter, not repeated private classifiers. |
-| O03 | Storage/views: independent edge/occurrence identity and useful layouts | Open; PP-01/04/07 | Parallel edges, order, isolates, shared nodes and relation-specific cycles survive read/analysis. |
-| O04 | Preparation/math: demand-driven products and complete dependency keys | Open; PP-05/06/08 | Decomposition-only request performs no hidden interpretation; stronger consumers receive their required meaning. |
-| O05 | Extraction: reusable text/markup, metadata and explainable placement | Open; PP-03/05/07 | Selected capabilities have real consumers and native mechanisms; optional candidates get explicit decisions/triggers. |
-| O06 | Model/validation: one authority and complementary enforcement | Open; PP-01/04/09 | Independent invalid inputs fail at owned boundaries; no projection or schema silently becomes another policy owner. |
-| O07 | Runtime: bounded useful execution and coherent failure | Open; PP-08/09/10 | Prepared state stays within valid lifetime; cancellation and retry preserve custody and publication. |
+| O01 | Source/HTML/model: complete partitions and explicit mapping/custody | Closed; PP-01–05/09 and `parsing.adoption` | Every declared representation covered; exact/synthetic/unavailable mapping remains truthful and queryable. |
+| O02 | Model/ports: owned parsing semantics and actual native consumers | Closed; model-bound producers and `parsing.adoption` | New convention changes its authoritative definition and supported adapter, not repeated private classifiers. |
+| O03 | Storage/views: independent edge/occurrence identity and useful layouts | Closed; normalized occurrence/edge products and `parsing.adoption` | Parallel edges, order, isolates, shared nodes and relation-specific cycles survive read/analysis. |
+| O04 | Preparation/math: demand-driven products and complete dependency keys | Closed; staged consumers, pinned requests and `parsing.adoption` | Decomposition-only request performs no hidden interpretation; stronger consumers receive their required meaning. |
+| O05 | Extraction: reusable text/markup, metadata and explainable placement | Closed; adopted views/placement and explicit conditional dispositions | Selected capabilities have real consumers and native mechanisms; optional candidates get explicit decisions/triggers. |
+| O06 | Model/validation: one authority and complementary enforcement | Closed; shared/native invariants and `parsing.adoption` | Independent invalid inputs fail at owned boundaries; no projection or schema silently becomes another policy owner. |
+| O07 | Runtime: bounded useful execution and coherent failure | Closed; runtime/publication journeys and `parsing.adoption` | Prepared state stays within valid lifetime; cancellation and retry preserve custody and publication. |
 
 Target-model §§1–2 map to PP-00/01/03/04; §3 ports/demand/lifecycle to PP-01/05/06/08/09;
 §4 native realizations to PP-02/03/05/06/07/08; §5 compatibility and consumers to PP-04/09/10;
@@ -96,17 +96,17 @@ Target-model §§1–2 map to PP-00/01/03/04; §3 ports/demand/lifecycle to PP-0
 local package checks. Full guide candidates, including rejected defaults, remain explicit in
 their owning designs; mere catalog presence creates no implementation obligation.
 
-## 5. Open decisions and conditional capabilities
+## 5. Selected decisions and conditional capabilities
 
 | Decision | Owner and required outcome | Dependent work / trigger |
 |---|---|---|
 | HTML origin propagation | Selected html5lib/lxml native instrumentation; transformed lineage and exact copies remain distinct. Complete means rooted `canonical_output` coverage, not exact attribution for every repaired node. | PP-02/03 qualified current cases; library upgrades review named private hooks. |
 | Relational versus compact partition layout | Selected normalized meaningful component/contribution rows plus immutable whole-product manifest: extent/category, trace and ordered edge queries need joins/native references. | PP-04 implemented; no per-character rows or token-per-task requirement. |
-| Early declarations and method demand | PP-05/06 establish non-circular authority and migrate actual M09/M11/M13 promises. | Lazy interpretation and correct source bindings. |
-| Native frontend changes | PP-02/05/06 select only supported contracts: pylatexenc structural-only demand, Tokenizers replacing lexical/alignment work, direct forests/useful deterministic subset. | Evidence of a useful responsibility; no duplicate mandatory pass or automatic Earley rewrite. |
-| Metadata/article and placement extensions | PP-07 selects bounded per-syntax/purpose capabilities or records rationale and a concrete revisit trigger. | Actual attributed extraction/query consumers; never source-custody substitutes. |
-| Graph/ORM/compiled numerical views | PP-07/06 compare concrete questions against direct rows/native objects; conditional adoption only. | Required algorithm/navigation/repeated numerical workload, not library availability. |
-| Memory zones/threading alternatives | PP-08 verifies lifetime and Python/library support before selecting. | Actual retained-memory or concurrency need; no 3.15-only assumptions. |
+| Early declarations and method demand | Selected: positioned source function definitions under the admitted rule, typed qualified basis, explicit stages and versioned M09/M11/M13 consumers. | Implemented; no downstream M13 feedback into source interpretation. |
+| Native frontend changes | Selected pylatexenc 3.0b2 structure with explicit parsing-state controls; retain the total scanner and positioned Lark grammar. | Tokenizers and SPPF remain conditional; weak demand bypasses stronger native work. |
+| Metadata/article and placement extensions | Compiled source roles/markup and placement recipe 2 are adopted. Optional embedded-declaration/article families are deferred with named observation/view triggers in PP-07. | No publisher truth or source-custody substitution is inferred. |
+| Graph/ORM/compiled numerical views | Direct Core rows/native objects serve the selected questions. Extra projections/kernels are deferred until a named algorithm, navigation or repeated-numerical consumer justifies them. | Explicit consumer triggers; no mandatory capability deferred. |
+| Memory zones/threading alternatives | Retain current native batching and main-thread deadlines with operation-owned handles. Additional zones/pools are conditional on actual retention/concurrency need. | No unowned native handles or 3.15-only API assumptions. |
 
 Mandatory decomposition/connected-model obligations cannot be deferred simply because a candidate
 fails. Conditional library choices can be declined while implementing the same required capability
@@ -120,11 +120,12 @@ qualification and any benefit measurements. Targeted checks run at coherent pack
 assembled `just test-all` and applicable hygiene wait for all selected functional work. Existing
 valid type/test evidence is not invalidated by lint-only maintenance.
 
-**Current state — 2026-10-30:** PP-00–PP-04 are implemented, including the minimum
-PP-08/09 source-ingest integration needed for usable products. ADR-0036 preserves canonical
-evidence, full rendition identity and grading. The [implementation evidence](../design_review/evidence/2026-10-30_parsing-source-provenance/implementation.md)
-and finalized record `source.products` own scoped qualification and retained failures; the
-nine-case `html.provenance-seams` probe remains a distinct partial feasibility result.
+**Current state — 2026-10-30:** PP-00–PP-10 are implemented and qualified within the selected
+parsing boundary. The [assembled evidence](../design_review/evidence/2026-10-30_parsing-layered-adoption/README.md)
+and record `parsing.adoption` own the required-union and operational results. The earlier
+[source evidence](../design_review/evidence/2026-10-30_parsing-source-provenance/implementation.md)
+retains its original scoped claims and failures. HTML fidelity remains the qualified universe
+in §5; no universal exact repair attribution, arbitrary grammar coverage or parser speedup is claimed.
 
 <a id="pp0004-execution"></a>
 
@@ -166,36 +167,71 @@ reported errors/warnings and no suppressions added. See the evidence account for
 selections, source applicability and the individual failed/repaired logs; no failed invocation is
 relabelled passed and formatting-only maintenance does not invalidate types/tests.
 
-**Not run:** whole-series `just test-all`, Rust functional qualification, provider/LLM grading and
-operational adoption. Native tests used owned fixtures; existing operational databases, historical
+**Not run for that source-only slice:** whole-series `just test-all`, Rust functional qualification,
+provider/LLM grading and operational adoption. Native tests used owned fixtures; existing operational databases, historical
 answers/grades, prior qualification and audit premises remain unchanged. No parser speedup, universal
-HTML coverage or full-series domain completeness is inferred. PP-05–PP-07/10 and broader PP-08/09
-remain as in §3; O01–O07 retain their full cross-package closure obligations in §4.
+HTML coverage or full-series domain completeness is inferred. Those broader obligations are closed by §8
+and its separate assembled receipts, not by these earlier source-only results.
 
 <a id="remaining-scope-execution"></a>
 
 ## 8. Remaining-scope execution — 2026-10-30
 
-**In progress; Proposed until qualified.** The operator authorized PP-05–PP-10 on the
-`abd3878` baseline. ADR-0037 records immutable layered products, explicit demand stages and
-versioned consumers. The shared product registry and qualified endpoints extend existing native
-publication; legacy root manifests and frozen 0041/0042 retain their bytes. Text, interpretation
-and assessment products append rather than modifying completed source products.
+**Implemented and required-union Tested — 2026-10-30.** ADR-0037 realizes immutable source,
+text, interpretation and assessment layers through the same registry, qualified dependencies
+and protected completion. Native 0043–0045 add layers, semantic reference guards, typed macro
+metadata and source-declaration basis. Forward **0046** deploys five model-declared indexes
+omitted by the layered-table migration; no admitted kernel or data meaning changes. Frozen
+0041–0045 remain unchanged after their individual freeze.
 
-The implementation uses pylatexenc **3.0b2**, not the stable-2 candidate: version-3 parsing-state
-controls preserve the existing percent/dollar policy for structure-only requests. The total
-scanner/token-form identity stays unchanged. Lark 1.3.1 and SymPy 1.14.0 remain pinned; syntax
-and contextual reading are native-value-free, with explicit stronger symbolic construction.
-M09/M11 version 4, M13 version 3 and changed payload version 2 migrate their actual consumers.
+Pylatexenc **3.0b2** `ParsingState`, `MacroSpec`, positioned nodes and `parse_content` supply
+structure without mathematical recognition. The total scanner and token-form identity remain
+separate. Lark 1.3.1 supplies positioned syntax and contextual readings without native values;
+SymPy 1.14.0 performs explicitly requested symbolic work and named assessments under local
+premises. Source definedness precedes cancellation. Early function declarations carry typed
+rule/head/applicability ranges and qualified links to the defining parse view. M09/M11 v4,
+M13 v3 and payload v2 migrate the actual consumers; M01 v2 captures text products. M13 coverage
+reaches actual agent-packet identity and unit JSON as a compact unit/context summary, not a
+per-page prompt forest. Missing or unresolved context never becomes complete absence.
 
-Runtime retains process-main-thread mathematical deadlines and native batching; nested deadlines
-compose explicitly. PP-07 placement uses version-2 recipe, cutoff-filtered candidates and native
-alignment witnesses. Source CLI/MCP readers and Arrow/Parquet export share pinned custody.
-Tokenizers/Parsel, optional publisher/article extraction, source NetworkX topology, ORM navigation,
-SPPF conversion and compiled numeric kernels are deferred until their named alignment, extraction,
-topology, ambiguity or repeated-numerical consumers justify adoption. Their absence does not
-defer any mandatory capture, attribution, query or placement obligation.
+Native preparation remains operation-owned, with main-thread nested deadlines and retryable
+attempt failures. Pinned requests use archived source/configuration, skip unrequested stages,
+reuse successful compatible tasks and publish a separate source-ready cut without asserting
+independently graded completion. Syntax/structure/lexical requests do not acquire stronger
+context. All meaning-bearing parser, request, method, macro and context implementations and
+selected frontend versions participate in archived dependencies.
 
-Targeted failures and repairs are retained under `build/parsing-remaining` during implementation.
-The final evidence owner will retain the required receipts. No full-suite qualification, fresh
-operational adoption or remaining-package completion is claimed by this execution account.
+Core filters, ordered endpoints and recursive `UNION` implement bounded selected queries.
+PostgreSQL verifies product/artifact digests without transferring whole manifests or text for
+inspection. Public source CLI/MCP, streaming Arrow/Parquet and RapidFuzz `extract_iter`,
+`partial_ratio_alignment` and Levenshtein edit witnesses have actual consumers. Plain prose is
+partitioned into useful runs; validation groups endpoint populations once instead of repeatedly
+scanning them. These remove identified unnecessary work without a quantitative speed claim.
+Optional Tokenizers/Parsel, publisher/article extraction, source NetworkX algorithms, ORM,
+SPPF and compiled numerical kernels retain reasoned consumer triggers in the supporting plans.
+No mandatory capture, attribution, placement or query capability depends on adopting them.
+
+**Qualification:** original `just test-all` recorded **2,624 passed / 10 failed**. Failures and
+interrupted attempts stay retained. Corrected native/consumer selections close missing indexes,
+lazy-registration imports and stale fixture/expectation errors; source routing now uses an
+actually admitted composed release. The final applicable union covers **2,635 required Python
+nodes, zero unresolved**. Aggregate classifier status remains failed because earlier failed
+invocations are preserved. Scope, source/context applicability and commands are in the evidence
+owner; this is not a claim that the original invocation passed. Empty Rust discovery is
+**not_run**, supplies no functional coverage and has no Rust implementation obligation here.
+Warning-inclusive typing passed with zero diagnostics; applicable hygiene passed after the
+owning ADR reference was corrected. Lint-only maintenance did not invalidate tests or typing.
+
+**Adoption:** the fresh `corpus_parsing_20261030` target runs native 0046. Actual configured
+provider journeys finished statistics run **1**, transfer run **2** and frame run **5**;
+completed replay does not invoke extraction again. Claims, explanations, JSONL/Parquet, source
+inspection/request replay and multi-call external stdio MCP passed. Independent automated
+reference grades were persisted for the statistics and transfer runs, without policy or quality
+tuning. Transfer retains `12.3400`. Active releases agree with selected completed results.
+CLI/MCP defaults now select project `parsing-pipeline`; previous `corpus_efficiency_20261030`
+remains at native 0040 with byte-identical project/run/completed-result/grade witnesses.
+Actual ABI-10 source preservation remains independently tested after current migrations.
+
+All implementation worktrees are integrated and removed. No audit premises, historical answers
+or grades were changed. These are parsing-boundary implementation/qualification claims, not
+universal mathematical understanding, full-codebase domain completeness or measured throughput.

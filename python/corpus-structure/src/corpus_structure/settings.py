@@ -32,7 +32,9 @@ class _Section(BaseModel):
 class DatabaseSettings(_Section):
     """One libpq URL (peer authentication; no password belongs here) and the template database."""
 
-    url: str = "postgresql://corpus_sem_writer@/corpus_parsing_20261030?host=/var/run/postgresql&port=5434"
+    url: str = (
+        "postgresql://corpus_sem_writer@/corpus_parsing_20261030?host=/var/run/postgresql&port=5434"
+    )
     maintenance_url: str = "postgresql:///"
     reader_url: str | None = None
     admission_url: str | None = None

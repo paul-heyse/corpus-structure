@@ -61,7 +61,7 @@ attempt/source fences. Explicit archived requests reuse successful compatible ta
 remain retryable attempts, and cancellation drains the owned run. Broader qualification and
 operational adoption are recorded separately at PP-10.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
 
 ## Agent supervision and current retirement boundary
 

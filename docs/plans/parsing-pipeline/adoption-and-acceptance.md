@@ -1,6 +1,6 @@
 # Parsing adoption and acceptance
 
-**Status:** Planned; no execution evidence. **Created:** 2026-10-30.
+**Status:** Implemented and required-union Tested; assembled receipts are linked by the coordinator. **Created:** 2026-10-30.
 [Coordinator](../parsing-pipeline_2026-10-30.md) owns PP-10 state, source opportunities and the
 combined completion boundary. This document owns consumer coverage and assembled acceptance.
 
@@ -74,10 +74,16 @@ semantic check. Reuse production enforcement when testing its consumers without 
 | Content-identical builds and historical release reads | Correct build-specific provenance, immutable anchors and archived meaning. |
 | Independent reference journey | Extraction cannot consume references; numeric agreement is not promoted to symbolic proof. |
 
-Exact HTML mapping is a mandatory target obligation. If PP-02 has not qualified a route,
-that scope remains open. Publishing explicit partial coverage can be useful, but cannot close
-the complete target. Conditional library candidates instead have a recorded select/defer/reject
-decision and trigger; a rejected optional mechanism is not a missing required capability.
+HTML provenance remains a mandatory target obligation in the universe selected by the
+coordinator §5 and D1: complete original/decoded/canonical partitions and rooted
+`canonical_output` contributions. If PP-02 has not qualified that route, the scope remains open;
+unknown required contributions cannot close it. Exact copies, admitted transformations and
+synthetic production retain distinct claims. Complete rooted lineage never authorizes an
+exact-copy answer through normalization or repair, and universal exact attribution of every
+repaired node is not claimed. This reconciles acceptance with the current owning fidelity
+decision; it does not relabel partial mapping as complete. Conditional library candidates
+instead have a recorded select/defer/reject decision and trigger; a rejected optional mechanism
+is not a missing required capability.
 
 ## Verification and completion claims
 
@@ -103,3 +109,19 @@ Completion updates the same coordinator's packages, O01–O07 dispositions and r
 obligations. Carry enduring accepted meaning into its architectural owners, with required ADR
 routes; retain plan/evidence documents. Do not change another plan's completion status or claim
 full-domain completeness beyond the implemented and qualified parsing boundary.
+
+## Adopted boundary — 2026-10-30
+
+All inventory rows above are covered by the selected implementation and assembled journeys in
+[the coordinator §8](../parsing-pipeline_2026-10-30.md#remaining-scope-execution). Canonical anchors,
+frames and evidence keep their coordinate meaning; original-source answers require qualified
+products. Generic observation/capture/export and independent evaluation routes consume the
+versioned release and report coverage rather than assuming every parse succeeded. Optional
+publisher/article and source-graph algorithm families have explicit consumer triggers in PP-07.
+
+The evidence owner retains the original failed full invocation, corrected native/consumer
+receipts, required-node union, actual provider/CLI/MCP/grade operations and old-target preservation.
+The selected target is `corpus_parsing_20261030` / `parsing-pipeline`, native 0046. Independent
+grades use separately authored source references; they establish the grading route, not a new
+fidelity threshold. No historical answer or grade is reinterpreted or overwritten. All worktrees
+are integrated and removed; no audit-premise update or parser-speed claim follows.

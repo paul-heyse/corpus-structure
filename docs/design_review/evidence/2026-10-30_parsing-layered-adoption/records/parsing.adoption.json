@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "id": "parsing.adoption",
+  "title": "Layered parsing, connected consumers and final operational adoption",
+  "group": "parsing-pipeline",
+  "package": "PP-10",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do PP-05–PP-10 realize the selected connected parsing model through actual producers, enforcement, consumers and qualified deployment?",
+  "answers": [
+    "PP-05",
+    "PP-06",
+    "PP-07",
+    "PP-08",
+    "PP-09",
+    "PP-10"
+  ],
+  "method": "Integrate versioned model-bound products and actual consumers; run native and pure required-union checks, real configured-provider journeys, CLI/MCP/export/reference operations and old-target preservation. Preserve failed/interrupted records and assess source/context applicability.",
+  "commands": [
+    "just test-all",
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/20261030-parsing-affected -- python/corpus-structure/tests/evaluate/test_equivalence.py python/corpus-structure/tests/semantic/test_capture_policy.py python/corpus-structure/tests/semantic/test_domain_operations.py::test_recorded_math_fallbacks_constants_and_source_override_drive_science python/corpus-structure/tests/semantic/test_domain_operations.py::test_unqualified_log_domain_is_not_cancelled_into_accepted_equivalence python/corpus-structure/tests/semantic/test_parsing_build_selection.py python/corpus-structure/tests/semantic/test_native_closure.py python/corpus-structure/tests/semantic/test_packet_input_snapshot.py python/corpus-structure/tests/semantic/test_source_frame_admission.py python/corpus-structure/tests/semantic/test_layered_parsing_products.py python/corpus-structure/tests/semantic/test_parsing_migration_preservation.py python/corpus-structure/tests/semantic/test_parsing_source_consumers.py python/corpus-structure/tests/semantic/test_source_routing.py python/corpus-structure/tests/test_cli.py",
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/20261030-parsing-routing-corrected -- python/corpus-structure/tests/semantic/test_source_routing.py",
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/20261030-parsing-defaults -- python/corpus-structure/tests/test_semantic_runtime_settings.py python/corpus-structure/tests/test_settings.py",
+    "uv run ci regenerate --domain statistics --project parsing-pipeline --corpus fixtures/trace/corpus --slice trace --automated --select-result --json",
+    "uv run ci regenerate --domain toy --project parsing-pipeline-transfer --corpus fixtures/toy/corpus --slice transfer --automated --select-result --json",
+    "uv run ci regenerate --domain toy --project parsing-pipeline-frame --corpus fixtures/toy/corpus --slice one_owner --automated --select-result --json",
+    "uv run python docs/design_review/evidence/2026-10-30_parsing-layered-adoption/qualify_consumers.py --run 1 --default --out docs/design_review/evidence/2026-10-30_parsing-layered-adoption/raw/operational/default-source",
+    "uv run ci db check --release release:2e55aad75dc802df183c1ff264ff70e17fcd231d2e595ccb55539f671d5dfa8d --json",
+    "just types",
+    "just lint-agents adr-lint rules-scan rules-test ruff deps clippy",
+    "uv run python docs/design_review/evidence/2026-10-30_semantic-pivot-final/code/evaluate_sources.py --project parsing-pipeline --run 1 --fixture fixtures/trace/semantic-trace-reference.json --label parsing-independent-v1",
+    "uv run python docs/design_review/evidence/2026-10-30_semantic-pivot-final/code/evaluate_sources.py --project parsing-pipeline-transfer --run 2 --fixture fixtures/toy/semantic-inspection-reference.json --label parsing-transfer-independent-v1",
+    "uv run python docs/design_review/evidence/2026-10-30_parsing-layered-adoption/snapshot_previous.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "retained receipts and witnesses",
+      "sha256": "33c37ebfe0a1efe8ff46158b436f71b898c118ff73bbefe7d7a52e12372cc5eb"
+    },
+    {
+      "path": "qualify_consumers.py",
+      "role": "actual CLI and stdio journey",
+      "sha256": "c29cfeda7ec3fad0152a3760cebbcf9c26fc5d942b3645520286fa2e4345137e"
+    },
+    {
+      "path": "snapshot_previous.py",
+      "role": "read-only preservation witness",
+      "sha256": "0ba98e4853435f0f3b05dd7d16bd3a30fd40b8125a41efd4495dae8afb07c500"
+    }
+  ],
+  "depends_on": [
+    "2026-10-30_parsing-source-provenance/source.products"
+  ],
+  "results": [
+    {
+      "name": "required Python nodes",
+      "value": 2635,
+      "of": null,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "required unresolved nodes",
+      "value": 0,
+      "of": null,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "original full passed",
+      "value": 2624,
+      "of": null,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "original full failed",
+      "value": 10,
+      "of": null,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "completed configured-provider runs",
+      "value": 3,
+      "of": null,
+      "unit": "runs",
+      "note": null
+    },
+    {
+      "name": "new independent grading routes",
+      "value": 2,
+      "of": null,
+      "unit": "runs",
+      "note": null
+    },
+    {
+      "name": "complete text capture population",
+      "value": 78,
+      "of": null,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "unchanged historical query population",
+      "value": 322,
+      "of": null,
+      "unit": "rows",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "PP-05–PP-10 are implemented and required-union Tested within the selected parsing boundary. Actual provider runs 1/2/5 completed; default CLI/MCP selects the fresh parsing target. Native 0046 closes missing model-declared indexes while 0041–0045 stay frozen. The 2635-node applicable union has no unresolved obligation; aggregate classifier status remains failed because original failures are preserved. Targeted current native/consumer cases and actual operational journeys cover changes; unrelated passing results remain applicable. Independent grading policies, old answers/grades and audit premises are unchanged. Empty Rust discovery supplies no functional coverage. No parser-speed, universal grammar or universal exact repair-attribution claim follows.",
+  "consumed_by": [
+    "parsing-pipeline PP-05 through PP-10",
+    "D1 parsing products",
+    "D3 parsing custody",
+    "D8 source consumers"
+  ]
+}

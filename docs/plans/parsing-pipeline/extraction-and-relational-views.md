@@ -1,6 +1,6 @@
 # Extraction and relational views
 
-**State:** Implemented mechanisms; assembled acceptance remains with PP-10, 2026-10-30.
+**State:** Implemented and scoped Tested, 2026-10-30; the coordinator owns assembled acceptance.
 **Scope:** PP-07. Current package state, opportunity dispositions and execution order belong to the
 [coordinator](../parsing-pipeline_2026-10-30.md#PP-07).
 

@@ -52,11 +52,17 @@ interpretation, symbolic construction and named assessment have distinct entry p
 Syntax/contextual reading do not construct native values; stronger consumers request them.
 Pylatexenc 3.0b2 supplies source-positioned structure with percent/dollar policy preserved;
 Lark 1.3.1 and SymPy 1.14.0 retain recognition and mathematical responsibilities.
-Source domain restrictions precede native cancellation. Timeouts retain failed attempt state
+Early admitted function definitions are prepared from positioned source syntax in their
+own structural scopes, independently of M13. Interpretation records retain the typed rule,
+head/applicability ranges and a qualified relationship to the defining text parse view. A failed
+candidate leaves later dependent context unavailable within that scope; earlier and unrelated
+scopes remain usable. M13 emits coverage independently of the number of scope observations.
+Missing, ambiguous or unresolved binding cannot become a complete empty context. Source domain
+restrictions precede native cancellation. Timeouts retain failed attempt state
 and serialization does not retry the failed operation. [PP-05–PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
 own assembled consumer acceptance, independently from these implementation claims.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
 
 ## 1. The method contract
 

@@ -144,7 +144,7 @@ assessment adapters are bound under profile 6. Macro-event selection uses discri
 metadata rather than explanatory value strings. Unsupported required recipes refuse before effects. [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
 retain independent invalid-input and native enforcement results.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
 
 ## 1. Principles
 

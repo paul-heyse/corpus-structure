@@ -3,55 +3,46 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Current checkpoint
 
-- [Parsing coordinator](docs/plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
-  owns PP-00–PP-04 implementation and scoped source-product qualification. Product commits
-  `799d894`, `3bc09bc`, `334da0f` deliver ADR-0036, representation-qualified partitions,
-  native html5lib/lxml structure and transformation lineage, PostgreSQL original-byte custody,
-  fixed relational products, protected publication and pinned bounded source readers.
-- Current code uses execution compiler 10/native 0042. Exact archived execution inputs prepare
-  source contracts once per reader/operation boundary; future text/math operations are declared
-  but unbound and required execution refuses. Complete `canonical_output` provenance is rooted
-  admitted transformation lineage, separately qualified from exact copying or repaired-node origin.
-- Actual M01 reads retained original bytes and publishes build-specific products atomically;
-  content-identical renditions retain separate source builds. Reuse resolves the producer,
-  competing builds require pins, and matching corruption refuses. Original custody survives failure.
-- PP-05–PP-07/10 remain Planned. PP-08/09 have only the source lifetime/publication prerequisite
-  slice; broader cancellation, lazy math, extraction views and adoption remain with those owners.
-  O01–O07 keep their cross-package closure obligations. No audit premises or grading policy changed.
-- All implementation worktrees are integrated and removed. Existing operational databases,
-  historical answers and grades are unchanged; native checks used owned test fixtures.
+- [Parsing coordinator](docs/plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
+  owns completed PP-00–PP-10 and O01–O07 dispositions. ADR-0036/0037 govern immutable
+  source/text/interpretation/assessment products, qualified relations and explicit demands.
+- Execution compiler 11/profile 6, native 0046. M01 v2, M09/M11 v4 and M13 v3 use actual
+  shared products. Macro selection and early source declarations have typed evidence basis;
+  unresolved scope coverage reaches actual agent packets and their identity.
+- Weak requests avoid stronger math. Native ownership, nested deadlines, cancellation,
+  source/attempt fences, successful replay and ABI-10 read-only preservation are implemented.
+  Source CLI/MCP inspection uses bounded relational rows and server-verified identities;
+  batch exports and explainable placement retain source units and occurrence multiplicity.
+- Defaults select `corpus_parsing_20261030` / `parsing-pipeline` on `18/corpus:5434`.
+  Actual provider runs 1 (statistics), 2 (transfer) and 5 (frame) completed and selected;
+  their replays invoke no extraction. Both independent automated grading routes persisted.
+- Previous `corpus_efficiency_20261030` remains native 0040. Project/run/result/grade digests
+  and all 322 historical query rows are unchanged. No audit premise or grading policy changed.
+- All implementation worktrees are integrated and removed; no push was made.
 
 ## Verification — 2026-10-30
 
-- **failed:** original selected `uv run pytest` ingest/24-semantic-module invocation:
-  451 passed, three failed. Affected reruns close generation, missing-index and compiler-diagnostic
-  failures; original invocations and subsequent repairs remain separate retained receipts.
-- **passed:** current 78-page complete source-product case, actual M01/profile/math/reuse journeys,
-  separate/ambiguous build selection, restricted native writes/readback and 0040→0042 preservation.
-  Final native selection: eight passed/one observer timeout (**failed** invocation); corrected
-  concurrent run-before-task publication case then **passed** with `pg_blocking_pids()`.
-- **passed:** `just types`, warning-inclusive Pyrefly, zero reported errors/warnings and no
-  suppressions added; `just ready` after the environment-shaped disk failure. Formatting-only
-  maintenance does not invalidate these functional/type results. Original failed diagnostics remain.
-- [Implementation evidence](docs/design_review/evidence/2026-10-30_parsing-source-provenance/implementation.md)
-  retains exact native reports, selections, original failures, repair results and final SQL hashes.
-  No whole-series qualification, universal HTML support or quantitative parser-speed claim follows.
-- **passed:** `just turn-end`, Ruff format/check and `just docs-check`; initial fragment-link
-  failure is retained and corrected. `just evidence`: zero errors, 38 historical warnings.
-- **not_run:** whole-series `just test-all`, Rust functional qualification, provider/LLM grading
-  and operational adoption for this selected source-product scope; remaining series work is open.
-
-## Prior qualified runtime and separate audit
-
-- [PE-10–PE-12 evidence](docs/design_review/evidence/2026-10-30_runtime-adoption/README.md)
-  retains the prior selected target qualification, original failures and provider/consumer results.
-  `corpus_efficiency_20261030` remains at its earlier compiler-9/native-0040 operational releases;
-  source-product work has not advanced it. No current parser speedup is inferred from those results.
-- [Test audit](docs/design_review/test-audit/README.md) was refreshed at `599d479`: 20 findings,
-  unscheduled; DTA-015/016 are production causes. This implementation does not refresh that account.
+- **failed:** original `just test-all`: 2,624 passed / 10 failed. Original failures and the
+  interrupted corpus attempt remain retained; no invocation is relabeled passed.
+- **passed:** applicable corrected union: 2,635 required Python nodes, zero unresolved.
+  Native physical comparison caught missing declared indexes, now deployed through forward
+  0046; registration stays lazy, and source-routing fixtures use real restricted admission.
+  Original full/affected/routing/default receipts retain their distinct outcomes and contexts.
+- **passed:** 78-page complete text capture; actual restricted publication, source/declaration
+  custody, request reuse/timeout/cancellation, historical preservation and packet/frame checks.
+- **passed:** actual CLI claims/explanations, JSONL/Parquet, exact `12.3400`, default queries,
+  pinned source requests and multi-call external stdio MCP, including the default project session.
+- **passed:** `just types`, warning-inclusive Pyrefly, zero diagnostics; applicable non-doc
+  hygiene checks, including corrected ADR ownership. No suppressions were added.
+  Lint-only maintenance did not invalidate applicable test/type results.
+- **not_run:** Rust functional execution (empty discovery; no Rust scope here) and empty
+  ast-grep rule selections. No parser-throughput or universal grammar/repair-fidelity claim.
+- **passed:** `just docs-check` and finalized `just evidence`: zero errors; the 38 retained
+  evidence warnings are historical. See the owning account for closeout scope.
+- [Assembled evidence](docs/design_review/evidence/2026-10-30_parsing-layered-adoption/README.md)
+  retains commands, final-source applicability, native checks and preservation witnesses.
 
 ## Next
 
-Continue with PP-05 source/TeX structure and macro custody, then PP-06 demanded interpretation,
-using the current source-product contracts and the coordinator's package dependencies. Operational
-adoption and whole-series qualification remain PP-10 obligations, rather than this source slice.
+The requested parsing scope is complete. Conditional library consumers and their revisit
+triggers remain in the coordinator/supporting plans; they are not missing mandatory scope.

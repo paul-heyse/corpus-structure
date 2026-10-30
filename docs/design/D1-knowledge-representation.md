@@ -183,7 +183,7 @@ implementation and remaining assembled acceptance are owned by
 [PP-05–PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution). [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
 own the selected qualification boundary.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
 
 ### 3.2 Segments
 

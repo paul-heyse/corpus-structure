@@ -21,7 +21,7 @@ original `ops.parsing_product` payload, product digest and contract digest byte 
 current dedicated reader then opens the archived release, confirms its recorded ABI is still 10,
 reads the original bytes and product, and uses both the qualified source reference and the
 `BoundReader` source shim/common selector. All passed. The raw
-[source receipt](abi10-source-receipt.json) retains exact payload/original bytes and source-export,
+[source receipt](raw/abi10-source-receipt.json) retains exact payload/original bytes and source-export,
 manifest, release and product identities.
 
 Historical reading does not confer current execution authority. The test separately confirms that
@@ -55,15 +55,15 @@ The worker used the coordinator-authorized main environment with `PYTHONPATH` se
 checkout. Every database came from the existing owned native fixture routes; no operational
 database was changed.
 
-- **passed:** `PYTHONPATH=python/corpus-structure/src /home/paul/corpus-structure/.venv/bin/python -m pytest python/corpus-structure/tests/semantic/test_layered_parsing_products.py python/corpus-structure/tests/semantic/test_parsing_migration_preservation.py -x -q` — 14 cases, including the explicit historical write refusals. [Raw result](passed-0044-native-guards.log).
-- **passed:** the same interpreter and source selection with `pytest` over `test_parsing_products.py`, `test_layered_parsing_products.py`, `test_parsing_contracts.py`, `test_parsing_migration_preservation.py`, `tests/math/test_products.py`, and `test_native_closure.py::test_model_products_match_frozen_forward_revision` — 45 cases. [Raw result](passed-focused-products.log).
-- **passed:** scoped Ruff checks of the changed contract, publication, operation and test files. [Raw result](passed-lint.log).
-- **passed:** scoped Pyrefly checks of the changed contract/publication/operation modules and current test callers, with `--site-packages-path /home/paul/corpus-structure/.venv/lib/python3.14/site-packages`. [Raw result](passed-types.log).
+- **passed:** `PYTHONPATH=python/corpus-structure/src /home/paul/corpus-structure/.venv/bin/python -m pytest python/corpus-structure/tests/semantic/test_layered_parsing_products.py python/corpus-structure/tests/semantic/test_parsing_migration_preservation.py -x -q` — 14 cases, including the explicit historical write refusals. [Raw result](raw/passed-0044-native-guards.log).
+- **passed:** the same interpreter and source selection with `pytest` over `test_parsing_products.py`, `test_layered_parsing_products.py`, `test_parsing_contracts.py`, `test_parsing_migration_preservation.py`, `tests/math/test_products.py`, and `test_native_closure.py::test_model_products_match_frozen_forward_revision` — 45 cases. [Raw result](raw/passed-focused-products.log).
+- **passed:** scoped Ruff checks of the changed contract, publication, operation and test files. [Raw result](raw/passed-lint.log).
+- **passed:** scoped Pyrefly checks of the changed contract/publication/operation modules and current test callers, with `--site-packages-path /home/paul/corpus-structure/.venv/lib/python3.14/site-packages`. [Raw result](raw/passed-types.log).
 - **not_run:** global qualification, turn-end maintenance and operational migration deployment; these remain coordinator responsibilities.
 
 The failed attempts are retained: using the maintenance principal for restricted publication
-([receipt](failed-abi10-maintenance-publication.log)), an incorrect fixture cut call
-([receipt](failed-abi10-fixture-cut-call.log)), using maintenance for a restricted read
-([receipt](failed-abi10-maintenance-read.log)), and an initial 0044 descriptor whose changed source
-kernel had not yet been deployed ([receipt](failed-0044-incomplete-kernel-deployment.log)). They carry
+([receipt](raw/failed-abi10-maintenance-publication.log)), an incorrect fixture cut call
+([receipt](raw/failed-abi10-fixture-cut-call.log)), using maintenance for a restricted read
+([receipt](raw/failed-abi10-maintenance-read.log)), and an initial 0044 descriptor whose changed source
+kernel had not yet been deployed ([receipt](raw/failed-0044-incomplete-kernel-deployment.log)). They carry
 no passing credit. The final tests correct those concrete fixture/deployment defects.

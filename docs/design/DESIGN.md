@@ -319,7 +319,7 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
-**Accepted parsing target; PP-00–PP-04 source scope implemented and scoped Tested (2026-10-30).** Trusted LinkML/execution
+**Implemented; scoped Tested parsing target (2026-10-30).** Trusted LinkML/execution
 definitions govern representation-qualified source ranges, occurrence relationships, mappings,
 coverage and discrete parsing operations. Existing canonical evidence anchors and full rendition
 identity remain unchanged. Library algorithms implement finite admitted contracts without a
@@ -328,13 +328,15 @@ changes with complete producer and consumer migration. Computation lifecycle, se
 and completeness remain distinct, with independent reference preparation and grading unchanged.
 [D1](D1-knowledge-representation.md#311-representation-qualified-source-products) owns the concepts;
 [D2](D2-schema-and-guidelines.md#parsing-contract-compilation), [D4](D4-method-catalog.md#parsing-operations-and-versioned-method-adoption)
-and D5–D8 own their compilation and consumption. Source capture/runtime/native consumers are
-implemented; future text/math operations remain unbound declarations until PP-05/06. Broader
-consumer/adoption work remains PP-07–PP-10.
+and D5–D8 own their compilation and consumption. Immutable source/text/interpretation/assessment
+layers, explicit weak/strong demands, scoped source declarations, actual scope coverage and
+protected native consumers are implemented. The [parsing coordinator](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
+owns required-union qualification and fresh operational adoption; these claims do not imply
+universal grammar support or exact attribution of every repaired HTML node.
 
-> Decision: ADR-0036
+> Decision: ADR-0036, ADR-0037
 
-**Proposed accepted target (2026-10-30).** One admitted interpretation authority governs distinct qualified physical frontends and model-bound context, demand, result and dependency projections. The current parser remains the implementation pending PE-02; source declarations do not depend circularly on later resolution.
+**Implemented (2026-10-30).** One admitted interpretation authority governs distinct qualified physical frontends and model-bound context, demand, result and dependency projections. Source declarations are prepared independently of downstream resolution, and each native stage consumes its admitted capability contract.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
 

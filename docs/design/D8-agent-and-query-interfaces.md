@@ -106,10 +106,14 @@ covers native readback and migrated M01 consumers. **Implemented — public laye
 build/product identity, partial/limit outcomes and explicit exact-fidelity refusal.
 Arrow/Parquet export derives fields from shared physical metadata and streams bounded batches.
 On-demand work creates a new source-ready operation using archived inputs; it does not mutate
-the original source run or assert independently graded completion. CLI/MCP transport, provider
-and adoption acceptance remain with [PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution).
+the original source run or assert independently graded completion. Actual agent packets carry
+compact standing-context coverage, a basis digest and source-task references in their identity
+and unit JSON. Per-rendition coverage is prepared once and selected for the unit/context extent;
+full source coverage rows are not copied into every prompt. Unknown coverage gives an explicit
+nonblocking diagnostic rather than an assertion that relevant context is absent. CLI/MCP transport, provider
+and adoption evidence belong to [PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution).
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
 
 ## 1. Surfaces
 
@@ -479,6 +483,6 @@ kernels. The public preparation function defers compiler acquisition until calle
 constructed once on demand. FastMCP retains its existing typed schemas and lifespan-owned settings,
 engines and principal checks; active packet reuse retains attempt/source/hash fencing. No custom
 command/plugin discovery or settings/cache service is introduced. The current defaults select
-the freshly completed production-efficiency target; retained historical readers stay explicit.
+the freshly completed parsing-pipeline target; retained historical readers stay explicit.
 
 > Decision: [ADR-0034](../adr/0034-recorded-agent-supervision.md), [ADR-0035](../adr/0035-model-governed-analysis.md)

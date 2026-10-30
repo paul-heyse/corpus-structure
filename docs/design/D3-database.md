@@ -82,11 +82,13 @@ interpretation/evidence references. Named product dependencies resolve exact tas
 custody; same-named nodes cannot impersonate interpretation records. Typed macro-event
 metadata carries selection status and local ranges through shared and native validation.
 Forward 0043/0044 retain the frozen source revisions and ABI-10 read support while refusing
-new execution/admission under that archive. Final 0045 is the current authoring revision;
+new execution/admission under that archive. Frozen 0045 supplies final macro/declaration guards and admission; forward 0046 deploys the
+model-declared layered extent/category/mapping indexes. No admission body or stored meaning
+changes in that index-only revision.
 [PP-09/10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
-own its freeze, assembled acceptance and fresh operational adoption.
+own assembled acceptance and fresh operational adoption.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
 
 ## Current task authority and historical storage
 

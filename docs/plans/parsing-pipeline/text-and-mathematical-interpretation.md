@@ -1,10 +1,10 @@
 # Text structure and context-bound mathematical interpretation
 
-**Implementation in progress · 2026-10-30.** The coordinator owns current qualification. This supporting plan develops
+**Implemented and scoped Tested · 2026-10-30.** The coordinator owns assembled qualification. This supporting plan develops
 [PP-05](../parsing-pipeline_2026-10-30.md#PP-05) and
 [PP-06](../parsing-pipeline_2026-10-30.md#PP-06). The coordinator is the sole owner of current
 package state, opportunity/finding dispositions, shared decisions and assembled acceptance.
-These work descriptions do not imply implementation or repeat a mutable status table.
+The descriptions below retain the execution premises; the coordinator owns current package state.
 
 ## Intended behavior and responsibility
 
@@ -317,3 +317,29 @@ performance claim becomes relevant, measure a representative mix of weak and str
 including first-use preparation and failures. Existing component/historical receipts are not
 new product qualification. Open capability choices and missing prerequisites remain at the
 coordinator's PP owners rather than being treated as completed work here.
+
+## Selected realization — 2026-10-30
+
+The current adapter uses pylatexenc **3.0b2** `ParsingState` controls, declared `MacroSpec`
+arguments, `LatexGeneralNodesParser` and `LatexWalker.parse_content`. Explicit percent/dollar
+controls preserve the existing lexical contract and avoid a private stable-2 tokenizer override.
+`pos`/`len`, child groups and `nodeargd` supply positioned structural occurrences; malformed
+structure retains a declared outcome without weakening complete lexical partitions. Tokenizers
+is deferred until an actual alignment/normalization consumer replaces useful existing work.
+Canonical prose uses text/whitespace runs while math retains lexical boundaries and all categories.
+
+M01 v2 publishes source and text together. Macro-event status, selection, command and local ranges
+are typed fields; page/default/fallback artifacts, invocation and expansion contributions remain
+separate immutable evidence. Lark syntax and role filtering do no SymPy construction. The admitted
+`function-definition-1` rule produces preceding source declarations within structural scopes;
+typed interpretation basis links exact heads/views to applicability and the selected text product.
+Uncertain candidates make dependent context unavailable, with per-expression budgets preserved.
+
+M09/M11 v4 and M13 v3 consume the resulting versioned products. Local SymPy `Dummy`, `Q`,
+`ask` and isolated `refine` execution preserve qualified premises without ambient assumptions.
+Definedness precedes native cancellation; unsupported domain syntax remains unknown. M13 reports
+coverage even when no scope observation is emitted, and actual agent packets retain a compact
+unit/context aggregate and source basis. Unknown context is not proof of no relevant context.
+SPPF, broader statistics/matrix/calculus adapters and compiled numerical kernels remain conditional
+on their named consumers. The coordinator and assembled evidence own tested scope, original
+failures and the absence of a throughput claim.

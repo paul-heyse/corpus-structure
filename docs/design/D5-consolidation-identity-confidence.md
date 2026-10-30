@@ -55,6 +55,13 @@ decisions. These explanations do not change scoring tiers or existing stored gra
 accessors, nullable fields, arrays and maps; actual accessor values are validated. Rule contexts
 retain explicit decimal precision, closed vocabulary and nondeterminism restrictions.
 
+**Implemented — parsing-domain preservation, 2026-10-30.** Source definedness is captured before
+native construction or cancellation can erase it. Unsupported domain-bearing syntax retains
+partial/unknown conditions; comparisons cannot promote that incomplete basis to a symbolic
+proof. Thus native reduction of `x/x` or `exp(log(x))` alone does not prove total equivalence
+to an expression with a different or unestablished domain. This enforces the declared evidence
+premise without changing consolidation/reference policy rows or historical grades.
+
 Identity resolution retains the complete global candidate context. Effective identity, required
 and display property roles are derived once and projected as immutable release rows. Core
 membership/role predicates restrict fact/value hydration before loading; all applicable class
