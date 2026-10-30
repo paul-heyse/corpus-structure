@@ -395,3 +395,16 @@ def test_cache_is_database_scoped_and_rechecks_current_archive_digest(
         with pytest.raises(releases.ReleaseConflict, match="archive digest"):
             releases.open_release(left, first.release_id)
         assert releases.open_release(right, second.release_id) is two
+
+
+def test_shared_snapshot_restores_connection_state_after_failure(semantic_reader_engine):
+    from corpus_structure.semantic.query import read_snapshot
+
+    with pytest.raises(RuntimeError, match="cancelled consumer"):
+        with read_snapshot(semantic_reader_engine) as conn:
+            assert conn.get_isolation_level() == "REPEATABLE READ"
+            assert conn.exec_driver_sql("SHOW transaction_read_only").scalar_one() == "on"
+            raise RuntimeError("cancelled consumer")
+    with semantic_reader_engine.connect() as conn:
+        assert conn.get_isolation_level() == "READ COMMITTED"
+        assert conn.exec_driver_sql("SHOW transaction_read_only").scalar_one() == "off"

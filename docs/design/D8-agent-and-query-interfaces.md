@@ -32,6 +32,35 @@ Shared CLI/MCP adapters classify typed semantic refusals separately from databas
 implementation failures. FastMCP refusal decorators preserve Context injection/output schemas;
 proposal hold/correction dispositions remain typed results. No new MCP query profile is implied.
 
+**Implemented source, 2026-10-29; bounded controls only.** Primitive and named query continuations
+share strict envelope decoding and binding comparison in `semantic.continuations`. Existing token
+formats remain readable; query-owned cursors and normalized parameters retain their owners.
+`WrongRelease` and `WrongBinding` identify another release, realization, query, parameters,
+projection or arithmetic profile. `StaleSnapshot` identifies a changed data revision, query version
+or unavailable result. JSON error envelopes retain a `code` and an explicit `reason`
+(`wrong_release`, `wrong_realization`, `wrong_query`, `wrong_parameters`, `wrong_projection`,
+`wrong_profile`, `stale_revision`, `stale_version`, `unavailable_result`, or `invalid_token`).
+Malformed envelopes refuse as `InvalidContinuation`; the existing query-cursor `StaleToken`
+exception retains `invalid_token` meaning. A continuation opens a new transaction at the same
+recorded revision; it does not preserve a physical transaction capture. Activation and result
+selection changes do not rebind an existing journey. The trusted execution catalog declares the
+continuation dimensions and operation; current composed consumers validate results against their
+archived binding, while supported historical read ABIs retain their recorded interpretation.
+
+`cli.failures.failure_boundary` is the shared CLI adapter used by query, golden, eval and
+regenerate. It translates explicitly typed caller failures, retains preparation diagnostics and
+continuation reasons, and delegates DBAPI classification to the storage owner's SQLSTATE policy
+(`database_retry`, `database_fencing`, `database_defect`). Unexpected programming exceptions and
+cancellation retain their identity. Proposal hold/correction/completion dispositions remain results.
+Explain and export use the same SQLAlchemy `read_snapshot` lifetime owner as query, including
+`postgresql_readonly=True` and REPEATABLE READ; ADBC imports finish inside that owner before a
+captured packet is exported after detachment.
+
+Focused registered-command refusal/retry/fencing/defect/cancellation controls and independent
+continuation controls establish only their tested boundaries. Native dispatch, snapshot lifetimes
+and the compiler-10 selected-answer/new-activation matrix remain obligations of SP-I04/SP-I05
+until their applicable current-source results are recorded in the owning plan.
+
 
 ## 1. Surfaces
 

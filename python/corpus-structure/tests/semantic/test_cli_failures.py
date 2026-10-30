@@ -68,3 +68,11 @@ def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, comma
     error = json.loads(result.stdout)["error"]
     expected = type(failure).__name__ if kind == "refusal" else "database_" + kind
     assert error["code"] == expected
+
+
+def test_invalid_pack_is_a_typed_actual_regenerate_refusal(cli, tmp_path):
+    result = cli(
+        "regenerate", "--domain", "absent-fixture-pack", "--corpus", str(tmp_path), "--json"
+    )
+    assert result.exit_code == 1
+    assert json.loads(result.stdout)["error"]["code"] == "PackInputError"

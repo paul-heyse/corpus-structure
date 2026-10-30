@@ -19,6 +19,7 @@ from .domain_operations import domain_rule_inputs
 from .observations import prepare_source_inputs
 from .prepare import prepare_release
 from .proposals import proposal_inputs
+from .refusals import SemanticRefusal
 from .types import (
     PreparationProfile,
     PreparedRelease,
@@ -26,6 +27,20 @@ from .types import (
     SourceArtifact,
     SourceBundle,
 )
+
+
+class PackInputError(SemanticRefusal):
+    """Explicit local pack inputs cannot form a supported semantic preparation."""
+
+
+def _mapping(path: Path) -> dict[str, Any]:
+    try:
+        value = yaml.safe_load(path.read_bytes())
+    except (OSError, yaml.YAMLError) as error:
+        raise PackInputError(f"cannot read pack declaration {path}: {error}") from error
+    if not isinstance(value, dict):
+        raise PackInputError(f"pack declaration must be a mapping: {path}")
+    return value
 
 
 def prepare_pack(
@@ -53,9 +68,11 @@ def acquire_pack(pack: Path) -> PackInputs:
     """Read explicit pack inputs once; never compile to discover dependencies."""
     source = pack / "semantic.yaml"
     if not source.is_file():
-        raise ValueError(f"semantic declaration missing: {source}")
-    document = yaml.safe_load(source.read_bytes())
-    name = document["name"]
+        raise PackInputError(f"semantic declaration missing: {source}")
+    document = _mapping(source)
+    name = document.get("name")
+    if not isinstance(name, str) or not name:
+        raise PackInputError(f"pack declaration requires a nonempty name: {source}")
     if name in {
         "semantic_core",
         "composed_pack",
@@ -66,7 +83,7 @@ def acquire_pack(pack: Path) -> PackInputs:
         "analytics",
         "analytical-root",
     }:
-        raise ValueError(f"reserved semantic module name {name}")
+        raise PackInputError(f"reserved semantic module name {name}")
     core = Path(__file__).resolve().parents[1] / "model/semantic/core.yaml"
     bundle = SourceBundle(
         name,
@@ -75,7 +92,7 @@ def acquire_pack(pack: Path) -> PackInputs:
             SourceArtifact("semantic_core", core.read_bytes()),
         ),
     )
-    methods = yaml.safe_load((pack / "methods.yaml").read_bytes())
+    methods = _mapping(pack / "methods.yaml")
     core_rules = pack.parent / "core/schema/rules.yaml"
     rules = pack / "schema/rules.yaml"
     deps = domain_rule_inputs(
@@ -120,14 +137,14 @@ def acquire_pack(pack: Path) -> PackInputs:
         if definition.get("is_a") == "Qualification"
     ]
     if len(qualifiers) > 1:
-        raise ValueError("pack requires one explicit Qualification subclass")
+        raise PackInputError("pack requires one explicit Qualification subclass")
     statement_classes = [
         key
         for key, definition in document.get("classes", {}).items()
         if definition.get("is_a") == "SourceStatement"
     ]
     if len(statement_classes) > 1:
-        raise ValueError("pack requires one explicit SourceStatement subclass")
+        raise PackInputError("pack requires one explicit SourceStatement subclass")
     trusted_model = core.parent
     trusted = tuple(
         SourceArtifact(name, (trusted_model / name).read_bytes())
@@ -154,13 +171,13 @@ def acquire_pack(pack: Path) -> PackInputs:
 def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
     """Compose acquired immutable inputs without any filesystem reads or preparation."""
     if not acquired:
-        raise ValueError("at least one semantic pack is required")
+        raise PackInputError("at least one semantic pack is required")
     trusted = acquired[0].trusted_sources
     execution = acquired[0].execution
     if any(
         inputs.trusted_sources != trusted or inputs.execution != execution for inputs in acquired
     ):
-        raise ValueError("packs disagree on trusted semantic inputs")
+        raise PackInputError("packs disagree on trusted semantic inputs")
     content = {source.name: source.content for source in trusted}
     if len(acquired) == 1:
         inputs = acquired[0]
@@ -186,7 +203,7 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
                     continue
                 previous = sources.setdefault(source.name, source)
                 if previous != source:
-                    raise ValueError(f"packs disagree on semantic module {source.name}")
+                    raise PackInputError(f"packs disagree on semantic module {source.name}")
             qualifiers.extend(inputs.qualifications)
             statement_classes.extend(inputs.statements)
             # Operation configuration remains pack-scoped, not a merged executable graph.
@@ -196,7 +213,7 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
                 artifact = SourceArtifact(f"pack/{inputs.name}/{artifact.name}", artifact.content)
                 previous = composed_artifacts.setdefault(artifact.name, artifact)
                 if previous != artifact:
-                    raise ValueError(f"packs disagree on dependency {artifact.name}")
+                    raise PackInputError(f"packs disagree on dependency {artifact.name}")
         root: dict[str, Any] = {
             "id": "https://corpus-structure.dev/semantic/composed-pack",
             "name": "composed_pack",
@@ -212,7 +229,7 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
         if len(statement_classes) == 1:
             statement_class = statement_classes[0]
         elif statement_classes:
-            raise ValueError(
+            raise PackInputError(
                 "composed packs require one explicit source-statement operation binding"
             )
         bundle = SourceBundle(

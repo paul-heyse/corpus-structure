@@ -140,10 +140,13 @@ def submit_command(
     with reference_session(ctx, project, json=json) as (conn, pid):
         if references._unit(conn, unit)["project_id"] != pid:
             raise references.ReferenceError("reference unit belongs to another project")
-        raw = jsonlib.loads(frame.read_bytes())
-        source = ProposalFrame(
-            raw["unit_ref"], raw["text"], tuple(ProposalSentence(**s) for s in raw["sentences"])
-        )
+        try:
+            raw = jsonlib.loads(frame.read_bytes())
+            source = ProposalFrame(
+                raw["unit_ref"], raw["text"], tuple(ProposalSentence(**s) for s in raw["sentences"])
+            )
+        except (jsonlib.JSONDecodeError, KeyError, TypeError) as error:
+            raise references.ReferenceError("invalid authored citation frame") from error
         identity = references.record_pass(
             conn,
             unit_id=unit,
