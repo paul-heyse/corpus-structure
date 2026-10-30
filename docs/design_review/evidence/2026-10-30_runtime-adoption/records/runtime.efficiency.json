@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "id": "runtime.efficiency",
+  "title": "Bounded runtime work removal and completed-result capture",
+  "group": "production-efficiency",
+  "package": "PE-11",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the implemented runtime boundaries remove repeated work while retaining archive authority and exact completed-result capture?",
+  "answers": [],
+  "method": "Compare actual finalized archive queries, fresh CLI import, unprofiled production page reading, actual default stdio requests and resident/spooled captures of the same completed result.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-30_runtime-adoption/probe_archive.py",
+    "uv run python docs/design_review/evidence/2026-10-30_runtime-adoption/probe_capture.py --mode resident",
+    "uv run python docs/design_review/evidence/2026-10-30_runtime-adoption/probe_capture.py --mode spooled",
+    "uv run python docs/design_review/evidence/2026-10-30_runtime-adoption/probe_stdio.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "probe_archive.py",
+      "role": null,
+      "sha256": "cc13cc065b18a6291c3ce1f5ed4add54287184f166cb0c5afe33081a879ac0b4"
+    },
+    {
+      "path": "probe_capture.py",
+      "role": null,
+      "sha256": "1ed129c92ff664b276f6e1c19b05db271f7a7b257dd1f15d5d94076ca6fdb63d"
+    },
+    {
+      "path": "probe_stdio.py",
+      "role": null,
+      "sha256": "0a24be74534a9d647aa35eea3b978ef63bddbde0dcc1dd7a82797836d15dd260"
+    },
+    {
+      "path": "probe_page.py",
+      "role": null,
+      "sha256": "0c3eb4871b1f1848496a1046350703e97d6cd03f6281ad7c549de487a39e4405"
+    },
+    {
+      "path": "raw/archive-after.json",
+      "role": null,
+      "sha256": "8ac5e55bbc5633d4bde390fa42b2e4ca92033ad36373e4f89b26370b77ad5e77"
+    },
+    {
+      "path": "raw/archive-before.json",
+      "role": null,
+      "sha256": "924ee841f87e593fd678a0e5776cfbd3057253dcbe7152402c33da962a93339a"
+    },
+    {
+      "path": "raw/default-mcp.json",
+      "role": null,
+      "sha256": "f9aa44a4c5e66bd0ddaf5d113f91979b3ec2b10b5ee2b6f40c88830d1e9f9613"
+    },
+    {
+      "path": "raw/environment.json",
+      "role": null,
+      "sha256": "f8ba514b273501f6bad85d32d3071dd2bb3deaea66c057007fda3754b35c7a39"
+    },
+    {
+      "path": "raw/historical-selection-before.json",
+      "role": null,
+      "sha256": "8c0f48d4bc9f54a3b79fc9ea3c2071d4da8f375c3ab4cedbeb73ea20b6b282a1"
+    },
+    {
+      "path": "raw/import-after.log",
+      "role": null,
+      "sha256": "1e5c9769f3e701c0552262b5d59d86ecd42ec7292eef2b816957359f2e3b6fa2"
+    },
+    {
+      "path": "raw/import-before.log",
+      "role": null,
+      "sha256": "ccfdb0ee7fe74b0fbaa653b832dab0f9f384c5c7dbc673142f8acb778adeef38"
+    },
+    {
+      "path": "raw/page-after.json",
+      "role": null,
+      "sha256": "b50961407271e3149cea9143fa6c2f16627272dbd26062549f2976925e6001c7"
+    },
+    {
+      "path": "raw/page-after.log",
+      "role": null,
+      "sha256": "3a6d293eccfe34f06e5dbc000413cc8202d1270f34e93c77281f6b4dc7a8222c"
+    },
+    {
+      "path": "raw/resident.json",
+      "role": null,
+      "sha256": "553871b925dccddc5af6077f2dc04ae0df7219f69a0d708bbb7130eb501f529a"
+    },
+    {
+      "path": "raw/spooled.json",
+      "role": null,
+      "sha256": "e181aad52d77719f71f89ec66060b07351708c00acfd5f9bdb437866e4cf87b3"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "warm archive queries before",
+      "value": 2,
+      "of": null,
+      "unit": "queries",
+      "note": null
+    },
+    {
+      "name": "warm archive queries after",
+      "value": 1,
+      "of": null,
+      "unit": "queries",
+      "note": null
+    },
+    {
+      "name": "warm payload selects after",
+      "value": 0,
+      "of": null,
+      "unit": "queries",
+      "note": null
+    },
+    {
+      "name": "app import before",
+      "value": 1.51,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "app import after",
+      "value": 0.2,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "captured complete spine",
+      "value": 26,
+      "of": null,
+      "unit": "relations",
+      "note": null
+    },
+    {
+      "name": "captured facts",
+      "value": 322,
+      "of": null,
+      "unit": "facts",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Observed work elimination and exact resident/spooled equality for the actual completed result; default stdio and page semantics remain intact. No corpus speedup, lower process RSS,512MiB capacity guarantee or globally optimal parser is established. Broad qualification is separately owned.",
+  "consumed_by": [
+    "production-efficiency PE-11",
+    "production-efficiency PE-12"
+  ]
+}

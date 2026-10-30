@@ -435,3 +435,15 @@ original meaning. Capture close defers disposal until active scopes/readers clos
 own their destination. CLI/MCP boundaries retain explicit archive and resource lifetimes.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+## Runtime initialization
+
+**Implemented; scoped Tested (2026-10-30).** Command metadata uses ordinary Typer registration
+and runtime-visible signatures; owning invocations acquire scientific, analytical and preparation
+kernels. The public preparation function defers compiler acquisition until called. Settings remain
+constructed once on demand. FastMCP retains its existing typed schemas and lifespan-owned settings,
+engines and principal checks; active packet reuse retains attempt/source/hash fencing. No custom
+command/plugin discovery or settings/cache service is introduced. The current defaults select
+the freshly completed production-efficiency target; retained historical readers stay explicit.
+
+> Decision: [ADR-0034](../adr/0034-recorded-agent-supervision.md), [ADR-0035](../adr/0035-model-governed-analysis.md)

@@ -682,7 +682,12 @@ and per-iteration agent budgets bound how much Opus is asked to do (§7.4).
 
 ## Production-efficiency target
 
-**Proposed (accepted target,2026-10-30).** Logical skipped invocations may be identified from source/configuration/policy before rendering provider packets. Skipped population, reasons and unknown coverage remain required. Existing packet-dependent scheduling remains implemented until PE-10.
+**Implemented; scoped Tested (2026-10-30).** Compiler 9/profile 5 invocation policy gives logical
+skips complete source/configuration/policy/classification/scope identity before packet rendering.
+Executable identities retain their actual packet hash. Native 0039 consumes the release-scoped
+version-2 scheduling effect: skipped agents have no packet; admitted agents require one. Skipped
+population, reasons and unknown coverage remain represented. Shared run/document preparation and
+set-based effective-origin frame reads retain current attempt/source fences and immutable custody.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
 

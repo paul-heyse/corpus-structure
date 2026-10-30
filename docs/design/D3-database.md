@@ -1755,3 +1755,21 @@ incremental logical hashing. PostgreSQL/ADBC snapshots end before returned high-
 detached files/manifests retain schema, source custody, completeness and separate file integrity.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+## Finalized archive opening and invocation support
+
+**Implemented; scoped Tested (2026-10-30).** Compiler 9/profile 5/native 0039 admit the finite
+invocation identity policy; forward 0040 binds the final runtime bytes with the same physical
+relations and kernels. Existing release-scoped scheduling-effect rows select packet-presence
+requirements; existing nullable task storage represents logical skips without per-kind DDL.
+
+Ordinary opening first selects release/finalization identity, digests, profile and physical tuple
+markers in one Core join. A finalized matching header and actual boundary-runtime determinants
+can reuse the existing eight-entry engine cache without payload transfer. Tuple markers only
+invalidate reuse conservatively; they confer no semantic identity, authorization or admission.
+Cold opening verifies complete inputs/artifacts/products and refuses a changed header before
+caching. Unfinalized archives remain fully checked and uncached. Explicit verification,
+persistence/replay, activation, run start/resumption and resource principal checks remain distinct.
+Historical analytical-4/5 and compiler-8 analytical-6 read recipes preserve their own meanings.
+
+> Decision: [ADR-0031](../adr/0031-semantic-execution-closure.md), [ADR-0035](../adr/0035-model-governed-analysis.md)

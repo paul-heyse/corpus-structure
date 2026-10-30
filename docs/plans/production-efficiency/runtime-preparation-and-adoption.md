@@ -1,6 +1,6 @@
 # Runtime preparation and production adoption
 
-**Status:** Planned; no production change or new qualification is claimed.  
+**Status:** PE-10–PE-12 implemented; selected production target required-union qualified (Tested), 2026-10-30.
 **Created:** 2026-10-30. **Packages:** PE-10–PE-12.  
 **Disposition owner:** [production-efficiency coordinator](../production-efficiency_2026-10-30.md).
 
@@ -220,3 +220,85 @@ Update D3/D4/D5/D6/D7/D8 and accepted successor decisions for the realized endur
 update the coordinator and STATUS from the actual tree. Preserve source finding IDs and use the
 coordinator as their only scheduled disposition owner. Broad domain-model completeness and a
 separate completion audit are not inferred from this efficiency implementation.
+
+
+<a id="execution-2026-10-30"></a>
+## Execution — 2026-10-30
+
+**Implemented; scoped Tested.** Compiler 9/profile 5/native 0039 realize RC03 through typed
+invocation policy and generated scheduling decisions. Logical skipped identities bind source,
+release, configuration, policy/classification and scope/limit decisions without a provider packet.
+Executable identities retain the actual packet hash. The release-scoped version-2 scheduling
+effect governs native packet-presence enforcement; no task columns or parallel registry were added.
+The stale compiler-6 invocation branch is retired. Explicit implementation inputs bind scheduler,
+packet, proposal, source-frame and session code without compiler filesystem reads.
+
+Scheduling determines the full population before rendering and shares run/configuration/document
+preparation. MCP active requests reuse their owned packet under current attempt/source/hash fences.
+Core frame acquisition follows distinct effective origins in 512-ID chunks, includes empty/failed
+producers, shares canonical text per rendition and orders sentence coordinates. Singular reads
+use that same owner. Required missing frames refuse with hash-verified backfill instructions.
+
+Archive opening uses a joined finalized header before the existing bounded engine cache. Digests,
+runtime determinants and conservative tuple markers qualify reuse; physical markers confer no
+semantic identity or authorization. Cold opening retains complete verification and checks header
+stability before cache publication. Unfinalized reads remain fully checked and uncached. Activation,
+run start, resumption, persistence/replay and explicit verification retain their own full checks.
+Typer registration and FastMCP schemas remain ordinary library surfaces; command/lifespan/first-use
+imports acquire only their required kernels. Settings construction remains deferred.
+
+Historical capture recipes are explicit: retained analytical-4/5 keep their meaning, compiler 8
+keeps analytical-6 manifests/export-2, and unsupported versions refuse. Retained manifest validation
+uses the trusted generated shape and finite reader support independently of current execution
+catalog compilation. Historical read support cannot authorize current writes.
+
+Scoped receipts are retained under `build/pe1012/`: archive/startup worker checks, warning-inclusive
+integrated typing, native contract/guard/source-routing checks and corrected domain/MCP selections.
+The initial native selection exposed a packetless admitted-agent fixture; it now retains its real
+packet and immutable source frame while preserving the deliberately different anchor cases.
+The original failed receipt remains failed; affected corrected checks passed.
+
+The [runtime investigation](../../design_review/evidence/2026-10-30_runtime-adoption/README.md)
+retains bounded startup/archive observations and actual fresh-target operational receipts.
+
+### Final adoption and qualification
+
+**Required-union Tested, 2026-10-30.** Fresh `corpus_efficiency_20261030` was bootstrapped at 0039
+and advanced through 0040 for final implementation-byte custody. Physical relations, semantic
+compiler 13, execution compiler 9/profile 5, boundary 12 and analytical-6 are unchanged by that
+final binding. Current statistics run 4, transfer run 5 and source-frame run 6 completed actual
+authenticated extraction/consolidation/inference and all claims/explanation/JSONL/Parquet consumers.
+Completed replay did not extract again. Final activation separately advanced each project to
+generation 4 with active release matching its selected result. Defaults name this target.
+Initial runs 1–3 and grades remain intact; source at `2869e6e` retains their explicit read route.
+The prior operational database also passed current query/explanation/JSONL/Parquet after recorded
+effect-version decoding was separated from current effect support. Historical version 1 cannot
+self-authorize a new catalog requiring version 2. No interpretation upcaster or write bridge exists.
+
+Independent automated grades persisted for both statistics generations and transfer generations;
+zero matched reference claims were retained without tuning, regrading old work or a human step.
+Transfer retains `12.3400`. Actual final resident/spooled capture has identical logical content
+across all 26 relations and 322 facts, with exporting handles released before local analysis.
+Required unknown/skipped populations remain explicit: the statistics run has 122 packetless skips
+and five completed packet-bound agent tasks. Whole-process RSS/default capacity or parser speedup
+is not established. The 78-page reading oracle passed in 176.9144 seconds; F01 remains open.
+
+`just test-all` retained 2,425 passed/three failed in
+`build/test-receipts/qualification/20261030T115507Z-472803`. The two earlier missing-frame fixtures
+and old-default assertion were reconciled; historical effect-reader correction and faithful ABI
+fixtures were covered by 164 passing affected cases at
+`build/test-receipts/qualification/20261030-pe1012-affected`. The existing classifier reports all
+2,429 required nodes with no unresolved node. Aggregate status remains failed because the initial
+invocation remains failed; this is applicable-union qualification, not a final full zero-exit run.
+
+Source contexts differ. The substantive correction is scoped to retained effect decoding; the
+current catalog remains strict. Affected archive/analytics/contracts/default/reference cases cover
+that correction. Subsequent style-only changes retain applicable typing/functional evidence.
+Raw implementation-byte binding was refreshed through immutable forward 0040 and fresh current
+production outputs, actual schema derivation/native checks and explicit activation. No type/test
+campaign was repeated solely for lint. Rust selected zero tests (`not_run`) and supplies no Rust
+functional coverage. Warning-inclusive Pyrefly passed zero errors/warnings; remaining applicable
+hygiene checks passed individually, reusing typing. Failed/interrupted and observer failures remain
+retained beside corrected results. There are no dependency, audit-premise or testing-architecture
+changes. D3/D6/D8 own changed runtime contracts; D4/D5/D7 interpretation/reference meanings remain
+preserved and exercised.

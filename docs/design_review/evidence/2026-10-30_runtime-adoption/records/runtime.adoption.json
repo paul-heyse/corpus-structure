@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "id": "runtime.adoption",
+  "title": "Final runtime adoption and applicable required-union qualification",
+  "group": "production-efficiency",
+  "package": "PE-12",
+  "finalized": "2026-10-30",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do actual current consumers adopt the final runtime target with complete applicable functional/provider/nonfunctional evidence?",
+  "answers": [],
+  "method": "Fresh purpose-authenticated production journeys, immutable final binding, completed replay/activation, independent automated grades, actual CLI/MCP/export/capture and existing required-node classifier. Preserve original failures and assess changed-source applicability.",
+  "commands": [
+    "just test-all",
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/20261030-pe1012-affected -- python/corpus-structure/tests/semantic/test_archive_reader.py python/corpus-structure/tests/semantic/test_release_compatibility.py python/corpus-structure/tests/semantic/test_capture_policy.py python/corpus-structure/tests/semantic/test_contracts.py python/corpus-structure/tests/semantic/test_analysis_contracts.py python/corpus-structure/tests/semantic/test_analytics.py python/corpus-structure/tests/semantic/test_reference_evaluation.py::test_missing_empty_source_frame_refuses_until_hash_verified_backfill python/corpus-structure/tests/test_semantic_runtime_settings.py",
+    "uv run ci regenerate --domain statistics --project production-efficiency --corpus fixtures/trace/corpus --slice trace --resume-run 4 --automated --select-result --json",
+    "uv run ci regenerate --domain toy --project production-efficiency-transfer --corpus fixtures/toy/corpus --slice transfer --resume-run 5 --automated --select-result --json",
+    "uv run ci regenerate --domain toy --project production-efficiency-frame --corpus fixtures/toy/corpus --slice one_owner --resume-run 6 --automated --select-result --json",
+    "uv run python docs/design_review/evidence/2026-10-30_runtime-adoption/activate_final.py",
+    "just lint-agents adr-lint rules-scan rules-test ruff docs-check deps clippy"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "capture_completed.py",
+      "role": null,
+      "sha256": "2041729aa1f156d85c74cd326fcbae984ee1d17efbd66daa78e338f8c3bcee77"
+    },
+    {
+      "path": "activate_final.py",
+      "role": null,
+      "sha256": "7df4fb7d148e7cfc2def3e075b1ab86896890bd9c0965a5c785cce33bdc8223a"
+    },
+    {
+      "path": "raw/operational",
+      "role": null,
+      "sha256": "611d6a792aab16e632c24230131032060de90a12748afb143a00581cbfe3a0a6"
+    },
+    {
+      "path": "raw/qualification",
+      "role": null,
+      "sha256": "236b7aef58cb3d41cbb3b6c20674c769655d3c936cfa56f050b01968f25f5d4f"
+    },
+    {
+      "path": "raw/resident-final.json",
+      "role": null,
+      "sha256": "81f25eb745bbcb1f2f27d29866d6ebc27f14046404933d79d623110d5a902ca5"
+    },
+    {
+      "path": "raw/spooled-final.json",
+      "role": null,
+      "sha256": "78b5a1f814f22492e8c6b0e9b9119b687fc5cfb6f24f8fc6d2ee3e17a604f4eb"
+    },
+    {
+      "path": "raw/default-mcp-final.json",
+      "role": null,
+      "sha256": "f9aa44a4c5e66bd0ddaf5d113f91979b3ec2b10b5ee2b6f40c88830d1e9f9613"
+    },
+    {
+      "path": "raw/selected-final.json",
+      "role": null,
+      "sha256": "3020555356b9b8dbdd71310abbcd453838cd4b03d1cf59f6ae2c475af6d44885"
+    },
+    {
+      "path": "raw/invocation-population.json",
+      "role": null,
+      "sha256": "f61eaf33b06c7e487894d92d53e87f40dbc68d6ff3da1f7c1752cc26152f863a"
+    },
+    {
+      "path": "raw/historical-selection-after.json",
+      "role": null,
+      "sha256": "8c0f48d4bc9f54a3b79fc9ea3c2071d4da8f375c3ab4cedbeb73ea20b6b282a1"
+    }
+  ],
+  "depends_on": [
+    "runtime.efficiency"
+  ],
+  "results": [
+    {
+      "name": "required Python nodes",
+      "value": 2429,
+      "of": null,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "required unresolved nodes",
+      "value": 0,
+      "of": null,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "original full passed",
+      "value": 2425,
+      "of": null,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "original full failed",
+      "value": 3,
+      "of": null,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "affected passed",
+      "value": 164,
+      "of": null,
+      "unit": "nodes",
+      "note": null
+    },
+    {
+      "name": "final selected runs",
+      "value": 3,
+      "of": null,
+      "unit": "runs",
+      "note": null
+    },
+    {
+      "name": "78-page reading oracle",
+      "value": 176.91443952699956,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Selected target qualified through applicable required union and actual native0040-bound runs4/5/6 at generation4, with preserved earlier results/grades. Original full invocation and aggregate classifier remain failed; all2429 required nodes have applicable passes and none is unresolved. Differing source contexts are scoped in the owning plan. Empty Rust discovery supplies no functional coverage. No parser speedup, lower RSS, default-limit capacity or broad model-completeness claim follows.",
+  "consumed_by": [
+    "production-efficiency PE-12"
+  ]
+}

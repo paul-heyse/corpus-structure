@@ -3,42 +3,44 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Current checkpoint
 
-- [Production efficiency PE-08–PE-09](docs/plans/production-efficiency/data-execution-and-publication.md#execution-2026-10-30)
-  implemented with scoped acceptance: owned publication transport is composed once and reused
-  across retries; full-spine capture supports resident Arrow and disposable spooled Parquet.
-- Compiler 8/profile 4/analytical-6/native 0038 bind typed capture policy, completeness, schema,
-  logical content and custody. Physical file integrity remains distinct from logical identity.
-  Historical analytical-4/5 readers retain their meaning and acquire no new write authority.
-- ADBC batches feed bounded normalization/hashing/writing. Database snapshots close before local
-  analysis; DuckDB consumes files lazily. Export streams the complete spine. File leases and
-  cleanup preserve active readers and primary failures. Candidate preparation and immutable
-  SHACL shape reuse reach production consumers.
-- [Coordinator §12](docs/plans/production-efficiency_2026-10-30.md#12-pe-08pe-09-execution-2026-10-30)
-  owns current package/finding disposition. PE-00–PE-09 are implemented; PE-10–PE-12 and F01's
-  recognizer work remain open. No corpus throughput or default-capacity claim follows.
-- Native 0038 was exercised in isolated test databases. Operational databases and external MCP
-  processes are unchanged. Implementation worktrees were integrated and removed.
+- [PE-10–PE-12 runtime execution](docs/plans/production-efficiency/runtime-preparation-and-adoption.md#execution-2026-10-30)
+  implemented and selected target required-union qualified: model-bound packetless skips,
+  shared packet preparation, bulk origin frames, header-qualified opening and deferred kernels.
+- Compiler 9/profile 5/native 0040 bind final implementation bytes. Fresh owned
+  `corpus_efficiency_20261030` on `18/corpus:5434` holds final statistics run 4, transfer run 5 and
+  source-frame run 6, all complete and selected with matching active releases at generation 4.
+  CLI/MCP defaults select this target and project `production-efficiency`.
+- Actual authenticated extraction, consolidation/inference, completed replay, claims/explanation/
+  JSONL/Parquet and fresh default stdio journeys passed. Transfer retains `12.3400`.
+  Independent automated grades persisted without quality tuning or human grading; zero matched
+  reference claims remain explicit. Initial runs/grades and prior database selections are intact.
+- Actual final resident/spooled capture matches all 26 relations/322 facts after database scopes
+  close. Bounded import observation: 1.51s to 0.20s; warm archive: two queries/one payload to one
+  header/no payload. No parser speedup, lower process RSS or default-capacity guarantee is claimed.
+- [Coordinator §13](docs/plans/production-efficiency_2026-10-30.md#13-pe-10pe-12-execution-2026-10-30)
+  owns package/finding disposition. PE-00–PE-12 are implemented and selected target qualified;
+  F01's recognizer opportunity remains open. No audit premises or testing architecture changed.
+- All implementation worktrees are integrated and removed. Existing databases and old answers/
+  grades are unchanged; only the new target was bootstrapped/advanced.
 
 ## Verification — 2026-10-30
 
-- **passed:** `just test-all`, 2,407 Python tests/four warnings; receipt
-  `build/test-receipts/qualification/20261030T104609Z-191443`, no unresolved required selection or
-  source/context divergence. Rust selected zero tests (`not_run`), supplying no functional coverage.
-- A subsequent narrow context-manager fix preserves primary errors during failed disposal.
-  **passed:** affected storage/native/archive cases (`build/pe89/closeout-functional.log`);
-  the new regression's missing test import was corrected and all eight storage cases passed
-  (`build/pe89/cleanup-corrected.log`). The broad suite was not repeated after that correction;
-  its unaffected coverage remains applicable. Failed/interrupted receipts remain in the plan.
-- **passed:** `uv run pyrefly check --min-severity warn --summary=none`, no errors/warnings or
-  new suppressions (`build/pe89/types-closeout-final.log`); `just hygiene`, `just ready`.
-  Lint-only maintenance does not invalidate applicable type/functional evidence.
-- **passed:** native resident/spooled capture, exact equality beyond a configured resident bound,
-  DuckDB file analysis and complete export ([capacity record](docs/design_review/evidence/2026-10-30_data-capture/README.md)).
-  The bounded result does not establish 512 MiB default capacity, process RSS or a speedup.
-- **passed:** `just docs-check`; `just evidence`: 100 records, zero errors/37 historical warnings.
-- **not_run:** PE-12 assembled/provider/nonfunctional qualification. No regrading or audit refresh.
+- **failed:** original `just test-all`: 2,425 passed/three failed, retained at
+  `build/test-receipts/qualification/20261030T115507Z-472803`. No relabelled aggregate pass.
+- **passed:** 164 affected cases at `build/test-receipts/qualification/20261030-pe1012-affected`.
+  Existing classifier covers all 2,429 required Python nodes with none unresolved; differing
+  contexts and applicability are recorded at the plan/evidence owner. Rust selected zero tests
+  (`not_run`), supplying no functional coverage. Corpus oracle passed in 176.9144s.
+- **passed:** warning-inclusive Pyrefly, zero errors/warnings/suppressions added
+  (`build/pe1012/types-compatibility.log`), and remaining applicable hygiene checks. Valid results
+  were reused after lint; final byte custody was refreshed through actual production operations.
+- **passed:** final schema derivation/native check, all three final provider/consumer journeys,
+  current and frozen historical reads, final capture parity and fenced activation.
+- [Evidence](docs/design_review/evidence/2026-10-30_runtime-adoption/README.md) retains original
+  failures and bounded outcomes; the evidence catalog has 102 records, zero errors/37 historical
+  warnings. No full-domain-model completeness or separate completion audit is inferred.
 
 ## Next
 
-PE-10/PE-11 follow the coordinator readiness map. PE-12 owns assembled qualification and wider
-capacity/adoption decisions. Continue F01's recognizer investigation through its existing owner.
+F01's recognition opportunity remains with its owning interpretation package. Current runtime
+scope is complete; assess future source/workload growth against the recorded capacity limits.

@@ -1,7 +1,7 @@
 # Model-governed production efficiency
 
-**Status:** In progress; PE-00–PE-09 implemented with scoped evidence and bounded investigation decisions · **Created:**2026-10-30.
-**Target maturity:** Proposed. This coordinator owns PE-00–PE-12 package state and current disposition
+**Status:** PE-00–PE-12 implemented; selected target required-union qualified; F01 remains open · **Created:**2026-10-30.
+**Target maturity:** Tested for the selected production target; Measured only for bounded observations. This coordinator owns PE-00–PE-12 package state and current disposition
 of findings scheduled from the [production-efficiency review](../design_review/reviews/production-efficiency_2026-10-30.md).
 Approval to create these documents is not a claim of implementation or measured benefit.
 
@@ -82,9 +82,9 @@ Historical archive/source bytes and recorded meaning remain preserved. No databa
 | PE-07 | [Text/candidates](production-efficiency/text-and-candidate-analysis.md#PE-07): prepared assignment/citation consumers | PE-06; PE-04 for substantive mathematical comparisons | Implemented; scoped verification §11 |
 | PE-08 | [Data execution](production-efficiency/data-execution-and-publication.md#PE-08): one owned transport outside retries where valid | Existing ownership/receipt contract; reconcile with PE-01 | Implemented; scoped verification §12 |
 | PE-09 | [Data execution](production-efficiency/data-execution-and-publication.md#PE-09): resident/spooled capture, trusted builders, graph preparation | PE-01 capture contract, PE-08 ownership, RC04 | Implemented; bounded capacity evidence §12 |
-| PE-10 | [Runtime/adoption](production-efficiency/runtime-preparation-and-adoption.md#PE-10): cheap logical scheduling and bulk source context | PE-01 invocation/dependencies; RC03 before identity change | Open |
-| PE-11 | [Runtime/adoption](production-efficiency/runtime-preparation-and-adoption.md#PE-11): cheap product opening/startup | Protected finalization/trust and existing explicit lifecycle | Open |
-| PE-12 | [Runtime/adoption](production-efficiency/runtime-preparation-and-adoption.md#PE-12): integrated adoption/retirement and evidence | All implemented contracts and migrated required consumers | Open |
+| PE-10 | [Runtime/adoption](production-efficiency/runtime-preparation-and-adoption.md#PE-10): cheap logical scheduling and bulk source context | PE-01 invocation/dependencies; RC03 before identity change | Implemented; scoped verification §13 |
+| PE-11 | [Runtime/adoption](production-efficiency/runtime-preparation-and-adoption.md#PE-11): cheap product opening/startup | Protected finalization/trust and existing explicit lifecycle | Implemented; scoped verification §13 |
+| PE-12 | [Runtime/adoption](production-efficiency/runtime-preparation-and-adoption.md#PE-12): integrated adoption/retirement and evidence | All implemented contracts and migrated required consumers | Implemented; required-union Tested §13 |
 
 A contract agreed for design does not establish working runtime/native enforcement. PE-02/PE-05
 investigations can use agreed contracts early. PE-08 and local PE-11 fixes can proceed without
@@ -107,10 +107,10 @@ contributors, actual consumer adoption and suitable evidence, not merely a helpe
 | F05 | Hierarchy/per-symbol scope indexes; PE-06 | Closed in PE-06 · indexed source resolution; scoped parity | Enclosure/reopen/mention results preserve meaning; repeated flat scans retire |
 | F06 | Candidate/eligibility/comparison indexes and native citation processing; PE-04/06/07 | Closed in PE-06/07 · dependencies and native scorer connected; scoped checks | No hidden scorer wrapper or repeated invariant preparation; ties/cycles/global candidates preserved |
 | F07 | Compose owned transport and move stable work outside retry; PE-08 | Closed for PE-08 · owned transport composed once and reused by retry | One freeze/canonicalization, same canonical receipts, correct mutation isolation/replay |
-| F08 | Separate logical skips from provider preparation and bulk-load frames; PE-10 | Open · RC03 and source custody | Skips require no provider packet; required logical coverage and effective origin/frame identity remain |
-| F09 | Finalized header-first opening and explicit verification; PE-11 | Open · trust-qualified cache only | Warm hit avoids full payload transfer; untrusted/historical/admission verification remains necessary and effective |
-| F10 | Cheap command registration and owner-local runtime preparation; PE-11 | Open · no new plugin framework | Real CLI/MCP entry points preserve behavior without importing unused analytical kernels |
-| F11 | One capture contract, resident/spooled lowerings; PE-09/12 | Implemented PE-09 · PE-12 assembled capacity/adoption remains open | Required larger input can detach before long analytics; complete exact export and cleanup remain |
+| F08 | Separate logical skips from provider preparation and bulk-load frames; PE-10 | Closed for PE-10/12 · disjoint invocation identity, shared preparation and set-based origins | Skips require no provider packet; required logical coverage and effective origin/frame identity remain |
+| F09 | Finalized header-first opening and explicit verification; PE-11 | Closed for PE-11/12 · header-only warm opening with preserved full/effect verification | Warm hit avoids full payload transfer; untrusted/historical/admission verification remains necessary and effective |
+| F10 | Cheap command registration and owner-local runtime preparation; PE-11 | Closed for PE-11/12 · actual CLI/MCP registration and selected-command adoption | Real CLI/MCP entry points preserve behavior without importing unused analytical kernels |
+| F11 | One capture contract, resident/spooled lowerings; PE-09/12 | Closed for PE-09/12 selected scope · resident/spooled adoption; bounded capacity limits retained | Required larger input can detach before long analytics; complete exact export and cleanup remain |
 
 Additional review obligations are owned explicitly: constant RDF shape preparation/mutable Graph
 isolation and trusted CandidateInput builder reuse belong to PE-09; native exact-value normalization
@@ -271,3 +271,24 @@ packet-disposal correction passed affected storage/native/archive checks; the pa
 records final-source applicability and the corrected missing-import failure. The earlier
 interrupted receipts retain no completion credit. This establishes PE-08–PE-09 acceptance,
 without claiming PE-12 assembled performance or provider qualification.
+
+
+<a id="13-pe-10pe-12-execution-2026-10-30"></a>
+## 13. PE-10–PE-12 execution — 2026-10-30
+
+[Runtime execution](production-efficiency/runtime-preparation-and-adoption.md#execution-2026-10-30)
+owns invocation/native support, bulk frames, header-qualified archive reuse, startup mechanisms
+and verification boundaries. PE-10–PE-12 are implemented and the selected target is required-union
+qualified. Final 0040-bound statistics/transfer/frame runs 4–6 and their actual consumers completed;
+active release and selected result agree at generation 4. Initial outputs/grades and prior database
+selections are unchanged. F08–F11 are closed within their stated obligations and bounded evidence;
+F01's recognizer opportunity remains open. No audit premises or testing architecture changed.
+
+The original broad invocation retained 2,425 passed/three failed; the 164-case affected receipt
+covers corrections and retained-reader support. All 2,429 required Python nodes have applicable
+passing evidence and none is unresolved. Original aggregate failure and differing source contexts
+remain visible. Current bindings/native products were checked through actual final deployment,
+derivation and production journeys. Warning-aware typing and remaining hygiene passed without
+repeating type/tests after lint. Empty Rust selection supplies no functional coverage. Bounded
+startup/archive work elimination and resident/spooled equality establish their stated benefits;
+parser speedup, lower process RSS or a global performance optimum is not inferred.
