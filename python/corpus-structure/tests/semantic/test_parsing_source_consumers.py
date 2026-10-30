@@ -208,3 +208,69 @@ def test_actual_mcp_protocol_reads_shared_service_without_stronger_work(
             wrong_run = await client.call_tool("inspect_source", {"request": request.model_copy(update={"run_id": selected.source_run}).model_dump(mode="json")}, raise_on_error=False)
             assert wrong_run.is_error and "different semantic run" in str(wrong_run.content)
     anyio.run(journey)
+
+
+def test_native_bounded_reads_do_not_transfer_manifests_or_representation_text(
+    selected_products, semantic_reader_engine
+):
+    from sqlalchemy import event
+
+    selected = selected_products
+    observed = []
+    forbidden = {"payload", "text_content", "text_content_utf8_base64", "content"}
+    def observe(conn, cursor, statement, parameters, context, executemany):
+        if not any(name in statement for name in (
+            "ops.parsing_product", "ops.parsing_layer_product", "kb.parsing_", "kb.source_artifact"
+        )) or cursor.description is None:
+            return
+        names = {column.name for column in cursor.description}
+        assert not names & forbidden, f"unbounded body columns transferred: {names & forbidden}"
+        observed.append((statement, names))
+    event.listen(semantic_reader_engine, "after_cursor_execute", observe)
+    try:
+        with semantic_reader_engine.begin() as conn:
+            base = dict(run_id=selected.request_run, rendition_id=selected.rendition,
+                        producing_task_id=selected.math.task_id, product_key="math")
+            components = inspect_source(conn, SourceRequest(**base, view="components",
+                representation_id="parse_input", start=0, end=9, limit=2))
+            assert len(components.rows) == 1
+            endpoints = inspect_source(conn, SourceRequest(**base, view="relationships",
+                relationship_id="source-reading", limit=2))
+            assert [row["role"] for row in endpoints.rows] == ["target", "source"]
+            original = inspect_source(conn, SourceRequest(**base, view="trace",
+                representation_id="parse_input", start=0, end=9, limit=20))
+            assert original.outcome == "complete" and original.rows
+            artifact = inspect_source(conn, SourceRequest(run_id=selected.source_run,
+                rendition_id=selected.rendition, producing_task_id=selected.text.task_id,
+                product_key="text", view="trace", representation_id="expanded:0", start=0, end=10, limit=20))
+            assert artifact.outcome == "complete" and artifact.rows
+            headers = inspect_source(conn, SourceRequest(run_id=selected.request_run,
+                rendition_id=selected.rendition, view="products", limit=10))
+            assert {row["kind"] for row in headers.rows} == {"source", "text", "interpretation"}
+        assert observed
+        assert any("sha256" in statement for statement, _ in observed)
+    finally:
+        event.remove(semantic_reader_engine, "after_cursor_execute", observe)
+
+
+def test_native_header_corruption_with_matching_payload_pin_is_refused(
+    selected_products, semantic_db_engine, semantic_reader_engine
+):
+    from sqlalchemy import update
+    from corpus_structure.semantic.metadata import table
+
+    selected = selected_products
+    relation = table("ops.parsing_layer_product")
+    # Only this owned clone is corrupted, under its actual owner. Its immutable body and
+    # reference digest remain unchanged; a header-only reader must still detect disagreement.
+    with semantic_db_engine.begin() as conn:
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        conn.exec_driver_sql("ALTER TABLE ops.parsing_layer_product DISABLE TRIGGER USER")
+        conn.execute(update(relation).where(relation.c.task_id == selected.math.task_id,
+            relation.c.product_key == "math").values(coverage="partial"))
+        conn.exec_driver_sql("ALTER TABLE ops.parsing_layer_product ENABLE TRIGGER USER")
+    with semantic_reader_engine.begin() as conn:
+        with pytest.raises(ValueError, match="registry|identity|manifest"):
+            inspect_source(conn, SourceRequest(run_id=selected.request_run, rendition_id=selected.rendition,
+                producing_task_id=selected.math.task_id, product_key="math", view="components",
+                representation_id="parse_input", start=0, end=9, limit=2))

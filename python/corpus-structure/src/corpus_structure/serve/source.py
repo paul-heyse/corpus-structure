@@ -46,9 +46,8 @@ class SourceResponse(BaseModel):
 def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
     """Read a selected product; absence is explicit and never initiates interpretation."""
     from corpus_structure.semantic.parsing_products import (
-        PreparedParsingProduct,
-        read_layered_product,
         select_layered_products,
+        verified_product_header,
     )
 
     runs = table("ops.run")
@@ -105,6 +104,13 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
                 "required capability under its admitted recipe."
             ],
         )
+    verified = []
+    for candidate in selected:
+        header = verified_product_header(conn, candidate.reference)
+        if header is None:
+            raise OperationConflict("selected retained product is unavailable")
+        verified.append(header)
+    selected = tuple(verified)
     if request.view == "products":
         return SourceResponse(
             **base, outcome="available", rows=[to_jsonable_python(asdict(row)) for row in selected]
@@ -112,15 +118,10 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
     if len(selected) != 1:
         raise OperationConflict("inspection requires one explicitly pinned product")
     reference = selected[0].reference
-    product = read_layered_product(conn, reference)
-    if product is None:
-        raise OperationConflict("selected retained product is unavailable")
-    values = product.values()
+    header = selected[0]
     if request.view == "trace":
-        representations = {row["representation_id"]: row for row in values["representations"]}
-        rep = representations.get(request.representation_id)
-        if rep is None:
-            raise ValueError("representation is not in this product")
+        rep = parsing_queries.representation_header(conn, reference=reference,
+                                                    representation_id=request.representation_id)
         traced = parsing_queries.trace_layered_origins(
             conn,
             reference=reference,
@@ -139,7 +140,7 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
                 "inspect the qualified trace"
             )
         return SourceResponse(**base, outcome=traced["outcome"], rows=rows)
-    if isinstance(product, PreparedParsingProduct):
+    if header.kind == "source":
         if request.view == "relationships":
             if request.relationship_id is None:
                 raise ValueError("relationship inspection requires relationship_id")
@@ -150,16 +151,8 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
                 limit=request.limit,
             )
             return SourceResponse(**base, outcome="complete", rows=[asdict(row) for row in rows])
-        rep = next(
-            (
-                r
-                for r in values["representations"]
-                if r["representation_id"] == request.representation_id
-            ),
-            None,
-        )
-        if rep is None:
-            raise ValueError("representation is not in this product")
+        rep = parsing_queries.representation_header(conn, reference=reference,
+                                                    representation_id=request.representation_id)
         rows = parsing_queries.components(
             conn,
             task_id=reference.task_id,
@@ -186,16 +179,8 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
             .order_by(relation.c.ordinal)
         )
     else:
-        rep = next(
-            (
-                r
-                for r in values["representations"]
-                if r["representation_id"] == request.representation_id
-            ),
-            None,
-        )
-        if rep is None:
-            raise ValueError("representation is not in this product")
+        rep = parsing_queries.representation_header(conn, reference=reference,
+                                                    representation_id=request.representation_id)
         end = rep["extent_length"] if request.end is None else request.end
         if not 0 <= request.start <= end <= rep["extent_length"]:
             raise ValueError("inspection range is outside its representation")
@@ -221,4 +206,4 @@ def inspect_source(conn: Connection, request: SourceRequest) -> SourceResponse:
     ]
     if len(rows) > request.limit:
         raise parsing_queries.ParsingReadLimit("inspection exceeds its declared answer bound")
-    return SourceResponse(**base, outcome=values["coverage"], rows=rows)
+    return SourceResponse(**base, outcome=header.coverage, rows=rows)
