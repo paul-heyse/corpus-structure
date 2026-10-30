@@ -1084,7 +1084,7 @@ def select_layered_products(
     limit: int = 1000,
 ) -> tuple[SelectedParsingProduct, ...]:
     """Resolve run-selected/reused producers; ambiguous candidates require an explicit pin."""
-    from sqlalchemy import func, or_
+    from sqlalchemy import exists, func, or_
 
     if isinstance(limit, bool) or not 1 <= limit <= 10000:
         raise ValueError("product selection limit must be between 1 and 10000")
@@ -1129,9 +1129,39 @@ def select_layered_products(
         )
     )
     roots = selected_roots.union(derived_roots)
+    dependencies = table("kb.parsing_layer_dependency")
+    custody = (
+        select(products.c.task_id, products.c.product_key, products.c.content_digest)
+        .where(products.c.task_id.in_(selected_tasks))
+        .cte("selected_product_custody", recursive=True)
+    )
+    custody = custody.union(
+        select(
+            dependencies.c.target_task_id,
+            dependencies.c.target_product_key,
+            dependencies.c.target_content_digest,
+        )
+        .join(
+            custody,
+            (dependencies.c.task_id == custody.c.task_id)
+            & (dependencies.c.product_key == custody.c.product_key),
+        )
+        .where(dependencies.c.kind == "product")
+    )
+    # UNION over full immutable references terminates revisits. Only explicitly named
+    # prerequisites enter the read universe, retaining their original producer identity.
+    named = exists(
+        select(1)
+        .select_from(custody)
+        .where(
+            custody.c.task_id == products.c.task_id,
+            custody.c.product_key == products.c.product_key,
+            custody.c.content_digest == products.c.content_digest,
+        )
+    )
     query = select(products).where(
         products.c.root_task_id.in_(roots),
-        or_(products.c.kind == "source", products.c.task_id.in_(selected_tasks)),
+        or_(products.c.kind == "source", named),
     )
     if kind is not None:
         query = query.where(products.c.kind == kind)
