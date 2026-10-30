@@ -284,13 +284,13 @@ def test_full_projection_exports_and_cancel_cleanup(
     assert set(parquet["relations"]) == set(jsonl["relations"]) == set(SPINE)
     for name, relation in packet.relations.items():
         assert pq.read_table(tmp_path / "parquet" / f"{name}.parquet").equals(
-            relation, check_metadata=True
+            packet.to_table(name), check_metadata=True
         )
         assert (
             len((tmp_path / "jsonl" / f"{name}.jsonl").read_text().splitlines())
             == relation.num_rows
         )
-    original = pq.write_table
+    original = pq.ParquetWriter.write_batch
     count = 0
 
     def cancel(*args, **kwargs):
@@ -300,7 +300,7 @@ def test_full_projection_exports_and_cancel_cleanup(
             raise KeyboardInterrupt()
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(pq, "write_table", cancel)
+    monkeypatch.setattr(pq.ParquetWriter, "write_batch", cancel)
     with pytest.raises(KeyboardInterrupt):
         export_packet(packet, tmp_path / "cancelled")
     assert not (tmp_path / "cancelled").exists()

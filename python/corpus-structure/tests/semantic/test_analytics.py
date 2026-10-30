@@ -296,7 +296,11 @@ def test_native_exported_snapshot_and_decimal_boundary(
         packet = load_packet(session, uri, mode=mode, batch_size=2)
         assert packet.binding.data_revision == 1
     assert packet.relations["fact"].num_rows == 1
-    lexical = [row for batch in packet.iter_batches("typed_value",batch_size=2) for row in batch.to_pylist()]
+    lexical = [
+        row
+        for batch in packet.iter_batches("typed_value", batch_size=2)
+        for row in batch.to_pylist()
+    ]
     numeric = next(r for r in lexical if r["kind"] == "decimal")
     assert numeric["decimal_lexical"] == "1.0000000000015"
     assert numeric["decimal_value"] == Decimal("1.000000000002")

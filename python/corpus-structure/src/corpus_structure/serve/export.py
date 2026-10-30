@@ -15,6 +15,7 @@ from typing import Literal
 import pyarrow.parquet as pq
 
 from corpus_structure.semantic.analytics import SPINE, CapturedPacket
+from corpus_structure.semantic.capture_storage import FileRelation, LogicalRows
 
 
 def _json(value):
@@ -38,8 +39,11 @@ def export_packet(
     if destination.exists():
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    packet.validate_manifest()
     manifest = {
-        "format": "semantic-export-1",
+        "format": "semantic-export-2" if packet.manifest else "semantic-export-1",
+        "logical_digest": packet.logical_digest,
+        "digest_recipe": "canonical-rows-1",
         "encoding": format,
         "binding": asdict(packet.binding),
         "projection_id": packet.projection_id,
@@ -59,6 +63,9 @@ def export_packet(
         root.mkdir()
         for name in SPINE:
             relation = packet.relations[name]
+            if isinstance(relation, FileRelation):
+                relation.verify()
+            logical = LogicalRows(relation.schema)
             metadata = relation.schema.metadata or {}
             expected = {
                 "release": packet.binding.release_id,
@@ -73,10 +80,14 @@ def export_packet(
                 raise ValueError(f"relation {name} has no matching captured provenance")
             path = root / (name + "." + format)
             if format == "parquet":
-                pq.write_table(relation, path, store_schema=True)
+                with pq.ParquetWriter(path, relation.schema, store_schema=True) as writer:
+                    for batch in packet.iter_batches(name):
+                        logical.write(batch)
+                        writer.write_batch(batch)
             else:
                 with path.open("w", encoding="utf-8") as stream:
-                    for batch in relation.to_batches(max_chunksize=1024):
+                    for batch in packet.iter_batches(name, batch_size=1024):
+                        logical.write(batch)
                         for row in batch.to_pylist():
                             stream.write(
                                 json.dumps(
@@ -88,11 +99,19 @@ def export_packet(
                                 )
                                 + "\n"
                             )
+            if (
+                packet.manifest
+                and logical.digest != packet.manifest["relations"][name]["logical_digest"]
+            ):
+                raise ValueError("export content differs from captured logical digest")
             with path.open("rb") as checksum:
                 digest = file_digest(checksum, "sha256").hexdigest()
             manifest["relations"][name] = {
                 "file": path.name,
                 "rows": relation.num_rows,
+                "logical_digest": packet.manifest["relations"][name]["logical_digest"]
+                if packet.manifest
+                else None,
                 "sha256": digest,
                 "arrow_schema": base64.b64encode(relation.schema.serialize().to_pybytes()).decode(
                     "ascii"

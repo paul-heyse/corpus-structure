@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "7"
+EXECUTION_COMPILER_VERSION = "8"
 
 
 @lru_cache(maxsize=1)
@@ -418,6 +418,16 @@ class PlacementPolicyDefinition:
 
 
 @dataclass(frozen=True)
+class CapturePolicyDefinition:
+    modes: tuple[str, ...]
+    manifest: str
+    digest: str
+    ordering: str
+    completeness: str
+    storage: str
+
+
+@dataclass(frozen=True)
 class AnalysisProfile:
     id: str
     version: str
@@ -433,6 +443,7 @@ class AnalysisProfile:
     text_policy: TextPreparationPolicy | None = None
     alignment_policy: AlignmentPolicyDefinition | None = None
     placement_policy: PlacementPolicyDefinition | None = None
+    capture_policy: CapturePolicyDefinition | None = None
 
 
 @dataclass(frozen=True)
@@ -566,7 +577,7 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
     data = json.loads(payload)
     if data.get("model_id") != model_id:
         _fail("execution_binding", name, "execution payload identity differs")
-    if data.get("inputs", {}).get("compiler_version") in {"1", "2", "3", "4", "5", "6"}:
+    if data.get("inputs", {}).get("compiler_version") in {"1", "2", "3", "4", "5", "6", "7"}:
         # Retained immutable reader ABI, without allowing historical writes/activation.
         if name not in {
             "reload",
@@ -622,7 +633,16 @@ def bound_execution_model(prepared) -> ExecutionModelProducts:
 @lru_cache(maxsize=16)
 def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts:
     data = json.loads(body)
-    if data.get("inputs", {}).get("compiler_version") not in {"1", "2", "3", "4", "5", "6", "7"}:
+    if data.get("inputs", {}).get("compiler_version") not in {
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+    }:
         _fail(
             "unsupported_execution_abi", model_id, "execution product has no supported compiler ABI"
         )
@@ -666,6 +686,10 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
             SourceArtifact(name, root.joinpath(*path.split("/")).read_bytes())
             for name, path in (
                 ("text/sentences.py", "ingest/sentences.py"),
+                ("capture/analytics.py", "semantic/analytics.py"),
+                ("capture/storage.py", "semantic/capture_storage.py"),
+                ("publication/arrow.py", "semantic/arrow_publication.py"),
+                ("graph/ontology.py", "semantic/ontology.py"),
                 ("text/scope.py", "methods/math/scope.py"),
                 ("text/ingest.py", "ingest/html.py"),
                 ("alignment/semantic_alignment.py", "evaluate/semantic_alignment.py"),
@@ -698,6 +722,12 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 {
                     name: version(name)
                     for name in (
+                        "pyarrow",
+                        "duckdb",
+                        "adbc-driver-postgresql",
+                        "pgpq",
+                        "rdflib",
+                        "pyshacl",
                         "sympy",
                         "lark",
                         "spacy",
@@ -1075,6 +1105,10 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     names = tuple(item.name for item in inputs.implementations)
     required_implementations = {
         "text/sentences.py",
+        "capture/analytics.py",
+        "capture/storage.py",
+        "publication/arrow.py",
+        "graph/ontology.py",
         "text/scope.py",
         "text/ingest.py",
         "alignment/semantic_alignment.py",
@@ -1112,7 +1146,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         _normalize(data, model_id),
         implementation_digests=tuple((item.name, item.digest) for item in inputs.implementations),
     )
-    if not products.analysis_profiles or any(p.version != "3" for p in products.analysis_profiles):
+    if not products.analysis_profiles or any(p.version != "4" for p in products.analysis_profiles):
         _fail(
             "missing_analysis_profile",
             inputs.catalog.name,

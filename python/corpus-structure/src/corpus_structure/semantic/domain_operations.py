@@ -2067,9 +2067,13 @@ def consolidate_cut(
     from .arrow_publication import SnapshotDerivedPublication
 
     publication = SnapshotDerivedPublication.from_rows(
-        batch, source=inputs.source_binding, operation_id="evaluate",
-        projection_id=compiled.projection_id, contract_id="candidate",
-        cut_id=cut_id, profile_digest=compiled.profile.digest,
+        batch,
+        source=inputs.source_binding,
+        operation_id="evaluate",
+        projection_id=compiled.projection_id,
+        contract_id="candidate",
+        cut_id=cut_id,
+        profile_digest=compiled.profile.digest,
     )
     receipt = _publish(engine, publication, publish, attempts=attempts)
     with engine.connect() as conn:

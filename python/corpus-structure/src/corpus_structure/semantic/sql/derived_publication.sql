@@ -81,7 +81,7 @@ BEGIN
   IF profile IS NULL OR profile IS DISTINCT FROM profile_digest THEN
    RAISE EXCEPTION 'candidate arithmetic profile differs from release' USING ERRCODE='23514'; END IF;
   expected_projection:='projection:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
-   r,data.execution_contract_descriptor()->>'physical_id','analytical-5',profile,contract)),'UTF8')),'hex');
+   r,data.execution_contract_descriptor()->>'physical_id',data.execution_contract_descriptor()->>'analytical_abi',profile,contract)),'UTF8')),'hex');
   IF projection IS DISTINCT FROM expected_projection THEN RAISE EXCEPTION 'candidate compiled projection differs' USING ERRCODE='23514'; END IF;
  ELSIF operation='publish_inference' AND contract_id='accepted' THEN
   IF z IS DISTINCT FROM source_realization OR projection IS DISTINCT FROM 'accepted' OR cut_id IS NOT NULL OR profile_digest IS NOT NULL THEN

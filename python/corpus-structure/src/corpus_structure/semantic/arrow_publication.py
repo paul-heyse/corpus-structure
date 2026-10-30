@@ -270,14 +270,24 @@ class SnapshotDerivedPublication:
     ) -> None:
         self._bind(
             AppendPublication(release_id, realization_id, batch_id, relations),
-            source=source, operation_id=operation_id, projection_id=projection_id,
-            contract_id=contract_id, cut_id=cut_id, profile_digest=profile_digest,
+            source=source,
+            operation_id=operation_id,
+            projection_id=projection_id,
+            contract_id=contract_id,
+            cut_id=cut_id,
+            profile_digest=profile_digest,
         )
 
     def _bind(
-        self, transport: AppendPublication, *, source: SnapshotBinding,
-        operation_id: str, projection_id: str, contract_id: str | None,
-        cut_id: int | None, profile_digest: str | None,
+        self,
+        transport: AppendPublication,
+        *,
+        source: SnapshotBinding,
+        operation_id: str,
+        projection_id: str,
+        contract_id: str | None,
+        cut_id: int | None,
+        profile_digest: str | None,
     ) -> None:
         if type(transport) is not AppendPublication:
             raise ArrowPublicationError("derived composition requires an owned AppendPublication")
@@ -336,15 +346,26 @@ class SnapshotDerivedPublication:
 
     @classmethod
     def from_transport(
-        cls, transport: AppendPublication, *, source: SnapshotBinding,
-        operation_id: str, projection_id: str, contract_id: str | None = None,
-        cut_id: int | None = None, profile_digest: str | None = None,
+        cls,
+        transport: AppendPublication,
+        *,
+        source: SnapshotBinding,
+        operation_id: str,
+        projection_id: str,
+        contract_id: str | None = None,
+        cut_id: int | None = None,
+        profile_digest: str | None = None,
     ) -> SnapshotDerivedPublication:
         """Compose actual owned buffers/content; never re-freeze or recanonicalize them."""
         result = object.__new__(cls)
         result._bind(
-            transport, source=source, operation_id=operation_id, projection_id=projection_id,
-            contract_id=contract_id, cut_id=cut_id, profile_digest=profile_digest,
+            transport,
+            source=source,
+            operation_id=operation_id,
+            projection_id=projection_id,
+            contract_id=contract_id,
+            cut_id=cut_id,
+            profile_digest=profile_digest,
         )
         return result
 

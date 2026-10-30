@@ -51,7 +51,14 @@ from .analytical_kernels import (
     ViewSpec,
 )
 from .analytical_profile import AnalyticalProfile
-from .capture_storage import CaptureOwner, FileRelation, finish_manifest, store_relation
+from .capture_storage import (
+    CaptureOwner,
+    FileRelation,
+    FrozenManifest,
+    LogicalRows,
+    finish_manifest,
+    store_relation,
+)
 from .identity import canonical_bytes
 from .metadata import PHYSICAL_MODEL_ID, table
 from .types import PreparedRelease
@@ -139,13 +146,66 @@ class CapturedPacket:
     input_contract: OwnedAnalysisInput | None = dataclass_field(default=None, kw_only=True)
 
     manifest: Mapping[str, Any] | None = dataclass_field(default=None, kw_only=True)
-    owner: CaptureOwner | None = dataclass_field(default=None, kw_only=True, repr=False, compare=False)
+    owner: CaptureOwner | None = dataclass_field(
+        default=None, kw_only=True, repr=False, compare=False
+    )
+
+    _closed: bool = dataclass_field(default=False, init=False, repr=False, compare=False)
 
     @property
     def logical_digest(self) -> str | None:
         return self.manifest["logical_digest"] if self.manifest else None
 
+    def to_table(self, name: str) -> pa.Table:
+        """Explicitly materialize one relation; ordinary spooled analysis stays lazy."""
+        return pa.Table.from_batches(self.iter_batches(name), schema=self.relations[name].schema)
+
+    def validate_manifest(self):
+        if self.manifest is None:
+            return
+        from .analysis_contracts import validate_capture_manifest
+        from .capture_storage import manifest_digest
+
+        validate_capture_manifest(self.manifest)
+        manifest = self.manifest
+        if (
+            manifest["binding"] != asdict(self.binding)
+            or manifest["projection_id"] != self.projection_id
+            or manifest["profile_digest"] != self.profile_digest
+            or set(self.relations) != set(SPINE)
+            or set(manifest["relations"]) != set(self.relations)
+            or manifest_digest(manifest) != manifest["logical_digest"]
+        ):
+            raise ValueError("capture manifest binding/content differs")
+        if self.input_contract is not None and dict(self.input_contract.dependencies).get(
+            "content"
+        ) != canonical_bytes({"logical_digest": manifest["logical_digest"]}):
+            raise ValueError("capture logical content differs from owned preparation")
+        import base64
+
+        for name, relation in self.relations.items():
+            expected = _metadata(self.binding, self.projection_id, self.profile_digest, name)
+            if not relation.schema.equals(
+                pa.schema(_fields(name, self.scale), metadata=expected), check_metadata=True
+            ):
+                raise ValueError("capture relation has wrong compiled shape/metadata")
+            declared = manifest["relations"][name]
+            if (
+                declared["rows"] != relation.num_rows
+                or declared["arrow_schema"]
+                != base64.b64encode(relation.schema.serialize().to_pybytes()).decode()
+            ):
+                raise ValueError("capture relation differs from manifest")
+            if isinstance(relation, FileRelation) and (
+                declared.get("file") != relation.path.name
+                or declared.get("sha256") != relation.sha256
+                or declared["logical_digest"] != relation.logical_digest
+            ):
+                raise ValueError("captured file differs from manifest")
+
     def iter_batches(self, name: str, batch_size: int = 65536):
+        if self._closed:
+            raise RuntimeError("captured packet is closed")
         if batch_size < 1:
             raise ValueError("batch_size must be positive")
         if self.owner:
@@ -153,6 +213,13 @@ class CapturedPacket:
         try:
             relation = self.relations[name]
             if isinstance(relation, FileRelation):
+                relation.verify()
+                if not (self.owner and self.owner.owns(name, relation)):
+                    logical = LogicalRows(relation.schema)
+                    for part in relation.iter_batches(batch_size):
+                        logical.write(part)
+                    if logical.digest != relation.logical_digest:
+                        raise ValueError("captured file logical content differs")
                 yield from relation.iter_batches(batch_size)
             else:
                 yield from relation.to_batches(max_chunksize=batch_size)
@@ -161,17 +228,26 @@ class CapturedPacket:
                 self.owner.release()
 
     def close(self):
+        object.__setattr__(self, "_closed", True)
         if self.owner:
             self.owner.close()
 
     def __enter__(self):
+        if self._closed:
+            raise RuntimeError("captured packet is closed")
         return self
 
-    def __exit__(self, *_):
-        self.close()
+    def __exit__(self, kind, error, traceback):
+        if error is None:
+            self.close()
+        else:
+            _cleanup_after_failure(error, self.close)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "relations", MappingProxyType(dict(self.relations)))
+        if self.manifest is not None:
+            object.__setattr__(self, "manifest", FrozenManifest(self.manifest))
+            self.validate_manifest()
 
 
 # Existing capture callers retain their import while the two provenance types stay disjoint.
@@ -207,7 +283,10 @@ class CandidateInput:
             raise ValueError("candidate relation has wrong compiled shape")
         if any(relation[name].null_count for name in ("fact_id", "occurrence_id", "evidence")):
             raise ValueError("candidate relation contains missing identifiers/support sets")
-        if pc.call_function("count_distinct", [relation["occurrence_id"]]).as_py() != relation.num_rows:
+        if (
+            pc.call_function("count_distinct", [relation["occurrence_id"]]).as_py()
+            != relation.num_rows
+        ):
             raise ValueError("candidate relation repeats an occurrence identity")
         object.__setattr__(self, "relations", MappingProxyType(dict(self.relations)))
 
@@ -221,8 +300,9 @@ class CandidateInput:
         decision_universe: str,
     ) -> CandidateInput:
         """Validate an externally supplied relation against the complete admitted cut."""
-        return cls._from_cut(prepared, cut, candidates=candidates,
-                             decision_universe=decision_universe)
+        return cls._from_cut(
+            prepared, cut, candidates=candidates, decision_universe=decision_universe
+        )
 
     @classmethod
     def from_admitted_cut(
@@ -233,12 +313,15 @@ class CandidateInput:
         The source records, rather than a caller assertion about an Arrow table, establish
         this construction route. External tables retain the independent from_cut boundary.
         """
-        return cls._from_cut(prepared, cut, candidates=None,
-                             decision_universe=decision_universe)
+        return cls._from_cut(prepared, cut, candidates=None, decision_universe=decision_universe)
 
     @classmethod
     def _from_cut(
-        cls, prepared: PreparedRelease, cut: CutInput, *, candidates: pa.Table | None,
+        cls,
+        prepared: PreparedRelease,
+        cut: CutInput,
+        *,
+        candidates: pa.Table | None,
         decision_universe: str,
     ) -> CandidateInput:
         if (
@@ -471,12 +554,32 @@ def _projection_contract(
     return contract
 
 
+def _historical_capture(prepared: PreparedRelease) -> bool:
+    import json
+
+    from .contracts import EXECUTION_COMPILER_VERSION, execution_payload
+
+    if str(json.loads(prepared.manifest)["profile"]["compiler_version"]) in {"10", "11"}:
+        return True
+    payload = execution_payload(prepared)
+    return (
+        payload is not None
+        and json.loads(payload)["inputs"]["compiler_version"] != EXECUTION_COMPILER_VERSION
+    )
+
+
 def _projection_recipe(prepared: PreparedRelease, kind: str) -> tuple[Any, str]:
     """Historical capture retains its archived projection ABI; it admits no new work."""
     import json
 
     compiler = str(json.loads(prepared.manifest)["profile"]["compiler_version"])
     if compiler not in {"10", "11"}:
+        if _historical_capture(prepared):
+            if kind != "captured":
+                raise ValueError(
+                    "historical analytical recipe supports retained capture reads only"
+                )
+            return _projection_contract(prepared, kind), "analytical-5"
         return _projection_contract(prepared, kind), COMPILER_VERSION
     if kind != "captured":
         raise ValueError("historical analytical recipe supports retained capture reads only")
@@ -556,10 +659,12 @@ def compile_projection(
                     else_=qualification,
                 ).label("qualification_key")
             )
-        statement = statement.order_by(*(
-            column.collate("C") if isinstance(column.type, Text) else column
-            for column in source.primary_key.columns
-        ))
+        statement = statement.order_by(
+            *(
+                column.collate("C") if isinstance(column.type, Text) else column
+                for column in source.primary_key.columns
+            )
+        )
         fields = _fields(name, profile.scale)
         schema = pa.schema(fields, metadata=_metadata(binding, identity, profile.digest, name))
         derived_sources = {
@@ -676,9 +781,14 @@ def _owned_input(prepared: PreparedRelease, family: str, **dependencies: Any):
 
 
 def load_packet(
-    session: ReadSession, uri: str, *, driver_path: str | None = None,
-    mode: Literal["resident", "spooled"] = "resident", batch_size: int = 65536,
-    resident_limit_bytes: int = 512 * 1024**2, batch_size_hint_bytes: int = 8 * 1024**2,
+    session: ReadSession,
+    uri: str,
+    *,
+    driver_path: str | None = None,
+    mode: Literal["resident", "spooled"] = "resident",
+    batch_size: int = 65536,
+    resident_limit_bytes: int = 512 * 1024**2,
+    batch_size_hint_bytes: int = 8 * 1024**2,
     scratch_path: str | Path | None = None,
 ) -> AnalyticalPacket:
     """Capture all mutable relations through an imported snapshot, consuming readers once.
@@ -689,10 +799,14 @@ def load_packet(
     from .contracts import execution_payload, require_bound_operation
 
     require_bound_operation(session.prepared, "capture_analytics")
+
     from .analysis_contracts import prepare_capture_policy
 
-    policy = prepare_capture_policy(session.prepared)
-    if mode not in policy.modes or min(batch_size, resident_limit_bytes, batch_size_hint_bytes) < 1:
+    historical = _historical_capture(session.prepared)
+    modes = (
+        ("resident", "spooled") if historical else prepare_capture_policy(session.prepared).modes
+    )
+    if mode not in modes or min(batch_size, resident_limit_bytes, batch_size_hint_bytes) < 1:
         raise ValueError("invalid capture mode or capacity configuration")
     compiled = compile_projection(session.prepared, session.binding)
     snapshot = session.connection.execute(select(text("pg_export_snapshot()"))).scalar_one()
@@ -702,16 +816,21 @@ def load_packet(
         .statement_compiler(postgresql.dialect(paramstyle="named"), None)
         .render_literal_value(snapshot, String())
     )
-    connection = (
-        adbc.connect(uri, db_kwargs={"adbc.postgresql.type_resolver_mode": "builtin"})
-        if driver_path is None
-        else adbc_manager.connect(
-            driver=driver_path,
-            entrypoint="AdbcDriverPostgresqlInit",
-            db_kwargs={"uri": uri, "adbc.postgresql.type_resolver_mode": "builtin"},
-        )
-    )
     owner = CaptureOwner(scratch_path) if mode == "spooled" else None
+    try:
+        connection = (
+            adbc.connect(uri, db_kwargs={"adbc.postgresql.type_resolver_mode": "builtin"})
+            if driver_path is None
+            else adbc_manager.connect(
+                driver=driver_path,
+                entrypoint="AdbcDriverPostgresqlInit",
+                db_kwargs={"uri": uri, "adbc.postgresql.type_resolver_mode": "builtin"},
+            )
+        )
+    except BaseException as error:
+        if owner:
+            _cleanup_after_failure(error, owner.close)
+        raise
     descriptors = {}
     budget = [0]
     try:
@@ -721,54 +840,89 @@ def load_packet(
                     cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
                     cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
                     cursor.execute("SET TRANSACTION SNAPSHOT " + snapshot_sql)
-                    cursor.adbc_statement.set_options(**{
-                        "adbc.postgresql.use_copy": "true",
-                        "adbc.postgresql.batch_size_hint_bytes": str(batch_size_hint_bytes),
-                    })
+                    cursor.adbc_statement.set_options(
+                        **{
+                            "adbc.postgresql.use_copy": "true",
+                            "adbc.postgresql.batch_size_hint_bytes": str(batch_size_hint_bytes),
+                        }
+                    )
                     relations = {}
                     for projection in compiled.relations:
                         cursor.execute(compile_sql(projection.statement))
                         with cursor.fetch_record_batch() as reader:
-                            def normalized():
+
+                            def normalized(projection=projection, reader=reader):
                                 for raw in reader:
                                     for offset in range(0, raw.num_rows, batch_size):
                                         value = normalize_relation(
                                             pa.Table.from_batches([raw.slice(offset, batch_size)]),
-                                            projection, compiled.profile,
+                                            projection,
+                                            compiled.profile,
                                         )
                                         yield from value.to_batches(max_chunksize=batch_size)
-                            relations[projection.name], descriptors[projection.name] = store_relation(
-                                owner, projection.name, projection.schema, normalized(),
-                                tuple(c.name for c in table("data." + projection.name).primary_key.columns),
-                                budget, resident_limit_bytes,
+
+                            relations[projection.name], descriptors[projection.name] = (
+                                store_relation(
+                                    owner,
+                                    projection.name,
+                                    projection.schema,
+                                    normalized(),
+                                    tuple(
+                                        c.name
+                                        for c in table(
+                                            "data." + projection.name
+                                        ).primary_key.columns
+                                    ),
+                                    budget,
+                                    resident_limit_bytes,
+                                )
                             )
             finally:
                 bulk.rollback()
-        manifest = finish_manifest(owner, asdict(compiled.binding), compiled.projection_id,
-                                   compiled.profile.digest, descriptors)
-    except BaseException:
+        manifest = (
+            None
+            if historical
+            else finish_manifest(
+                owner,
+                asdict(compiled.binding),
+                compiled.projection_id,
+                compiled.profile.digest,
+                descriptors,
+            )
+        )
+    except BaseException as error:
         if owner:
-            owner.close()
+            _cleanup_after_failure(error, owner.close)
         raise
-    return AnalyticalPacket(
-        compiled.binding,
-        compiled.projection_id,
-        compiled.profile.digest,
-        MappingProxyType(relations),
-        tuple(sorted({p.iri for d in session.prepared.definitions for p in d.properties})),
-        compiled.profile.scale,
-        execution_model_id=session.prepared.execution_model_id,
-        execution_contract=execution_payload(session.prepared),
-        owner=owner, manifest=manifest,
-        input_contract=_owned_input(
-            session.prepared,
-            "capture",
-            release=session.prepared.release_id,
-            snapshot=asdict(compiled.binding),
-            projection=compiled.projection_id,
-            content={"exported_snapshot": snapshot, "projection": compiled.projection_id},
-        ),
-    )
+    try:
+        return AnalyticalPacket(
+            compiled.binding,
+            compiled.projection_id,
+            compiled.profile.digest,
+            MappingProxyType(relations),
+            tuple(sorted({p.iri for d in session.prepared.definitions for p in d.properties})),
+            compiled.profile.scale,
+            execution_model_id=session.prepared.execution_model_id,
+            execution_contract=execution_payload(session.prepared),
+            owner=owner,
+            manifest=manifest,
+            input_contract=_owned_input(
+                session.prepared,
+                "capture",
+                release=session.prepared.release_id,
+                snapshot=asdict(compiled.binding),
+                projection=compiled.projection_id,
+                content=(
+                    {"logical_digest": manifest["logical_digest"]}
+                    if manifest
+                    else {"exported_snapshot": snapshot, "projection": compiled.projection_id}
+                ),
+            ),
+        )
+    except BaseException as error:
+        if owner:
+            _cleanup_after_failure(error, owner.close)
+        raise
 
 
 def capture_packet(
@@ -778,17 +932,33 @@ def capture_packet(
     *,
     release_id: str | None = None,
     driver_path: str | None = None,
-    mode: Literal["resident", "spooled"] = "resident", batch_size: int = 65536,
-    resident_limit_bytes: int = 512 * 1024**2, batch_size_hint_bytes: int = 8 * 1024**2,
+    mode: Literal["resident", "spooled"] = "resident",
+    batch_size: int = 65536,
+    resident_limit_bytes: int = 512 * 1024**2,
+    batch_size_hint_bytes: int = 8 * 1024**2,
     scratch_path: str | Path | None = None,
 ) -> AnalyticalPacket:
     """Own both database scopes and end them before returning replayable analytical inputs."""
     from .query import read_session
 
-    with read_session(engine, realization_id, release_id=release_id) as session:
-        return load_packet(session, uri, driver_path=driver_path, mode=mode, batch_size=batch_size,
-                           resident_limit_bytes=resident_limit_bytes,
-                           batch_size_hint_bytes=batch_size_hint_bytes, scratch_path=scratch_path)
+    packet = None
+    try:
+        with read_session(engine, realization_id, release_id=release_id) as session:
+            packet = load_packet(
+                session,
+                uri,
+                driver_path=driver_path,
+                mode=mode,
+                batch_size=batch_size,
+                resident_limit_bytes=resident_limit_bytes,
+                batch_size_hint_bytes=batch_size_hint_bytes,
+                scratch_path=scratch_path,
+            )
+        return packet
+    except BaseException as error:
+        if packet is not None:
+            _cleanup_after_failure(error, packet.close)
+        raise
 
 
 def _cleanup_after_failure(error: BaseException, cleanup: Callable[[], None]) -> None:
@@ -832,6 +1002,8 @@ class AnalysisScope:
             raise ValueError("analytical input differs from its prepared ownership binding")
         if threads < 1:
             raise ValueError("threads must be positive")
+        if isinstance(packet, CapturedPacket) and packet._closed:
+            raise RuntimeError("captured packet is closed")
         self.packet = packet
         self._capture_lease = None
         self._closed = False
@@ -857,8 +1029,7 @@ class AnalysisScope:
             raise
         try:
             if isinstance(packet, CapturedPacket) and packet.manifest:
-                from .analysis_contracts import validate_capture_manifest
-                validate_capture_manifest(packet.manifest)
+                packet.validate_manifest()
             if isinstance(packet, CapturedPacket) and packet.owner:
                 packet.owner.acquire()
                 self._capture_lease = packet.owner
@@ -889,15 +1060,36 @@ class AnalysisScope:
                     raise ValueError(f"wrong compiled shape for {name}")
                 if isinstance(rows, FileRelation):
                     rows.verify()
-                    for batch in rows.iter_batches():
+                    external_logical = LogicalRows(rows.schema)
+                    for batch in (
+                        ()
+                        if packet.owner and packet.owner.owns(name, rows)
+                        else rows.iter_batches()
+                    ):
+                        external_logical.write(batch)
                         for field in batch.schema:
                             if not field.nullable and batch[field.name].null_count:
                                 raise ValueError(f"unexpected null in {name}.{field.name}")
-                        for column, value in (("release_id", packet.binding.release_id),
-                                              ("realization_id", packet.binding.realization_id)):
-                            if pc.call_function("all", [pc.call_function("equal", [batch[column], pa.scalar(value)])]).as_py() is False:
+                        for column, value in (
+                            ("release_id", packet.binding.release_id),
+                            ("realization_id", packet.binding.realization_id),
+                        ):
+                            if (
+                                pc.call_function(
+                                    "all",
+                                    [pc.call_function("equal", [batch[column], pa.scalar(value)])],
+                                ).as_py()
+                                is False
+                            ):
                                 raise ValueError(f"wrong row scope in {name}.{column}")
-                    self._connection.read_parquet(str(rows.path), hive_partitioning=False).create_view(name)
+                    if (
+                        not (packet.owner and packet.owner.owns(name, rows))
+                        and external_logical.digest != rows.logical_digest
+                    ):
+                        raise ValueError("captured file logical content differs")
+                    self._connection.read_parquet(
+                        str(rows.path), hive_partitioning=False
+                    ).create_view(name)
                     self._registered.append(name)
                     self._views.append(name)
                     continue
@@ -911,6 +1103,12 @@ class AnalysisScope:
                     matches = pc.call_function("equal", [rows[column], pa.scalar(value)])
                     if pc.call_function("all", [matches]).as_py() is False:
                         raise ValueError(f"wrong row scope in {name}.{column}")
+                if isinstance(packet, CapturedPacket) and packet.manifest:
+                    logical = LogicalRows(rows.schema)
+                    for batch in rows.to_batches(max_chunksize=65536):
+                        logical.write(batch)
+                    if logical.digest != packet.manifest["relations"][name]["logical_digest"]:
+                        raise ValueError("capture resident logical content differs")
                 self.connection.register(name, rows)
                 self._registered.append(name)
             self.connection.sql(VIEWS_MACRO_SQL)

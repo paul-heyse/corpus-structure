@@ -163,7 +163,7 @@ def test_owned_input_enforces_exact_release_and_dependencies():
 
 def test_explicit_live_base_and_archived_composed_refusal():
     base = prepare_release(trusted_execution_inputs().schema)
-    assert prepare_interpretation_context(base, macros={}).profile.version == "3"
+    assert prepare_interpretation_context(base, macros={}).profile.version == "4"
     import json
 
     from corpus_structure.semantic.identity import canonical_bytes
@@ -254,7 +254,7 @@ def test_historical_abi_cannot_self_attest_analysis_capabilities():
             RegistryRow("execution_model", model.model_id, canonical_bytes(changed)),
         ),
     )
-    with pytest.raises(PreparationError, match="requires execution compiler 7"):
+    with pytest.raises(PreparationError, match="requires execution compiler 8"):
         prepare_interpretation_context(archived, macros={})
 
 

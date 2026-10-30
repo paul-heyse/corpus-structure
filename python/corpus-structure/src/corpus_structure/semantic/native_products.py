@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0036"
-NATIVE_REVISION = "semantic_0037"
+NATIVE_PREDECESSOR = "semantic_0037"
+NATIVE_REVISION = "semantic_0038"
 
 
 def selected_fact_query():
@@ -114,6 +114,28 @@ def edge_projection(edges: Iterable[tuple[str, str, str, str]]) -> NativeProduct
     return NativeProduct("execution-edges.json", canonical_bytes(sorted(edges)))
 
 
+def derived_publication_sql():
+    from pathlib import Path
+
+    from .publication import STAGE_TYPES
+
+    inference_relations = {"typed_value", "fact", "selection", "derivation", "derivation_premise"}
+    return (
+        Path(__file__)
+        .with_name("sql")
+        .joinpath("derived_publication.sql")
+        .read_text()
+        .replace(
+            "{accepted_empty_stages}",
+            " OR ".join(
+                "EXISTS(SELECT FROM pg_temp.sp_" + name + ")"
+                for name in STAGE_TYPES
+                if name not in inference_relations
+            ),
+        )
+    )
+
+
 def closure_products(model=None) -> tuple[NativeProduct, ...]:
     """Author forward products from reviewed templates and the trusted model.
 
@@ -200,15 +222,7 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
 
     from .publication import STAGE_TYPES
 
-    inference_relations = {"typed_value", "fact", "selection", "derivation", "derivation_premise"}
-    kernels += "\n" + source.joinpath("derived_publication.sql").read_text().replace(
-        "{accepted_empty_stages}",
-        " OR ".join(
-            "EXISTS(SELECT FROM pg_temp.sp_" + name + ")"
-            for name in STAGE_TYPES
-            if name not in inference_relations
-        ),
-    )
+    kernels += "\n" + derived_publication_sql()
     kernels += "\n" + source.joinpath("exclusions.sql").read_text()
     kernels += "\n" + source.joinpath("text_layout.sql").read_text().replace(
         "{physical_id}", PHYSICAL_MODEL_ID
@@ -478,8 +492,10 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
         )
     descriptor["scientific_report_layout"] = layout
     descriptor["supported_effect_versions"] = SUPPORTED_EFFECT_VERSIONS
+    from .analytics import COMPILER_VERSION as analytical_compiler
     from .contracts import EXECUTION_COMPILER_VERSION
 
+    descriptor["analytical_abi"] = analytical_compiler
     descriptor["execution_abi"] = EXECUTION_COMPILER_VERSION
     descriptor["model_id"] = model.model_id
     descriptor["physical_id"] = PHYSICAL_MODEL_ID
@@ -743,6 +759,7 @@ def consolidation_products(model=None) -> tuple[NativeProduct, ...]:
     if not separator:
         raise ValueError("native admission product lacks its descriptor boundary")
     return (
+        NativeProduct(f"{NATIVE_REVISION}_derived.sql", derived_publication_sql().encode()),
         NativeProduct(
             f"{NATIVE_REVISION}_text_layout.sql",
             Path(__file__)

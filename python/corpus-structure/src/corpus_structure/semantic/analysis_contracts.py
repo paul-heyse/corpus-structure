@@ -116,7 +116,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
         if (
             profile.id in ids
             or profile.id != "mathematical-interpretation"
-            or profile.version not in {"1", "2", "3"}
+            or profile.version not in {"1", "2", "3", "4"}
         ):
             _fail(
                 "unsupported_analysis_profile",
@@ -124,7 +124,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 "supported profiles are mathematical-interpretation/1 and /2",
             )
         ids.add(profile.id)
-        if profile.version in {"2", "3"}:
+        if profile.version in {"2", "3", "4"}:
             if (profile.grammar_recipe, profile.transformer_recipe, profile.shared_consumers) != (
                 "extended-lark-2",
                 "sympy-transform-2",
@@ -192,7 +192,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                         "implement the method and supply valid precision/sampling parameters "
                         "before admission",
                     )
-        if profile.version == "3":
+        if profile.version in {"3", "4"}:
             from .contracts import AlignmentPolicyDefinition, TextPreparationPolicy
 
             if profile.text_policy != TextPreparationPolicy(
@@ -235,6 +235,22 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 or values[3] <= 0
             ):
                 _fail("unsupported_placement_policy", location, "invalid cutoff/window/timeout")
+        if profile.version == "4":
+            from .contracts import CapturePolicyDefinition
+
+            if profile.capture_policy != CapturePolicyDefinition(
+                ("resident", "spooled"),
+                "semantic-capture-1",
+                "canonical-rows-1",
+                "primary-key-c",
+                "full-spine",
+                "parquet",
+            ):
+                _fail(
+                    "unsupported_capture_policy",
+                    location,
+                    "implement capture representation/hash/lifetime support before admission",
+                )
         demands = {d.id: d for d in profile.demands}
         if len(demands) != len(profile.demands) or set(demands) != set(_REQUIRED_COMPONENTS):
             _fail(
@@ -368,14 +384,14 @@ def _profile(prepared: PreparedRelease | None):
     else:
         model = bound_execution_model(prepared)
         payload = execution_payload(prepared)
-        if payload is None or json.loads(payload).get("inputs", {}).get("compiler_version") != "7":
+        if payload is None or json.loads(payload).get("inputs", {}).get("compiler_version") != "8":
             _fail(
                 "unsupported_analysis_abi",
                 model.model_id,
-                "analysis preparation requires execution compiler 7; "
+                "analysis preparation requires execution compiler 8; "
                 "historical archives are read-only",
             )
-    if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "3":
+    if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "4":
         _fail(
             "missing_analysis_profile",
             model.model_id,
@@ -835,3 +851,26 @@ def prepare_placement_policy(prepared: PreparedRelease | None = None):
         regex_timeout=float(policy.regex_timeout),
         refine_timeout=float(policy.refine_timeout),
     )
+
+
+def prepare_capture_policy(prepared: PreparedRelease | None = None):
+    _, profile = _profile(prepared)
+    assert profile.capture_policy is not None
+    return profile.capture_policy
+
+
+def validate_capture_manifest(manifest):
+    """Use the trusted LinkML boundary; physical completeness is checked by its owner."""
+    policy = prepare_capture_policy()
+    normalized = (
+        _boundary()
+        .validate_json("CaptureManifest", canonical_bytes(dict(manifest)))
+        .model_dump(mode="json")
+    )
+    if (
+        normalized["format"] != policy.manifest
+        or normalized["digest_recipe"] != policy.digest
+        or normalized["complete"] is not True
+    ):
+        raise ValueError("unsupported or incomplete captured manifest")
+    return normalized

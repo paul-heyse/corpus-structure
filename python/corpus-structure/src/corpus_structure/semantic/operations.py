@@ -848,7 +848,7 @@ class BoundReader:
         self._source_contract = None
         self._source_inputs = {}
         self.math_readings_batch = None
-        if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "7":
+        if payload is not None and json.loads(payload)["inputs"]["compiler_version"] == "8":
             from .analysis_contracts import bind_analysis_family
 
             self._source_contract = bind_analysis_family(prepared, "source")

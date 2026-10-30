@@ -44,8 +44,8 @@ from linkml_term_validator.plugins import (
 from oaklib import get_adapter
 from pyshacl import validate
 from rdflib import BNode, Graph, Literal, Namespace, URIRef
-from rdflib.term import Node
 from rdflib.namespace import RDF
+from rdflib.term import Node
 
 CS = Namespace("https://corpus-structure.dev/semantic/")
 
@@ -922,8 +922,9 @@ def qualified_validation_graph(projection: QualifiedGraphProjection) -> Graph:
 @lru_cache(maxsize=1)
 def _qualified_shape_triples() -> tuple[tuple[Node, Node, Node], ...]:
     """Prepare immutable core triples once; mutable graphs remain operation-owned."""
-    return tuple(Graph().parse(
-        data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+    return tuple(
+        Graph().parse(
+            data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix cs: <https://corpus-structure.dev/semantic/> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -955,13 +956,12 @@ cs:ScopedNodeShape a sh:NodeShape; sh:targetSubjectsOf cs:projection;
  sh:property [sh:path cs:data_revision; sh:datatype xsd:integer;
               sh:minInclusive 0; sh:minCount 1; sh:maxCount 1] .
 ''',
-        format="turtle",
-    ))
+            format="turtle",
+        )
+    )
 
 
-def _add_isolated_triples(
-    destination: Graph, triples: Iterable[tuple[Node, Node, Node]]
-) -> None:
+def _add_isolated_triples(destination: Graph, triples: Iterable[tuple[Node, Node, Node]]) -> None:
     """Merge an independent graph with its blank-node namespace standardized apart."""
     remapped: dict[BNode, BNode] = {}
 
@@ -978,7 +978,6 @@ def qualified_projection_shapes() -> Graph:
     graph = Graph()
     _add_isolated_triples(graph, _qualified_shape_triples())
     return graph
-
 
 
 def validate_projected_graph(

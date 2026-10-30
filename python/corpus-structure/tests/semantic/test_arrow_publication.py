@@ -421,7 +421,7 @@ def test_derived_publication_requires_explicit_intent_and_keeps_it_disjoint():
             batch(), source=source, operation_id="", projection_id="captured"
         )
     with pytest.raises(TypeError):
-        from typing import Any, cast, cast
+        from typing import Any, cast
 
         cast(Any, AppendPublication.from_rows)(batch(), expected_data_revision=0)
 
@@ -534,15 +534,19 @@ def test_derived_composes_actual_owned_transport_without_another_freeze(monkeypa
 
     monkeypatch.setattr(arrow.AppendPublication, "__init__", no_second_freeze)
     derived = SnapshotDerivedPublication.from_transport(
-        owned, source=SnapshotBinding(R, Z, 0, "capture"),
-        operation_id="publish_inference", projection_id="accepted",
+        owned,
+        source=SnapshotBinding(R, Z, 0, "capture"),
+        operation_id="publish_inference",
+        projection_id="accepted",
     )
     assert derived.transport is owned
     assert derived.content is content
     with pytest.raises(ArrowPublicationError, match="owned AppendPublication"):
         SnapshotDerivedPublication.from_transport(
-            cast(Any, batch()), source=SnapshotBinding(R, Z, 0, "capture"),
-            operation_id="publish_inference", projection_id="accepted",
+            cast(Any, batch()),
+            source=SnapshotBinding(R, Z, 0, "capture"),
+            operation_id="publish_inference",
+            projection_id="accepted",
         )
 
 
@@ -558,8 +562,10 @@ def test_derived_row_adapter_freezes_each_stage_only_once(monkeypatch):
 
     monkeypatch.setattr(arrow.AppendPublication, "__init__", counted)
     derived = SnapshotDerivedPublication.from_rows(
-        batch(), source=SnapshotBinding(R, Z, 0, "capture"),
-        operation_id="publish_inference", projection_id="accepted",
+        batch(),
+        source=SnapshotBinding(R, Z, 0, "capture"),
+        operation_id="publish_inference",
+        projection_id="accepted",
     )
     assert len(calls) == 1
     assert derived.content == batch().content
@@ -574,9 +580,12 @@ def test_inference_retries_and_recovers_using_actual_lowered_transport(monkeypat
     from corpus_structure.semantic.query import SnapshotBinding
 
     rows = PublicationBatch(
-        R, Z, "overflow",
-        typed_value=(ValueRow("huge", "decimal", decimal_lexical="9" * 39,
-                              numeric_value=Decimal("9" * 39)),),
+        R,
+        Z,
+        "overflow",
+        typed_value=(
+            ValueRow("huge", "decimal", decimal_lexical="9" * 39, numeric_value=Decimal("9" * 39)),
+        ),
     )
     result = inference.InferenceResult(SnapshotBinding(R, Z, 0, "capture"), rows)
     seen = []

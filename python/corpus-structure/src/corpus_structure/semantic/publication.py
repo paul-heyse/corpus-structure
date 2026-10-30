@@ -334,7 +334,7 @@ class PublicationBatch:
         from .contracts import execution_payload
 
         payload = execution_payload(prepared)
-        if payload is None or json.loads(payload)["inputs"]["compiler_version"] != "7":
+        if payload is None or json.loads(payload)["inputs"]["compiler_version"] != "8":
             return self
         owned = bind_analysis_family(prepared, "publication").prepare(
             release=self.release_id,

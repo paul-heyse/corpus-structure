@@ -74,8 +74,41 @@ classes:
       pick_cutoff: {range: integer, required: true, slot_uri: execution:PlacementPolicyDefinition_pick_cutoff}
       regex_timeout: {range: string, required: true, slot_uri: execution:PlacementPolicyDefinition_regex_timeout}
       refine_timeout: {range: string, required: true, slot_uri: execution:PlacementPolicyDefinition_refine_timeout}
+  CapturePolicyDefinition:
+    attributes:
+      modes: {range: string, required: true, multivalued: true, minimum_cardinality: 1, slot_uri: execution:CapturePolicyDefinition_modes}
+      manifest: {range: string, required: true, slot_uri: execution:CapturePolicyDefinition_manifest}
+      digest: {range: string, required: true, slot_uri: execution:CapturePolicyDefinition_digest}
+      ordering: {range: string, required: true, slot_uri: execution:CapturePolicyDefinition_ordering}
+      completeness: {range: string, required: true, slot_uri: execution:CapturePolicyDefinition_completeness}
+      storage: {range: string, required: true, slot_uri: execution:CapturePolicyDefinition_storage}
+  CaptureSnapshotBinding:
+    attributes:
+      release_id: {range: string, required: true}
+      realization_id: {range: string, required: true}
+      data_revision: {range: integer, required: true, minimum_value: 0}
+      capture_id: {range: string, required: true}
+  CaptureRelationManifest:
+    attributes:
+      name: {range: string, identifier: true}
+      rows: {range: integer, required: true, minimum_value: 0}
+      logical_digest: {range: string, required: true}
+      arrow_schema: {range: string, required: true}
+      file: {range: string}
+      sha256: {range: string}
+  CaptureManifest:
+    attributes:
+      format: {range: string, required: true}
+      digest_recipe: {range: string, required: true}
+      complete: {range: boolean, required: true}
+      binding: {range: CaptureSnapshotBinding, required: true, inlined: true}
+      projection_id: {range: string, required: true}
+      profile_digest: {range: string, required: true}
+      logical_digest: {range: string, required: true}
+      relations: {range: CaptureRelationManifest, required: true, multivalued: true, minimum_cardinality: 1, inlined: true, inlined_as_list: false}
   AnalysisProfile:
     attributes:
+      capture_policy: {range: CapturePolicyDefinition, inlined: true}
       text_policy: {range: TextPreparationPolicy, inlined: true}
       alignment_policy: {range: AlignmentPolicyDefinition, inlined: true}
       placement_policy: {range: PlacementPolicyDefinition, inlined: true}
