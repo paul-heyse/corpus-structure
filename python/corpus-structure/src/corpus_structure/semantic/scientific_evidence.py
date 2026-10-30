@@ -95,6 +95,7 @@ def scientific_report_layout():
 
 def scientific_report_schema():
     schema: dict[str, Any] = scientific_model().json_schema("ReferenceScientificReport")
+    schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
     for row in scientific_model().registry_rows:
         if row.kind != "operation_property":
             continue
@@ -110,7 +111,9 @@ def scientific_report_schema():
 def _scientific_report_validator():
     from jsonschema import Draft202012Validator
 
-    return Draft202012Validator(scientific_report_schema())
+    schema = scientific_report_schema()
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema)
 
 
 def validate_reference_science(result):

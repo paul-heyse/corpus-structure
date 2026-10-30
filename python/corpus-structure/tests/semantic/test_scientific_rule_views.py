@@ -343,5 +343,7 @@ def test_scientific_report_paths_and_construction_share_linkml_shape():
         ("$.units[*].undecided[*]", "comparisons", False),
     }
     validate_reference_science({"units": [{"comparisons": [], "undecided": [{"reason": "no candidate"}]}]})
-    with pytest.raises(SchemaValidationError):
+    with pytest.raises(SchemaValidationError) as error:
         validate_reference_science({"units": [{"comparisons": "invalid", "undecided": []}]})
+    assert list(error.value.absolute_path) == ["units", 0, "comparisons"]
+    assert error.value.validator == "type"
