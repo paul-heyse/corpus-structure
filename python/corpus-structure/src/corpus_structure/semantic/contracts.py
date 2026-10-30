@@ -398,7 +398,9 @@ def _validate_effect_support(model: ExecutionModelProducts, operation: Operation
     from .effect_support import SUPPORTED_EFFECTS
 
     supported = SUPPORTED_EFFECTS.get(operation.id)
+    binding = next(b for b in model.implementations if b.id == operation.implementation)
     actual = {
+        "implementation": operation.implementation, "version": binding.version,
         "effects": tuple(sorted(operation.effects)),
         "transitions": {t.id: tuple(sorted(t.effects)) for t in model.transitions if t.operation == operation.id},
     }

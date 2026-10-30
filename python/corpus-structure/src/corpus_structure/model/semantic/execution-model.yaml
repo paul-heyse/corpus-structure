@@ -1756,12 +1756,12 @@ concepts:
     identity
   attributes:
   - name: run_id
-    range: text
+    range: integer
     required: false
     multivalued: false
   - name: snapshot_id
     range: text
-    required: true
+    required: false
     multivalued: false
   - name: release_id
     range: text
@@ -1772,7 +1772,7 @@ concepts:
     required: true
     multivalued: false
   - name: data_revision
-    range: text
+    range: integer
     required: true
     multivalued: false
   - name: query_identity
@@ -1800,7 +1800,7 @@ concepts:
     required: true
     multivalued: false
   - name: position
-    range: text
+    range: json
     required: true
     multivalued: false
   relationships:
@@ -3736,6 +3736,12 @@ relationships:
     ordered: false
     unresolved: false
     maximum: 1
+  - role: continuation
+    concept: Continuation
+    minimum: 0
+    maximum: 1
+    ordered: false
+    unresolved: false
   cardinality_scope: per subject in the declared bound context
   identity_kind: ordered_roles
   identity_roles:
