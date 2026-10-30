@@ -41,7 +41,7 @@ add-bounds = "exact"
 testpaths = ["tests", "python/corpus-structure/tests"]
 # importlib mode: the root and package `tests/` trees cannot collide on module names.
 addopts = ["--strict-markers", "--strict-config", "-q", "--import-mode=importlib"]
-pythonpath = ["scripts"]
+pythonpath = ["scripts", "python/corpus-structure/tests"]
 
 [tool.ruff]
 line-length = 100

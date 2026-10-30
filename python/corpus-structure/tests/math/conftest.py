@@ -1,146 +1,19 @@
-"""Shared fixtures of the math tests (ingest and math §6, P0-I-2a).
-
-Pages are the production renditions (`ingest.html.build_rendition` with the Siegrist profile and
-the default sentence configuration), read by the production grammar, M11, M09 and M13. The four
-spike pages are vendored under `fixtures/trace/corpus/` (P0-F-3), so their checks never skip; the
-three S0-R2 pages and the 78-page run read the gitignored corpus and are `corpus`-marked.
-
-Pages are analysed in forked single-threaded worker processes, one page per task: the grammar's
-deadline runs only on a process's main thread, and a page's spans take tens of seconds of CPU.
-
-The pack values (`math.macros`, `math.constants`, `binders`) are D2 §12.1's
-`domains/statistics/methods.yaml`, written here until that file exists.
-"""
-
-from __future__ import annotations
-
-import multiprocessing
-from collections.abc import Iterable
-from dataclasses import dataclass
-from pathlib import Path
+"""Math fixtures backed by importable spawned page workers."""
 
 import pytest
-
-from corpus_structure.core import tex
-from corpus_structure.core.evidence import MacroDef, RenditionContent
-from corpus_structure.ingest.html import build_rendition
-from corpus_structure.ingest.profile import CompiledProfile, compile_profile, load_profile
-from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.methods.math.scope import Binders, Scope, resolve_scopes
-from corpus_structure.methods.math.spans import (
-    MathExtraction,
-    SpanReading,
-    SpanValue,
-    extract,
-    formula_values,
-    read_spans,
+from math_support import (
+    BINDERS,
+    CONSTANTS,
+    DATA,
+    INDEX,
+    PACK_MACROS,
+    S0R2_PAGES,
+    SPIKE_PAGES,
+    MathEnv,
+    PageMath,
+    analyse_all,
+    coverage_all,
 )
-
-REPO = Path(__file__).resolve().parents[4]
-VENDORED = REPO / "fixtures/trace/corpus"
-CORPUS = REPO / "docs/statistics_corpus/corpus"
-INDEX = REPO / "docs/statistics_corpus/index/siegrist_sections.tsv"
-ROOT = "siegrist_random/random"
-DATA = Path(__file__).with_name("data")
-
-SPIKE_PAGES = (
-    "special/LocationScale.html",
-    "special/Normal.html",
-    "special/LogNormal.html",
-    "special/Gamma.html",
-)
-S0R2_PAGES = ("special/Pareto.html", "special/ChiSquare.html", "special/Weibull.html")
-
-PACK_MACROS: dict[str, MacroDef] = {
-    name: MacroDef(body=body)
-    for name, body in {
-        "\\R": "\\mathbb{R}",
-        "\\N": "\\mathbb{N}",
-        "\\Z": "\\mathbb{Z}",
-        "\\Q": "\\mathbb{Q}",
-        "\\P": "\\mathbb{P}",
-        "\\E": "\\mathbb{E}",
-        "\\var": "\\text{var}",
-        "\\sd": "\\text{sd}",
-        "\\cov": "\\text{cov}",
-        "\\cor": "\\text{cor}",
-        "\\skw": "\\text{skew}",
-        "\\kur": "\\text{kurt}",
-        "\\mse": "\\text{mse}",
-        "\\sgn": "\\text{sgn}",
-        "\\bs": "\\boldsymbol",
-        "\\ms": "\\mathscr",
-    }.items()
-}
-CONSTANTS = ("e", "\\pi")
-BINDERS = Binders(
-    sentence_initial=("suppose", "let", "assume", "fix", "define", "consider", "recall", "if"),
-    clause=("where", "for"),
-    reopen=("again",),
-    section_wide=("in this section", "throughout this section"),
-)
-
-
-@dataclass(frozen=True)
-class PageMath:
-    page: str
-    content: RenditionContent
-    macros: dict[str, MacroDef]  # the effective table
-    readings: list[SpanReading]
-    values: list[SpanValue]
-    extraction: MathExtraction
-    scopes: list[Scope]
-
-
-_PROFILE: list[CompiledProfile] = []
-
-
-def _profile() -> CompiledProfile:
-    if not _PROFILE:
-        _PROFILE.append(compile_profile(load_profile("siegrist")))
-    return _PROFILE[0]
-
-
-def corpus_of(page: str) -> Path:
-    return VENDORED if (VENDORED / ROOT / page).exists() else CORPUS
-
-
-def analyse(page: str, scopes: bool = True) -> PageMath:
-    """A page's rendition, its readings, M11's values, M09's extraction and M13's scopes."""
-    source_uri = f"{ROOT}/{page}"
-    raw = (corpus_of(page) / source_uri).read_bytes()
-    content = build_rendition(raw, _profile(), SentenceConfig(), source_uri=source_uri).content
-    macros = tex.effective_macros(content.macros, PACK_MACROS)
-    readings = read_spans(content, macros, CONSTANTS)
-    values = formula_values(readings)
-    extraction = extract(readings)
-    found = (
-        resolve_scopes(
-            content,
-            values,
-            extraction.mentions,
-            extraction.relations,
-            macros,
-            BINDERS,
-            SentenceConfig(),
-        )
-        if scopes
-        else []
-    )
-    return PageMath(page, content, macros, readings, values, extraction, found)
-
-
-def _readings_only(page: str) -> PageMath:
-    return analyse(page, scopes=False)
-
-
-def analyse_all(pages: Iterable[str], scopes: bool = True) -> dict[str, PageMath]:
-    """Pages analysed in forked worker processes (each runs the grammar on its main thread)."""
-    pages = list(pages)
-    work = analyse if scopes else _readings_only
-    context = multiprocessing.get_context("fork")
-    with context.Pool(min(len(pages), multiprocessing.cpu_count())) as pool:
-        return {m.page: m for m in pool.imap_unordered(work, pages, chunksize=1)}
 
 
 @pytest.fixture(scope="session")
@@ -153,17 +26,6 @@ def s0r2_pages() -> dict[str, PageMath]:
     return analyse_all(S0R2_PAGES)
 
 
-@dataclass(frozen=True)
-class MathEnv:
-    """The pack values and the page analyser, for the test modules."""
-
-    macros: dict[str, MacroDef]
-    constants: tuple[str, ...]
-    binders: Binders
-    data: Path
-    index: Path
-
-
 @pytest.fixture(scope="session")
 def env() -> MathEnv:
     return MathEnv(PACK_MACROS, CONSTANTS, BINDERS, DATA, INDEX)
@@ -174,50 +36,6 @@ def analyse_pages():
     return analyse_all
 
 
-@dataclass(frozen=True)
-class SpanRow:
-    """One span's reading, compactly: for the 78-page coverage report."""
-
-    start: int
-    end: int
-    status: str
-    kind: str | None
-    category: str | None
-    agrees: bool | None  # the tree/token property; None when nothing was read
-    text: str
-
-
-def coverage_rows(page: str) -> tuple[str, list[SpanRow]]:
-    from corpus_structure.methods.math.printer import print_tree
-
-    analysed = analyse(page, scopes=False)
-    rows = []
-    for reading in analysed.readings:
-        result = reading.result
-        given = analysed.content.text(reading.span.segment)
-        agrees = None
-        if result.tree is not None:
-            printed = print_tree(result.tree, result.latex, result.macros, result.tail)
-            agrees = printed == tex.token_form(given, result.macros)
-        rows.append(
-            SpanRow(
-                reading.span.segment.start,
-                reading.span.segment.end,
-                result.status.value,
-                result.kind,
-                result.failure.category if result.failure else None,
-                agrees,
-                given,
-            )
-        )
-    return page, rows
-
-
 @pytest.fixture(scope="session")
 def coverage_of():
-    def run(pages: list[str]) -> dict[str, list[SpanRow]]:
-        context = multiprocessing.get_context("fork")
-        with context.Pool(min(len(pages), multiprocessing.cpu_count())) as pool:
-            return dict(pool.imap_unordered(coverage_rows, pages, chunksize=1))
-
-    return run
+    return coverage_all
