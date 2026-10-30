@@ -4,11 +4,12 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from hashlib import sha256
+from dataclasses import asdict
 from typing import Any
 
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.text_structure import ADAPTER_ID, capture_text
-from corpus_structure.core.tex import MacroBinding, TokenOrigin, effective_macros, tokens
+from corpus_structure.core.tex import MacroBinding, effective_macros, tokens
 from corpus_structure.ingest.macros import MacroSource, read_macros
 
 _CATEGORIES = {"word": "control_word", "symbol": "control_symbol", "open": "group_open",
@@ -63,7 +64,7 @@ def text_product_payload(canonical: str, *, root: Mapping[str, Any],
                 row = dict(mapping_id=key, side=side, ordinal=ordinal, representation_id=rep,
                            unit="codepoint", start_offset=a, end_offset=b)
                 if source_root and side == "source":
-                    row.update(target_task_id=root["task_id"], target_product_key=root["product_key"],
+                    row.update(dependency_name="source", target_task_id=root["task_id"], target_product_key=root["product_key"],
                                target_content_digest=root["content_digest"])
                 p["mapping_endpoints"].append(row)
 
@@ -107,6 +108,8 @@ def text_product_payload(canonical: str, *, root: Mapping[str, Any],
                 reason="structured fallback table to derived TeX artifact; no raw text offset claim", fidelity="transformed")
         p["dependencies"].append(dict(name=artifact_ref, kind="artifact", artifact_digest=sha256(artifact_text.encode()).hexdigest()))
 
+    selected_source = {event.name: source.source_ref for source in sources
+                       for event in source.read.events if event.status == "accepted"}
     page_table: dict[str, MacroDef] = {}
     bindings: dict[str, MacroBinding] = {}
     definition_nodes: dict[str, str] = {}
@@ -119,7 +122,7 @@ def text_product_payload(canonical: str, *, root: Mapping[str, Any],
                     reason=fragment.reason, fidelity="transformed" if fragment.decoded_sources else "unknown")
         for event_index, event in enumerate(source.read.events):
             key = f"macro:{source_index}:{event_index}"
-            details = dict(status=event.status, command=event.command.text,
+            details = dict(status=event.status, selected=event.status == "accepted" and selected_source.get(event.name) == event.source_ref, command=event.command.text,
                 name_ranges=[(t.start, t.end) for t in event.name_tokens],
                 body_ranges=[(t.start, t.end) for t in event.body_tokens],
                 default_ranges=[(t.start, t.end) for t in event.default_tokens],
@@ -169,8 +172,10 @@ def text_product_payload(canonical: str, *, root: Mapping[str, Any],
             # Nested invocations may originate in a definition artifact. Their own source
             # extents remain there, rather than being guessed inside the outer invocation.
             origin = invocation.origins[0]
-            node(key, "macro_invocation", origin.source_ref, origin.start, origin.end,
-                 name=invocation.name, value=json.dumps(dict(outcome=invocation.outcome)))
+            local_origins = [o for o in invocation.origins if o.source_ref == origin.source_ref]
+            node(key, "macro_invocation", origin.source_ref, min(o.start for o in local_origins),
+                 max(o.end for o in local_origins), name=invocation.name,
+                 value=json.dumps(asdict(invocation), sort_keys=True))
             if invocation.name in definition_nodes:
                 relation("binds", key, definition_nodes[invocation.name], ("invocation", "definition"))
         for piece in expansion.pieces:
@@ -179,3 +184,9 @@ def text_product_payload(canonical: str, *, root: Mapping[str, Any],
                     reason="bounded expansion; invocations=" + ",".join(str(i) for i in piece.invocations),
                     fidelity="transformed" if origins else "unknown")
     return p
+
+
+def text_product_artifacts(payload: Mapping[str, Any]) -> tuple[bytes, ...]:
+    """Exact archived bytes for each named immutable macro artifact dependency."""
+    return tuple(dict.fromkeys(rep["text_content"].encode("utf-8")
+                               for rep in payload["representations"] if rep["kind"] == "artifact"))

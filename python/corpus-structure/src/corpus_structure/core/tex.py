@@ -178,7 +178,7 @@ class ExpansionPiece:
 class MacroInvocation:
     name: str
     origins: tuple[TokenOrigin, ...]
-    definition: TokenOrigin
+    definition: TokenOrigin | None
     arguments: tuple[tuple[TokenOrigin, ...], ...]
     outcome: str
 
@@ -300,12 +300,14 @@ def expand(
         # Match _texts exactly: control spaces are canonicalized and the following run
         # is skipped. Origin ranges still refer to the unmodified input token.
         result: list[Item] = []
+        previous_scanned = ""
         for token in retained if exact else tokens(value):
             piece = token.text
             if piece in _CONTROL_SPACES:
                 piece = CONTROL_SPACE
-            elif token.kind == "space" and result and result[-1][0] == CONTROL_SPACE:
+            elif token.kind == "space" and previous_scanned == CONTROL_SPACE:
                 continue
+            previous_scanned = piece
             if piece in drop:
                 continue
             if exact:
@@ -326,6 +328,8 @@ def expand(
         definition = table.get(text) if _is_word(text) else None
         if definition is None or depth >= MAX_DEPTH:
             emit(text, origins, calls)
+            if definition is None and _is_word(text):
+                invocations.append(MacroInvocation(text, origins, None, (), "undefined"))
             if definition is not None:
                 unexpanded.append(text)
                 binding = (bindings or {}).get(text)
@@ -353,20 +357,21 @@ def expand(
                                         binding.end if binding else len(definition.body), "definition")
         invocation = len(invocations)
         argument_origins = tuple(tuple(dict.fromkeys(o for item in arg for o in item[2])) for arg in arguments)
-        invocations.append(MacroInvocation(text, origins, definition_origin, argument_origins, "expanded"))
+        invocation_origins = tuple(dict.fromkeys((*origins, *(origin for item in stream.consumed for origin in item[2]))))
+        invocations.append(MacroInvocation(text, invocation_origins, definition_origin, argument_origins, "expanded"))
         replacement: list[Item] = []
         for piece, _, body_origins, body_calls in body:
             if piece[0] == "#" and len(piece) == 2 and piece[1].isdigit():
                 n = int(piece[1])
                 if 1 <= n <= len(arguments):
-                    replacement.extend((t, depth + 1, source, tuple(dict.fromkeys((*calls, *prior, invocation))))
+                    replacement.extend((t, depth + 1, tuple(dict.fromkeys((*source, *body_origins))), tuple(dict.fromkeys((*calls, *prior, invocation))))
                                        for t, _, source, prior in arguments[n - 1])
                     continue
             replacement.append((piece, depth + 1, body_origins, (*calls, *body_calls, invocation)))
         if len(out) + len(stream.stack) + len(replacement) > MAX_TOKENS:
             stream.stack.extend(reversed(stream.consumed))  # leave the arguments in place
             emit(text, origins, calls)
-            invocations[-1] = MacroInvocation(text, origins, definition_origin, argument_origins, "token_bound")
+            invocations[-1] = MacroInvocation(text, invocation_origins, definition_origin, argument_origins, "token_bound")
             unexpanded.append(text)
             continue
         stream.stack.extend(reversed(replacement))

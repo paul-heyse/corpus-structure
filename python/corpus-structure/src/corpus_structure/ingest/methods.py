@@ -62,11 +62,14 @@ from corpus_structure.core.vocab import (
     ObservationKind,
     ObservationOutcome,
     TaskUnitType,
+    SegmentKind,
 )
 from corpus_structure.ingest.html import IngestResult, build_rendition
 from corpus_structure.ingest.profile import CompiledProfile, SourceProfile, compile_profile
 from corpus_structure.ingest.profile_segments import measurements
 from corpus_structure.ingest.sentences import SentenceConfig
+from corpus_structure.ingest.text_product import text_product_artifacts, text_product_payload
+from corpus_structure.semantic.parsing_products import PreparedParsingProductSet
 
 VERSION = "1"
 AUTHOR_MARKUP_VERSION = "1"
@@ -112,6 +115,8 @@ class IngestConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    text_structure: bool = True
+
     source_profile: Annotated[str | SourceProfile, SourceProfileRef()] = "siegrist"
     sentences: Annotated[str | SentenceConfig, ConfigRef("segment.sentences")] = (
         "segment.sentences/default"
@@ -140,7 +145,7 @@ class IngestHtml:
     """`ingest.html` (M01 with M03; module doc)."""
 
     name = "ingest.html"
-    version = VERSION
+    version = "2"
     family = MethodFamily.INGEST
     unit_type = TaskUnitType.DOCUMENT
     tier = MethodTier.DETERMINISTIC
@@ -172,7 +177,7 @@ class IngestHtml:
     ) -> Sequence[UnitResult]:
         profile, sentences = cfg.resolved()
         ctx.reader.require_parsing_operations(
-            ("decompose_source", "recognize_html", "project_canonical")
+            ("decompose_source", "recognize_html", "project_canonical", "prepare_parsing_text")
         )
         compiled = compile_profile(profile)
         with ctx.reader.connection() as conn:
@@ -185,7 +190,7 @@ class IngestHtml:
                 continue
             try:
                 built = _build(row, compiled, sentences, ctx.reader.original(int(row.id)))
-                result = _result(unit, built, ctx.reader)
+                result = _result(unit, built, ctx.reader, structure=cfg.text_structure)
             except Exception as error:  # the document's task fails with the error (§3.3)
                 ctx.logger.warning("ingest.html: %s: %s", row.source_uri, error)
                 out.append(_failed(unit, f"{type(error).__name__}: {error}"))
@@ -206,7 +211,7 @@ def _failed(unit: UnitView, error: str) -> UnitResult:
     return UnitResult(ref=unit.ref, outcome=ObservationOutcome.FAILED, error=error)
 
 
-def _result(unit: UnitView, built: IngestResult, reader: Reader) -> UnitResult:
+def _result(unit: UnitView, built: IngestResult, reader: Reader, *, structure: bool = True) -> UnitResult:
     drafts = tuple(
         ObservationDraft(
             kind=ObservationKind.AUTHOR_MARKUP,
@@ -217,6 +222,25 @@ def _result(unit: UnitView, built: IngestResult, reader: Reader) -> UnitResult:
         )
         for d in built.markup
     )
+    if built.parsing_product is None or unit.ref.unit_id is None:
+        raise MethodRefused("ingest text preparation requires original source custody and document id")
+    source = reader.prepare_parsing_product(built.parsing_product.values(), built.parsing_product.original)
+    reference = reader.source_product_reference(unit.ref.unit_id, source.digest)
+    fallback_source_ref, fallback = reader.parsing_fallback_macros()
+    math_ranges: list[tuple[int, int, str | None, str | None]] = []
+    for segment in built.content.document.walk():
+        if segment.kind in {SegmentKind.MATH_INLINE, SegmentKind.MATH_DISPLAY}:
+            opener, closer = segment.attrs.get("open"), segment.attrs.get("close")
+            math_ranges.append((segment.start, segment.end,
+                                opener if isinstance(opener, str) else None,
+                                closer if isinstance(closer, str) else None))
+    payload = text_product_payload(built.content.canonical_text,
+        root=dict(task_id=reference.task_id, product_key=reference.product_key,
+                  content_digest=reference.content_digest),
+        math_ranges=math_ranges,
+        macro_sources=built.macro_sources, fallback_macros=fallback,
+        fallback_source_ref=fallback_source_ref, structure=structure)
+    prepared_text = reader.prepare_layered_product(payload)
     return UnitResult(
         ref=unit.ref,
         outcome=ObservationOutcome.PRODUCED if drafts else ObservationOutcome.EMPTY,
@@ -224,11 +248,8 @@ def _result(unit: UnitView, built: IngestResult, reader: Reader) -> UnitResult:
         rendition=built.content,
         parse_detail=built.parse_detail.to_json(),
         text_layouts=built.text_layouts,
-        parsing_product=reader.prepare_parsing_product(
-            built.parsing_product.values(), built.parsing_product.original
-        )
-        if built.parsing_product is not None
-        else None,
+        parsing_product=source,
+        parsing_products=PreparedParsingProductSet((prepared_text,), required=("text",), artifacts=text_product_artifacts(payload)),
     )
 
 

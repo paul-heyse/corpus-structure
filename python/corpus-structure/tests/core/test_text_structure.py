@@ -66,8 +66,8 @@ def test_definition_events_and_repeated_argument_default_derivation() -> None:
     assert q.origins[0].source_ref == "page:defs"
     assert q.origins[0].start == source.index("Q")
     assert [(x.start, x.end) for x in (x1, x2)] == [(2, 3), (4, 5)]
-    assert x1.origins == x2.origins
-    assert [(o.source_ref, o.start, o.end) for o in x1.origins] == [("canonical", 3, 4)]
+    assert x1.origins[0] == x2.origins[0]
+    assert [(o.source_ref, o.start, o.end) for o in x1.origins if o.source_ref == "canonical"] == [("canonical", 3, 4)]
     assert result.invocations[0].definition.source_ref == "page:defs"
 
 
@@ -85,3 +85,20 @@ def test_expansion_bound_retains_invocation_and_arguments() -> None:
     assert "".join(result.tokens) == r"\f{x}"
     assert result.unexpanded == (r"\f",)
     assert result.invocations[-1].outcome == "depth_bound"
+
+
+def test_native_missing_node_list_is_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
+    from pylatexenc.latexwalker import LatexWalker
+    monkeypatch.setattr(LatexWalker, "parse_content", lambda *args, **kwargs: (None, None))
+    result = capture_text("x", structure=True)
+    assert result.structure_outcome == "invalid"
+    assert result.issues == ("native structural parser returned no node list",)
+    assert [t.text for t in result.lexical] == ["x"]
+
+
+def test_undefined_macro_retains_explicit_absent_definition() -> None:
+    result = expand(tokens(r"\absent{x}"), {})
+    assert "".join(result.tokens) == r"\absent{x}"
+    assert result.invocations[0].name == r"\absent"
+    assert result.invocations[0].outcome == "undefined"
+    assert result.invocations[0].definition is None

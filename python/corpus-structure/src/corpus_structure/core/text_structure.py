@@ -104,6 +104,8 @@ def _structure(view: ParseView, macros: Mapping[str, MacroDef]) -> tuple[tuple[S
         native, _ = walker.parse_content(LatexGeneralNodesParser())
     except LatexWalkerParseError as error:
         return (), "invalid", (str(error),)
+    if native is None:
+        return (), "invalid", ("native structural parser returned no node list",)
     out: list[StructureNode] = []
     issues: list[str] = []
 
