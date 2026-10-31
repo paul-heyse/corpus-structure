@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import typer
+from pydantic import BaseModel, JsonValue, RootModel
 
 from corpus_structure.cli.output import JsonOpt, emit, state
 from corpus_structure.serve.native_source import NativeExportFormat
@@ -14,6 +15,15 @@ from corpus_structure.serve.native_source import NativeExportFormat
 app = typer.Typer(
     help="Inspect pinned source products and transformation custody.", no_args_is_help=True
 )
+
+
+class NativeProductReport(BaseModel):
+    task_id: int
+    product_key: str
+    content_digest: str
+    release_id: str
+    health: dict[str, JsonValue]
+    runtime_report: dict[str, JsonValue] | None
 
 
 def _read(ctx: typer.Context, **values):
@@ -383,7 +393,6 @@ def native_export(
 @app.command("native-products")
 def native_products(ctx: typer.Context, run: int, json: JsonOpt = False):
     """List immutable native source pins produced or selected by a run."""
-    from pydantic_core import to_jsonable_python
     from sqlalchemy import or_, select
 
     from corpus_structure.cli.failures import failure_boundary
@@ -430,8 +439,8 @@ def native_products(ctx: typer.Context, run: int, json: JsonOpt = False):
             .where(or_(tasks.c.run_id == run, pins.exists()))
             .order_by(products.c.task_id, products.c.product_key)
         )
-        rows = [dict(row) for row in conn.execute(query).mappings()]
-        emit(to_jsonable_python(rows), json=json)
+        rows = [NativeProductReport.model_validate(row) for row in conn.execute(query).mappings()]
+        emit(RootModel[list[NativeProductReport]](rows), json=json)
 
 
 @app.command("native-request")
@@ -452,9 +461,6 @@ def native_request(
     json: JsonOpt = False,
 ):
     """Execute an explicit native demand through the existing source-ready task lifecycle."""
-    from dataclasses import asdict
-
-    from pydantic_core import to_jsonable_python
     from sqlalchemy import select
 
     from corpus_structure.cli.failures import failure_boundary
@@ -485,7 +491,7 @@ def native_request(
             code_commit="native-source-cli-v2",
         )
         if result.status == "failed":
-            emit(to_jsonable_python(asdict(result)), json=json)
+            emit(RootModel(result), json=json)
             raise typer.Exit(1)
         if output is not None:
             artifacts = table("kb.source_artifact")
@@ -499,16 +505,12 @@ def native_request(
                 )
             with output.open("xb") as target:
                 target.write(value)
-        emit(to_jsonable_python(asdict(result)), json=json)
+        emit(RootModel(result), json=json)
 
 
 @app.command("views")
 def native_views(ctx: typer.Context, run: int, json: JsonOpt = False):
     """List selected native section view IDs and immutable source pins."""
-    from dataclasses import asdict
-
-    from pydantic_core import to_jsonable_python
-
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.pdf_contracts import pdf_context_for_run
     from corpus_structure.semantic.query import read_snapshot
@@ -525,7 +527,4 @@ def native_views(ctx: typer.Context, run: int, json: JsonOpt = False):
         context = pdf_context_for_run(conn, run)
         context.execution.require_operation("read_source_view")
         context.boundary.validate_json("PdfNativeRunRequest", jsonlib.dumps(dict(run_id=run)))
-        emit(
-            to_jsonable_python([asdict(view) for view in selected_source_views(conn, run)]),
-            json=json,
-        )
+        emit(RootModel(selected_source_views(conn, run)), json=json)
