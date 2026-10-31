@@ -68,7 +68,7 @@ class Reader(ReaderPort):
         return [parent.ref for parent in self.views.values() if parent.ref.section_pointer in pointers
                 and parent.ref.native_product==child.ref.native_product]
     def source_observations(self,source_view_id,method,kind): return self.outputs.get((source_view_id,method,kind),[])
-    def source_view_coverage(self,id,method):
+    def source_view_coverage(self,source_view_id,method):
         return (SourceCoverageReading(task_id=4,release_id='fixture',position=0,coverage=CoverageDraft(family=method,scope='native-section:7',outcome='complete')),)
     def store(self,method,result):
         for ordinal,draft in enumerate(result.observations):
