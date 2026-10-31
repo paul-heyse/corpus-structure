@@ -139,7 +139,9 @@ def test_native_exclusion_publication_refuses_tampering(
 
     with semantic_writer_engine.begin() as conn:
         sources = []
-        for eid, (oid, rid, start, end) in inputs.source_links.items():
+        for eid, source_link in inputs.source_links.items():
+            assert isinstance(source_link, tuple), "this control uses archived rendition evidence"
+            oid, rid, start, end = source_link
             span = table("kb.span")
             conn.execute(
                 insert(span)

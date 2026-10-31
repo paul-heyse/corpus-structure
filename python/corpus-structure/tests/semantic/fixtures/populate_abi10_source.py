@@ -9,13 +9,13 @@ import base64
 import json
 import os
 from hashlib import sha256
+from importlib import import_module
 from pathlib import Path
 
 from semantic.test_operations import setup
 from semantic.test_parsing_products import _native_build
 from sqlalchemy import create_engine, text
 
-from corpus_structure.ingest.html import build_rendition
 from corpus_structure.ingest.profile import compile_profile, load_profile
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.semantic import contracts
@@ -30,12 +30,15 @@ def main() -> None:
     root = Path(os.environ["CS_ABI10_SOURCE_ROOT"])
     assert Path(contracts.__file__).is_relative_to(root)
     assert contracts.EXECUTION_COMPILER_VERSION == "10"
+    historical_ingest=import_module("corpus_structure.ingest.html")
+    assert historical_ingest.__file__ is not None
+    assert Path(historical_ingest.__file__).is_relative_to(root)
     engine = create_engine(os.environ["CS_ABI10_DATABASE_URL"])
     writer = create_engine(os.environ["CS_ABI10_WRITER_URL"])
     try:
         prepared = setup(engine, observations=True, composed=True)
         original = b"<p>A &amp; B <em>retained</em> source.</p>"
-        result = build_rendition(
+        result = historical_ingest.build_rendition(
             original,
             compile_profile(load_profile("siegrist")),
             SentenceConfig(),

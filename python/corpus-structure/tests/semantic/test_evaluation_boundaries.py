@@ -50,7 +50,9 @@ def test_native_source_locator_is_checked_against_stored_citation(
         from sqlalchemy.dialects.postgresql import insert as pg_insert
 
         span = table("kb.span")
-        for eid, (oid, rid, start, end) in inputs.source_links.items():
+        for eid, source_link in inputs.source_links.items():
+            assert isinstance(source_link, tuple), "this control uses archived rendition evidence"
+            oid, rid, start, end = source_link
             sid = conn.execute(
                 pg_insert(span)
                 .values(rendition_id=rid, start_offset=start, end_offset=end)
@@ -88,7 +90,9 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(
     with semantic_writer_engine.begin() as conn:
         links = []
         span = table("kb.span")
-        for evidence_id, (observation, rendition, start, end) in inputs.source_links.items():
+        for evidence_id, source_link in inputs.source_links.items():
+            assert isinstance(source_link, tuple), "this control uses archived rendition evidence"
+            observation, rendition, start, end = source_link
             span_id = conn.execute(
                 pg_insert(span)
                 .values(rendition_id=rendition, start_offset=start, end_offset=end)
@@ -189,7 +193,9 @@ def test_finished_result_cannot_contain_an_unbacked_selected_fact(
     with semantic_writer_engine.begin() as conn:
         links = []
         span = table("kb.span")
-        for evidence_id, (observation, rendition, start, end) in inputs.source_links.items():
+        for evidence_id, source_link in inputs.source_links.items():
+            assert isinstance(source_link, tuple), "this control uses archived rendition evidence"
+            observation, rendition, start, end = source_link
             span_id = conn.execute(
                 pg_insert(span)
                 .values(rendition_id=rendition, start_offset=start, end_offset=end)

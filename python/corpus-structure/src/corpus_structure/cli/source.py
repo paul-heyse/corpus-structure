@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json as jsonlib
 from pathlib import Path
 from typing import Literal
 
@@ -66,6 +67,7 @@ def inspect(
     native_digest: str | None = None,
     pointer: str | None = None,
     section: str | None = None,
+    membership: Literal['direct','descendants'] | None = None,
     cell: int | None = None,
     native_view: Literal["items", "sections", "item", "formula", "cell", "regions", "trace"] = "items",
     cursor: str | None = None,
@@ -75,8 +77,10 @@ def inspect(
             raise typer.BadParameter("native inspection requires --producing-task and no rendition")
         emit(_read(ctx, version=2, run_id=run, task_id=producing_task, product_key=product,
             content_digest=native_digest, view=native_view, pointer=pointer,
-            section_pointer=section, cell_index=cell, cursor=cursor, limit=limit), json=json)
+            section_pointer=section, membership=membership,cell_index=cell, cursor=cursor, limit=limit), json=json)
         return
+    if any(value is not None for value in (pointer,section,membership,cell,cursor)) or native_view!='items':
+        raise typer.BadParameter('native selectors require --native-digest')
     if rendition is None:
         raise typer.BadParameter("select --native-digest or an archived rendition")
     emit(
@@ -318,6 +322,7 @@ def register(root: typer.Typer):
 def native_export(
     ctx: typer.Context, run: int, producing_task: int, product: str, digest: str,
     output: Path, section: str | None = None,
+    membership: Literal['direct','descendants'] | None = None,
     format: Literal['jsonl','parquet']='parquet',
 ):
     """Export a pinned native source projection without conversion or interpretation."""
@@ -328,7 +333,7 @@ def native_export(
     with failure_boundary(True,expected=(ValueError,FileExistsError)), open_runtime_engine(
         state(ctx).settings(),application_name='ci-native-export',purpose='read') as engine, read_snapshot(engine) as conn:
         export_native_source(conn,NativeSourceRequest(run_id=run,task_id=producing_task,
-            product_key=product,content_digest=digest,section_pointer=section,limit=1000),output,format=format)
+            product_key=product,content_digest=digest,section_pointer=section,membership=membership,limit=1000),output,format=format)
 
 
 @app.command('native-products')
@@ -338,13 +343,24 @@ def native_products(ctx: typer.Context, run: int, json: JsonOpt=False):
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_run
+    from corpus_structure.cli.failures import failure_boundary
     from pydantic_core import to_jsonable_python
-    with open_runtime_engine(state(ctx).settings(),application_name='ci-native-products',purpose='read') as engine, read_snapshot(engine) as conn:
+    with failure_boundary(json,expected=(ValueError,)), open_runtime_engine(state(ctx).settings(),application_name='ci-native-products',purpose='read') as engine, read_snapshot(engine) as conn:
+        context=pdf_context_for_run(conn,run)
+        context.execution.require_operation('read_native_source')
+        context.boundary.validate_json('PdfNativeRunRequest',jsonlib.dumps(dict(run_id=run)))
         products,tasks,views,selected=map(table,('ops.native_document_product','ops.task','kb.source_view','ops.run_source_view'))
-        pins=select(views.c.native_task_id).join(selected,selected.c.source_view_id==views.c.id).where(selected.c.run_id==run)
+        runtime=table('kb.native_document_runtime')
+        pins=select(views.c.id).join(selected,selected.c.source_view_id==views.c.id).where(
+            selected.c.run_id==run,views.c.native_task_id==products.c.task_id,
+            views.c.native_product_key==products.c.product_key,
+            views.c.native_content_digest==products.c.content_digest)
         query=select(products.c.task_id,products.c.product_key,products.c.content_digest,
-            products.c.release_id,products.c.health.op("-")("formula_outcomes").label("health")).join(tasks,tasks.c.id==products.c.task_id).where(
-            or_(tasks.c.run_id==run,products.c.task_id.in_(pins))).order_by(products.c.task_id,products.c.product_key)
+            products.c.release_id,products.c.health.op("-")("formula_outcomes").label("health"),
+            runtime.c.report.label('runtime_report')).join(tasks,tasks.c.id==products.c.task_id).outerjoin(runtime,
+                (runtime.c.task_id==products.c.task_id)&(runtime.c.product_key==products.c.product_key)).where(
+            or_(tasks.c.run_id==run,pins.exists())).order_by(products.c.task_id,products.c.product_key)
         rows=[dict(row) for row in conn.execute(query).mappings()]
         emit(to_jsonable_python(rows),json=json)
 
@@ -400,4 +416,5 @@ def native_views(ctx: typer.Context, run: int, json: JsonOpt=False):
         state(ctx).settings(),application_name='ci-source-views',purpose='read') as engine, read_snapshot(engine) as conn:
         context=pdf_context_for_run(conn,run)
         context.execution.require_operation('read_source_view')
+        context.boundary.validate_json('PdfNativeRunRequest',jsonlib.dumps(dict(run_id=run)))
         emit(to_jsonable_python([asdict(view) for view in selected_source_views(conn,run)]),json=json)

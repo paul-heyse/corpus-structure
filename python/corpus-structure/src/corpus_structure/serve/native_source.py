@@ -20,6 +20,7 @@ class NativeSourceRequest(BaseModel):
     content_digest: str = Field(pattern=r'^[0-9a-f]{64}$')
     view: Literal['products','items','sections','item','formula','cell','regions','trace'] = 'items'
     section_pointer: str | None = None
+    membership: Literal['direct','descendants'] | None = None
     pointer: str | None = None
     cell_index: int | None = Field(default=None,ge=0)
     cursor: str | None = None
@@ -45,20 +46,22 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.pdf_storage import read_native_items, read_native_regions
 
-    runs,tasks,products,builds = map(table,('ops.run','ops.task','ops.native_document_product','ops.source_build'))
+    runs,tasks,products,builds,runtime = map(table,('ops.run','ops.task','ops.native_document_product','ops.source_build','kb.native_document_runtime'))
     run = conn.execute(select(runs.c.project_id,runs.c.release_id).where(runs.c.id==request.run_id)).one_or_none()
     if run is None:
         raise ValueError('unknown native source run')
     from corpus_structure.semantic.pdf_contracts import pdf_context_for_run
     context=pdf_context_for_run(conn,request.run_id)
     context.execution.require_operation('read_native_source')
-    context.boundary.validate_json('PdfNativeReadRequest',request.model_dump_json())
+    context.boundary.validate_json('PdfNativeReadRequest',request.model_dump_json(exclude_none=True))
     origin = runs.alias('native_origin_run')
     header = conn.execute(select(products.c.release_id,products.c.health.op("-")("formula_outcomes").label("health"),products.c.content_digest,
         products.c.parent_task_id,products.c.parent_product_key,products.c.parent_digest,
+        runtime.c.report.label('runtime_report'),
         builds.c.artifact_digest,tasks.c.run_id.label('origin_run')).select_from(products.join(tasks,
         tasks.c.id==products.c.task_id).join(origin,origin.c.id==tasks.c.run_id).join(builds,
-        builds.c.task_id==products.c.task_id)).where(products.c.task_id==request.task_id,
+        builds.c.task_id==products.c.task_id).outerjoin(runtime,
+        (runtime.c.task_id==products.c.task_id)&(runtime.c.product_key==products.c.product_key))).where(products.c.task_id==request.task_id,
         products.c.product_key==request.product_key,origin.c.project_id==run.project_id,
         )).one_or_none()
     if header is None:
@@ -86,16 +89,26 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
     pin=dict(task_id=request.task_id,product_key=request.product_key,content_digest=request.content_digest)
     # The qualified storage reader checks the admitted archived schema/contract even for metadata reads.
     rows=read_native_items(conn,**pin,section_pointer=request.section_pointer,
-        pointer=request.pointer,after=after,limit=request.limit)
+        membership=request.membership or 'direct',pointer=request.pointer,after=after,limit=request.limit)
     next_cursor=None
     if request.view=='products':
         rows=[dict(task_id=request.task_id,product_key=request.product_key,
-            content_digest=request.content_digest,artifact_digest=header.artifact_digest)]
+            content_digest=request.content_digest,artifact_digest=header.artifact_digest,
+            runtime_report=header.runtime_report)]
     elif request.view=='sections':
         item=table('kb.native_document_item')
+        if request.section_pointer is None:
+            scope=[]
+        elif request.membership=='descendants':
+            from corpus_structure.semantic.pdf_storage import native_descendant_pointers
+            scope=[item.c.pointer.in_(native_descendant_pointers(task_id=request.task_id,
+                product_key=request.product_key,section_pointer=request.section_pointer)),
+                item.c.pointer!=request.section_pointer]
+        else:
+            scope=[item.c.parent_pointer==request.section_pointer]
         rows=[dict(r) for r in conn.execute(select(*[c for c in item.columns if c.name != "native_json"]).where(item.c.task_id==request.task_id,
             item.c.product_key==request.product_key,item.c.label.in_(['section','chapter']),
-            item.c.ordinal>after, *([item.c.parent_pointer==request.section_pointer] if request.section_pointer is not None else [])).order_by(item.c.ordinal).limit(request.limit)).mappings()]
+            item.c.ordinal>after,*scope).order_by(item.c.ordinal).limit(request.limit)).mappings()]
     elif request.view in {'item','formula','cell','regions','trace'}:
         if request.pointer is None or len(rows)!=1:
             raise ValueError('native occurrence inspection requires one existing pointer')
@@ -121,7 +134,12 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                 cells=native.get('data',{}).get('table_cells',[])
                 if request.cell_index is None or request.cell_index>=len(cells):
                     raise ValueError('table cell index unavailable')
-                rows=[dict(pointer=request.pointer,cell_index=request.cell_index,cell=cells[request.cell_index])]
+                reports=table('kb.native_document_cell_report')
+                report=conn.execute(select(reports).where(reports.c.task_id==request.task_id,
+                    reports.c.product_key==request.product_key,reports.c.table_pointer==request.pointer,
+                    reports.c.cell_index==request.cell_index)).mappings().one_or_none()
+                rows=[dict(pointer=request.pointer,cell_index=request.cell_index,
+                    cell=cells[request.cell_index],recognition=None if report is None else dict(report))]
             elif request.view=='formula':
                 if native.get('label')!='formula':
                     raise ValueError('native pointer is not a formula')

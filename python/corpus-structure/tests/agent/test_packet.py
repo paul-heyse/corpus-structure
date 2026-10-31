@@ -296,6 +296,30 @@ class FakeReader:
         body: Any = {"$id": "x", "title": "schema"} if artifact_hash == "b" * 64 else "# Reference"
         return json.dumps(body).encode()
 
+    def source_views(self) -> Never:
+        raise AssertionError("the archived prompt digest must not read native source views")
+
+    def source_view(self, source_view_id: int) -> Never:
+        raise AssertionError("the archived prompt digest must not read native source views")
+
+    def ancestor_source_views(self, source_view_id: int) -> Never:
+        raise AssertionError("the archived prompt digest must not read native ancestry")
+
+    def native_document(self, reference) -> Never:
+        raise AssertionError("the archived prompt digest must not read native documents")
+
+    def source_observations(self, source_view_id: int, method: str, kind: ObservationKind) -> Never:
+        raise AssertionError("the archived prompt digest must not read native observations")
+
+    def source_view_coverage(self, source_view_id: int, method: str) -> Never:
+        raise AssertionError("the archived prompt digest must not read native coverage")
+
+    def native_product_reference(self, document_id: int, product_key: str, digest: str) -> Never:
+        raise AssertionError("the archived prompt digest must not produce native references")
+
+    def prepare_pdf_product(self, payload, original: bytes, schema_bytes: bytes, recipe_bytes: bytes) -> Never:
+        raise AssertionError("the archived prompt digest must not prepare native documents")
+
     def renditions(self) -> Never:
         raise AssertionError("the prompt digest must not read renditions")
 
