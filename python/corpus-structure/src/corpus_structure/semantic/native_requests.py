@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine, select, text
@@ -27,6 +27,53 @@ from .operations import (
     seal_cut,
 )
 from .source_views import load_source_view, store_region_artifact
+
+if TYPE_CHECKING:
+    from sqlalchemy import Connection
+
+    from .types import PreparedRelease
+
+
+def prepare_native_renderer(conn: Connection, prepared: PreparedRelease) -> dict[str, str]:
+    """Admit the archived renderer and its packages, independently of mathematical kernels."""
+    from importlib.metadata import version
+    from importlib.resources import files
+
+    from .contracts import _fail, bound_execution_model
+
+    model = bound_execution_model(prepared)
+    model.require_operation("publish_pdf_region_artifact")
+    admitted = dict(model.implementation_digests)
+    implementation = files("corpus_structure").joinpath("serve/native_regions.py").read_bytes()
+    digest = sha256(implementation).hexdigest()
+    if admitted.get("pdf/regions.py") != digest:
+        _fail(
+            "unsupported_renderer_implementation",
+            model.model_id,
+            "bind the admitted PDF region renderer bytes before rendering, or explicitly "
+            "adopt the retained native product into a compatible current release",
+        )
+    inputs = table("sem.input")
+    retained = bytes(
+        conn.execute(
+            select(inputs.c.content).where(
+                inputs.c.release_id == prepared.release_id,
+                inputs.c.input_kind == "dependency",
+                inputs.c.input_name == "execution/implementation/libraries.json",
+            )
+        ).scalar_one()
+    )
+    if sha256(retained).hexdigest() != admitted.get("libraries.json"):
+        raise ValueError("retained renderer package manifest differs from admitted custody")
+    libraries = json.loads(retained)
+    runtime = {name: version(name) for name in ("pypdfium2", "Pillow")}
+    if any(libraries.get(name) != value for name, value in runtime.items()):
+        _fail(
+            "unsupported_renderer_packages",
+            model.model_id,
+            "bind the admitted pypdfium2 and Pillow versions before rendering",
+        )
+    return dict(implementation_digest=digest, **runtime)
 
 
 class NativeRequestLimits(BaseModel):
@@ -82,13 +129,6 @@ def request_source_view(
     scale: float = 2,
     holder: str = "native-source-request",
 ) -> NativeRequestResult:
-    from corpus_structure.methods.math.native import (
-        NativeAnalysisPayload,
-        NativeDomainRule,
-        native_request_analysis,
-        stored_native_ancestor_declarations,
-    )
-
     from .claim_lifetime import maintained_claims
     from .contracts import require_bound_operation
     from .releases import open_release
@@ -107,9 +147,9 @@ def request_source_view(
             )
         ).scalar_one_or_none():
             raise ValueError("native source request requires an explicitly selected source view")
-        view = load_source_view(conn, source_view_id)
+        view = load_source_view(conn, source_view_id, analysis=demand != "render")
         source_binding = binding_of(conn, source_run_id)
-        archived = json.loads(source_binding.dependencies)
+        archived = {} if demand == "render" else json.loads(source_binding.dependencies)
         rules = [
             v.get("parameters", {}).get("math", {}).get("native_domain_rules", [])
             for v in archived.get("operations", {}).values()
@@ -120,23 +160,35 @@ def request_source_view(
         domain_rules = tuple(rules[0]) if rules else ()
         from .operations import BoundReader
 
-        reader = BoundReader(conn, source_run_id, prepared)
         contextual = demand in {"interpretation", "symbolic", "assessment"}
-        ancestor_refs = tuple(reader.ancestor_source_views(source_view_id)) if contextual else ()
-        ancestor_views = tuple(reader.source_view(ref.id) for ref in ancestor_refs)
-        parent_records = {
-            (ref.id, kind): tuple(reader.source_observations(ref.id, "resolve.symbol_scope", kind))
-            for ref in ancestor_refs
-            for kind in (ObservationKind.RECORD, ObservationKind.SCOPE)
-        }
-        parent_coverage = {
-            ref.id: tuple(reader.source_view_coverage(ref.id, "resolve.symbol_scope"))
-            for ref in ancestor_refs
-        }
+        ancestor_refs = ancestor_views = ()
+        parent_records = {}
+        parent_coverage = {}
+        if contextual:
+            reader = BoundReader(conn, source_run_id, prepared)
+            ancestor_refs = tuple(reader.ancestor_source_views(source_view_id))
+            ancestor_views = tuple(reader.source_view(ref.id) for ref in ancestor_refs)
+            parent_records = {
+                (ref.id, kind): tuple(
+                    reader.source_observations(ref.id, "resolve.symbol_scope", kind)
+                )
+                for ref in ancestor_refs
+                for kind in (ObservationKind.RECORD, ObservationKind.SCOPE)
+            }
+            parent_coverage = {
+                ref.id: tuple(reader.source_view_coverage(ref.id, "resolve.symbol_scope"))
+                for ref in ancestor_refs
+            }
+        renderer = prepare_native_renderer(conn, prepared) if demand == "render" else None
     # Native syntax work runs after the bounded database snapshot has been released.
-    kernel_rules = tuple(NativeDomainRule.model_validate(rule) for rule in domain_rules)
+    kernel_rules = ()
+    if demand != "render":
+        from corpus_structure.methods.math.native import NativeDomainRule
+
+        kernel_rules = tuple(NativeDomainRule.model_validate(rule) for rule in domain_rules)
     declarations = issues = ()
     if contextual:
+        from corpus_structure.methods.math.native import stored_native_ancestor_declarations
 
         class AncestorSnapshot:
             def __init__(self):
@@ -155,17 +207,6 @@ def request_source_view(
                 return parent_coverage.get(identity, ())
 
         declarations, issues = stored_native_ancestor_declarations(AncestorSnapshot(), view)
-    renderer = None
-    if demand == "render":
-        from importlib.metadata import version
-        from importlib.resources import files
-
-        implementation = files("corpus_structure").joinpath("serve/native_regions.py").read_bytes()
-        renderer = dict(
-            implementation_digest=sha256(implementation).hexdigest(),
-            pypdfium2=version("pypdfium2"),
-            Pillow=version("Pillow"),
-        )
     config = NativeRequestConfig(
         source_view_id=source_view_id,
         native_product=view.ref.native_product.values(),
@@ -257,7 +298,7 @@ def request_source_view(
                     table("ops.task_result").c.task_id == reused
                 )
             ).scalar_one()
-            raw = BoundReader(conn, run_id, prepared).source_observations(
+            raw = BoundReader(conn, run_id, prepared, analysis=False).source_observations(
                 source_view_id, method.name, ObservationKind.RECORD
             )
             result = dict(raw[0].payload) if raw else None
@@ -312,6 +353,8 @@ def request_source_view(
                 artifact_bytes = render_pdf_region(original, region, scale=scale)
                 analysis = None
             else:
+                from corpus_structure.methods.math.native import native_request_analysis
+
                 analysis = native_request_analysis(
                     view,
                     prepared,
@@ -368,7 +411,7 @@ def request_source_view(
                 ObservationDraft(
                     kind=ObservationKind.RECORD,
                     payload=analysis,
-                    payload_class=NativeAnalysisPayload,
+                    payload_class=type(analysis),
                     payload_version="1",
                     source_view_id=source_view_id,
                     native_pointer=pointer,
