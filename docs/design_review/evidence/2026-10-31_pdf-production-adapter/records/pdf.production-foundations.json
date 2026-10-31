@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "pdf.production-foundations",
+  "title": "Native PDF production foundations",
+  "group": null,
+  "package": "PDF-02",
+  "finalized": "2026-10-31",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do admitted PDF boundaries, the native adapter and restricted rendition-independent custody work for the bounded foundation scope?",
+  "answers": [
+    "PDF-01",
+    "PDF-02",
+    "PDF-03",
+    "PDF-04",
+    "PDF-05",
+    "PDF-06",
+    "PDF-08",
+    "PDF-09"
+  ],
+  "method": "Actual page85 model execution, retained-native projection preparation, restricted PostgreSQL and independent invalid functional controls.",
+  "commands": [
+    "just ready",
+    "just types",
+    "uv run pytest python/corpus-structure/tests/semantic/test_native_documents.py tests/test_pdf_contracts.py tests/test_pdf_conversion.py tests/test_pdf_math.py -x --tb=short",
+    "uv run python docs/design_review/evidence/2026-10-31_pdf-production-adapter/projection_probe.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "native conversion and projection outputs",
+      "sha256": "1b0b6efacd5625657f0a00433e9ba03d61ed1e3b139f11dbdf494e847c68bacb"
+    },
+    {
+      "path": "adapter_probe.py",
+      "role": "native reproduction",
+      "sha256": "890d7983ec2e037b605ce15a48a544fbcbaf34ab7002f2d85fca3cf360765233"
+    },
+    {
+      "path": "projection_probe.py",
+      "role": "qualified projection reproduction",
+      "sha256": "4b7256fb339589d8e402e31230469c39f33f25812fd1c8f0b7702b8fd07d5c01"
+    }
+  ],
+  "depends_on": [
+    "2026-10-31_pdf-docling-foundations/pdf.foundations"
+  ],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Bounded actual native conversion/provider execution and current projection preparation passed. Compiled PDF contracts, lazy formula/hierarchy kernels and restricted native JSONB publication/read controls passed. Full-book, final-input native inference, complete assets/inline/cell coverage, consumer migration, runtime/adoption and integrated qualification remain open. Earlier failed/interrupted invocations retain no passing credit.",
+  "consumed_by": [
+    "PDF-01",
+    "PDF-02",
+    "PDF-03",
+    "PDF-04",
+    "PDF-05",
+    "PDF-06",
+    "PDF-08",
+    "PDF-09"
+  ]
+}

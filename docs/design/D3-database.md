@@ -1846,3 +1846,17 @@ persistence/replay, activation, run start/resumption and resource principal chec
 Historical analytical-4/5 and compiler-8 analytical-6 read recipes preserve their own meanings.
 
 > Decision: [ADR-0031](../adr/0031-semantic-execution-closure.md), [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+
+## Native PDF product custody
+
+**Implemented and targeted-tested, 2026-10-31; operational PDF adoption remains open.**
+Forward native 0047 adds task-rooted `ops.source_build`, immutable native JSONB products and
+bounded item/region projections through the shared physical LinkML/SQLAlchemy metadata. Original
+retention precedes inference through a separate fenced operation. Publication checks archived
+schema/contract identity, original custody, full reading-order/membership correspondence and
+native geometry; it requires no canonical rendition. Docling owns native schema/tree meaning,
+validated at the prepared writer boundary before identity. Application envelopes/coverage and
+native publication guards derive from the trusted PDF companion model. The
+[PDF coordinator](../plans/pdf-docling-pipeline_2026-10-31.md) owns remaining consumer, cell,
+full-book and adoption obligations. Historical operational databases remain unchanged.

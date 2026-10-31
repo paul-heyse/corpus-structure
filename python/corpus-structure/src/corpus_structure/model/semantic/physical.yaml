@@ -3477,3 +3477,201 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.parsing_layer_product.task_id,product_key"}]'
       ph:checks: '["coverage IN (''complete'',''partial'',''unknown'',''unsupported'')"]'
+  source_build:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      release_id:
+        range: string
+        required: true
+      artifact_digest:
+        range: string
+        required: true
+      recipe_digest:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+      unique_0:
+        unique_key_slots:
+        - task_id
+        - release_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"},
+        {"columns": ["artifact_digest"], "target": "kb.source_artifact.artifact_digest"},
+        {"columns": ["recipe_digest"], "target": "kb.source_artifact.artifact_digest"}]'
+  native_document_product:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      contract_digest:
+        range: string
+        required: true
+      schema_digest:
+        range: string
+        required: true
+      recipe_digest:
+        range: string
+        required: true
+      parent_task_id:
+        range: integer
+        required: false
+      parent_product_key:
+        range: string
+        required: false
+      parent_digest:
+        range: string
+        required: false
+      native_json:
+        range: json_payload
+        required: true
+      health:
+        range: json_payload
+        required: true
+      payload:
+        range: bytes
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+      unique_0:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.source_build.task_id,release_id"},
+        {"columns": ["schema_digest"], "target": "kb.source_artifact.artifact_digest"},
+        {"columns": ["recipe_digest"], "target": "kb.source_artifact.artifact_digest"},
+        {"columns": ["parent_task_id", "parent_product_key", "parent_digest"], "target":
+        "ops.native_document_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["product_key <> ''''", "content_digest = encode(sha256(payload),''hex'')",
+        "native_json = convert_from(payload,''UTF8'')::jsonb->''document''", "health
+        = convert_from(payload,''UTF8'')::jsonb->''health''", "num_nonnulls(parent_task_id,parent_product_key,parent_digest)
+        IN (0,3)"]'
+  native_document_item:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      pointer:
+        range: string
+        required: true
+      ordinal:
+        range: integer
+        required: true
+      label:
+        range: string
+        required: true
+      parent_pointer:
+        range: string
+        required: false
+      section_pointer:
+        range: string
+        required: false
+      content_layer:
+        range: string
+        required: true
+      text:
+        range: string
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - pointer
+      unique_0:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - ordinal
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.native_document_product.task_id,product_key"}]'
+      ph:checks: '["ordinal >= 0", "pointer LIKE ''#/%''"]'
+      ph:indexes: '[["task_id", "product_key", "section_pointer", "ordinal"], ["task_id",
+        "product_key", "parent_pointer", "ordinal"]]'
+  native_document_region:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      pointer:
+        range: string
+        required: true
+      region_index:
+        range: integer
+        required: true
+      page_no:
+        range: integer
+        required: true
+      page_width:
+        range: exact_numeric
+        required: true
+      page_height:
+        range: exact_numeric
+        required: true
+      left:
+        range: exact_numeric
+        required: true
+      top:
+        range: exact_numeric
+        required: true
+      right:
+        range: exact_numeric
+        required: true
+      bottom:
+        range: exact_numeric
+        required: true
+      origin:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - pointer
+        - region_index
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "pointer"], "target":
+        "kb.native_document_item.task_id,product_key,pointer"}]'
+      ph:checks: '["region_index >= 0", "page_no >= 1", "page_width > 0 AND page_height
+        > 0", "origin IN (''top_left'',''bottom_left'')", "\"left\" >= 0 AND \"right\"
+        >= \"left\" AND \"right\" <= page_width", "top >= 0 AND bottom >= 0 AND top
+        <= page_height AND bottom <= page_height", "(origin=''top_left'' AND top <=
+        bottom) OR (origin=''bottom_left'' AND bottom <= top)"]'
+      ph:indexes: '[["task_id", "product_key", "page_no"]]'

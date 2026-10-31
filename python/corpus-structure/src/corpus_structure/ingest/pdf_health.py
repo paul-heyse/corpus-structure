@@ -1,4 +1,5 @@
 """Attributable health around a single native formula stage, without global patches."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -41,6 +42,7 @@ class ObservedFormulaStage:
     The wrapper does not interpret text differences. An unchanged valid recognition is still
     recognized; a swallowed exception is failed. Preparation skips remain unknown to the caller.
     """
+
     def __init__(self, native: Any) -> None:
         self.native = native
         self.outcomes: list[FormulaOutcome] = []

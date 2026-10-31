@@ -1,7 +1,9 @@
 """Native JSON shape guards from the existing effective semantic definitions."""
+
 from __future__ import annotations
 
 from .types import PreparedRelease
+
 
 def record_shape_guards(prepared: PreparedRelease, class_name: str, expression: str) -> str:
     definitions = {definition.name: definition for definition in prepared.definitions}
@@ -39,7 +41,11 @@ def record_shape_guards(prepared: PreparedRelease, class_name: str, expression: 
                 invalid.append(f"NOT ({expression} ? {key})")
             if prop.multivalued:
                 predicate = f"jsonb_typeof({value}) IS DISTINCT FROM 'array'"
-                if prop.range in {"ParsingString", "PdfString", "PdfDigest", "PdfPointer", "string"} or prop.range in vocabularies:
+                if (
+                    prop.range
+                    in {"ParsingString", "PdfString", "PdfDigest", "PdfPointer", "string"}
+                    or prop.range in vocabularies
+                ):
                     predicate += (
                         f" OR EXISTS(SELECT FROM jsonb_array_elements({value}) element "
                         "WHERE jsonb_typeof(element) IS DISTINCT FROM 'string')"
@@ -65,7 +71,10 @@ def record_shape_guards(prepared: PreparedRelease, class_name: str, expression: 
                 )
             elif prop.range in {"PdfNumber", "float", "double", "decimal"}:
                 predicate = f"jsonb_typeof({value}) IS DISTINCT FROM 'number'"
-            elif prop.range in {"ParsingString", "PdfString", "PdfDigest", "PdfPointer", "string"} or prop.range in vocabularies:
+            elif (
+                prop.range in {"ParsingString", "PdfString", "PdfDigest", "PdfPointer", "string"}
+                or prop.range in vocabularies
+            ):
                 predicate = f"jsonb_typeof({value}) IS DISTINCT FROM 'string'"
                 if prop.range in vocabularies:
                     choices = ",".join(quoted(member) for member in vocabularies[prop.range])
@@ -86,7 +95,9 @@ def record_shape_guards(prepared: PreparedRelease, class_name: str, expression: 
                     f"{expression}->>{key} IS DISTINCT FROM {quoted(prop.equals_string)}"
                 )
             for pattern in prop.patterns or ((prop.pattern,) if prop.pattern else ()):
-                invalid.append(f"({expression} ? {key} AND {expression}->>{key} !~ {quoted(pattern)})")
+                invalid.append(
+                    f"({expression} ? {key} AND {expression}->>{key} !~ {quoted(pattern)})"
+                )
             if prop.minimum is not None:
                 invalid.append(
                     f"({expression} ? {key} AND ({expression}->>{key})::numeric < {prop.minimum})"

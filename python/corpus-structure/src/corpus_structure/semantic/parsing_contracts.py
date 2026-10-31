@@ -95,7 +95,12 @@ def validate_parsing_contracts(model: ExecutionModelProducts) -> None:
         "mapping/synthetic",
         "mapping/exclude",
     }
-    supported_ids = {"html5lib-source-1", "pylatexenc-structure-1", "lark-math-3"}
+    supported_ids = {
+        "html5lib-source-1",
+        "pylatexenc-structure-1",
+        "lark-structure-1",
+        "lark-math-3",
+    }
     if (
         not model.parsing_adapters
         or len({a.adapter_id for a in model.parsing_adapters}) != len(model.parsing_adapters)
@@ -127,6 +132,14 @@ def validate_parsing_contracts(model: ExecutionModelProducts) -> None:
         )
 
     profiles = {
+        "lark-structure-1": (
+            "text-structure-2",
+            "sympy-1.14.0-lark-1.3.1",
+            None,
+            "strict-malformed",
+            "explicit-partial",
+            {"text/lexical-partition", "text/parse-view", "tex/structure"},
+        ),
         "pylatexenc-structure-1": (
             "text-structure-1",
             "pylatexenc-3.0b2",

@@ -215,8 +215,13 @@ class PreparedMathInput:
             # one prepared tree; no separate TeX walk or native algebra is performed.
             recognized = self.syntax()
             nodes, outcome, issues = syntax_structure(
-                replace(result.view, text=self.latex, start=self.parse_start,
-                        end=self.parse_start + len(self.latex)), recognized
+                replace(
+                    result.view,
+                    text=self.latex,
+                    start=self.parse_start,
+                    end=self.parse_start + len(self.latex),
+                ),
+                recognized,
             )
             result = replace(result, nodes=nodes, structure_outcome=outcome, issues=issues)
             if recognized.failure is not None and recognized.failure.category == "timeout":

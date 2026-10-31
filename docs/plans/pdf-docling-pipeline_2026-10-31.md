@@ -1,7 +1,7 @@
 # PDF-only Docling pipeline
 
-**Status:** Active plan; PDF-00–PDF-11 planned, no PDF-pivot production implementation or
-qualification claimed. **Created:** 2026-10-31.
+**Status:** Active implementation; PDF-00 delivered, PDF-01–06 and PDF-08/09 partial;
+PDF-07/10/11 remain planned. No PDF-only adoption or complete qualification claimed. **Created:** 2026-10-31.
 **Basis:** [functional review](../functional_reviews/pdf-docling-pipeline_2026-10-31.md) at
 `2c333722fe9b3ad03c8004d14c5f50a1605c3f4b` and its [target model](../functional_reviews/pdf-docling-pipeline_2026-10-31_target-model.md).
 This coordinator owns package state, scheduled O01–O08 dispositions and investigations I01–I08.
@@ -74,14 +74,14 @@ confirmations do not authorize changing grading policy, audit premises or histor
 |---|---|---|---|
 | <a id="PDF-00"></a>PDF-00 | [Foundations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-00): architectural decisions and enduring owners | Confirmed RC01–05, current clauses | Delivered: ADR-0038 and architectural owners |
 | <a id="PDF-01"></a>PDF-01 | [Investigations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-01): qualified library/runtime choices | Source PDF, review; early PDF-02 agreement where needed | Partial: bounded native probes; remaining integration open |
-| <a id="PDF-02"></a>PDF-02 | [Model](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-02): connected contracts and prepared ports | PDF-00; I03/04/06 before final producer contracts | Planned |
-| <a id="PDF-03"></a>PDF-03 | [Storage](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-03): native JSON, derived access rows and integrity | Agreed PDF-02; I06 | Planned |
-| <a id="PDF-04"></a>PDF-04 | [Conversion](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-04): PDF producer with explicit health | I01/02/03; relevant PDF-02 support | Planned |
-| <a id="PDF-05"></a>PDF-05 | [Hierarchy](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-05): intact sections and qualified views | PDF-04, PDF-02, I04; PDF-03 for persistence | Planned |
-| <a id="PDF-06"></a>PDF-06 | [Math](pdf-docling-pipeline/interpretation-and-domain-consumers.md#PDF-06): direct formula input and lazy M09/M11 | PDF-04/05, I03/05 | Planned |
+| <a id="PDF-02"></a>PDF-02 | [Model](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-02): connected contracts and prepared ports | PDF-00; I03/04/06 before final producer contracts | Partial: compiled/archive-qualified PDF boundaries and operation bindings; consumer/frame migration open |
+| <a id="PDF-03"></a>PDF-03 | [Storage](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-03): native JSON, derived access rows and integrity | Agreed PDF-02; I06 | Partial: forward 0047 custody, protected publication and bounded item/region reads tested; cells/consumer integration open |
+| <a id="PDF-04"></a>PDF-04 | [Conversion](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-04): PDF producer with explicit health | I01/02/03; relevant PDF-02 support | Partial: production adapter and native page85 run; complete asset/inline/cell discovery open |
+| <a id="PDF-05"></a>PDF-05 | [Hierarchy](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-05): intact sections and qualified views | PDF-04, PDF-02, I04; PDF-03 for persistence | Partial: intact native grouping and text views; book-wide semantic hierarchy integration open |
+| <a id="PDF-06"></a>PDF-06 | [Math](pdf-docling-pipeline/interpretation-and-domain-consumers.md#PDF-06): direct formula input and lazy M09/M11 | PDF-04/05, I03/05 | Partial: qualified native formula bridge and positioned Lark structure; M09/M11 source routing open |
 | <a id="PDF-07"></a>PDF-07 | [Consumers](pdf-docling-pipeline/interpretation-and-domain-consumers.md#PDF-07): M13/domain recognition and rich packets | PDF-05, agreed PDF-06 states and PDF-02 frame contract | Planned |
-| <a id="PDF-08"></a>PDF-08 | [Interfaces](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-08): typed CLI/MCP, placement and exports | PDF-03/05; PDF-06/07 for their views | Planned |
-| <a id="PDF-09"></a>PDF-09 | [Runtime](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-09): owned conversion lifecycle and publication | PDF-02/03/04; I07 before adoption | Planned |
+| <a id="PDF-08"></a>PDF-08 | [Interfaces](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-08): typed CLI/MCP, placement and exports | PDF-03/05; PDF-06/07 for their views | Partial: pinned item/region query primitives; CLI/MCP/export integration open |
+| <a id="PDF-09"></a>PDF-09 | [Runtime](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-09): owned conversion lifecycle and publication | PDF-02/03/04; I07 before adoption | Partial: original retention/publication fences and replay; converter/request lifecycle/full-book open |
 | <a id="PDF-10"></a>PDF-10 | [Adoption](pdf-docling-pipeline/adoption-and-retirement.md#PDF-10): PDF defaults, consumer cutover, HTML removal | Integrated PDF-03–09; I08 | Planned |
 | <a id="PDF-11"></a>PDF-11 | [Acceptance](pdf-docling-pipeline/adoption-and-retirement.md#PDF-11): actual journeys and required-union evidence | Complete selected functional scope, PDF-10 | Planned |
 
@@ -158,10 +158,32 @@ independent fidelity assessment separate from pipeline correctness. Resolve subs
 issues at coherent endpoints. Applicable lint-only maintenance does not invalidate prior tests.
 No grading-policy change, human grading or automatic historical re-anchoring is included.
 
-**Current checkpoint (2026-10-31):** PDF-00 decision work is delivered via ADR-0038. PDF-01
-[foundation evidence](../design_review/evidence/2026-10-31_pdf-docling-foundations/README.md)
-contains full installation and native sampled conversions, schema/JSONB/hierarchy probes,
-formula health/compatibility gaps and reference-migration decisions. I01/I03/I05/I07 and
-operational I08 obligations remain open as stated above. No PDF product deployment or adoption
-is claimed. Next: PDF-02 detailed contracts using these results, then PDF-03/04; PDF-09 owns
-remaining integrated lifecycle proof. Historical PP completion and audit premises are unchanged.
+**Current checkpoint (2026-10-31):** Partial production implementation is integrated on main.
+Full Docling 2.145.0/all requested extras and core 2.105.0 are application dependencies; the old
+pylatexenc-3 writer is replaced by positioned native Lark structure. Core 2.103.1 conflicts with
+Typer 0.27.3, so the archived validation schema is refreshed to the compatible exact core pin.
+Execution compiler 12 preserves ABI-11 archive opening. Forward native 0047 adds original/task
+custody, immutable JSONB and complete ordered item/region projection checks without a rendition.
+Actual restricted publication/replay and wrong-attempt/forged-projection controls passed in owned
+test databases; operational defaults/databases remain unchanged.
+
+[Production adapter evidence](../design_review/evidence/2026-10-31_pdf-production-adapter/README.md)
+retains one physical-page85 native conversion: CUDA layout/table/formulas and explicit CPU OCR,
+plus a current-boundary projection replay. It is not full-book or final-input-path qualification.
+The shared native math bridge, hierarchy/view kernels and source-address storage primitives are
+implemented; current M09/M11/M13, packets/frames and CLI/MCP still require migration. Active HTML
+entry retirement, complete model-asset custody, inline/cell discovery, owned runtime integration,
+full-book conversion, actual provider/evaluation journeys and PDF-only adoption remain open.
+No O01–O08 is closed by these slices. I01 now has actual provider evidence but offline asset
+custody remains open; I03/I04/I05/I07/I08 retain their integrated obligations.
+
+**Verification (2026-10-31):** warning-inclusive `just types` passed. Targeted PDF/native controls,
+archive/parsing-contract controls and prepared-math/core controls passed; exact commands and
+limits are in the production evidence README. A broader math selection entered the legacy
+78-page HTML corpus fixture and was interrupted (no acceptance credit). `just test-all` and
+complete hygiene remain not_run until complete functional scope. Lint-only maintenance does
+not invalidate unaffected passing type/test results.
+
+**Next:** connect stored native products to existing source-ready orchestration and complete
+model asset/candidate-coverage ownership, then migrate ordered scope, packet/frame admission and
+source CLI/MCP/export consumers. Finish full-book runtime and adoption before PDF-11 acceptance.

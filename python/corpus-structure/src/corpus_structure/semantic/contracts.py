@@ -805,8 +805,13 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("placement/cascade.py", "methods/llm/cascade.py"),
             )
         ),
-        SourceArtifact("pdf/docling-validation.schema.json", root.joinpath("model", "semantic", "docling-validation.schema.json").read_bytes()),
-        SourceArtifact("pdf/contracts.py", root.joinpath("semantic", "pdf_contracts.py").read_bytes()),
+        SourceArtifact(
+            "pdf/docling-validation.schema.json",
+            root.joinpath("model", "semantic", "docling-validation.schema.json").read_bytes(),
+        ),
+        SourceArtifact(
+            "pdf/contracts.py", root.joinpath("semantic", "pdf_contracts.py").read_bytes()
+        ),
         SourceArtifact("grammar/grammar.py", math.joinpath("grammar.py").read_bytes()),
         SourceArtifact("grammar/extension.lark", math.joinpath("extension.lark").read_bytes()),
         SourceArtifact("grammar/prepared.py", math.joinpath("prepared.py").read_bytes()),

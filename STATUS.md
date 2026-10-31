@@ -1,58 +1,42 @@
 # Status
-_Updated 2026-10-31 under the [handoff skill](.claude/skills/handoff/SKILL.md); work is on `main`._
+_Updated 2026-10-31 under the handoff skill; work is on `main`._
 
 ## Current checkpoint
 
-- [PDF/Docling coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md): PDF-00 delivered
-  via ADR-0038; PDF-01 partial native investigations. Full Docling/all requested extras installed
-  in isolated evidence env. App dependencies, schema, defaults and data unchanged; no chunking.
-- [Foundation evidence](docs/design_review/evidence/2026-10-31_pdf-docling-foundations/README.md)
-  records successful sampled conversion, native hierarchy/JSONB and one real rich-cell formula
-  enrichment, plus failures. Native grammar/health/OCR-provider/full-book obligations remain open.
-- **2026-10-31:** `just ready` passed; no integrated product test, grading or PDF adoption run.
-  ADR lint/turn-end passed; finalized evidence: 0 errors, 38 historical warnings. Scoped docs
-  passed (330 pages, 0 link errors); full docs-check fails on concurrent title-less rendering draft.
+- [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md): partial implementation,
+  not complete adoption. PDF-00 delivered; PDF-01–06 and PDF-08/09 partial; PDF-07/10/11 planned.
+- Full Docling 2.145.0/all ten requested extras and core 2.105.0 installed in application.
+  Core 2.103.1 conflicts with pinned Typer; native validation schema refreshed. No chunking.
+- Execution compiler 12 preserves ABI-11 archive reads; semantic compiler remains 13.
+  Native head 0047 adds original/task-rooted native JSONB custody and bounded projections.
+- Restricted native publication/replay, attempt fences, exact projection integrity and reads
+  tested in owned scratch databases without a rendition. Native Pydantic/tree validation
+  complements archived JSON Schema; normalization precedes identity.
+- Native formula bridge and positioned Lark structure replace active pylatexenc-3 writing.
+  Intact hierarchy/views and attributable formula/cell-enrichment primitives implemented.
+- [Adapter evidence](docs/design_review/evidence/2026-10-31_pdf-production-adapter/README.md):
+  one actual page85 conversion, CUDA layout/table/formula and explicit CPU OCR; current-boundary
+  retained-native projection replay. No full-book or universal fidelity claim.
+- Defaults remain `corpus_parsing_20261030` / `parsing-pipeline` on `18/corpus:5434`.
+  Historical databases, answers, grades and anchors unchanged; active HTML cutover still open.
+- All owned implementation worktrees integrated and removed. No push.
 
-- [Parsing coordinator](docs/plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
-  owns completed PP-00–PP-10 and O01–O07 dispositions. ADR-0038 preserves immutable
-  source/text/interpretation/assessment products, qualified relations and explicit demands.
-- Execution compiler 11/profile 6, native 0046. M01 v2, M09/M11 v4 and M13 v3 use actual
-  shared products. Macro selection and early source declarations have typed evidence basis;
-  unresolved scope coverage reaches actual agent packets and their identity.
-- Weak requests avoid stronger math. Native ownership, nested deadlines, cancellation,
-  source/attempt fences, successful replay and ABI-10 read-only preservation are implemented.
-  Source CLI/MCP inspection uses bounded relational rows and server-verified identities;
-  batch exports and explainable placement retain source units and occurrence multiplicity.
-- Defaults select `corpus_parsing_20261030` / `parsing-pipeline` on `18/corpus:5434`.
-  Actual provider runs 1 (statistics), 2 (transfer) and 5 (frame) completed and selected;
-  their replays invoke no extraction. Both independent automated grading routes persisted.
-- Previous `corpus_efficiency_20261030` remains native 0040. Project/run/result/grade digests
-  and all 322 historical query rows are unchanged. No audit premise or grading policy changed.
-- All implementation worktrees are integrated and removed; no push was made.
+## Verification — 2026-10-31
 
-## Verification — 2026-10-30
-
-- **failed:** original `just test-all`: 2,624 passed / 10 failed. Original failures and the
-  interrupted corpus attempt remain retained; no invocation is relabeled passed.
-- **passed:** applicable corrected union: 2,635 required Python nodes, zero unresolved.
-  Native physical comparison caught missing declared indexes, now deployed through forward
-  0046; registration stays lazy, and source-routing fixtures use real restricted admission.
-  Original full/affected/routing/default receipts retain their distinct outcomes and contexts.
-- **passed:** 78-page complete text capture; actual restricted publication, source/declaration
-  custody, request reuse/timeout/cancellation, historical preservation and packet/frame checks.
-- **passed:** actual CLI claims/explanations, JSONL/Parquet, exact `12.3400`, default queries,
-  pinned source requests and multi-call external stdio MCP, including the default project session.
-- **passed:** `just types`, warning-inclusive Pyrefly, zero diagnostics; applicable non-doc
-  hygiene checks, including corrected ADR ownership. No suppressions were added.
-  Lint-only maintenance did not invalidate applicable test/type results.
-- **not_run:** Rust functional execution (empty discovery; no Rust scope here) and empty
-  ast-grep rule selections. No parser-throughput or universal grammar/repair-fidelity claim.
-- **passed:** `just docs-check` and finalized `just evidence`: zero errors; the 38 retained
-  evidence warnings are historical. See the owning account for closeout scope.
-- [Assembled evidence](docs/design_review/evidence/2026-10-30_parsing-layered-adoption/README.md)
-  retains commands, final-source applicability, native checks and preservation witnesses.
+- **passed:** `just ready`; warning-inclusive `just types`, no suppressions added.
+- **passed:** targeted PDF/native tests, archive/parsing-contract tests, prepared math/core
+  tests. Commands and counts are retained in adapter evidence; these are bounded claims.
+- **passed:** actual page85 conversion and current-boundary projection preparation.
+- **failed (interrupted):** broader math selection entered the legacy 78-page HTML fixture; no tests
+  completed and no acceptance credit. Owned workers drained.
+- **not_run:** complete PDF functional/provider union, `just test-all`, complete hygiene,
+  full-book conversion, PDF-only adoption and new independent automated grading journeys.
+- Prior PP qualification remains historical under its own scope; lint-only maintenance does
+  not invalidate applicable test/type results.
 
 ## Next
 
-The implemented PP scope remains complete. Next: PDF-02 contracts from foundation results and
-PDF-03/04 implementation; PDF-09 owns the remaining integrated lifecycle qualification.
+Connect native products to source-ready orchestration; finish model assets and inline/cell
+coverage; migrate M09/M11/M13, domain recognition, packets/native frames and CLI/MCP/exports.
+Then exercise full-book runtime, actual provider/evaluation journeys, adopt PDF defaults and
+retire active HTML routes. The PDF coordinator owns all remaining package/O/I dispositions.

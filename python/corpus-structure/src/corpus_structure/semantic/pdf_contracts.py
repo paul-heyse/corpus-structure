@@ -7,7 +7,7 @@ shape; the exact local validation schema is retained with the product, never fet
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
@@ -21,7 +21,9 @@ from .identity import canonical_bytes
 from .prepare import prepare_release
 from .types import PreparedRelease, SourceArtifact, SourceBundle
 
-PDF_CONTRACT_DIGEST = sha256(files("corpus_structure").joinpath("model", "semantic", "pdf-products.yaml").read_bytes()).hexdigest()
+PDF_CONTRACT_DIGEST = sha256(
+    files("corpus_structure").joinpath("model", "semantic", "pdf-products.yaml").read_bytes()
+).hexdigest()
 
 if TYPE_CHECKING:
     from .contracts import ExecutionModelProducts
@@ -61,7 +63,10 @@ def prepare_pdf_context(
     if source is None:
         raise ValueError("archived release has no native PDF contract")
     return PreparedPdfContext(
-        prepared.release_id, _boundary(execution_schema), execution, source.digest,
+        prepared.release_id,
+        _boundary(execution_schema),
+        execution,
+        source.digest,
         dict(execution.implementation_digests)["pdf/docling-validation.schema.json"],
     )
 
@@ -73,8 +78,15 @@ def trusted_pdf_context() -> PreparedPdfContext:
     inputs = trusted_execution_inputs()
     source = next(s for s in inputs.schema.sources if s.name == "pdf_products")
     return PreparedPdfContext(
-        None, _boundary(inputs.schema), compile_execution_model(inputs), source.digest,
-        next(s.digest for s in inputs.implementations if s.name == "pdf/docling-validation.schema.json"),
+        None,
+        _boundary(inputs.schema),
+        compile_execution_model(inputs),
+        source.digest,
+        next(
+            s.digest
+            for s in inputs.implementations
+            if s.name == "pdf/docling-validation.schema.json"
+        ),
     )
 
 
@@ -84,7 +96,8 @@ def pdf_context_for_task(conn: Connection, task_id: int) -> PreparedPdfContext:
 
     tasks, runs, inputs = table("ops.task"), table("ops.run"), table("sem.input")
     release_id = conn.execute(
-        select(runs.c.release_id).join_from(tasks, runs, tasks.c.run_id == runs.c.id)
+        select(runs.c.release_id)
+        .join_from(tasks, runs, tasks.c.run_id == runs.c.id)
         .where(tasks.c.id == task_id)
     ).scalar_one()
     prepared = open_release(conn, release_id)
@@ -93,17 +106,23 @@ def pdf_context_for_task(conn: Connection, task_id: int) -> PreparedPdfContext:
         raise ValueError("producing task has no archived execution binding")
     manifest = json.loads(payload)["inputs"]["schema"]
     names = ["execution/schema/" + s["name"] for s in manifest["sources"]]
-    rows = conn.execute(select(inputs.c.input_name, inputs.c.content).where(
-        inputs.c.release_id == release_id, inputs.c.input_kind == "dependency",
-        inputs.c.input_name.in_(names),
-    )).mappings()
+    rows = conn.execute(
+        select(inputs.c.input_name, inputs.c.content).where(
+            inputs.c.release_id == release_id,
+            inputs.c.input_kind == "dependency",
+            inputs.c.input_name.in_(names),
+        )
+    ).mappings()
     retained = {r["input_name"]: bytes(r["content"]) for r in rows}
     if set(retained) != set(names):
         raise ValueError("PDF archived schema custody is incomplete")
-    bundle = SourceBundle(manifest["root"], tuple(
-        SourceArtifact(s["name"], retained["execution/schema/" + s["name"]])
-        for s in manifest["sources"]
-    ))
+    bundle = SourceBundle(
+        manifest["root"],
+        tuple(
+            SourceArtifact(s["name"], retained["execution/schema/" + s["name"]])
+            for s in manifest["sources"]
+        ),
+    )
     return prepare_pdf_context(prepared, bundle)
 
 
@@ -119,6 +138,7 @@ def _native_validator(schema_bytes: bytes):
     schema = json.loads(schema_bytes)
     validator = validator_for(schema)
     validator.check_schema(schema)
+
     # Network reference resolution is deliberately unavailable to the local native contract.
     def local_refs(value: Any) -> None:
         if isinstance(value, dict):
@@ -130,6 +150,7 @@ def _native_validator(schema_bytes: bytes):
         elif isinstance(value, list):
             for child in value:
                 local_refs(child)
+
     local_refs(schema)
     return validator(schema)
 
@@ -170,8 +191,12 @@ class PreparedPdfProduct:
 
 
 def prepare_pdf_product(
-    payload: Mapping[str, Any], original: bytes, schema_bytes: bytes, recipe_bytes: bytes,
-    *, context: PreparedPdfContext | None = None,
+    payload: Mapping[str, Any],
+    original: bytes,
+    schema_bytes: bytes,
+    recipe_bytes: bytes,
+    *,
+    context: PreparedPdfContext | None = None,
 ) -> PreparedPdfProduct:
     context = trusted_pdf_context() if context is None else context
     context.execution.require_operation("prepare_native_document")
@@ -188,15 +213,49 @@ def prepare_pdf_product(
     value["document"] = document
     value.setdefault("regions", [])
     value["health"].setdefault("issues", [])
-    for field, content in (("artifact_digest", original), ("schema_digest", schema_bytes),
-                           ("recipe_digest", recipe_bytes)):
+    for field, content in (
+        ("artifact_digest", original),
+        ("schema_digest", schema_bytes),
+        ("recipe_digest", recipe_bytes),
+    ):
         if value[field] != sha256(content).hexdigest():
             raise ValueError(field + " differs from retained bytes")
     if value["schema_digest"] != context.native_schema_digest:
         raise ValueError("native schema is not admitted by the archived producer contract")
-    _native_validator(bytes(schema_bytes)).validate(document)
+    _native_validator(schema_bytes).validate(document)
+    # Schema alone admits dangling pointers. Native validation owns tree semantics;
+    # it may clamp geometry, which is forbidden after a payload acquired identity.
+    from docling_core.types.doc import DoclingDocument
+
+    native = DoclingDocument.model_validate(document)
+    before = native.model_dump(mode="json", by_alias=True)
+    try:
+        # Upstream annotates this decorated method as a descriptor, not a callable.
+        validate_tree: Callable[[], object] = native.validate_document
+        validate_tree()
+    except (ValueError, IndexError) as error:
+        raise ValueError("malformed native document tree/reference") from error
+    if native.model_dump(mode="json", by_alias=True) != before:
+        raise ValueError("native document must be normalized before preparation")
+    if not original.startswith(b"%PDF-"):
+        raise ValueError("PDF original has no PDF header")
+
     if document.get("version") != value["native_schema_version"]:
         raise ValueError("native schema version differs from document")
+    if value["source_scope"] == "page_range":
+        if (
+            value.get("page_start") is None
+            or value.get("page_end") is None
+            or value["page_start"] > value["page_end"]
+        ):
+            raise ValueError("page-range source requires ordered physical page bounds")
+        if any(
+            not value["page_start"] <= int(page) <= value["page_end"]
+            for page in document.get("pages", {})
+        ):
+            raise ValueError("native page lies outside declared source scope")
+    elif value.get("page_start") is not None or value.get("page_end") is not None:
+        raise ValueError("whole-document scope cannot carry page-range bounds")
     parent = [value.get(k) for k in ("parent_task_id", "parent_product_key", "parent_digest")]
     if any(v is not None for v in parent) and not all(v is not None for v in parent):
         raise ValueError("derived document requires complete parent product identity")
@@ -247,28 +306,48 @@ def prepare_pdf_product(
             raise ValueError("region is not native item provenance")
         provenance = prov[region["region_index"]]
         bbox = provenance["bbox"]
-        if provenance["page_no"] != region["page_no"] or any(
-            bbox[k] != region[field] for k, field in
-            (("l", "left"), ("t", "top"), ("r", "right"), ("b", "bottom"))
-        ) or {"TOPLEFT": "top_left", "BOTTOMLEFT": "bottom_left"}.get(bbox["coord_origin"]) != region["origin"]:
+        if (
+            provenance["page_no"] != region["page_no"]
+            or any(
+                bbox[k] != region[field]
+                for k, field in (("l", "left"), ("t", "top"), ("r", "right"), ("b", "bottom"))
+            )
+            or {"TOPLEFT": "top_left", "BOTTOMLEFT": "bottom_left"}.get(bbox["coord_origin"])
+            != region["origin"]
+        ):
             raise ValueError("region differs from native provenance")
-        if not (0 <= region["left"] <= region["right"] <= region["page_width"]
-                and 0 <= min(region["top"], region["bottom"])
-                <= max(region["top"], region["bottom"]) <= region["page_height"]):
+        if not (
+            0 <= region["left"] <= region["right"] <= region["page_width"]
+            and 0
+            <= min(region["top"], region["bottom"])
+            <= max(region["top"], region["bottom"])
+            <= region["page_height"]
+        ):
             raise ValueError("region lies outside physical page")
         page = document.get("pages", {}).get(str(region["page_no"]))
-        if page is None or page["size"]["width"] != region["page_width"] or page["size"]["height"] != region["page_height"]:
+        if (
+            page is None
+            or page["size"]["width"] != region["page_width"]
+            or page["size"]["height"] != region["page_height"]
+        ):
             raise ValueError("region dimensions differ from native physical page")
-        if ((region["origin"] == "top_left" and region["top"] > region["bottom"])
-                or (region["origin"] == "bottom_left" and region["top"] < region["bottom"])):
+        if (region["origin"] == "top_left" and region["top"] > region["bottom"]) or (
+            region["origin"] == "bottom_left" and region["top"] < region["bottom"]
+        ):
             raise ValueError("region coordinate origin contradicts vertical bounds")
-    return PreparedPdfProduct(canonical_bytes(value), bytes(original), bytes(schema_bytes),
-                              bytes(recipe_bytes), context.contract_digest)
+    return PreparedPdfProduct(
+        canonical_bytes(value), original, schema_bytes, recipe_bytes, context.contract_digest
+    )
 
 
-def require_pdf_coverage(product: PreparedPdfProduct, *universes: str) -> None:
+def require_pdf_coverage(
+    product: PreparedPdfProduct, *universes: str, whole_document: bool = False
+) -> None:
     """A complete consumer cannot reinterpret missing/unknown recognition as absence."""
-    health = product.values()["health"]
+    values = product.values()
+    if whole_document and values["source_scope"] != "whole_document":
+        raise ValueError("whole-document source coverage is unavailable")
+    health = values["health"]
     if health["conversion"] != "success" or any(
         health.get(universe + "_coverage") != "complete" for universe in universes
     ):
@@ -276,8 +355,13 @@ def require_pdf_coverage(product: PreparedPdfProduct, *universes: str) -> None:
 
 
 def store_pdf_product(
-    conn: Connection, *, task_id: int, attempt: int, holder: str,
-    product: PreparedPdfProduct, context: PreparedPdfContext | None = None,
+    conn: Connection,
+    *,
+    task_id: int,
+    attempt: int,
+    holder: str,
+    product: PreparedPdfProduct,
+    context: PreparedPdfContext | None = None,
 ) -> str:
     from .contracts import require_database_operation
 
@@ -288,20 +372,43 @@ def store_pdf_product(
     if archived.release_id is None:
         raise ValueError("native publication requires an archived release")
     require_database_operation(conn, archived.release_id, "publish_native_document")
-    if prepare_pdf_product(product.values(), product.original, product.schema_bytes,
-                           product.recipe_bytes, context=archived) != product:
+    if (
+        prepare_pdf_product(
+            product.values(),
+            product.original,
+            product.schema_bytes,
+            product.recipe_bytes,
+            context=archived,
+        )
+        != product
+    ):
         raise ValueError("native product canonical bytes or contract differs")
-    return conn.execute(text(
-        "SELECT ops.publish_native_document(:task,:attempt,:holder,:contract,:payload,"
-        ":original,:schema_bytes,:recipe_bytes)"
-    ), dict(task=task_id, attempt=attempt, holder=holder, contract=product.contract_digest,
-            payload=product.payload, original=product.original, schema_bytes=product.schema_bytes,
-            recipe_bytes=product.recipe_bytes)).scalar_one()
+    return conn.execute(
+        text(
+            "SELECT ops.publish_native_document(:task,:attempt,:holder,:contract,:payload,"
+            ":original,:schema_bytes,:recipe_bytes)"
+        ),
+        dict(
+            task=task_id,
+            attempt=attempt,
+            holder=holder,
+            contract=product.contract_digest,
+            payload=product.payload,
+            original=product.original,
+            schema_bytes=product.schema_bytes,
+            recipe_bytes=product.recipe_bytes,
+        ),
+    ).scalar_one()
 
 
 def store_pdf_original(
-    conn: Connection, *, task_id: int, attempt: int, holder: str,
-    original: bytes, recipe_bytes: bytes,
+    conn: Connection,
+    *,
+    task_id: int,
+    attempt: int,
+    holder: str,
+    original: bytes,
+    recipe_bytes: bytes,
 ) -> str:
     """Retain source before inference behind the producing attempt and release."""
     from .contracts import require_database_operation
@@ -313,10 +420,10 @@ def store_pdf_original(
     require_database_operation(conn, context.release_id, "retain_pdf_original")
     if not original.startswith(b"%PDF-"):
         raise ValueError("PDF original has no PDF header")
-    return conn.execute(text(
-        "SELECT ops.retain_pdf_original(:task,:attempt,:holder,:original,:recipe)"
-    ), dict(task=task_id, attempt=attempt, holder=holder, original=original,
-            recipe=recipe_bytes)).scalar_one()
+    return conn.execute(
+        text("SELECT ops.retain_pdf_original(:task,:attempt,:holder,:original,:recipe)"),
+        dict(task=task_id, attempt=attempt, holder=holder, original=original, recipe=recipe_bytes),
+    ).scalar_one()
 
 
 def pdf_shape_guard_sql() -> str:
@@ -324,7 +431,8 @@ def pdf_shape_guard_sql() -> str:
     from .native_shapes import record_shape_guards
 
     return (
-        "IF product ? 'document_json' THEN RAISE EXCEPTION 'internal PDF field supplied' USING ERRCODE='23514'; END IF;\n"
+        "IF product ? 'document_json' THEN "
+        "RAISE EXCEPTION 'internal PDF field supplied' USING ERRCODE='23514'; END IF;\n"
         "parsing_item := (product - 'document') || "
         "jsonb_build_object('document_json', (product->'document')::text);\n"
         + record_shape_guards(trusted_pdf_context().boundary, "PdfNativeEnvelope", "parsing_item")

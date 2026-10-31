@@ -1,4 +1,4 @@
-"""Complete source capture and optional native TeX structure, without mathematical recognition.
+"""Complete lexical source capture and optional positioned native mathematical syntax.
 
 Coordinates are code points in the named representation. Native parser objects are local to a
 single call; only immutable ranges escape. Lexical completeness never asserts syntax support.
@@ -238,8 +238,15 @@ def syntax_structure(
         kind = node.data if isinstance(node, Tree) else "token"
         name = str(node) if isinstance(node, Token) else None
         out.append(
-            StructureNode(key, kind, view.start + bounds[0], view.start + bounds[1], parent,
-                          "alternative" if kind == "_ambig" else "content", name)
+            StructureNode(
+                key,
+                kind,
+                view.start + bounds[0],
+                view.start + bounds[1],
+                parent,
+                "alternative" if kind == "_ambig" else "content",
+                name,
+            )
         )
         if isinstance(node, Tree):
             for child in node.children:

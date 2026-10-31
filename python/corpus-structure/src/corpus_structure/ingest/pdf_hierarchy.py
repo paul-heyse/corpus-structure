@@ -1,4 +1,5 @@
 """Native Docling organization and source-qualified views; never Markdown round trips."""
+
 from __future__ import annotations
 
 import json
@@ -19,21 +20,27 @@ class NativeSnapshot:
 def snapshot(document: Any) -> NativeSnapshot:
     """Complete native normalization before immutable identity, not during a stored read."""
     document.validate_document()
-    payload = json.dumps(document.export_to_dict(), ensure_ascii=False, sort_keys=True,
-                         separators=(",", ":"), allow_nan=False).encode()
+    payload = json.dumps(
+        document.export_to_dict(),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode()
     return NativeSnapshot(payload, sha256(payload).hexdigest(), str(document.version))
 
 
 def load_snapshot(value: NativeSnapshot) -> Any:
     """A read checks integrity and native shape without mutating retained meaning."""
     from docling_core.types.doc import DoclingDocument
+
     if sha256(value.payload).hexdigest() != value.digest:
         raise ValueError("native document integrity mismatch")
     document = DoclingDocument.model_validate_json(value.payload)
     # validate_document can clamp geometry. A retained product must already be normalized.
     if snapshot(document).payload != value.payload:
         raise ValueError("retained native document was not normalized before identity")
-    if str(document.version) != value.schema_version:
+    if document.version != value.schema_version:
         raise ValueError("native schema version differs from binding")
     return document
 
@@ -61,6 +68,7 @@ def native_nodes(document: Any) -> dict[str, Any]:
 @dataclass(frozen=True, slots=True)
 class SectionPolicy:
     """Explicit application rule input; a native heading label alone is insufficient."""
+
     rule_id: str
     numbered_pattern: str = r"^\d+(?:\.\d+)*\s*[:.)-]?\s+\S"
     organizational_refs: frozenset[str] = frozenset()
@@ -90,6 +98,7 @@ class OrganizedDocument:
 
 def organize(source: NativeSnapshot, policy: SectionPolicy) -> OrganizedDocument:
     from docling_core.types.doc import ContentLayer, DocItemLabel, GroupLabel
+
     document = load_snapshot(source)
     nodes = native_nodes(document)
     missing = policy.organizational_refs - nodes.keys()
@@ -98,8 +107,12 @@ def organize(source: NativeSnapshot, policy: SectionPolicy) -> OrganizedDocument
     for ref in policy.organizational_refs:
         if nodes[ref].label != DocItemLabel.SECTION_HEADER:
             raise ValueError("organizational selection is not a native heading")
-    before = [n.self_ref for n, _ in document.iterate_items(
-        traverse_pictures=True, included_content_layers=set(ContentLayer))]
+    before = [
+        n.self_ref
+        for n, _ in document.iterate_items(
+            traverse_pictures=True, included_content_layers=set(ContentLayer)
+        )
+    ]
     pattern = re.compile(policy.numbered_pattern)
     section_rows: list[SectionBasis] = []
     original_pointers = tuple(nodes)
@@ -114,24 +127,36 @@ def organize(source: NativeSnapshot, policy: SectionPolicy) -> OrganizedDocument
             if item.children:
                 regroup(item)
             is_section = item.label == DocItemLabel.SECTION_HEADER and (
-                item.self_ref in policy.organizational_refs or pattern.search(item.text) is not None)
+                item.self_ref in policy.organizational_refs or pattern.search(item.text) is not None
+            )
             if is_section:
                 level = item.level
                 while stack and stack[-1][0] >= level:
                     stack.pop()
                 group_parent = stack[-1][1] if stack else parent
-                group = document.add_group(label=GroupLabel.SECTION, name=item.text, parent=group_parent)
+                group = document.add_group(
+                    label=GroupLabel.SECTION, name=item.text, parent=group_parent
+                )
                 stack.append((level, group))
-                section_rows.append(SectionBasis(group.self_ref, item.self_ref, level, policy.rule_id))
+                section_rows.append(
+                    SectionBasis(group.self_ref, item.self_ref, level, policy.rule_id)
+                )
             owner = stack[-1][1] if stack else parent
             item.parent = owner.get_ref()
             owner.children.append(item.get_ref())
+
     regroup(document.body)
-    after = [n.self_ref for n, _ in document.iterate_items(
-        traverse_pictures=True, included_content_layers=set(ContentLayer))]
+    after = [
+        n.self_ref
+        for n, _ in document.iterate_items(
+            traverse_pictures=True, included_content_layers=set(ContentLayer)
+        )
+    ]
     if before != after:
         raise ValueError("organization changed native content reading order")
-    return OrganizedDocument(source.digest, snapshot(document), tuple(section_rows), original_pointers)
+    return OrganizedDocument(
+        source.digest, snapshot(document), tuple(section_rows), original_pointers
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,9 +177,14 @@ class TextProjection:
     pieces: tuple[ProjectedPiece, ...]
 
 
-def project_section(document: Any, document_digest: str, section_ref: str,
-                    membership: Literal["direct", "descendant"], *,
-                    section_refs: frozenset[str]) -> TextProjection:
+def project_section(
+    document: Any,
+    document_digest: str,
+    section_ref: str,
+    membership: Literal["direct", "descendant"],
+    *,
+    section_refs: frozenset[str],
+) -> TextProjection:
     """One explicit section view, retaining tables/cells and synthetic separators."""
     if membership not in {"direct", "descendant"}:
         raise ValueError("membership must be direct or descendant")
@@ -174,11 +204,17 @@ def project_section(document: Any, document_digest: str, section_ref: str,
             pieces.append(ProjectedPiece(None, position, position + 1, "synthetic_separator"))
             position += 1
         text.append(value)
-        pieces.append(ProjectedPiece(ref, position, position + len(value), "native_text", cell_index))
+        pieces.append(
+            ProjectedPiece(ref, position, position + len(value), "native_text", cell_index)
+        )
         position += len(value)
 
     def visit(node: Any) -> None:
-        if node.self_ref != section_ref and node.self_ref in section_refs and membership == "direct":
+        if (
+            node.self_ref != section_ref
+            and node.self_ref in section_refs
+            and membership == "direct"
+        ):
             return
         if hasattr(node, "data") and hasattr(node.data, "table_cells"):
             for index, cell in enumerate(node.data.table_cells):
@@ -189,5 +225,6 @@ def project_section(document: Any, document_digest: str, section_ref: str,
             append(node.text, node.self_ref)
         for child in node.children:
             visit(nodes[child.cref])
+
     visit(nodes[section_ref])
     return TextProjection(document_digest, section_ref, membership, "".join(text), tuple(pieces))

@@ -199,6 +199,21 @@ classes:
         range: PdfRecipe
         required: true
         slot_uri: pdf:PdfNativeEnvelope_recipe
+      source_scope:
+        range: PdfString
+        required: true
+        pattern: ^(whole_document|page_range)$
+        slot_uri: pdf:PdfNativeEnvelope_source_scope
+      page_start:
+        range: PdfInteger
+        required: false
+        minimum_value: 1
+        slot_uri: pdf:PdfNativeEnvelope_page_start
+      page_end:
+        range: PdfInteger
+        required: false
+        minimum_value: 1
+        slot_uri: pdf:PdfNativeEnvelope_page_end
       artifact_digest:
         range: PdfDigest
         required: true

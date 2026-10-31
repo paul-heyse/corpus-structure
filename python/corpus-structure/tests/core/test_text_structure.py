@@ -105,7 +105,9 @@ def test_native_missing_syntax_tree_is_invalid(monkeypatch: pytest.MonkeyPatch) 
     from corpus_structure.methods.math import grammar
 
     monkeypatch.setattr(
-        grammar, "syntax", lambda *args, **kwargs: grammar.MathResult("x", "any_value", ParseOutcome.FAILED)
+        grammar,
+        "syntax",
+        lambda *args, **kwargs: grammar.MathResult("x", "any_value", ParseOutcome.FAILED),
     )
     result = capture_text("x", structure=True)
     assert result.structure_outcome == "invalid"

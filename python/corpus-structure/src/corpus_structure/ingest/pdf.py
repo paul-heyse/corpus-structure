@@ -1,11 +1,12 @@
 """PDF-only native Docling producer. Heavy imports and models belong to an owned operation."""
+
 from __future__ import annotations
 
 import dataclasses
 import json
 import re
-from dataclasses import dataclass
 from collections.abc import Iterable
+from dataclasses import dataclass
 from hashlib import sha256
 from importlib.metadata import version
 from io import BytesIO
@@ -55,34 +56,58 @@ class PdfRecipe:
     def options(self) -> Any:
         """Reconstruct finite native variants, never deserialize polymorphic option JSON."""
         from docling.datamodel.accelerator_options import AcceleratorOptions
-        from docling.datamodel.vlm_engine_options import TransformersVlmEngineOptions
         from docling.datamodel.pipeline_options import (
-            CodeFormulaVlmOptions, HeadingHierarchyOptions, LayoutObjectDetectionOptions,
-            OcrMode, PdfPipelineOptions, RapidOcrOptions, TableFormerMode, TableStructureOptions,
+            CodeFormulaVlmOptions,
+            HeadingHierarchyOptions,
+            LayoutObjectDetectionOptions,
+            OcrMode,
+            PdfPipelineOptions,
+            RapidOcrOptions,
+            TableFormerMode,
+            TableStructureOptions,
         )
+        from docling.datamodel.vlm_engine_options import TransformersVlmEngineOptions
+
         layout = LayoutObjectDetectionOptions.from_preset("layout_heron_default")
         layout.model_spec.revision = self.layout_revision
         formula = CodeFormulaVlmOptions.from_preset(
-            "codeformulav2", scale=2.0, expansion_factor=0.18, stop_on_repetition=True,
-            engine_options=TransformersVlmEngineOptions())
+            "codeformulav2",
+            scale=2.0,
+            expansion_factor=0.18,
+            stop_on_repetition=True,
+            engine_options=TransformersVlmEngineOptions(),
+        )
         formula.model_spec.revision = self.formula_revision
         return PdfPipelineOptions(
             do_ocr=True,
             ocr_options=RapidOcrOptions(
-                backend="onnxruntime", lang=["iso:en"], model_size="small",
-                mode=OcrMode.PDF_AWARE_LAYOUT_REGIONS, replace_broken_text_layer=True,
-                rapidocr_params={"EngineConfig.onnxruntime.use_cuda": self.ocr_device == "cuda",
-                                "Det.use_cuda": self.ocr_device == "cuda",
-                                "Cls.use_cuda": self.ocr_device == "cuda",
-                                "Rec.use_cuda": self.ocr_device == "cuda"}),
+                backend="onnxruntime",
+                lang=["iso:en"],
+                model_size="small",
+                mode=OcrMode.PDF_AWARE_LAYOUT_REGIONS,
+                replace_broken_text_layer=True,
+                rapidocr_params={
+                    "EngineConfig.onnxruntime.use_cuda": self.ocr_device == "cuda",
+                    "Det.use_cuda": self.ocr_device == "cuda",
+                    "Cls.use_cuda": self.ocr_device == "cuda",
+                    "Rec.use_cuda": self.ocr_device == "cuda",
+                },
+            ),
             do_table_structure=True,
-            table_structure_options=TableStructureOptions(mode=TableFormerMode.ACCURATE,
-                                                         do_cell_matching=True),
-            do_formula_enrichment=True, code_formula_options=formula, layout_options=layout,
+            table_structure_options=TableStructureOptions(
+                mode=TableFormerMode.ACCURATE, do_cell_matching=True
+            ),
+            do_formula_enrichment=True,
+            code_formula_options=formula,
+            layout_options=layout,
             heading_hierarchy_options=HeadingHierarchyOptions(enabled=True),
-            accelerator_options=AcceleratorOptions(num_threads=self.parser_threads, device=self.device),
-            ocr_batch_size=self.stage_batch_size, layout_batch_size=self.stage_batch_size,
-            table_batch_size=self.stage_batch_size, document_timeout=self.timeout_seconds,
+            accelerator_options=AcceleratorOptions(
+                num_threads=self.parser_threads, device=self.device
+            ),
+            ocr_batch_size=self.stage_batch_size,
+            layout_batch_size=self.stage_batch_size,
+            table_batch_size=self.stage_batch_size,
+            document_timeout=self.timeout_seconds,
         )
 
 
@@ -102,6 +127,7 @@ class PdfConversion:
 
 class PdfConverter:
     """One serial worker's native converter/model lifetime; publication is a separate owner."""
+
     def __init__(self, recipe: PdfRecipe) -> None:
         self.recipe = recipe
         self._converter: Any = None
@@ -115,11 +141,12 @@ class PdfConverter:
         from docling.datamodel.backend_options import ThreadedDoclingParseBackendOptions
         from docling.datamodel.base_models import InputFormat, ItemAndImageEnrichmentElement
         from docling.datamodel.document import ConversionResult
-        from docling.models.base_model import GenericEnrichmentModel
-        from docling_core.types.doc import DoclingDocument, NodeItem
         from docling.document_converter import DocumentConverter, PdfFormatOption
+        from docling.models.base_model import GenericEnrichmentModel
         from docling.models.stages.code_formula.code_formula_vlm_model import CodeFormulaVlmModel
         from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
+        from docling_core.types.doc import DoclingDocument, NodeItem
+
         class NativeObservedStage(GenericEnrichmentModel[ItemAndImageEnrichmentElement]):
             progress_step = CodeFormulaVlmModel.progress_step
 
@@ -131,21 +158,30 @@ class PdfConverter:
             def is_processable(self, doc: DoclingDocument, element: NodeItem) -> bool:
                 return self.native.is_processable(doc, element)
 
-            def prepare_element(self, conv_res: ConversionResult,
-                                element: NodeItem) -> ItemAndImageEnrichmentElement | None:
+            def prepare_element(
+                self, conv_res: ConversionResult, element: NodeItem
+            ) -> ItemAndImageEnrichmentElement | None:
                 return self.native.prepare_element(conv_res, element)
 
-            def __call__(self, doc: DoclingDocument,
-                         element_batch: Iterable[ItemAndImageEnrichmentElement]) -> Iterable[NodeItem]:
+            def __call__(
+                self, doc: DoclingDocument, element_batch: Iterable[ItemAndImageEnrichmentElement]
+            ) -> Iterable[NodeItem]:
                 yield from self.observer(doc, element_batch)
 
         self._options = self.recipe.options()
-        converter = DocumentConverter(allowed_formats=[InputFormat.PDF], format_options={
-            InputFormat.PDF: PdfFormatOption(
-                pipeline_cls=StandardPdfPipeline, pipeline_options=self._options,
-                backend_options=ThreadedDoclingParseBackendOptions(
-                    parser_threads=self.recipe.parser_threads,
-                    max_concurrent_results=self.recipe.parser_threads))})
+        converter = DocumentConverter(
+            allowed_formats=[InputFormat.PDF],
+            format_options={
+                InputFormat.PDF: PdfFormatOption(
+                    pipeline_cls=StandardPdfPipeline,
+                    pipeline_options=self._options,
+                    backend_options=ThreadedDoclingParseBackendOptions(
+                        parser_threads=self.recipe.parser_threads,
+                        max_concurrent_results=self.recipe.parser_threads,
+                    ),
+                )
+            },
+        )
         converter.initialize_pipeline(InputFormat.PDF)
         pipeline = next(iter(converter.initialized_pipelines.values()))
         for index, stage in enumerate(pipeline.enrichment_pipe):
@@ -173,8 +209,11 @@ class PdfConverter:
         reader = pipeline.ocr_model.reader
         for name in ("det", "cls", "rec"):
             stage = getattr(reader, "text_" + name)
-            providers = "not_executed" if stage is None else json.dumps(
-                stage.session.session.get_providers())
+            providers = (
+                "not_executed"
+                if stage is None
+                else json.dumps(stage.session.session.get_providers())
+            )
             entries.append(("ocr." + name + ".providers", providers))
         return tuple(entries)
 
@@ -193,6 +232,7 @@ class PdfConverter:
         self._formula.outcomes.clear()
         options = {} if page_range is None else {"page_range": page_range}
         from docling.datamodel.base_models import DocumentStream
+
         # The same immutable bytes determine custody and native input even if the operator
         # changes the path while models initialize. Never reopen that path for conversion.
         stream = DocumentStream(name=path.name, stream=BytesIO(original))
@@ -204,15 +244,26 @@ class PdfConverter:
             observed = {row.item_ref for row in outcomes}
             for node in native_nodes(document).values():
                 if str(node.label) == "formula" and node.self_ref not in observed:
-                    outcomes.append(FormulaOutcome(node.self_ref, "unknown", "not prepared for inference"))
+                    outcomes.append(
+                        FormulaOutcome(node.self_ref, "unknown", "not prepared for inference")
+                    )
             return PdfConversion(
-                digest.hexdigest(), self.recipe.to_bytes(), native, str(result.status.value),
-                tuple(str(error.model_dump(mode="json")) for error in result.errors), tuple(outcomes),
-                tuple((name, version(name)) for name in ("docling", "docling-core", "docling-parse")),
-                page_range, self.runtime_bindings(),
-                self._options.model_dump_json(serialize_as_any=True).encode())
+                digest.hexdigest(),
+                self.recipe.to_bytes(),
+                native,
+                str(result.status.value),
+                tuple(str(error.model_dump(mode="json")) for error in result.errors),
+                tuple(outcomes),
+                tuple(
+                    (name, version(name)) for name in ("docling", "docling-core", "docling-parse")
+                ),
+                page_range,
+                self.runtime_bindings(),
+                self._options.model_dump_json(serialize_as_any=True).encode(),
+            )
         finally:
             result.input.release()
+
 
 @dataclass(frozen=True, slots=True)
 class CellCandidate:
@@ -228,8 +279,13 @@ class CellEnrichment:
     outcomes: tuple[FormulaOutcome, ...]
 
 
-def enrich_cells(source: NativeSnapshot, candidates: tuple[CellCandidate, ...], *,
-                 stage: ObservedFormulaStage, render_region: Any) -> CellEnrichment:
+def enrich_cells(
+    source: NativeSnapshot,
+    candidates: tuple[CellCandidate, ...],
+    *,
+    stage: ObservedFormulaStage,
+    render_region: Any,
+) -> CellEnrichment:
     """Recognize explicitly selected cells using an owned region-rendering port.
 
     Candidate discovery/coverage is a separate admitted operation. This function makes no
@@ -238,7 +294,9 @@ def enrich_cells(source: NativeSnapshot, candidates: tuple[CellCandidate, ...], 
     """
     from docling.datamodel.base_models import ItemAndImageEnrichmentElement
     from docling_core.types.doc import DocItemLabel, ProvenanceItem, RichTableCell
+
     from .pdf_hierarchy import load_snapshot
+
     document = load_snapshot(source)
     nodes = native_nodes(document)
     if len(set(candidates)) != len(candidates):
@@ -258,28 +316,41 @@ def enrich_cells(source: NativeSnapshot, candidates: tuple[CellCandidate, ...], 
         if candidate.page_no not in {p.page_no for p in table.prov}:
             raise ValueError("candidate page is outside table provenance")
         image = render_region(candidate.page_no, cell.bbox)
-        item = document.add_text(label=DocItemLabel.FORMULA, text=cell.text, orig=cell.text,
-            parent=table, prov=ProvenanceItem(page_no=candidate.page_no, bbox=cell.bbox,
-                                            charspan=(0, len(cell.text))))
+        item = document.add_text(
+            label=DocItemLabel.FORMULA,
+            text=cell.text,
+            orig=cell.text,
+            parent=table,
+            prov=ProvenanceItem(
+                page_no=candidate.page_no, bbox=cell.bbox, charspan=(0, len(cell.text))
+            ),
+        )
         outputs = list(stage(document, [ItemAndImageEnrichmentElement(item=item, image=image)]))
         if len(outputs) != 1:
             raise RuntimeError("cell enrichment did not return its native formula item")
         table.data.table_cells[candidate.cell_index] = RichTableCell(
-            **cell.model_dump(), ref=item.get_ref())
+            **cell.model_dump(), ref=item.get_ref()
+        )
     return CellEnrichment(source.digest, snapshot(document), tuple(stage.outcomes[start:]))
 
 
-def publication_payload(conversion: PdfConversion, *, product_key: str, schema_digest: str,
-                        native: NativeSnapshot | None = None,
-                        section_refs: frozenset[str] = frozenset(),
-                        parent: tuple[int, str, str] | None = None,
-                        enrichment: CellEnrichment | None = None) -> dict[str, Any]:
+def publication_payload(
+    conversion: PdfConversion,
+    *,
+    product_key: str,
+    schema_digest: str,
+    native: NativeSnapshot | None = None,
+    section_refs: frozenset[str] = frozenset(),
+    parent: tuple[int, str, str] | None = None,
+    enrichment: CellEnrichment | None = None,
+) -> dict[str, Any]:
     """Prepare declared native access rows for the shared semantic publication boundary.
 
     The trusted PDF contract validates this payload and its original/schema/recipe bytes.
     This adapter never assigns complete inline/cell coverage merely from detected formula items.
     """
     from .pdf_hierarchy import load_snapshot
+
     selected = conversion.native if native is None else native
     if native is not None and native.digest != conversion.native.digest and parent is None:
         raise ValueError("derived native document requires its qualified parent product")
@@ -290,6 +361,7 @@ def publication_payload(conversion: PdfConversion, *, product_key: str, schema_d
     # Native SQL checks this same declared traversal, including the deprecated retained root.
     order: list[str] = []
     visited: set[str] = set()
+
     def walk(pointer: str) -> None:
         if pointer in visited:
             raise ValueError("native traversal repeats an occurrence")
@@ -297,13 +369,16 @@ def publication_payload(conversion: PdfConversion, *, product_key: str, schema_d
         order.append(pointer)
         for child in nodes[pointer].children:
             walk(child.cref)
+
     walk(document.body.self_ref)
     walk("#/furniture")
     order.extend(sorted(nodes.keys() - visited))
     outcomes = list(conversion.formula_outcomes)
     if enrichment is not None:
         if enrichment.source_digest != conversion.native.digest or enrichment.native != selected:
-            raise ValueError("additional formula health is not qualified by the source/derived documents")
+            raise ValueError(
+                "additional formula health is not qualified by the source/derived documents"
+            )
         outcomes.extend(enrichment.outcomes)
     health_by_pointer: dict[str, FormulaOutcome] = {}
     for outcome in outcomes:
@@ -314,13 +389,19 @@ def publication_payload(conversion: PdfConversion, *, product_key: str, schema_d
         health_by_pointer[outcome.item_ref] = outcome
     for pointer in order:
         if str(nodes[pointer].label) == "formula" and pointer not in health_by_pointer:
-            health_by_pointer[pointer] = FormulaOutcome(pointer, "unknown", "no attributable inference outcome")
+            health_by_pointer[pointer] = FormulaOutcome(
+                pointer, "unknown", "no attributable inference outcome"
+            )
     items: list[dict[str, Any]] = []
     regions: list[dict[str, Any]] = []
     for ordinal, pointer in enumerate(order):
         item = nodes[pointer]
-        row: dict[str, Any] = {"pointer": pointer, "ordinal": ordinal,
-                              "label": str(item.label), "content_layer": str(item.content_layer)}
+        row: dict[str, Any] = {
+            "pointer": pointer,
+            "ordinal": ordinal,
+            "label": str(item.label),
+            "content_layer": item.content_layer.value,
+        }
         if item.parent is not None:
             row["parent_pointer"] = item.parent.cref
         if hasattr(item, "text"):
@@ -338,26 +419,56 @@ def publication_payload(conversion: PdfConversion, *, product_key: str, schema_d
         for index, prov in enumerate(getattr(item, "prov", ())):
             page = document.pages[prov.page_no]
             box = prov.bbox
-            regions.append({"pointer": pointer, "region_index": index, "page_no": prov.page_no,
-                            "page_width": page.size.width, "page_height": page.size.height,
-                            "left": box.l, "top": box.t, "right": box.r, "bottom": box.b,
-                            "origin": {"TOPLEFT": "top_left", "BOTTOMLEFT": "bottom_left"}[
-                                str(box.coord_origin.value)]})
+            regions.append(
+                {
+                    "pointer": pointer,
+                    "region_index": index,
+                    "page_no": prov.page_no,
+                    "page_width": page.size.width,
+                    "page_height": page.size.height,
+                    "left": box.l,
+                    "top": box.t,
+                    "right": box.r,
+                    "bottom": box.b,
+                    "origin": {"TOPLEFT": "top_left", "BOTTOMLEFT": "bottom_left"}[
+                        str(box.coord_origin.value)
+                    ],
+                }
+            )
     result: dict[str, Any] = {
-        "recipe": "pdf-native-v1", "artifact_digest": conversion.original_digest,
-        "product_key": product_key, "schema_digest": schema_digest,
+        "recipe": "pdf-native-v1",
+        "artifact_digest": conversion.original_digest,
+        "source_scope": "whole_document" if conversion.page_range is None else "page_range",
+        **(
+            {"page_start": conversion.page_range[0], "page_end": conversion.page_range[1]}
+            if conversion.page_range is not None
+            else {}
+        ),
+        "product_key": product_key,
+        "schema_digest": schema_digest,
         "recipe_digest": sha256(conversion.recipe).hexdigest(),
         "native_schema_version": selected.schema_version,
         "document": json.loads(selected.payload),
-        "health": {"conversion": conversion.conversion_status,
-                   "display_coverage": "unknown", "inline_coverage": "unknown",
-                   "cell_coverage": "unknown", "issues": list(conversion.errors),
-                   "formula_outcomes": [
-                       {"pointer": outcome.item_ref, "outcome": outcome.outcome,
-                        **({"error": outcome.error} if outcome.error else {})}
-                       for outcome in health_by_pointer.values()]},
-        "items": items, "regions": regions,
+        "health": {
+            "conversion": conversion.conversion_status,
+            "display_coverage": "unknown",
+            "inline_coverage": "unknown",
+            "cell_coverage": "unknown",
+            "issues": list(conversion.errors),
+            "formula_outcomes": [
+                {
+                    "pointer": outcome.item_ref,
+                    "outcome": outcome.outcome,
+                    **({"error": outcome.error} if outcome.error else {}),
+                }
+                for outcome in health_by_pointer.values()
+            ],
+        },
+        "items": items,
+        "regions": regions,
     }
     if parent is not None:
-        result.update(parent_task_id=parent[0], parent_product_key=parent[1], parent_digest=parent[2])
+        result.update(
+            parent_task_id=parent[0], parent_product_key=parent[1], parent_digest=parent[2]
+        )
     return result
