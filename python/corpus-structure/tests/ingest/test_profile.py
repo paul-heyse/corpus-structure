@@ -24,13 +24,6 @@ from corpus_structure.core.vocab import (
     SynthesisObject,
 )
 from corpus_structure.ingest import profile as profiles
-
-
-def parse(raw: bytes):
-    """Independent selector fixture tree; no ingestion or source-coordinate claims."""
-    return html.fromstring(raw), None
-
-
 from corpus_structure.ingest.profile import (
     BlockHint,
     CorpusIndex,
@@ -47,6 +40,12 @@ from corpus_structure.ingest.profile import (
     parse_profile,
     unimplemented,
 )
+
+
+def parse(raw: bytes):
+    """Independent selector fixture tree; no ingestion or source-coordinate claims."""
+    return html.fromstring(raw), None
+
 
 REPO = Path(__file__).resolve().parents[4]
 VENDORED = REPO / "fixtures/trace/corpus/siegrist_random/random"

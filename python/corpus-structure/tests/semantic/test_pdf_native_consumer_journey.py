@@ -79,7 +79,8 @@ def native_source_task(admin, writer, tmp_path, *, ancestor=False):
             *dependencies.artifacts,
             SourceArtifact(
                 "operation/evaluation-split.yaml",
-                b"split:\n  seed: 17\n  forced_dev: {source.pdf: independent native source}\ngolden:\n  sizes: {dev: 1, test: 1}\n",
+                b"split:\n  seed: 17\n  forced_dev: {source.pdf: independent native source}\n"
+                b"golden:\n  sizes: {dev: 1, test: 1}\n",
             ),
         ),
         dependencies.vocabularies,
@@ -340,19 +341,20 @@ def native_source_task(admin, writer, tmp_path, *, ancestor=False):
             run,
             prepared,
             registry,
-            """version: '0.2'
-chains:
-  propose:
-    - key: native-source-policy
-      unit_type: source_view
-      when: "unit.kind == 'source_view' and unit.statement_kind == null and unit.claim_bearing == null"
-      do: {method: agent.opus/extract, then: stop}
-""",
+            "version: '0.2'\n"
+            "chains:\n"
+            "  propose:\n"
+            "    - key: native-source-policy\n"
+            "      unit_type: source_view\n"
+            "      when: \"unit.kind == 'source_view' and unit.statement_kind "
+            '== null and unit.claim_bearing == null"\n'
+            "      do: {method: agent.opus/extract, then: stop}\n",
         )
         assert queued == 1
         task = conn.execute(
             text(
-                "SELECT id FROM ops.task WHERE run_id=:run AND unit_type='source_view' AND stage='propose'"
+                "SELECT id FROM ops.task WHERE run_id=:run AND "
+                "unit_type='source_view' AND stage='propose'"
             ),
             {"run": run},
         ).scalar_one()
@@ -390,7 +392,7 @@ def authored(unit, sentence, prefix) -> dict[str, Any]:
 def test_native_proposal_consolidation_and_independent_reference_journey(
     semantic_db_engine, semantic_writer_engine, semantic_evaluator_engine, tmp_path
 ):
-    prepared, run, task, view, key = native_source_task(
+    _prepared, run, task, view, key = native_source_task(
         semantic_db_engine, semantic_writer_engine, tmp_path
     )
     session = SemanticAgentSession(semantic_writer_engine, run)
@@ -417,7 +419,8 @@ def test_native_proposal_consolidation_and_independent_reference_journey(
         assert (
             conn.scalar(
                 text(
-                    "SELECT count(*) FROM data.evidence_source WHERE source_view_id=:view AND native_address LIKE 'pdf:%'"
+                    "SELECT count(*) FROM data.evidence_source WHERE "
+                    "source_view_id=:view AND native_address LIKE 'pdf:%'"
                 ),
                 {"view": view},
             )
@@ -489,7 +492,10 @@ def test_native_proposal_consolidation_and_independent_reference_journey(
             with pytest.raises(DBAPIError, match="native"), conn.begin_nested():
                 conn.execute(
                     text(
-                        "SELECT eval.record_native_reference_pass(:unit,'C','forged',:authored,CAST(:citations AS jsonb),CAST(:source_frame AS jsonb))"
+                        "SELECT "
+                        "eval.record_native_reference_pass(:unit,'C','forged',:"
+                        "authored,CAST(:citations AS jsonb),CAST(:source_frame "
+                        "AS jsonb))"
                     ),
                     dict(
                         unit=unit,
@@ -506,7 +512,9 @@ def test_native_proposal_consolidation_and_independent_reference_journey(
         ):
             conn.execute(
                 text(
-                    "SELECT eval.record_native_reference_pass(:unit,'C','noncanonical',:authored,CAST(:citations AS jsonb),CAST(:source_frame AS jsonb))"
+                    "SELECT "
+                    "eval.record_native_reference_pass(:unit,'C','noncanonical'"
+                    ",:authored,CAST(:citations AS jsonb),CAST(:source_frame AS jsonb))"
                 ),
                 dict(
                     unit=unit,
@@ -754,9 +762,13 @@ def test_native_parent_premise_survives_submission_custody_and_independent_grade
     )
     with semantic_writer_engine.connect() as conn:
         row = conn.execute(
-            text("""SELECT es.native_address FROM data.evidence_source es
-            JOIN kb.observation observation ON observation.id=es.observation_id
-            WHERE observation.task_id=:task AND observation.source_view_id=:child AND es.source_view_id=:parent"""),
+            text(
+                "SELECT es.native_address FROM data.evidence_source es\n"
+                "            JOIN kb.observation observation ON "
+                "observation.id=es.observation_id\n"
+                "            WHERE observation.task_id=:task AND "
+                "observation.source_view_id=:child AND es.source_view_id=:parent"
+            ),
             dict(task=task, child=child, parent=parent),
         ).scalar_one()
         address = json.loads(row[4:])
@@ -768,7 +780,8 @@ def test_native_parent_premise_survives_submission_custody_and_independent_grade
         assert (
             conn.scalar(
                 text(
-                    "SELECT count(*) FROM data.occurrence_context WHERE statement_entity_id=:statement AND statement_role='premise'"
+                    "SELECT count(*) FROM data.occurrence_context WHERE "
+                    "statement_entity_id=:statement AND statement_role='premise'"
                 ),
                 {"statement": expected_statement},
             )
@@ -817,7 +830,9 @@ def test_native_parent_premise_survives_submission_custody_and_independent_grade
         ):
             conn.execute(
                 text(
-                    "SELECT eval.record_native_reference_pass(:unit,'C','forged-sibling',:authored,CAST(:entries AS jsonb),CAST(:frame AS jsonb))"
+                    "SELECT "
+                    "eval.record_native_reference_pass(:unit,'C','forged-siblin"
+                    "g',:authored,CAST(:entries AS jsonb),CAST(:frame AS jsonb))"
                 ),
                 dict(
                     unit=unit,
@@ -834,7 +849,9 @@ def test_native_parent_premise_survives_submission_custody_and_independent_grade
         ):
             conn.execute(
                 text(
-                    "SELECT eval.record_native_reference_pass(:unit,'C','forged-product',:authored,CAST(:entries AS jsonb),CAST(:frame AS jsonb))"
+                    "SELECT "
+                    "eval.record_native_reference_pass(:unit,'C','forged-produc"
+                    "t',:authored,CAST(:entries AS jsonb),CAST(:frame AS jsonb))"
                 ),
                 dict(
                     unit=unit,
@@ -855,7 +872,9 @@ def test_native_parent_premise_survives_submission_custody_and_independent_grade
         ):
             conn.execute(
                 text(
-                    "SELECT eval.record_native_reference_pass(:unit,'C','cross-source-handle',:authored,CAST(:entries AS jsonb),CAST(:frame AS jsonb))"
+                    "SELECT "
+                    "eval.record_native_reference_pass(:unit,'C','cross-source-"
+                    "handle',:authored,CAST(:entries AS jsonb),CAST(:frame AS jsonb))"
                 ),
                 dict(
                     unit=unit,

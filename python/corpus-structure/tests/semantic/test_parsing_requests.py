@@ -105,7 +105,8 @@ def source_build(admin, writer, tmp_path, *, canonical="x+x", macros=None, range
                     mapping_id="source",
                     operation="decode",
                     fidelity="unknown",
-                    reason="Independent fixture declares canonical text without an exact original-origin claim",
+                    reason="Independent fixture declares canonical text without an "
+                    "exact original-origin claim",
                 )
             ],
             mapping_endpoints=[
@@ -759,7 +760,7 @@ def test_native_time_budget_changes_request_identity_and_reaches_kernel(
 def test_native_raw_lexical_request_never_expands_macros_or_calls_native_structure(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, monkeypatch
 ):
-    from pylatexenc.latexwalker import LatexWalker
+    from corpus_structure.methods.math import grammar
 
     _, _, root, text, rendition = source_build(
         semantic_db_engine,
@@ -773,7 +774,8 @@ def test_native_raw_lexical_request_never_expands_macros_or_calls_native_structu
         raise AssertionError("raw lexical request performed stronger work")
 
     monkeypatch.setattr("corpus_structure.core.text_structure.expand", forbidden)
-    monkeypatch.setattr(LatexWalker, "parse_content", forbidden)
+    monkeypatch.setattr("corpus_structure.core.text_structure._structure", forbidden)
+    monkeypatch.setattr(grammar, "syntax", forbidden)
     result = request_parsing(
         semantic_writer_engine,
         root=root,

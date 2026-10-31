@@ -312,7 +312,8 @@ def test_native_source_view_is_real_unit_with_exact_context(
         )
         report = conn.execute(
             text(
-                "SELECT classification,outcome FROM kb.native_document_cell_report WHERE task_id=:task"
+                "SELECT classification,outcome FROM "
+                "kb.native_document_cell_report WHERE task_id=:task"
             ),
             {"task": task},
         ).one()
@@ -452,7 +453,9 @@ def test_native_source_view_is_real_unit_with_exact_context(
         handle = f"native_context:{identity}:native_evidence:2"
         saved = conn.execute(
             text(
-                "SELECT source_view_id,start_offset,end_offset FROM ops.native_source_frame_sentence WHERE task_id=:task AND sentence_id=:handle"
+                "SELECT source_view_id,start_offset,end_offset FROM "
+                "ops.native_source_frame_sentence WHERE task_id=:task AND "
+                "sentence_id=:handle"
             ),
             dict(task=child_agent, handle=handle),
         ).one()
@@ -673,7 +676,8 @@ def test_native_source_view_is_real_unit_with_exact_context(
     with semantic_writer_engine.connect() as conn:
         params = conn.execute(
             text(
-                "SELECT c.params FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id WHERE t.id=:task"
+                "SELECT c.params FROM ops.task t JOIN ops.method_config c ON "
+                "c.id=t.method_config_id WHERE t.id=:task"
             ),
             {"task": child_strong.task_id},
         ).scalar_one()

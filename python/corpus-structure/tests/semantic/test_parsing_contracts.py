@@ -92,7 +92,7 @@ def test_unsupported_role_cardinality_and_adapter_revision_refuse():
                 ),
             )
         )
-    with pytest.raises(PreparationError, match="qualify.*producer profile"):
+    with pytest.raises(PreparationError, match=r"qualify.*producer profile"):
         validate_parsing_contracts(
             replace(
                 model,

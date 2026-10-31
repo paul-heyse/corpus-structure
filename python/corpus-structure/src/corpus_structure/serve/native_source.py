@@ -139,7 +139,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
         product_key=request.product_key,
         content_digest=request.content_digest,
     )
-    # The qualified storage reader checks the admitted archived schema/contract even for metadata reads.
+    # The storage reader checks the admitted archive even for metadata-only selections.
     rows = read_native_items(
         conn,
         **pin,
@@ -276,9 +276,15 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                 if native.get("label") != "formula":
                     raise ValueError("native pointer is not a formula")
                 health = conn.execute(
-                    text("""SELECT outcome.value FROM ops.native_document_product p
-                    CROSS JOIN LATERAL jsonb_array_elements(COALESCE(p.health->'formula_outcomes','[]'::jsonb)) outcome(value)
-                    WHERE p.task_id=:task AND p.product_key=:key AND p.content_digest=:digest AND outcome.value->>'pointer'=:pointer LIMIT 1"""),
+                    text(
+                        "SELECT outcome.value FROM ops.native_document_product p\n"
+                        "                    CROSS JOIN LATERAL "
+                        "jsonb_array_elements(COALESCE(p.health->'formula_outcomes"
+                        "','[]'::jsonb)) outcome(value)\n"
+                        "                    WHERE p.task_id=:task AND "
+                        "p.product_key=:key AND p.content_digest=:digest AND "
+                        "outcome.value->>'pointer'=:pointer LIMIT 1"
+                    ),
                     dict(
                         task=request.task_id,
                         key=request.product_key,

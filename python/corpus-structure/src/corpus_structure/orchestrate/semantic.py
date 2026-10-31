@@ -252,7 +252,7 @@ def run_source_methods(
                 for group in _source_step_groups(steps, configs, prepared):
                     scheduled = []
 
-                    def register_ref(conn, view, method, config, cid, ref):
+                    def register_ref(conn, view, method, config, cid, ref, stage=stage):
                         unit = _unit(conn, view, ref)
                         digest = method.input_digest(unit, config.config)
                         ih = sha256(
@@ -327,7 +327,7 @@ def run_source_methods(
                                                 TaskUnitType.SOURCE_VIEW, ancestor.id, ancestor.key
                                             ),
                                         )
-                                for identity, ref in required.items():
+                                for identity in required:
                                     parent_ids[identity] = tuple(
                                         a.id
                                         for a in view.reader.ancestor_source_views(identity)
@@ -357,7 +357,8 @@ def run_source_methods(
                                 prerequisite_name = config.params.get("source_dependency_method")
                                 if prerequisite_name not in configs:
                                     raise OperationConflict(
-                                        "required interpretation producer configuration is unavailable"
+                                        "required interpretation producer "
+                                        "configuration is unavailable"
                                     )
                                 prerequisite = registry.method(prerequisite_name)
                                 prerequisite_config = configs[prerequisite_name]
@@ -393,7 +394,7 @@ def run_source_methods(
                         scheduled.append((method, config, cid))
                     while True:
                         # Child identity is formed only after its declared parent outputs exist.
-                        # This does not queue ancestor agent work or force parent mathematical values.
+                        # Ancestor context does not queue agent work or force math values.
                         if deferred:
                             with engine.begin() as dependency_conn:
                                 ready = []
@@ -421,7 +422,9 @@ def run_source_methods(
                                     for parent_task in parent_tasks:
                                         dependency_conn.execute(
                                             __import__("sqlalchemy").text(
-                                                "SELECT ops.add_source_task_dependency(:child,:parent)"
+                                                "SELECT "
+                                                "ops.add_source_task_dependency"
+                                                "(:child,:parent)"
                                             ),
                                             dict(child=task_id, parent=parent_task),
                                         )
@@ -472,7 +475,8 @@ def run_source_methods(
                                             "source_view",
                                         }:
                                             raise OperationConflict(
-                                                "original preparation requires an original-bound task"
+                                                "original preparation requires "
+                                                "an original-bound task"
                                             )
                                         original = read_original(
                                             original_conn, document_id, prepared=prepared

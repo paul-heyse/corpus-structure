@@ -1,4 +1,4 @@
-"""Retained historical renditions of the seven S0/S0-R2 pages against the spike renditions, the trace
+"""Retained historical renditions of the seven S0/S0-R2 pages against spike renditions and trace
 segment fixtures, locators on them, content digests across M03 configurations, and M02.
 
 ingest and math §5 P0-I-1a and §6. The spike side is the thin fixture `data/spike_renditions.json`
@@ -20,15 +20,14 @@ import pytest
 from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.locators import LocatorIndex, parse
 from corpus_structure.core.vocab import SegmentKind
+from corpus_structure.ingest.profile import CompiledProfile
+from corpus_structure.ingest.profile_segments import MEASURED, features, measurements
 
 
 class IngestResult(Protocol):
     content: RenditionContent
     page: str
 
-
-from corpus_structure.ingest.profile import CompiledProfile
-from corpus_structure.ingest.profile_segments import MEASURED, features, measurements
 
 REPO = Path(__file__).resolve().parents[4]
 SPIKE = json.loads((Path(__file__).with_name("data") / "spike_renditions.json").read_text())

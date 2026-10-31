@@ -618,7 +618,7 @@ def test_descendant_projection_selects_scoped_nested_roots_before_reader_filteri
     organized = organize(snapshot(document), PdfIngestConfig().section_policy())
     nodes = native_nodes(load_snapshot(organized.document))
     cfg = PdfIngestConfig(membership="descendants")
-    parent, sets, operations, functions = (s.group_ref for s in organized.sections)
+    parent, sets, _operations, _functions = (s.group_ref for s in organized.sections)
     scope = {"kind": "native_sections", "sections": ["1.1: Sets"], "include_descendants": True}
     assert _select_sections(nodes, cfg, scope=scope) == (sets,)
     scope["sections"] = ["Sets", "Operations"]

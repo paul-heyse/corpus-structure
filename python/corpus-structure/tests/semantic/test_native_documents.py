@@ -286,7 +286,8 @@ def test_pdf_original_and_native_product_need_no_rendition(
         assert len(str(state.error)) < 2000
         retained = conn.execute(
             text(
-                "SELECT content_digest FROM ops.native_document_product WHERE task_id=:task AND product_key='native'"
+                "SELECT content_digest FROM ops.native_document_product WHERE "
+                "task_id=:task AND product_key='native'"
             ),
             {"task": task},
         ).scalar_one()

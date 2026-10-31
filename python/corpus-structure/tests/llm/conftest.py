@@ -1,6 +1,7 @@
 """Shared fixtures of the parse tests (agent interface §6, P0-A-0).
 
-Renditions are retained historical source inputs captured before the HTML writer retired. The four spike pages are vendored under `fixtures/trace/corpus/`,
+Renditions are retained historical inputs captured before the HTML writer retired. The four
+spike pages are vendored under `fixtures/trace/corpus/`,
 so their checks never skip; the three S0-R2 pages read the gitignored corpus and their tests are
 `corpus`-marked. The spike side is the thin fixtures of `data/` (written once by `data/build.py`).
 

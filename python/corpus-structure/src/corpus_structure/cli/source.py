@@ -402,10 +402,7 @@ def native_products(ctx: typer.Context, run: int, json: JsonOpt = False):
         context = pdf_context_for_run(conn, run)
         context.execution.require_operation("read_native_source")
         context.boundary.validate_json("PdfNativeRunRequest", jsonlib.dumps(dict(run_id=run)))
-        products, tasks, views, selected = map(
-            table,
-            ("ops.native_document_product", "ops.task", "kb.source_view", "ops.run_source_view"),
-        )
+        products, tasks = map(table, ("ops.native_document_product", "ops.task"))
         runtime = table("kb.native_document_runtime")
         from corpus_structure.semantic.pdf_storage import selected_native_ancestry
 
