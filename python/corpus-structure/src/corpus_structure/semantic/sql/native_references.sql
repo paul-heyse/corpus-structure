@@ -56,7 +56,7 @@ BEGIN
   JOIN eval.document_split ds ON ds.project_id=s.project_id AND ds.source_uri=d.source_uri AND ds.split=s.split
   WHERE s.id=p_set AND f.source_view_id=p_view AND f.unit_ref=p_key) THEN
   RAISE EXCEPTION 'native reference unit is outside completed source cut/split' USING ERRCODE='23514'; END IF;
- INSERT INTO eval.reference_unit(set_id,source_view_id,unit_key,context) VALUES(p_set,p_view,p_key,p_context)
+ INSERT INTO eval.reference_unit(set_id,source_view_id,projection_digest,unit_key,context) VALUES(p_set,p_view,selected.projection_digest,p_key,p_context)
  RETURNING id INTO result;
  RETURN result;
 END $native$;
@@ -71,7 +71,8 @@ BEGIN
  SELECT * INTO STRICT selected FROM kb.source_view WHERE id=unit.source_view_id;
  PERFORM sem.require_execution_operation((SELECT release_id FROM eval.reference_set WHERE id=unit.set_id),'reference_pass');
  payload:=convert_from(p_authored,'UTF8')::jsonb;
- IF p_actor='' OR payload->>'unit_ref' IS DISTINCT FROM unit.unit_key OR jsonb_typeof(p_frame) IS DISTINCT FROM 'array' THEN
+ IF p_actor='' OR payload->>'unit_ref' IS DISTINCT FROM unit.unit_key OR
+  unit.projection_digest IS DISTINCT FROM selected.projection_digest OR jsonb_typeof(p_frame) IS DISTINCT FROM 'array' THEN
   RAISE EXCEPTION 'native reference pass differs from bound source view' USING ERRCODE='23514'; END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(p_frame) LOOP
   IF NOT (item ?& ARRAY['start','end','quote','locator']) OR (item->>'start')::bigint<0 OR
