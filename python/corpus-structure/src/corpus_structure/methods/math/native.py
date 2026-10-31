@@ -547,8 +547,10 @@ def native_request_analysis(view: Any, prepared: Any, demand: str, pointer: str 
             scope_chain=native_topology(view).scope_chain(ref,source_id),
             declarations=definitions, demand=demand)
         operand = PreparedMathInput(context, item["text"], seconds=seconds)
-        # Only contextual demands need prior mathematical declaration recognition.
-        contextual = demand in {"interpretation", "occurrences", "symbolic", "scientific"}
+        from corpus_structure.semantic.analysis_contracts import scientific_question_rule
+        question_rule=scientific_question_rule(context.profile,question) if demand=="scientific" and question is not None else None
+        # Only declared contextual demands need prior mathematical declaration recognition.
+        contextual = demand in {"interpretation", "occurrences", "symbolic"} or (demand=="scientific" and question_rule is not None)
         if contextual and context.allow_local_definitions and "(" in item["text"].partition("=")[0] and "=" in item["text"]:
             for symbol, extent in _heads(operand.syntax()):
                 definitions.append(dict(symbol=symbol, role="function", authority="source",
@@ -558,9 +560,10 @@ def native_request_analysis(view: Any, prepared: Any, demand: str, pointer: str 
             continue
         value = dict(pointer=ref, orig=item.get("orig", ""), recognized_latex=item["text"],
             recognition_health=outcome, availability="available", context_basis=context.stage_key(
-                demand, **({"conditions": [dataclasses.asdict(c) for c in operand.definedness()],
+                demand, **({"conditions": ([] if question_rule is None else [dataclasses.asdict(c) for c in operand.definedness()]),
                            "precision": {"mode": "exact-symbolic"}, "sampling": {"requested": False},
-                           "decision_policy": {"question": question, "predicate": predicate}}
+                           "decision_policy": {"question": question, "predicate": predicate,
+                            "rule":None if question_rule is None else dataclasses.asdict(question_rule)}}
                           if demand == "scientific" else {})))
         value["context"] = dict(source_id=context.source_id,scope=context.scope,
             declarations=[dataclasses.asdict(d) for d in context.declarations],
@@ -576,7 +579,8 @@ def native_request_analysis(view: Any, prepared: Any, demand: str, pointer: str 
         elif demand == "syntax":
             value.update(_syntax_value(operand.syntax()))
         else:
-            value.update(_syntax_value(operand.interpretation()))
+            if demand!="scientific" or question_rule is not None:
+                value.update(_syntax_value(operand.interpretation()))
             if demand == "symbolic":
                 try:
                     native = operand.symbolic_value()
@@ -587,6 +591,9 @@ def native_request_analysis(view: Any, prepared: Any, demand: str, pointer: str 
             if demand == "scientific":
                 assert question is not None
                 assessment = operand.assess(question, predicate=predicate)
+                value["scientific_question"]=None if question_rule is None else dataclasses.asdict(question_rule)
+                if question_rule is not None:
+                    value["definedness"]=dataclasses.asdict(operand.definedness_result())
                 value["assessment"] = dict(question=assessment.question, outcome=assessment.outcome,
                     value=None if assessment.value is None else sympy.srepr(assessment.value),
                     conditions=[dataclasses.asdict(c) for c in assessment.conditions],

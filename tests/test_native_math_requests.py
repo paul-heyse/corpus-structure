@@ -38,6 +38,9 @@ def test_scientific_definedness_does_not_force_symbolic_value(monkeypatch):
     monkeypatch.setattr(PreparedMathInput,'symbolic_value',lambda *a,**k:pytest.fail('strong value'))
     result=native_request_analysis(view('x/x'),None,'scientific',question='definedness')
     assert result.items[0]['assessment']['conditions'][0]['expression'] == 'x'
+    assert result.items[0]['definedness']['conditions'][0]['expression']=='x'
+    assert result.items[0]['scientific_question']['prerequisites']==('interpretation',)
+    assert result.items[0]['stages']['symbolic']['work']=='not_requested'
 
 
 def test_symbolic_output_keeps_occurrences_and_source_definedness():
@@ -56,3 +59,13 @@ def test_unattributed_text_never_becomes_successful_interpretation(monkeypatch):
 def test_selector_must_name_formula_in_pinned_view():
     with pytest.raises(ValueError,match='outside'):
         native_request_analysis(view(),None,'syntax',pointer='#/texts/8')
+
+
+def test_unmodeled_scientific_question_never_requests_inference(monkeypatch):
+    monkeypatch.setattr(grammar,'syntax',lambda *a,**k:pytest.fail('unmodeled question entered grammar'))
+    result=native_request_analysis(view('x/x'),None,'scientific',question='invented_question')
+    item=result.items[0]
+    assert item['assessment']['outcome']=='unsupported'
+    assert item['scientific_question'] is None
+    assert item['stages']['syntax']['work']=='not_requested'
+    assert item['stages']['symbolic']['work']=='not_requested'

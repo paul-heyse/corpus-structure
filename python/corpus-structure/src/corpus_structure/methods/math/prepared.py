@@ -419,6 +419,19 @@ class PreparedMathInput:
         key = question, predicate
         if key in self._assessments:
             return self._assessments[key]
+        from corpus_structure.semantic.analysis_contracts import scientific_question_rule
+        rule=scientific_question_rule(self.context.profile,question)
+        implemented={"definedness","predicate","refine","free_symbols","calculate"}
+        invalid_rule=(rule is None or question not in implemented or
+            any(name not in {"interpretation","symbolic"} for name in rule.prerequisites) or
+            "definedness" not in rule.result_basis or
+            (question!="definedness" and ("symbolic" not in rule.prerequisites or "symbolic" not in rule.result_basis)))
+        if invalid_rule:
+            diagnostic="scientific question is absent or unsupported by the bound profile: "+question
+            result=MathAssessment(question,"unsupported",diagnostic=diagnostic,coverage="partial")
+            self._states["scientific"]=StageState("available","partial","unsupported",diagnostic)
+            self._assessments[key]=result
+            return result
         reading = self.interpretation()
         if reading.tree is None:
             timeout = reading.failure is not None and reading.failure.category == "timeout"
@@ -442,6 +455,9 @@ class PreparedMathInput:
                         diagnostic="unsupported source assumptions",
                     )
                 elif question == "definedness":
+                    assert rule is not None
+                    if "symbolic" in rule.prerequisites:
+                        self.symbolic_value()
                     result = MathAssessment(
                         question,
                         "unknown"
