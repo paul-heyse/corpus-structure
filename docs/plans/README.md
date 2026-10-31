@@ -12,6 +12,7 @@ semantic pivot series was added on 2026-10-29:
 | [semantic-model pivot](semantic-model-pivot_2026-10-29.md) | Semantic pivot packages, completeness and improvement extensions (SP-I01–SP-I09), and their dependencies; existing phase-0 finding ownership is preserved |
 | [production efficiency](production-efficiency_2026-10-30.md) | Model-governed production analysis, data/runtime efficiency and review F01–F11; planned PE-00–PE-12, with existing pivot completion preserved |
 | [parsing pipeline](parsing-pipeline_2026-10-30.md) | Planned PP-00–PP-10: complete original/canonical decomposition, connected parsing contracts, native adapters, interpretation, views and adoption; parsing-review O01–O07 disposition |
+| [PDF/Docling pipeline](pdf-docling-pipeline_2026-10-31.md) | PDF-00–PDF-11: PDF-only source conversion, native JSON custody, intact section hierarchy, consumer migration, runtime and adoption; PDF-review O01–O08 and I01–I08 disposition |
 
 The [phases 1–5 roadmap](roadmap-phases-1-5_2026-10-28.md) is not an execution plan: it says what
 each later phase adds and what decides it, until its detailed plan is written. Cross-references

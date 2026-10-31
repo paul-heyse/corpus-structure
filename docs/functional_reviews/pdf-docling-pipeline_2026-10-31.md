@@ -1,7 +1,9 @@
 # PDF-only Docling pipeline — functional opportunity review
 
 **Proposed · 2026-10-31.** Review of the PDF-only pivot, not a production implementation,
-completion audit, or change to existing plan scope. Companion: [target model](pdf-docling-pipeline_2026-10-31_target-model.md).
+completion audit, or change to existing plan scope. Scheduled O01–O08 execution disposition
+and investigations now belong to the [PDF coordinator](../plans/pdf-docling-pipeline_2026-10-31.md);
+this review retains the recommendations and evidence, not a second progress ledger. Companion: [target model](pdf-docling-pipeline_2026-10-31_target-model.md).
 
 ## 1. Outcome, baseline and evidence boundary
 

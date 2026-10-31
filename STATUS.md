@@ -3,15 +3,13 @@ _Updated 2026-10-31 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Current checkpoint
 
-- [PDF/Docling functional review](docs/functional_reviews/pdf-docling-pipeline_2026-10-31.md)
-  and [target model](docs/functional_reviews/pdf-docling-pipeline_2026-10-31_target-model.md)
-  propose PDF-only StandardPdfPipeline, native JSON custody, intact section hierarchy and
-  migrated consumers. Added layout/formula tuning and table-cell math gap guidance; no chunking.
-  Source/API review completed 2026-10-31; conversion/inference/product qualification **not_run**.
-  Recommendations do not change production, existing plans, architectural authority or audits.
-- **2026-10-31 docs:** `just docs-check` failed on concurrent title-less rendering-library draft.
-  Scoped `scripts.docs.build` excluding only that draft passed: 321 pages, zero link errors.
-  `just turn-end` passed; no product tests or conversion ran for this documentation-only review.
+- [PDF/Docling coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) now owns planned
+  PDF-00–PDF-11, review O01–O08 and investigations I01–I08; six supporting plans retain mechanisms.
+  RC01–RC05 selected 2026-10-31. Native JSON, intact sections, no chunking; no pivot deployed.
+  Next: PDF-00 decisions, PDF-01 early investigations and PDF-02 contract agreement.
+- **2026-10-31 authoring:** no dependency changes, inference, migration or product tests.
+  `just docs-check` failed on concurrent title-less rendering draft; scoped `scripts.docs.build`
+  excluding only that draft passed (328 pages, zero link errors). `just turn-end` passed.
 
 - [Parsing coordinator](docs/plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
   owns completed PP-00–PP-10 and O01–O07 dispositions. ADR-0036/0037 govern immutable
@@ -54,6 +52,5 @@ _Updated 2026-10-31 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Next
 
-The implemented PP scope remains complete. Next is selection/planning from the proposed PDF
-review; formula health/coverage, section grouping and whole-book execution need qualification.
-Existing conditional consumers remain at their plan owners; no PDF pivot has been deployed.
+The implemented PP scope remains complete. Execute the PDF coordinator's foundation/investigation
+scope next; library choices and actual corpus health remain unqualified until their planned work.
