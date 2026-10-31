@@ -24,39 +24,37 @@ def test_complete_capture_and_explicit_inner_view(monkeypatch: pytest.MonkeyPatc
     assert parse_view("$prose$", opener="$", closer="$").text == "$prose$"
 
 
-def test_native_groups_arguments_environments_and_literal_percent_dollar() -> None:
-    source = r"\frac{a}{b} % $prose \begin{align}x_1\end{align}"
+def test_native_syntax_structure_and_unrecognized_text_keep_exact_capture() -> None:
+    source = r"\frac{a}{b}"
     result = capture_text(source, structure=True)
-    frac = next(n for n in result.nodes if n.name == "frac")
-    assert (frac.start, frac.end) == (0, 11)
-    args = [n for n in result.nodes if n.parent == frac.node_id]
-    assert [(n.start, n.end, n.argument_index) for n in args] == [(5, 8, 0), (8, 11, 1)]
-    env = next(n for n in result.nodes if n.kind == "environment")
-    assert source[env.start : env.end] == r"\begin{align}x_1\end{align}"
-    assert any(n.kind == "subscript" for n in result.nodes)
-    assert any(source[n.start : n.end] == " % $prose " for n in result.nodes)
+    fraction = next(n for n in result.nodes if n.kind == "fraction")
+    assert (fraction.start, fraction.end) == (0, len(source))
     assert result.structure_outcome == "available"
+    mixed = source + " % $prose"
+    unsupported = capture_text(mixed, structure=True)
+    assert "".join(t.text for t in unsupported.lexical) == mixed
+    assert unsupported.structure_outcome != "available"
+    assert unsupported.issues
 
 
 def test_unknown_and_invalid_keep_the_total_partition() -> None:
-    for source, outcome in [(r"\nonesuch{x}", "partial"), (r"\frac{a", "invalid")]:
+    for source in (r"\nonesuch{x}", r"\frac{a"):
         result = capture_text(source, structure=True)
-        assert result.structure_outcome == outcome
+        assert result.structure_outcome != "available"
         assert "".join(t.text for t in result.lexical) == source
         assert result.issues
 
 
-def test_optional_multiple_arguments_are_declared_from_effective_table() -> None:
+def test_retired_macro_argument_writer_does_not_fabricate_structure() -> None:
+    source = r"\foo[y]{x}"
     result = capture_text(
-        r"\foo[y]{x}",
+        source,
         structure=True,
         macros={r"\foo": MacroDef(nargs=2, default="D", body="#1+#2")},
     )
-    assert [(n.argument_index, n.start, n.end) for n in result.nodes if n.role == "argument"] == [
-        (0, 4, 7),
-        (1, 7, 10),
-    ]
-    assert result.structure_outcome == "available"
+    assert "".join(t.text for t in result.lexical) == source
+    assert result.structure_outcome != "available"
+    assert result.nodes == ()
 
 
 def test_definition_events_and_repeated_argument_default_derivation() -> None:
@@ -102,13 +100,16 @@ def test_expansion_bound_retains_invocation_and_arguments() -> None:
     assert result.invocations[-1].outcome == "depth_bound"
 
 
-def test_native_missing_node_list_is_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
-    from pylatexenc.latexwalker import LatexWalker
+def test_native_missing_syntax_tree_is_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
+    from corpus_structure.core.vocab import ParseOutcome
+    from corpus_structure.methods.math import grammar
 
-    monkeypatch.setattr(LatexWalker, "parse_content", lambda *args, **kwargs: (None, None))
+    monkeypatch.setattr(
+        grammar, "syntax", lambda *args, **kwargs: grammar.MathResult("x", "any_value", ParseOutcome.FAILED)
+    )
     result = capture_text("x", structure=True)
     assert result.structure_outcome == "invalid"
-    assert result.issues == ("native structural parser returned no node list",)
+    assert result.issues == ("no_syntax_tree",)
     assert [t.text for t in result.lexical] == ["x"]
 
 

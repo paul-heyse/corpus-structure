@@ -21,13 +21,23 @@ def operand(text, **context):
     return PreparedMathInput(prepare_interpretation_context(macros={}, **context), text)
 
 
-def test_lexical_and_structure_do_not_recognize_or_construct(monkeypatch):
+def test_lexical_demand_does_not_recognize_or_construct(monkeypatch):
     value = operand("x + @")
     monkeypatch.setattr(grammar, "parser_for", lambda *a: pytest.fail("recognition requested"))
     monkeypatch.setattr(grammar, "transform", lambda *a: pytest.fail("native requested"))
     assert "".join(t.text for t in value.lexical()) == "x + @"
-    assert value.structure().end == 5
     assert value.state("syntax").work == "not_requested"
+    assert value.state("symbolic").work == "not_requested"
+
+
+def test_structure_is_explicit_native_syntax_without_symbolic_work(monkeypatch):
+    value = operand("x + @")
+    monkeypatch.setattr(grammar, "transform", lambda *a: pytest.fail("native requested"))
+    result = value.structure()
+    assert result.end == 5
+    assert "".join(t.text for t in result.lexical) == "x + @"
+    assert result.structure_outcome == "invalid"
+    assert value.state("syntax").work == "failed"
     assert value.state("symbolic").work == "not_requested"
 
 

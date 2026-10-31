@@ -200,17 +200,28 @@ class PreparedMathInput:
         return self._lexical
 
     def structure(self) -> TextCapture:
-        """Source structure through the existing pure structural owner, never Earley."""
+        """Explicit positioned syntax structure, without contextual or native evaluation."""
         if self._structure is None:
-            from corpus_structure.core.text_structure import capture_text
+            from corpus_structure.core.text_structure import capture_text, syntax_structure
 
             self.lexical()
             result = capture_text(
                 self.latex if self.source_text is None else self.source_text,
                 start=self.source_start,
-                structure=True,
                 macros=self.context.macros,
+                expand_macros=False,
             )
+            # The grammar consumes the recognized inner view. Structure and syntax share
+            # one prepared tree; no separate TeX walk or native algebra is performed.
+            recognized = self.syntax()
+            nodes, outcome, issues = syntax_structure(
+                replace(result.view, text=self.latex, start=self.parse_start,
+                        end=self.parse_start + len(self.latex)), recognized
+            )
+            result = replace(result, nodes=nodes, structure_outcome=outcome, issues=issues)
+            if recognized.failure is not None and recognized.failure.category == "timeout":
+                self._states["structure"] = StageState("failed", "partial", "timeout")
+                return result
             object.__setattr__(self, "_structure", result)
             coverage = "complete" if result.structure_outcome == "available" else "partial"
             self._states["structure"] = StageState("available", coverage, result.structure_outcome)

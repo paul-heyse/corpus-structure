@@ -10,14 +10,17 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from corpus_structure.methods.math.grammar import MathResult
 
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.tex import Expansion, MacroBinding, Token, TokenKind, expand, tokens
 
-ADAPTER_ID = "pylatexenc-structure-1"
-IMPLEMENTATION_REVISION = "text-structure-1"
-FRONTEND_REVISION = "pylatexenc-3.0b2"
+ADAPTER_ID = "lark-structure-1"
+IMPLEMENTATION_REVISION = "text-structure-2"
+FRONTEND_REVISION = "sympy-1.14.0-lark-1.3.1"
 
 
 TEX_COMPONENT_CATEGORIES: Mapping[TokenKind, str] = MappingProxyType(
@@ -166,7 +169,7 @@ def capture_text(
     bindings: Mapping[str, MacroBinding] | None = None,
     expand_macros: bool = True,
 ) -> TextCapture:
-    """Capture every source token; only an explicit structure demand calls pylatexenc.
+    """Capture every source token; only an explicit structure demand calls the positioned grammar.
 
     ``macros`` supplies declared structural arguments. Unless ``expand_macros=False``, an
     explicit table also requests bounded expansion against named artifacts; callers archive
@@ -200,83 +203,52 @@ def capture_text(
 def _structure(
     view: ParseView, macros: Mapping[str, MacroDef]
 ) -> tuple[tuple[StructureNode, ...], str, tuple[str, ...]]:
-    from pylatexenc.latexnodes import ParsingState
-    from pylatexenc.latexnodes.parsers import LatexGeneralNodesParser
-    from pylatexenc.latexwalker import (
-        LatexWalker,
-        LatexWalkerParseError,
-        get_default_latex_context_db,
-    )
-    from pylatexenc.macrospec import MacroSpec
+    """Project the admitted mathematical syntax tree without constructing native values.
 
-    context = get_default_latex_context_db()
-    context.add_context_category(
-        "effective-macros",
-        macros=[
-            MacroSpec(
-                name[1:],
-                ("[" if definition.default is not None else "")
-                + "{" * (definition.nargs - (definition.default is not None)),
-            )
-            for name, definition in macros.items()
-        ],
-        prepend=True,
-    )
-    state = ParsingState(
-        latex_context=context, enable_comments=False, enable_math=False, in_math_mode=True
-    )
-    walker = LatexWalker(view.text, default_parsing_state=state, tolerant_parsing=False)
-    try:
-        native, _ = walker.parse_content(LatexGeneralNodesParser())
-    except LatexWalkerParseError as error:
-        return (), "invalid", (str(error),)
-    if native is None:
-        return (), "invalid", ("native structural parser returned no node list",)
+    This is the PDF frontend's structure recipe, not the retired general TeX walker.
+    Unrecognized input retains complete lexical capture; it does not acquire invented
+    nodes or a successful structural-coverage claim.
+    """
+    from corpus_structure.methods.math import grammar
+
+    return syntax_structure(view, grammar.syntax(view.text, macros=macros))
+
+
+def syntax_structure(
+    view: ParseView, result: MathResult
+) -> tuple[tuple[StructureNode, ...], str, tuple[str, ...]]:
+    """Project an already prepared positioned tree; never reparse or evaluate it."""
+    from lark import Token, Tree
+
+    from corpus_structure.methods.math import _tree
+
+    if result.latex != view.text:
+        raise ValueError("syntax structure input differs from its recognized-text view")
+    if result.tree is None:
+        issue = result.failure.category if result.failure is not None else "no_syntax_tree"
+        outcome = "partial" if issue == "unknown_command" else "invalid"
+        return (), outcome, (issue,)
     out: list[StructureNode] = []
-    issues: list[str] = []
 
-    def visit(
-        node: Any,
-        parent: str | None = None,
-        role: str = "content",
-        argument_index: int | None = None,
-    ) -> None:
-        if node is None:
+    def visit(node: _tree.Node, parent: str | None = None) -> None:
+        bounds = _tree.span(node)
+        if bounds is None:
             return
-        kind = type(node).__name__.removeprefix("Latex").removesuffix("Node").lower()
-        name = getattr(
-            node,
-            "macroname",
-            getattr(node, "environmentname", getattr(node, "specials_chars", None)),
-        )
-        if kind == "specials" and name in {"_", "^"}:
-            kind = "subscript" if name == "_" else "superscript"
-        if kind == "macro" and not getattr(node.spec, "macroname", None):
-            kind = "unknown_macro"
-            issues.append("unknown macro: \\" + str(name))
         key = f"s{len(out)}"
+        kind = node.data if isinstance(node, Tree) else "token"
+        name = str(node) if isinstance(node, Token) else None
         out.append(
-            StructureNode(
-                key,
-                kind,
-                view.start + node.pos,
-                view.start + node.pos_end,
-                parent,
-                role,
-                name,
-                argument_index,
-            )
+            StructureNode(key, kind, view.start + bounds[0], view.start + bounds[1], parent,
+                          "alternative" if kind == "_ambig" else "content", name)
         )
-        args = getattr(node, "nodeargd", None)
-        if args is not None:
-            for index, argument in enumerate(args.argnlist):
-                visit(argument, key, "argument", index)
-        for child in getattr(node, "nodelist", ()) or ():
-            visit(child, key)
+        if isinstance(node, Tree):
+            for child in node.children:
+                if isinstance(child, Tree | Token):
+                    visit(child, key)
 
-    for node in native:
-        visit(node)
-    return tuple(out), "partial" if issues else "available", tuple(issues)
+    visit(result.tree)
+    issues = () if result.failure is None else (result.failure.category,)
+    return tuple(out), "partial" if issues else "available", issues
 
 
 def source_atoms(
