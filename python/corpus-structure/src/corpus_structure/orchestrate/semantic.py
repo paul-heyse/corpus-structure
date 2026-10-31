@@ -737,7 +737,8 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
     names = policy.registry_configs(registry)
     from corpus_structure.semantic.statement_types import statement_kinds
 
-    language = policy.unit_language(statement_kinds(prepared), names, nullable_claim_bearing=True)
+    language = policy.unit_language(statement_kinds(prepared), names, nullable_claim_bearing=True,
+        native_unit_kinds=(TaskUnitType.SOURCE_VIEW.value,))
     rules = policy.compile_policy(policy.parse_policy(policy_source), language, names)
     bearing_kinds = statement_kinds(prepared, subset="claim_bearing")
     t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
@@ -759,6 +760,7 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
             .where(t.c.run_id == run_id)
         )
     }
+    native_allowed=None
     indices = {}
     counts = Counter()
     scheduled = set()
@@ -782,39 +784,51 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
             if ref not in unit_views:
                 unit_views[ref] = _unit(conn, view, ref)
             unit = unit_views[ref]
-            if unit.rendition_id is None or unit.document_id is None or ref.unit_key is None:
-                raise OperationConflict("propose requires located source units")
-            if unit.rendition_id not in indices:
-                d = table("kb.document")
-                page = conn.execute(
-                    select(d.c.meta).where(d.c.id == unit.document_id)
-                ).scalar_one()["page"]
-                index = LocatorIndex(view.reader.content(unit.rendition_id), page)
-                scope = view.options.get("scope")
-                locators = None
-                if scope is not None:
-                    if not isinstance(scope, dict):
-                        raise OperationConflict("recorded scope must be a locator mapping")
-                    locators = TypeAdapter(list[str]).validate_python(scope.get("locators"))
-                indices[unit.rendition_id] = (index, selected(index, locators))
-            index, allowed = indices[unit.rendition_id]
-            segment = index.resolve(ref.unit_key)
-            hint = segment.attrs.get("hint", {})
-            kind = hint.get("statement_kind") if isinstance(hint, dict) else None
-            bearing = hint.get("claim_bearing") if isinstance(hint, dict) else None
-            if bearing is None and kind is not None:
-                bearing = kind in bearing_kinds
-            if bearing is not None and not isinstance(bearing, bool):
-                raise OperationConflict(
-                    "source claim-bearing classification must be boolean or unknown"
-                )
+            if unit.document_id is None or ref.unit_key is None:
+                raise OperationConflict("propose requires a bound source document and unit key")
+            if unit.source_view_id is not None:
+                if ref.unit_type is not TaskUnitType.SOURCE_VIEW or ref.unit_id!=unit.source_view_id:
+                    raise OperationConflict("native propose unit differs from its declared source-view row")
+                unit_kind=TaskUnitType.SOURCE_VIEW.value
+                if native_allowed is None:native_allowed={selected.id for selected in view.reader.source_views()}
+                scope_allowed=unit.source_view_id in native_allowed
+                # A section's individual attributed blocks do not classify the whole view.
+                kind,bearing=None,None
+            else:
+                if unit.rendition_id is None:
+                    raise OperationConflict("archived propose requires a located rendition unit")
+                if unit.rendition_id not in indices:
+                    d = table("kb.document")
+                    page = conn.execute(
+                        select(d.c.meta).where(d.c.id == unit.document_id)
+                    ).scalar_one()["page"]
+                    index = LocatorIndex(view.reader.content(unit.rendition_id), page)
+                    scope = view.options.get("scope")
+                    locators = None
+                    if scope is not None:
+                        if not isinstance(scope, dict):
+                            raise OperationConflict("recorded scope must be a locator mapping")
+                        locators = TypeAdapter(list[str]).validate_python(scope.get("locators"))
+                    indices[unit.rendition_id] = (index, selected(index, locators))
+                index, allowed = indices[unit.rendition_id]
+                segment = index.resolve(ref.unit_key)
+                hint = segment.attrs.get("hint", {})
+                kind = hint.get("statement_kind") if isinstance(hint, dict) else None
+                bearing = hint.get("claim_bearing") if isinstance(hint, dict) else None
+                if bearing is None and kind is not None:
+                    bearing = kind in bearing_kinds
+                if bearing is not None and not isinstance(bearing, bool):
+                    raise OperationConflict(
+                        "source claim-bearing classification must be boolean or unknown"
+                    )
+                unit_kind=segment.kind.value
+                scope_allowed=ref.unit_key in allowed
 
             def outcome(name: str, unit: UnitView = unit) -> str | None:
-                for key in (
-                    (name, "segment", unit.ref.unit_id),
-                    (name, "rendition", unit.rendition_id),
-                    (name, "document", unit.document_id),
-                ):
+                keys=([(name,"source_view",unit.source_view_id),(name,"document",unit.document_id)]
+                    if unit.source_view_id is not None else [(name,"segment",unit.ref.unit_id),
+                        (name,"rendition",unit.rendition_id),(name,"document",unit.document_id)])
+                for key in keys:
                     if key in states:
                         return {"done": "produced", "empty": "empty", "failed": "failed"}.get(
                             states[key]
@@ -825,7 +839,7 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
                 "phase": view.phase,
                 "iteration": 0,
                 "unit": SimpleNamespace(
-                    kind=segment.kind.value, statement_kind=kind, claim_bearing=bearing
+                    kind=unit_kind, statement_kind=kind, claim_bearing=bearing
                 ),
                 "target": SimpleNamespace(kind=None, size=None, max_confidence=None, margin=None),
                 "budget": SimpleNamespace(agent_packets_left=None, llm_tokens_left=None),
@@ -843,7 +857,7 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
             scheduled.add(identity)
             reason = (
                 "scope"
-                if ref.unit_key not in allowed
+                if not scope_allowed
                 else "limit"
                 if entry.entry.do.limit is not None and counts[entry.key] >= entry.entry.do.limit
                 else None
@@ -854,7 +868,7 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
                 "condition": entry.entry.when,
                 "classification": "unknown" if bearing is None else "known",
                 "values": {
-                    "unit.kind": segment.kind.value,
+                    "unit.kind": unit_kind,
                     "unit.statement_kind": kind,
                     "unit.claim_bearing": bearing,
                     "phase": view.phase,

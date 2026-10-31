@@ -17,7 +17,7 @@ from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.evaluate.semantic import create_reference_set, record_pass, reference_evaluate, split_documents
 from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.orchestrate.semantic import queue_agent
+from corpus_structure.orchestrate.semantic import propose_agents
 from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.domain_operations import domain_rule_inputs
@@ -83,7 +83,23 @@ def native_source_task(admin, writer, tmp_path):
             (section.self_ref,paragraph.self_ref),(),dict(payload['health'],formula_outcomes=[]),b'{"recipe":"native-person-section"}')
         view=store_source_view(conn,run_id=run,task_id=source,attempt=claim.attempt,holder='native-fixture',draft=draft,position=0)
         complete_task(conn,task_id=source,attempt=claim.attempt,holder='native-fixture',prepared=prepared,observations=[],outcome='empty')
-        task,=queue_agent(conn,run_id=run,prepared=prepared,configuration=configuration,units=(UnitRef(TaskUnitType.SOURCE_VIEW,view,draft.key),))
+        from corpus_structure.methods.llm.agent_opus import AgentOpus
+        from corpus_structure.orchestrate.registry import MethodRegistry,MethodsFile
+        registry=MethodRegistry((AgentOpus(),),MethodsFile(configs={'agent.opus':{'extract':configuration}}))
+        queued=propose_agents(conn,run,prepared,registry,"""version: '0.2'
+chains:
+  propose:
+    - key: native-source-policy
+      unit_type: source_view
+      when: "unit.kind == 'source_view' and unit.statement_kind == null and unit.claim_bearing == null"
+      do: {method: agent.opus/extract, then: stop}
+""")
+        assert queued==1
+        task=conn.execute(text("SELECT id FROM ops.task WHERE run_id=:run AND unit_type='source_view' AND stage='propose'"),{'run':run}).scalar_one()
+        trigger=conn.scalar(text('SELECT trigger FROM ops.task WHERE id=:task'),{'task':task})
+        assert trigger['values']['unit.kind']=='source_view'
+        assert trigger['values']['unit.statement_kind'] is None
+        assert trigger['values']['unit.claim_bearing'] is None
     return prepared,run,task,view,draft.key
 
 

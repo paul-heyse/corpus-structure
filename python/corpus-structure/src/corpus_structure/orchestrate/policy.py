@@ -141,6 +141,7 @@ def unit_language(
     metrics: Collection[str] = (),
     *,
     nullable_claim_bearing: bool = False,
+    native_unit_kinds: Collection[str] = (),
 ) -> Language:
     """The unit context's language for one schema version (module doc): `statement_kinds` are the
     version's `StatementKind` members as stored, `methods` the registered method names."""
@@ -175,7 +176,7 @@ def unit_language(
             "confidence": "function(string)->string?",
         },
         values={
-            ("Unit", "kind"): _vocab("SegmentKind", SegmentKind),
+            ("Unit", "kind"): _vocab("source unit kind" if native_unit_kinds else "SegmentKind", (*SegmentKind,*native_unit_kinds)),
             ("Unit", "statement_kind"): _vocab("StatementKind", statement_kinds),
             ("Target", "kind"): _vocab("JudgmentTargetKind", JudgmentTargetKind),
             (CALL, "outcome"): _vocab("ObservationOutcome", ObservationOutcome),
