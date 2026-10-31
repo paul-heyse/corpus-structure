@@ -118,7 +118,7 @@ def test_actual_methods_select_source_views_and_keep_native_offsets():
 
 
 def test_domain_roles_are_release_rules_and_do_not_imply_proof_truth():
-    source=SimpleNamespace(text='Proof. Details.',items=({'self_ref':'#/texts/0','label':'section_header','text':'Proof.'},),
+    source=SimpleNamespace(ref=view().ref,ancestors=(),text='Proof. Details.',items=({'self_ref':'#/texts/0','label':'section_header','text':'Proof.'},),
         pieces=({'item_ref':'#/texts/0','start':0,'end':6},))
     assert domain_blocks(source,())==()
     rule=NativeDomainRule(rule_id='proof-heading-1',pattern=r'^Proof\.',statement_kind='proof',scope_role='proof')
@@ -325,3 +325,59 @@ def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(mon
     payload['declarations']=[]
     declarations,issues=stored_native_ancestor_declarations(reader,child)
     assert declarations==() and any('function role preparation unavailable' in issue for issue in issues)
+
+
+def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leakage():
+    from dataclasses import replace
+    from corpus_structure.methods.math.methods import MathSection
+    from corpus_structure.methods.math.native import native_request_analysis
+    root={'self_ref':'#/groups/0','label':'section','children':[]}
+    rows:list[dict[str,Any]]=[root];pieces=[];parts=[];offset=0;formulas={}
+    def group(ref,parent):
+        value={'self_ref':ref,'label':'section','parent':{'$ref':parent['self_ref']},'children':[]}
+        parent['children'].append({'$ref':ref});rows.append(value);return value
+    def add(text,parent,formula=None):
+        nonlocal offset
+        pointer=f'#/texts/{len(pieces)}'
+        value={'self_ref':pointer,'label':'text' if formula is None else 'formula','text':text,'orig':text,
+               'parent':{'$ref':parent['self_ref']}}
+        parent['children'].append({'$ref':pointer});rows.append(value)
+        pieces.append(dict(kind='native_text',item_ref=pointer,source_field='text',start=offset,end=offset+len(text)))
+        parts.append(text);offset+=len(text)
+        if formula is not None:formulas[formula]=pointer
+    add('Let ',root);add('x',root,'root_x');add('. ',root);add('f(t)=t',root,'root_f');add('. ',root)
+    child=group('#/groups/1',root)
+    add('Let ',child);add('y',child,'child_y');add('. ',child);add('g(t)=t',child,'child_g');add('. ',child)
+    add('f(2)',child,'child_f_call');add('. ',child);add('g(2)',child,'child_g_call');add('. ',child)
+    grandchild=group('#/groups/2',child)
+    add('y',grandchild,'grandchild_y');add('. ',grandchild);add('g(2)',grandchild,'grandchild_g_call');add('. ',grandchild)
+    sibling=group('#/groups/3',root)
+    add('x',sibling,'sibling_x');add('. ',sibling);add('y',sibling,'sibling_y');add('. ',sibling)
+    add('f(2)',sibling,'sibling_f_call');add('. ',sibling);add('g(2)',sibling,'sibling_g_call');add('.',sibling)
+    source=PreparedSourceView(replace(view().ref,membership='descendants'),''.join(parts),tuple(pieces),tuple(rows),(),
+        dict(formula_outcomes=[dict(pointer=pointer,outcome='succeeded') for pointer in formulas.values()],
+             inline_coverage='complete',cell_coverage='complete'))
+    reader=Reader();reader.view=source;reader.views={7:source}
+    run=run_for(reader);ctx=context_for(reader);unit=UnitView(UnitRef(TaskUnitType.SOURCE_VIEW,7,source.ref.key),run,source_view_id=7)
+    rule=NativeDomainRule(rule_id='proof-heading-1',pattern=r'^Proof\.',statement_kind='proof',scope_role='proof')
+    section=MathSection(native_domain_rules=(rule,))
+    weak=ExtractMath().run([unit],ExtractMathConfig(math=section),ctx)[0]
+    record=next(o.payload for o in weak.observations if o.kind is ObservationKind.RECORD)
+    outcomes={item['pointer']:item['outcome'] for item in record.items}
+    assert outcomes[formulas['child_f_call']]=='ok'
+    assert outcomes[formulas['child_g_call']]=='ok'
+    assert outcomes[formulas['grandchild_g_call']]=='ok'
+    assert outcomes[formulas['sibling_f_call']]=='ok'
+    assert outcomes[formulas['sibling_g_call']]=='ambiguous'
+    demanded=native_request_analysis(source,None,'interpretation',domain_rules=(rule,))
+    assert {item['pointer']:item['outcome'] for item in demanded.items}==outcomes
+    reader.store('extract.math',weak)
+    reader.store('normalize.formula',NormalizeFormula().run([unit],NormalizeFormulaConfig(math=section),ctx)[0])
+    scoped=SymbolScope().run([unit],SymbolScopeConfig(math=section,binders=Binders(sentence_initial=('let',)),sentences=SentenceConfig()),ctx)[0]
+    scopes={o.payload.source_pointer:o.payload for o in scoped.observations
+            if o.kind is ObservationKind.SCOPE and o.payload.symbol in {'x','y'}}
+    assert scopes[formulas['sibling_x']].outcome=='resolved'
+    assert scopes[formulas['sibling_x']].scope_pointer==root['self_ref']
+    assert scopes[formulas['grandchild_y']].outcome=='resolved'
+    assert scopes[formulas['grandchild_y']].scope_pointer==child['self_ref']
+    assert scopes[formulas['sibling_y']].outcome=='unresolved'

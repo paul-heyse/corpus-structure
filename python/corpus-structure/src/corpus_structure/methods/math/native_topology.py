@@ -17,6 +17,7 @@ class NativeTopology:
     section_parents: dict[str,str|None]
     ends: dict[str,int]
     bounds: dict[str,tuple[int,int]]
+    projected: dict[str,tuple[int,int]]
 
     def section(self,pointer:str)->str:
         return self.chains[pointer][0]
@@ -55,14 +56,18 @@ def prepare_native_topology(view:Any)->NativeTopology:
     ends={section:max((index+1 for pointer,index in order.items() if section in chains[pointer]),default=len(order))
           for section in selected_sections}
     bounds={root:(0,len(view.text))}
+    projected={}
     for piece in view.pieces:
         pointer=piece.get('item_ref')
         if pointer not in chains or piece['start']>=piece['end']:continue
+        previous=projected.get(pointer)
+        projected[pointer]=(piece['start'],piece['end']) if previous is None else (
+            min(previous[0],piece['start']),max(previous[1],piece['end']))
         for section in chains[pointer]:
             previous=bounds.get(section)
             bounds[section]=(piece['start'],piece['end']) if previous is None else (
                 min(previous[0],piece['start']),max(previous[1],piece['end']))
-    return NativeTopology(root,order,chains,parents,ends,bounds)
+    return NativeTopology(root,order,chains,parents,ends,bounds,projected)
 
 
 def native_topology(view:Any)->NativeTopology:

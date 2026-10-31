@@ -86,7 +86,7 @@ from corpus_structure.methods.math.spans import (
 
 from .native import NativeDomainRule
 
-VERSION = "5"
+VERSION = "6"
 PAYLOAD_VERSION = "2"
 M09, M11, M13 = "extract.math", "normalize.formula", "resolve.symbol_scope"
 _KIND_OF = {  # M11's payload `math_kind` back to the detected kind M13's rules read
@@ -648,7 +648,7 @@ def scope_drafts(
 
 
 class SymbolScope(_PerRendition):
-    version = "4"  # native source-view scope and stable source input references
+    version = "5"  # actual nested native section scope and stable source input references
     """`resolve.symbol_scope` (M13; module doc)."""
 
     name = M13

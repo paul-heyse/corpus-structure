@@ -1,18 +1,20 @@
 """Demand-shaped native analysis preserves positions and avoids hidden symbolic work."""
-from types import SimpleNamespace
 
 import pytest
 
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.native import native_request_analysis
 from corpus_structure.semantic.parsing_products import ProductReference
+from corpus_structure.core.method import SourceViewRef
+from corpus_structure.semantic.source_views import PreparedSourceView
 
 
 def view(text="x+x", health="succeeded"):
-    return SimpleNamespace(ref=SimpleNamespace(id=5, projection_digest="b"*64,
-        recipe_digest="c"*64,section_pointer="#/groups/0",native_product=ProductReference(2,"native","a"*64)),
-        items=({"label":"formula","self_ref":"#/texts/0","orig":"backend","text":text},),
-        health={"formula_outcomes":[{"pointer":"#/texts/0","outcome":health}]})
+    return PreparedSourceView(SourceViewRef(5,'native-demand',1,ProductReference(2,'native','a'*64),
+        '#/groups/0','direct','b'*64,'c'*64),text,
+        ({'kind':'native_text','item_ref':'#/texts/0','source_field':'text','start':0,'end':len(text)},),
+        ({'label':'formula','self_ref':'#/texts/0','orig':'backend','text':text},),(),
+        {'formula_outcomes':[{'pointer':'#/texts/0','outcome':health}]})
 
 
 def test_lexical_demand_never_enters_grammar(monkeypatch):

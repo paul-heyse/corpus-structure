@@ -292,6 +292,7 @@ def resolve_scopes(
     *,
     text_layouts: Mapping[tuple[int, int], TextLayout] | None = None,
     text_policy: Any = None,
+    sections_by_position: Mapping[int,Segment] | None = None,
 ) -> list[Scope]:
     """Every non-constant mention's scope: its binding site and the site it reopens, or none."""
     from corpus_structure.semantic.analysis_contracts import prepare_text_policy
@@ -305,7 +306,10 @@ def resolve_scopes(
     sections = [s for s in segments if s.kind in SECTION_LIKE]
     positions = [m.start for m in mentions]
     unit_at = _enclosing_at(units, positions)
-    section_at = _enclosing_at(sections, positions)
+    section_at = _enclosing_at(sections, positions) if sections_by_position is None else dict(sections_by_position)
+    if sections_by_position is not None and any(pos not in section_at or
+        section_at[pos].kind not in SECTION_LIKE or not section_at[pos].start<=pos<section_at[pos].end for pos in positions):
+        raise ValueError("declared section topology does not cover every mention")
     sites: list[BindingSite] = []
     for block, block_sentences in _blocks(content):
         sites += _sites(

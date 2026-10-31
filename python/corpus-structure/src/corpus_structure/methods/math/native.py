@@ -19,6 +19,7 @@ from corpus_structure.semantic.analysis_contracts import prepare_interpretation_
 from . import grammar
 from .pdf import FormulaOccurrence
 from .source_context import _heads
+from .native_topology import native_topology
 
 
 class NativeDomainRule(BaseModel):
@@ -65,41 +66,60 @@ class NativeScopePayload(BaseModel):
 def domain_blocks(view: Any, rules: tuple[NativeDomainRule, ...]):
     """Released pattern matches are attributed local observations, never author truth."""
     import re
+    if not rules:return ()
     if len({rule.rule_id for rule in rules}) != len(rules):
         raise ValueError("native domain recognition rule identities must be unique")
     patterns = [(rule, re.compile(rule.pattern)) for rule in rules]
     native = {item["self_ref"]: item for item in view.items}
     found = []
+    seen=set()
     for piece in view.pieces:
         pointer = piece.get("item_ref")
         item = native.get(pointer)
-        if item is None or piece["start"] == piece["end"]:
+        if item is None or piece["start"] == piece["end"] or pointer in seen:
             continue
+        seen.add(pointer)
         matches = [rule for rule, pattern in patterns if pattern.search(item.get("text", ""))]
         if len(matches) > 1:
             raise ValueError("native domain item matches conflicting released recognition rules")
         if matches:
             found.append((piece["start"], pointer, matches[0]))
     found.sort()
-    return tuple((start, found[index+1][0] if index+1 < len(found) else len(view.text), pointer, rule)
-                 for index, (start, pointer, rule) in enumerate(found))
+    topology=native_topology(view)
+    result=[]
+    for index,(start,pointer,rule) in enumerate(found):
+        section=topology.section(pointer)
+        end=topology.bounds[section][1]
+        for later,next_pointer,_ in found[index+1:]:
+            if topology.section(next_pointer)==section:
+                end=min(end,later);break
+        # An organizational child starts a distinct section, not an extension of a local
+        # proof/example statement in its parent.
+        end=min((bounds[0] for child,bounds in topology.bounds.items()
+                 if topology.section_parents.get(child)==section and bounds[0]>start),default=end)
+        result.append((start,end,pointer,rule))
+    return tuple(result)
 
 
-def _declaration_scope(view: Any, rules: tuple[NativeDomainRule,...], ordinal: int):
-    """Source item order and attributed statement boundaries constrain forward roles."""
-    source = f"source-view:{view.ref.id}:{view.ref.projection_digest}:native-order"
-    if not rules:
-        # Without a qualified local-boundary policy, do not invent cross-item applicability.
-        return source, f"{source}:item:{ordinal}", ordinal+1
-    positions={item["self_ref"]:n for n,item in enumerate(view.items)}
-    owner=f"{source}:section:{view.ref.section_pointer}"
-    end=len(view.items)
-    for _,_,pointer,rule in domain_blocks(view,rules):
-        start=positions[pointer]
-        if start>ordinal:
-            end=start
-            break
-        owner=f"{source}:statement:{pointer}:{rule.rule_id}"
+def _declaration_scope(view: Any, rules: tuple[NativeDomainRule,...], ordinal: int, blocks=None):
+    """Actual section ancestry and attributed statements constrain forward declarations."""
+    source=f"source-view:{view.ref.id}:{view.ref.projection_digest}:native-order"
+    if not rules:return source,f"{source}:item:{ordinal}",ordinal+1
+    topology=native_topology(view)
+    pointer=view.items[ordinal]["self_ref"]
+    section=topology.section(pointer)
+    owner=f"{source}:section:{section}"
+    end=topology.ends[section]
+    piece=topology.projected.get(pointer)
+    for start,stop,marker,rule in (domain_blocks(view,rules) if blocks is None else blocks):
+        if topology.section(marker)!=section:continue
+        marker_ordinal=topology.order[marker]
+        if marker_ordinal>ordinal:
+            end=min(end,marker_ordinal);break
+        if piece is not None and start<=piece[0]<stop:
+            owner=f"{source}:statement:{marker}:{rule.rule_id}"
+            end=min(end,min((n for ref,n in topology.order.items()
+                if n>ordinal and ref in topology.projected and topology.projected[ref][0]>=stop),default=end))
     return source,owner,end
 
 
@@ -230,6 +250,7 @@ def readings(view: Any, cfg: Any, reader: Any, *, demand:str="occurrences") -> t
     inherited,context_issues=native_ancestor_declarations(reader,view,section.native_domain_rules,seconds)
     definitions: list[dict[str, Any]] = list(inherited)
     out: list[NativeReading] = []
+    blocks=domain_blocks(view,section.native_domain_rules)
     for ordinal,item in enumerate(view.items):
         if item.get("label") != "formula":
             continue
@@ -241,11 +262,11 @@ def readings(view: Any, cfg: Any, reader: Any, *, demand:str="occurrences") -> t
         start = None
         if piece is not None and view.text[piece["start"]:piece["end"]] == text:
             start = piece["start"]
-        source_id,scope,end = _declaration_scope(view,section.native_domain_rules,ordinal)
+        source_id,scope,end = _declaration_scope(view,section.native_domain_rules,ordinal,blocks)
         context = prepare_interpretation_context(
             getattr(reader, "prepared", None), macros={}, constants=section.constants,
             source_id=source_id,scope=scope,offset=ordinal,
-            scope_chain=(f"{source_id}:section:{view.ref.section_pointer}",),
+            scope_chain=native_topology(view).scope_chain(pointer,source_id),
             declarations=definitions, demand="occurrences")
         operand = FormulaOccurrence(view.ref.native_product.content_digest, pointer, text,
                                     item.get("orig", ""), "succeeded").prepare(context).operand
@@ -314,7 +335,7 @@ def normalization_readings(view:Any,cfg:Any,reader:Any)->tuple[NativeReading,...
         declarations=[d for d in basis["declarations"] if d["authority"]=="source"]
         context=prepare_interpretation_context(getattr(reader,"prepared",None),macros={},
             constants=cfg.section().constants,source_id=source_id,scope=basis["scope"],offset=items[pointer],
-            scope_chain=(f"{source_id}:section:{view.ref.section_pointer}",),declarations=declarations,
+            scope_chain=native_topology(view).scope_chain(pointer,source_id),declarations=declarations,
             demand="occurrences")
         if context.stage_key("occurrences")!=record["occurrence_basis"]:
             raise ValueError("normalization occurrence context differs from its named input")
@@ -509,6 +530,7 @@ def native_request_analysis(view: Any, prepared: Any, demand: str, pointer: str 
     definitions = list(ancestor_declarations)
     results = []
     positions={item["self_ref"]:n for n,item in enumerate(view.items)}
+    blocks=domain_blocks(view,domain_rules)
     for item in formulas:
         ref = item["self_ref"]
         outcome = health.get(ref, "unknown")
@@ -519,10 +541,10 @@ def native_request_analysis(view: Any, prepared: Any, demand: str, pointer: str 
                                     recognition_health=outcome, availability="unavailable"))
             continue
         ordinal=positions[ref]
-        source_id,scope,end=_declaration_scope(view,domain_rules,ordinal)
+        source_id,scope,end=_declaration_scope(view,domain_rules,ordinal,blocks)
         context = prepare_interpretation_context(prepared, macros={},
             source_id=source_id,scope=scope,offset=ordinal,
-            scope_chain=(f"{source_id}:section:{view.ref.section_pointer}",),
+            scope_chain=native_topology(view).scope_chain(ref,source_id),
             declarations=definitions, demand=demand)
         operand = PreparedMathInput(context, item["text"], seconds=seconds)
         # Only contextual demands need prior mathematical declaration recognition.
@@ -668,6 +690,7 @@ def native_context_result(unit:Any,view:Any,cfg:Any,reader:Any)->UnitResult:
                     policy=getattr(view,"text_policy",None))[0]
     health={o["pointer"]:o["outcome"] for o in view.health.get("formula_outcomes",())}
     declarations=[];issues=[]
+    blocks=domain_blocks(view,section.native_domain_rules)
     for ordinal,item in enumerate(view.items):
         if item.get("label")!="formula":continue
         pointer=item["self_ref"];latex=item["text"];piece=pieces.get(pointer)
@@ -686,7 +709,7 @@ def native_context_result(unit:Any,view:Any,cfg:Any,reader:Any)->UnitResult:
         if not function_candidate and not(initial or clause or wide):continue
         if health.get(pointer)!="succeeded":
             issues.append("ancestor declaration recognition unavailable: "+pointer);continue
-        _,scope,_=_declaration_scope(view,section.native_domain_rules,ordinal)
+        _,scope,_=_declaration_scope(view,section.native_domain_rules,ordinal,blocks)
         if ":section:" not in scope and not wide:continue
         context=prepare_interpretation_context(getattr(reader,"prepared",None),macros={},constants=section.constants)
         operand=PreparedMathInput(context,latex)
@@ -860,7 +883,9 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
                 end=start+len(reading.prepared.latex),attrs={"native_pointer":pointer})
     # Native text/formula items may be fragments of the same mathematical sentence.
     # Partition only on attributed statement scopes, not on every PDF item/page boundary.
-    cuts=sorted({0,len(view.text),*(start for start,_,_,_ in domains)})
+    topology=native_topology(view)
+    cuts=sorted({0,len(view.text),*(value for bounds in topology.bounds.values() for value in bounds),
+                 *(value for start,end,_,_ in domains for value in (start,end))})
     for a,b in zip(cuts,cuts[1:]):
         if a==b:
             continue
@@ -881,17 +906,36 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
         children.extend(node for node in math_segments.values() if a<=node.start and node.end<=b)
         paragraphs.append(Segment(kind=SegmentKind.PARAGRAPH,start=a,end=b,
                                   children=tuple(children)))
-    root_children=[]
+    def paragraph_section(paragraph):
+        owners={topology.section(piece["item_ref"]) for piece in view.pieces
+            if piece.get("item_ref") in topology.chains and piece["start"]<paragraph.end
+            and paragraph.start<piece["end"]}
+        if len(owners)>1:
+            raise ValueError("native scope block crosses section membership boundaries")
+        return next(iter(owners),topology.root)
+    content_by_section={section:[] for section in topology.bounds}
     used=set()
     for start,end,pointer,rule in domains:
-        children=tuple(paragraph for paragraph in paragraphs if start<=paragraph.start and paragraph.end<=end)
+        owner=topology.section(pointer)
+        children=tuple(paragraph for paragraph in paragraphs if start<=paragraph.start and paragraph.end<=end
+                       and paragraph_section(paragraph)==owner)
         used.update(id(p) for p in children)
-        root_children.append(Segment(kind=SegmentKind.UNIT,start=start,end=end,
+        content_by_section[owner].append(Segment(kind=SegmentKind.UNIT,start=start,end=end,
             attrs={"native_pointer":pointer,"recognition_rule":rule.rule_id},children=children))
-    root_children.extend(p for p in paragraphs if id(p) not in used)
-    content=NativeScopeContent(canonical_text=view.text,
-        document=Segment(kind=SegmentKind.DOCUMENT,start=0,end=len(view.text),
-                         attrs={"native_pointer":view.ref.section_pointer},children=tuple(root_children)))
+    for paragraph in paragraphs:
+        if id(paragraph) not in used:content_by_section[paragraph_section(paragraph)].append(paragraph)
+    section_segments={}
+    def section_segment(pointer):
+        start,end=topology.bounds[pointer]
+        children=list(content_by_section[pointer])
+        children.extend(section_segment(child) for child,parent in topology.section_parents.items()
+                        if parent==pointer and child in topology.bounds)
+        segment=Segment(kind=SegmentKind.DOCUMENT if pointer==topology.root else SegmentKind.SECTION,
+            start=start,end=end,attrs={"native_pointer":pointer},
+            children=tuple(sorted(children,key=lambda child:(child.start,child.end))))
+        section_segments[pointer]=segment
+        return segment
+    content=NativeScopeContent(canonical_text=view.text,document=section_segment(topology.root))
     # This value is solely a pure-kernel lowering: it is never stored as kb.rendition.
     stored=ctx.reader.source_observations(view.ref.id,"extract.math",ObservationKind.MENTION)
     values=[]
@@ -926,13 +970,14 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
             relations.append(MathRelation(math_segments[pointer],payload["label"],
                 tuple(offset+x for x in payload["recognized_head"]),
                 tuple(offset+x for x in payload["recognized_tail"]),""))
+    pointers={id(segment):pointer for pointer,segment in math_segments.items()}
+    section_at={mention.start:section_segments[topology.section(pointers[id(mention.segment)])] for mention in mentions}
     scopes=resolve_scopes(content,values,mentions,relations,{},cfg.binders,cfgsentences,
-                          text_layouts=layouts,text_policy=getattr(view,"text_policy",None))
+        text_layouts=layouts,text_policy=getattr(view,"text_policy",None),sections_by_position=section_at)
     locations={}
     for row in stored:
         payload=row.payload
         locations[(payload.get("source_pointer"),payload.get("recognized_start"),payload.get("recognized_end"))]=row
-    pointers={id(segment):pointer for pointer,segment in math_segments.items()}
     by_position={(pointer,mention.start-selected[pointer].projected_start,
                   mention.end-selected[pointer].projected_start):scope
                  for scope in scopes for mention in (scope.mention,)
