@@ -50,7 +50,7 @@ from corpus_structure.core.vocab import (
 from corpus_structure.methods.llm import packet as P
 from corpus_structure.methods.llm import parts as parts_
 
-VERSION = "2"  # bumped on any change to the packet rendering or the prompts
+VERSION = "3"  # bumped on any change to the packet rendering or the prompts
 DEFAULT_MODEL = "claude-opus-5-5"
 
 

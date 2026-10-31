@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "agent.yaml"
 _EMPTY_DEPENDENCIES = ResolvedDependencies()
-SEMANTIC_AGENT_VERSION = "semantic-2"
+SEMANTIC_AGENT_VERSION = "semantic-3"
 
 
 def proposal_inputs(
@@ -165,6 +165,12 @@ class NativeProposalFrame:
             expected = native_address(self, start=sentence.start, end=sentence.end)
             if sentence.locator != expected:
                 raise ValueError("native sentence locator differs from its qualified projection")
+        aliases={entry["handle"]:entry for entry in native_evidence_entries(self)}
+        for sentence in self.sentences:
+            if sentence.id.startswith("native_evidence:"):
+                entry=aliases.get(sentence.id)
+                if entry is None or (sentence.start,sentence.end,sentence.locator)!=(entry["start"],entry["end"],entry["locator"]):
+                    raise ValueError("native evidence handle differs from its retained projection piece")
 
 
 def native_address(frame: NativeProposalFrame, *, pointer: str | None = None,
@@ -183,6 +189,21 @@ def native_address(frame: NativeProposalFrame, *, pointer: str | None = None,
         value.update(source_view_id=frame.source_view_id, projection_digest=frame.projection_digest,
                      start=start, end=end)
     return "pdf:" + canonical_bytes(value).decode()
+
+
+def native_evidence_entries(frame: NativeProposalFrame) -> tuple[dict[str,Any],...]:
+    """Deterministic evidence handles over retained native projection pieces, not PDF glyphs."""
+    entries=[]
+    for index,piece in enumerate(json.loads(frame.native_context)["pieces"]):
+        if piece.get("kind")!="native_text" or not piece.get("item_ref") or piece["start"]>=piece["end"]:
+            continue
+        entry=dict(handle=f"native_evidence:{index}",pointer=piece["item_ref"],
+            start=piece["start"],end=piece["end"],text=frame.text[piece["start"]:piece["end"]],
+            locator=native_address(frame,start=piece["start"],end=piece["end"]))
+        for name in ("cell_index","source_field"):
+            if name in piece:entry[name]=piece[name]
+        entries.append(entry)
+    return tuple(entries)
 
 
 def native_source_frame(view: Any, sentences: Sequence[tuple[str, int, int]]) -> NativeProposalFrame:
@@ -206,10 +227,15 @@ def native_source_frame(view: Any, sentences: Sequence[tuple[str, int, int]]) ->
     ref = view.ref
     # Coordinates are authored from the already prepared text projection, never guessed by
     # searching repeated strings in the book or reinterpreted as PDF glyph positions.
+    if any(id.startswith("native_evidence:") for id,_,_ in sentences):
+        raise ValueError("native evidence handles are reserved for retained projection pieces")
+    aliases=tuple((f"native_evidence:{index}",piece["start"],piece["end"])
+        for index,piece in enumerate(json.loads(context)["pieces"])
+        if piece.get("kind")=="native_text" and piece.get("item_ref") and piece["start"]<piece["end"])
     located = tuple(ProposalSentence(id, "pdf:" + canonical_bytes({
         "product_digest": ref.native_product.content_digest, "source_view_id": ref.id,
         "projection_digest": ref.projection_digest, "start": start, "end": end}).decode(), start, end)
-        for id, start, end in sentences)
+        for id, start, end in (*sentences,*aliases))
     return NativeProposalFrame(ref.key, view.text, located, ref.id, ref.native_product,
                                ref.section_pointer, ref.membership, ref.projection_digest,
                                ref.recipe_digest, context)
@@ -553,16 +579,19 @@ def locate_proposal(
         if statement["kind"] != "outside":
             statement["anchor"] = statement_anchor(statement["anchor"], frame)
     sentences = {sentence.id: sentence for sentence in frame.sentences}
-    from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Step
+    from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Located, Step
 
     from .analysis_contracts import prepare_placement_policy
 
+    placement_policy=prepare_placement_policy(prepared)
     cascade = Cascade(
         frame.text,
-        [FrameSentence(s.id, s.start, s.end) for s in frame.sentences],
-        dict(macros or {}),
-        policy=prepare_placement_policy(prepared),
+        [FrameSentence(s.id, s.start, s.end) for s in frame.sentences
+         if not isinstance(frame,NativeProposalFrame) or not s.id.startswith("native_evidence:")],
+        dict(macros or {}),policy=placement_policy,
     )
+    native_cascades={}
+
     issues = []
     for section in ("claims", "unsupported", "identity_exclusions"):
         for index, item in enumerate(stored.get(section, ())):
@@ -573,7 +602,20 @@ def locate_proposal(
                     raise ProposalRefused(
                         f"{path}: citation needs nonempty quote and a declared sentence"
                     )
-                found = cascade.locate(citation["quote"], citation["sentence"])
+                sentence=sentences[citation["sentence"]]
+                native_alias=isinstance(frame,NativeProposalFrame) and sentence.id.startswith("native_evidence:")
+                # Native aliases name one retained item/cell/formula piece. A quote outside that
+                # piece cannot relocate into another sentence or use a fuzzy reinterpretation.
+                if native_alias:
+                    if citation["quote"] not in frame.text[sentence.start:sentence.end]:
+                        found=Located()
+                    else:
+                        if sentence.id not in native_cascades:
+                            native_cascades[sentence.id]=Cascade(frame.text,[FrameSentence(sentence.id,sentence.start,sentence.end)],
+                                dict(macros or {}),policy=placement_policy)
+                        found=native_cascades[sentence.id].locate(citation["quote"],sentence.id)
+                else:
+                    found=cascade.locate(citation["quote"],sentence.id)
                 row = dict(citation)
                 row["placement"] = found.step.value if found.step is not None else "not_found"
                 row["matches"] = found.matches
@@ -677,6 +719,7 @@ class ProposalPacket:
                         "projection_digest": self.frame.projection_digest,
                         "recipe_digest": self.frame.recipe_digest,
                         "context": json.loads(self.frame.native_context),
+                        "native_evidence": native_evidence_entries(self.frame),
                     }} if isinstance(self.frame, NativeProposalFrame) else {}),
                     "sentences": [
                         {
@@ -685,6 +728,7 @@ class ProposalPacket:
                             "text": self.frame.text[sentence.start : sentence.end],
                         }
                         for sentence in self.frame.sentences
+                        if not isinstance(self.frame,NativeProposalFrame) or not sentence.id.startswith("native_evidence:")
                     ],
                     "known_classes": dict(self.known_classes),
                     "known_entities": [
