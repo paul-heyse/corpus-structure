@@ -69,7 +69,7 @@ def table_candidates(document: Any, selected: frozenset[str]) -> tuple[CellCandi
         if not hasattr(item,'data') or not hasattr(item.data,'table_cells'):
             continue
         for index,cell in enumerate(item.data.table_cells):
-            if not cell.text.strip() or getattr(cell,'ref',None) is not None:
+            if not cell.text.strip():
                 continue
             if cell.bbox is None:
                 raise RecognitionUnavailable('nonempty table cell has no native crop geometry')
@@ -172,6 +172,15 @@ def apply_inline(document: Any,candidates: tuple[PositionedCandidate,...],*,
     start=len(stage.outcomes)
     pending=[]
     mappings=[]
+    size=max(1,stage.elements_batch_size)
+    def flush():
+        try:
+            if len(list(stage(document,pending)))!=len(pending):
+                raise RecognitionUnavailable('native inline inference did not return its complete batch')
+        finally:
+            for element in pending:
+                element.image.close()
+            pending.clear()
     for pointer,parts in grouped.items():
         item=nodes[pointer]
         original=item.text
@@ -208,6 +217,8 @@ def apply_inline(document: Any,candidates: tuple[PositionedCandidate,...],*,
                 for crop in crops:
                     image.paste(crop,(x,image.height-crop.height));x+=crop.width+4;crop.close()
             pending.append(ItemAndImageEnrichmentElement(item=formula,image=image))
+            if len(pending)>=size:
+                flush()
             mappings.append(dict(pointer=formula.self_ref,origin_pointer=pointer,source_field="text",
                 start=part.start,end=part.end,kind="vector_region_anchor" if not c.text else "native_text_range"))
             position=part.end
@@ -218,15 +229,8 @@ def apply_inline(document: Any,candidates: tuple[PositionedCandidate,...],*,
             child=document.add_text(label=DocItemLabel.TEXT,text=projected,orig=raw,parent=group)
             mappings.append(dict(pointer=child.self_ref,origin_pointer=pointer,source_field="text",
                 start=position,end=len(original),kind="native_text_range"))
-    size=max(1,stage.elements_batch_size)
-    for offset in range(0,len(pending),size):
-        batch=pending[offset:offset+size]
-        try:
-            if len(list(stage(document,batch)))!=len(batch):
-                raise RecognitionUnavailable('native inline inference did not return its complete batch')
-        finally:
-            for element in batch:
-                element.image.close()
+    if pending:
+        flush()
     return tuple(stage.outcomes[start:]),tuple(mappings)
 
 
@@ -250,6 +254,11 @@ def classify_cells(document: Any, candidates: tuple[CellCandidate,...], pages: t
             if box.l<region.right and region.left<box.r and min(box.t,box.b)<max(region_top,region_bottom) and min(region_top,region_bottom)<max(box.t,box.b):
                 intersects=True
                 break
+        rich=getattr(cell,'ref',None)
+        if rich is not None:
+            reports.append(dict(table_pointer=candidate.table_ref,cell_index=candidate.cell_index,page_no=candidate.page_no,
+                classification='math',basis='native-rich-reference',outcome='unknown',formula_pointer=rich.cref))
+            continue
         if intersects:
             classification,basis='math','native-candidate-intersection'
         elif re.search(math_pattern,cell.text):

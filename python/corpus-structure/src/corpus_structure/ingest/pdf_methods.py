@@ -254,8 +254,11 @@ def _conversion_from_product(product,recipe_bytes:bytes) -> PdfConversion:
     return PdfConversion(values['artifact_digest'],recipe_bytes,_snapshot_from_values(values),
         values['health']['conversion'],tuple(values['health'].get('issues',[])),
         tuple(FormulaOutcome(row['pointer'],row['outcome'],row.get('error'))
-              for row in values['health'].get('formula_outcomes',[])),(),
+              for row in values['health'].get('formula_outcomes',[])),
+        tuple((r['name'],r['version']) for r in values.get('runtime_report',{}).get('packages',[])),
         (values['page_start'],values['page_end']) if values.get('source_scope')=='page_range' else None,
+        runtime=tuple((r['name'],r['value']) for r in values.get('runtime_report',{}).get('bindings',[])),
+        effective_options=values.get('runtime_report',{}).get('effective_options','{}').encode(),
         inline_candidates=candidates)
 
 class PdfEnrichConfig(PdfIngestConfig):
@@ -287,8 +290,11 @@ class EnrichPdfMath:
             'crop_padding_points':cfg.crop_padding_points,'crop_scale':2.0})
 
     def select(self,run:SourceRunContext,cfg:PdfEnrichConfig)->Iterable[UnitRef]:
-        return tuple(UnitRef(TaskUnitType.DOCUMENT,doc_id,'native-enrichment:'+str(doc_id))
-                     for doc_id in dict.fromkeys(v.document_id for v in run.reader.source_views()))
+        ids=list(dict.fromkeys(v.document_id for v in run.reader.source_views()))
+        documents=table('kb.document')
+        with run.reader.connection() as conn:
+            rows=conn.execute(select(documents.c.id,documents.c.key).where(documents.c.id.in_(ids)).order_by(documents.c.id))
+            return tuple(UnitRef(TaskUnitType.DOCUMENT,row.id,row.key) for row in rows)
 
     def input_digest(self,unit:UnitView,cfg:PdfEnrichConfig)->Digest:
         views=[v for v in unit.run.reader.source_views() if v.document_id==unit.ref.unit_id]
@@ -353,15 +359,21 @@ class EnrichPdfMath:
                 with PdfRegionRenderer(product.original,padding_points=cfg.crop_padding_points) as renderer:
                     cell_outcomes,cell_mappings=apply_cells(document,demanded,stage=stage,render_region=renderer)
                     inline_outcomes,inline_mappings=apply_inline(document,inline,stage=stage,render_region=renderer)
-                outcome_by_ref={o.item_ref:o for o in cell_outcomes}
+                outcome_by_ref={o.item_ref:o for o in conversion.formula_outcomes+cell_outcomes}
                 mapping_by_cell={(m['origin_pointer'],m['cell_index']):m for m in cell_mappings}
                 for report in reports:
+                    if report.get('formula_pointer') in outcome_by_ref:
+                        report['outcome']=outcome_by_ref[report['formula_pointer']].outcome
                     mapped=mapping_by_cell.get((report['table_pointer'],report['cell_index']))
                     if mapped is not None:
                         outcome=outcome_by_ref[mapped['pointer']]
                         report.update(formula_pointer=mapped['pointer'],outcome=outcome.outcome)
                         if outcome.error:
                             report['error']=outcome.error
+                from importlib.metadata import version
+                conversion=dataclasses.replace(conversion,
+                    packages=tuple((name,version(name)) for name in ('docling','docling-core','docling-parse')),
+                    runtime=converter.runtime_bindings(),effective_options=recipe.options().model_dump_json(serialize_as_any=True).encode())
                 derived=snapshot(document)
                 enriched=CellEnrichment(conversion.native.digest,derived,cell_outcomes+inline_outcomes,
                     cell_mappings+inline_mappings)

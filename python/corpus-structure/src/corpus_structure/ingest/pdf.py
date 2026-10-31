@@ -13,7 +13,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
 
-from .pdf_health import FormulaOutcome, ObservedFormulaStage
+from .pdf_health import FormulaOutcome, ObservedFormulaStage, FormulaPageLifetime
 from .pdf_assets import PreparedPdfAssets
 from .pdf_candidates import CandidatePage, capture_candidates
 from .pdf_hierarchy import NativeSnapshot, native_nodes, snapshot
@@ -153,6 +153,7 @@ class PdfConverter:
         self._formula: ObservedFormulaStage | None = None
         self._pipeline: Any = None
         self._options: Any = None
+        self._page_lifetime=FormulaPageLifetime()
 
     def _prepare(self) -> None:
         if self._converter is not None:
@@ -167,6 +168,8 @@ class PdfConverter:
         from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
         from docling_core.types.doc import DoclingDocument, NodeItem
 
+        page_lifetime=self._page_lifetime
+
         class NativeObservedStage(GenericEnrichmentModel[ItemAndImageEnrichmentElement]):
             progress_step = CodeFormulaVlmModel.progress_step
 
@@ -174,6 +177,7 @@ class PdfConverter:
                 self.native = native
                 self.observer = observer
                 self.elements_batch_size = native.elements_batch_size
+                self.page_lifetime = page_lifetime
 
             def is_processable(self, doc: DoclingDocument, element: NodeItem) -> bool:
                 return self.native.is_processable(doc, element)
@@ -181,18 +185,27 @@ class PdfConverter:
             def prepare_element(
                 self, conv_res: ConversionResult, element: NodeItem
             ) -> ItemAndImageEnrichmentElement | None:
-                return self.native.prepare_element(conv_res, element)
+                return self.page_lifetime.prepare(conv_res,self.native,element)
 
             def __call__(
                 self, doc: DoclingDocument, element_batch: Iterable[ItemAndImageEnrichmentElement]
             ) -> Iterable[NodeItem]:
-                yield from self.observer(doc, element_batch)
+                batch=tuple(element_batch)
+                try:
+                    yield from self.observer(doc,batch)
+                finally:
+                    for element in batch:
+                        element.image.close()
 
         if self.assets is not None:
             self.assets.verify()
             if self.recipe.model_artifacts != self.assets.files:
                 raise ValueError("recipe model manifest differs from prepared runtime assets")
         self._options = self.recipe.options()
+        if (self._options.generate_page_images or self._options.generate_picture_images
+                or self._options.do_picture_classification or self._options.do_picture_description
+                or self._options.do_chart_extraction):
+            raise ValueError('formula page-lifetime policy requires image exports/enrichments disabled')
         if self.assets is not None:
             self._options.artifacts_path = self.assets.root
         converter = DocumentConverter(
@@ -254,8 +267,11 @@ class PdfConverter:
 
     def runtime_bindings(self) -> tuple[tuple[str, str], ...]:
         """Observed execution state; uninitialized OCR stages are explicitly not executed."""
-        if self._pipeline is None or self._formula is None:
+        if self._formula is None:
             return ()
+        if self._pipeline is None:
+            return (("formula.engine",type(self._formula.native.engine).__name__),
+                    ("formula.device",str(getattr(self._formula.native.engine,"device","unknown"))))
         pipeline = self._pipeline
         entries = [
             ("layout.engine", type(pipeline.layout_model.engine).__name__),
@@ -329,6 +345,7 @@ class PdfConverter:
             )
         finally:
             result.input.release()
+            self._page_lifetime.clear()
 
 
 @dataclass(frozen=True, slots=True)
@@ -560,6 +577,11 @@ def publication_payload(
         "items": items,
         "regions": regions,
     }
+    if conversion.packages or conversion.runtime or conversion.effective_options != b"{}":
+        result['runtime_report'] = {
+            'packages':[dict(name=name,version=version) for name,version in conversion.packages],
+            'bindings':[dict(name=name,value=value) for name,value in conversion.runtime],
+            'effective_options':conversion.effective_options.decode('utf-8')}
     if parent is not None:
         result.update(
             parent_task_id=parent[0], parent_product_key=parent[1], parent_digest=parent[2]

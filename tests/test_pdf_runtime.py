@@ -155,3 +155,52 @@ def test_source_view_key_qualifies_consumer_release_and_full_native_pin():
     new_producer=_drafts(1,ProductReference(2,'organized','a'*64),organized.document,health,(section,),'direct','release1')[0]
     assert len({first.key,new_release.key,new_producer.key})==3
     assert first.text==new_release.text==new_producer.text
+
+
+def test_formula_page_cache_released_after_last_native_crop_not_each_formula():
+    from PIL import Image
+    from docling.datamodel.base_models import Page
+    from docling_core.types.doc import BoundingBox,DoclingDocument,DocItemLabel,ProvenanceItem
+    from corpus_structure.ingest.pdf_health import FormulaPageLifetime
+    document=DoclingDocument(name='independent native lifetime control')
+    first=document.add_text(label=DocItemLabel.FORMULA,text='x',prov=ProvenanceItem(page_no=1,bbox=BoundingBox(l=1,t=2,r=9,b=12),charspan=(0,1)))
+    second=document.add_text(label=DocItemLabel.FORMULA,text='y',prov=ProvenanceItem(page_no=1,bbox=BoundingBox(l=10,t=2,r=18,b=12),charspan=(0,1)))
+    page=Page(page_no=1)
+    cached=Image.new('RGB',(100,100))
+    page._image_cache={2.0:cached}
+    class Model:
+        def is_processable(self,doc,item):
+            return str(item.label)=='formula'
+        def prepare_element(self,conv,item):
+            assert conv.pages[0]._image_cache[2.0] is cached
+            return cached.crop((0,0,10,10))
+    lifetime=FormulaPageLifetime()
+    result=SimpleNamespace(document=document,pages=[page])
+    one=lifetime.prepare(result,Model(),first)
+    assert page._image_cache[2.0] is cached
+    two=lifetime.prepare(result,Model(),second)
+    assert page._image_cache=={}
+    assert one.size==two.size==(10,10)
+    one.close();two.close();cached.close()
+
+
+def test_cell_inventory_does_not_turn_plain_headers_into_formula_items():
+    from docling_core.types.doc import BoundingBox,DoclingDocument,PageItem,Size,TableCell,TableData,ProvenanceItem
+    from corpus_structure.ingest.pdf_enrichment import table_candidates,classify_cells
+    from corpus_structure.ingest.pdf_candidates import CandidatePage
+    from corpus_structure.ingest.pdf_methods import PdfEnrichConfig
+    document=DoclingDocument(name='independent mixed native cell fixture')
+    document.pages[1]=PageItem(page_no=1,size=Size(width=100,height=100))
+    cells=[TableCell(text=value,bbox=BoundingBox(l=1,t=i*20,r=90,b=i*20+15),
+            start_row_offset_idx=i,end_row_offset_idx=i+1,start_col_offset_idx=0,end_col_offset_idx=1,
+            column_header=i==0) for i,value in enumerate(('Probability distribution','x','???'))]
+    table=document.add_table(data=TableData(num_rows=3,num_cols=1,table_cells=cells),
+        prov=ProvenanceItem(page_no=1,bbox=BoundingBox(l=1,t=0,r=90,b=60),charspan=(0,0)))
+    cfg=PdfEnrichConfig()
+    candidates=table_candidates(document,frozenset([table.self_ref]))
+    demanded,reports=classify_cells(document,candidates,(CandidatePage(1,True,False,()),),
+        math_pattern=cfg.cell_math_pattern,prose_pattern=cfg.cell_prose_pattern)
+    assert [r['classification'] for r in reports]==['prose','math','unknown']
+    assert [c.cell_index for c in demanded]==[1]
+    assert table.data.table_cells[0].column_header is True
+    assert not any(str(item.label)=='formula' for item in document.texts)
