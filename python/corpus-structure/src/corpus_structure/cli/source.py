@@ -9,6 +9,7 @@ from typing import Literal
 import typer
 
 from corpus_structure.cli.output import JsonOpt, emit, state
+from corpus_structure.serve.native_source import NativeExportFormat
 
 app = typer.Typer(
     help="Inspect pinned source products and transformation custody.", no_args_is_help=True
@@ -323,9 +324,9 @@ def native_export(
     ctx: typer.Context, run: int, producing_task: int, product: str, digest: str,
     output: Path, section: str | None = None,
     membership: Literal['direct','descendants'] | None = None,
-    format: Literal['jsonl','parquet']='parquet',
+    format: NativeExportFormat='parquet',
 ):
-    """Export a pinned native source projection without conversion or interpretation."""
+    """Export pinned projections or complete native Docling JSON without inference."""
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.serve.native_source import NativeSourceRequest, export_native_source

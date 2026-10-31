@@ -205,18 +205,43 @@ def _recorded_interpretations(conn: Connection, request: NativeSourceRequest) ->
     return dict(status='recorded' if recorded else 'not_selected',run_id=request.run_id,results=results)
 
 
-def export_native_source(conn: Connection, request: NativeSourceRequest, destination, *, format: Literal['jsonl','parquet']='parquet') -> None:
-    """Stream pinned native projections; publish a detached file only on full completion."""
+NativeExportFormat = Literal['jsonl','parquet','docling-json']
+
+
+def export_native_source(conn: Connection, request: NativeSourceRequest, destination, *, format: NativeExportFormat='parquet') -> None:
+    """Export a pinned projection or explicitly requested complete native document."""
     import os
     from pathlib import Path
     from collections import defaultdict
-    from sqlalchemy import text
-    import pyarrow as pa
-    import pyarrow.parquet as pq
+    from sqlalchemy import Text
 
     destination=Path(destination)
     if destination.exists():
         raise FileExistsError(destination)
+    if format=='docling-json':
+        if (request.view not in {'items','products'} or request.section_pointer is not None
+                or request.membership is not None or request.pointer is not None
+                or request.cell_index is not None or request.cursor is not None):
+            raise ValueError('complete Docling JSON export cannot carry a partial source selector')
+        # Resolve authorization and the archived contract through the same pinned reader.
+        # Casting the whole JSONB column transfers native JSON without a Python float roundtrip.
+        inspect_native_source(conn,request.model_copy(update={'view':'products','limit':1}))
+        from corpus_structure.semantic.metadata import table
+        products=table('ops.native_document_product')
+        native=conn.execute(select(products.c.native_json.cast(Text)).where(
+            products.c.task_id==request.task_id,products.c.product_key==request.product_key,
+            products.c.content_digest==request.content_digest)).scalar_one()
+        temporary=destination.with_name(destination.name+'.partial')
+        with temporary.open('x',encoding='utf-8') as stream:
+            stream.write(native)
+            stream.write('\n')
+        os.link(temporary,destination)
+        temporary.unlink()
+        return
+    if format not in {'jsonl','parquet'}:
+        raise ValueError('unsupported native export format')
+    import pyarrow as pa
+    import pyarrow.parquet as pq
     if request.view not in {'items','sections'}:
         raise ValueError('streaming native export requires items or sections')
     response=inspect_native_source(conn,request)
