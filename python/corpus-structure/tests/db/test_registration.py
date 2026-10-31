@@ -290,7 +290,8 @@ def test_concurrent_ensure_leaves_one_row_per_identity(committing_db: Engine) ->
             "SELECT count(*) - count(DISTINCT (schema_version_id, compiler, "
             "compiler_version, kind)) FROM meta.compiled_artifact",
         ).scalar_one()
-    assert c["meta.schema_version"] == 1 and c["meta.model_revision"] == 3
+    # The 0.3.0, 0.4.0, 0.5.0, 0.6.0 and current 0.6.1 revisions are retained once each.
+    assert c["meta.schema_version"] == 1 and c["meta.model_revision"] == 5
     assert c["meta.compiled_artifact"] == 6 and duplicates == 0
 
 
