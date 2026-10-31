@@ -210,8 +210,55 @@ CREATE OR REPLACE FUNCTION data.check_evidence_source() RETURNS trigger LANGUAGE
 SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE observation kb.observation; ev data.evidence; span kb.span; method_name text;
  operation_version text; uri text; rendition_key text; matched boolean; locator_matched boolean; synthesis jsonb;
+ native_view kb.source_view; native_frame ops.native_source_frame; address jsonb; first_offset bigint; last_offset bigint;
 BEGIN
  SELECT * INTO STRICT observation FROM kb.observation WHERE id=NEW.observation_id;
+ IF NEW.source_view_id IS NOT NULL OR observation.source_view_id IS NOT NULL THEN
+  IF observation.release_id IS DISTINCT FROM NEW.release_id OR
+   observation.source_view_id IS DISTINCT FROM NEW.source_view_id OR
+   NEW.rendition_id IS NOT NULL OR NEW.span_id IS NOT NULL OR observation.rendition_id IS NOT NULL OR
+   observation.payload_definition<>'AgentStoredBatch' OR NEW.native_address IS NULL THEN
+   RAISE EXCEPTION 'native evidence source differs from its bound observation' USING ERRCODE='23514'; END IF;
+  SELECT * INTO STRICT native_view FROM kb.source_view WHERE id=NEW.source_view_id;
+  SELECT f.* INTO STRICT native_frame FROM ops.native_source_frame f JOIN ops.task t ON t.id=f.task_id
+   AND t.packet_hash=f.packet_hash AND t.unit_key=f.unit_ref WHERE f.task_id=observation.task_id;
+  IF native_view.release_id IS DISTINCT FROM observation.release_id OR
+   native_frame.source_view_id IS DISTINCT FROM native_view.id OR
+   native_frame.product_task_id IS DISTINCT FROM native_view.native_task_id OR
+   native_frame.product_key IS DISTINCT FROM native_view.native_product_key OR
+   native_frame.product_digest IS DISTINCT FROM native_view.native_content_digest OR
+   native_frame.projection_digest IS DISTINCT FROM native_view.projection_digest OR
+   native_frame.recipe_digest IS DISTINCT FROM native_view.recipe_digest OR
+   native_frame.unit_ref IS DISTINCT FROM observation.payload->>'unit_ref' THEN
+   RAISE EXCEPTION 'native evidence frame differs from selected source custody' USING ERRCODE='23514'; END IF;
+  SELECT m.name,m.version,d.source_uri INTO STRICT method_name,operation_version,uri
+   FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id JOIN ops.method m ON m.id=c.method_id
+   JOIN kb.document d ON d.id=native_view.document_id WHERE t.id=observation.task_id;
+  SELECT * INTO STRICT ev FROM data.evidence WHERE evidence_id=NEW.evidence_id
+   AND release_id=NEW.release_id AND realization_id=NEW.realization_id;
+  IF (ev.source_uri,ev.provider,ev.operation_version) IS DISTINCT FROM (uri,method_name,operation_version) THEN
+   RAISE EXCEPTION 'native evidence provider/source differs from bound observation' USING ERRCODE='23514'; END IF;
+  address:=substring(ops.native_source_address(native_view.id,NEW.native_address) FROM 5)::jsonb;
+  IF NOT(address ? 'source_view_id') THEN
+   RAISE EXCEPTION 'native evidence requires an exact projected quote range' USING ERRCODE='23514'; END IF;
+  first_offset:=(address->>'start')::bigint;last_offset:=(address->>'end')::bigint;
+  SELECT EXISTS(SELECT FROM jsonb_array_elements(
+    COALESCE(observation.payload->'claims','[]'::jsonb)||COALESCE(observation.payload->'unsupported','[]'::jsonb)||
+    COALESCE(observation.payload->'identity_exclusions','[]'::jsonb)) item
+   CROSS JOIN LATERAL jsonb_array_elements(item->'evidence') citation
+   JOIN ops.native_source_frame_sentence supplied ON supplied.task_id=observation.task_id
+    AND supplied.sentence_id=citation->>'sentence' AND supplied.locator=citation->>'locator'
+   WHERE citation->>'outcome'='located' AND (citation->>'start')::bigint=first_offset
+    AND (citation->>'end')::bigint=last_offset AND supplied.start_offset<=first_offset AND supplied.end_offset>=last_offset
+    AND substring(native_view.projection->>'text' FROM first_offset::integer+1 FOR (last_offset-first_offset)::integer)
+     =citation->>'quote'
+    AND ev.locator::jsonb=jsonb_build_object('locator',citation->'locator','start',first_offset,'end',last_offset,'role',citation->'role'))
+   INTO matched;
+  IF NOT matched THEN RAISE EXCEPTION 'native evidence differs from a located supplied citation' USING ERRCODE='23514'; END IF;
+  RETURN NEW;
+ END IF;
+ IF NEW.native_address IS NOT NULL THEN
+  RAISE EXCEPTION 'legacy evidence cannot carry a native source address' USING ERRCODE='23514'; END IF;
  IF observation.release_id<>NEW.release_id OR observation.rendition_id IS DISTINCT FROM NEW.rendition_id THEN
   RAISE EXCEPTION 'evidence source differs from bound observation'; END IF;
  SELECT m.name,m.version,d.source_uri,r.key INTO STRICT method_name,operation_version,uri,rendition_key

@@ -130,20 +130,24 @@ def test_native_proposal_consolidation_and_independent_reference_journey(
         assert result.reference_snapshot[0]['source_view_id']==view
         sentence=frame.sentences[0]
         valid=json.loads(sentence.locator[4:])
+        count_before=conn.scalar(text('SELECT count(*) FROM eval.reference_pass WHERE unit_id=:unit'),{'unit':unit})
         for invalid in ({**valid,'pointer':'#/texts/forged'},
                         {**valid,'cell_index':999},
                         {**valid,'projection_digest':'f'*64},
                         {**valid,'product_digest':'e'*64},
                         {**valid,'source_view_id':view+100}):
-            citations=[dict(start=0,end=14,quote='Alice is here.',locator='pdf:'+canonical_bytes(invalid).decode())]
-            with pytest.raises(DBAPIError),conn.begin_nested():
+            citations=[dict(sentence='native_evidence:0',start=0,end=14,quote='Alice is here.',role='primary',placement='exact_cited',
+                matches=1,picked=False,timeouts=[],outcome='located',family='claims',item_ref='reference_name',evidence_index=0,
+                locator='pdf:'+canonical_bytes(invalid).decode())]
+            with pytest.raises(DBAPIError,match="native"),conn.begin_nested():
                 conn.execute(text('SELECT eval.record_native_reference_pass(:unit,\'C\',\'forged\',:authored,CAST(:citations AS jsonb))'),
                     dict(unit=unit,authored=expected,citations=json.dumps(citations)))
 
-        noncanonical=[dict(start=0,end=14,quote='Alice is here.',locator='pdf:'+json.dumps(valid))]
-        with pytest.raises(DBAPIError),conn.begin_nested():
+        noncanonical=[dict(citations[0],locator='pdf:'+json.dumps(valid))]
+        with pytest.raises(DBAPIError,match="canonical source product custody"),conn.begin_nested():
             conn.execute(text("SELECT eval.record_native_reference_pass(:unit,'C','noncanonical',:authored,CAST(:citations AS jsonb))"),
                 dict(unit=unit,authored=expected,citations=json.dumps(noncanonical)))
+        assert conn.scalar(text('SELECT count(*) FROM eval.reference_pass WHERE unit_id=:unit'),{'unit':unit})==count_before
 
 
 def test_native_cell_evidence_alias_stays_within_its_retained_projection_piece():
