@@ -1,3 +1,46 @@
+-- One qualified address authority for frame capture, references and statement resolution.
+CREATE OR REPLACE FUNCTION ops.native_source_address(p_view bigint,p_address text,
+ p_required_start bigint DEFAULT NULL,p_required_end bigint DEFAULT NULL)
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $address$
+DECLARE selected kb.source_view; address jsonb; first_offset bigint; last_offset bigint;
+BEGIN
+ SELECT * INTO STRICT selected FROM kb.source_view WHERE id=p_view;
+ IF p_address IS NULL OR NOT starts_with(p_address,'pdf:') OR
+  (p_required_start IS NULL) IS DISTINCT FROM (p_required_end IS NULL) THEN
+  RAISE EXCEPTION 'native address requires a qualified address and paired quote bounds' USING ERRCODE='23514'; END IF;
+ address:=substring(p_address FROM 5)::jsonb;
+ IF jsonb_typeof(address) IS DISTINCT FROM 'object' OR
+  p_address IS DISTINCT FROM 'pdf:'||data.canonical_json(address) OR
+  address->>'product_digest' IS DISTINCT FROM selected.native_content_digest THEN
+  RAISE EXCEPTION 'native address differs from canonical source product custody' USING ERRCODE='23514'; END IF;
+ IF address ? 'pointer' THEN
+  IF NOT(address ?& ARRAY['product_digest','pointer']) OR
+   address-ARRAY['product_digest','pointer']<>'{}'::jsonb OR
+   jsonb_typeof(address->'pointer') IS DISTINCT FROM 'string' OR p_required_start IS NOT NULL OR
+   (address->>'pointer' IS DISTINCT FROM selected.section_pointer AND NOT EXISTS(
+    SELECT FROM jsonb_array_elements_text(selected.projection->'items') item(pointer)
+    WHERE pointer=address->>'pointer')) THEN
+   RAISE EXCEPTION 'native item address is outside selected source membership' USING ERRCODE='23514'; END IF;
+ ELSE
+  IF NOT(address ?& ARRAY['product_digest','source_view_id','projection_digest','start','end']) OR
+   address-ARRAY['product_digest','source_view_id','projection_digest','start','end']<>'{}'::jsonb OR
+   jsonb_typeof(address->'source_view_id') IS DISTINCT FROM 'number' OR
+   jsonb_typeof(address->'start') IS DISTINCT FROM 'number' OR jsonb_typeof(address->'end') IS DISTINCT FROM 'number' OR
+   (address->>'source_view_id') !~ '^[1-9][0-9]*$' OR
+   (address->>'start') !~ '^(0|[1-9][0-9]*)$' OR (address->>'end') !~ '^[1-9][0-9]*$' OR
+   (address->>'source_view_id')::bigint IS DISTINCT FROM selected.id OR
+   address->>'projection_digest' IS DISTINCT FROM selected.projection_digest THEN
+   RAISE EXCEPTION 'native projected address differs from selected view identity' USING ERRCODE='23514'; END IF;
+  first_offset:=(address->>'start')::bigint;last_offset:=(address->>'end')::bigint;
+  IF first_offset>=last_offset OR last_offset>char_length(selected.projection->>'text') OR
+   (p_required_start IS NOT NULL AND (p_required_start<first_offset OR p_required_end>last_offset OR
+     p_required_start>=p_required_end)) THEN
+   RAISE EXCEPTION 'native projected address differs from source or quote bounds' USING ERRCODE='23514'; END IF;
+ END IF;
+ RETURN p_address;
+END $address$;
+REVOKE ALL ON FUNCTION ops.native_source_address(bigint,text,bigint,bigint) FROM PUBLIC;
+
 -- Native references retain evaluator-only custody and never enter extraction inputs.
 CREATE OR REPLACE FUNCTION eval.add_native_reference_unit(p_set bigint,p_view bigint,p_key text,p_context jsonb)
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $native$
@@ -20,7 +63,7 @@ GRANT EXECUTE ON FUNCTION eval.add_native_reference_unit(bigint,bigint,text,json
 
 CREATE OR REPLACE FUNCTION eval.record_native_reference_pass(p_unit bigint,p_kind text,p_actor text,p_authored bytea,p_frame jsonb)
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $native$
-DECLARE result bigint; unit eval.reference_unit; selected kb.source_view; payload jsonb; item jsonb; address jsonb;
+DECLARE result bigint; unit eval.reference_unit; selected kb.source_view; payload jsonb; item jsonb;
 BEGIN
  SELECT * INTO STRICT unit FROM eval.reference_unit WHERE id=p_unit FOR UPDATE;
  SELECT * INTO STRICT selected FROM kb.source_view WHERE id=unit.source_view_id;
@@ -34,15 +77,8 @@ BEGIN
     substring(selected.projection->>'text' FROM (item->>'start')::integer+1 FOR (item->>'end')::integer-(item->>'start')::integer)
      IS DISTINCT FROM item->>'quote' OR NOT starts_with(item->>'locator','pdf:') THEN
    RAISE EXCEPTION 'native reference citation differs from source projection' USING ERRCODE='23514'; END IF;
-  address:=substring(item->>'locator' FROM 5)::jsonb;
-  IF NOT(address ?& ARRAY['product_digest','source_view_id','projection_digest','start','end']) OR
-    address->>'product_digest' IS DISTINCT FROM selected.native_content_digest OR
-    (address->>'source_view_id')::bigint IS DISTINCT FROM selected.id OR
-    address->>'projection_digest' IS DISTINCT FROM selected.projection_digest OR
-    (address->>'start')::bigint>(item->>'start')::bigint OR
-    (address->>'end')::bigint<(item->>'end')::bigint OR
-    (address->>'start')::bigint<0 OR (address->>'end')::bigint>length(selected.projection->>'text') THEN
-   RAISE EXCEPTION 'native reference address differs from qualified source view' USING ERRCODE='23514'; END IF;
+  PERFORM ops.native_source_address(selected.id,item->>'locator',
+    (item->>'start')::bigint,(item->>'end')::bigint);
  END LOOP;
  INSERT INTO eval.reference_pass(unit_id,pass_kind,actor,authored,content_digest)
  VALUES(p_unit,p_kind,p_actor,p_authored,encode(sha256(p_authored),'hex')) RETURNING id INTO result;
@@ -99,26 +135,20 @@ GRANT EXECUTE ON FUNCTION eval.record_native_reference_evaluation(text,bigint,bi
 
 CREATE OR REPLACE FUNCTION ops.native_source_statement_locator(p_task bigint,p_anchor text)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $native$
-DECLARE frame ops.native_source_frame; selected kb.source_view; result text; address jsonb;
+DECLARE frame ops.native_source_frame; selected kb.source_view; result text;
 BEGIN
  SELECT f.* INTO STRICT frame FROM ops.native_source_frame f JOIN ops.task t ON t.id=f.task_id
   AND t.packet_hash=f.packet_hash AND t.unit_key=f.unit_ref WHERE f.task_id=p_task;
  SELECT * INTO STRICT selected FROM kb.source_view WHERE id=frame.source_view_id;
  IF p_anchor=frame.unit_ref THEN
-  RETURN 'pdf:'||data.canonical_json(jsonb_build_object('product_digest',frame.product_digest,
-                                                     'pointer',selected.section_pointer)); END IF;
+  RETURN ops.native_source_address(selected.id,'pdf:'||data.canonical_json(jsonb_build_object(
+   'product_digest',frame.product_digest,'pointer',selected.section_pointer))); END IF;
  SELECT locator INTO result FROM ops.native_source_frame_sentence
  WHERE task_id=p_task AND (sentence_id=p_anchor OR locator=p_anchor);
- IF FOUND THEN RETURN result; END IF;
- IF NOT starts_with(p_anchor,'pdf:') THEN
-  RAISE EXCEPTION 'native statement anchor is outside source frame' USING ERRCODE='23514'; END IF;
- address:=substring(p_anchor FROM 5)::jsonb;
- IF address->>'product_digest' IS DISTINCT FROM frame.product_digest OR
-   NOT(address ?& ARRAY['product_digest','pointer']) OR address-ARRAY['product_digest','pointer']<>'{}'::jsonb OR
-   (address->>'pointer' IS DISTINCT FROM selected.section_pointer AND NOT EXISTS(
-      SELECT FROM jsonb_array_elements(frame.context_json->'items') item
-      WHERE item->>'self_ref'=address->>'pointer')) THEN
-  RAISE EXCEPTION 'native statement address is outside supplied source items' USING ERRCODE='23514'; END IF;
- RETURN 'pdf:'||data.canonical_json(address);
+ IF FOUND THEN RETURN ops.native_source_address(selected.id,result); END IF;
+ result:=ops.native_source_address(selected.id,p_anchor);
+ IF NOT(substring(result FROM 5)::jsonb ? 'pointer') THEN
+  RAISE EXCEPTION 'native statement range is outside supplied frame sentences' USING ERRCODE='23514'; END IF;
+ RETURN result;
 END $native$;
 REVOKE ALL ON FUNCTION ops.native_source_statement_locator(bigint,text) FROM PUBLIC;
