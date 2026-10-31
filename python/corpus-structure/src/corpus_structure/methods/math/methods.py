@@ -86,7 +86,7 @@ from corpus_structure.methods.math.spans import (
 
 from .native import NativeDomainRule
 
-VERSION = "7"  # native recognition incompleteness qualifies per-item interpretation context
+VERSION = "8"  # formal relations remain lazy and whole-read expiry survives swallowed signals
 PAYLOAD_VERSION = "2"
 M09, M11, M13 = "extract.math", "normalize.formula", "resolve.symbol_scope"
 _KIND_OF = {  # M11's payload `math_kind` back to the detected kind M13's rules read

@@ -39,11 +39,12 @@ occurrences with offsets into `latex`.
 - **Failure categories** are derived from the exception class, the TeX token at the error position
   (`core/tex.py` `token_at`) and the parser's terminals, as S5 derived them;
   `UnexpectedInput.match_examples` is not used (S5 measured its categories without it).
-- **Deadline.** One `SIGALRM` timer bounds the whole read: the parse, the trimmed retry, the
+- **Deadline.** One `SIGALRM` deadline covers the whole read: the parse, the trimmed retry, the
   ambiguity resolver's SymPy conversions and the occurrences (S5-A: the spike's resolver ran
   unbounded and once hung for over eleven minutes). Expiry gives category `timeout`. The timer works
   only on a process's main thread, so `parse` raises `OffMainThread` anywhere else: a misplaced
-  caller fails loudly instead of running without a limit.
+  caller fails loudly instead of running without a limit. Expiry retries and an elapsed-time
+  check cover a swallowed signal; Python signals cannot preempt opaque C work before it returns.
 - **Memo.** The standalone adapter retains a bounded per-process memo keyed by (latex, kind,
   macro table, context). Production M09/M11 share operation-owned prepared readings through
   their source batch. Timeouts are not memoized.
@@ -433,8 +434,7 @@ class MathResult:
 
 
 class _Expired(BaseException):
-    """Raised by the timer. A BaseException, so no `except Exception` inside Lark, SymPy or the
-    resolver swallows it."""
+    """Raised by the timer; ordinary library `except Exception` handlers do not swallow it."""
 
 
 @contextmanager
@@ -447,6 +447,7 @@ def _deadline(seconds: float) -> Generator[None]:
     remaining, interval = signal.getitimer(signal.ITIMER_REAL)
     started = time.monotonic()
     outer_first = remaining > 0 and remaining <= seconds
+    budget = min(seconds, remaining) if remaining > 0 else seconds
 
     def expire(signum: int, frame: FrameType | None) -> None:
         if outer_first and callable(previous):
@@ -457,8 +458,12 @@ def _deadline(seconds: float) -> Generator[None]:
         # Enter the cleanup guard before changing or arming process signal state.
         # A valid tiny budget can expire during setitimer itself.
         signal.signal(signal.SIGALRM, expire)
-        signal.setitimer(signal.ITIMER_REAL, min(seconds, remaining) if remaining > 0 else seconds)
+        # Numerical dependencies also contain bare except handlers. Retry expiry if one
+        # catches the first signal, and reject a late return even if it swallows that signal.
+        signal.setitimer(signal.ITIMER_REAL, budget, 0.01)
         yield
+        if time.monotonic() - started >= budget:
+            expire(signal.SIGALRM, None)
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous)

@@ -170,6 +170,50 @@ def test_outer_deadline_cannot_be_extended_by_inner_stage():
     assert time.monotonic() - started < 0.3
 
 
+def test_swallowed_expiry_cannot_promote_a_late_return():
+    started = time.monotonic()
+    with pytest.raises(grammar.Expired), grammar.deadline(0.03):
+        try:
+            time.sleep(1)
+        except grammar.Expired:
+            pass
+    assert time.monotonic() - started < 0.3
+
+
+def test_deadline_restores_an_external_handler_and_periodic_interval():
+    previous = signal.getsignal(signal.SIGALRM)
+    remaining, interval = signal.getitimer(signal.ITIMER_REAL)
+    started = time.monotonic()
+
+    def outer(signum, frame):
+        raise AssertionError("external timer unexpectedly expired")
+
+    try:
+        signal.signal(signal.SIGALRM, outer)
+        signal.setitimer(signal.ITIMER_REAL, 0.6, 0.4)
+        with grammar.deadline(0.1):
+            time.sleep(0.02)
+        left, repeated = signal.getitimer(signal.ITIMER_REAL)
+        assert signal.getsignal(signal.SIGALRM) is outer
+        assert 0 < left < 0.59
+        assert repeated == 0.4
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+        if remaining > 0:
+            signal.setitimer(
+                signal.ITIMER_REAL, max(remaining - (time.monotonic() - started), 1e-6), interval
+            )
+
+
+def test_explicit_scientific_calculation_can_evaluate_a_formal_equality():
+    value = operand("1=1")
+    formal = value.symbolic_value()
+    assert isinstance(formal, sympy.Equality)
+    assert formal.args == (sympy.Integer(1), sympy.Integer(1))
+    assert value.assess("calculate").value is sympy.true
+
+
 def test_native_demand_refuses_off_main_thread():
     value = operand("x")
     failures = []

@@ -386,16 +386,85 @@ def test_a_call_off_the_main_thread_raises() -> None:
     assert len(raised) == 1 and isinstance(raised[0], G.OffMainThread)
 
 
-def test_the_deadline_bounds_the_whole_read_including_the_resolver() -> None:
-    """A corpus span whose readings' SymPy values never finish (the spike resolver ran unbounded
-    on such spans; S5-A): the read stops at the deadline and is a `timeout`."""
+def test_integral_relation_construction_does_not_launch_equality_evaluation(monkeypatch) -> None:
+    from sympy.core import relational
+
+    evaluations = []
+
+    def forbidden(*args, **kwargs):
+        evaluations.append(1)
+        raise AssertionError("formal source relation launched equality evaluation")
+
+    monkeypatch.setattr(relational, "is_eq", forbidden)
     latex = "\\int_0^\\infty h(t) \\, dt = \\infty"
-    started = time.monotonic()
-    result = G.parse(latex, "any_value", PAGE, seconds=0.3)
-    elapsed = time.monotonic() - started
-    assert (result.status, category(result)) == (FAILED, "timeout")
-    assert elapsed < 0.3 + 0.5
-    assert G.parse(latex, "any_value", PAGE, seconds=0.3) is not result  # timeouts not memoized
+    result = P(latex, functions={"h"})
+    assert result.status is OK
+    value = G.to_sympy(result)
+    assert isinstance(value, sympy.Equality)
+    assert isinstance(value.lhs, sympy.Integral)
+    assert value.rhs is sympy.oo
+    assert value.lhs.limits[0].args[1:] == (0, sympy.oo)
+    unqualified = G.parse(latex, "any_value", PAGE, seconds=0.3)
+    assert unqualified.status in {OK, AMBIGUOUS}
+    assert category(unqualified) is None
+    assert evaluations == []
+
+
+@pytest.mark.parametrize(
+    ("latex", "constructor", "truth"),
+    [
+        ("1=1", sympy.Eq, sympy.true),
+        ("1 \\ne 1", sympy.Ne, sympy.false),
+        ("1<1", sympy.Lt, sympy.false),
+        ("1 \\le 1", sympy.Le, sympy.true),
+        ("1>1", sympy.Gt, sympy.false),
+        ("1 \\ge 1", sympy.Ge, sympy.true),
+    ],
+)
+def test_relations_are_formal_until_explicit_evaluation(latex, constructor, truth):
+    value = G.to_sympy(P(latex))
+    assert isinstance(value, constructor)
+    assert value.args == (sympy.Integer(1), sympy.Integer(1))
+    assert value.doit() is truth
+
+
+def test_relation_chain_keeps_unevaluated_components():
+    value = G.to_sympy(P("0<1<2", "relation"))
+    assert isinstance(value, sympy.And)
+    assert len(value.args) == 2
+    assert all(isinstance(part, sympy.StrictLessThan) for part in value.args)
+    assert value.doit() is sympy.true
+
+
+def test_the_deadline_bounds_the_whole_read_including_the_resolver(monkeypatch) -> None:
+    """An expensive resolver leaf cannot swallow one expiry and disable the whole-read budget."""
+    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+
+    latex = "\\int_0^\\infty h(t) \\, dt = \\infty"
+    context = prepare_interpretation_context(
+        macros=PAGE, kind="any_value", source_id="deadline-leaf-control"
+    ).grammar_context
+    assert G.syntax(latex, "any_value", PAGE).tree is not None
+    calls = []
+
+    def slow_equivalence(self, candidates):
+        calls.append(1)
+        try:
+            time.sleep(1)
+        except G.Expired:
+            time.sleep(1)
+        raise AssertionError("resolver escaped its whole-read budget")
+
+    monkeypatch.setattr(G._SymbolicResolver, "equivalent", slow_equivalence)
+    results = []
+    for _ in range(2):
+        started = time.monotonic()
+        result = G.parse(latex, "any_value", PAGE, context, seconds=0.3)
+        assert (result.status, category(result)) == (FAILED, "timeout")
+        assert time.monotonic() - started < 0.3 + 0.5
+        results.append(result)
+    assert len(calls) == 2
+    assert results[0] is not results[1]  # timeouts are never memoized
 
 
 def test_the_memo_shares_a_parse() -> None:

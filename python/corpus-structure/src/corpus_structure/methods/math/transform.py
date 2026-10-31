@@ -280,6 +280,26 @@ class ToSympy(TransformToSymPyExpr):
         return sympy.ProductSet(tokens[0], tokens[2])
 
     # ---- typed starts and relations
+    # A source relation is formal syntax. SymPy's defaults may launch assumptions/evalf
+    # (including numerical integration); explicit scientific assessment owns evaluation.
+    def eq(self, tokens: list[Any]) -> Any:
+        return sympy.Eq(tokens[0], tokens[2], evaluate=False)
+
+    def ne(self, tokens: list[Any]) -> Any:
+        return sympy.Ne(tokens[0], tokens[2], evaluate=False)
+
+    def lt(self, tokens: list[Any]) -> Any:
+        return sympy.Lt(tokens[0], tokens[2], evaluate=False)
+
+    def lte(self, tokens: list[Any]) -> Any:
+        return sympy.Le(tokens[0], tokens[2], evaluate=False)
+
+    def gt(self, tokens: list[Any]) -> Any:
+        return sympy.Gt(tokens[0], tokens[2], evaluate=False)
+
+    def gte(self, tokens: list[Any]) -> Any:
+        return sympy.Ge(tokens[0], tokens[2], evaluate=False)
+
     def member(self, tokens: list[Any]) -> Any:
         elements, operator, target = _args(tokens[0]), tokens[1], tokens[2]
         parts = [sympy.Contains(x, target) for x in elements]
@@ -291,7 +311,10 @@ class ToSympy(TransformToSymPyExpr):
         if any(o.type not in _RELATIONS for o in operators):
             raise NotRepresentable("relation chain with a relation SymPy lacks")
         return sympy.And(
-            *(_RELATIONS[o.type](terms[i], terms[i + 1]) for i, o in enumerate(operators))
+            *(
+                _RELATIONS[o.type](terms[i], terms[i + 1], evaluate=False)
+                for i, o in enumerate(operators)
+            )
         )
 
     def cond_list(self, tokens: list[Any]) -> Any:
