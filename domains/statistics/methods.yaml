@@ -48,7 +48,9 @@ configs:                                               # named configurations, r
   enrich.pdf_math:
     default: {}
   ingest.pdf:
-    default: {originals: [siegrist_random/Full_PDF/Full.pdf], membership: descendants}
+    default:
+      originals: [siegrist_random/Full_PDF/Full.pdf]
+      membership: descendants
   segment.sentences:
     default: {model: en_core_web_sm, variant: math_as_word, exclude: [ner, lemmatizer]}
                                                        # b′ (D4 M03): each inline math span and reference marker is one

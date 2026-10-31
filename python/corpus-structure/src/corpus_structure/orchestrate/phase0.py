@@ -38,6 +38,7 @@ from corpus_structure.methods.llm.agent_opus import AgentOpus
 from corpus_structure.methods.math import methods as math_methods
 from corpus_structure.orchestrate.registry import MethodRegistry, load_methods
 from corpus_structure.orchestrate.runner import Graph, PassReport, Step
+from corpus_structure.semantic.parsing_products import ProductReference
 from corpus_structure.validate.runner import RulesMethod
 
 M01, M02 = "ingest.pdf", "profile.segments"
@@ -109,6 +110,30 @@ def registry(pack: Path) -> MethodRegistry:
         *(method for method in METHODS if method.name not in native_names),
     )
     return MethodRegistry(methods, load_methods(pack / "methods.yaml"))
+
+
+def bind_pdf_source(
+    registry: MethodRegistry, product: ProductReference, *, configuration: str = "default"
+) -> MethodRegistry:
+    """Bind one explicit retained input without editing the domain's configuration definitions."""
+    from dataclasses import replace
+
+    from corpus_structure.ingest.pdf_methods import PdfIngestConfig
+
+    if not isinstance(product, ProductReference):
+        raise TypeError("native source binding requires a validated product reference")
+    if not isinstance(registry.overlay("ingest.pdf", configuration), PdfIngestConfig):
+        raise ValueError("selected ingestion configuration does not support native PDF adoption")
+    configs = dict(registry.file.configs)
+    named = dict(configs.get("ingest.pdf", {}))
+    named[configuration] = {**named.get(configuration, {}), "native_product": product.values()}
+    configs["ingest.pdf"] = named
+    return MethodRegistry(
+        registry.methods(),
+        replace(registry.file, configs=configs),
+        registry.sources,
+        prepared=registry.prepared,
+    )
 
 
 def stub_pass(conn: Connection, run_id: int, pass_: str, m19_task_id: int | None) -> PassReport:

@@ -36,6 +36,15 @@ def regenerate(
         typer.Option(help="Named source scope (uses the pack's declared default scope)."),
     ] = None,
     scope: Annotated[str | None, typer.Option(help="Named source scope.")] = None,
+    native_source: Annotated[
+        Path | None,
+        typer.Option(
+            exists=True,
+            dir_okay=False,
+            readable=True,
+            help="Exact retained native product pin JSON; reuse conversion as this run's input.",
+        ),
+    ] = None,
     resume_run: Annotated[
         int | None,
         typer.Option(help="Resume this existing run; never create replacement occurrences."),
@@ -109,6 +118,21 @@ def regenerate(
     ):
         if Path(domain).name != domain:
             raise SemanticRefusal("domain must name a declared pack")
+        native_product = None
+        if native_source is not None:
+            if resume_run is not None:
+                raise SemanticRefusal("a resumed run retains its original native input binding")
+            from corpus_structure.semantic.parsing_products import ProductReference
+            from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+
+            boundary = trusted_pdf_context().boundary
+            try:
+                pin = boundary.validate_json(
+                    "PdfProductReference", native_source.read_bytes()
+                ).model_dump(mode="python")
+                native_product = ProductReference(**pin)
+            except (ValueError, OSError) as error:
+                raise SemanticRefusal("invalid native source product pin: " + str(error)) from error
         if resume_run is None:
             bundle, deps, profile, prepared = prepare_pack(DOMAINS / domain)
             source_id = f"source:{project}:{prepared.release_id}"
@@ -153,6 +177,7 @@ def regenerate(
                     ),
                     slice=slice,
                     scope=scope,
+                    native_product=native_product,
                 )
                 run_id = run.run_id
             else:

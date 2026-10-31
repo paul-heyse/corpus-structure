@@ -11,6 +11,7 @@ from pydantic import BaseModel, JsonValue
 from sqlalchemy import Connection, Engine, text
 
 from corpus_structure.core.vocab import TaskStatus
+from corpus_structure.semantic.parsing_products import ProductReference
 
 
 class CommandError(ValueError):
@@ -83,6 +84,7 @@ def start_bound_run(
     agent_reuse: str = "full",
     registry_for: Any = None,
     graph: Any = None,
+    native_product: ProductReference | None = None,
 ):
     """Explicit semantic source execution through the current command entry point."""
     from sqlalchemy import select
@@ -151,14 +153,32 @@ def start_bound_run(
             and scope_record is None
         ):
             raise CommandError("phase 0 full run requires a scope or named slice")
+    selected_graph = graph or PHASE0
+    selected_registry = (registry_for or registry)((domains or DOMAINS) / domain)
+    if native_product is not None:
+        from corpus_structure.orchestrate.phase0 import bind_pdf_source
+
+        native_configs = {
+            step.config.partition("/")[2] or "default"
+            for _, steps in selected_graph.stages
+            for step in steps
+            if step.config.partition("/")[0] == "ingest.pdf"
+        }
+        if len(native_configs) != 1:
+            raise CommandError(
+                "native source binding requires exactly one PDF ingestion configuration"
+            )
+        selected_registry = bind_pdf_source(
+            selected_registry, native_product, configuration=next(iter(native_configs))
+        )
     return run_source_methods(
         engine,
         project_id=project_id,
         domain=domain,
         prepared=prepared,
         binding=binding,
-        registry=(registry_for or registry)((domains or DOMAINS) / domain),
-        graph=graph or PHASE0,
+        registry=selected_registry,
+        graph=selected_graph,
         method_settings=method_settings,
         phase=phase,
         guideline=((domains or DOMAINS) / domain / "guideline.md").read_text(),

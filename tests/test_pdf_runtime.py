@@ -26,6 +26,23 @@ def test_active_registry_selects_pdf_not_html():
     assert PdfIngestConfig().recipe().timeout_seconds is None
 
 
+def test_retained_native_input_binding_preserves_domain_definition():
+    from corpus_structure.orchestrate.phase0 import bind_pdf_source, registry
+    from corpus_structure.semantic.parsing_products import ProductReference
+
+    base = registry(Path(__file__).resolve().parents[1] / "domains/statistics")
+    original = base.resolve("ingest.pdf", "default")
+    pin = ProductReference(17, "organized", "a" * 64)
+    bound = bind_pdf_source(base, pin)
+    selected = bound.resolve("ingest.pdf", "default")
+    assert isinstance(selected.config, PdfIngestConfig)
+    assert selected.config.native_product == pin
+    assert selected.params["native_product"] == pin.values()
+    assert selected.config_hash != original.config_hash
+    assert base.resolve("ingest.pdf", "default").params == original.params
+    assert "native_product" not in base.file.configs["ingest.pdf"]["default"]
+
+
 def test_owned_assets_pin_actual_table_revision_and_detect_changed_bytes(tmp_path, monkeypatch):
     import huggingface_hub
 

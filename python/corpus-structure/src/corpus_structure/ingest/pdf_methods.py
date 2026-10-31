@@ -383,15 +383,13 @@ def _select_sections(
         and isinstance(scope, dict)
         and scope.get("kind") == "native_sections"
     ):
-        from corpus_structure.semantic.source_views import normalized_native_section_title
+        from corpus_structure.semantic.source_views import resolve_native_sections
 
-        wanted = {normalized_native_section_title(title) for title in scope["sections"]}
-        matched = [p for p in sections if normalized_native_section_title(nodes[p].name) in wanted]
-        missing = wanted - {normalized_native_section_title(nodes[p].name) for p in matched}
-        if missing:
-            raise ValueError(
-                "requested native scope sections are unavailable: " + ", ".join(sorted(missing))
+        matched = list(
+            resolve_native_sections(
+                {pointer: nodes[pointer].name for pointer in sections}, scope["sections"]
             )
+        )
     matched_set = set(matched)
 
     def ancestry(pointer):
