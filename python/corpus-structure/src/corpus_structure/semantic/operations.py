@@ -1011,7 +1011,13 @@ class BoundReader:
             .mappings()
             .one()
         )
-        permitted = any(v.native_product == reference for v in self.source_views())
+        from .source_views import selected_source_views
+
+        # Custody is bound to selected pins or a claimed input, before analysis-unit filtering.
+        permitted = any(
+            view.native_product == reference
+            for view in selected_source_views(self.conn, self.run_id)
+        )
         if not permitted and self.source_tasks:
             task, config, run, document = (
                 table("ops.task"),

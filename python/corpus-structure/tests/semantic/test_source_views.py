@@ -495,7 +495,13 @@ def test_native_source_view_is_real_unit_with_exact_context(
             project_id="p",
             binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
             kind="slice",
-            options={},
+            options={
+                "scope": {
+                    "kind": "native_sections",
+                    "sections": ["Independent"],
+                    "include_descendants": True,
+                }
+            },
             code_commit="native-adoption-fixture",
         )
         adoption_model = create_model("AdoptionFixture", native_product=(ProductReference, ...))
