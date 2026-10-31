@@ -107,6 +107,24 @@ def run_source_methods(
             method, _, default = step.config.partition("/")
             name = configurations.get(method, default or "default")
             configs[method] = registry.resolve(method, name)
+    native_source = any(
+        registry.method(name).name == "ingest.pdf"
+        or registry.method(name).unit_type == TaskUnitType.SOURCE_VIEW
+        for name in configs
+    )
+    if native_source and scope_record is not None:
+        if scope_record.get("kind") != "native_sections":
+            raise OperationConflict(
+                "native PDF source execution cannot apply archived rendition or HTML locator "
+                "scopes; select a native_sections scope or explicitly select all sources"
+            )
+        from corpus_structure.semantic.pdf_contracts import pdf_context_for_release
+
+        with engine.connect() as conn:
+            boundary = pdf_context_for_release(conn, prepared).boundary
+            scope_record = boundary.validate_json(
+                "PdfNativeSourceScope", canonical_bytes(dict(scope_record))
+            ).model_dump(mode="json")
     fresh = tuple(sorted(set(fresh)))
     unknown = set(fresh) - {method.name for method in registry.methods()}
     if unknown:
