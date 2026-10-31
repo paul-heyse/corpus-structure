@@ -126,8 +126,14 @@ classes:
       unit: {range: string, required: true}
       disposition: {range: string, required: true}
       packet: {range: string}
+  ScientificQuestionRule:
+    attributes:
+      question: {range: string, required: true, slot_uri: execution:ScientificQuestionRule_question}
+      prerequisites: {range: string, required: true, multivalued: true, minimum_cardinality: 1, slot_uri: execution:ScientificQuestionRule_prerequisites}
+      result_basis: {range: string, required: true, multivalued: true, minimum_cardinality: 1, slot_uri: execution:ScientificQuestionRule_result_basis}
   AnalysisProfile:
     attributes:
+      scientific_questions: {range: ScientificQuestionRule, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: execution:AnalysisProfile_scientific_questions}
       mathematical_conventions: {range: string, multivalued: true}
       capture_policy: {range: CapturePolicyDefinition, inlined: true}
       invocation_policy: {range: InvocationPolicyDefinition, inlined: true}

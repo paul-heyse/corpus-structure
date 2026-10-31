@@ -6,6 +6,7 @@ They are compatibility requirements, never evidence that hashing code proves its
 """
 
 SUPPORTED_EFFECTS = {
+    "enrich_pdf_math": {"effects": (), "implementation": "enrich_pdf_math", "transitions": {}, "version": "1"},
     'convert_pdf': {'effects': (), 'implementation': 'convert_pdf', 'transitions': {}, 'version': '1'},
     'organize_pdf': {'effects': (), 'implementation': 'organize_pdf', 'transitions': {}, 'version': '1'},
     'project_pdf_source': {'effects': (), 'implementation': 'project_pdf_source', 'transitions': {}, 'version': '1'},

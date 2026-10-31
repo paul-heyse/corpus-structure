@@ -150,10 +150,10 @@ def run_source_methods(
         from importlib.metadata import version
 
         library_names = set()
-        if "ingest.html" in configs:
-            library_names.update(
-                ("regex", "spacy", "en-core-web-sm", "html5lib", "lxml", "cssselect2")
-            )
+        native_libraries={}
+        if set(configs) & {"ingest.pdf","enrich.pdf_math"}:
+            from corpus_structure.ingest.pdf import pdf_package_versions
+            native_libraries=dict(pdf_package_versions())
         if set(configs) & {"extract.math", "normalize.formula"}:
             library_names.add("lark")
         if "resolve.symbol_scope" in configs:
@@ -162,7 +162,7 @@ def run_source_methods(
             library_names.update(("rapidfuzz", "regex", "rule-engine"))
         dependency_manifest = {
             "parent": json.loads(binding.dependencies),
-            "libraries": {name: version(name) for name in sorted(library_names)},
+            "libraries": {**{name: version(name) for name in sorted(library_names)},**native_libraries},
             "source_documents": [
                 {
                     "key": d["key"],

@@ -36,6 +36,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.core.text_structure import capture_text
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.ingest.pdf import PdfConverter
+    from corpus_structure.ingest.pdf_methods import EnrichPdfMath
     from corpus_structure.ingest.pdf_hierarchy import organize,project_section
     from corpus_structure.intervene.semantic import ProposalSession
     from corpus_structure.methods.math.prepared import assess_parsing_math, interpret_parsing_math
@@ -98,6 +99,7 @@ def approved_implementations() -> Mapping[str, Any]:
             "publish_parsing_product": parsing_products.store_parsing_product,
             "read_parsing_product": parsing_products.read_parsing_product,
             "convert_pdf": PdfConverter.convert_bytes,
+            "enrich_pdf_math": EnrichPdfMath.run,
             "organize_pdf": organize,
             "project_pdf_source": project_section,
             "publish_source_view": source_views.store_source_view,
@@ -463,6 +465,13 @@ class InvocationPolicyDefinition:
 
 
 @dataclass(frozen=True)
+class ScientificQuestionRule:
+    question: str
+    prerequisites: tuple[str,...]
+    result_basis: tuple[str,...]
+
+
+@dataclass(frozen=True)
 class AnalysisProfile:
     id: str
     version: str
@@ -475,6 +484,7 @@ class AnalysisProfile:
     transformer_recipe: str = ""
     shared_consumers: tuple[str, ...] = ()
     scientific_profiles: tuple[ScientificComputationProfile, ...] = ()
+    scientific_questions: tuple[ScientificQuestionRule,...] = ()
     mathematical_conventions: tuple[str, ...] = ()
     text_policy: TextPreparationPolicy | None = None
     alignment_policy: AlignmentPolicyDefinition | None = None
@@ -782,6 +792,8 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
     math = files("corpus_structure").joinpath("methods", "math")
     root = files("corpus_structure")
     shipped = files("sympy").joinpath("parsing", "latex", "lark", "grammar", "latex.lark")
+    from corpus_structure.ingest.pdf import pdf_package_versions
+
     return (
         *(
             SourceArtifact(name, root.joinpath(*path.split("/")).read_bytes())
@@ -810,6 +822,9 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("pdf/candidates.py", "ingest/pdf_candidates.py"),
                 ("pdf/methods.py", "ingest/pdf_methods.py"),
                 ("pdf/math.py", "methods/math/native.py"),
+                ("pdf/analysis.py", "semantic/native_analysis.py"),
+                ("pdf/topology.py", "methods/math/native_topology.py"),
+                ("pdf/enrichment.py", "ingest/pdf_enrichment.py"),
                 ("pdf/regions.py", "serve/native_regions.py"),
                 ("alignment/semantic_alignment.py", "evaluate/semantic_alignment.py"),
                 ("alignment/preparation.py", "evaluate/alignment_preparation.py"),
@@ -880,16 +895,9 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                         "regex",
                         "html5lib",
                         "lxml",
-                        "docling",
-                        "docling-core",
-                        "torch",
-                        "rapidocr",
-                        "onnxruntime",
-                        "pypdfium2",
-                        "Pillow",
                         "pylatexenc",
                     )
-                }
+                } | dict(pdf_package_versions())
             ),
         ),
     )
@@ -1305,6 +1313,9 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "pdf/candidates.py",
         "pdf/methods.py",
         "pdf/math.py",
+        "pdf/analysis.py",
+        "pdf/topology.py",
+        "pdf/enrichment.py",
         "pdf/regions.py",
         "pdf/converter.py",
         "pdf/hierarchy.py",

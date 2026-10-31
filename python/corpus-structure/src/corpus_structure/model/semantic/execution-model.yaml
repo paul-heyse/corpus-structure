@@ -7405,6 +7405,19 @@ operations:
   transitions: []
   projections: []
   implementation: convert_pdf
+- id: enrich_pdf_math
+  inputs: [PdfNativeEnvelope, SourceView]
+  results: [PdfNativeEnvelope, SourceView]
+  applicability: []
+  universe: Explicit selected section views and necessary same-product ancestor context over a pinned native original
+  effects: []
+  outcomes: [complete, partial, unknown, unsupported, failed]
+  outcome_domain: source_coverage
+  dependencies: [semantic_release, execution_model, input_binding, implementation_version]
+  precision: Native cell classification, recognized LaTeX, source ranges and PDF geometry remain distinct; unresolved recognition cannot satisfy complete coverage
+  transitions: []
+  projections: []
+  implementation: enrich_pdf_math
 - id: organize_pdf
   inputs:
   - PdfNativeEnvelope
@@ -7617,6 +7630,16 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: enrich_pdf_math
+  owner: ingest.pdf_methods
+  symbol: EnrichPdfMath.run
+  version: '1'
+  placement: core
+  input_concepts: [PdfNativeEnvelope, SourceView]
+  result_concepts: [PdfNativeEnvelope, SourceView]
+  features: [typed_bound_inputs, explicit_outcomes]
   effects: []
   required_capabilities: []
 - id: organize_pdf
@@ -10340,6 +10363,12 @@ analysis_profiles:
   grammar_recipe: extended-lark-3
   transformer_recipe: sympy-transform-3
   shared_consumers: [normalize.formula, extract.math]
+  scientific_questions:
+  - {question: definedness, prerequisites: [interpretation], result_basis: [definedness]}
+  - {question: predicate, prerequisites: [symbolic], result_basis: [definedness, symbolic]}
+  - {question: refine, prerequisites: [symbolic], result_basis: [definedness, symbolic]}
+  - {question: free_symbols, prerequisites: [symbolic], result_basis: [definedness, symbolic]}
+  - {question: calculate, prerequisites: [symbolic], result_basis: [definedness, symbolic]}
   scientific_profiles:
   - {policy_id: consolidation-evidence-2, symbolic_method: domain-targeted-then-simplify-2, numeric_method: xreplace-evalf, backend: direct, simplify_seconds: '5.0', points: 12, max_draws: 4000, minimum_valid_points: 6, relative_tolerance: '1e-9', absolute_tolerance: '1e-12', seed: canonical-restrictions, numeric_requires: interpreted-conditions}
   - {policy_id: reference-evidence-2, symbolic_method: domain-targeted-then-simplify-2, numeric_method: evalf-subs, backend: direct, simplify_seconds: '5.0', points: 12, max_draws: 12, minimum_valid_points: 12, relative_tolerance: '1e-9', absolute_tolerance: '0', seed: raw-operands, numeric_requires: no-restrictions}

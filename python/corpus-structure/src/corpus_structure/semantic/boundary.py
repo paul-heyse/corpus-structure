@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from decimal import Decimal
-from functools import reduce
+from functools import reduce,lru_cache
 from operator import or_
 from typing import Annotated, Any, ForwardRef, Literal
 
@@ -119,6 +119,17 @@ def build_boundary_adapters(
             return descendant_order[name]
         return tuple(d.name for d in definitions if name in d.ancestors and not d.abstract)
 
+    @lru_cache(maxsize=None)
+    def discriminator(name: str) -> str | None:
+        members=concrete(name)
+        if not members:return None
+        constants=[{prop.name:prop.equals_string for prop in classes[member].properties if prop.equals_string is not None} for member in members]
+        candidates=set.intersection(*(set(row) for row in constants))
+        candidates={key for key in candidates if len({row[key] for row in constants})==len(members)}
+        for preferred in ('kind','universe','type'):
+            if preferred in candidates:return preferred
+        return min(candidates) if candidates else None
+
     selected = set(classes) if class_names is None else set(class_names)
     pending = list(selected)
     while pending:
@@ -139,9 +150,11 @@ def build_boundary_adapters(
                     members = concrete(prop.range)
                     if not members:
                         raise ValueError(f"abstract range {prop.range} has no concrete members")
+                    selector=discriminator(prop.range)
+                    if selector is None:raise ValueError(f"abstract range {prop.range} lacks a unique declared discriminator")
                     annotation = _ANNOTATED[
                         reduce(or_, (ForwardRef(name) for name in members)),
-                        Field(discriminator="kind"),
+                        Field(discriminator=selector),
                     ]
                 else:
                     annotation = ForwardRef(prop.range) if prop.inlined else str
@@ -213,7 +226,7 @@ def build_boundary_adapters(
     adapters = []
     for name in sorted(selected if class_names is None else class_names):
         model = models[name]
-        if classes[name].abstract and "kind" in model.model_fields:
+        if classes[name].abstract and (selector:=discriminator(name)) is not None:
             members = concrete(name)
             if not members:
                 raise ValueError(f"abstract boundary {name} has no concrete members")
@@ -222,7 +235,7 @@ def build_boundary_adapters(
                     name,
                     TypeAdapter(
                         _ANNOTATED[
-                            reduce(or_, (models[n] for n in members)), Field(discriminator="kind")
+                            reduce(or_, (models[n] for n in members)), Field(discriminator=selector)
                         ]
                     ),
                 )
