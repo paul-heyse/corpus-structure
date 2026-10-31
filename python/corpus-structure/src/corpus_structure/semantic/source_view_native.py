@@ -71,7 +71,7 @@ def source_view_products(model=None):
             NativeProduct('semantic_0048_admission.sql',admission.encode()))
 
 
-def native_admission_sql(sql,model=None,*,extra_relations=()):
+def native_admission_sql(sql,model=None,*,extra_relations=(),base_admission=None):
     from .native_products import consolidation_products
     from pglast import parse_sql,ast
     from pglast.stream import RawStream
@@ -79,7 +79,7 @@ def native_admission_sql(sql,model=None,*,extra_relations=()):
     from hashlib import sha256
     from .native_products import function_bodies
     from .identity import canonical_bytes
-    admission=consolidation_products(model)[-1].content.decode()
+    admission=consolidation_products(model)[-1].content.decode() if base_admission is None else base_admission
     descriptor_body=function_bodies(admission)['data.execution_contract_descriptor']
     statement=parse_sql(descriptor_body)[0].stmt
     if not isinstance(statement,ast.SelectStmt) or not statement.targetList:raise ValueError('descriptor must be literal SELECT')
