@@ -1,6 +1,7 @@
 """Actual M09/M11/M13 branches consume immutable SourceViews and native addresses."""
 
 import logging
+from functools import cache
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Never
@@ -32,6 +33,7 @@ from corpus_structure.methods.math.native import NativeDomainRule, domain_blocks
 from corpus_structure.methods.math.scope import Binders
 from corpus_structure.semantic.parsing_products import ProductReference
 from corpus_structure.semantic.source_views import PreparedSourceView
+from corpus_structure.semantic.types import PreparedRelease
 
 
 def view():
@@ -69,8 +71,19 @@ def view():
     return PreparedSourceView(ref, text, pieces, items, (), health)
 
 
+@cache
+def pure_source_release() -> PreparedRelease:
+    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic.contracts import trusted_execution_inputs
+
+    return prepare_release(trusted_execution_inputs().schema)
+
+
 class Reader(ReaderPort):
-    prepared = None
+    @property
+    def prepared(self) -> PreparedRelease:
+        return pure_source_release()
+
     math_readings_batch = None
 
     def _unavailable(self, *args: object, **kwargs: object) -> Never:
