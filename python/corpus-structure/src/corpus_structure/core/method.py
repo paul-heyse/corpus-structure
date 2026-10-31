@@ -60,6 +60,7 @@ if typing.TYPE_CHECKING:
     )
     from corpus_structure.semantic.pdf_contracts import PreparedPdfProduct
     from corpus_structure.semantic.source_views import PreparedSourceView
+    from corpus_structure.semantic.types import PreparedRelease
 
 
 # --- Digests and payload hashes ----------------------------------------------------------------
@@ -288,6 +289,11 @@ class StableObservationReading(ObservationReading, Protocol):
 class Reader(Protocol):
     """What a method reads, already scoped to its run: upstream outputs only through reuse and the
     run's rendition selection (O1 implements it; P0CL-02)."""
+
+    @property
+    def prepared(self) -> PreparedRelease:
+        """The run's archived release: schema and vocabulary authority for source consumers."""
+        ...
 
     def require_parsing_operations(self, names: Sequence[str]) -> None:
         """Refuse unsupported parsing operations against this run's archived contract."""
