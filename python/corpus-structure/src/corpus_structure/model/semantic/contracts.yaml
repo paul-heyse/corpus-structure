@@ -3,6 +3,7 @@ name: semantic_contracts
 imports:
 - semantic_reference
 - parsing_products
+- pdf_products
 description: Trusted execution companion types. These are definitions, not domain-extractable
   corpus classes.
 prefixes:

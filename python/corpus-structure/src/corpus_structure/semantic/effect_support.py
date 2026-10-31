@@ -6,6 +6,10 @@ They are compatibility requirements, never evidence that hashing code proves its
 """
 
 SUPPORTED_EFFECTS = {
+    "prepare_native_document": {"effects": (), "implementation": "prepare_native_document", "transitions": {}, "version": "1"},
+    "retain_pdf_original": {"effects": ("atomic_native_publication", "preserve_original_normalized_distinction"), "implementation": "retain_pdf_original", "transitions": {}, "version": "1"},
+    "publish_native_document": {"effects": ("atomic_native_publication", "preserve_original_normalized_distinction"), "implementation": "publish_native_document", "transitions": {}, "version": "1"},
+
     "prepare_parsing_text": {
         "effects": (),
         "implementation": "prepare_parsing_text",

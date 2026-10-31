@@ -1,0 +1,271 @@
+id: https://corpus-structure.dev/semantic/pdf-products
+name: pdf_products
+prefixes:
+  pdf: https://corpus-structure.dev/pdf/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: pdf
+default_range: PdfString
+types:
+  PdfString:
+    base: str
+    uri: xsd:string
+  PdfDigest:
+    base: str
+    uri: xsd:string
+    pattern: ^[0-9a-f]{64}$
+  PdfPointer:
+    base: str
+    uri: xsd:string
+    pattern: ^#(/[^/]+)+$
+  PdfInteger:
+    base: int
+    uri: xsd:integer
+  PdfNumber:
+    base: float
+    uri: xsd:double
+enums:
+  PdfCoverage:
+    permissible_values:
+      complete: {}
+      partial: {}
+      unknown: {}
+      unsupported: {}
+  PdfConversionOutcome:
+    permissible_values:
+      success: {}
+      partial_success: {}
+      failure: {}
+  PdfCoordinateOrigin:
+    permissible_values:
+      top_left: {}
+      bottom_left: {}
+  PdfOffsetUnit:
+    permissible_values:
+      codepoint: {}
+  PdfRecipe:
+    permissible_values:
+      pdf-native-v1: {}
+  PdfRecognitionOutcome:
+    permissible_values:
+      succeeded: {}
+      failed: {}
+      unknown: {}
+      not_requested: {}
+classes:
+  PdfItemAddress:
+    attributes:
+      product_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfItemAddress_product_digest
+      pointer:
+        range: PdfPointer
+        required: true
+        slot_uri: pdf:PdfItemAddress_pointer
+  PdfProjectedRange:
+    attributes:
+      product_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfProjectedRange_product_digest
+      projection_key:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProjectedRange_projection_key
+      unit:
+        range: PdfOffsetUnit
+        required: true
+        slot_uri: pdf:PdfProjectedRange_unit
+      start:
+        range: PdfInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pdf:PdfProjectedRange_start
+      end:
+        range: PdfInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pdf:PdfProjectedRange_end
+  PdfPageRegion:
+    attributes:
+      pointer:
+        range: PdfPointer
+        required: true
+        slot_uri: pdf:PdfPageRegion_pointer
+      region_index:
+        range: PdfInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pdf:PdfPageRegion_region_index
+      page_no:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pdf:PdfPageRegion_page_no
+      page_width:
+        range: PdfNumber
+        required: true
+        minimum_value: 0
+        slot_uri: pdf:PdfPageRegion_page_width
+      page_height:
+        range: PdfNumber
+        required: true
+        minimum_value: 0
+        slot_uri: pdf:PdfPageRegion_page_height
+      left:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfPageRegion_left
+      top:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfPageRegion_top
+      right:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfPageRegion_right
+      bottom:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfPageRegion_bottom
+      origin:
+        range: PdfCoordinateOrigin
+        required: true
+        slot_uri: pdf:PdfPageRegion_origin
+  PdfItemProjection:
+    attributes:
+      pointer:
+        range: PdfPointer
+        required: true
+        slot_uri: pdf:PdfItemProjection_pointer
+      ordinal:
+        range: PdfInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pdf:PdfItemProjection_ordinal
+      label:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfItemProjection_label
+      content_layer:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfItemProjection_content_layer
+      parent_pointer:
+        range: PdfPointer
+        required: false
+        slot_uri: pdf:PdfItemProjection_parent_pointer
+      section_pointer:
+        range: PdfPointer
+        required: false
+        slot_uri: pdf:PdfItemProjection_section_pointer
+      text:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfItemProjection_text
+  PdfConversionHealth:
+    attributes:
+      conversion:
+        range: PdfConversionOutcome
+        required: true
+        slot_uri: pdf:PdfConversionHealth_conversion
+      display_coverage:
+        range: PdfCoverage
+        required: true
+        slot_uri: pdf:PdfConversionHealth_display_coverage
+      inline_coverage:
+        range: PdfCoverage
+        required: true
+        slot_uri: pdf:PdfConversionHealth_inline_coverage
+      cell_coverage:
+        range: PdfCoverage
+        required: true
+        slot_uri: pdf:PdfConversionHealth_cell_coverage
+      issues:
+        range: PdfString
+        required: false
+        multivalued: true
+        slot_uri: pdf:PdfConversionHealth_issues
+      formula_outcomes:
+        range: PdfFormulaOutcome
+        required: false
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfConversionHealth_formula_outcomes
+  PdfNativeEnvelope:
+    attributes:
+      recipe:
+        range: PdfRecipe
+        required: true
+        slot_uri: pdf:PdfNativeEnvelope_recipe
+      artifact_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfNativeEnvelope_artifact_digest
+      product_key:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfNativeEnvelope_product_key
+      schema_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfNativeEnvelope_schema_digest
+      recipe_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfNativeEnvelope_recipe_digest
+      native_schema_version:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfNativeEnvelope_native_schema_version
+      document_json:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfNativeEnvelope_document_json
+      health:
+        range: PdfConversionHealth
+        required: true
+        inlined: true
+        slot_uri: pdf:PdfNativeEnvelope_health
+      parent_task_id:
+        range: PdfInteger
+        required: false
+        minimum_value: 1
+        slot_uri: pdf:PdfNativeEnvelope_parent_task_id
+      parent_product_key:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfNativeEnvelope_parent_product_key
+      parent_digest:
+        range: PdfDigest
+        required: false
+        slot_uri: pdf:PdfNativeEnvelope_parent_digest
+      items:
+        range: PdfItemProjection
+        required: true
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfNativeEnvelope_items
+      regions:
+        range: PdfPageRegion
+        required: false
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfNativeEnvelope_regions
+  PdfFormulaOutcome:
+    attributes:
+      pointer:
+        range: PdfPointer
+        required: true
+        slot_uri: pdf:PdfFormulaOutcome_pointer
+      outcome:
+        range: PdfRecognitionOutcome
+        required: true
+        slot_uri: pdf:PdfFormulaOutcome_outcome
+      error:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfFormulaOutcome_error

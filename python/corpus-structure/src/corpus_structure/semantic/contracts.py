@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "11"
+EXECUTION_COMPILER_VERSION = "12"
 
 
 @lru_cache(maxsize=1)
@@ -51,6 +51,7 @@ def approved_implementations() -> Mapping[str, Any]:
         ontology,
         operations,
         parsing_products,
+        pdf_contracts,
         prepare,
         proposals,
         publication,
@@ -88,6 +89,9 @@ def approved_implementations() -> Mapping[str, Any]:
             "prepare_parsing_text": capture_text,
             "interpret_parsing_math": interpret_parsing_math,
             "assess_parsing_math": assess_parsing_math,
+            "retain_pdf_original": pdf_contracts.store_pdf_original,
+            "prepare_native_document": pdf_contracts.prepare_pdf_product,
+            "publish_native_document": pdf_contracts.store_pdf_product,
             "prepare_parsing_product": parsing_products.prepare_parsing_product,
             "publish_parsing_product": parsing_products.store_parsing_product,
             "read_parsing_product": parsing_products.read_parsing_product,
@@ -643,6 +647,7 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
         "8",
         "9",
         "10",
+        "11",
     }:
         # Retained immutable reader ABI, without allowing historical writes/activation.
         if name not in {
@@ -714,6 +719,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "9",
         "10",
         "11",
+        "12",
     }:
         _fail(
             "unsupported_execution_abi", model_id, "execution product has no supported compiler ABI"
@@ -724,7 +730,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
     from .effect_support import SUPPORTED_EFFECT_VERSIONS
 
     effect_versions = dict(SUPPORTED_EFFECT_VERSIONS)
-    if data["inputs"]["compiler_version"] not in {"9", "10", "11"}:
+    if data["inputs"]["compiler_version"] not in {"9", "10", "11", "12"}:
         effect_versions["schedule_pending_or_reused_or_skipped"] = "1"
     return _normalize(
         {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}},
@@ -749,6 +755,7 @@ def trusted_execution_inputs() -> ExecutionModelInputs:
                 SourceArtifact(
                     "parsing_products", root.joinpath("parsing-products.yaml").read_bytes()
                 ),
+                SourceArtifact("pdf_products", root.joinpath("pdf-products.yaml").read_bytes()),
             ),
         ),
         SourceArtifact("execution-model.yaml", root.joinpath("execution-model.yaml").read_bytes()),
@@ -798,6 +805,8 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("placement/cascade.py", "methods/llm/cascade.py"),
             )
         ),
+        SourceArtifact("pdf/docling-validation.schema.json", root.joinpath("model", "semantic", "docling-validation.schema.json").read_bytes()),
+        SourceArtifact("pdf/contracts.py", root.joinpath("semantic", "pdf_contracts.py").read_bytes()),
         SourceArtifact("grammar/grammar.py", math.joinpath("grammar.py").read_bytes()),
         SourceArtifact("grammar/extension.lark", math.joinpath("extension.lark").read_bytes()),
         SourceArtifact("grammar/prepared.py", math.joinpath("prepared.py").read_bytes()),
@@ -1291,6 +1300,8 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
                 "invocation/operations.py",
             }
         )
+    if any(source.name == "pdf_products" for source in inputs.schema.sources):
+        required_implementations.update({"pdf/contracts.py", "pdf/docling-validation.schema.json"})
     if set(names) != required_implementations or len(names) != len(set(names)):
         _fail(
             "analysis_implementation_inputs",

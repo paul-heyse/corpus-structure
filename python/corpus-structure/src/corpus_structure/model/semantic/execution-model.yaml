@@ -2878,6 +2878,24 @@ concepts:
     multivalued: false
   relationships: []
 
+- id: PdfNativeEnvelope
+  family: interpretation
+  scope: global
+  meaning: External native Docling schema with application header, health and projection
+    custody
+  identity: Original, native schema, recipe and producing-task qualified occurrence
+  attributes:
+  - {name: artifact_digest, range: text, required: true, multivalued: false}
+  relationships: []
+- id: PreparedPdfProduct
+  family: interpretation
+  scope: global
+  meaning: Immutable validated native publication transport retaining original, schema
+    and recipe bytes
+  identity: Original, native schema, recipe and producing-task qualified occurrence
+  attributes:
+  - {name: payload, range: bytes, required: true, multivalued: false}
+  relationships: []
 relationships:
 - id: bundle_contains
   kind: ownership
@@ -7092,6 +7110,89 @@ operations:
   implementation: validate_continuation
   transitions: []
   projections: []
+- id: retain_pdf_original
+  inputs:
+  - TaskInvocation
+  - SourceArtifact
+  results:
+  - SourceArtifact
+  applicability: []
+  universe: Pinned original PDF bytes retained before inference
+  effects:
+  - atomic_native_publication
+  - preserve_original_normalized_distinction
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact original PDF byte custody independent of conversion result
+  transitions: []
+  projections: []
+  implementation: retain_pdf_original
+- id: prepare_native_document
+  inputs:
+  - PdfNativeEnvelope
+  - SourceArtifact
+  results:
+  - PreparedPdfProduct
+  applicability: []
+  universe: Pinned PDF original, native schema, conversion recipe and qualified projections;
+    no ambient rendition
+  effects: []
+  outcomes:
+  - complete
+  - partial
+  - unknown
+  - unsupported
+  - failed
+  outcome_domain: source_coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  - source_representation
+  - adapter_revision
+  precision: Native recognized text is distinct from PDF bytes, page regions and author
+    TeX
+  transitions: []
+  projections: []
+  implementation: prepare_native_document
+- id: publish_native_document
+  inputs:
+  - TaskInvocation
+  - PreparedPdfProduct
+  results:
+  - PdfNativeEnvelope
+  applicability: []
+  universe: Pinned PDF original, native schema, conversion recipe and qualified projections;
+    no ambient rendition
+  effects:
+  - atomic_native_publication
+  - preserve_original_normalized_distinction
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  - source_representation
+  - adapter_revision
+  precision: Native recognized text is distinct from PDF bytes, page regions and author
+    TeX
+  transitions: []
+  projections: []
+  implementation: publish_native_document
 - id: prepare_parsing_product
   inputs:
   - ParsingProduct
@@ -8102,6 +8203,55 @@ implementations:
   - typed_bound_inputs
   - explicit_outcomes
   effects: []
+  required_capabilities: []
+- id: retain_pdf_original
+  owner: semantic.pdf_contracts
+  symbol: store_pdf_original
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - SourceArtifact
+  result_concepts:
+  - SourceArtifact
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_native_publication
+  - preserve_original_normalized_distinction
+  required_capabilities: []
+- id: prepare_native_document
+  owner: semantic.pdf_contracts
+  symbol: prepare_pdf_product
+  version: '1'
+  placement: pure
+  input_concepts:
+  - PdfNativeEnvelope
+  - SourceArtifact
+  result_concepts:
+  - PreparedPdfProduct
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: publish_native_document
+  owner: semantic.pdf_contracts
+  symbol: store_pdf_product
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PreparedPdfProduct
+  result_concepts:
+  - PdfNativeEnvelope
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_native_publication
+  - preserve_original_normalized_distinction
   required_capabilities: []
 - id: prepare_parsing_product
   owner: semantic.parsing_products
@@ -10021,15 +10171,15 @@ parsing_adapters:
   - mapping/synthetic
   - mapping/exclude
 
-- adapter_id: pylatexenc-structure-1
+- adapter_id: lark-structure-1
   provenance_universe: canonical_output
-  implementation_revision: text-structure-1
-  frontend_revision: pylatexenc-3.0b2
+  implementation_revision: text-structure-2
+  frontend_revision: sympy-1.14.0-lark-1.3.1
   coordinate_fidelity: exact
   repair_policy: strict-malformed
   ambiguity_policy: explicit-partial
   lifetime: operation
-  capabilities: [text/lexical-partition, text/parse-view, tex/structure, tex/macro-expansion]
+  capabilities: [text/lexical-partition, text/parse-view, tex/structure]
 - adapter_id: lark-math-3
   provenance_universe: canonical_output
   implementation_revision: prepared-math-3
