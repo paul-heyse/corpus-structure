@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
@@ -293,16 +294,57 @@ def store_region_artifact(conn, *, task_id, attempt, holder, selection, recipe_b
     ).scalar_one()
 
 
-def normalized_native_section_title(value: str) -> str:
-    """The admitted title selector's shared normalization, never source identity."""
+def _native_section_title_parts(value: str) -> tuple[str | None, str]:
     import re
+    import unicodedata
 
-    return re.sub(r"^\s*\d+(?:\.\d+)*\s*[:.)-]?\s*", "", " ".join(value.split())).casefold()
+    prefix = re.match(
+        r"^\s*(\d+(?:\.\d+)*)(?=$|\s|[:.)\u2013\u2014-])(?:\s|[:.)\u2013\u2014-])*", value
+    )
+    number = prefix[1] if prefix else None
+    title = value[prefix.end():] if prefix else value
+    title = "".join(" " if unicodedata.category(char).startswith("P") else char for char in title)
+    return number, " ".join(title.casefold().split())
+
+
+def normalized_native_section_title(value: str) -> str:
+    """Normalize title punctuation while retaining an explicit section number."""
+    number, title = _native_section_title_parts(value)
+    return " ".join(part for part in (number, title) if part)
+
+
+def resolve_native_sections[Key](
+    catalog: Mapping[Key, str], selectors: Sequence[str]
+) -> tuple[Key, ...]:
+    """Resolve each title selector to one actual catalog occurrence, never an alias set."""
+    from .operations import SourceReadRefused
+
+    normalized = {key: _native_section_title_parts(title) for key, title in catalog.items()}
+    resolved: dict[Key, None] = {}
+    for selector in selectors:
+        number, title = _native_section_title_parts(selector)
+        if not number and not title:
+            raise SourceReadRefused("invalid", "native section selector is empty")
+        matches = [
+            key for key, (candidate_number, candidate_title) in normalized.items()
+            if (number is None or candidate_number == number)
+            and (not title or candidate_title == title)
+        ]
+        if not matches:
+            raise SourceReadRefused(
+                "missing", f"requested native section is unavailable: {selector!r}"
+            )
+        if len(matches) != 1:
+            choices = "; ".join(f"{catalog[key]!r} [{key}]" for key in matches)
+            raise SourceReadRefused(
+                "invalid", f"ambiguous native section selector {selector!r}: {choices}"
+            )
+        resolved[matches[0]] = None
+    return tuple(resolved)
 
 
 def scope_source_views(conn: Connection, selected, scope):
     """Match released organizational titles, then include declared descendants once."""
-    wanted = {normalized_native_section_title(title) for title in scope["sections"]}
     ids = [ref.id for ref in selected]
     rows = conn.execute(
         text(
@@ -318,26 +360,33 @@ def scope_source_views(conn: Connection, selected, scope):
         ),
         dict(ids=ids),
     ).mappings()
-    matched = set()
-    represented = set()
+    rows = list(rows)
+    references = {ref.id: ref for ref in selected}
+    catalog = {}
     ancestors_by_id = {}
     for row in rows:
-        section = row["section"]
-        names = [section.get("name", "")]
-        if scope["include_descendants"]:
-            names += [parent.get("name", "") for parent in row["ancestors"]]
+        reference = references[row["id"]]
+        catalog[reference.native_product, reference.section_pointer] = row["section"].get(
+            "name", ""
+        )
         ancestors_by_id[row["id"]] = {parent["self_ref"] for parent in row["ancestors"]}
-        row_names = {normalized_native_section_title(name) for name in names}
-        represented.update(row_names & wanted)
-        if row_names & wanted:
-            matched.add(row["id"])
+        for parent in row["ancestors"]:
+            catalog[reference.native_product, parent["self_ref"]] = parent.get("name", "")
+    wanted = set(resolve_native_sections(catalog, scope["sections"]))
+    matched = set()
+    represented = set()
+    for reference in selected:
+        pointers = {reference.section_pointer}
+        if scope["include_descendants"]:
+            pointers.update(ancestors_by_id.get(reference.id, ()))
+        selected_roots = {(reference.native_product, pointer) for pointer in pointers} & wanted
+        represented.update(selected_roots)
+        if selected_roots:
+            matched.add(reference.id)
     if wanted - represented:
         from .operations import SourceReadRefused
 
-        raise SourceReadRefused(
-            "missing",
-            "requested native sections are unavailable: " + ", ".join(sorted(wanted - represented)),
-        )
+        raise SourceReadRefused("missing", "requested native section has no selected source view")
     roots = tuple(ref for ref in selected if ref.id in matched)
     return tuple(
         ref
