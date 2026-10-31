@@ -23,11 +23,18 @@ async def exercise(selection: dict, database: str, root: Path, output: Path) -> 
              'PYTHONPATH':str(root/'python/corpus-structure/src')},
         log_file=output.with_suffix('.server.log'))
     receipts=[]
+    partial=output.with_suffix('.partial.json')
+    if output.exists() or partial.exists():
+        raise FileExistsError('retain the existing journey; select a fresh output path')
+    def checkpoint():
+        partial.write_text(json.dumps({'outcome':'partial','selection':selection,'calls':receipts},ensure_ascii=False,indent=2)+'\n')
+    checkpoint()
     pin={key:selection[key] for key in ('run_id','task_id','product_key','content_digest')}
     async with Client(transport) as client:
         tools={tool.name:tool for tool in await client.list_tools()}
         assert {'inspect_source','render_source_region','queue_status'} <= tools.keys()
         receipts.append({'operation':'list_tools','tools':sorted(tools)})
+        checkpoint()
         requests=[dict(pin,version=2,view='sections',limit=5),
             dict(pin,version=2,view='formula',pointer=selection['formula_pointer']),
             dict(pin,version=2,view='cell',pointer=selection['table_pointer'],cell_index=selection['cell_index']),
@@ -37,21 +44,25 @@ async def exercise(selection: dict, database: str, root: Path, output: Path) -> 
             value=response.structured_content
             assert value is not None
             receipts.append({'operation':'inspect_source','request':request,'result':value})
+            checkpoint()
         image=await client.call_tool('render_source_region',dict(run_id=selection['run_id'],
             source_view_id=selection['source_view_id'],pointer=selection['formula_pointer'],region_index=0))
         assert any(part.type=='image' for part in image.content)
         receipts.append({'operation':'render_source_region','result':image.structured_content,
             'content_types':[part.type for part in image.content]})
+        checkpoint()
         wrong=dict(pin,version=2,view='items',content_digest='0'*64)
         try:
             await client.call_tool('inspect_source',{'request':wrong})
         except Exception as error:
             assert 'digest' in str(error) or 'pin' in str(error), str(error)
             receipts.append({'operation':'wrong_digest','outcome':'refused','detail':str(error)})
+            checkpoint()
         else:
             raise AssertionError('wrong native product digest was accepted')
         queue=await client.call_tool('queue_status',{})
         receipts.append({'operation':'queue_status','result':queue.structured_content})
+        checkpoint()
     with output.open('x') as target:
         json.dump({'outcome':'passed','selection':selection,'calls':receipts},target,ensure_ascii=False,indent=2)
         target.write('\n')

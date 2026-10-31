@@ -1879,4 +1879,15 @@ runtime reports, per-section/membership recognition coverage and table-cell repo
 coverage and selected-view coverage remain different claims. Native evidence aliases are exact
 retained projection pieces; SQL checks their complete inventory and source custody. SourceView
 observations carry their actual unit ID through the shared completion boundary. The owned PDF
-database is migrated through 0050; book publication and complete consumer acceptance remain open.
+database is migrated through 0054. The full original's native and organized products are retained;
+complete consumer acceptance is separately owned by the PDF coordinator.
+
+**Implemented; targeted native controls Tested, 2026-10-31.** 0051 admits qualified native
+citations during finalization. 0052 retains immutable independent reference frames and each
+ancestor's source identity, direct membership and local coordinates. Source-local evidence cannot
+be reassigned to a child or a sibling. 0053 stores positioned generic syntax nodes with their
+admitted grammar/frontend identity. 0054 validates optional estimated OCR word inventories against
+their exact raster/crop/PDF transform and source-page universe. Native products without those
+observations retain their archived meaning; absent observations do not establish complete coverage.
+The native and organized whole-book products cover 1,589 physical pages. A source-ready cut does
+not establish completed domain extraction, independent grading or universal recognition fidelity.

@@ -112,6 +112,15 @@ ordered regions and qualified derivation endpoints. In-process registration and 
 controls are bounded evidence; external transport, protected integrated consumer journeys and
 operational adoption remain owned by PDF-08–11 until exercised.
 
+**Implemented; targeted controls Tested, 2026-10-31.** Ancestor context uses qualified
+`native_context:<source_view_id>:<local_id>` handles with the ancestor's own projection and native
+product. Independent reference passes retain their complete own frame; normalization uses that
+frame rather than the extractor's sentence numbering. CLI source reports use typed Pydantic
+models/RootModels, including native product lists, SourceView dataclasses and demand results.
+An explicit complete Docling JSON export uses PostgreSQL's native JSON text projection; it is
+separate from bounded indexed item reads. Actual exports reload the 1,589-page native document;
+selected JSONL and Parquet exports preserve the same ordered rows and lexical native JSON values.
+
 ### Retained HTML realization
 
 The following clauses describe the retained HTML route only; they do not constrain the new PDF

@@ -1,47 +1,46 @@
 # Status
-_Updated 2026-10-31; execution continues on `main`._
+_Updated 2026-10-31; PDF execution continues on `main`._
 
 ## Current checkpoint
 
-- [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns remaining package,
-  opportunity and investigation state. Native producer/consumer implementation is integrated;
-  assembled qualification and operational adoption remain open.
-- Full Docling 2.145.0/all ten requested extras and core 2.105.0 are application dependencies.
-  Native validation schema is 1.10.0. SourceView is modeled at revision 0.6.0. No section chunking.
-- Native migrations through 0051 are integrated; the owned `corpus_pdf_20261031` database remains
-  at 0050 during private whole-book conversion. Historical databases/grades remain unchanged.
-- [Adoption evidence](docs/design_review/evidence/2026-10-31_pdf-adoption/README.md) retains
-  failed source run 1 and its font-null envelope diagnostic. Repaired source run 2 is running
-  against the complete retained original; original/recipe custody precedes inference.
-- Native SourceViews, exact archived-product adoption, M09/M11/M13, policy dispatch, packets,
-  native evidence, CLI/MCP inspection/render requests and typed exports are integrated.
-  The five-section statistics scope uses maximal descendant views, with separate ancestor context.
-- Active HTML writer/source-capture modules are removed. Archived fixtures/read helpers retain
-  historical meanings. html5lib is development-only; complete Docling extras remain installed.
-- Three owned implementation worktrees remain active for producer lifecycle and native consumer
-  integration. Operator library-document drafts are preserved. No push.
+- [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns package/O/I disposition.
+  Native producers and consumers are integrated; actual adoption and final qualification continue.
+- Full Docling 2.145.0/all ten requested extras and core 2.105.0 are installed. Native validation
+  schema 1.10.0 and application model 0.6.0 retain distinct authority. No section chunking.
+- Native migrations 0047–0054 are integrated and deployed to owned `corpus_pdf_20261031`.
+  Historical databases, selection defaults and grades remain unchanged.
+- Full 1,589-page conversion **passed**: source-ready run 2/task 2 retains native and organized
+  products. [Adoption evidence](docs/design_review/evidence/2026-10-31_pdf-adoption/README.md)
+  preserves the original failed run and all later actual journey attempts.
+- SourceViews, qualified ancestor/reference frames, native M09/M11/M13, policy/packets,
+  exact evidence, typed CLI/MCP reads, rendering demands and native exports are integrated.
+- Explicit retained-product adoption uses immutable per-run input, not instance IDs in the pack.
+  Numbered sections resolve uniquely. Native custody authorization precedes analysis-scope
+  filtering; retained reads do not prepare or execute analysis.
+- Active HTML writers are removed. Archived products/helpers retain historical meanings.
+  All implementation worktrees are integrated and removed. Operator library drafts are preserved.
 
 ## Verification — 2026-10-31
 
-- **passed:** `just ready`; warning-inclusive global `just types` at the integrated producer/
-  configuration endpoint, and subsequent scoped typing controls. No suppressions added.
-- **passed:** bounded native publication, SourceView, math/request, packet/registry, archive,
-  region and export controls. Complete Docling JSON export passed a real PostgreSQL control.
-- **passed:** fresh native page85 raw/full preparation; actual raw/full PostgreSQL publication
-  and failed-task retention/readback. These are bounded cases, not full-book acceptance.
-- **failed:** initial full-book application-envelope preparation; original receipt retained.
-  Native policy/MCP/consolidation/reference storage now execute; independent reference anchor
-  normalization still requires repair before its grading assertion can pass.
-- **not_run:** complete PDF functional/provider union, `just test-all`, complete hygiene,
-  completed full-book publication, PDF-only default adoption and actual five-section extraction/
-  independent grading. The current book job is in progress, without completion credit.
-- Prior PP qualification remains historical. Applicable passing type/test records are preserved;
-  lint-only maintenance does not invalidate them.
+- **passed:** `just ready`; warning-inclusive global `just types` after reader-contract repairs,
+  and focused typing/functional checks for subsequent custody and retained-read changes.
+- **passed:** real native publication, SourceViews, frame/ancestor/reference/consolidation,
+  positioned syntax, OCR transform/inventory, owned-worker cancellation and archived-read controls.
+- **passed:** actual final-child OCR cases and retained admission; actual CLI product reports;
+  external MCP sections/formula/cell/trace reads; JSONL/Parquet row/lexical equality and full
+  Docling JSON reload/tree validation for all 1,589 pages.
+- **failed, retained:** original book envelope preparation; earlier adoption custody selection;
+  old-release demanded rendering refuses strict implementation binding. New-release rendering
+  remains required, without weakening archived execution admission.
+- Current adopted run 4 reached selected math enrichment but failed local prose/PDF-word alignment.
+  Producer owns a structural local-coverage repair; the successful book conversion will be reused.
+- **not_run:** completed five-section actual Claude extraction, independent automated reference
+  grading, completed PDF selection/defaults, complete `just test-all` and applicable final hygiene.
+  Passing type/test receipts are preserved; cosmetic cleanup does not invalidate them.
 
 ## Next
 
-Finish 0052 independent/ancestor source frames and bounded PDF process ownership, then integrate
-actual consumer controls. Publish and reuse the full-book source, exercise actual extraction,
-independent evaluation, CLI/external MCP/export journeys, select the completed PDF result and
-adopt defaults. Finish required-union qualification and reconcile the plan/design documentation
-before removing fully merged worktrees.
+Finish the local native alignment repair, prepare the five intact section consumers over the
+retained book, freeze independent source-only A/B/C references, execute actual extraction and
+new-release CLI/external MCP/render journeys, grade and select the completed PDF result. Then
+finish the required functional/provider/nonfunctional union, evidence and owning documentation.

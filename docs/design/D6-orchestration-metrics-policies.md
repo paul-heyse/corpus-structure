@@ -30,7 +30,7 @@ are not the selected production path or a second authority for semantic executio
 
 ## Parsing demand and product lifecycle
 
-**Accepted PDF target; Proposed implementation (2026-10-31).** Existing operation/task/attempt
+**Implemented PDF lifecycle; targeted controls Tested (2026-10-31).** Existing operation/task/attempt
 ownership drives conversion and downstream demands. One original, conversion, page, section and
 item are distinct semantic units, not a requirement for one task/transaction apiece. Reuse successful
 immutable conversion/derived products by complete dependencies and keep interpretation/assessment
@@ -55,8 +55,19 @@ The statistics scope selects maximal descendant views for five intact sections; 
 views supply context without adding ancestor extraction tasks. Exact archived product adoption
 reuses native conversion across compatible consumer releases. The original and recipe commit
 before inference; a validated minimal native capture can accompany a later failed application
-result. Full-book publication, cancellation limits and assembled adoption remain separately
-qualified through PDF-09–11.
+result. One serial spawn child per owned recipe contains native execution, with typed IPC and no
+database handles crossing the boundary. The parent polls a retained claim-renewal failure signal;
+cancellation terminates, joins and, if necessary, kills and joins the child before propagating.
+All owned closers are attempted, failed teardown handles remain owned, and source readiness is
+sealed only after successful cleanup. Whole-book conversion is retained; assembled adoption
+remains separately qualified through PDF-09–11.
+
+`ci regenerate --native-source PIN.json` binds an exact retained product into the immutable
+per-run method configuration. The domain pack contains source declarations rather than database
+instance IDs. Custody authorization checks unfiltered selected product pins and the current
+claimed input before analysis-scope filtering, so a valid pre-ingest native input does not depend
+on SourceViews that the ingest task has yet to create. Missing or ambiguous analysis selectors
+still refuse; the input fence is not a substitute for a complete source selection.
 
 ### Retained HTML realization
 

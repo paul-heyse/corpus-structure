@@ -1,11 +1,29 @@
 # PDF conversion and intact document hierarchy
 
-**Status:** Planned target, 2026-10-31; no conversion or hierarchy qualification claimed.
+**Status:** Implemented mechanisms described below; the coordinator owns current qualification and adoption state.
 [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-04/05 state and opportunity disposition.
 Basis: review [O01](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O01),
 [O03](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O03),
 [O04](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O04) and
 [O08](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O08), revision `2c33372`.
+
+## Implemented mechanisms — 2026-10-31
+
+The full Docling distribution and all requested extras are installed. The finite recipe selects
+StandardPdfPipeline, Heron, accurate TableFormer, CodeFormulaV2 and explicit RapidOCR. Actual
+reports distinguish CUDA layout/table/formula execution from CPU ONNX OCR. Offline asset
+bundles retain exact model contents. Native text/OCR candidate capture and cell-aware enrichment
+produce qualified derived documents; recognition failure and incomplete discovery stay visible.
+RapidOCR word observations retain estimated CTC geometry and raster/PDF transforms rather than
+claim original glyph positions. Optional application fields are omitted when absent while native
+Docling nulls remain native. Minimal capture precedes optional organization.
+
+The complete 1,589-page original has a retained successful native and organized product.
+Hierarchy preserves original item references and ordered intact sections. Numbered selectors
+resolve uniquely; ambiguous unnumbered repeated titles refuse. The five qualification roots use
+descendant membership, with direct ancestor context kept separate. There are no semantic chunks.
+The coordinator owns remaining adoption and acceptance claims.
+
 
 ## Foundation and responsibility
 

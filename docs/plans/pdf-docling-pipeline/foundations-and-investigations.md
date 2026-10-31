@@ -1,10 +1,20 @@
 # PDF foundations and capability investigations
 
-**Status:** PDF-00 decision work delivered; PDF-01 investigated with partial integration obligations. **Created:** 2026-10-31.
+**Status:** Implemented mechanisms described below; the coordinator owns current qualification and adoption state.
 The [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns package state, review O01–O08
 and investigation I01–I08 disposition. This document explains PDF-00/01, not a second queue.
 Consumes the [functional review](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md)
 at `2c33372` and its [target model](../../functional_reviews/pdf-docling-pipeline_2026-10-31_target-model.md).
+
+## Implemented foundation — 2026-10-31
+
+ADR-0038 governs the selected PDF-only boundary. Installed Docling 2.145.0/core 2.105.0 and the
+native validation schema 1.10.0 replace the review's earlier inspection baseline. Actual native,
+raster, visible broken-layer and invisible-layer cases establish the selected local route.
+CPU RapidOCR is explicit; CUDA execution is claimed only for the observed native model stages.
+The complete original conversion is retained. Investigation conclusions and conditional features
+remain owned by the coordinator; source conversion does not establish universal OCR fidelity.
+
 
 ## Foundation assessment
 

@@ -1,11 +1,28 @@
 # Source interfaces, runtime and publication
 
-**Status:** Planned target; no PDF implementation or qualification is claimed.
+**Status:** Implemented mechanisms described below; the coordinator owns current qualification and adoption state.
 **Created:** 2026-10-31. The [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns
 PDF-08/09 status, investigation outcomes and review O06/O07/O08 disposition.
 Consumes the [review](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O06) at
 `2c33372` and its [target](../../functional_reviews/pdf-docling-pipeline_2026-10-31_target-model.md).
 RC01–RC05 are operator-selected; PDF-00 owns their decision/architectural implementation route.
+
+## Implemented mechanisms — 2026-10-31
+
+NativeSourceRequest v2 binds run, producing task, product key and digest. Shared Core queries
+serve indexed section/item/formula/cell/region/trace projections with pinned continuations.
+CLI reports use typed Pydantic models, including dataclass RootModels. Whole native Docling JSON
+is a distinct explicit export; bounded JSONL/Parquet streams preserve native lexical values,
+ordering, geometry and derivation references. Rendering is an explicit source-ready request.
+
+One owned serial spawn child reuses native preparation within a finite recipe, with typed IPC
+and no database handles crossing the process boundary. Claim-loss notification interrupts work;
+cancellation performs bounded terminate/join/kill cleanup before propagating. Original custody
+precedes inference; minimal native capture precedes optional work. Cleanup precedes source-ready
+sealing. Explicit `ci regenerate --native-source PIN.json` binds an existing product into the
+per-run configuration; no instance IDs enter committed domain method definitions. Actual external
+transport and adopted-result acceptance remain in the coordinator's required union.
+
 
 ## Foundation assessment and intended execution shape
 

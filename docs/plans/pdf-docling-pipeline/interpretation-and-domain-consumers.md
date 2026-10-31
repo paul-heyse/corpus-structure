@@ -1,11 +1,26 @@
 # Mathematical interpretation and domain consumers
 
-**Status:** Planned target; no PDF implementation or qualification is claimed.
+**Status:** Implemented mechanisms described below; the coordinator owns current qualification and adoption state.
 **Created:** 2026-10-31. The [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns
 PDF-06/07 status, investigation outcomes and scheduled disposition of review O04/O05.
 Consumes the [functional review](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O04)
 at `2c33372` and its [target model](../../functional_reviews/pdf-docling-pipeline_2026-10-31_target-model.md).
 RC01–RC05 were selected by the operator on 2026-10-31; their architecture route is PDF-00.
+
+## Implemented mechanisms — 2026-10-31
+
+Native M09 retains weak interpretation once; M11 hydrates its exact named records instead of
+reparsing. Explicit demand determines whether scientific assessment runs. Native occurrence
+identity and positioned grammar nodes remain connected to product/item/region sources. M13
+uses admitted containment, declaration topology and qualified direct-ancestor context.
+
+AgentOpus packets use an explicit released sentence configuration and the selected SourceView.
+`native_evidence` handles place exact item/formula/cell text within its own piece; qualified
+`native_context` handles retain the ancestor's own coordinates. Native policy, MCP proposal,
+consolidation and independent reference evaluation passed bounded actual PostgreSQL journeys,
+including ancestor premises and substitution refusals. These controlled journeys establish
+consumer behavior; actual provider adoption is separately accounted for by the coordinator.
+
 
 ## Foundation assessment and resulting boundary
 

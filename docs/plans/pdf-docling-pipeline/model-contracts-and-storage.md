@@ -1,10 +1,27 @@
 # PDF semantic contracts, custody and access projections
 
-**Status:** Planned; no model, schema or runtime change is claimed. **Created:** 2026-10-31.
+**Status:** Implemented mechanisms described below; the coordinator owns current qualification and adoption state.
 The [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-02/03 state and review/investigation
 dispositions. Consumes the [review](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md)
 at `2c33372`, its [target](../../functional_reviews/pdf-docling-pipeline_2026-10-31_target-model.md),
 PDF-00 decisions and relevant [PDF-01](foundations-and-investigations.md#PDF-01) results.
+
+## Implemented mechanisms — 2026-10-31
+
+`pdf-products.yaml` governs application envelopes, explicit coverage, requests and source
+relationships; the archived upstream validation schema governs Docling's native document.
+Forward migrations 0047–0054 retain originals, native JSONB, ordered indexed item/region/cell
+projections, SourceViews, derivations, qualified frames, syntax nodes and estimated OCR word
+geometry. SQLAlchemy Core uses the single LinkML physical model. Protected operations validate
+source/attempt fences, product identities and relational endpoints before publication.
+
+0052 preserves each ancestor's own projection coordinates and the independent reference frame.
+0053 retains generic positioned syntax with its admitted grammar identity instead of squeezing
+Lark rule names into an unrelated closed node vocabulary. 0054 relates optional OCR words to
+native raster/crop frames and validates their exact PDF transform; older products without those
+observations retain their original meaning. Native source products can be retained on failed
+attempts without qualifying as complete knowledge results. The coordinator owns acceptance.
+
 
 ## Early contract agreement — 2026-10-31
 
