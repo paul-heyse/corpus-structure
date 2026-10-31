@@ -44,8 +44,10 @@ REVOKE ALL ON FUNCTION ops.native_source_address(bigint,text,bigint,bigint) FROM
 -- Native references retain evaluator-only custody and never enter extraction inputs.
 CREATE OR REPLACE FUNCTION eval.add_native_reference_unit(p_set bigint,p_view bigint,p_key text,p_context jsonb)
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $native$
-DECLARE result bigint; selected kb.source_view;
+DECLARE result bigint; selected kb.source_view; source_release text;
 BEGIN
+ SELECT release_id INTO STRICT source_release FROM eval.reference_set WHERE id=p_set;
+ PERFORM sem.require_execution_operation(source_release,'reference_set');
  SELECT * INTO STRICT selected FROM kb.source_view WHERE id=p_view;
  IF p_key IS DISTINCT FROM selected.key OR jsonb_typeof(p_context) IS DISTINCT FROM 'array' OR NOT EXISTS(
   SELECT FROM eval.reference_set s JOIN ops.completed_result c ON c.run_id=s.source_run_id
@@ -104,9 +106,11 @@ GRANT EXECUTE ON FUNCTION eval.native_reference_snapshot(bigint) TO corpus_sem_e
 
 CREATE OR REPLACE FUNCTION eval.record_native_reference_evaluation(p_project text,p_run bigint,p_set bigint,p_snapshot jsonb,p_result jsonb)
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $native$
-DECLARE result bigint;
+DECLARE result bigint; source_release text;
 BEGIN
  PERFORM 1 FROM eval.reference_unit WHERE set_id=p_set FOR UPDATE;
+ SELECT release_id INTO STRICT source_release FROM eval.reference_set WHERE id=p_set AND project_id=p_project;
+ PERFORM sem.require_execution_operation(source_release,'reference_grade');
  IF p_snapshot IS DISTINCT FROM eval.native_reference_snapshot(p_set) OR
     jsonb_array_length(p_snapshot)=0 OR jsonb_array_length(p_snapshot)<>(SELECT count(*) FROM eval.reference_unit WHERE set_id=p_set) THEN
   RAISE EXCEPTION 'native reference evaluation snapshot is incomplete or stale' USING ERRCODE='40001'; END IF;
