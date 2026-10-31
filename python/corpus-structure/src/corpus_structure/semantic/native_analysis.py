@@ -32,7 +32,7 @@ def stored_native_analysis(reader: Any, source_view_id: int,
                 or payload.get("native_product")!=view.ref.native_product.values()
                 or payload.get("projection_digest")!=view.ref.projection_digest):
                 raise NativeAnalysisUnavailable("analysis record differs from its pinned source view")
-            if payload.get("recipe_digest",view.ref.recipe_digest)!=view.ref.recipe_digest:
+            if payload.get("recipe_digest")!=view.ref.recipe_digest:
                 raise NativeAnalysisUnavailable("analysis recipe differs from its pinned source view")
             if row.observation_key in rows:
                 raise NativeAnalysisUnavailable("native analysis observation identity is duplicated")

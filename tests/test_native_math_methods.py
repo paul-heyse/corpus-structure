@@ -38,7 +38,7 @@ class Reader:
     def source_view(self,id): assert id==7;return self.view
     def source_observations(self,id,method,kind): return self.outputs.get((method,kind),[])
     def source_view_coverage(self,id,method):
-        return [SimpleNamespace(coverage=CoverageDraft(family=method,scope='native-section:7',outcome='complete'))]
+        return [SimpleNamespace(task_id=4,release_id=5,coverage=CoverageDraft(family=method,scope='native-section:7',outcome='complete'))]
     def store(self,method,result):
         for ordinal,draft in enumerate(result.observations):
             row=SimpleNamespace(payload=draft.payload.model_dump(mode='json'),native_pointer=draft.native_pointer,
@@ -244,3 +244,20 @@ def test_stored_analysis_refuses_cycles_and_stale_pins():
     payload['native_product']={**payload['native_product'],'content_digest':'d'*64}
     with pytest.raises(NativeAnalysisUnavailable,match='pinned source view'):
         stored_native_analysis(reader,7,'#/texts/1')
+
+
+def test_scope_digest_binds_exact_ancestor_preparation_record():
+    from dataclasses import replace
+    reader=Reader();source=reader.view
+    parent=PreparedSourceView(replace(source.ref,id=6,key='parent',section_pointer='#/groups/parent'),'',(),(),(),{})
+    group={'self_ref':'#/groups/parent','label':'section','children':[{'$ref':'#/groups/0'}]}
+    child=replace(source,ancestors=(group,))
+    reader.source_view=lambda id:{6:parent,7:child}[id]
+    reader.ancestor_source_views=lambda id:[parent.ref]
+    row=SimpleNamespace(observation_key='parent-context',payload_hash='first')
+    reader.source_observations=lambda id,method,kind:[row] if id==6 and kind is ObservationKind.RECORD else []
+    run=SimpleNamespace(reader=reader)
+    unit=UnitView(UnitRef(TaskUnitType.SOURCE_VIEW,7,child.ref.key),run,source_view_id=7)
+    first=SymbolScope().input_digest(unit,SymbolScopeConfig()).bytes
+    row.payload_hash='second'
+    assert SymbolScope().input_digest(unit,SymbolScopeConfig()).bytes!=first

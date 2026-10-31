@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from corpus_structure.core.evidence import Segment
 from corpus_structure.core.method import CoverageDraft, ObservationDraft, UnitResult
 from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, ParseOutcome
 from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
@@ -470,16 +471,6 @@ def _syntax_value(result):
         declarations=[dataclasses.asdict(d) for d in result.declarations], notes=list(result.notes))
 
 
-class NativeAnalysisReferencePayload(BaseModel):
-    model_config=ConfigDict(frozen=True,extra="forbid")
-    source_view_id:int
-    native_product:dict[str,Any]
-    projection_digest:str
-    demand:Literal["occurrences"]="occurrences"
-    source_record:str
-    pointers:tuple[str,...]
-
-
 class NativeAnalysisPayload(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     source_view_id: int
@@ -781,9 +772,9 @@ def _inherited_bindings(reader: Any, view: Any):
 class NativeScopeContent:
     """Pure scope-kernel lowering; raw projection text is not forced through legacy NFC custody."""
     canonical_text:str
-    document:Any
+    document:Segment
 
-    def text(self,segment:Any)->str:
+    def text(self,segment:Segment)->str:
         return self.canonical_text[segment.start:segment.end]
 
 

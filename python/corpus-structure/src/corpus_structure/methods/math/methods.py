@@ -668,6 +668,17 @@ class SymbolScope(_PerRendition):
                 basis[method+":"+str(kind)] = [(row.observation_key,row.payload_hash) for row in rows]
             basis["coverage"] = [(row.task_id,row.coverage.outcome,row.coverage.reason)
                 for row in unit.run.reader.source_view_coverage(view.ref.id,M09)]
+            from .native import ancestor_views
+            parents,missing=ancestor_views(unit.run.reader,view)
+            basis["ancestor_context_issues"]=missing
+            basis["ancestor_inputs"]=[dict(source=parent.ref.key,
+                native_product=parent.ref.native_product.values(),projection_digest=parent.ref.projection_digest,
+                records=[(row.observation_key,row.payload_hash) for kind in
+                         (ObservationKind.SCOPE,ObservationKind.RECORD)
+                         for row in unit.run.reader.source_observations(parent.ref.id,M13,kind)],
+                coverage=[(row.task_id,row.coverage.outcome,row.coverage.reason)
+                          for row in unit.run.reader.source_view_coverage(parent.ref.id,M13)])
+                for parent in parents]
             return Digest(canonical_json({"source":_native_digest(unit).bytes.decode(),**basis}))
         ren = _rendition(unit.run.reader, _rendition_id(unit))
         stored = stored_math(unit.run.reader, ren)
