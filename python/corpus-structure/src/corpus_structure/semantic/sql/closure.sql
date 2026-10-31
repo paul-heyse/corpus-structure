@@ -298,9 +298,18 @@ BEGIN
        SELECT FROM ops.source_frame f JOIN ops.task t ON t.id=f.task_id WHERE f.task_id=observation.task_id AND f.packet_hash=t.packet_hash
         AND f.unit_ref=observation.payload->>'unit_ref' AND f.rendition_id=observation.rendition_id) THEN
      RAISE EXCEPTION 'statement report differs from its immutable source frame' USING ERRCODE='23514'; END IF;
-    SELECT key INTO STRICT source_rendition_key FROM kb.rendition WHERE id=observation.rendition_id;
-    expected_statement:='entity:'||encode(sha256(convert_to(data.canonical_json(
-     jsonb_build_array(r,z,'source-statement',source_rendition_key,ops.source_statement_locator(observation.task_id,statement->>'anchor'))),'UTF8')),'hex');
+    IF observation.source_view_id IS NOT NULL THEN
+     SELECT v.key INTO STRICT source_rendition_key FROM kb.source_view v JOIN ops.native_source_frame f
+      ON f.source_view_id=v.id WHERE f.task_id=observation.task_id AND f.source_view_id=observation.source_view_id
+       AND f.unit_ref=observation.payload->>'unit_ref';
+     expected_statement:='entity:'||encode(sha256(convert_to(data.canonical_json(
+      jsonb_build_array(r,z,'source-statement',source_rendition_key,
+                       ops.native_source_statement_locator(observation.task_id,statement->>'anchor'))),'UTF8')),'hex');
+    ELSE
+     SELECT key INTO STRICT source_rendition_key FROM kb.rendition WHERE id=observation.rendition_id;
+     expected_statement:='entity:'||encode(sha256(convert_to(data.canonical_json(
+      jsonb_build_array(r,z,'source-statement',source_rendition_key,ops.source_statement_locator(observation.task_id,statement->>'anchor'))),'UTF8')),'hex');
+    END IF;
     END IF;
    END IF;
    IF (context.statement_entity_id,context.statement_role) IS DISTINCT FROM

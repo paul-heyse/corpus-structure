@@ -76,6 +76,8 @@ def extract_run(
             "queue_status",
             "queue_next",
             "read_unit",
+            "inspect_source",
+            "render_source_region",
             "read_instructions",
             "propose_claims",
             "release",
@@ -90,7 +92,11 @@ def extract_run(
         "Correct held "
         "submissions from their feedback. "
         "Preserve negative statements, missingness, qualifications, "
-        "exact values and cited sentence anchors. Do not invent facts or read reference answers. "
+        "exact values and cited sentence anchors. For native PDF units, retain supplied section, "
+        "item, table/cell, formula and region identities. Inspect pinned native_source evidence when needed "
+        "and optionally render_source_region for a cited figure or formula; "
+        "recognition health and inferred domain labels are observations, not established mathematical facts. "
+        "Do not invent facts or read reference answers. "
         "Continue until queue_next returns no tasks; report any refusal honestly."
     )
     with tempfile.TemporaryDirectory(prefix="corpus-semantic-agent-") as directory:

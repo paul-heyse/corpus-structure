@@ -36,3 +36,12 @@ why (with a path such as `claims[3].qualifiers…`), quotes that could not be lo
 warnings. A first submission with any of these stays open: fix the batch and submit once more, or,
 when a warning does not apply, resubmit with a `rationale` saying why. The second submission
 completes the task whatever it contains.
+
+## Native PDF source packets
+
+A native packet carries `native_source` with its immutable product/projection pins, section
+ancestry, items, table cells, formulas, captions and recognition health. These are structured
+source observations. Inferred block labels and recognized LaTeX do not establish mathematical
+truth. Use the supplied qualified anchors; do not manufacture HTML locators or convert formula
+boxes into character positions. Read all transport pages of the intact section. Pinned source
+inspection and optional region rendering can clarify evidence without changing its identity.

@@ -11,11 +11,18 @@ from corpus_structure.core.locators import LocatorIndex, parse
 
 from .metadata import table
 from .operations import OperationConflict
-from .proposals import ProposalFrame, ProposalPacket, ProposalSentence
+from .proposals import NativeProposalFrame, ProposalFrame, ProposalPacket, ProposalSentence
 
 
 def capture_source_frame(conn: Connection, task_id: int, packet: ProposalPacket) -> None:
     """Capture exact packet coordinates through the protected native append-only routine."""
+    if isinstance(packet.frame, NativeProposalFrame):
+        from dataclasses import asdict
+        from .source_views import store_native_source_frame
+
+        store_native_source_frame(conn, task_id=task_id, packet_hash=packet.hash,
+                                  frame=asdict(packet.frame))
+        return
     tasks, renditions, segments, selected = map(
         table, ("ops.task", "kb.rendition", "kb.segment", "ops.run_rendition")
     )
@@ -103,12 +110,39 @@ def capture_source_frame(conn: Connection, task_id: int, packet: ProposalPacket)
     )
 
 
-def load_source_frames(conn: Connection, task_ids) -> dict[int, ProposalFrame]:
+def load_source_frames(conn: Connection, task_ids) -> dict[int, ProposalFrame | NativeProposalFrame]:
     """Acquire distinct immutable origins in bounded sets, independent of observations."""
+    tasks = table("ops.task")
+    wanted = sorted(set(task_ids))
+    native_ids = set(conn.execute(select(tasks.c.id).where(
+        tasks.c.id.in_(wanted), tasks.c.unit_type == "source_view")).scalars())
+    native_frames: dict[int, ProposalFrame | NativeProposalFrame] = {}
+    if native_ids:
+        from .identity import canonical_bytes
+        from .parsing_products import ProductReference
+        from .source_views import load_source_view
+
+        native_headers = table("ops.native_source_frame")
+        native_sentences = table("ops.native_source_frame_sentence")
+        for row in conn.execute(select(native_headers).where(
+            native_headers.c.task_id.in_(native_ids))).mappings():
+            view = load_source_view(conn, row["source_view_id"])
+            coordinates = tuple(ProposalSentence(item["sentence_id"], item["locator"],
+                                                item["start_offset"], item["end_offset"])
+                for item in conn.execute(select(native_sentences).where(
+                    native_sentences.c.task_id == row["task_id"]).order_by(
+                    native_sentences.c.start_offset, native_sentences.c.sentence_id)).mappings())
+            native_frames[row["task_id"]] = NativeProposalFrame(
+                row["unit_ref"], view.text, coordinates, row["source_view_id"],
+                ProductReference(row["product_task_id"], row["product_key"], row["product_digest"]),
+                view.ref.section_pointer, view.ref.membership, row["projection_digest"],
+                row["recipe_digest"], canonical_bytes(row["context_json"]).decode())
+        if native_ids - native_frames.keys():
+            raise OperationConflict("native source tasks lack their immutable packet frame")
     frames, sentences, segments, renditions = map(
         table, ("ops.source_frame", "ops.source_frame_sentence", "kb.segment", "kb.rendition")
     )
-    ids = sorted(set(task_ids))
+    ids = [id for id in wanted if id not in native_ids]
     headers = {}
     coordinates = {}
     for start in range(0, len(ids), 512):
@@ -146,15 +180,15 @@ def load_source_frames(conn: Connection, task_ids) -> dict[int, ProposalFrame]:
                 )
             ).all()
         )
-    return {
+    return {**native_frames, **{
         task_id: ProposalFrame(
             row["unit_ref"], texts[row["rendition_id"]], tuple(coordinates.get(task_id, ()))
         )
         for task_id, row in headers.items()
-    }
+    }}
 
 
-def load_source_frame(conn: Connection, task_id: int) -> ProposalFrame:
+def load_source_frame(conn: Connection, task_id: int) -> ProposalFrame | NativeProposalFrame:
     return load_source_frames(conn, [task_id])[task_id]
 
 

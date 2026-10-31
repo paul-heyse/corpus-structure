@@ -83,6 +83,7 @@ def create_command(
     size: int | None = None,
     seed: int | None = None,
     from_run: int | None = None,
+    force_unit: Annotated[list[str] | None,typer.Option("--force-unit")] = None,
     project: str | None = None,
     json: JsonOpt = False,
 ):
@@ -101,7 +102,8 @@ def create_command(
         if run is None:
             raise references.ReferenceError("choose --from-run or select a completed result")
         result = references.create_reference_set(
-            conn, project_id=pid, source_run_id=run, label=label, split=split, size=size, seed=seed
+            conn, project_id=pid, source_run_id=run, label=label, split=split, size=size, seed=seed,
+            forced=tuple(force_unit or ()),
         )
     output(result, json)
 
@@ -149,17 +151,23 @@ def submit_command(
 ):
     """Store an automated independent pass and its exact source citation frame."""
     from corpus_structure.evaluate import semantic as references
-    from corpus_structure.semantic.proposals import ProposalFrame, ProposalSentence
+    from corpus_structure.semantic.proposals import NativeProposalFrame, ProposalFrame, ProposalSentence
+    from corpus_structure.semantic.parsing_products import ProductReference
 
     with reference_session(ctx, project, json=json) as (conn, pid):
         if references._unit(conn, unit)["project_id"] != pid:
             raise references.ReferenceError("reference unit belongs to another project")
         try:
             raw = jsonlib.loads(frame.read_bytes())
-            source = ProposalFrame(
-                raw["unit_ref"], raw["text"], tuple(ProposalSentence(**s) for s in raw["sentences"])
-            )
-        except (jsonlib.JSONDecodeError, KeyError, TypeError) as error:
+            coordinates=tuple(ProposalSentence(**sentence) for sentence in raw["sentences"])
+            if "source_view_id" in raw:
+                native=dict(raw)
+                native["sentences"]=coordinates
+                native["native_product"]=ProductReference(**raw["native_product"])
+                source=NativeProposalFrame(**native)
+            else:
+                source = ProposalFrame(raw["unit_ref"],raw["text"],coordinates)
+        except (jsonlib.JSONDecodeError, KeyError, TypeError, ValueError) as error:
             raise references.ReferenceError("invalid authored citation frame") from error
         identity = references.record_pass(
             conn,

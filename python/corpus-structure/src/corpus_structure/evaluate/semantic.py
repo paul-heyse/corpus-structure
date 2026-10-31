@@ -19,7 +19,7 @@ from sqlalchemy import Connection, select, text
 
 from corpus_structure.semantic.contracts import require_bound_operation, require_database_operation
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.proposals import ProposalFrame, locate_proposal
+from corpus_structure.semantic.proposals import NativeProposalFrame, ProposalFrame, locate_proposal
 from corpus_structure.semantic.releases import open_release
 
 from .semantic_alignment import SemanticSide, TierCounts, align_semantic
@@ -50,9 +50,11 @@ class StoredReferencePass:
     content_digest: str
     frame_id: int
     frame: tuple[dict[str, Any], ...]
-    rendition_id: int
-    rendition_digest: str
+    rendition_id: int | None
+    rendition_digest: str | None
     batch: Mapping[str, Any]
+    source_view_id: int | None = None
+    projection_digest: str | None = None
 
 
 def _call(conn, sql, **params):
@@ -105,6 +107,9 @@ def _source_units(conn, run_id):
     """
     from corpus_structure.semantic.source_frames import packet_bound_source_tasks
 
+    native = _native_source_units(conn, run_id)
+    if native is not None:
+        return native
     completed, frames, renditions, documents, segments = map(
         table,
         ("ops.completed_result", "ops.source_frame", "kb.rendition", "kb.document", "kb.segment"),
@@ -157,6 +162,34 @@ def _source_units(conn, run_id):
         .mappings()
         .all()
     )
+
+
+def _native_source_units(conn, run_id):
+    from corpus_structure.semantic.source_frames import packet_bound_source_tasks
+    completed = table("ops.completed_result")
+    cut = conn.execute(select(completed.c.cut_id).where(completed.c.run_id == run_id)).scalar_one()
+    origins = packet_bound_source_tasks(run_id, cut_id=cut).subquery()
+    kinds = set(conn.execute(select(origins.c.unit_type).distinct()).scalars())
+    if "source_view" not in kinds:
+        return None
+    if kinds != {"source_view"}:
+        raise ReferenceError("reference creation requires one declared source-frame ABI")
+    from corpus_structure.semantic.source_frames import load_source_frames
+    from corpus_structure.semantic.source_views import load_source_view
+    frames = load_source_frames(conn, conn.execute(select(origins.c.id)).scalars())
+    result = {}
+    document = table("kb.document")
+    for frame in frames.values():
+        if not isinstance(frame, NativeProposalFrame):
+            raise ReferenceError("native source cut contains an incompatible source frame")
+        view = load_source_view(conn, frame.source_view_id)
+        source = conn.execute(select(document).where(
+            document.c.id == view.ref.document_id)).mappings().one()
+        result[view.ref.id] = dict(rendition_id=None, source_view_id=view.ref.id,
+            projection_digest=view.ref.projection_digest, unit_key=frame.unit_ref,
+            source_uri=source["source_uri"], document_id=view.ref.document_id,
+            segment_key=None, segment_kind="section", segment_attrs={})
+    return list(result.values())
 
 
 def _reference_pool(conn: Connection, completed, units):
@@ -343,12 +376,18 @@ def create_reference_set(
     # A forced slice constrains the immutable run's sample. It cannot enlarge that run's
     # completed source cut. Preserve excluded locators explicitly instead of silently dropping
     # policy constraints or substituting source tasks from another run.
-    policy_forced, outside_cut = _forced_slice_units(
-        conn,
-        release.release_id,
-        pool,
-        config.golden.forced_slices if split == "dev" else (),
-    )
+    native = bool(pool) and all(unit.get("source_view_id") is not None for unit in pool)
+    if native:
+        policy_forced,outside_cut=(),()
+        available={unit["unit_key"] for unit in pool}
+        missing=set(forced)-available
+        if missing:
+            raise ReferenceError("forced native reference units are outside completed source cut: "+str(sorted(missing)))
+    else:
+        policy_forced, outside_cut = _forced_slice_units(
+            conn,release.release_id,pool,
+            config.golden.forced_slices if split=="dev" else (),
+        )
     forced = tuple(sorted(set(forced) | set(policy_forced)))
     requested_size = config.golden.sizes[split] if size is None else size
     if requested_size <= 0:
@@ -359,6 +398,12 @@ def create_reference_set(
         config.split.seed if seed is None else seed,
         forced,
     )
+    if native:
+        sampled.sampling["source_frame_abi"]="native-source-view-1"
+        sampled.sampling["explicit_forced_units"]=list(forced)
+        sampled.sampling["historical_slice_constraints"]={
+            "slices":list(config.golden.forced_slices),
+            "disposition":"historical HTML locators do not identify native PDF source units"}
     if outside_cut:
         sampled.sampling["forced_outside_completed_cut"] = list(outside_cut)
     if guideline is None:
@@ -382,12 +427,11 @@ def create_reference_set(
     units = {}
     by_key = {u["unit_key"]: u for u in pool}
     for key in sampled.units:
-        units[key] = _call(
-            conn,
-            "SELECT eval.add_reference_unit(:s,:r,:k,'[]'::jsonb)",
-            s=identity,
-            r=by_key[key]["rendition_id"],
-            k=key,
+        native = by_key[key].get("source_view_id")
+        function = "add_native_reference_unit" if native is not None else "add_reference_unit"
+        units[key] = _call(conn,
+            f"SELECT eval.{function}(:s,:r,:k,'[]'::jsonb)",
+            s=identity, r=native if native is not None else by_key[key]["rendition_id"], k=key,
         ).scalar_one()
     return {
         "set_id": identity,
@@ -406,20 +450,26 @@ def record_pass(
     pass_kind: str,
     actor: str,
     authored: bytes,
-    frame: ProposalFrame,
+    frame: ProposalFrame | NativeProposalFrame,
 ) -> int:
     unit = _unit(conn, unit_id)
     if not isinstance(authored, bytes):
         raise TypeError("authored reference input must be the exact submitted bytes")
-    rendition = (
-        conn.execute(
-            select(table("kb.rendition")).where(table("kb.rendition").c.id == unit["rendition_id"])
-        )
-        .mappings()
-        .one()
-    )
-    if frame.unit_ref != unit["unit_key"] or frame.text != rendition["canonical_text"]:
-        raise ReferenceError("reference source frame differs from bound unit/rendition")
+    native = isinstance(frame, NativeProposalFrame)
+    if native:
+        from corpus_structure.semantic.source_views import load_source_view
+        view = load_source_view(conn, unit["source_view_id"])
+        if (frame.unit_ref != unit["unit_key"] or frame.source_view_id != view.ref.id
+                or frame.text != view.text or frame.projection_digest != view.ref.projection_digest
+                or frame.native_product != view.ref.native_product
+                or frame.recipe_digest != view.ref.recipe_digest or frame.membership != view.ref.membership
+                or frame.section_pointer != view.ref.section_pointer):
+            raise ReferenceError("reference frame differs from its bound native source view")
+    else:
+        rendition = conn.execute(select(table("kb.rendition")).where(
+            table("kb.rendition").c.id == unit["rendition_id"])).mappings().one()
+        if frame.unit_ref != unit["unit_key"] or frame.text != rendition["canonical_text"]:
+            raise ReferenceError("reference source frame differs from bound unit/rendition")
     release = open_release(conn, unit["release_id"])
     require_bound_operation(release, "reference_pass")
     raw = json.loads(authored)
@@ -451,7 +501,8 @@ def record_pass(
     return int(
         _call(
             conn,
-            "SELECT eval.record_reference_pass(:u,:k,:a,:b,CAST(:f AS jsonb))",
+            "SELECT eval." + ("record_native_reference_pass" if native else "record_reference_pass")
+            + "(:u,:k,:a,:b,CAST(:f AS jsonb))",
             u=unit_id,
             k=pass_kind,
             a=actor,
@@ -506,6 +557,7 @@ def read_pass(
         citation["rendition_id"],
         citation["rendition_digest"],
         validated,
+        citation.get("source_view_id"), citation.get("projection_digest"),
     )
 
 
@@ -541,6 +593,8 @@ def ensure_items(
 
 def relocate_frame(conn: Connection, pass_id: int, *, rendition_id: int) -> int:
     stored = read_pass(conn, pass_id)
+    if stored.source_view_id is not None:
+        raise ReferenceError("native PDF reference anchors cannot be silently relocated to a rendition")
     require_database_operation(conn, stored.release_id, "reference_frame")
     rendition = (
         conn.execute(
@@ -707,17 +761,20 @@ def _reference_side(conn, unit, stored, prepared):
 
 def _prediction(conn, completed, unit, prepared):
     """Admitted completed source occurrences, not raw task reports or selected-pointer guesses."""
+    source_predicate = ("o.source_view_id=:source_view" if unit.get("source_view_id") is not None
+                        else "o.rendition_id=:rendition")
     observations = (
         conn.execute(
             text("""SELECT DISTINCT o.id,o.payload,o.observation_key FROM kb.observation o
       JOIN data.occurrence x ON x.source=o.observation_key AND x.release_id=o.release_id
-      WHERE x.realization_id=:z AND x.release_id=:r AND o.rendition_id=:rendition
+      WHERE x.realization_id=:z AND x.release_id=:r AND """ + source_predicate + """
       AND o.payload_definition='AgentStoredBatch'
         AND o.payload->>'unit_ref'=:unit ORDER BY o.id"""),
             {
                 "z": completed["output_realization_id"],
                 "r": completed["release_id"],
                 "rendition": unit["rendition_id"],
+                "source_view": unit.get("source_view_id"),
                 "unit": unit["unit_key"],
             },
         )
@@ -881,7 +938,6 @@ def reference_evaluate(
     from corpus_structure.semantic.scientific_evidence import require_scientific_policy
 
     require_scientific_policy(prepared)
-    snapshot = _call(conn, "SELECT eval.reference_snapshot(:s)", s=set_id).scalar_one()
     units = (
         conn.execute(
             select(table("eval.reference_unit"))
@@ -891,26 +947,36 @@ def reference_evaluate(
         .mappings()
         .all()
     )
+    native = bool(units) and all(u.get("source_view_id") is not None for u in units)
+    snapshot = _call(conn, "SELECT eval." + ("native_reference_snapshot" if native else "reference_snapshot")
+                     + "(:s)", s=set_id).scalar_one()
     if not units or len(snapshot) != len(units):
         raise ReferenceError("every reference unit requires an adjudicated pass C")
     snaps = {s["unit_id"]: s for s in snapshot}
     reports = []
-    targets = {(u["rendition_id"], u["unit_key"]) for u in _source_units(conn, run_id)}
+    targets = {(u.get("source_view_id") if native else u["rendition_id"], u["unit_key"])
+               for u in _source_units(conn, run_id)}
     for unit in units:
         snap = snaps[unit["id"]]
         reference = ensure_items(conn, snap["pass_id"], frame_id=snap["frame_id"])
-        rendition = conn.scalar(
-            select(table("kb.rendition").c.content_digest).where(
-                table("kb.rendition").c.id == reference.rendition_id
-            )
-        )
-        if rendition != reference.rendition_digest:
-            raise ReferenceError("reference citation frame is stale")
-        if (reference.rendition_id, unit["unit_key"]) not in targets:
-            raise ReferenceError(
-                "reference citation frame is not present in the completed target source cut"
-            )
-        bound_unit = {**unit, "rendition_id": reference.rendition_id}
+        if native:
+            from corpus_structure.semantic.source_views import load_source_view
+            if reference.source_view_id is None:
+                raise ReferenceError("native reference frame has no source view")
+            view = load_source_view(conn, reference.source_view_id)
+            if view.ref.projection_digest != reference.projection_digest:
+                raise ReferenceError("native reference citation frame is stale")
+            identity = reference.source_view_id
+        else:
+            digest = conn.scalar(select(table("kb.rendition").c.content_digest).where(
+                table("kb.rendition").c.id == reference.rendition_id))
+            if digest != reference.rendition_digest:
+                raise ReferenceError("reference citation frame is stale")
+            identity = reference.rendition_id
+        if (identity, unit["unit_key"]) not in targets:
+            raise ReferenceError("reference frame is absent from completed target source cut")
+        bound_unit = {**unit, "rendition_id": reference.rendition_id,
+                      "source_view_id": reference.source_view_id}
         reports.append(
             align_semantic(
                 _reference_side(conn, unit, reference, prepared),
@@ -950,7 +1016,7 @@ def reference_evaluate(
     validate_reference_science(result)
     identity = _call(
         conn,
-        "SELECT eval.record_reference_evaluation(:p,:run,:s,"
+        "SELECT eval." + ("record_native_reference_evaluation" if native else "record_reference_evaluation") + "(:p,:run,:s,"
         "CAST(:snapshot AS jsonb),CAST(:result AS jsonb))",
         p=project_id,
         run=run_id,

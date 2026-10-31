@@ -34,3 +34,10 @@ If you believe you need something else, stop and say so in your report.
 
 Finish with a short report: the unit, the outcome of the submission, and the three guideline points
 you found least clear.
+
+## Native PDF references
+
+For a native source view, retain its qualified native product, projection and sentence anchors
+in the submitted frame. Judge independently from the supplied source; recognition health and
+inferred structure are evidence to assess, not accepted answers. A PDF view is a different
+source from a historical HTML rendition, and historical anchors must not be silently relocated.
