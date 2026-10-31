@@ -532,7 +532,7 @@ def _enrichment_view_drafts(
     analysis_specs = {
         (view.section_pointer, view.membership) for view in views if view.analysis_eligible
     }
-    existing = {view.key for view in views}
+    existing = {view.key: view for view in views}
     drafts = tuple(
         draft
         for section, membership in specs
@@ -553,7 +553,30 @@ def _enrichment_view_drafts(
     )
     # The Ingest projection can already be the exact desired current-consumer view.
     # Retain it without an invalid self-supersession or a fictional new producer.
-    return tuple(draft for draft in drafts if not retain_existing or draft.key not in existing)
+    if not retain_existing:
+        return drafts
+    from .pdf_enrichment import RecognitionUnavailable
+
+    missing = []
+    for draft in drafts:
+        previous = existing.get(draft.key)
+        if previous is None:
+            missing.append(draft)
+            continue
+        if any(
+            getattr(draft, name) != getattr(previous, name)
+            for name in (
+                "document_id",
+                "native_product",
+                "section_pointer",
+                "membership",
+                "recipe_digest",
+                "projection_digest",
+                "analysis_eligible",
+            )
+        ):
+            raise RecognitionUnavailable("same native view key has inconsistent projection custody")
+    return tuple(missing)
 
 
 def _retained_enrichment_coverage(values, specs):

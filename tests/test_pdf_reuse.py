@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 import logging
 from pathlib import Path
 from types import SimpleNamespace
@@ -58,7 +59,15 @@ def test_projection_role_is_in_identity_before_construction():
 
 @pytest.mark.parametrize(
     "case",
-    ["exact", "partial", "missing-ancestor", "missing-universe", "wrong-policy", "wrong-recipe"],
+    [
+        "exact",
+        "partial",
+        "missing-ancestor",
+        "missing-universe",
+        "wrong-policy",
+        "wrong-recipe",
+        "same-key-mismatch",
+    ],
 )
 def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(monkeypatch, case):
     document = DoclingDocument(name="retained enrichment input")
@@ -117,6 +126,8 @@ def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(mo
         existing.projection_digest,
         existing.recipe_digest,
     )
+    if case == "same-key-mismatch":
+        view = replace(view, projection_digest="c" * 64)
     values = {
         "document": json.loads(organized.document.payload),
         "artifact_digest": "b" * 64,
@@ -167,6 +178,12 @@ def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(mo
     )
     unit = UnitView(UnitRef(TaskUnitType.DOCUMENT, 1, "document"), run)
     (result,) = method.run((unit,), PdfEnrichConfig(), ctx)
+    if case == "same-key-mismatch":
+        assert calls == []
+        assert result.outcome is ObservationOutcome.FAILED
+        assert result.error is not None and "custody" in result.error
+        assert result.native_products == () and result.source_views == ()
+        return
     if case not in {"exact", "partial"}:
         assert calls == ["runtime"]
         assert result.outcome is ObservationOutcome.FAILED
