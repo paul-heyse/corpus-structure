@@ -180,6 +180,15 @@ def _before_descendant(parent: Any, child: Any, pointer: str) -> bool | None:
     return order.index(source) < order.index(target)
 
 
+def recognition_context_issues(view: Any) -> tuple[str, ...]:
+    """Unseen recognition members may contain declarations; usable items remain usable."""
+    return tuple(
+        f"native {universe} recognition context {outcome}: {view.ref.key}"
+        for universe in ("display", "inline", "cell")
+        if (outcome := view.health.get(universe + "_coverage", "unknown")) != "complete"
+    )
+
+
 def ancestor_views(reader: Any, view: Any):
     required = {
         item["self_ref"] for item in view.ancestors if item.get("label") in {"section", "chapter"}
@@ -196,8 +205,9 @@ def ancestor_views(reader: Any, view: Any):
     )
     parents = tuple(reader.source_view(ref.id) for ref in refs)
     missing = required - {parent.ref.section_pointer for parent in parents}
-    return parents, tuple(
-        "ancestor source context unavailable: " + pointer for pointer in sorted(missing)
+    return parents, (
+        *("ancestor source context unavailable: " + pointer for pointer in sorted(missing)),
+        *(issue for parent in parents for issue in recognition_context_issues(parent)),
     )
 
 
@@ -328,6 +338,7 @@ def readings(
     inherited, context_issues = native_ancestor_declarations(
         reader, view, section.native_domain_rules, seconds
     )
+    context_issues = tuple(dict.fromkeys((*recognition_context_issues(view), *context_issues)))
     definitions: list[dict[str, Any]] = list(inherited)
     out: list[NativeReading] = []
     blocks = domain_blocks(view, section.native_domain_rules)
@@ -798,6 +809,9 @@ def native_request_analysis(
     if pointer is not None and pointer not in {item["self_ref"] for item in formulas}:
         raise ValueError("formula selector is outside the pinned source view")
     health = {o["pointer"]: o["outcome"] for o in view.health.get("formula_outcomes", ())}
+    context_issues = tuple(
+        dict.fromkeys((*recognition_context_issues(view), *ancestor_context_issues))
+    )
 
     definitions = list(ancestor_declarations)
     results = []
@@ -898,8 +912,8 @@ def native_request_analysis(
             source_id=context.source_id,
             scope=context.scope,
             declarations=[dataclasses.asdict(d) for d in context.declarations],
-            coverage="complete" if domain_rules and not ancestor_context_issues else "unknown",
-            issues=ancestor_context_issues,
+            coverage="complete" if domain_rules and not context_issues else "unknown",
+            issues=context_issues,
         )
         if demand == "lexical":
             value["lexical"] = [
@@ -1133,7 +1147,7 @@ def native_context_result(unit: Any, view: Any, cfg: Any, reader: Any) -> UnitRe
     )[0]
     health = {o["pointer"]: o["outcome"] for o in view.health.get("formula_outcomes", ())}
     declarations = []
-    issues = []
+    issues = list(recognition_context_issues(view))
     blocks = domain_blocks(view, section.native_domain_rules)
     for ordinal, item in enumerate(view.items):
         if item.get("label") != "formula":

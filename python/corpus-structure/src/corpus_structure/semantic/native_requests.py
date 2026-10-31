@@ -258,7 +258,7 @@ def request_source_view(
     digest = sha256(canonical_bytes(params)).hexdigest()
     method = OperationDescriptor(
         "native.source_request",
-        "2",
+        "3",
         "normalize",
         "deterministic",
         TaskUnitType.SOURCE_VIEW,

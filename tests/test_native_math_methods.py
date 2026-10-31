@@ -67,6 +67,7 @@ def view():
         ],
         "inline_coverage": "complete",
         "cell_coverage": "complete",
+        "display_coverage": "complete",
     }
     return PreparedSourceView(ref, text, pieces, items, (), health)
 
@@ -322,7 +323,10 @@ def test_ancestor_function_roles_require_forward_native_tree_order():
                 {"pointer": i["self_ref"], "outcome": "succeeded"}
                 for i in items
                 if i.get("label") == "formula"
-            ]
+            ],
+            "display_coverage": "complete",
+            "inline_coverage": "complete",
+            "cell_coverage": "complete",
         }
         return PreparedSourceView(ref, "".join(texts), tuple(pieces), items, ancestors, health)
 
@@ -665,7 +669,11 @@ def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(mon
             },
         ),
         (),
-        {},
+        {
+            "display_coverage": "complete",
+            "inline_coverage": "complete",
+            "cell_coverage": "complete",
+        },
     )
     child_group = {
         "self_ref": "#/groups/0",
@@ -910,3 +918,114 @@ def test_native_frame_refuses_unresolved_sentence_configuration():
 
     with pytest.raises(ValueError, match="resolved admitted sentence configuration"):
         native_proposal_packet(Reader(), 7, None, {"sentences": "segment.sentences/default"})
+
+
+def test_partial_recognition_preserves_usable_consumers_without_complete_context(monkeypatch):
+    import json
+    from dataclasses import replace
+
+    from corpus_structure.core.vocab import ObservationOutcome
+    from corpus_structure.methods.math import native
+    from corpus_structure.methods.math.methods import MathSection
+    from corpus_structure.semantic import proposals
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    rule = NativeDomainRule(
+        rule_id="proof-heading-1",
+        pattern=r"^Proof\.",
+        statement_kind="proof",
+        scope_role="proof",
+    )
+    section = MathSection(native_domain_rules=(rule,))
+    configuration = SymbolScopeConfig(
+        math=section, binders=Binders(sentence_initial=("let",)), sentences=SentenceConfig()
+    )
+    for recognition in ("partial", "unknown"):
+        reader = Reader()
+        reader.view.health["inline_coverage"] = recognition
+        unit = UnitView(
+            UnitRef(TaskUnitType.SOURCE_VIEW, 7, reader.view.ref.key),
+            run_for(reader),
+            source_view_id=7,
+        )
+        ctx = context_for(reader)
+        weak = ExtractMath().run([unit], ExtractMathConfig(math=section), ctx)[0]
+        assert weak.outcome is ObservationOutcome.PRODUCED
+        assert len([o for o in weak.observations if o.kind is ObservationKind.MENTION]) == 3
+        assert weak.coverage[0].outcome == "partial"
+        reader.store("extract.math", weak)
+        normalized = NormalizeFormula().run([unit], NormalizeFormulaConfig(math=section), ctx)[0]
+        assert normalized.outcome is ObservationOutcome.PRODUCED
+        assert len([o for o in normalized.observations if o.kind is ObservationKind.VALUE]) == 2
+        assert normalized.coverage[0].outcome == "partial"
+        reader.store("normalize.formula", normalized)
+        monkeypatch.setattr(
+            reader,
+            "source_view_coverage",
+            lambda source_view_id, method, weak=weak: (
+                SourceCoverageReading(weak.coverage[0], 42, "fixture", 0),
+            ),
+        )
+        scoped = SymbolScope().run([unit], configuration, ctx)[0]
+        assert scoped.outcome is ObservationOutcome.PRODUCED
+        assert scoped.coverage[0].outcome == "partial"
+        assert any(o.kind is ObservationKind.SCOPE for o in scoped.observations)
+
+        context_only = native.native_context_result(unit, reader.view, configuration, reader)
+        assert context_only.coverage[0].outcome == "partial"
+        context = context_only.observations[0].payload
+        assert context.declarations
+        assert any(
+            f"inline recognition context {recognition}" in issue for issue in context.issues
+        )
+
+        requested = native.native_request_analysis(
+            reader.view,
+            reader.prepared,
+            "interpretation",
+            pointer="#/texts/3",
+            domain_rules=(rule,),
+        )
+        item = requested.items[0]
+        assert item["availability"] == "available" and item["outcome"] == "ok"
+        assert item["context"]["coverage"] == "unknown"
+        assert any(
+            f"inline recognition context {recognition}" in issue
+            for issue in item["context"]["issues"]
+        )
+        assert item["stages"]["symbolic"]["work"] == "not_requested"
+
+        # Keep real packet source preparation; the unrelated schema boundary is controlled here.
+        monkeypatch.setattr(reader, "guideline", lambda: "Source-only packet control")
+
+        def packet_boundary(prepared, frame, **values):
+            return proposals.ProposalPacket(
+                prepared.release_id,
+                frame,
+                b"{}",
+                values["guideline"],
+                canonical_bytes(values["configuration"]),
+                native_observations=values["native_observations"],
+            )
+
+        monkeypatch.setattr(proposals, "proposal_packet", packet_boundary)
+        packet = native.native_proposal_packet(
+            reader, 7, reader.prepared, {"sentences": SentenceConfig().model_dump(mode="json")}
+        )
+        frame = packet.frame
+        assert isinstance(frame, proposals.NativeProposalFrame)
+        assert frame.text == reader.view.text
+        assert json.loads(frame.native_context)["health"]["inline_coverage"] == recognition
+        assert len(packet.hash) == 64
+
+        parent = replace(
+            reader.view,
+            ref=replace(reader.view.ref, id=6, key="parent", section_pointer="#/groups/parent"),
+        )
+        child = replace(
+            reader.view, ancestors=({"self_ref": "#/groups/parent", "label": "section"},)
+        )
+        reader.views = {6: parent, 7: child}
+        parents, issues = native.ancestor_views(reader, child)
+        assert parents == (parent,)
+        assert any(f"inline recognition context {recognition}" in issue for issue in issues)
