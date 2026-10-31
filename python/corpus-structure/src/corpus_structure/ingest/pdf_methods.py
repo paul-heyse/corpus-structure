@@ -107,8 +107,10 @@ class IngestPdf:
     def input_digest(self, unit: UnitView, cfg: PdfIngestConfig) -> Digest:
         if unit.ref.unit_key is None:
             raise ValueError("native PDF unit requires its retained document key")
-        return Digest(canonical_bytes({"document": unit.ref.unit_key,
-                                      "recipe": sha256(self.original_recipe(cfg)).hexdigest()}))
+        value:dict[str,Any]={"document":unit.ref.unit_key,"recipe":sha256(self.original_recipe(cfg)).hexdigest()}
+        if cfg.membership=='descendants' and not cfg.sections:
+            value['projection_scope']=unit.run.options.get('scope')
+        return Digest(canonical_bytes(value))
 
     def run(self, units: Sequence[UnitView], cfg: PdfIngestConfig,
             ctx: MethodContext) -> Sequence[UnitResult]:
@@ -145,7 +147,7 @@ class IngestPdf:
                         native=organization.document
                         values=payload
                         nodes=native_nodes(load_snapshot(native))
-                    sections=_select_sections(nodes,cfg)
+                    sections=_select_sections(nodes,cfg,scope=ctx.run.options.get('scope'))
                     drafts=_drafts(unit.ref.unit_id,selected_product,native,values['health'],
                                    sections,cfg.membership,consumer_release,recognition_coverage=values.get('recognition_coverage',()))
                     outputs.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.EMPTY,
@@ -170,7 +172,7 @@ class IngestPdf:
                 organized_ref=ctx.reader.native_product_reference(unit.ref.unit_id,"organized",organized.digest)
                 doc=load_snapshot(organization.document)
                 drafts=_drafts(unit.ref.unit_id,organized_ref,organization.document,
-                    organized_payload['health'],_select_sections(native_nodes(doc),cfg),
+                    organized_payload['health'],_select_sections(native_nodes(doc),cfg,scope=ctx.run.options.get('scope')),
                     cfg.membership,consumer_release)
                 outputs.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.EMPTY,
                     native_products=(raw,organized),source_views=drafts))
@@ -193,13 +195,20 @@ def _snapshot_from_values(values: Mapping[str,Any]) -> NativeSnapshot:
     return NativeSnapshot(payload,sha256(payload).hexdigest(),values['native_schema_version'])
 
 
-def _select_sections(nodes: Mapping[str,Any],cfg:PdfIngestConfig) -> tuple[str,...]:
+def _select_sections(nodes: Mapping[str,Any],cfg:PdfIngestConfig,*,scope:Any=None) -> tuple[str,...]:
     sections=[p for p,n in nodes.items() if str(n.label) in {'section','chapter'}]
     if not sections:
         raise ValueError('native product has no qualified organizational sections; organize it before adoption')
     matched=[p for p in sections if not cfg.sections or p in cfg.sections or nodes[p].name in cfg.sections]
     if cfg.sections and len(matched)!=len(set(cfg.sections)):
         raise ValueError('requested intact section selection is missing or ambiguous')
+    if cfg.membership=='descendants' and not cfg.sections and isinstance(scope,dict) and scope.get('kind')=='native_sections':
+        from corpus_structure.semantic.source_views import normalized_native_section_title
+        wanted={normalized_native_section_title(title) for title in scope['sections']}
+        matched=[p for p in sections if normalized_native_section_title(nodes[p].name) in wanted]
+        missing=wanted-{normalized_native_section_title(nodes[p].name) for p in matched}
+        if missing:
+            raise ValueError('requested native scope sections are unavailable: '+', '.join(sorted(missing)))
     matched_set=set(matched)
     def ancestry(pointer):
         node=nodes[pointer]
@@ -317,6 +326,7 @@ class EnrichPdfMath:
         from .pdf_hierarchy import snapshot
         outputs=[]
         release=_consumer_release(ctx)
+        _require_enrichment_operation(ctx,release)
         for unit in units:
             try:
                 views=[v for v in ctx.reader.source_views() if v.document_id==unit.ref.unit_id]
@@ -358,7 +368,9 @@ class EnrichPdfMath:
                     and not nodes[pointer].children and nodes[pointer].text.strip()
                     for prov in getattr(nodes[pointer],'prov',())}
                 if any(p not in pages or not pages[p].has_words for p in required_pages):
-                    raise RecognitionUnavailable('selected native pages lack attributable candidate discovery')
+                    raise RecognitionUnavailable('selected native pages lack attributable word candidate discovery')
+                if any(not pages[p].has_vectors for p in required_pages):
+                    raise RecognitionUnavailable('selected native pages lack attributable vector discovery for native-font-token-vector-v2')
                 cells=table_candidates(document,frozenset(selected))
                 demanded,reports=classify_cells(document,cells,conversion.inline_candidates,
                     math_pattern=cfg.cell_math_pattern,prose_pattern=cfg.cell_prose_pattern)
@@ -429,3 +441,9 @@ class EnrichPdfMath:
                 ctx.logger.warning('enrich.pdf_math %s: %s',unit.ref.unit_id,error)
                 outputs.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.FAILED,error=f'{type(error).__name__}: {error}'))
         return outputs
+
+
+def _require_enrichment_operation(ctx:MethodContext,release:str)->None:
+    from corpus_structure.semantic.contracts import require_database_operation
+    with ctx.reader.connection() as conn:
+        require_database_operation(conn,release,'enrich_pdf_math')

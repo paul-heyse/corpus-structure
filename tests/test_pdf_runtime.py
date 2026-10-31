@@ -206,8 +206,8 @@ def test_cell_inventory_does_not_turn_plain_headers_into_formula_items():
     assert not any(str(item.label)=='formula' for item in document.texts)
 
 
-@pytest.mark.parametrize('with_ancestor',[False,True])
-def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(monkeypatch,with_ancestor):
+@pytest.mark.parametrize('with_ancestor,missing_vectors',[(False,False),(True,False),(False,True)])
+def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(monkeypatch,with_ancestor,missing_vectors):
     """Pure orchestration control; this does not qualify a model or database publication."""
     import json
     from PIL import Image
@@ -238,7 +238,7 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(mo
     membership='descendants' if with_ancestor else 'direct'
     candidate=InlineCandidate(1,'x',25,10,35,30,'TOPLEFT','CMMI10','native-math-font-v1')
     conversion=PdfConversion('a'*64,b'{}',organization.document,'success',(),(),(),None,
-        inline_candidates=(CandidatePage(1,True,False,(candidate,)),))
+        inline_candidates=(CandidatePage(1,True,False,(candidate,),not missing_vectors),))
     payload=publication_payload(conversion,product_key='organized',schema_digest='b'*64,
         section_refs=frozenset([section]))
     pin=ProductReference(1,'organized','c'*64)
@@ -278,6 +278,8 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(mo
     producer._workers[recipe.digest]=converter
     monkeypatch.setattr(producer,'_runtime',lambda cfg:(recipe,None))
     monkeypatch.setattr('corpus_structure.ingest.pdf_methods._consumer_release',lambda ctx:'release1')
+    guarded=[]
+    monkeypatch.setattr('corpus_structure.ingest.pdf_methods._require_enrichment_operation',lambda ctx,release:guarded.append(release))
     class Renderer:
         def __init__(self,*args,**kwargs):
             pass
@@ -297,7 +299,15 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(mo
     ctx=MethodContext(run,reader_port,MethodSettings(data_dir=Path('.'),model_cache=Path('.')),logging.getLogger(__name__))
     unit=UnitView(UnitRef(TaskUnitType.DOCUMENT,1,'actual-original-key'),run)
     result,=EnrichPdfMath(producer).run((unit,),cfg,ctx)
+    if missing_vectors:
+        assert result.outcome is ObservationOutcome.FAILED
+        assert result.error is not None
+        assert 'vector discovery' in result.error
+        assert not prepared
+        assert not result.source_views
+        return
     assert result.outcome is ObservationOutcome.EMPTY
+    assert guarded==['release1']
     assert reads==[pin]
     assert len(result.native_products)==len(prepared)==1
     assert result.source_views[0].replaces_source_view_id==10
@@ -342,3 +352,24 @@ def test_source_view_drafts_derive_local_display_and_refuse_outside_scoped_inlin
     assert (a.health['cell_coverage'],b.health['cell_coverage'])==('complete','unknown')
     assert a.health['formula_outcomes']==[{'pointer':first.self_ref,'outcome':'succeeded'}]
     assert b.health['formula_outcomes']==[{'pointer':second.self_ref,'outcome':'failed'}]
+
+
+def test_descendant_projection_selects_scoped_nested_roots_before_reader_filtering():
+    from docling_core.types.doc import DoclingDocument,DocItemLabel
+    from corpus_structure.ingest.pdf_hierarchy import snapshot,organize,load_snapshot,native_nodes
+    from corpus_structure.ingest.pdf_methods import _select_sections,PdfEnrichConfig
+    document=DoclingDocument(name='independent scoped descendant selection')
+    for title,level in [('1: Probability',1),('1.1: Sets',2),('Operations',3),('1.2: Functions',2)]:
+        document.add_heading(text=title,level=level)
+        document.add_text(label=DocItemLabel.TEXT,text=title+' content')
+    organized=organize(snapshot(document),PdfIngestConfig().section_policy())
+    nodes=native_nodes(load_snapshot(organized.document))
+    cfg=PdfIngestConfig(membership='descendants')
+    parent,sets,operations,functions=(s.group_ref for s in organized.sections)
+    scope={'kind':'native_sections','sections':['1.1: Sets'],'include_descendants':True}
+    assert _select_sections(nodes,cfg,scope=scope)==(sets,)
+    scope['sections']=['Sets','Operations']
+    assert _select_sections(nodes,cfg,scope=scope)==(sets,)
+    assert _select_sections(nodes,cfg)==(parent,)
+    assert not isinstance(PdfEnrichConfig(),PdfIngestConfig)
+    assert 'originals' not in PdfEnrichConfig.model_fields
