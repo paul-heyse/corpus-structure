@@ -9,3 +9,6 @@ docs/design_review/evidence/**/*.parquet filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/**/*.whl filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/**/raw/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-10-30_data-capture/run.log filter=lfs diff=lfs merge=lfs -text
+
+docs/design_review/evidence/2026-10-31_pdf-child-ocr/inputs/**/*.png filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-10-31_pdf-child-ocr/inputs/*.png filter=lfs diff=lfs merge=lfs -text

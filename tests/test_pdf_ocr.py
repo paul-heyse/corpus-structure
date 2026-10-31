@@ -16,8 +16,13 @@ from corpus_structure.ingest.pdf_candidates import CandidatePage, capture_candid
 from corpus_structure.ingest.pdf_ocr import observed_rapid_ocr_type
 
 
-@pytest.mark.parametrize("word_text,expected", [("x", "complete"), ("unmatched", "partial")])
-def test_observed_words_preserve_native_line_and_qualified_crop_transform(word_text, expected):
+@pytest.mark.parametrize(
+    "word_text,word_left,expected",
+    [("x", 3, "complete"), ("unmatched", 3, "partial"), ("x", -3, "partial")],
+)
+def test_observed_words_preserve_native_line_and_qualified_crop_transform(
+    word_text, word_left, expected
+):
     stage_type = observed_rapid_ocr_type({})
     stage: Any = object.__new__(stage_type)
     stage.options = SimpleNamespace(use_det=True, use_cls=True, use_rec=True)
@@ -30,7 +35,9 @@ def test_observed_words_preserve_native_line_and_qualified_crop_transform(word_t
         scores=(0.9,),
     )
     # Actual provider's nested line->word shape differs from its shipped annotation.
-    result.__dict__["word_results"] = (((word_text, 0.8, [[3, 6], [33, 6], [33, 21], [3, 21]]),),)
+    result.__dict__["word_results"] = (
+        ((word_text, 0.8, [[word_left, 6], [33, 6], [33, 21], [word_left, 21]]),),
+    )
     calls = []
 
     def reader(image, **kwargs):

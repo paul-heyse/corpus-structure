@@ -1,0 +1,41 @@
+{
+  "outcome": "prepared_cpu_only",
+  "expected_lines": [
+    "Controlled raster input 314159.",
+    "A second independent line."
+  ],
+  "font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  "font_sha256": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280",
+  "sources": [
+    {
+      "name": "raster-only",
+      "sha256": "c17edc17ab9ae21bb917e58de2946445c9ed0eb995e8a7f42da954cdb98399c2",
+      "pdfium_text": "",
+      "native_text": "",
+      "visible_native_text": "",
+      "has_words": false,
+      "broken_visible_layer": false,
+      "render_pixel_digest": "2482529432113593dab1209637350338ebd65964544cc16f5d1e75be77493423"
+    },
+    {
+      "name": "broken-visible",
+      "sha256": "dcdfa932a339be8f49c2dcad57d061cdd379f4d6ccf22c919426e4ca21960974",
+      "pdfium_text": "\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff",
+      "native_text": "\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff",
+      "visible_native_text": "\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff",
+      "has_words": true,
+      "broken_visible_layer": false,
+      "render_pixel_digest": "2482529432113593dab1209637350338ebd65964544cc16f5d1e75be77493423"
+    },
+    {
+      "name": "broken-invisible",
+      "sha256": "1a8d788cb05a2992fa77901301af2f1d39b4c9ffa4d8df05f77ccab682682bed",
+      "pdfium_text": "\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff",
+      "native_text": "\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff\u00ff",
+      "visible_native_text": "",
+      "has_words": true,
+      "broken_visible_layer": false,
+      "render_pixel_digest": "2482529432113593dab1209637350338ebd65964544cc16f5d1e75be77493423"
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import isfinite
 from typing import Any
 
 
@@ -80,7 +81,7 @@ def observed_rapid_ocr_type(observations: dict[int, dict[str, Any]]) -> type:
                     region["outcome"] = "partial"
                 for word_index, (word, confidence, polygon) in enumerate(words):
                     start = text.find(word, cursor)
-                    if not word or start < 0 or polygon is None:
+                    if not word or start < 0 or polygon is None or len(polygon) != 4:
                         region["outcome"] = "partial"
                         continue
                     cursor = start + len(word)
@@ -92,6 +93,16 @@ def observed_rapid_ocr_type(observations: dict[int, dict[str, Any]]) -> type:
                         b=float(points[:, 1].max()),
                         coord_origin=CoordOrigin.TOPLEFT,
                     )
+                    if (
+                        not all(
+                            isfinite(value) for value in (box.l, box.t, box.r, box.b, confidence)
+                        )
+                        or not 0 <= confidence <= 1
+                        or not 0 <= box.l < box.r <= image.width
+                        or not 0 <= box.t < box.b <= image.height
+                    ):
+                        region["outcome"] = "partial"
+                        continue
                     mapped = ocr_box_to_bounding_rectangle(
                         box,
                         original_offset=rect,
