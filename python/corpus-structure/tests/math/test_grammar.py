@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections import OrderedDict
 from collections.abc import Mapping
 
 import pytest
@@ -445,6 +446,8 @@ def test_the_deadline_bounds_the_whole_read_including_the_resolver(monkeypatch) 
         macros=PAGE, kind="any_value", source_id="deadline-leaf-control"
     ).grammar_context
     assert G.syntax(latex, "any_value", PAGE).tree is not None
+    memo: OrderedDict[tuple[str, str, str, str], G.MathResult] = OrderedDict()
+    monkeypatch.setattr(G, "_MEMO", memo)
     calls = []
 
     def slow_equivalence(self, candidates):
@@ -465,6 +468,7 @@ def test_the_deadline_bounds_the_whole_read_including_the_resolver(monkeypatch) 
         results.append(result)
     assert len(calls) == 2
     assert results[0] is not results[1]  # timeouts are never memoized
+    assert not memo
 
 
 def test_the_memo_shares_a_parse() -> None:
