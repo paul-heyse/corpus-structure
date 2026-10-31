@@ -204,3 +204,98 @@ def test_cell_inventory_does_not_turn_plain_headers_into_formula_items():
     assert [c.cell_index for c in demanded]==[1]
     assert table.data.table_cells[0].column_header is True
     assert not any(str(item.label)=='formula' for item in document.texts)
+
+
+def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(monkeypatch):
+    """Pure orchestration control; this does not qualify a model or database publication."""
+    import json
+    from PIL import Image
+    from docling_core.types.doc import BoundingBox,DoclingDocument,DocItemLabel,PageItem,ProvenanceItem,Size
+    from corpus_structure.core.method import SourceViewRef,UnitRef,UnitView
+    from corpus_structure.core.vocab import TaskUnitType,ObservationOutcome
+    from corpus_structure.ingest.pdf import PdfConversion,PdfConverter,publication_payload
+    from corpus_structure.ingest.pdf_health import ObservedFormulaStage
+    from corpus_structure.ingest.pdf_hierarchy import organize,snapshot
+    from corpus_structure.ingest.pdf_methods import EnrichPdfMath,IngestPdf,PdfEnrichConfig
+    from corpus_structure.ingest.pdf_candidates import CandidatePage,InlineCandidate
+    from corpus_structure.semantic.parsing_products import ProductReference
+    document=DoclingDocument(name='independent document-operation fixture')
+    document.pages[1]=PageItem(page_no=1,size=Size(width=100,height=100))
+    document.add_heading(text='1.1: Sets',level=1)
+    paragraph=document.add_text(label=DocItemLabel.TEXT,text='Let x be real.',orig='Let x be real.',
+        prov=ProvenanceItem(page_no=1,bbox=BoundingBox(l=0,t=0,r=100,b=40),charspan=(0,14)))
+    organization=organize(snapshot(document),PdfIngestConfig().section_policy())
+    section=organization.sections[0].group_ref
+    candidate=InlineCandidate(1,'x',25,10,35,30,'TOPLEFT','CMMI10','native-math-font-v1')
+    conversion=PdfConversion('a'*64,b'{}',organization.document,'success',(),(),(),None,
+        inline_candidates=(CandidatePage(1,True,False,(candidate,)),))
+    payload=publication_payload(conversion,product_key='organized',schema_digest='b'*64,
+        section_refs=frozenset([section]))
+    pin=ProductReference(1,'organized','c'*64)
+    view=SourceViewRef(10,'selected-view',1,pin,section,'direct','d'*64,'e'*64)
+    reads=[];prepared=[]
+    class Reader:
+        def source_views(self):
+            return (view,)
+        def native_document(self,reference):
+            reads.append(reference)
+            return SimpleNamespace(values=lambda:payload,original=b'%PDF-fixture',schema_bytes=b'{}')
+        def prepare_pdf_product(self,value,original,schema,recipe):
+            prepared.append(value)
+            return SimpleNamespace(digest='f'*64)
+        def native_product_reference(self,document,key,digest):
+            return ProductReference(2,key,digest)
+    class Engine:
+        def predict_batch(self,inputs):
+            return [SimpleNamespace(text='x') for _ in inputs]
+    class Stage:
+        enabled=True
+        elements_batch_size=2
+        options=SimpleNamespace()
+        def __init__(self):
+            self.engine=Engine()
+        def __call__(self,doc,element_batch):
+            batch=list(element_batch)
+            self.engine.predict_batch(batch)
+            yield from (e.item for e in batch)
+    stage=ObservedFormulaStage(Stage())
+    cfg=PdfEnrichConfig()
+    producer=IngestPdf()
+    recipe=cfg.recipe()
+    converter=PdfConverter(recipe)
+    monkeypatch.setattr(converter,'formula_stage',lambda:stage)
+    monkeypatch.setattr(converter,'runtime_bindings',lambda:())
+    producer._workers[recipe.digest]=converter
+    monkeypatch.setattr(producer,'_runtime',lambda cfg:(recipe,None))
+    monkeypatch.setattr('corpus_structure.ingest.pdf_methods._consumer_release',lambda ctx:'release1')
+    class Renderer:
+        def __init__(self,*args,**kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self,*args):
+            pass
+        def __call__(self,page,bbox):
+            return Image.new('RGB',(20,20))
+    monkeypatch.setattr('corpus_structure.ingest.pdf_enrichment.PdfRegionRenderer',Renderer)
+    reader=Reader()
+    run=SimpleNamespace(reader=reader)
+    import logging
+    from corpus_structure.core.method import MethodContext,MethodSettings
+    reader_port=SimpleNamespace(source_views=reader.source_views,native_document=reader.native_document,
+        prepare_pdf_product=reader.prepare_pdf_product,native_product_reference=reader.native_product_reference)
+    ctx=MethodContext(run,reader_port,MethodSettings(data_dir=Path('.'),model_cache=Path('.')),logging.getLogger(__name__))
+    unit=UnitView(UnitRef(TaskUnitType.DOCUMENT,1,'actual-original-key'),run)
+    result,=EnrichPdfMath(producer).run((unit,),cfg,ctx)
+    assert result.outcome is ObservationOutcome.EMPTY
+    assert reads==[pin]
+    assert len(result.native_products)==len(prepared)==1
+    assert result.source_views[0].replaces_source_view_id==10
+    assert result.source_views[0].native_product==ProductReference(2,'math-enriched','f'*64)
+    assert result.source_views[0].text=='1.1: Sets\nLet x be real.'
+    assert prepared[0]['health']['inline_scope']==[section]
+    assert prepared[0]['health']['inline_membership']=='direct'
+    assert len(prepared[0]['derivation_mappings'])==3
+    assert {r['origin_pointer'] for r in prepared[0]['derivation_mappings']}=={paragraph.self_ref}
+    assert 'runtime_report' in prepared[0]
+    assert json.loads(prepared[0]['runtime_report']['effective_options'])['do_formula_enrichment'] is True
