@@ -8,7 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from pydantic_core import to_jsonable_python
-from sqlalchemy import Connection, select
+from sqlalchemy import Connection, select, text
 
 
 class NativeSourceRequest(BaseModel):
@@ -35,7 +35,7 @@ class NativeSourceResponse(BaseModel):
     version: Literal[2] = 2
     selection: NativeSourceRequest
     release_id: str
-    outcome: Literal['available','unavailable'] = 'available'
+    outcome: Literal['source_ready','missing','invalid','unsupported'] = 'source_ready'
     health: dict[str,JsonValue]
     rows: list[dict[str,JsonValue]]
     next_cursor: str | None = None
@@ -46,14 +46,22 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
     from corpus_structure.semantic.pdf_storage import read_native_items, read_native_regions
 
     runs,tasks,products,builds = map(table,('ops.run','ops.task','ops.native_document_product','ops.source_build'))
-    run = conn.execute(select(runs.c.project_id,runs.c.release_id).where(runs.c.id==request.run_id)).one()
+    run = conn.execute(select(runs.c.project_id,runs.c.release_id).where(runs.c.id==request.run_id)).one_or_none()
+    if run is None:
+        raise ValueError('unknown native source run')
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_run
+    context=pdf_context_for_run(conn,request.run_id)
+    context.execution.require_operation('read_native_source')
+    context.boundary.validate_json('PdfNativeReadRequest',request.model_dump_json())
     origin = runs.alias('native_origin_run')
-    header = conn.execute(select(products.c.release_id,products.c.health,products.c.content_digest,
+    header = conn.execute(select(products.c.release_id,products.c.health.op("-")("formula_outcomes").label("health"),products.c.content_digest,
         builds.c.artifact_digest,tasks.c.run_id.label('origin_run')).select_from(products.join(tasks,
         tasks.c.id==products.c.task_id).join(origin,origin.c.id==tasks.c.run_id).join(builds,
         builds.c.task_id==products.c.task_id)).where(products.c.task_id==request.task_id,
         products.c.product_key==request.product_key,origin.c.project_id==run.project_id,
-        )).one()
+        )).one_or_none()
+    if header is None:
+        raise ValueError("native source is unavailable in the requested project")
     if header.content_digest != request.content_digest:
         raise ValueError('native source product differs from requested pin')
     if header.origin_run != request.run_id:
@@ -84,9 +92,9 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
             content_digest=request.content_digest,artifact_digest=header.artifact_digest)]
     elif request.view=='sections':
         item=table('kb.native_document_item')
-        rows=[dict(r) for r in conn.execute(select(item).where(item.c.task_id==request.task_id,
+        rows=[dict(r) for r in conn.execute(select(*[c for c in item.columns if c.name != "native_json"]).where(item.c.task_id==request.task_id,
             item.c.product_key==request.product_key,item.c.label.in_(['section','chapter']),
-            item.c.ordinal>after).order_by(item.c.ordinal).limit(request.limit)).mappings()]
+            item.c.ordinal>after, *([item.c.parent_pointer==request.section_pointer] if request.section_pointer is not None else [])).order_by(item.c.ordinal).limit(request.limit)).mappings()]
     elif request.view in {'item','formula','cell','regions','trace'}:
         if request.pointer is None or len(rows)!=1:
             raise ValueError('native occurrence inspection requires one existing pointer')
@@ -96,9 +104,9 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                 rows=[dict(row,artifact_digest=header.artifact_digest,space='pdf_points') for row in rows]
         else:
             # Transfer only the selected native object, not its containing document.
-            parts=request.pointer.removeprefix('#/').split('/')
-            native=conn.execute(select(products.c.native_json[tuple(parts)]).where(
-                products.c.task_id==request.task_id,products.c.product_key==request.product_key)).scalar_one()
+            item=table('kb.native_document_item')
+            native=conn.execute(select(item.c.native_json).where(item.c.task_id==request.task_id,
+                item.c.product_key==request.product_key,item.c.pointer==request.pointer)).scalar_one()
             if not isinstance(native,dict):
                 raise ValueError('native item object unavailable')
             if request.view=='cell':
@@ -109,8 +117,10 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
             elif request.view=='formula':
                 if native.get('label')!='formula':
                     raise ValueError('native pointer is not a formula')
-                outcomes=header.health.get('formula_outcomes',[])
-                health=next((o for o in outcomes if o['pointer']==request.pointer),{'outcome':'unknown'})
+                health=conn.execute(text('''SELECT outcome.value FROM ops.native_document_product p
+                    CROSS JOIN LATERAL jsonb_array_elements(COALESCE(p.health->'formula_outcomes','[]'::jsonb)) outcome(value)
+                    WHERE p.task_id=:task AND p.product_key=:key AND p.content_digest=:digest AND outcome.value->>'pointer'=:pointer LIMIT 1'''),
+                    dict(task=request.task_id,key=request.product_key,digest=request.content_digest,pointer=request.pointer)).scalar_one_or_none() or {'outcome':'unknown'}
                 rows=[dict(pointer=request.pointer,original_text=native.get('orig'),
                     recognized_latex=native.get('text'),recognition=health,
                     regions=read_native_regions(conn,**pin,pointer=request.pointer))]
@@ -142,7 +152,7 @@ def export_native_source(conn: Connection, request: NativeSourceRequest, destina
     from corpus_structure.schema.interchange import _sql_arrow
     relation=table('kb.native_document_item')
     schema=pa.schema([pa.field(c.name,_sql_arrow(c.type),nullable=bool(c.nullable))
-        for c in relation.columns]+[pa.field('content_digest',pa.string(),nullable=False),
+        for c in relation.columns if c.name != 'native_json']+[pa.field('content_digest',pa.string(),nullable=False),
             pa.field('native_json',pa.json_(pa.string())),
             pa.field('regions',pa.list_(pa.struct([
                 pa.field('region_index',pa.int64()),pa.field('page_no',pa.int64()),
@@ -162,11 +172,9 @@ def export_native_source(conn: Connection, request: NativeSourceRequest, destina
                 for r in conn.execute(select(region).where(region.c.task_id==request.task_id,
                     region.c.product_key==request.product_key,region.c.pointer.in_(pointers))).mappings():
                     by_pointer[r['pointer']].append({n:(float(r[n]) if n in {'page_width','page_height','left','top','right','bottom'} else r[n]) for n in ('region_index','page_no','page_width','page_height','left','top','right','bottom','origin')})
-                native={r['pointer']:r['native'] for r in conn.execute(text('''SELECT refs.pointer,
-                    p.native_json #> string_to_array(substr(refs.pointer,3),'/') AS native
-                    FROM ops.native_document_product p CROSS JOIN unnest(CAST(:refs AS text[])) refs(pointer)
-                    WHERE p.task_id=:task AND p.product_key=:key AND p.content_digest=:digest'''),
-                    dict(refs=pointers,task=request.task_id,key=request.product_key,digest=request.content_digest)).mappings()}
+                native={r.pointer:r.native_json for r in conn.execute(select(relation.c.pointer,relation.c.native_json).where(
+                    relation.c.task_id==request.task_id,relation.c.product_key==request.product_key,
+                    relation.c.pointer.in_(pointers)))}
                 rows=[dict(row,content_digest=request.content_digest,
                     native_json=json.dumps(native[row['pointer']],ensure_ascii=False,allow_nan=False),
                     regions=sorted(by_pointer[row['pointer']],key=lambda r:r['region_index'])) for row in response.rows]

@@ -1,5 +1,6 @@
 # Copied verbatim from docs/design/D2-schema-and-guidelines.md §12.2 on 2026-10-28.
-version: 0.1.0
+version: 0.2.0
+default_scope: pdf-qualification
 # Locators (D6 §8): page | page#unit-id | page@u:<text prefix> (a unit) | page@p:<text prefix>
 # (a paragraph outside units). Pages are relative to siegrist_random/random/. Prefixes match the
 # start of the segment's canonical text with whitespace collapsed; each locator must resolve to
@@ -31,3 +32,11 @@ slices:
   phase0-golden:
     - {pages: [core12]}
     - {golden_set: p0}
+
+  pdf-qualification:
+    - native_sections:
+        - '1.1: Sets'
+        - '1.2: Functions'
+        - '1.3: Relations'
+        - '1.8: Combinatorial Structures'
+        - '5.6: The Normal Distribution'

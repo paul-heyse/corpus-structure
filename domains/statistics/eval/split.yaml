@@ -6,6 +6,7 @@ split:
   reserved:                                          # the worked examples' pages (reference/E*): in no split; the
     special/Weibull.html: worked examples E1-E3      # examples carry no citation frame to read them from
   forced_dev:                                        # pages used to write or check guideline rules, with the reason
+    siegrist_random/Full_PDF/Full.pdf: PDF pipeline development and source-only qualification cases; not held out
     special/LocationScale.html: spike page (S0, S0-R2)
     special/Normal.html: spike page (S0, S0-R2)
     special/LogNormal.html: spike page (S0, S0-R2)

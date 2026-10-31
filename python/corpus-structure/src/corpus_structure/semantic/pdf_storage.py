@@ -67,7 +67,7 @@ def read_native_items(
             "native contract/schema requires a qualified archived reader"
         )
     item = table("kb.native_document_item")
-    query = select(item).where(
+    query = select(*[c for c in item.columns if c.name != "native_json"]).where(
         item.c.task_id == task_id, item.c.product_key == product_key, item.c.ordinal > after
     )
     if section_pointer is not None:

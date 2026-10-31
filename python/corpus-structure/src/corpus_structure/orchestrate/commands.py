@@ -124,6 +124,7 @@ def start_bound_run(
                 "id": row["id"],
                 "key": row["key"],
                 "content_hash": row["content_hash"],
+                "mime": row["mime"],
                 "meta": row["meta"],
             }
             for row in conn.execute(
@@ -135,6 +136,8 @@ def start_bound_run(
             if (pack / "slices.yaml").exists()
             else {}
         )
+        if slice is None and scope is None:
+            scope = data.get("default_scope")
         corpus_record, scope_record = records(
             docs, data.get("slices", data), slice=slice, scope=scope, corpus=corpus
         )

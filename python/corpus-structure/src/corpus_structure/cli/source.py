@@ -343,7 +343,61 @@ def native_products(ctx: typer.Context, run: int, json: JsonOpt=False):
         products,tasks,views,selected=map(table,('ops.native_document_product','ops.task','kb.source_view','ops.run_source_view'))
         pins=select(views.c.native_task_id).join(selected,selected.c.source_view_id==views.c.id).where(selected.c.run_id==run)
         query=select(products.c.task_id,products.c.product_key,products.c.content_digest,
-            products.c.release_id,products.c.health).join(tasks,tasks.c.id==products.c.task_id).where(
+            products.c.release_id,products.c.health.op("-")("formula_outcomes").label("health")).join(tasks,tasks.c.id==products.c.task_id).where(
             or_(tasks.c.run_id==run,products.c.task_id.in_(pins))).order_by(products.c.task_id,products.c.product_key)
         rows=[dict(row) for row in conn.execute(query).mappings()]
         emit(to_jsonable_python(rows),json=json)
+
+
+@app.command('native-request')
+def native_request(
+    ctx: typer.Context, run: int, source_view: int,
+    demand: Literal['lexical','structure','syntax','interpretation','symbolic','assessment','render'],
+    pointer: str | None = None, region_index: int | None = None, scale: float = 2,
+    question: str | None = None, predicate: str | None = None, seconds: float = 2,
+    output: Path | None = None, json: JsonOpt = False,
+):
+    """Execute an explicit native demand through the existing source-ready task lifecycle."""
+    from dataclasses import asdict
+    from sqlalchemy import select
+    from pydantic_core import to_jsonable_python
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.native_requests import request_source_view
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.operations import OperationConflict
+    if output is not None and (demand!='render' or output.exists()):
+        raise typer.BadParameter('a new --output path is available only for render demands')
+    with failure_boundary(json,expected=(ValueError,OperationConflict,FileExistsError)), open_runtime_engine(
+        state(ctx).settings(),application_name='ci-native-request',purpose='write') as engine:
+        result=request_source_view(engine,source_run_id=run,source_view_id=source_view,demand=demand,
+            pointer=pointer,region_index=region_index,scale=scale,question=question,predicate=predicate,
+            seconds=seconds,code_commit='native-source-cli-v2')
+        if result.status == 'failed':
+            emit(to_jsonable_python(asdict(result)),json=json)
+            raise typer.Exit(1)
+        if output is not None:
+            artifacts=table('kb.source_artifact')
+            with engine.connect() as conn:
+                value=bytes(conn.execute(select(artifacts.c.content).where(
+                    artifacts.c.artifact_digest==result.artifact_digest)).scalar_one())
+            with output.open('xb') as target:
+                target.write(value)
+        emit(to_jsonable_python(asdict(result)),json=json)
+
+
+@app.command('views')
+def native_views(ctx: typer.Context, run: int, json: JsonOpt=False):
+    """List selected native section view IDs and immutable source pins."""
+    from dataclasses import asdict
+    from pydantic_core import to_jsonable_python
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_run
+    from corpus_structure.semantic.source_views import selected_source_views
+    from corpus_structure.cli.failures import failure_boundary
+    with failure_boundary(json,expected=(ValueError,)), open_runtime_engine(
+        state(ctx).settings(),application_name='ci-source-views',purpose='read') as engine, read_snapshot(engine) as conn:
+        context=pdf_context_for_run(conn,run)
+        context.execution.require_operation('read_source_view')
+        emit(to_jsonable_python([asdict(view) for view in selected_source_views(conn,run)]),json=json)

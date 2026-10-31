@@ -32,7 +32,7 @@ def regenerate(
     corpus: Annotated[Path, typer.Option(exists=True, file_okay=False)],
     project: Annotated[str | None, typer.Option()] = None,
     slice: Annotated[
-        str | None, typer.Option(help="Named source scope (statistics defaults to trace).")
+        str | None, typer.Option(help="Named source scope (uses the pack's declared default scope).")
     ] = None,
     scope: Annotated[str | None, typer.Option(help="Named source scope.")] = None,
     resume_run: Annotated[
@@ -150,7 +150,7 @@ def regenerate(
                     method_settings=MethodSettings(
                         data_dir=settings.paths.data_dir, model_cache=settings.paths.model_cache
                     ),
-                    slice=slice or ("trace" if scope is None else None),
+                    slice=slice,
                     scope=scope,
                 )
                 run_id = run.run_id
