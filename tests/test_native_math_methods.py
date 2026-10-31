@@ -1,5 +1,10 @@
 """Actual M09/M11/M13 branches consume immutable SourceViews and native addresses."""
 from types import SimpleNamespace
+from pathlib import Path
+import logging
+from typing import Any,Never
+from corpus_structure.core.method import Reader as ReaderPort,RunView,MethodContext,MethodSettings,SourceCoverageReading
+from corpus_structure.core.vocab import RunKind
 
 from corpus_structure.core.method import SourceViewRef,UnitRef,UnitView,CoverageDraft
 from corpus_structure.core.vocab import TaskUnitType,ObservationKind
@@ -29,27 +34,62 @@ def view():
     return PreparedSourceView(ref,text,pieces,items,(),health)
 
 
-class Reader:
+class Reader(ReaderPort):
     prepared=None
     math_readings_batch=None
+    def _unavailable(self,*args:object,**kwargs:object)->Never:
+        raise AssertionError("this native consumer control does not supply that reader capability")
+    require_parsing_operations=_unavailable
+    native_document=_unavailable
+    native_product_reference=_unavailable
+    prepare_pdf_product=_unavailable
+    renditions=_unavailable
+    content=_unavailable
+    segments=_unavailable
+    observations=_unavailable
+    source_coverage=_unavailable
+    measurements=_unavailable
+    artifact=_unavailable
+    guideline=_unavailable
+    prepare_parsing_product=_unavailable
+    layered_products=_unavailable
+    parsing_fallback_macros=_unavailable
+    source_product_reference=_unavailable
+    prepare_layered_product=_unavailable
+    original=_unavailable
+    connection=_unavailable
     def __init__(self):
-        self.view=view();self.outputs={}
+        self.view=view();self.views:dict[int,PreparedSourceView]={7:self.view};self.outputs:dict[tuple[int,str,ObservationKind],list[Any]]={}
     def source_views(self): return [self.view.ref]
-    def source_view(self,id): assert id==7;return self.view
-    def source_observations(self,id,method,kind): return self.outputs.get((method,kind),[])
+    def source_view(self,source_view_id:int)->PreparedSourceView:return self.views[source_view_id]
+    def ancestor_source_views(self,source_view_id:int)->list[SourceViewRef]:
+        child=self.source_view(source_view_id)
+        pointers={item['self_ref'] for item in child.ancestors}
+        return [parent.ref for parent in self.views.values() if parent.ref.section_pointer in pointers
+                and parent.ref.native_product==child.ref.native_product]
+    def source_observations(self,source_view_id,method,kind): return self.outputs.get((source_view_id,method,kind),[])
     def source_view_coverage(self,id,method):
-        return [SimpleNamespace(task_id=4,release_id=5,coverage=CoverageDraft(family=method,scope='native-section:7',outcome='complete'))]
+        return (SourceCoverageReading(task_id=4,release_id='fixture',position=0,coverage=CoverageDraft(family=method,scope='native-section:7',outcome='complete')),)
     def store(self,method,result):
         for ordinal,draft in enumerate(result.observations):
             row=SimpleNamespace(payload=draft.payload.model_dump(mode='json'),native_pointer=draft.native_pointer,
                 observation_key=f'{method}:{ordinal}',payload_hash=str(ordinal),task_id=42)
-            self.outputs.setdefault((method,draft.kind),[]).append(row)
+            self.outputs.setdefault((draft.source_view_id,method,draft.kind),[]).append(row)
+
+
+def run_for(reader:Reader)->RunView:
+    return RunView(run_id=1,kind=RunKind.FULL,phase=0,reference_run_id=None,model_revision='fixture',
+        schema_version_id=1,guideline_version_id=None,policy_version_id=None,key_scheme=1,options={},reader=reader)
+
+
+def context_for(reader:Reader)->MethodContext:
+    return MethodContext(run_for(reader),reader,MethodSettings(data_dir=Path('.'),model_cache=Path('.')),logging.getLogger(__name__))
 
 
 def test_actual_methods_select_source_views_and_keep_native_offsets():
-    reader=Reader();run=SimpleNamespace(reader=reader)
+    reader=Reader();run=run_for(reader)
     unit=UnitView(UnitRef(TaskUnitType.SOURCE_VIEW,7,'native-section:7'),run,document_id=1,source_view_id=7)
-    ctx=SimpleNamespace(reader=reader)
+    ctx=context_for(reader)
     assert list(ExtractMath().select(run,ExtractMathConfig()))==[unit.ref]
     m09=ExtractMath().run([unit],ExtractMathConfig(),ctx)[0]
     mentions=[o for o in m09.observations if o.kind is ObservationKind.MENTION]
@@ -116,7 +156,6 @@ def test_ancestor_function_roles_require_forward_native_tree_order():
     parent=make(7,parent_group,parent_items,())
     child=make(8,child_group,child_items,(parent_group,))
     reader=Reader();reader.views={7:parent,8:child};reader.math_readings_batch=None
-    reader.source_view=lambda id:reader.views[id]
     reader.source_views=lambda:[parent.ref,child.ref]
     cfg=NormalizeFormulaConfig(math=MathSection(native_domain_rules=(rule,)))
     declarations,issues=native_ancestor_declarations(reader,child,(rule,))
@@ -143,7 +182,7 @@ def test_local_proof_function_definition_does_not_escape_to_child_section():
         {'formula_outcomes':[{'pointer':'#/texts/1','outcome':'succeeded'}]})
     child=PreparedSourceView(replace(view().ref,id=8,key='child',section_pointer='#/groups/1'),'',(),
         (child_group,),(parent_group,),{})
-    reader=Reader();reader.source_view=lambda id:{7:parent,8:child}[id];reader.source_views=lambda:[parent.ref,child.ref]
+    reader=Reader();reader.views={7:parent,8:child};reader.source_views=lambda:[parent.ref,child.ref]
     rule=NativeDomainRule(rule_id='proof-heading-1',pattern=r'^Proof\.',statement_kind='proof',scope_role='proof')
     assert native_ancestor_declarations(reader,child,(rule,))[0]==()
 
@@ -169,18 +208,9 @@ def test_context_only_parent_prepares_weak_variable_binding_for_child(monkeypatc
         (child_group,{'self_ref':'#/texts/3','label':'formula','text':'x+x','orig':'x+x','parent':{'$ref':'#/groups/1'}}),
         (group,),{'formula_outcomes':[{'pointer':'#/texts/3','outcome':'succeeded'}],
                   'inline_coverage':'complete','cell_coverage':'complete'})
-    class MultiReader(Reader):
-        def __init__(self):self.outputs={};self.views={7:parent,8:child};self.math_readings_batch=None
-        def source_view(self,id):return self.views[id]
-        def source_views(self):return [child.ref]
-        def ancestor_source_views(self,id):return [parent.ref] if id==8 else []
-        def source_observations(self,id,method,kind):return self.outputs.get((id,method,kind),[])
-        def store(self,method,result):
-            for n,draft in enumerate(result.observations):
-                row=SimpleNamespace(payload=draft.payload.model_dump(mode='json'),native_pointer=draft.native_pointer,
-                    observation_key=f'{draft.source_view_id}:{method}:{n}',payload_hash=str(n))
-                self.outputs.setdefault((draft.source_view_id,method,draft.kind),[]).append(row)
-    reader=MultiReader();ctx=SimpleNamespace(reader=reader);run=SimpleNamespace(reader=reader)
+    reader=Reader();reader.views={7:parent,8:child}
+    reader.source_views=lambda:[child.ref]
+    ctx=context_for(reader);run=run_for(reader)
     cfg=SymbolScopeConfig(math=MathSection(native_domain_rules=(rule,)),
         binders=Binders(sentence_initial=('let',)),sentences=SentenceConfig())
     parent_unit=SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW,7,parent.ref.key),context_only=True)
@@ -204,7 +234,7 @@ def test_occurrence_owner_is_weak_and_normalization_reuses_retained_tree(monkeyp
     from corpus_structure.methods.math.prepared import PreparedMathInput
     from corpus_structure.methods.math import grammar
     from corpus_structure.semantic.native_analysis import stored_native_analysis
-    reader=Reader();run=SimpleNamespace(reader=reader);ctx=SimpleNamespace(reader=reader)
+    reader=Reader();run=run_for(reader);ctx=context_for(reader)
     unit=UnitView(UnitRef(TaskUnitType.SOURCE_VIEW,7,reader.view.ref.key),run,source_view_id=7)
     with monkeypatch.context() as guard:
         guard.setattr(PreparedMathInput,'symbolic_value',lambda *a,**k:(_ for _ in ()).throw(AssertionError('unasked symbolic work')))
@@ -224,7 +254,7 @@ def test_occurrence_owner_is_weak_and_normalization_reuses_retained_tree(monkeyp
 
 def test_normalization_refuses_missing_named_occurrence_owner():
     import pytest
-    reader=Reader();run=SimpleNamespace(reader=reader);ctx=SimpleNamespace(reader=reader)
+    reader=Reader();run=run_for(reader);ctx=context_for(reader)
     unit=UnitView(UnitRef(TaskUnitType.SOURCE_VIEW,7,reader.view.ref.key),run,source_view_id=7)
     with pytest.raises(ValueError,match='one exact completed'):
         NormalizeFormula().run([unit],NormalizeFormulaConfig(),ctx)
@@ -238,7 +268,7 @@ def test_stored_analysis_refuses_cycles_and_stale_pins():
         projection_digest=reader.view.ref.projection_digest,recipe_digest=reader.view.ref.recipe_digest,
         items=[dict(pointer='#/texts/1',interpretation_ref=dict(observation_key='self',pointer='#/texts/1'))])
     row=SimpleNamespace(payload=payload,observation_key='self',task_id=1,payload_hash='hash')
-    reader.outputs[('normalize.formula',ObservationKind.RECORD)]=[row]
+    reader.outputs[(7,'normalize.formula',ObservationKind.RECORD)]=[row]
     with pytest.raises(NativeAnalysisUnavailable,match='cycle'):
         stored_native_analysis(reader,7,'#/texts/1')
     payload['native_product']={**payload['native_product'],'content_digest':'d'*64}
@@ -252,11 +282,10 @@ def test_scope_digest_binds_exact_ancestor_preparation_record():
     parent=PreparedSourceView(replace(source.ref,id=6,key='parent',section_pointer='#/groups/parent'),'',(),(),(),{})
     group={'self_ref':'#/groups/parent','label':'section','children':[{'$ref':'#/groups/0'}]}
     child=replace(source,ancestors=(group,))
-    reader.source_view=lambda id:{6:parent,7:child}[id]
-    reader.ancestor_source_views=lambda id:[parent.ref]
+    reader.views={6:parent,7:child}
     row=SimpleNamespace(observation_key='parent-context',payload_hash='first')
-    reader.source_observations=lambda id,method,kind:[row] if id==6 and kind is ObservationKind.RECORD else []
-    run=SimpleNamespace(reader=reader)
+    reader.outputs[(6,'resolve.symbol_scope',ObservationKind.RECORD)]=[row]
+    run=run_for(reader)
     unit=UnitView(UnitRef(TaskUnitType.SOURCE_VIEW,7,child.ref.key),run,source_view_id=7)
     first=SymbolScope().input_digest(unit,SymbolScopeConfig()).bytes
     row.payload_hash='second'
@@ -280,9 +309,8 @@ def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(mon
         projection_digest=parent.ref.projection_digest,declarations=[dict(symbol='f',role='function',rule_id='function-definition-1',
         source_pointer='#/texts/parent',recognized_start=0,recognized_end=1,scope_pointer=parent.ref.section_pointer,quote='f(x)=x')])
     row=SimpleNamespace(payload=payload,observation_key='parent-function',payload_hash='qualified')
-    reader=Reader();reader.source_view=lambda id:{6:parent,7:child}[id]
-    reader.ancestor_source_views=lambda id:[parent.ref]
-    reader.source_observations=lambda id,method,kind:[row] if id==6 and kind is ObservationKind.RECORD else []
+    reader=Reader();reader.views={6:parent,7:child}
+    reader.outputs[(6,'resolve.symbol_scope',ObservationKind.RECORD)]=[row]
     with monkeypatch.context() as guard:
         guard.setattr(PreparedMathInput,'syntax',lambda *a,**k:(_ for _ in ()).throw(AssertionError('parent reparse')))
         declarations,issues=stored_native_ancestor_declarations(reader,child)
@@ -293,3 +321,7 @@ def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(mon
     payload['projection_digest']='e'*64
     declarations,issues=stored_native_ancestor_declarations(reader,child)
     assert declarations==() and any('differs from supplied source pin' in issue for issue in issues)
+    payload['projection_digest']=parent.ref.projection_digest
+    payload['declarations']=[]
+    declarations,issues=stored_native_ancestor_declarations(reader,child)
+    assert declarations==() and any('function role preparation unavailable' in issue for issue in issues)
