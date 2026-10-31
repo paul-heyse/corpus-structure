@@ -20,6 +20,8 @@ class InlineCandidate:
     origin: str
     font: str | None
     basis: str
+    before: str = ""
+    after: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,7 +42,8 @@ def capture_candidates(page: Any) -> CandidatePage:
     if parsed is None:
         return CandidatePage(page.page_no, False, False, ())
     rows = []
-    for cell in parsed.word_cells:
+    words = parsed.word_cells
+    for index, cell in enumerate(words):
         font = getattr(cell, "font_name", None)
         font_match = font is not None and _MATH_FONT.search(font) is not None
         token_match = _MATH_TOKEN.search(cell.text) is not None
@@ -49,5 +52,7 @@ def capture_candidates(page: Any) -> CandidatePage:
         box = cell.rect.to_bounding_box()
         rows.append(InlineCandidate(page.page_no, cell.text, box.l, box.t, box.r, box.b,
             box.coord_origin.value, font,
-            "native-math-font-v1" if font_match else "native-math-token-v1"))
+            "native-math-font-v1" if font_match else "native-math-token-v1",
+            " ".join(w.text for w in words[max(0,index-2):index]),
+            " ".join(w.text for w in words[index+1:index+3])))
     return CandidatePage(page.page_no, parsed.has_words, parsed.has_chars, tuple(rows))

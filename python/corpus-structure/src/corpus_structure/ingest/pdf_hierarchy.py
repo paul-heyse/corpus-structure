@@ -209,11 +209,11 @@ def project_section(
     pieces: list[ProjectedPiece] = []
     position = 0
 
-    def append(value: str, ref: str, cell_index: int | None = None, source_field: str = "text") -> None:
+    def append(value: str, ref: str, cell_index: int | None = None, source_field: str = "text", separator: bool = True) -> None:
         nonlocal position
         if not value:
             return
-        if text:
+        if text and separator:
             text.append("\n")
             pieces.append(ProjectedPiece(None, position, position + 1, "synthetic_separator"))
             position += 1
@@ -223,7 +223,7 @@ def project_section(
         )
         position += len(value)
 
-    def visit(node: Any) -> None:
+    def visit(node: Any, separator: bool = True) -> None:
         if node.content_layer.value != "body":
             return
         if (
@@ -243,9 +243,10 @@ def project_section(
             # Rich-cell formula children are represented by the cell above, not duplicated.
             return
         if hasattr(node, "text"):
-            append(node.text, node.self_ref)
-        for child in node.children:
-            visit(nodes[child.cref])
+            append(node.text, node.self_ref, separator=separator)
+        for index, child in enumerate(node.children):
+            child_separator = (separator if index == 0 else False) if str(node.label) == "inline" else True
+            visit(nodes[child.cref], separator=child_separator)
 
     visit(nodes[section_ref])
     return TextProjection(document_digest, section_ref, membership, "".join(text), tuple(pieces))

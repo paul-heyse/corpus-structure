@@ -51,6 +51,7 @@ class Engine:
 
 class CatchingStage:
     enabled = True
+    elements_batch_size = 4
 
     def __init__(self, engine):
         self.engine = engine

@@ -119,10 +119,20 @@ class IngestPdf:
                 organized_ref = ctx.reader.native_product_reference(unit.ref.unit_id, "organized", organized.digest)
                 document = load_snapshot(organization.document)
                 nodes = native_nodes(document)
-                selected = [s for s in organization.sections if not cfg.sections or
+                matched = [s for s in organization.sections if not cfg.sections or
                             s.group_ref in cfg.sections or nodes[s.heading_ref].text in cfg.sections]
-                if cfg.sections and len(selected) != len(set(cfg.sections)):
+                if cfg.sections and len(matched) != len(set(cfg.sections)):
                     raise ValueError("requested intact section selection is missing or ambiguous")
+                matched_refs = {s.group_ref for s in matched}
+                def under_selected(pointer: str) -> bool:
+                    node = nodes[pointer]
+                    while True:
+                        if node.self_ref in matched_refs:
+                            return True
+                        if node.parent is None:
+                            return False
+                        node = nodes[node.parent.cref]
+                selected = [s for s in organization.sections if under_selected(s.group_ref)] if cfg.membership=="direct" else matched
                 drafts = []
                 projection_recipe = canonical_bytes({"recipe": "native-section-text-v1",
                     "content_layers":["body"],"section_policy": {"rule_id":cfg.section_rule,"numbered_pattern":cfg.section_pattern,
@@ -152,10 +162,14 @@ class IngestPdf:
                     key = "source-view:"+sha256(canonical_bytes({"native":organized.digest,
                         "section":section.group_ref,"membership":cfg.membership,
                         "recipe":sha256(projection_recipe).hexdigest()})).hexdigest()
+                    selected_items = set(item_refs)
+                    view_health = {**organized_payload['health'], 'formula_outcomes': [
+                        outcome for outcome in organized_payload['health'].get('formula_outcomes',[])
+                        if outcome['pointer'] in selected_items]}
                     drafts.append(SourceViewDraft(key, unit.ref.unit_id, organized_ref,
                         section.group_ref,cfg.membership,projection.text,
                         tuple(dataclasses.asdict(p) for p in projection.pieces),tuple(item_refs),
-                        tuple(reversed(ancestors)),organized_payload['health'],projection_recipe))
+                        tuple(reversed(ancestors)),view_health,projection_recipe))
                 outputs.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.EMPTY,
                     native_products=(raw,organized),source_views=tuple(drafts)))
             except Exception as error:

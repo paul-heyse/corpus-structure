@@ -78,3 +78,33 @@ def test_unnumbered_organizational_subheads_preserve_native_levels():
     names=[derived.groups[int(s.group_ref.rsplit('/',1)[1])].name for s in organization.sections]
     assert names==['1.1: Sets','Sets and subsets','Examples and Applications','Distribution Functions']
     assert [s.level for s in organization.sections]==[1,2,2,2]
+
+
+def test_inline_decomposition_keeps_prose_and_qualified_formula_in_same_native_hierarchy():
+    from PIL import Image
+    from docling_core.types.doc import BoundingBox,DoclingDocument,DocItemLabel,PageItem,ProvenanceItem,Size
+    from corpus_structure.ingest.pdf_candidates import InlineCandidate
+    from corpus_structure.ingest.pdf_enrichment import PositionedCandidate,enrich_inline
+    from corpus_structure.ingest.pdf_health import ObservedFormulaStage
+    from corpus_structure.ingest.pdf_hierarchy import snapshot,load_snapshot,organize,project_section
+    from test_pdf_conversion import CatchingStage,Engine
+    document=DoclingDocument(name='independent inline geometry fixture')
+    document.pages[1]=PageItem(page_no=1,size=Size(width=100,height=100))
+    document.add_heading(text='1.1: Sets',level=1)
+    paragraph=document.add_text(label=DocItemLabel.TEXT,text='Let x be real.',orig='Let x be real.',
+        prov=ProvenanceItem(page_no=1,bbox=BoundingBox(l=10,t=10,r=95,b=30),charspan=(0,14)))
+    organized=organize(snapshot(document),PdfIngestConfig().section_policy())
+    inline=InlineCandidate(1,'x',25,10,35,30,'TOPLEFT','CMMI10','native-math-font-v1')
+    source=organized.document
+    result=enrich_inline(source,(PositionedCandidate(paragraph.self_ref,4,5,inline),),
+        stage=ObservedFormulaStage(CatchingStage(Engine())),
+        render_region=lambda page,box:Image.new('RGB',(20,40)))
+    native=load_snapshot(result.native)
+    section=organized.sections[0].group_ref
+    projected=project_section(native,result.native.digest,section,'direct',section_refs=frozenset([section]))
+    assert projected.text=='1.1: Sets\nLet x be real.'
+    formulas=[n for n in native.texts if str(n.label)=='formula']
+    assert len(formulas)==1
+    assert formulas[0].text=='x'
+    assert native.texts[int(paragraph.self_ref.rsplit('/',1)[1])].orig=='Let x be real.'
+    assert result.outcomes[0].outcome=='succeeded'

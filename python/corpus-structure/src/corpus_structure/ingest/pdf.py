@@ -57,6 +57,17 @@ class PdfRecipe:
     def to_bytes(self) -> bytes:
         return json.dumps(dataclasses.asdict(self), sort_keys=True, separators=(",", ":")).encode()
 
+    @classmethod
+    def from_bytes(cls, payload: bytes) -> PdfRecipe:
+        from pydantic import TypeAdapter
+        values = json.loads(payload)
+        if not isinstance(values, dict) or set(values) != {f.name for f in dataclasses.fields(cls)}:
+            raise ValueError("archived PDF recipe fields differ from this admitted recipe")
+        recipe = TypeAdapter(cls).validate_json(payload)
+        if recipe.to_bytes() != payload:
+            raise ValueError("archived PDF recipe is not canonically typed")
+        return recipe
+
     @property
     def digest(self) -> str:
         return sha256(self.to_bytes()).hexdigest()
@@ -226,6 +237,24 @@ class PdfConverter:
         self._converter = converter
         self._pipeline = pipeline
 
+    def formula_stage(self) -> ObservedFormulaStage:
+        """Reuse the native formula engine without initializing unused layout/table/OCR stages."""
+        if self._formula is None:
+            from docling.datamodel.accelerator_options import AcceleratorOptions
+            from docling.models.stages.code_formula.code_formula_vlm_model import CodeFormulaVlmModel
+            if self.assets is not None:
+                self.assets.verify()
+                if self.recipe.model_artifacts != self.assets.files:
+                    raise ValueError("formula recipe model manifest differs from prepared assets")
+            options=self.recipe.options()
+            native=CodeFormulaVlmModel(enabled=True,enable_remote_services=False,
+                artifacts_path=self.assets.root if self.assets is not None else None,
+                options=options.code_formula_options,
+                accelerator_options=AcceleratorOptions(num_threads=self.recipe.parser_threads,device=self.recipe.device))
+            native.elements_batch_size=self.recipe.stage_batch_size
+            self._formula=ObservedFormulaStage(native)
+        return self._formula
+
     def runtime_bindings(self) -> tuple[tuple[str, str], ...]:
         """Observed execution state; uninitialized OCR stages are explicitly not executed."""
         if self._pipeline is None or self._formula is None:
@@ -342,35 +371,42 @@ def enrich_cells(
     if len(set(candidates)) != len(candidates):
         raise ValueError("duplicate cell candidate")
     start = len(stage.outcomes)
-    for candidate in candidates:
-        table = nodes.get(candidate.table_ref)
-        if table is None or not hasattr(table, "data") or not hasattr(table.data, "table_cells"):
-            raise ValueError("candidate does not name a native table")
-        if not 0 <= candidate.cell_index < len(table.data.table_cells):
-            raise ValueError("cell index outside native table")
-        cell = table.data.table_cells[candidate.cell_index]
-        if getattr(cell, "ref", None) is not None:
-            raise ValueError("cell already has a qualified rich reference")
-        if cell.bbox is None or candidate.page_no not in document.pages:
-            raise ValueError("cell candidate lacks native geometry")
-        if candidate.page_no not in {p.page_no for p in table.prov}:
-            raise ValueError("candidate page is outside table provenance")
-        image = render_region(candidate.page_no, cell.bbox)
-        item = document.add_text(
-            label=DocItemLabel.FORMULA,
-            text=cell.text,
-            orig=cell.text,
-            parent=table,
-            prov=ProvenanceItem(
-                page_no=candidate.page_no, bbox=cell.bbox, charspan=(0, len(cell.text))
-            ),
-        )
-        outputs = list(stage(document, [ItemAndImageEnrichmentElement(item=item, image=image)]))
-        if len(outputs) != 1:
-            raise RuntimeError("cell enrichment did not return its native formula item")
-        table.data.table_cells[candidate.cell_index] = RichTableCell(
-            **cell.model_dump(), ref=item.get_ref()
-        )
+    batch_size = max(1, stage.elements_batch_size)
+    for offset in range(0, len(candidates), batch_size):
+        elements = []
+        for candidate in candidates[offset:offset + batch_size]:
+            table = nodes.get(candidate.table_ref)
+            if table is None or not hasattr(table, "data") or not hasattr(table.data, "table_cells"):
+                raise ValueError("candidate does not name a native table")
+            if not 0 <= candidate.cell_index < len(table.data.table_cells):
+                raise ValueError("cell index outside native table")
+            cell = table.data.table_cells[candidate.cell_index]
+            if getattr(cell, "ref", None) is not None:
+                raise ValueError("cell already has a qualified rich reference")
+            if cell.bbox is None or candidate.page_no not in document.pages:
+                raise ValueError("cell candidate lacks native geometry")
+            if candidate.page_no not in {p.page_no for p in table.prov}:
+                raise ValueError("candidate page is outside table provenance")
+            image = render_region(candidate.page_no, cell.bbox)
+            item = document.add_text(
+                label=DocItemLabel.FORMULA,
+                text=cell.text,
+                orig=cell.text,
+                parent=table,
+                prov=ProvenanceItem(
+                    page_no=candidate.page_no, bbox=cell.bbox, charspan=(0, len(cell.text))
+                ),
+            )
+            elements.append(ItemAndImageEnrichmentElement(item=item, image=image))
+            table.data.table_cells[candidate.cell_index] = RichTableCell(
+                **cell.model_dump(), ref=item.get_ref()
+            )
+        try:
+            if len(list(stage(document, elements))) != len(elements):
+                raise RuntimeError("cell enrichment did not return its complete native batch")
+        finally:
+            for element in elements:
+                element.image.close()
     return CellEnrichment(source.digest, snapshot(document), tuple(stage.outcomes[start:]))
 
 
@@ -432,6 +468,11 @@ def publication_payload(
             health_by_pointer[pointer] = FormulaOutcome(
                 pointer, "unknown", "no attributable inference outcome"
             )
+    display_pointers = [pointer for pointer, item in nodes.items()
+        if str(item.label) == "formula" and (item.parent is None or
+            str(nodes[item.parent.cref].label) not in {"table", "inline"})]
+    display_complete = conversion.conversion_status == "success" and all(
+        health_by_pointer[pointer].outcome == "succeeded" for pointer in display_pointers)
     items: list[dict[str, Any]] = []
     regions: list[dict[str, Any]] = []
     for ordinal, pointer in enumerate(order):
@@ -492,7 +533,7 @@ def publication_payload(
         "inline_candidate_pages": [dataclasses.asdict(page) for page in conversion.inline_candidates],
         "health": {
             "conversion": conversion.conversion_status,
-            "display_coverage": "unknown",
+            "display_coverage": "complete" if display_complete else "partial",
             "inline_coverage": "unknown",
             "cell_coverage": "unknown",
             "issues": list(conversion.errors),
