@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .pdf_health import FormulaOutcome, ObservedFormulaStage
+from .pdf_assets import PreparedPdfAssets
+from .pdf_candidates import CandidatePage, capture_candidates
 from .pdf_hierarchy import NativeSnapshot, native_nodes, snapshot
 
 
@@ -25,7 +27,7 @@ class PdfRecipe:
     ocr_device: Literal["cpu", "cuda"] = "cpu"
     parser_threads: int = 8
     stage_batch_size: int = 4
-    timeout_seconds: float = 3600
+    timeout_seconds: float | None = None
     recipe_id: str = "docling-standard-pdf-v1"
     # Content-addressed prepared model assets; caller archives these bindings with recipe.
     model_artifacts: tuple[tuple[str, str], ...] = ()
@@ -38,7 +40,7 @@ class PdfRecipe:
                 raise ValueError("model revision must be an immutable commit")
         if self.device not in {"cpu", "cuda"} or self.ocr_device not in {"cpu", "cuda"}:
             raise ValueError("device must be explicit CPU or CUDA")
-        if self.parser_threads < 1 or self.stage_batch_size < 1 or self.timeout_seconds <= 0:
+        if self.parser_threads < 1 or self.stage_batch_size < 1 or (self.timeout_seconds is not None and self.timeout_seconds <= 0):
             raise ValueError("PDF capacity and deadline must be positive")
         names: set[str] = set()
         for name, digest in self.model_artifacts:
@@ -123,13 +125,16 @@ class PdfConversion:
     page_range: tuple[int, int] | None
     runtime: tuple[tuple[str, str], ...] = ()
     effective_options: bytes = b"{}"
+    inline_candidates: tuple[CandidatePage, ...] = ()
 
 
 class PdfConverter:
     """One serial worker's native converter/model lifetime; publication is a separate owner."""
 
-    def __init__(self, recipe: PdfRecipe) -> None:
+    def __init__(self, recipe: PdfRecipe, *, assets: PreparedPdfAssets | None = None) -> None:
         self.recipe = recipe
+        self.assets = assets
+        self._candidate_pages: list[CandidatePage] = []
         self._converter: Any = None
         self._formula: ObservedFormulaStage | None = None
         self._pipeline: Any = None
@@ -139,10 +144,11 @@ class PdfConverter:
         if self._converter is not None:
             return
         from docling.datamodel.backend_options import ThreadedDoclingParseBackendOptions
-        from docling.datamodel.base_models import InputFormat, ItemAndImageEnrichmentElement
+        from docling.datamodel.base_models import InputFormat, ItemAndImageEnrichmentElement, Page
         from docling.datamodel.document import ConversionResult
         from docling.document_converter import DocumentConverter, PdfFormatOption
         from docling.models.base_model import GenericEnrichmentModel
+        from docling.models.stages.page_assemble.page_assemble_model import PageAssembleModel
         from docling.models.stages.code_formula.code_formula_vlm_model import CodeFormulaVlmModel
         from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
         from docling_core.types.doc import DoclingDocument, NodeItem
@@ -168,7 +174,13 @@ class PdfConverter:
             ) -> Iterable[NodeItem]:
                 yield from self.observer(doc, element_batch)
 
+        if self.assets is not None:
+            self.assets.verify()
+            if self.recipe.model_artifacts != self.assets.files:
+                raise ValueError("recipe model manifest differs from prepared runtime assets")
         self._options = self.recipe.options()
+        if self.assets is not None:
+            self._options.artifacts_path = self.assets.root
         converter = DocumentConverter(
             allowed_formats=[InputFormat.PDF],
             format_options={
@@ -191,6 +203,18 @@ class PdfConverter:
                 break
         if self._formula is None:
             raise RuntimeError("pinned pipeline lacks the required formula stage")
+        native_assembler = pipeline.assemble_model
+        capture = self._candidate_pages
+        class CandidatePageAssembler(PageAssembleModel):
+            def __init__(self) -> None:
+                self.options = native_assembler.options
+
+            def __call__(self, conv_res: ConversionResult,
+                         page_batch: Iterable[Page]) -> Iterable[Page]:
+                for page in native_assembler(conv_res, page_batch):
+                    capture.append(capture_candidates(page))
+                    yield page
+        pipeline.assemble_model = CandidatePageAssembler()
         self._converter = converter
         self._pipeline = pipeline
 
@@ -221,7 +245,13 @@ class PdfConverter:
         """Return immutable products. A page range remains an explicitly partial source scope."""
         if path.suffix.lower() != ".pdf":
             raise ValueError("only PDF originals are admitted")
-        original = path.read_bytes()
+        return self.convert_bytes(path.read_bytes(), name=path.name, page_range=page_range)
+
+    def convert_bytes(self, original: bytes, *, name: str = "original.pdf",
+                      page_range: tuple[int, int] | None = None) -> PdfConversion:
+        """Consume the already retained immutable original, without reopening an operator path."""
+        if Path(name).suffix.lower() != ".pdf":
+            raise ValueError("only PDF originals are admitted")
         if b"%PDF-" not in original[:1024]:
             raise ValueError("original does not have a PDF header")
         digest = sha256(original)
@@ -230,12 +260,13 @@ class PdfConverter:
         self._prepare()
         assert self._formula is not None
         self._formula.outcomes.clear()
+        self._candidate_pages.clear()
         options = {} if page_range is None else {"page_range": page_range}
         from docling.datamodel.base_models import DocumentStream
 
         # The same immutable bytes determine custody and native input even if the operator
         # changes the path while models initialize. Never reopen that path for conversion.
-        stream = DocumentStream(name=path.name, stream=BytesIO(original))
+        stream = DocumentStream(name=name, stream=BytesIO(original))
         result = self._converter.convert(stream, raises_on_error=False, **options)
         try:
             document = result.document
@@ -260,6 +291,7 @@ class PdfConverter:
                 page_range,
                 self.runtime_bindings(),
                 self._options.model_dump_json(serialize_as_any=True).encode(),
+                tuple(sorted(self._candidate_pages, key=lambda page: page.page_no)),
             )
         finally:
             result.input.release()
