@@ -805,6 +805,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("text/macros.py", "ingest/macros.py"),
                 ("capture/analytics.py", "semantic/analytics.py"),
                 ("invocation/scheduler.py", "orchestrate/semantic.py"),
+                ("invocation/automated.py", "intervene/automated.py"),
                 ("invocation/packet.py", "methods/llm/packet.py"),
                 ("invocation/source_frames.py", "semantic/source_frames.py"),
                 ("invocation/proposals.py", "semantic/proposals.py"),
@@ -835,6 +836,9 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("parsing/requests.py", "semantic/parsing_requests.py"),
                 ("ingest/methods.py", "ingest/methods.py"),
                 ("pdf/converter.py", "ingest/pdf.py"),
+                ("pdf/worker.py", "ingest/pdf_worker.py"),
+                ("pdf/health.py", "ingest/pdf_health.py"),
+                ("pdf/registry.py", "orchestrate/phase0.py"),
                 ("pdf/hierarchy.py", "ingest/pdf_hierarchy.py"),
                 ("placement/cascade.py", "methods/llm/cascade.py"),
             )
@@ -1292,6 +1296,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     names = tuple(item.name for item in inputs.implementations)
     required_implementations = {
         "invocation/scheduler.py",
+        "invocation/automated.py",
         "invocation/packet.py",
         "invocation/source_frames.py",
         "invocation/proposals.py",
@@ -1316,6 +1321,9 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "pdf/enrichment.py",
         "pdf/regions.py",
         "pdf/converter.py",
+        "pdf/worker.py",
+        "pdf/health.py",
+        "pdf/registry.py",
         "pdf/hierarchy.py",
         "alignment/semantic_alignment.py",
         "placement/cascade.py",
