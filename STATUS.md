@@ -1,7 +1,17 @@
 # Status
-_Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); work is on `main`._
+_Updated 2026-10-31 under the [handoff skill](.claude/skills/handoff/SKILL.md); work is on `main`._
 
 ## Current checkpoint
+
+- [PDF/Docling functional review](docs/functional_reviews/pdf-docling-pipeline_2026-10-31.md)
+  and [target model](docs/functional_reviews/pdf-docling-pipeline_2026-10-31_target-model.md)
+  propose PDF-only StandardPdfPipeline, native JSON custody, intact section hierarchy and
+  migrated consumers. No section chunking; OCR recovery is distinct from verification.
+  Source/API review completed 2026-10-31; conversion/inference/product qualification **not_run**.
+  Recommendations do not change production, existing plans, architectural authority or audits.
+- **2026-10-31 docs:** `just docs-check` failed on concurrent title-less rendering-library draft.
+  Scoped `scripts.docs.build` excluding only that draft passed: 321 pages, zero link errors.
+  `just turn-end` passed; no product tests or conversion ran for this documentation-only review.
 
 - [Parsing coordinator](docs/plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
   owns completed PP-00–PP-10 and O01–O07 dispositions. ADR-0036/0037 govern immutable
@@ -44,5 +54,6 @@ _Updated 2026-10-30 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Next
 
-The requested parsing scope is complete. Conditional library consumers and their revisit
-triggers remain in the coordinator/supporting plans; they are not missing mandatory scope.
+The implemented PP scope remains complete. Next is selection/planning from the proposed PDF
+review; formula health/coverage, section grouping and whole-book execution need qualification.
+Existing conditional consumers remain at their plan owners; no PDF pivot has been deployed.
