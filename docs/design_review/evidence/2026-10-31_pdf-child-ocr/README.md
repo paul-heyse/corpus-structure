@@ -77,3 +77,10 @@ do not turn those into provider evidence; actual provider evidence is the native
 triplet and direct CPU probe above.
 
 Replays require fresh output destinations (`--output`) to preserve retained receipts.
+
+`qualify_retained.py` additionally passed pure enrichment over all three retained
+native products. It uses a converter that refuses any formula-stage invocation;
+therefore no model inference runs during this check. Native identities and candidate
+inventories remain unchanged, and complete observed OCR words support downstream
+prose handling when native word cells are absent. The receipt explicitly records
+application admission as `not_run` until the forward semantic companion is integrated.
