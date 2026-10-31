@@ -27,9 +27,8 @@ from .pdf_assets import PreparedPdfAssets, prepare_pdf_assets
 from .pdf_hierarchy import NativeSnapshot, SectionPolicy, load_snapshot, native_nodes, organize, project_section
 
 
-class PdfIngestConfig(BaseModel):
+class PdfRuntimeConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    originals: tuple[str, ...] = ("siegrist_random/Full_PDF/Full.pdf",)
     layout_revision: str = "8f39ad3c0b4c58e9c2d2c84a38465abf757272d8"
     formula_revision: str = "ecedbe111d15c2dc60bfd4a823cbe80127b58af4"
     model_cache: Path = Field(default_factory=lambda: Path.home()/".cache/docling/models")
@@ -38,6 +37,14 @@ class PdfIngestConfig(BaseModel):
     timeout_seconds: float | None = None
     parser_threads: int = Field(default=8, ge=1)
     stage_batch_size: int = Field(default=4, ge=1)
+
+    def recipe(self) -> PdfRecipe:
+        return PdfRecipe(self.layout_revision, self.formula_revision, self.device, self.ocr_device,
+                         self.parser_threads, self.stage_batch_size, self.timeout_seconds)
+
+
+class PdfIngestConfig(PdfRuntimeConfig):
+    originals: tuple[str, ...] = ("siegrist_random/Full_PDF/Full.pdf",)
     section_rule: str = "native-organizational-headings-v2"
     section_pattern: str = r"^\d+(?:\.\d+)*\s*[:.)-]?\s+\S"
     organizational_heading_pattern: str = r"\S"
@@ -50,10 +57,6 @@ class PdfIngestConfig(BaseModel):
         return SectionPolicy(self.section_rule,self.section_pattern,
             organizational_pattern=self.organizational_heading_pattern,
             local_heading_pattern=self.local_heading_pattern)
-
-    def recipe(self) -> PdfRecipe:
-        return PdfRecipe(self.layout_revision, self.formula_revision, self.device, self.ocr_device,
-                         self.parser_threads, self.stage_batch_size, self.timeout_seconds)
 
 
 class IngestPdf:
@@ -70,7 +73,7 @@ class IngestPdf:
         self._prepared: dict[tuple[str,str], tuple[PdfRecipe, PreparedPdfAssets]] = {}
         self._workers: dict[str, PdfConverter] = {}
 
-    def _runtime(self, cfg: PdfIngestConfig) -> tuple[PdfRecipe, PreparedPdfAssets]:
+    def _runtime(self, cfg: PdfRuntimeConfig) -> tuple[PdfRecipe, PreparedPdfAssets]:
         base = cfg.recipe()
         key = (base.digest, str(cfg.model_cache.resolve()))
         if key not in self._prepared:
@@ -144,7 +147,7 @@ class IngestPdf:
                         nodes=native_nodes(load_snapshot(native))
                     sections=_select_sections(nodes,cfg)
                     drafts=_drafts(unit.ref.unit_id,selected_product,native,values['health'],
-                                   sections,cfg.membership,consumer_release)
+                                   sections,cfg.membership,consumer_release,recognition_coverage=values.get('recognition_coverage',()))
                     outputs.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.EMPTY,
                                               native_products=products,source_views=drafts))
                     continue
@@ -210,9 +213,11 @@ def _select_sections(nodes: Mapping[str,Any],cfg:PdfIngestConfig) -> tuple[str,.
 
 def _drafts(document_id: int,native_product: ProductReference,native: NativeSnapshot,
             health: Mapping[str,Any],sections: tuple[str,...],membership: Literal["direct","descendants"],
-            consumer_release: str,*,replacements: Mapping[tuple[str,str],int]|None=None) -> tuple[SourceViewDraft,...]:
-    doc=load_snapshot(native)
-    nodes=native_nodes(doc)
+            consumer_release: str,*,replacements: Mapping[tuple[str,str],int]|None=None,
+            recognition_coverage: Sequence[Mapping[str,Any]]=(),
+            document: Any=None,node_index: dict[str,Any]|None=None) -> tuple[SourceViewDraft,...]:
+    doc=load_snapshot(native) if document is None else document
+    nodes=native_nodes(doc) if node_index is None else node_index
     section_refs=frozenset(p for p,n in nodes.items() if str(n.label) in {'section','chapter'})
     recipe=canonical_bytes({'recipe':'native-section-text-v3','content_layers':['body'],
                             'organization_owner':native_product.values()})
@@ -237,7 +242,8 @@ def _drafts(document_id: int,native_product: ProductReference,native: NativeSnap
             item=nodes[item.parent.cref]
         from corpus_structure.semantic.source_views import source_view_health
         view_health=source_view_health(health,section,membership,
-            [nodes[p].model_dump(mode='json',by_alias=True) for p in item_refs],tuple(reversed(ancestors)))
+            [nodes[p].model_dump(mode='json',by_alias=True) for p in item_refs],tuple(reversed(ancestors)),
+            recognition_coverage=recognition_coverage)
         key='source-view:'+sha256(canonical_bytes({'consumer_release':consumer_release,
             'native':native_product.values(),'section':section,'membership':membership,
             'recipe':sha256(recipe).hexdigest()})).hexdigest()
@@ -263,7 +269,7 @@ def _conversion_from_product(product,recipe_bytes:bytes) -> PdfConversion:
         inline_candidates=candidates,
         confidence=values.get('runtime_report',{}).get('confidence','{}').encode())
 
-class PdfEnrichConfig(PdfIngestConfig):
+class PdfEnrichConfig(PdfRuntimeConfig):
     # Released classification rules: a cell's nonempty recognition never establishes math.
     cell_math_pattern: str = r"(?:[=+×÷∑∏∫√∞≤≥∈⊂∪∩^_\\]|(?<!\w)[A-Za-z](?!\w)|\d)"
     cell_prose_pattern: str = r"[A-Za-z]{2,}(?:[\s,;:'’().-]+[A-Za-z]{2,})*[.!?]?"
@@ -318,37 +324,39 @@ class EnrichPdfMath:
                     raise RecognitionUnavailable('native enrichment requires selected intact source views')
                 if len({(v.native_product.task_id,v.native_product.product_key,v.native_product.content_digest) for v in views})!=1:
                     raise RecognitionUnavailable('document enrichment requires a single pinned native source product')
-                if len({v.membership for v in views})!=1:
-                    raise RecognitionUnavailable('document enrichment requires one declared membership policy')
                 parent=views[0].native_product
                 product=ctx.reader.native_document(parent)
                 recipe_bytes=self.original_recipe(cfg)
                 conversion=_conversion_from_product(product,recipe_bytes)
                 document=load_snapshot(conversion.native)
                 nodes=native_nodes(document)
-                sections=list(dict.fromkeys(v.section_pointer for v in views))
-                # Context sections use the same new product, preserving pointer qualification.
+                # Analysis units and ancestor context are separate rows over one shared product.
+                specs=list(dict.fromkeys((v.section_pointer,v.membership) for v in views))
                 for view in views:
                     current=nodes[view.section_pointer]
                     while current.parent is not None:
                         pointer=current.parent.cref
                         current=nodes[pointer]
-                        if str(current.label) in {'section','chapter'} and pointer not in sections:
-                            sections.append(pointer)
-                membership=views[0].membership
-                selected=set()
+                        if str(current.label) in {'section','chapter'} and (pointer,'direct') not in specs:
+                            specs.append((pointer,'direct'))
                 section_refs=frozenset(p for p,n in nodes.items() if str(n.label) in {'section','chapter'})
-                def collect(pointer,root):
-                    item=nodes[pointer]
-                    if item.content_layer.value!='body' or (pointer!=root and pointer in section_refs and membership=='direct'):
-                        return
-                    selected.add(pointer)
-                    for child in item.children:
-                        collect(child.cref,root)
-                for section in sections:
-                    collect(section,section)
+                def members(section,membership):
+                    pointers=set()
+                    def collect(pointer):
+                        item=nodes[pointer]
+                        if item.content_layer.value!='body' or (pointer!=section and pointer in section_refs and membership=='direct'):
+                            return
+                        pointers.add(pointer)
+                        for child in item.children:
+                            collect(child.cref)
+                    collect(section)
+                    return pointers
+                selected=set().union(*(members(section,membership) for section,membership in specs))
                 pages={p.page_no:p for p in conversion.inline_candidates}
-                required_pages={prov.page_no for pointer in selected for prov in getattr(nodes[pointer],'prov',())}
+                required_pages={prov.page_no for pointer in selected
+                    if str(nodes[pointer].label) in {'text','list_item','caption','footnote'}
+                    and not nodes[pointer].children and nodes[pointer].text.strip()
+                    for prov in getattr(nodes[pointer],'prov',())}
                 if any(p not in pages or not pages[p].has_words for p in required_pages):
                     raise RecognitionUnavailable('selected native pages lack attributable candidate discovery')
                 cells=table_candidates(document,frozenset(selected))
@@ -382,20 +390,39 @@ class EnrichPdfMath:
                     schema_digest=sha256(product.schema_bytes).hexdigest(),native=derived,
                     section_refs=section_refs,parent=(parent.task_id,parent.product_key,parent.content_digest),enrichment=enriched)
                 payload['cell_reports']=reports
-                inline_complete=all(o.outcome=='succeeded' for o in inline_outcomes)
-                cells_complete=all(r['classification']=='prose' or r['outcome']=='succeeded' for r in reports)
-                payload['health'].update(inline_coverage='complete' if inline_complete else 'partial',
-                    cell_coverage='complete' if cells_complete else 'partial',candidate_policy='native-font-token-vector-v2',
-                    cells_policy='all-nonempty-selected-cells-v1',inline_scope=sections,cell_scope=sections,
-                    inline_membership=membership,cell_membership=membership)
+                # Whole-book native content is retained; only the declared rows close recognition.
+                payload['health'].update(inline_coverage='unknown',cell_coverage='unknown',
+                    candidate_policy='native-font-token-vector-v2',cells_policy='all-nonempty-selected-cells-v1')
+                nodes=native_nodes(document)
+                outcomes={row['pointer']:row['outcome'] for row in payload['health']['formula_outcomes']}
+                coverage=[]
+                for section,membership in specs:
+                    pointers=members(section,membership)
+                    formula_refs=[pointer for pointer in pointers if str(nodes[pointer].label)=='formula']
+                    inline_refs=[pointer for pointer in formula_refs if nodes[pointer].parent is not None
+                        and str(nodes[nodes[pointer].parent.cref].label)=='inline']
+                    display_refs=[pointer for pointer in formula_refs if nodes[pointer].parent is None
+                        or str(nodes[nodes[pointer].parent.cref].label) not in {'inline','table'}]
+                    cell_rows=[row for row in reports if row['table_pointer'] in pointers]
+                    states={
+                        'display':all(outcomes.get(pointer)=='succeeded' for pointer in display_refs),
+                        'inline':all(outcomes.get(pointer)=='succeeded' for pointer in inline_refs),
+                        'cell':all(row['classification']=='prose' or row['outcome']=='succeeded' for row in cell_rows)}
+                    policies={'display':'detected-native-display-v1','inline':'native-font-token-vector-v2',
+                              'cell':'all-nonempty-selected-cells-v1'}
+                    coverage.extend(dict(section_pointer=section,membership=membership,universe=universe,
+                        outcome='complete' if complete and conversion.conversion_status=='success' else 'partial',
+                        policy=policies[universe]) for universe,complete in states.items())
+                payload['recognition_coverage']=coverage
                 prepared=ctx.reader.prepare_pdf_product(payload,product.original,product.schema_bytes,recipe_bytes)
                 reference=ctx.reader.native_product_reference(unit.ref.unit_id,'math-enriched',prepared.digest)
                 replacements: dict[tuple[str,str],int]={(v.section_pointer,v.membership):v.id for v in views}
-                drafts=_drafts(unit.ref.unit_id,reference,derived,payload['health'],tuple(sections),membership,
-                    release,replacements=replacements)
-                # Only the original scope units are analysis-eligible. Context remains available to M13.
-                analysis_sections={v.section_pointer for v in views}
-                drafts=tuple(dataclasses.replace(d,analysis_eligible=d.section_pointer in analysis_sections) for d in drafts)
+                drafts=tuple(draft for section,membership in specs for draft in _drafts(
+                    unit.ref.unit_id,reference,derived,payload['health'],(section,),membership,
+                    release,replacements=replacements,recognition_coverage=coverage,document=document,node_index=nodes))
+                analysis_specs={(v.section_pointer,v.membership) for v in views}
+                drafts=tuple(dataclasses.replace(d,analysis_eligible=(d.section_pointer,d.membership) in analysis_specs)
+                             for d in drafts)
                 outputs.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.EMPTY,
                     native_products=(prepared,),source_views=drafts))
             except Exception as error:

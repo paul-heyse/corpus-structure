@@ -206,7 +206,8 @@ def test_cell_inventory_does_not_turn_plain_headers_into_formula_items():
     assert not any(str(item.label)=='formula' for item in document.texts)
 
 
-def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(monkeypatch):
+@pytest.mark.parametrize('with_ancestor',[False,True])
+def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(monkeypatch,with_ancestor):
     """Pure orchestration control; this does not qualify a model or database publication."""
     import json
     from PIL import Image
@@ -220,19 +221,28 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(mo
     from corpus_structure.ingest.pdf_candidates import CandidatePage,InlineCandidate
     from corpus_structure.semantic.parsing_products import ProductReference
     document=DoclingDocument(name='independent document-operation fixture')
+    if with_ancestor:
+        document.add_heading(text='1: Parent',level=1)
+        document.add_text(label=DocItemLabel.TEXT,text='Parent context.')
     document.pages[1]=PageItem(page_no=1,size=Size(width=100,height=100))
-    document.add_heading(text='1.1: Sets',level=1)
+    document.add_heading(text='1.1: Sets',level=2 if with_ancestor else 1)
     paragraph=document.add_text(label=DocItemLabel.TEXT,text='Let x be real.',orig='Let x be real.',
         prov=ProvenanceItem(page_no=1,bbox=BoundingBox(l=0,t=0,r=100,b=40),charspan=(0,14)))
+    if with_ancestor:
+        document.pages[2]=PageItem(page_no=2,size=Size(width=100,height=100))
+        document.add_heading(text='1.2: Unselected sibling',level=2)
+        document.add_text(label=DocItemLabel.TEXT,text='Outside requested units.',
+            prov=ProvenanceItem(page_no=2,bbox=BoundingBox(l=0,t=0,r=100,b=40),charspan=(0,24)))
     organization=organize(snapshot(document),PdfIngestConfig().section_policy())
-    section=organization.sections[0].group_ref
+    section=organization.sections[1 if with_ancestor else 0].group_ref
+    membership='descendants' if with_ancestor else 'direct'
     candidate=InlineCandidate(1,'x',25,10,35,30,'TOPLEFT','CMMI10','native-math-font-v1')
     conversion=PdfConversion('a'*64,b'{}',organization.document,'success',(),(),(),None,
         inline_candidates=(CandidatePage(1,True,False,(candidate,)),))
     payload=publication_payload(conversion,product_key='organized',schema_digest='b'*64,
         section_refs=frozenset([section]))
     pin=ProductReference(1,'organized','c'*64)
-    view=SourceViewRef(10,'selected-view',1,pin,section,'direct','d'*64,'e'*64)
+    view=SourceViewRef(10,'selected-view',1,pin,section,membership,'d'*64,'e'*64)
     reads=[];prepared=[]
     class Reader:
         def source_views(self):
@@ -293,8 +303,18 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(mo
     assert result.source_views[0].replaces_source_view_id==10
     assert result.source_views[0].native_product==ProductReference(2,'math-enriched','f'*64)
     assert result.source_views[0].text=='1.1: Sets\nLet x be real.'
-    assert prepared[0]['health']['inline_scope']==[section]
-    assert prepared[0]['health']['inline_membership']=='direct'
+    assert prepared[0]['health']['inline_coverage']=='unknown'
+    row=next(r for r in prepared[0]['recognition_coverage'] if r['section_pointer']==section and r['universe']=='inline')
+    assert row['membership']==membership
+    assert row['outcome']=='complete'
+    assert result.source_views[0].health['inline_coverage']=='complete'
+    if with_ancestor:
+        assert len(result.source_views)==2
+        assert result.source_views[1].membership=='direct'
+        assert result.source_views[1].analysis_eligible is False
+        assert result.source_views[1].text=='1: Parent\nParent context.'
+        assert {r['section_pointer'] for r in prepared[0]['recognition_coverage']}=={s.group_ref for s in organization.sections[:2]}
+        assert len(prepared[0]['recognition_coverage'])==6
     assert len(prepared[0]['derivation_mappings'])==3
     assert {r['origin_pointer'] for r in prepared[0]['derivation_mappings']}=={paragraph.self_ref}
     assert 'runtime_report' in prepared[0]

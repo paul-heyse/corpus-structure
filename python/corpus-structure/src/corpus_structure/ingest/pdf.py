@@ -213,6 +213,7 @@ class PdfConverter:
                 raise ValueError("recipe model manifest differs from prepared runtime assets")
         self._options = self.recipe.options()
         if (self._options.generate_page_images or self._options.generate_picture_images
+                or self._options.generate_table_images or self._options.generate_parsed_pages
                 or self._options.do_picture_classification or self._options.do_picture_description
                 or self._options.do_chart_extraction):
             raise ValueError('formula page-lifetime policy requires image exports/enrichments disabled')
@@ -330,7 +331,11 @@ class PdfConverter:
         # The same immutable bytes determine custody and native input even if the operator
         # changes the path while models initialize. Never reopen that path for conversion.
         stream = DocumentStream(name=name, stream=BytesIO(original))
-        result = self._converter.convert(stream, raises_on_error=False, **options)
+        try:
+            result = self._converter.convert(stream, raises_on_error=False, **options)
+        except BaseException:
+            self._page_lifetime.clear()
+            raise
         try:
             document = result.document
             native = snapshot(document)
