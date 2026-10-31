@@ -84,3 +84,15 @@ therefore no model inference runs during this check. Native identities and candi
 inventories remain unchanged, and complete observed OCR words support downstream
 prose handling when native word cells are absent. The receipt explicitly records
 application admission as `not_run` until the forward semantic companion is integrated.
+
+The subsequent retained `--admit` replay **passed** against the forward OCR companion
+on MAIN: all three real inventories round-trip exactly through `prepare_pdf_product`.
+For each source, independently changing a recognized word's PDF left coordinate by
+one point is rejected by the raster-to-PDF crossguard. See
+[the admission receipt](raw/retained-admission.json). This is application-boundary
+admission over retained bytes; it does not claim SQL publication. The model owner
+separately owns the forward0054 migration and actual database controls.
+
+```sh
+UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/.venv PYTHONPATH=/home/paul/corpus-structure/python/corpus-structure/src uv run python docs/design_review/evidence/2026-10-31_pdf-child-ocr/qualify_retained.py --admit --output docs/design_review/evidence/2026-10-31_pdf-child-ocr/raw/retained-admission.json
+```
