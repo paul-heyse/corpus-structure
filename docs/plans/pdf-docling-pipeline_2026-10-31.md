@@ -159,32 +159,42 @@ independent fidelity assessment separate from pipeline correctness. Resolve subs
 issues at coherent endpoints. Applicable lint-only maintenance does not invalidate prior tests.
 No grading-policy change, human grading or automatic historical re-anchoring is included.
 
-**Current checkpoint (2026-10-31):** Partial production implementation is integrated on main.
-Full Docling 2.145.0/all requested extras and core 2.105.0 are application dependencies; the old
-pylatexenc-3 writer is replaced by positioned native Lark structure. Core 2.103.1 conflicts with
-Typer 0.27.3, so the archived validation schema is refreshed to the compatible exact core pin.
-Execution compiler 12 preserves ABI-11 archive opening. Forward native 0047 adds original/task
-custody, immutable JSONB and complete ordered item/region projection checks without a rendition.
-Actual restricted publication/replay and wrong-attempt/forged-projection controls passed in owned
-test databases; operational defaults/databases remain unchanged.
+**Current checkpoint (2026-10-31):** Native source and consumer implementation is integrated
+through 0051; the owned operational PDF database is at 0050 while whole-book source run 2
+performs private inference. Its original and recipe are committed before conversion. Run 1
+remains failed at optional application-envelope validation, with its original log retained in
+[adoption evidence](../design_review/evidence/2026-10-31_pdf-adoption/README.md).
+The repaired adapter omits absent optional wire fields and prepares minimal native capture
+before organization/application metadata. Actual page85 raw/full preparation and protected
+publication/failed-result retention controls passed; these are bounded source/publication claims.
 
-[Production adapter evidence](../design_review/evidence/2026-10-31_pdf-production-adapter/README.md)
-retains one physical-page85 native conversion: CUDA layout/table/formulas and explicit CPU OCR,
-plus a current-boundary projection replay. It is not full-book or final-input-path qualification.
-The shared native math bridge, hierarchy/view kernels and source-address storage primitives are
-implemented; current M09/M11/M13, packets/frames and CLI/MCP still require migration. Active HTML
-entry retirement, complete model-asset custody, inline/cell discovery, owned runtime integration,
-full-book conversion, actual provider/evaluation journeys and PDF-only adoption remain open.
-No O01–O08 is closed by these slices. I01 now has actual provider evidence but offline asset
-custody remains open; I03/I04/I05/I07/I08 retain their integrated obligations.
+Immutable SourceViews, exact product adoption, native M09/M11/M13, policy queueing, source
+frames, CLI/MCP reads, demanded rendering and JSONL/Parquet/complete Docling JSON exports are
+implemented. Model revision 0.6.0 supplies SourceView enum authority. Native source observations
+carry actual unit pins. Sentence preparation and packets use explicit admitted configuration.
+The statistics scope uses five maximal intact descendant sections; context-only ancestor views
+are separate. No section chunks or active HTML producer remain. HTML-only direct dependency
+html5lib is development-only for archived fixtures; actual old outputs remain readable.
 
-**Verification (2026-10-31):** warning-inclusive `just types` passed. Targeted PDF/native controls,
-archive/parsing-contract controls and prepared-math/core controls passed; exact commands and
-limits are in the production evidence README. A broader math selection entered the legacy
-78-page HTML corpus fixture and was interrupted (no acceptance credit). `just test-all` and
-complete hygiene remain not_run until complete functional scope. Lint-only maintenance does
-not invalidate unaffected passing type/test results.
+The assembled journey exposed native finalization and independent-reference anchor issues:
+0051 admits qualified native citations at finalization. The remaining 0052 work retains complete
+independent reference frames and qualified ancestor sources, so reference normalization uses its
+own frame and direct-child context premises remain citable in ancestor coordinates. PDF-09 also
+closes the concrete native-thread cancellation exposure through one owned serial process, keeping
+private inference outside database publication and preserving exact task fences. These are
+preservation obligations in the current scope, not exceptions or relaxed grading requirements.
 
-**Next:** connect stored native products to existing source-ready orchestration and complete
-model asset/candidate-coverage ownership, then migrate ordered scope, packet/frame admission and
-source CLI/MCP/export consumers. Finish full-book runtime and adoption before PDF-11 acceptance.
+**Verification (2026-10-31):** warning-inclusive global `just types` passed at the integrated
+producer/configuration endpoint; scoped subsequent typing controls passed. Native publication,
+SourceView, request, math, packet/registry, export and archived-read controls passed within their
+recorded selections. The actual policy/MCP/consolidation/reference-storage journey reaches
+grading; its reference-anchor mismatch is still being repaired, so no assembled grading pass is
+claimed. The original failed/interrupted records remain. Complete `just test-all`, applicable
+hygiene, actual provider extraction/evaluation and PDF default adoption remain open. Lint-only
+maintenance does not invalidate unaffected type/test results.
+
+**Next:** finish qualified ancestor/reference-frame custody and owned worker cancellation,
+integrate their actual consumer controls, publish/reuse the whole-book source result, then run
+actual five-section extraction, independent automated evaluation, CLI/external MCP and exports.
+Select the completed PDF result and update defaults only after those journeys, then close the
+required functional/provider/nonfunctional union and final documentation/worktrees.

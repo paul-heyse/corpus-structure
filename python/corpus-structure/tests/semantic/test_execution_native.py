@@ -271,6 +271,18 @@ def test_protected_release_and_reclaim_preserve_held_progress(
         assert retained["semantic_proposal_first_result"]["attempt"] == 1
     with pytest.raises(OperationConflict), semantic_writer_engine.begin() as conn:
         renew_claim(conn, task_id=task, attempt=first.attempt, holder="first")
+    # Long private inference must learn that its recorded attempt lost authority while
+    # still inside the operation, rather than discovering it only on publication/exit.
+    from time import monotonic, sleep
+    from corpus_structure.semantic.claim_lifetime import maintained_claims
+
+    with pytest.raises(OperationConflict,match='ownership changed'), maintained_claims(
+            semantic_writer_engine,(first,),'first',interval=0.01) as check_active:
+        deadline=monotonic()+5
+        while monotonic()<deadline:
+            check_active()
+            sleep(0.01)
+        pytest.fail('lease loss was not exposed to in-flight private computation')
 
 
 def test_method_version_binds_unit_and_configuration_schema(semantic_writer_engine):

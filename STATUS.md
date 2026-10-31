@@ -1,42 +1,47 @@
 # Status
-_Updated 2026-10-31 under the handoff skill; work is on `main`._
+_Updated 2026-10-31; execution continues on `main`._
 
 ## Current checkpoint
 
-- [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md): partial implementation,
-  not complete adoption. PDF-00 delivered; PDF-01–06 and PDF-08/09 partial; PDF-07/10/11 planned.
-- Full Docling 2.145.0/all ten requested extras and core 2.105.0 installed in application.
-  Core 2.103.1 conflicts with pinned Typer; native validation schema refreshed. No chunking.
-- Execution compiler 12 preserves ABI-11 archive reads; semantic compiler remains 13.
-  Native head 0047 adds original/task-rooted native JSONB custody and bounded projections.
-- Restricted native publication/replay, attempt fences, exact projection integrity and reads
-  tested in owned scratch databases without a rendition. Native Pydantic/tree validation
-  complements archived JSON Schema; normalization precedes identity.
-- Native formula bridge and positioned Lark structure replace active pylatexenc-3 writing.
-  Intact hierarchy/views and attributable formula/cell-enrichment primitives implemented.
-- [Adapter evidence](docs/design_review/evidence/2026-10-31_pdf-production-adapter/README.md):
-  one actual page85 conversion, CUDA layout/table/formula and explicit CPU OCR; current-boundary
-  retained-native projection replay. No full-book or universal fidelity claim.
-- Defaults remain `corpus_parsing_20261030` / `parsing-pipeline` on `18/corpus:5434`.
-  Historical databases, answers, grades and anchors unchanged; active HTML cutover still open.
-- All owned implementation worktrees integrated and removed. No push.
+- [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns remaining package,
+  opportunity and investigation state. Native producer/consumer implementation is integrated;
+  assembled qualification and operational adoption remain open.
+- Full Docling 2.145.0/all ten requested extras and core 2.105.0 are application dependencies.
+  Native validation schema is 1.10.0. SourceView is modeled at revision 0.6.0. No section chunking.
+- Native migrations through 0051 are integrated; the owned `corpus_pdf_20261031` database remains
+  at 0050 during private whole-book conversion. Historical databases/grades remain unchanged.
+- [Adoption evidence](docs/design_review/evidence/2026-10-31_pdf-adoption/README.md) retains
+  failed source run 1 and its font-null envelope diagnostic. Repaired source run 2 is running
+  against the complete retained original; original/recipe custody precedes inference.
+- Native SourceViews, exact archived-product adoption, M09/M11/M13, policy dispatch, packets,
+  native evidence, CLI/MCP inspection/render requests and typed exports are integrated.
+  The five-section statistics scope uses maximal descendant views, with separate ancestor context.
+- Active HTML writer/source-capture modules are removed. Archived fixtures/read helpers retain
+  historical meanings. html5lib is development-only; complete Docling extras remain installed.
+- Three owned implementation worktrees remain active for producer lifecycle and native consumer
+  integration. Operator library-document drafts are preserved. No push.
 
 ## Verification — 2026-10-31
 
-- **passed:** `just ready`; warning-inclusive `just types`, no suppressions added.
-- **passed:** targeted PDF/native tests, archive/parsing-contract tests, prepared math/core
-  tests. Commands and counts are retained in adapter evidence; these are bounded claims.
-- **passed:** actual page85 conversion and current-boundary projection preparation.
-- **failed (interrupted):** broader math selection entered the legacy 78-page HTML fixture; no tests
-  completed and no acceptance credit. Owned workers drained.
+- **passed:** `just ready`; warning-inclusive global `just types` at the integrated producer/
+  configuration endpoint, and subsequent scoped typing controls. No suppressions added.
+- **passed:** bounded native publication, SourceView, math/request, packet/registry, archive,
+  region and export controls. Complete Docling JSON export passed a real PostgreSQL control.
+- **passed:** fresh native page85 raw/full preparation; actual raw/full PostgreSQL publication
+  and failed-task retention/readback. These are bounded cases, not full-book acceptance.
+- **failed:** initial full-book application-envelope preparation; original receipt retained.
+  Native policy/MCP/consolidation/reference storage now execute; independent reference anchor
+  normalization still requires repair before its grading assertion can pass.
 - **not_run:** complete PDF functional/provider union, `just test-all`, complete hygiene,
-  full-book conversion, PDF-only adoption and new independent automated grading journeys.
-- Prior PP qualification remains historical under its own scope; lint-only maintenance does
-  not invalidate applicable test/type results.
+  completed full-book publication, PDF-only default adoption and actual five-section extraction/
+  independent grading. The current book job is in progress, without completion credit.
+- Prior PP qualification remains historical. Applicable passing type/test records are preserved;
+  lint-only maintenance does not invalidate them.
 
 ## Next
 
-Connect native products to source-ready orchestration; finish model assets and inline/cell
-coverage; migrate M09/M11/M13, domain recognition, packets/native frames and CLI/MCP/exports.
-Then exercise full-book runtime, actual provider/evaluation journeys, adopt PDF defaults and
-retire active HTML routes. The PDF coordinator owns all remaining package/O/I dispositions.
+Finish 0052 independent/ancestor source frames and bounded PDF process ownership, then integrate
+actual consumer controls. Publish and reuse the full-book source, exercise actual extraction,
+independent evaluation, CLI/external MCP/export journeys, select the completed PDF result and
+adopt defaults. Finish required-union qualification and reconcile the plan/design documentation
+before removing fully merged worktrees.
