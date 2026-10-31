@@ -176,11 +176,18 @@ class NativeEvidenceLink:
 
 def _evidence_link(observation, descriptor, start, end, locator):
     frame = descriptor.get("frame")
-    from .proposals import NativeProposalFrame, native_address
+    from .proposals import NativeProposalFrame, native_address, native_statement_source
     if isinstance(frame, NativeProposalFrame):
-        return NativeEvidenceLink(observation["id"], frame.source_view_id, start, end,
-                                   native_address(frame, start=start, end=end))
+        cited=native_statement_source(frame,locator)
+        return NativeEvidenceLink(observation["id"],cited.source_view_id,start,end,
+                                   native_address(cited,start=start,end=end))
     return observation["id"], descriptor["rendition_id"], start, end
+
+
+def _evidence_source_text(descriptor,locator):
+    from .proposals import NativeProposalFrame,native_statement_source
+    frame=descriptor.get("frame")
+    return native_statement_source(frame,locator).text if isinstance(frame,NativeProposalFrame) else descriptor["text"]
 
 
 @dataclass(frozen=True)
@@ -1231,9 +1238,13 @@ def _project_cut(
                         "partial",
                         "explicit unresolved external statement reference",
                     )
+        def statement_source_key(anchor):
+            from .proposals import NativeProposalFrame,native_statement_source
+            frame=descriptor["frame"]
+            return native_statement_source(frame,anchor).unit_ref if isinstance(frame,NativeProposalFrame) else descriptor["rendition_key"]
         statement_ids = {
             ref: statement_identity(
-                prepared.release_id, output, descriptor["rendition_key"], statement["anchor"]
+                prepared.release_id, output, statement_source_key(statement["anchor"]), statement["anchor"]
             )
             for ref, statement in statements.items()
             if statement["kind"] != "outside"
@@ -1360,8 +1371,8 @@ def _project_cut(
                 if e.get("outcome") != "located" or e.get("start") is None or e.get("end") is None:
                     continue
                 start, end = e["start"], e["end"]
-                if not 0 <= start < end <= len(descriptor["text"]):
-                    raise DomainOperationRefused("claim evidence lies outside selected rendition")
+                if not 0 <= start < end <= len(_evidence_source_text(descriptor,e["locator"])):
+                    raise DomainOperationRefused("claim evidence lies outside its cited source")
                 # Location uncertainty is source evidence, never silently upgraded to exactness.
                 key = "evidence:" + sha256(canonical_bytes([source, "claims", i, j, e])).hexdigest()
                 locator = canonical_bytes(
@@ -1464,8 +1475,8 @@ def _project_cut(
                 if citation.get("outcome") != "located":
                     continue
                 start, end = citation["start"], citation["end"]
-                if not 0 <= start < end <= len(descriptor["text"]):
-                    raise DomainOperationRefused("identity evidence lies outside rendition")
+                if not 0 <= start < end <= len(_evidence_source_text(descriptor,citation["locator"])):
+                    raise DomainOperationRefused("identity evidence lies outside its cited source")
                 eid = (
                     "evidence:"
                     + sha256(
@@ -1491,7 +1502,7 @@ def _project_cut(
                     )
                 )
                 evidence_roles[eid] = citation["role"]
-                source_links[eid] = _evidence_link(observation, descriptor, start, end, "")
+                source_links[eid] = _evidence_link(observation, descriptor, start, end, citation["locator"])
             for endpoint in (exclusion["left"], exclusion["right"]):
                 if endpoint["kind"] != "local":
                     continue
@@ -1724,8 +1735,8 @@ def _project_cut(
                 if citation.get("outcome") != "located":
                     continue
                 start, end = citation["start"], citation["end"]
-                if not 0 <= start < end <= len(descriptor["text"]):
-                    raise DomainOperationRefused("identity evidence lies outside rendition")
+                if not 0 <= start < end <= len(_evidence_source_text(descriptor,citation["locator"])):
+                    raise DomainOperationRefused("identity evidence lies outside its cited source")
                 eid = (
                     "evidence:"
                     + sha256(
@@ -1751,7 +1762,7 @@ def _project_cut(
                     )
                 )
                 evidence_roles[eid] = citation["role"]
-                source_links[eid] = _evidence_link(observation, descriptor, start, end, "")
+                source_links[eid] = _evidence_link(observation, descriptor, start, end, citation["locator"])
                 exclusion_links.append(IdentityExclusionEvidenceRow(xid, eid))
                 for identity, value in ((left, exclusion["left"]), (right, exclusion["right"])):
                     exclusion_entities.add(EntityRow(identity))

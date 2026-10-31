@@ -44,11 +44,13 @@ classes:
       sentence:
         required: true
         description: >-
-          Use an ordinary supplied sentence id or the exact handle from
-          native_source.native_evidence. For a native evidence handle, quote an exact
+          Use an ordinary supplied sentence id, the exact handle from
+          native_source.native_evidence, or a supplied native_context handle from a pinned
+          ancestor context source. For a native evidence handle, quote an exact
           substring of that entry's text; it is placed only inside that retained item,
           formula or cell piece, without cross-piece relocation or fuzzy matching.
-          Ordinary sentence evidence follows the release-declared placement cascade.
+          Ancestor context offsets belong to that source view, never the child unit. Ordinary
+          sentence evidence follows the release-declared placement cascade.
       quote: {required: true}
       role: {range: AgentEvidenceRole, required: true}
   AgentLocatedEvidence:
@@ -56,11 +58,13 @@ classes:
       sentence:
         required: true
         description: >-
-          Use an ordinary supplied sentence id or the exact handle from
-          native_source.native_evidence. For a native evidence handle, quote an exact
+          Use an ordinary supplied sentence id, the exact handle from
+          native_source.native_evidence, or a supplied native_context handle from a pinned
+          ancestor context source. For a native evidence handle, quote an exact
           substring of that entry's text; it is placed only inside that retained item,
           formula or cell piece, without cross-piece relocation or fuzzy matching.
-          Ordinary sentence evidence follows the release-declared placement cascade.
+          Ancestor context offsets belong to that source view, never the child unit. Ordinary
+          sentence evidence follows the release-declared placement cascade.
       quote: {required: true}
       role: {range: AgentEvidenceRole, required: true}
       locator: {}

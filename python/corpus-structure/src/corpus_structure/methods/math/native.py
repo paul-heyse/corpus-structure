@@ -614,7 +614,7 @@ def native_proposal_packet(reader: Any, source_view_id: int, prepared: Any,
                            configuration: Any, *, known: tuple[Any, ...] = ()):
     """Build one intact section packet from pinned native context and stored upstream facts."""
     from corpus_structure.ingest.sentences import Block, SentenceConfig, split
-    from corpus_structure.semantic.proposals import KnownProposalEntity, native_source_frame, proposal_packet
+    from corpus_structure.semantic.proposals import KnownProposalEntity, native_frame_source, native_source_frame, proposal_packet
 
     view = reader.source_view(source_view_id)
     native = {item["self_ref"]: item for item in view.items}
@@ -630,6 +630,20 @@ def native_proposal_packet(reader: Any, source_view_id: int, prepared: Any,
                     policy=getattr(view,"text_policy",None))[0]
     frame = native_source_frame(view, [(f"s{index+1}", start, end)
                                        for index, (start, end) in enumerate(extents)])
+    parent_views,_=ancestor_views(reader,view)
+    contexts=[]
+    for parent in parent_views:
+        if parent.ref.membership!="direct":
+            raise ValueError("native standing context requires a direct ancestor source view")
+        parent_native={item["self_ref"]:item for item in parent.items}
+        mathematical=tuple((piece["start"],piece["end"]) for piece in parent.pieces
+            if piece.get("item_ref") in parent_native and parent_native[piece["item_ref"]].get("label")=="formula")
+        parent_extents=split([Block(parent.text,mathematical,(),())],sentence_config,
+            layouts=[parent.layout_for(sentence_config)],policy=getattr(parent,"text_policy",None))[0]
+        parent_frame=native_source_frame(parent,[(f"s{index+1}",start,end)
+            for index,(start,end) in enumerate(parent_extents)])
+        contexts.append(native_frame_source(parent_frame))
+    frame=replace(frame,context_sources=tuple(contexts))
     observations = []
     for kind in (ObservationKind.SCOPE, ObservationKind.AUTHOR_MARKUP):
         for row in reader.source_observations(source_view_id, "resolve.symbol_scope", kind):
@@ -638,7 +652,6 @@ def native_proposal_packet(reader: Any, source_view_id: int, prepared: Any,
     observations.extend(dict(kind="coverage", family="resolve.symbol_scope",
         task_id=row.task_id, release_id=row.release_id, coverage=__import__('dataclasses').asdict(row.coverage))
         for row in reader.source_view_coverage(source_view_id, "resolve.symbol_scope"))
-    parent_views,_=ancestor_views(reader,view)
     parent_index={parent.ref.id:parent for parent in parent_views}
     context_sources={}
     for record in observations:

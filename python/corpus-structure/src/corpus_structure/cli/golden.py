@@ -151,8 +151,7 @@ def submit_command(
 ):
     """Store an automated independent pass and its exact source citation frame."""
     from corpus_structure.evaluate import semantic as references
-    from corpus_structure.semantic.proposals import NativeProposalFrame, ProposalFrame, ProposalSentence
-    from corpus_structure.semantic.parsing_products import ProductReference
+    from corpus_structure.semantic.proposals import ProposalFrame, ProposalSentence, native_frame_from_dict
 
     with reference_session(ctx, project, json=json) as (conn, pid):
         if references._unit(conn, unit)["project_id"] != pid:
@@ -161,10 +160,7 @@ def submit_command(
             raw = jsonlib.loads(frame.read_bytes())
             coordinates=tuple(ProposalSentence(**sentence) for sentence in raw["sentences"])
             if "source_view_id" in raw:
-                native=dict(raw)
-                native["sentences"]=coordinates
-                native["native_product"]=ProductReference(**raw["native_product"])
-                source=NativeProposalFrame(**native)
+                source=native_frame_from_dict(raw)
             else:
                 source = ProposalFrame(raw["unit_ref"],raw["text"],coordinates)
         except (jsonlib.JSONDecodeError, KeyError, TypeError, ValueError) as error:

@@ -52,3 +52,11 @@ release-declared placement cascade. Preserve every supplied frame entry, includi
 evidence aliases, when retaining the source frame. These are projection offsets, not PDF glyph
 positions. Statement anchors may use the supplied unit key, sentence/evidence handle, or a
 supplied qualified native item/projection address; a bare native pointer is insufficient.
+
+Pinned direct ancestor sources appear in `native_source.context_sources`. Their supplied
+sentence/evidence handles have the form `native_context:<source_view_id>:<local_id>` and their
+quotes and offsets belong to that ancestor's text projection. Cite those exact handles for
+standing-context assumptions and premise claims required by guideline §10.2; keep the child's
+`unit_ref` unchanged. Record nothing else from the standing context. Do not copy a parent quote
+into child coordinates or invent an unsupplied source handle. An assumption statement anchored
+to a parent context handle retains that parent's source identity.

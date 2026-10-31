@@ -210,25 +210,27 @@ CREATE OR REPLACE FUNCTION data.check_evidence_source() RETURNS trigger LANGUAGE
 SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE observation kb.observation; ev data.evidence; span kb.span; method_name text;
  operation_version text; uri text; rendition_key text; matched boolean; locator_matched boolean; synthesis jsonb;
- native_view kb.source_view; native_frame ops.native_source_frame; address jsonb; first_offset bigint; last_offset bigint;
+ native_view kb.source_view; native_frame ops.native_source_frame; native_source ops.native_source_frame_source; address jsonb; first_offset bigint; last_offset bigint;
 BEGIN
  SELECT * INTO STRICT observation FROM kb.observation WHERE id=NEW.observation_id;
  IF NEW.source_view_id IS NOT NULL OR observation.source_view_id IS NOT NULL THEN
   IF observation.release_id IS DISTINCT FROM NEW.release_id OR
-   observation.source_view_id IS DISTINCT FROM NEW.source_view_id OR
+   observation.source_view_id IS NULL OR
    NEW.rendition_id IS NOT NULL OR NEW.span_id IS NOT NULL OR observation.rendition_id IS NOT NULL OR
    observation.payload_definition<>'AgentStoredBatch' OR NEW.native_address IS NULL THEN
    RAISE EXCEPTION 'native evidence source differs from its bound observation' USING ERRCODE='23514'; END IF;
   SELECT * INTO STRICT native_view FROM kb.source_view WHERE id=NEW.source_view_id;
   SELECT f.* INTO STRICT native_frame FROM ops.native_source_frame f JOIN ops.task t ON t.id=f.task_id
    AND t.packet_hash=f.packet_hash AND t.unit_key=f.unit_ref WHERE f.task_id=observation.task_id;
+  SELECT * INTO STRICT native_source FROM ops.native_source_frame_source
+   WHERE task_id=observation.task_id AND source_view_id=native_view.id;
   IF native_view.release_id IS DISTINCT FROM observation.release_id OR
-   native_frame.source_view_id IS DISTINCT FROM native_view.id OR
-   native_frame.product_task_id IS DISTINCT FROM native_view.native_task_id OR
-   native_frame.product_key IS DISTINCT FROM native_view.native_product_key OR
-   native_frame.product_digest IS DISTINCT FROM native_view.native_content_digest OR
-   native_frame.projection_digest IS DISTINCT FROM native_view.projection_digest OR
-   native_frame.recipe_digest IS DISTINCT FROM native_view.recipe_digest OR
+   native_frame.source_view_id IS DISTINCT FROM observation.source_view_id OR
+   native_source.product_task_id IS DISTINCT FROM native_view.native_task_id OR
+   native_source.product_key IS DISTINCT FROM native_view.native_product_key OR
+   native_source.product_digest IS DISTINCT FROM native_view.native_content_digest OR
+   native_source.projection_digest IS DISTINCT FROM native_view.projection_digest OR
+   native_source.recipe_digest IS DISTINCT FROM native_view.recipe_digest OR
    native_frame.unit_ref IS DISTINCT FROM observation.payload->>'unit_ref' THEN
    RAISE EXCEPTION 'native evidence frame differs from selected source custody' USING ERRCODE='23514'; END IF;
   SELECT m.name,m.version,d.source_uri INTO STRICT method_name,operation_version,uri
@@ -247,7 +249,7 @@ BEGIN
     COALESCE(observation.payload->'identity_exclusions','[]'::jsonb)) item
    CROSS JOIN LATERAL jsonb_array_elements(item->'evidence') citation
    JOIN ops.native_source_frame_sentence supplied ON supplied.task_id=observation.task_id
-    AND supplied.sentence_id=citation->>'sentence' AND supplied.locator=citation->>'locator'
+    AND supplied.source_view_id=native_view.id AND supplied.sentence_id=citation->>'sentence' AND supplied.locator=citation->>'locator'
    WHERE citation->>'outcome'='located' AND (citation->>'start')::bigint=first_offset
     AND (citation->>'end')::bigint=last_offset AND supplied.start_offset<=first_offset AND supplied.end_offset>=last_offset
     AND substring(native_view.projection->>'text' FROM first_offset::integer+1 FOR (last_offset-first_offset)::integer)
@@ -346,9 +348,10 @@ BEGIN
         AND f.unit_ref=observation.payload->>'unit_ref' AND f.rendition_id=observation.rendition_id) THEN
      RAISE EXCEPTION 'statement report differs from its immutable source frame' USING ERRCODE='23514'; END IF;
     IF observation.source_view_id IS NOT NULL THEN
-     SELECT v.key INTO STRICT source_rendition_key FROM kb.source_view v JOIN ops.native_source_frame f
-      ON f.source_view_id=v.id WHERE f.task_id=observation.task_id AND f.source_view_id=observation.source_view_id
-       AND f.unit_ref=observation.payload->>'unit_ref';
+     IF NOT EXISTS(SELECT FROM ops.native_source_frame f WHERE f.task_id=observation.task_id
+       AND f.source_view_id=observation.source_view_id AND f.unit_ref=observation.payload->>'unit_ref') THEN
+      RAISE EXCEPTION 'native statement differs from its primary source frame' USING ERRCODE='23514'; END IF;
+     source_rendition_key:=ops.native_source_statement_source_key(observation.task_id,statement->>'anchor');
      expected_statement:='entity:'||encode(sha256(convert_to(data.canonical_json(
       jsonb_build_array(r,z,'source-statement',source_rendition_key,
                        ops.native_source_statement_locator(observation.task_id,statement->>'anchor'))),'UTF8')),'hex');

@@ -10,7 +10,7 @@ import copy
 import json
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 from typing import Any
 
@@ -458,13 +458,16 @@ def record_pass(
     native = isinstance(frame, NativeProposalFrame)
     if native:
         from corpus_structure.semantic.source_views import load_source_view
-        view = load_source_view(conn, unit["source_view_id"])
-        if (frame.unit_ref != unit["unit_key"] or frame.source_view_id != view.ref.id
-                or frame.text != view.text or frame.projection_digest != view.ref.projection_digest
-                or frame.native_product != view.ref.native_product
-                or frame.recipe_digest != view.ref.recipe_digest or frame.membership != view.ref.membership
-                or frame.section_pointer != view.ref.section_pointer):
-            raise ReferenceError("reference frame differs from its bound native source view")
+        from corpus_structure.semantic.identity import canonical_bytes
+        if frame.unit_ref!=unit["unit_key"] or frame.source_view_id!=unit["source_view_id"]:
+            raise ReferenceError("reference primary source differs from its bound native unit")
+        for source in (frame,*frame.context_sources):
+            view=load_source_view(conn,source.source_view_id)
+            if (source.unit_ref!=view.ref.key or source.text!=view.text or
+                source.projection_digest!=view.ref.projection_digest or source.native_product!=view.ref.native_product or
+                source.recipe_digest!=view.ref.recipe_digest or source.membership!=view.ref.membership or
+                source.section_pointer!=view.ref.section_pointer or source.native_context!=canonical_bytes(view.context()).decode()):
+                raise ReferenceError("reference frame source differs from its pinned native source view")
     else:
         rendition = conn.execute(select(table("kb.rendition")).where(
             table("kb.rendition").c.id == unit["rendition_id"])).mappings().one()
@@ -502,12 +505,14 @@ def record_pass(
         _call(
             conn,
             "SELECT eval." + ("record_native_reference_pass" if native else "record_reference_pass")
-            + "(:u,:k,:a,:b,CAST(:f AS jsonb))",
+            + ("(:u,:k,:a,:b,CAST(:f AS jsonb),CAST(:source_frame AS jsonb))" if native
+               else "(:u,:k,:a,:b,CAST(:f AS jsonb))"),
             u=unit_id,
             k=pass_kind,
             a=actor,
             b=authored,
             f=_json(entries),
+            **({"source_frame":_json(asdict(frame))} if native else {}),
         ).scalar_one()
     )
 
@@ -530,6 +535,14 @@ def read_pass(
         raise ReferenceError("reference authored bytes no longer match their digest")
     release = open_release(conn, unit["release_id"])
     batch = release.validate_json("AgentAuthoredBatch", authored).model_dump(mode="json")
+    source_frame=citation.get("source_frame")
+    if source_frame is not None:
+        from corpus_structure.semantic.proposals import native_frame_from_dict,statement_anchor
+        decoded=native_frame_from_dict(source_frame)
+        if decoded.source_view_id!=citation["source_view_id"] or decoded.projection_digest!=citation["projection_digest"]:
+            raise ReferenceError("retained reference source frame differs from its projection pin")
+        for statement in batch.get("statements",()):
+            if statement["kind"]!="outside":statement["anchor"]=statement_anchor(statement["anchor"],decoded)
     fields = {(e["family"], e["item_ref"], e["evidence_index"]): e for e in citation["frame"]}
     for family in ("claims", "unsupported", "identity_exclusions"):
         for item in batch.get(family, ()):

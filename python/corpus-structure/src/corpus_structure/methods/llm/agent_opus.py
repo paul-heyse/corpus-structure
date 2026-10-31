@@ -52,7 +52,7 @@ from corpus_structure.methods.llm import parts as parts_
 
 from corpus_structure.ingest.sentences import SentenceConfig
 
-VERSION = "4"  # bumped on any change to the packet rendering or the prompts
+VERSION = "5"  # bumped on any change to the packet rendering or the prompts
 DEFAULT_MODEL = "claude-opus-5-5"
 
 

@@ -195,3 +195,38 @@ def test_native_cell_evidence_alias_stays_within_its_retained_projection_piece()
     wrong=ProposalSentence('native_evidence:0',native_address(frame,start=15,end=len(text_value)),15,len(text_value))
     with pytest.raises(ValueError,match='retained projection piece'):
         replace(frame,sentences=tuple(wrong if row.id==wrong.id else row for row in frame.sentences))
+
+
+def test_ancestor_evidence_keeps_its_own_offsets_and_statement_source():
+    from dataclasses import asdict,replace
+    from .test_proposals import prepared,batch
+    from corpus_structure.semantic.proposals import NativeFrameSource,native_frame_source,locate_proposal,native_frame_from_dict,statement_anchor,native_statement_source
+    from corpus_structure.semantic.domain_operations import _evidence_link,NativeEvidenceLink
+    product=ProductReference(2,'native','a'*64)
+    parent_group={'self_ref':'#/groups/parent','label':'section'}
+    def source(identity,pointer,text,ancestors):
+        return SimpleNamespace(ref=SimpleNamespace(id=identity,key=f'native:{identity}',native_product=product,
+            section_pointer=pointer,membership='direct',projection_digest=str(identity)*64,recipe_digest='c'*64),
+            text=text,pieces=({'kind':'native_text','item_ref':f'#/texts/{identity}','source_field':'text','start':0,'end':len(text)},),
+            items=({'self_ref':f'#/texts/{identity}','label':'text','text':text},),ancestors=ancestors,health={})
+    parent=source(6,'#/groups/parent','Long parent context. Alice is here.',())
+    child=source(7,'#/groups/child','Child fact.',(parent_group,))
+    parent_frame=native_source_frame(parent,[('s1',21,len(parent.text))])
+    parent_source=native_frame_source(parent_frame)
+    frame=replace(native_source_frame(child,[('s1',0,len(child.text))]),context_sources=(parent_source,))
+    raw=batch();raw['unit_ref']=frame.unit_ref
+    handle='native_context:6:s1';raw['statements'][0]['anchor']=handle
+    raw['claims'][0]['evidence'][0]['sentence']=handle
+    located=locate_proposal(prepared(),raw,frame)
+    assert located.clean
+    citation=located.stored.model_dump(mode='json')['claims'][0]['evidence'][0]
+    assert citation['start']==21 and citation['start']>len(child.text)
+    assert json.loads(citation['locator'][4:])['source_view_id']==6
+    link=_evidence_link({'id':10},{'frame':frame},citation['start'],citation['end'],citation['locator'])
+    assert isinstance(link,NativeEvidenceLink)
+    assert link.source_view_id==6 and link.start==21
+    assert native_statement_source(frame,statement_anchor(handle,frame)).unit_ref=='native:6'
+    roundtrip=native_frame_from_dict(asdict(frame))
+    assert roundtrip==frame
+    with pytest.raises(ValueError,match='direct ancestor'):
+        replace(frame,context_sources=(replace(parent_source,membership='descendants'),))

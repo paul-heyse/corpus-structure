@@ -58,3 +58,11 @@ sentence ids continue to use the release-declared evidence placement cascade.
 For a statement's `anchor`, use the supplied unit key, sentence id, native evidence handle,
 or supplied qualified native item/projection address. Preserve its product/view pins; do not
 construct an anchor from a bare `#/...` pointer.
+
+Pinned direct ancestor sources appear in `native_source.context_sources`. Their supplied
+sentence/evidence handles have the form `native_context:<source_view_id>:<local_id>` and their
+quotes and offsets belong to that ancestor's text projection. Cite those exact handles for
+standing-context assumptions and premise claims required by guideline §10.2; keep the child's
+`unit_ref` unchanged. Record nothing else from the standing context. Do not copy a parent quote
+into child coordinates or invent an unsupplied source handle. An assumption statement anchored
+to a parent context handle retains that parent's source identity.
