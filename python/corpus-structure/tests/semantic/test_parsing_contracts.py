@@ -92,7 +92,7 @@ def test_unsupported_role_cardinality_and_adapter_revision_refuse():
                 ),
             )
         )
-    with pytest.raises(PreparationError, match="qualify adapter revision"):
+    with pytest.raises(PreparationError, match="qualify.*producer profile"):
         validate_parsing_contracts(
             replace(
                 model,
@@ -104,12 +104,14 @@ def test_unsupported_role_cardinality_and_adapter_revision_refuse():
 
 
 @pytest.mark.parametrize("case", range(5))
-def test_archived_html_inputs_satisfy_the_retained_contract(case):
+def test_archived_html_shape_survives_without_admitting_a_current_html_producer(case):
     archive = json.loads((Path(__file__).with_name("fixtures") / "retained-html-inputs.json").read_bytes())
     retained = archive["parsing"][case]
     raw = base64.b64decode(retained["original_base64"])
-    product = prepare_parsing_product(retained["payload"], raw)
-    values = product.values()
+    values = retained["payload"]
+    parsing_contract().validate_json("ParsingProduct", json.dumps(values))
+    with pytest.raises(ValueError, match="adapter is not admitted"):
+        prepare_parsing_product(values, raw)
     assert values["provenance_universe"] == "canonical_output"
     assert values["provenance_state"] == "complete"
     decoded = next(r for r in values["representations"] if r["kind"] == "decoded")
@@ -121,7 +123,6 @@ def test_archived_html_inputs_satisfy_the_retained_contract(case):
 def test_self_copy_does_not_establish_original_provenance():
     p = product_values()
     p.update(
-        adapter_id="html5lib-source-1",
         provenance_state="complete",
         provenance_universe="canonical_output",
     )
@@ -180,47 +181,3 @@ def test_native_bounded_queries_retain_order_and_refuse_limits(
         )
 
 
-@pytest.mark.parametrize("raw", [b"<p>a\x00b</p>", b'<p A="x" a="y" empty="">a<b>x</b>t</p>'])
-def test_native_actual_html_typed_structure_and_rooted_origins(
-    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, raw
-):
-    from corpus_structure.ingest.html import build_rendition
-    from corpus_structure.ingest.profile import compile_profile, load_profile
-    from corpus_structure.ingest.sentences import SentenceConfig
-    from corpus_structure.semantic.parsing_products import (
-        read_parsing_product,
-        store_parsing_product,
-    )
-    from corpus_structure.semantic.parsing_queries import trace_origins
-
-    from .test_operations import setup
-
-    prepared = setup(semantic_db_engine, observations=True, composed=True)
-    built = build_rendition(
-        raw,
-        compile_profile(load_profile("siegrist")),
-        SentenceConfig(),
-        source_uri="siegrist_random/random/test/Page.html",
-    )
-    assert built.parsing_product is not None
-    product = prepare_parsing_product(built.parsing_product.values(), raw)
-    with semantic_writer_engine.begin() as conn:
-        _, task, attempt, _ = _native_build(conn, prepared, raw, tmp_path, content=built.content)
-        store_parsing_product(
-            conn, task_id=task, attempt=attempt, holder="fixture", product=product
-        )
-    with semantic_reader_engine.begin() as conn:
-        assert read_parsing_product(conn, task_id=task) == product
-        trace = trace_origins(
-            conn,
-            task_id=task,
-            representation_id="canonical",
-            start=0,
-            end=len(built.content.canonical_text),
-        )
-        assert trace.outcome == "complete"
-        assert any(
-            c.kind == "original" and c.extent.representation_id == "raw"
-            for c in trace.contributions
-        )
-        assert all(c.kind in {"original", "synthetic"} for c in trace.contributions)

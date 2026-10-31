@@ -55,6 +55,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
     context.boundary.validate_json('PdfNativeReadRequest',request.model_dump_json())
     origin = runs.alias('native_origin_run')
     header = conn.execute(select(products.c.release_id,products.c.health.op("-")("formula_outcomes").label("health"),products.c.content_digest,
+        products.c.parent_task_id,products.c.parent_product_key,products.c.parent_digest,
         builds.c.artifact_digest,tasks.c.run_id.label('origin_run')).select_from(products.join(tasks,
         tasks.c.id==products.c.task_id).join(origin,origin.c.id==tasks.c.run_id).join(builds,
         builds.c.task_id==products.c.task_id)).where(products.c.task_id==request.task_id,
@@ -101,7 +102,14 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
         if request.view in {'regions','trace'}:
             rows=read_native_regions(conn,**pin,pointer=request.pointer)
             if request.view=='trace':
-                rows=[dict(row,artifact_digest=header.artifact_digest,space='pdf_points') for row in rows]
+                derivation=table('kb.native_document_derivation')
+                mappings=[dict(row) for row in conn.execute(select(derivation).where(
+                    derivation.c.task_id==request.task_id,derivation.c.product_key==request.product_key,
+                    derivation.c.pointer==request.pointer).order_by(derivation.c.mapping_index)).mappings()]
+                parent=None if header.parent_task_id is None else dict(task_id=header.parent_task_id,
+                    product_key=header.parent_product_key,content_digest=header.parent_digest)
+                rows=[dict(pointer=request.pointer,artifact_digest=header.artifact_digest,space='pdf_points',
+                    regions=rows,parent_product=parent,derivation_mappings=mappings)]
         else:
             # Transfer only the selected native object, not its containing document.
             item=table('kb.native_document_item')
@@ -123,6 +131,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                     dict(task=request.task_id,key=request.product_key,digest=request.content_digest,pointer=request.pointer)).scalar_one_or_none() or {'outcome':'unknown'}
                 rows=[dict(pointer=request.pointer,original_text=native.get('orig'),
                     recognized_latex=native.get('text'),recognition=health,
+                    interpretation=_recorded_interpretations(conn,request),
                     regions=read_native_regions(conn,**pin,pointer=request.pointer))]
             else:
                 rows=[dict(rows[0],native=native)]
@@ -131,6 +140,49 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
             after=rows[-1]['ordinal']),sort_keys=True).encode()).decode()
     return NativeSourceResponse(selection=request,release_id=header.release_id,
         health=to_jsonable_python(header.health),rows=to_jsonable_python(rows),next_cursor=next_cursor)
+
+
+def _recorded_interpretations(conn: Connection, request: NativeSourceRequest) -> dict:
+    """Read selected-run analysis only; inspection never requests stronger computation."""
+    if request.pointer is None:
+        raise ValueError('recorded analysis requires one native formula occurrence')
+    from corpus_structure.core.vocab import ObservationKind
+    from corpus_structure.semantic.operations import BoundReader
+    from corpus_structure.semantic.releases import open_release
+    from corpus_structure.semantic.metadata import table
+
+    runs=table('ops.run')
+    release=conn.execute(select(runs.c.release_id).where(runs.c.id==request.run_id)).scalar_one()
+    reader=BoundReader(conn,request.run_id,open_release(conn,release))
+    results=[]
+    views,selection=table('kb.source_view'),table('ops.run_source_view')
+    newer=selection.alias('newer_analysis_selection')
+    view_ids=conn.execute(select(views.c.id).join(selection,selection.c.source_view_id==views.c.id).where(
+        selection.c.run_id==request.run_id,views.c.native_task_id==request.task_id,
+        views.c.native_product_key==request.product_key,views.c.native_content_digest==request.content_digest,
+        views.c.projection['items'].contains([request.pointer]),
+        ~select(newer.c.source_view_id).where(newer.c.run_id==request.run_id,
+            newer.c.supersedes_source_view_id==views.c.id).exists()).order_by(views.c.id)).scalars()
+    from corpus_structure.semantic.native_analysis import stored_native_analysis
+    for view_id in view_ids:
+        analysis=stored_native_analysis(reader,view_id,request.pointer)[request.pointer]
+        requests=[]
+        for observation in reader.source_observations(view_id,'native.source_request',ObservationKind.RECORD):
+            payload=observation.payload
+            if not isinstance(payload,dict):
+                continue
+            if (payload.get('source_view_id')!=view_id or payload.get('native_product') !=
+                dict(task_id=request.task_id,product_key=request.product_key,content_digest=request.content_digest)):
+                raise ValueError('recorded native request differs from the selected source pin')
+            items=payload.get('items',[])
+            if not isinstance(items,list):
+                continue
+            for item in items:
+                if isinstance(item,dict) and item.get('pointer')==request.pointer:
+                    requests.append(dict(task_id=observation.task_id,demand=payload.get('demand'),analysis=item))
+        results.append(dict(analysis,requests=requests))
+    recorded=any(result['observations'] or result['requests'] for result in results)
+    return dict(status='recorded' if recorded else 'not_selected',run_id=request.run_id,results=results)
 
 
 def export_native_source(conn: Connection, request: NativeSourceRequest, destination, *, format: Literal['jsonl','parquet']='parquet') -> None:
@@ -147,13 +199,27 @@ def export_native_source(conn: Connection, request: NativeSourceRequest, destina
         raise FileExistsError(destination)
     if request.view not in {'items','sections'}:
         raise ValueError('streaming native export requires items or sections')
+    response=inspect_native_source(conn,request)
     # Existing typed SQL projection determines Arrow types, retaining the original text.
     from corpus_structure.semantic.metadata import table
     from corpus_structure.schema.interchange import _sql_arrow
     relation=table('kb.native_document_item')
+    derivation=table('kb.native_document_derivation')
+    products,builds=table('ops.native_document_product'),table('ops.source_build')
+    source=conn.execute(select(builds.c.artifact_digest,products.c.parent_task_id,
+        products.c.parent_product_key,products.c.parent_digest).join(products,
+            products.c.task_id==builds.c.task_id).where(products.c.task_id==request.task_id,
+            products.c.product_key==request.product_key,products.c.content_digest==request.content_digest)).one()
+    parent=None if source.parent_task_id is None else dict(task_id=source.parent_task_id,
+        product_key=source.parent_product_key,content_digest=source.parent_digest)
     schema=pa.schema([pa.field(c.name,_sql_arrow(c.type),nullable=bool(c.nullable))
         for c in relation.columns if c.name != 'native_json']+[pa.field('content_digest',pa.string(),nullable=False),
+            pa.field('artifact_digest',pa.string(),nullable=False),
+            pa.field('parent_product',pa.struct([pa.field('task_id',pa.int64()),
+                pa.field('product_key',pa.string()),pa.field('content_digest',pa.string())])),
             pa.field('native_json',pa.json_(pa.string())),
+            pa.field('derivation_mappings',pa.list_(pa.struct([
+                pa.field(c.name,_sql_arrow(c.type),nullable=bool(c.nullable)) for c in derivation.columns]))),
             pa.field('regions',pa.list_(pa.struct([
                 pa.field('region_index',pa.int64()),pa.field('page_no',pa.int64()),
                 *[pa.field(n,pa.float64()) for n in ('page_width','page_height','left','top','right','bottom')],
@@ -165,7 +231,6 @@ def export_native_source(conn: Connection, request: NativeSourceRequest, destina
         try:
             selected=request
             while True:
-                response=inspect_native_source(conn,selected)
                 pointers=[row['pointer'] for row in response.rows]
                 region=table('kb.native_document_region')
                 by_pointer=defaultdict(list)
@@ -175,7 +240,14 @@ def export_native_source(conn: Connection, request: NativeSourceRequest, destina
                 native={r.pointer:r.native_json for r in conn.execute(select(relation.c.pointer,relation.c.native_json).where(
                     relation.c.task_id==request.task_id,relation.c.product_key==request.product_key,
                     relation.c.pointer.in_(pointers)))}
+                mappings=defaultdict(list)
+                for row in conn.execute(select(derivation).where(derivation.c.task_id==request.task_id,
+                    derivation.c.product_key==request.product_key,derivation.c.pointer.in_(pointers))
+                    .order_by(derivation.c.pointer,derivation.c.mapping_index)).mappings():
+                    mappings[row['pointer']].append(dict(row))
                 rows=[dict(row,content_digest=request.content_digest,
+                    artifact_digest=source.artifact_digest,parent_product=parent,
+                    derivation_mappings=mappings[row['pointer']],
                     native_json=json.dumps(native[row['pointer']],ensure_ascii=False,allow_nan=False),
                     regions=sorted(by_pointer[row['pointer']],key=lambda r:r['region_index'])) for row in response.rows]
                 if writer is not None:
@@ -186,6 +258,7 @@ def export_native_source(conn: Connection, request: NativeSourceRequest, destina
                 if response.next_cursor is None:
                     break
                 selected=selected.model_copy(update={'cursor':response.next_cursor})
+                response=inspect_native_source(conn,selected)
         finally:
             if writer is not None:
                 writer.close()

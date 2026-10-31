@@ -236,7 +236,7 @@ def _native_build(conn, prepared, original, tmp_path, *, hash_suffix="one", cont
         source_uri="file:parsing",
         original_path=str(original_path),
         original=original,
-    )
+     mime='text/html')
     task = create_task(
         conn,
         run_id=run,
@@ -403,7 +403,7 @@ def test_original_acquisition_survives_decode_failure_without_a_rendition(
     with semantic_writer_engine.begin() as c:
         doc = register_document(
             c, project_id="p", source_uri="file:broken", original_path=str(path), original=original
-        )
+        , mime='text/html')
     path.unlink()
     with semantic_reader_engine.connect() as c:
         assert read_original(c, doc) == original

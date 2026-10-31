@@ -94,6 +94,21 @@ Historical read selection, ambiguous-build refusal, corruption refusal and sourc
 semantics survive. New PDF anchors do not rewrite historical canonical evidence. PDF-07/08 own
 actual consumers and PDF-10/11 own external CLI/MCP/adoption evidence.
 
+**Implemented; bounded controls Tested, 2026-10-31.** `NativeSourceRequest` version 2 binds
+run, producing task, product key and content digest. Section/item/formula/cell/region selections
+and continuations preserve that pin. `ci source native-products|views|native-export|native-request`
+and the existing `inspect_source` MCP tool expose the native route alongside explicitly archived
+scalar-coordinate reads. Formula inspection hydrates retained analysis records and named inputs;
+it performs no interpretation. Region rendering is an explicit `render_source_region` demand
+through the existing task/source-ready lifecycle, with a retained image artifact.
+
+Separate native proposal frames hash the actual section context, native objects and coverage.
+Their projection ranges and direct native item addresses remain distinct from PDF geometry.
+Indexed item JSON supplies bounded reads; JSONL/Parquet exports retain native lexical spelling,
+ordered regions and qualified derivation endpoints. In-process registration and region-kernel
+controls are bounded evidence; external transport, protected integrated consumer journeys and
+operational adoption remain owned by PDF-08–11 until exercised.
+
 ### Retained HTML realization
 
 The following clauses describe the retained HTML route only; they do not constrain the new PDF

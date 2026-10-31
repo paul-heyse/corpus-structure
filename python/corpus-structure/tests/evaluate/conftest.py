@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from archived_source import archived_rendition
 
 from corpus_structure.core import tex
 from corpus_structure.core.batch import AuthoredBatch, CitationFrame, StoredBatch
@@ -32,9 +33,6 @@ from corpus_structure.evaluate.agreement import side_of
 from corpus_structure.evaluate.align import AlignmentContext, AlignmentSide
 from corpus_structure.evaluate.equivalence import ValueComparator
 from corpus_structure.evaluate.goldens import context_refs
-from corpus_structure.ingest.html import build_rendition
-from corpus_structure.ingest.profile import compile_profile, load_profile
-from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.llm.parse import RenditionView, parse
 from corpus_structure.schema.lookup import SchemaLookup, build_lookup, name_map
 from corpus_structure.schema.pack import load_pack
@@ -84,8 +82,7 @@ def statistics() -> tuple[SchemaLookup, dict[str, str]]:
 def view(page: str) -> RenditionView:
     uri = f"{ROOT}/{page}"
     raw = (REPO / "fixtures/trace/corpus" / uri).read_bytes()
-    profile = compile_profile(load_profile("siegrist"))
-    content = build_rendition(raw, profile, SentenceConfig(), source_uri=uri).content
+    content = archived_rendition(page, raw)
     document = document_key("statistics", uri, hashlib.sha256(raw).hexdigest())
     return RenditionView(
         content,

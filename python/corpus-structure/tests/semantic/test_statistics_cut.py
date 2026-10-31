@@ -112,7 +112,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             original_path=str(path),
             original=path.read_bytes(),
             metadata={"page": "Statistics.html"},
-        )
+         mime='text/html')
         key = conn.execute(
             select(table("kb.document").c.key).where(table("kb.document").c.id == document)
         ).scalar_one()

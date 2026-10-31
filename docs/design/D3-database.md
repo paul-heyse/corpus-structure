@@ -1860,3 +1860,14 @@ validated at the prepared writer boundary before identity. Application envelopes
 native publication guards derive from the trusted PDF companion model. The
 [PDF coordinator](../plans/pdf-docling-pipeline_2026-10-31.md) owns remaining consumer, cell,
 full-book and adoption obligations. Historical operational databases remain unchanged.
+
+**Implemented and native-control Tested, 2026-10-31.** Forward 0048 adds immutable
+`kb.source_view` projections and append-only run selections with explicit supersession. A view
+pins its producing native task/product/digest, section, membership and projection recipe; it
+is a real task unit without a fabricated document or rendition. Native source frames bind the
+actual packet context and section-local sentence ranges. `kb.native_document_item.native_json`
+is an exact derived access projection so item reads do not repeatedly decode the containing book.
+Publication verifies source membership/order, ancestry, projection pieces and scoped health
+under the existing attempt and source fences. Compatible cross-release adoption requires the
+explicit archived product input and qualified producer/schema custody; it never relabels the
+old producer as a new task result.

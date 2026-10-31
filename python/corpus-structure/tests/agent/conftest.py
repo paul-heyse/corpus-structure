@@ -83,17 +83,9 @@ def analyse(content: RenditionContent) -> Analysis:
 
 @cache
 def page_content(page: str) -> RenditionContent:
-    from corpus_structure.ingest.html import build_rendition
-    from corpus_structure.ingest.profile import compile_profile, load_profile
-    from corpus_structure.ingest.sentences import SentenceConfig
+    from archived_source import archived_rendition
 
-    source = f"{ROOT}/{page}"
-    corpus = (
-        TRACE_CORPUS if (TRACE_CORPUS / source).exists() else REPO / "docs/statistics_corpus/corpus"
-    )
-    raw = (corpus / source).read_bytes()
-    profile = compile_profile(load_profile("siegrist"))
-    return build_rendition(raw, profile, SentenceConfig(), source_uri=source).content
+    return archived_rendition(page)
 
 
 def _rendition(content: RenditionContent, rendition_key: str) -> Any:

@@ -117,7 +117,7 @@ def init_bound_project(
                 if not raw.startswith(b"%PDF-"):
                     raise ProjectError(f"configured original is not a PDF: {uri}")
                 register_document(conn, project_id=project_id, source_uri=uri,
-                    original_path=str(original), original=raw, title=original.stem,
+                    original_path=str(original), original=raw, mime="application/pdf", title=original.stem,
                     metadata={"input_format":"pdf","source_inventory":"configured-pdf-originals"},
                     prepared=prepared)
                 seen.add(uri)

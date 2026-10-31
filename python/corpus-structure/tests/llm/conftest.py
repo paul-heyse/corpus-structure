@@ -1,7 +1,6 @@
 """Shared fixtures of the parse tests (agent interface §6, P0-A-0).
 
-Renditions are production ones (`ingest.html.build_rendition` with the Siegrist profile and the
-default sentence configuration). The four spike pages are vendored under `fixtures/trace/corpus/`,
+Renditions are retained historical source inputs captured before the HTML writer retired. The four spike pages are vendored under `fixtures/trace/corpus/`,
 so their checks never skip; the three S0-R2 pages read the gitignored corpus and their tests are
 `corpus`-marked. The spike side is the thin fixtures of `data/` (written once by `data/build.py`).
 
@@ -20,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from archived_source import archived_rendition
 
 from corpus_structure.core import tex
 from corpus_structure.core.batch import CitationFrame, FrameEntry
@@ -33,9 +33,6 @@ from corpus_structure.core.evidence import (
     rendition_key,
 )
 from corpus_structure.core.locators import LocatorIndex
-from corpus_structure.ingest.html import build_rendition
-from corpus_structure.ingest.profile import compile_profile, load_profile
-from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.llm.parse import RenditionView
 from corpus_structure.schema.lookup import name_map
 from corpus_structure.schema.pack import load_pack
@@ -82,10 +79,6 @@ def data(name: str) -> Any:
     return json.loads((DATA / f"{name}.json").read_text(encoding="utf-8"))
 
 
-@functools.cache
-def _profile() -> Any:
-    return compile_profile(load_profile("siegrist"))
-
 
 def raw_page(page: str) -> bytes:
     corpus = VENDORED if page in SPIKE_PAGES else CORPUS
@@ -95,7 +88,7 @@ def raw_page(page: str) -> bytes:
 def view_of(page: str, raw: bytes) -> RenditionView:
     """A production rendition of `raw` as parse reads it, with its `ren` key."""
     uri = f"{ROOT}/{page}"
-    content = build_rendition(raw, _profile(), SentenceConfig(), source_uri=uri).content
+    content = archived_rendition(page, raw)
     document = document_key("statistics", uri, hashlib.sha256(raw).hexdigest())
     return RenditionView(
         content,

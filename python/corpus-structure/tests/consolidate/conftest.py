@@ -1,7 +1,7 @@
 """Shared fixtures of the consolidation tests (P0-C-1; consolidation §6).
 
 - `world`: the statistics pack compiled, its `methods.yaml` configuration (label rules, fallback
-  macros), and production renditions (`ingest.html.build_rendition`, Siegrist profile) of the four
+  macros), and retained historical renditions of the four
   vendored spike pages as `Page`s, segment ids assigned in key order;
 - `world.stored(name)`: a `fixtures/s0` batch located on its page by A0's `parse`;
 - `world.pool(units, …)`: an Arrow pool (`pool.build`, no server) holding one `claim_proposal`
@@ -20,6 +20,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from archived_source import archived_rendition, archived_title
 import yaml
 
 from corpus_structure.consolidate.assemble import Inputs, Page
@@ -35,9 +36,6 @@ from corpus_structure.core.evidence import (
 )
 from corpus_structure.core.payload_schemas import PayloadSchemaRow
 from corpus_structure.core.payloads import validate_payload
-from corpus_structure.ingest.html import build_rendition
-from corpus_structure.ingest.profile import compile_profile, load_profile
-from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.llm.parse import parse
 from corpus_structure.pool import contract
 from corpus_structure.schema import model, registry
@@ -72,16 +70,13 @@ def config() -> ConsolidateConfig:
 def page(name: str, rendition_id: int) -> Page:
     uri = f"{ROOT}/{name}"
     raw = (REPO / "fixtures/trace/corpus" / uri).read_bytes()
-    built = build_rendition(
-        raw, compile_profile(load_profile("siegrist")), SentenceConfig(), source_uri=uri
-    )
-    content = built.content
+    content = archived_rendition(name, raw)
     doc = document_key("statistics", uri, hashlib.sha256(raw).hexdigest())
     ren = rendition_key(doc, content_digest(content))
     keys = sorted(segment_key(ren, s.kind, s.start, s.end) for s in content.document.walk())
     ids = {k: rendition_id * 100_000 + i for i, k in enumerate(keys)}
     macros = tex.effective_macros(content.macros, config().macros())
-    return Page(rendition_id, rendition_id, doc, name, content, macros, ids, built.title)
+    return Page(rendition_id, rendition_id, doc, name, content, macros, ids, archived_title(name))
 
 
 def pages() -> dict[int, Page]:

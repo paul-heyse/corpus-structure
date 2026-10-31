@@ -26,6 +26,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from archived_source import archived_rendition
 
 from corpus_structure.core import keys as keys_module
 from corpus_structure.core import tex
@@ -40,9 +41,6 @@ from corpus_structure.core.keys import (
     carry_over,
     key_claims,
 )
-from corpus_structure.ingest.html import build_rendition
-from corpus_structure.ingest.profile import compile_profile, load_profile
-from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.llm.parse import RenditionView, parse
 from corpus_structure.schema.lookup import build_lookup, compile_key_schema, name_map
 from corpus_structure.schema.pack import load_pack
@@ -76,7 +74,6 @@ def pack() -> tuple[KeySchema, dict[str, str]]:
 def inputs(pack) -> list[tuple[str, KeyedCandidateSet, KeyContext]]:
     """Every s0 batch on its production rendition, as a keyed candidate set and its context."""
     _, names = pack
-    profile = compile_profile(load_profile("siegrist"))
     contexts: dict[str, tuple[RenditionView, KeyContext]] = {}
     out = []
     for path in sorted(S0.glob("*.json")):
@@ -85,7 +82,7 @@ def inputs(pack) -> list[tuple[str, KeyedCandidateSet, KeyContext]]:
         if page not in contexts:
             body = (CORPUS / page).read_bytes()
             uri = f"{ROOT}/{page}"
-            content = build_rendition(body, profile, SentenceConfig(), source_uri=uri).content
+            content = archived_rendition(page, body)
             doc = document_key("statistics", uri, hashlib.sha256(body).hexdigest())
             macros = tex.effective_macros(content.macros, {})
             view = RenditionView(content, page, rendition_key(doc, content_digest(content)), macros)

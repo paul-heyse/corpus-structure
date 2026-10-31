@@ -38,7 +38,7 @@ def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,s
         run=create_run(conn,project_id='p',binding=OperationBinding(prepared.release_id,'z',0,b'{}'),kind='full',options={},code_commit='source-view-test')
         config=record_method(conn,SimpleNamespace(name='pdf.view-fixture',version='1',family='ingest',tier='deterministic',confidence_source=None,unit_type='document',Config=create_model('ViewFixture')), 'default',{},'view-fixture')
         path=tmp_path/'source.pdf';path.write_bytes(original)
-        document=register_document(conn,project_id='p',source_uri='file:source-view-fixture',original_path=str(path),original=original)
+        document=register_document(conn,project_id='p',source_uri='file:source-view-fixture',original_path=str(path),original=original, mime='application/pdf')
         task=create_task(conn,run_id=run,config_id=config,stage='ingest',unit_type='document',unit_id=document,unit_key='view-source',input_hash=sha256(original).hexdigest())
         claim=claim_tasks(conn,run_id=run,config_id=config,holder='view-fixture')[0]
         store_pdf_original(conn,task_id=task,attempt=claim.attempt,holder='view-fixture',original=original,recipe_bytes=recipe)

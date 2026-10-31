@@ -46,11 +46,30 @@ def source_build(admin, writer, tmp_path, *, canonical="x+x", macros=None, range
     from corpus_structure.core.evidence import MacroDef
 
     prepared = setup(admin, observations=True, composed=True)
-    raw = ("<p>" + canonical + "</p>").encode()
-    from pathlib import Path
+    from hashlib import sha256
 
-    archive = json.loads((Path(__file__).with_name("fixtures") / "retained-html-inputs.json").read_bytes())
-    source = prepare_parsing_product(archive["request_sources"][canonical], raw)
+    # Independently constructed source data exercises the retained layered-request ABI.
+    # It is neither an HTML conversion nor a Docling/PDF qualification result.
+    raw = canonical.encode()
+    source = prepare_parsing_product(dict(
+        recipe="source-products-v1", artifact_digest=sha256(raw).hexdigest(),
+        lifecycle="available", semantic_state="ok", provenance_state="partial",
+        representations=[dict(representation_id="raw",kind="original",unit="byte",
+            extent_length=len(raw),partition_state="complete",recognition_state="complete"),
+            dict(representation_id="canonical",kind="canonical",unit="codepoint",
+                extent_length=len(canonical),text_content=canonical,
+                partition_state="complete",recognition_state="complete")],
+        components=[dict(component_id="r0",representation_id="raw",unit="byte",start_offset=0,
+            end_offset=len(raw),ordinal=0,category="text"),
+            dict(component_id="c0",representation_id="canonical",unit="codepoint",start_offset=0,
+                end_offset=len(canonical),ordinal=0,category="math")],
+        nodes=[],relationships=[],endpoints=[],
+        mappings=[dict(mapping_id="source",operation="decode",fidelity="unknown",
+            reason="Independent fixture declares canonical text without an exact original-origin claim")],
+        mapping_endpoints=[dict(mapping_id="source",side="source",ordinal=0,
+            representation_id="raw",unit="byte",start_offset=0,end_offset=len(raw)),
+            dict(mapping_id="source",side="target",ordinal=0,representation_id="canonical",
+                unit="codepoint",start_offset=0,end_offset=len(canonical))]),raw)
     dependencies = canonical_bytes(
         {
             "operations": {
@@ -79,10 +98,11 @@ def source_build(admin, writer, tmp_path, *, canonical="x+x", macros=None, range
             Config=create_model("SourceFixture"),
         )
         config = record_method(conn, method, "fixture", {}, "request-source-fixture")
-        path = tmp_path / "source.html"
+        path = tmp_path / "source.txt"
         path.write_bytes(raw)
         doc = register_document(
-            conn, project_id="p", source_uri="request-source", original_path=str(path), original=raw
+            conn, project_id="p", source_uri="request-source", original_path=str(path), original=raw,
+            mime="text/plain",
         )
         task = create_task(
             conn,
