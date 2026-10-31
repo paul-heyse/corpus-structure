@@ -1879,7 +1879,7 @@ runtime reports, per-section/membership recognition coverage and table-cell repo
 coverage and selected-view coverage remain different claims. Native evidence aliases are exact
 retained projection pieces; SQL checks their complete inventory and source custody. SourceView
 observations carry their actual unit ID through the shared completion boundary. The owned PDF
-database is migrated through 0054. The full original's native and organized products are retained;
+database is migrated through 0055. The full original's native and organized products are retained;
 complete consumer acceptance is separately owned by the PDF coordinator.
 
 **Implemented; targeted native controls Tested, 2026-10-31.** 0051 admits qualified native
@@ -1891,3 +1891,16 @@ their exact raster/crop/PDF transform and source-page universe. Native products 
 observations retain their archived meaning; absent observations do not establish complete coverage.
 The native and organized whole-book products cover 1,589 physical pages. A source-ready cut does
 not establish completed domain extraction, independent grading or universal recognition fidelity.
+
+**Implemented; native controls Tested, 2026-10-31.** 0055 retains typed unresolved inline
+correspondence with candidate and item endpoints in fixed header/item relations. Protected
+publication checks original-parent identity, candidate geometry and scope membership; unresolved
+reports prevent affected inline scopes claiming completeness. Item/formula/trace reads join the
+bounded projections rather than decode the book. SourceView role participates in identity before
+construction. Exact enrichment recipe, scoped policy/coverage and existing-view custody allow
+consumer projection reuse while preserving the original native producer and runtime provenance.
+
+System/core 0.6.1 defines positive legacy enum bases for historical table projections. Current
+public enums inherit those members and add SourceView. Historical D3 CHECKs/migrations retain
+their original sets; native semantic metadata retains SourceView. Native implementation/schema/
+catalog/physical digests and current public enum sets were verified unchanged by this separation.

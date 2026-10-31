@@ -5,6 +5,7 @@ from __future__ import annotations
 import signal
 import threading
 import time
+from contextlib import suppress
 
 import pytest
 import sympy
@@ -172,11 +173,8 @@ def test_outer_deadline_cannot_be_extended_by_inner_stage():
 
 def test_swallowed_expiry_cannot_promote_a_late_return():
     started = time.monotonic()
-    with pytest.raises(grammar.Expired), grammar.deadline(0.03):
-        try:
-            time.sleep(1)
-        except grammar.Expired:
-            pass
+    with pytest.raises(grammar.Expired), grammar.deadline(0.03), suppress(grammar.Expired):
+        time.sleep(1)
     assert time.monotonic() - started < 0.3
 
 

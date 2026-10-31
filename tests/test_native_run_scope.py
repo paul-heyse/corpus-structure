@@ -108,13 +108,17 @@ def test_direct_native_execution_validates_released_scope_shape_before_writes(ru
 def test_direct_native_execution_preserves_native_and_explicit_all_scope(
     run_scope, method, all_sources
 ):
-    scope = None if all_sources else {
-        "kind": "native_sections",
-        "name": "selected",
-        "sections": ["1.8: Combinatorial Structures"],
-        "include_descendants": True,
-        "hash": "a" * 64,
-    }
+    scope = (
+        None
+        if all_sources
+        else {
+            "kind": "native_sections",
+            "name": "selected",
+            "sections": ["1.8: Combinatorial Structures"],
+            "include_descendants": True,
+            "hash": "a" * 64,
+        }
+    )
     with pytest.raises(RegistrationBoundary):
         run_scope.execute(scope, method())
     run_scope.register.assert_called_once()

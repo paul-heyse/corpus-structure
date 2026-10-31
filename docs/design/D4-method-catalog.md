@@ -98,6 +98,15 @@ own assembled consumer acceptance, independently from these implementation claim
 
 > Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
 
+**Implemented; targeted controls Tested, 2026-10-31.** Native M09/M11 behavior revision 8
+retains formal SymPy equality/inequality nodes with `evaluate=False`, including chains. Explicit
+scientific assessment owns calculation/truth evaluation. Whole-read deadlines retry expiry and
+check elapsed time on return while restoring nested handlers, intervals and remaining budgets.
+The original integral source case and deterministic swallowed-expiry/nonmemoization controls are
+retained; these cooperative checks do not establish a hard bound for opaque native code.
+M13 revision 6 and native requests revision 4 preserve partial/unknown recognition context without
+preventing usable declarations or intact-section packets. Payload-schema versions are unchanged.
+
 ## 1. The method contract
 
 A method is a Python class in `methods/` (or `ingest/` for M01–M03) registered under a stable

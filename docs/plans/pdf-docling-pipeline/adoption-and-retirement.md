@@ -1,14 +1,32 @@
 # PDF-only adoption, HTML retirement and acceptance
 
-**Status:** Planned target, 2026-10-31. [Coordinator](../pdf-docling-pipeline_2026-10-31.md)
+**Status:** Partial delivery, 2026-10-31: source readiness and active HTML retirement implemented; completed PDF adoption and qualification remain open. [Coordinator](../pdf-docling-pipeline_2026-10-31.md)
 owns PDF-10/11 state, O01–O08 disposition and I01–I08. Basis: review revision `2c33372`,
 especially [O07](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O07).
 No current default or database is changed by this document.
 
+## Delivered mechanisms and acceptance boundary — 2026-10-31
+
+The active HTML producers are removed. Statistics declares the retained full PDF and five native
+section roots. Toy now declares a real three-page PDF, native scopes and SourceView policy;
+its historical HTML remains archived input. Controlled retained-PDF CLI acceptance cases preserve
+source-ready cuts, awaiting-agent work, no premature answer selection, identical resumed tasks
+and unchanged DDL. Their asset port forbids inference; actual book/native OCR journeys provide
+separate provider evidence.
+
+The complete book, selected enrichment and compatible consumer preparation are retained. Exact
+recipe/scoped coverage/custody permit reuse without a new native producer. Run6 reference inputs
+are prepared, with no A/B/C authoring, extraction, reference registration or grading claim.
+Current external MCP/render, completed PDF result/default selection and the complete required
+union remain open in the coordinator. The original failed/incomplete broad test receipt stays
+unchanged; corrected targeted passes do not turn it into full qualification.
+
 ## Foundation and completion boundary
 
-Current defaults are `corpus_parsing_20261030` / `parsing-pipeline` on dedicated `18/corpus:5434`,
-compiler 11/profile 6/native 0046. Existing PP adoption evidence belongs to the old implementation.
+Operational defaults remain `corpus_parsing_20261030` / `parsing-pipeline` on dedicated
+`18/corpus:5434`. Their prior compiler 11/profile 6/native 0046 qualification is historical.
+The owned PDF deployment `corpus_pdf_20261031` is at native 0055; consumer source preparation
+passed for `pdf-docling-adoption` without selecting a completed knowledge answer.
 The new book is a new original and source structure, not a replacement payload under old HTML
 identity. Whole-book conversion, complete required products, a completed source-ready request,
 completed knowledge extraction, independent grading and measured benefits are separate claims.

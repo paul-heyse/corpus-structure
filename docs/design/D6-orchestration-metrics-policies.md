@@ -69,6 +69,15 @@ claimed input before analysis-scope filtering, so a valid pre-ingest native inpu
 on SourceViews that the ingest task has yet to create. Missing or ambiguous analysis selectors
 still refuse; the input fence is not a substitute for a complete source selection.
 
+**Implemented; targeted controls Tested, 2026-10-31.** Generic source execution also checks
+the actual active PDF/SourceView method configuration against the archived `PdfNativeSourceScope`
+before creating a run or task. An absent scope explicitly means all sources; a legacy locator
+cannot silently become all native sections. Historical rendition execution/read paths remain
+under their own contracts. Already enriched native input is reusable only with byte-identical
+recipe and explicit policy/coverage for every requested and direct-ancestor universe. Partial
+outcomes remain partial. Reuse selects the old native pin and emits only needed consumer views;
+it does not initialize a worker, repeat inference or create new native producer provenance.
+
 ### Retained HTML realization
 
 The following clauses describe the retained HTML route only; they do not constrain the new PDF

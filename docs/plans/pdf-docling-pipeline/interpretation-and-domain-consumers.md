@@ -22,6 +22,15 @@ including ancestor premises and substitution refusals. These controlled journeys
 consumer behavior; actual provider adoption is separately accounted for by the coordinator.
 
 
+Formal SymPy relation construction uses `evaluate=False`, including relation chains; explicit
+scientific assessment owns truth calculation. Deadline expiry retries and post-return checks
+retain nested budgets/handlers, so a swallowed first exception cannot silently report success.
+The original integral case and deterministic swallowed-expiry/nonmemoization controls remain
+separate. Current behavior versions are M09/M11 8, M13 6 and native requests 4; payload-schema
+versions are unchanged. Source-ready run6 predates the final adapter correction and is not a
+claim of current assembled provider execution. Prepare a compatible consumer from the retained
+enriched pin before continuing that journey.
+
 ## Foundation assessment and resulting boundary
 
 `methods/math/spans.py` currently discovers `math_inline`/`math_display` segments and strips

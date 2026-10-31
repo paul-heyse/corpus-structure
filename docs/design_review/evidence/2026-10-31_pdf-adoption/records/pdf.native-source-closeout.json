@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "id": "pdf.native-source-closeout",
+  "title": "Whole-book native custody, enrichment reuse and bounded consumer closeout",
+  "group": null,
+  "package": "PDF-11",
+  "finalized": "2026-10-31",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which native PDF source and consumer boundaries are implemented and demonstrated, and which assembled adoption obligations remain?",
+  "answers": [
+    "PDF-01",
+    "PDF-02",
+    "PDF-03",
+    "PDF-04",
+    "PDF-05",
+    "PDF-06",
+    "PDF-07",
+    "PDF-08",
+    "PDF-09",
+    "PDF-10",
+    "PDF-11"
+  ],
+  "method": "Actual retained whole-book Docling conversion and selected enrichment; compatible current-consumer reuse with exact recipe/coverage/custody; native PostgreSQL and CLI/export controls; bounded functional repairs. Complete provider knowledge extraction and independent grading were not run.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-31_pdf-adoption/convert_book.py",
+    "ci regenerate --domain statistics --corpus docs/statistics_corpus/corpus --project pdf-docling-adoption --scope pdf-qualification --native-source docs/design_review/evidence/2026-10-31_pdf-adoption/enriched-source-pin.json --prepare-only --leave-unselected --json",
+    "ci source views 6 --json",
+    "ci source native-products 6 --json",
+    "just test-all",
+    "uv run pytest -q python/corpus-structure/tests/acceptance/test_regeneration.py::test_real_source_preparation_does_not_select_partial_output python/corpus-structure/tests/db/test_check_conformance.py::test_every_closed_set_check_admits_exactly_its_members python/corpus-structure/tests/db/test_migration.py::test_the_catalog_after_upgrade_equals_create_all python/corpus-structure/tests/db/test_migration.py::test_alembic_check_is_clean_and_blind_to_a_changed_check_body python/corpus-structure/tests/db/test_port_check.py::test_the_residue_against_d3_is_the_recorded_one python/corpus-structure/tests/db/test_port_check.py::test_s6_differences_are_d3_revisions_or_recorded_residue python/corpus-structure/tests/db/test_registration.py::test_concurrent_ensure_leaves_one_row_per_identity",
+    "timeout -k 2s 75s uv run pytest -q python/corpus-structure/tests/math/test_grammar.py python/corpus-structure/tests/math/test_stages.py",
+    "just types",
+    "just ruff",
+    "just clippy",
+    "just adr-lint",
+    "just lint-agents",
+    "just deps"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "book-source-pin.json",
+      "role": "original organized producer pin",
+      "sha256": "989993b576fe5b43d82954a6aaa255f91ca8e32bdc6bfd24e8402054d6811f54"
+    },
+    {
+      "path": "enriched-source-pin.json",
+      "role": "retained selected-enrichment producer pin",
+      "sha256": "f407de412894c102ccaa76a8c3672cae9d4a1d7235c5a6758243bbfcdd5f26e9"
+    },
+    {
+      "path": "source-only-reference-cases.json",
+      "role": "frozen original page85 expectations",
+      "sha256": "890dc0a7e87c55347960eb6192518e1b0f96a35de1ea63d2b0daa2327094665f"
+    },
+    {
+      "path": "source-only-normal-reference.json",
+      "role": "frozen original page596 expectations",
+      "sha256": "e865e4da17ad0140e70805ec5e81e0c5dd9df395fe5ffbbbc85dc69c6e783a57"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/book-conversion-retry.log",
+      "role": "actual full-book source operation",
+      "sha256": "e6f757044c44ae42a9ec76c03126f17e6a16fb488d991be2018b3593c07df3ea"
+    },
+    {
+      "path": "raw/book-export-validation.json",
+      "role": "whole native reload and lexical export checks",
+      "sha256": "a114277420d7ad22fdf6f894e6258cbde927a9956e2463fb86dca625e9300bcc"
+    },
+    {
+      "path": "raw/adoption-prepare-alignment-fixed.log",
+      "role": "actual selected native enrichment run5",
+      "sha256": "5e9dd608f9e2b05b66fc1095715c2fa6c0436d6f1de25ad981abd1f3d0d154b3"
+    },
+    {
+      "path": "raw/adoption-prepare-enriched-reuse.log",
+      "role": "run6 preparation reusing the exact enriched native pin",
+      "sha256": "da51069a4d1c56e44de02eb11a709e564b8fd913ac91a38509df9cc0da8cf843"
+    },
+    {
+      "path": "raw/adopted-run6-native-products.json",
+      "role": "actual CLI product read",
+      "sha256": "985bcf7f1653bd1698161ebc6b043dba341acea3f7894f1055b1b77939a8fb50"
+    },
+    {
+      "path": "raw/adopted-run6-source-views.json",
+      "role": "actual CLI view read",
+      "sha256": "08f72595293c19e18f6579670f515e1f009f4b7baf78cd62e832bd660c9bf3c9"
+    },
+    {
+      "path": "raw/source-only-references-run6/manifest.json",
+      "role": "independent source-only reference preparation, no authors",
+      "sha256": "edbed3d71c745ac58fe021a9f7a2aaea42c1d5d83f542a7629d5783ba794aeaf"
+    },
+    {
+      "path": "raw/qualification-baseline",
+      "role": "original failed/incomplete broad native receipts",
+      "sha256": "cad8bc00275d9be3558f1a0318b638db4498fd2296cd2651af86e36ff5e4ed62"
+    },
+    {
+      "path": "raw/closeout-targeted.junit.xml",
+      "role": "eight corrected assertion cases passed",
+      "sha256": "980c0a3a2a5748a087b9b95e27cf847fc227a0ef7a369127207b505cbc6e281b"
+    },
+    {
+      "path": "raw/closeout-math-reportlog.jsonl",
+      "role": "original bounded rerun before test memo isolation, failure retained",
+      "sha256": "7f410236a7ea4de27c594c4948ff4aa6e9376c1c4b8541c9ad045b2d83465cea"
+    },
+    {
+      "path": "raw/closeout-global-types.log",
+      "role": "global warning-inclusive typing passed",
+      "sha256": "038273164997b51b68af64a1b3900f7cb627c9687bcfc1dbddea49005fa7ded7"
+    },
+    {
+      "path": "raw/closeout-ruff-repaired.log",
+      "role": "Ruff closeout passed",
+      "sha256": "24ffad4c21b53db93ca003ff839b548376eb0f4308a7e3ade4af702a7be056be"
+    },
+    {
+      "path": "raw/closeout-clippy.log",
+      "role": "Clippy closeout passed",
+      "sha256": "f4b76d8934cf6a5056795eb4cbb946829df85d6fc554ddf067b5b6c3b3887782"
+    }
+  ],
+  "depends_on": [
+    "2026-10-31_pdf-docling-foundations/pdf.foundations",
+    "2026-10-31_pdf-production-adapter/pdf.production-foundations"
+  ],
+  "results": [
+    {
+      "name": "physical pages in retained whole book",
+      "value": 1589,
+      "of": null,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "selected inline anchors aligned",
+      "value": 648,
+      "of": null,
+      "unit": "anchors",
+      "note": null
+    },
+    {
+      "name": "retained unresolved correspondence",
+      "value": 36,
+      "of": null,
+      "unit": "source-qualified reports",
+      "note": null
+    },
+    {
+      "name": "selected analysis sections in run6",
+      "value": 5,
+      "of": null,
+      "unit": "intact sections",
+      "note": null
+    },
+    {
+      "name": "direct ancestor context views in run6",
+      "value": 5,
+      "of": null,
+      "unit": "views",
+      "note": null
+    },
+    {
+      "name": "corrected assertion cases",
+      "value": 8,
+      "of": null,
+      "unit": "passed focused tests",
+      "note": null
+    },
+    {
+      "name": "final grammar/stage suite",
+      "value": 90,
+      "of": null,
+      "unit": "passed tests in the delegated bounded command at 9db2e87",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Whole-book native publication, selected enrichment and exact enriched-product consumer preparation passed. New native inference was not repeated for run6. Runtime/producer provenance and partial coverage remain explicit; current scopes, legacy projections and lazy relation/deadline behavior were repaired. Eight broad-run assertion failures passed a focused rerun; the original broad receipt remains failed/incomplete after a fatal grammar deadline. The final two-file grammar/stage suite passed all 90 controls in the delegated bounded command after test-owned memo isolation; its earlier root rerun failure is preserved. Global typing and lint passed, without discarding functional evidence for cosmetic changes. Current external MCP/render, independent A/B/C authors, five-section extraction, reference registration/grading, completed PDF selection/defaults and full qualification remain unexecuted. Run6 predates the final math adapter correction, so subsequent execution needs a compatible current consumer over the retained enriched pin and newly bound reference frames.",
+  "consumed_by": [
+    "PDF-01",
+    "PDF-02",
+    "PDF-03",
+    "PDF-04",
+    "PDF-05",
+    "PDF-06",
+    "PDF-07",
+    "PDF-08",
+    "PDF-09",
+    "PDF-10",
+    "PDF-11",
+    "D3 native PDF custody",
+    "D6 source lifecycle",
+    "D8 native interfaces"
+  ]
+}

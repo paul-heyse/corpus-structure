@@ -10,7 +10,7 @@ PDF-00 decisions and relevant [PDF-01](foundations-and-investigations.md#PDF-01)
 
 `pdf-products.yaml` governs application envelopes, explicit coverage, requests and source
 relationships; the archived upstream validation schema governs Docling's native document.
-Forward migrations 0047–0054 retain originals, native JSONB, ordered indexed item/region/cell
+Forward migrations 0047–0055 retain originals, native JSONB, ordered indexed item/region/cell
 projections, SourceViews, derivations, qualified frames, syntax nodes and estimated OCR word
 geometry. SQLAlchemy Core uses the single LinkML physical model. Protected operations validate
 source/attempt fences, product identities and relational endpoints before publication.
@@ -19,7 +19,9 @@ source/attempt fences, product identities and relational endpoints before public
 0053 retains generic positioned syntax with its admitted grammar identity instead of squeezing
 Lark rule names into an unrelated closed node vocabulary. 0054 relates optional OCR words to
 native raster/crop frames and validates their exact PDF transform; older products without those
-observations retain their original meaning. Native source products can be retained on failed
+observations retain their original meaning. 0055 adds typed unresolved inline correspondence
+and fixed report/item relations, with exact candidate/source custody and scoped completeness
+guards. Bounded inspection reads those projections without decoding the book. Native source products can be retained on failed
 attempts without qualifying as complete knowledge results. The coordinator owns acceptance.
 
 

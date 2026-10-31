@@ -24,6 +24,16 @@ per-run configuration; no instance IDs enter committed domain method definitions
 transport and adopted-result acceptance remain in the coordinator's required union.
 
 
+Exact scoped-enrichment recipe bytes and explicit policy rows for every selected and ancestor
+universe permit retained-data reuse, including partial outcomes. Existing matching views must
+also match pin, document/section, membership, projection/recipe and role; a key alone is not proof.
+Role enters the view recipe/key before construction, and self-replacement is excluded. Reuse
+emits consumer projections only, preserving the native producer and observed runtime provenance.
+Read-only inspection avoids analytical preparation. Render demands admit the exact archived
+renderer and package identities without math preparation; incompatible renderer bytes give an
+explicit compatible-consumer adoption route. Generic PDF execution validates the archived typed
+native scope before creating a run/task, including callers below the CLI scope loader.
+
 ## Foundation assessment and intended execution shape
 
 `serve/source.py`, `cli/source.py` and `semantic/parsing_queries.py` already provide pinned,

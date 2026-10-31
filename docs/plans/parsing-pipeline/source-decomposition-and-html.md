@@ -31,9 +31,13 @@ lxml 6.1.3, cssselect2 0.10.1 and regex 2026.9.29. Candidate Parsel, Trafilatura
 mechanisms in the review are not selected product dependencies. No dependency move is necessary
 merely to match a guide's version label.
 
+The HTML adapter in this historical baseline was retired by the PDF plan. Recover its source with
+`git show 7e6289a:python/corpus-structure/src/corpus_structure/ingest/html.py`; this does not
+reactivate the old producer.
+
 | Existing owner | Preserve and extend |
 |---|---|
-| [`ingest/html.py`](../../../python/corpus-structure/src/corpus_structure/ingest/html.py), `parse`, `build_rendition_with_elements`, `_Walker`, `_serialize` | One stateful `html5parser.HTMLParser(namespaceHTMLElements=False)` per document; `document_fromstring(..., guess_charset=False)`; effective encoding, parser errors and data-loss warnings; source-profile roles; canonical text, segments, author markup and sentences. |
+| `ingest/html.py` (archived at `7e6289a`), `parse`, `build_rendition_with_elements`, `_Walker`, `_serialize` | One stateful `html5parser.HTMLParser(namespaceHTMLElements=False)` per document; `document_fromstring(..., guess_charset=False)`; effective encoding, parser errors and data-loss warnings; source-profile roles; canonical text, segments, author markup and sentences. |
 | [`ingest/profile.py`](../../../python/corpus-structure/src/corpus_structure/ingest/profile.py), `compile_profile` | Generated SourceProfile vocabulary validation and one compiled cssselect2 matcher. Preserve actual matcher tuple handling and pseudo-element refusal. |
 | [`ingest/macros.py`](../../../python/corpus-structure/src/corpus_structure/ingest/macros.py), `read_macros`; `html._macro_table` | Macro semantics already exist. The reader drops token offsets, and `_macro_table` joins DOM `itertext`; neither supplies definition custody. PP-05 extends this producer using PP-03 mappings. |
 | [`core/evidence.py`](../../../python/corpus-structure/src/corpus_structure/core/evidence.py) | Recursive Segment validation, containment, NFC canonical text and rendition-bound range identity remain useful. An overlapping provenance structure need not fit the Segment containment tree. |

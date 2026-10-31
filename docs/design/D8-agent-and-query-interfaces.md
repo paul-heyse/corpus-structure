@@ -121,6 +121,12 @@ An explicit complete Docling JSON export uses PostgreSQL's native JSON text proj
 separate from bounded indexed item reads. Actual exports reload the 1,589-page native document;
 selected JSONL and Parquet exports preserve the same ordered rows and lexical native JSON values.
 
+Retained reads do not acquire mathematical analysis. Render requests separately admit the exact
+archived renderer and hash-verified package identities; a mismatch supplies the compatible
+consumer-adoption route. Native item/formula/trace responses expose source-qualified unresolved
+alignment through fixed projections. Actual run6 CLI reads passed; current external MCP/render,
+automated extraction and independent grading remain unqualified in the PDF coordinator.
+
 ### Retained HTML realization
 
 The following clauses describe the retained HTML route only; they do not constrain the new PDF

@@ -1,3 +1,5 @@
+# PDF rendering libraries
+
 Yes. Python has several mature options for rendering HTML5, Office documents, Markdown, EPUB, and other formats into visually faithful PDFs. More importantly, your idea of standardizing on PDF as a common representation for downstream document understanding is architecturally compelling.
 
 I would make one important distinction:

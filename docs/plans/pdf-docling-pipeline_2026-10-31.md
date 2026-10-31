@@ -1,8 +1,9 @@
 # PDF-only Docling pipeline
 
-**Status:** Active integration and acceptance. Native producer/consumer contracts are deployed
-through 0054, and whole-book source publication passed. Selected enrichment alignment, actual
-provider adoption and the final qualification union remain open. **Created:** 2026-10-31.
+**Status:** Implementation integrated through native 0055. Whole-book source publication,
+selected enrichment and exact retained-product consumer preparation have passed. Actual
+provider extraction/reference grading, operational default selection and complete qualification
+remain open. **Created:** 2026-10-31.
 **Basis:** [functional review](../functional_reviews/pdf-docling-pipeline_2026-10-31.md) at
 `2c333722fe9b3ad03c8004d14c5f50a1605c3f4b` and its [target model](../functional_reviews/pdf-docling-pipeline_2026-10-31_target-model.md).
 This coordinator owns package state, scheduled O01–O08 dispositions and investigations I01–I08.
@@ -74,17 +75,17 @@ confirmations do not authorize changing grading policy, audit premises or histor
 | Package | Supporting owner / result | Required inputs | State |
 |---|---|---|---|
 | <a id="PDF-00"></a>PDF-00 | [Foundations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-00): architectural decisions and enduring owners | Confirmed RC01–05, current clauses | Delivered: ADR-0038 and architectural owners |
-| <a id="PDF-01"></a>PDF-01 | [Investigations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-01): qualified library/runtime choices | Source PDF, review; early PDF-02 agreement where needed | Partial: bounded native probes; remaining integration open |
-| <a id="PDF-02"></a>PDF-02 | [Model](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-02): connected contracts and prepared ports | PDF-00; I03/04/06 before final producer contracts | Integrated: SourceView, native frames/addresses, runtime/cell/coverage contracts and explicit request demands; assembled finalization open |
-| <a id="PDF-03"></a>PDF-03 | [Storage](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-03): native JSON, derived access rows and integrity | Agreed PDF-02; I06 | Integrated through 0054: protected native publication, indexed items/regions/cells/coverage/runtime, ancestor/reference frames, syntax and OCR provenance; targeted controls passed |
-| <a id="PDF-04"></a>PDF-04 | [Conversion](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-04): PDF producer with explicit health | I01/02/03; relevant PDF-02 support | Integrated: offline pinned assets, native vector/font candidates and demanded cell/inline enrichment; whole-book publication passed; selected inline-alignment repair and final adoption open |
-| <a id="PDF-05"></a>PDF-05 | [Hierarchy](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-05): intact sections and qualified views | PDF-04, PDF-02, I04; PDF-03 for persistence | Integrated: intact grouping, direct/descendant SourceViews and per-view coverage; whole-book hierarchy retained; unique numbered five-root selection passed, actual adoption open |
-| <a id="PDF-06"></a>PDF-06 | [Math](pdf-docling-pipeline/interpretation-and-domain-consumers.md#PDF-06): direct formula input and lazy M09/M11 | PDF-04/05, I03/05 | Integrated: M09 retained interpretation, M11 hydration without reparsing, demand-specific scientific questions; native controls passed |
-| <a id="PDF-07"></a>PDF-07 | [Consumers](pdf-docling-pipeline/interpretation-and-domain-consumers.md#PDF-07): M13/domain recognition and rich packets | PDF-05, agreed PDF-06 states and PDF-02 frame contract | Integrated: M13 ancestry dependencies, native packets/frames, policy queue and exact piece aliases; native finalization and independent/ancestor reference controls passed; actual provider journey open |
-| <a id="PDF-08"></a>PDF-08 | [Interfaces](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-08): typed CLI/MCP, placement and exports | PDF-03/05; PDF-06/07 for their views | Integrated: typed CLI/MCP selectors, render demands and streaming exports; actual adopted-source external journeys open |
-| <a id="PDF-09"></a>PDF-09 | [Runtime](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-09): owned conversion lifecycle and publication | PDF-02/03/04; I07 before adoption | Integrated: retained originals, exact adoption pins, cleanup and source-ready requests; whole-book source-ready publication passed; final child ownership/OCR controls passed; adopted consumer acceptance open |
-| <a id="PDF-10"></a>PDF-10 | [Adoption](pdf-docling-pipeline/adoption-and-retirement.md#PDF-10): PDF defaults, consumer cutover, HTML removal | Integrated PDF-03–09; I08 | Partial: active HTML producer removed and archived inputs retained; completed PDF selection/defaults open |
-| <a id="PDF-11"></a>PDF-11 | [Acceptance](pdf-docling-pipeline/adoption-and-retirement.md#PDF-11): actual journeys and required-union evidence | Complete selected functional scope, PDF-10 | In progress: bounded controls passed; full-book publication, actual extraction/evaluation and complete required union open |
+| <a id="PDF-01"></a>PDF-01 | [Investigations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-01): qualified library/runtime choices | Source PDF, review; early PDF-02 agreement where needed | Implemented and bounded provider-tested: full distribution, actual OCR/native cases and full-book source; final union remains PDF-11 |
+| <a id="PDF-02"></a>PDF-02 | [Model](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-02): connected contracts and prepared ports | PDF-00; I03/04/06 before final producer contracts | Implemented and targeted-tested: SourceViews, qualified frames/addresses, runtime/cell/coverage/alignment contracts and explicit demands |
+| <a id="PDF-03"></a>PDF-03 | [Storage](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-03): native JSON, derived access rows and integrity | Agreed PDF-02; I06 | Implemented through 0055: protected native publication, indexed items/regions/cells/coverage/runtime/alignment, qualified frames, syntax and OCR provenance; native controls passed |
+| <a id="PDF-04"></a>PDF-04 | [Conversion](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-04): PDF producer with explicit health | I01/02/03; relevant PDF-02 support | Implemented and provider-tested: full-book source and selected inline/cell enrichment; remaining alignment gaps are typed and source-qualified |
+| <a id="PDF-05"></a>PDF-05 | [Hierarchy](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-05): intact sections and qualified views | PDF-04, PDF-02, I04; PDF-03 for persistence | Implemented and source-tested: intact hierarchy, unique five-root selection, per-view coverage and explicit analysis/context identity |
+| <a id="PDF-06"></a>PDF-06 | [Math](pdf-docling-pipeline/interpretation-and-domain-consumers.md#PDF-06): direct formula input and lazy M09/M11 | PDF-04/05, I03/05 | Implemented and targeted-tested: M09 retained interpretation, M11 hydration, qualified partial context and demand-specific assessment; final union open |
+| <a id="PDF-07"></a>PDF-07 | [Consumers](pdf-docling-pipeline/interpretation-and-domain-consumers.md#PDF-07): M13/domain recognition and rich packets | PDF-05, agreed PDF-06 states and PDF-02 frame contract | Implemented and targeted-tested: native policies, qualified context, packets, finalization and reference frames; actual provider/grading journey open |
+| <a id="PDF-08"></a>PDF-08 | [Interfaces](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-08): typed CLI/MCP, placement and exports | PDF-03/05; PDF-06/07 for their views | Implemented and targeted-tested: CLI run6 reads passed; historical external reads/export passed; current external render/MCP journey not_run |
+| <a id="PDF-09"></a>PDF-09 | [Runtime](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-09): owned conversion lifecycle and publication | PDF-02/03/04; I07 before adoption | Implemented and source-tested: retained originals, finite child lifecycle, exact conversion/enrichment reuse and scoped request authority |
+| <a id="PDF-10"></a>PDF-10 | [Adoption](pdf-docling-pipeline/adoption-and-retirement.md#PDF-10): PDF defaults, consumer cutover, HTML removal | Integrated PDF-03–09; I08 | Partial: HTML producers retired, statistics/toy inputs native PDF; completed PDF result/default selection open |
+| <a id="PDF-11"></a>PDF-11 | [Acceptance](pdf-docling-pipeline/adoption-and-retirement.md#PDF-11): actual journeys and required-union evidence | Complete selected functional scope, PDF-10 | Incomplete: source/targeted controls passed; broad receipt failed/incomplete; provider/evaluation/current external journey and final union open |
 
 Begin with PDF-00 and PDF-01's environment/corpus questions. PDF-02 can agree identity, geometry,
 health and dependency slices while PDF-01 resolves native details. Final contract enforcement
@@ -101,14 +102,14 @@ not similarly numbered items from prior parsing reviews. No opportunity is close
 
 | Item | Component and planned correction | Disposition / dependencies | Closure evidence |
 |---|---|---|---|
-| [O01](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O01) | PDF adapter and health | Open · PDF-01/02/04/09 | Actual conversion distinguishes partial/failure and enrichment health; restricted publication. |
-| [O02](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O02) | Native custody, scoped schema and indexed projections | Open · PDF-02/03/08 | Native JSON reload, source custody, relational endpoint integrity and bounded real reads. |
-| [O03](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O03) | Sections/subsections without chunking | Open · PDF-01/05/07 | Actual hierarchy and ordered membership; packet/selection uses intact structure. |
-| [O04](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O04) | Formula items into lazy math | Open · PDF-01/04/06 | Detected/inline/table coverage, native input compatibility, occurrence identity and honest uncertainty. |
+| [O01](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O01) | PDF adapter and health | Implemented and source-tested · PDF-01/02/04/09 | Whole-book publication, final native/OCR controls and selected enrichment preserve separate conversion/recognition outcomes; final union remains PDF-11. |
+| [O02](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O02) | Native custody, scoped schema and indexed projections | Delivered in bounded native/read scope · PDF-02/03/08 | Protected PostgreSQL controls, full Docling JSON reload/tree validation, lexical exports and actual pinned reads; assembled qualification remains PDF-11. |
+| [O03](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O03) | Sections/subsections without chunking | Implemented and source-tested · PDF-01/05/07 | Full retained hierarchy, five maximal intact roots, explicit direct context and role-qualified projection identity; universal heading fidelity is not claimed. |
+| [O04](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O04) | Formula items into lazy math | Implemented; actual fidelity qualification open · PDF-01/04/06 | Native display/inline/cell outputs, retained occurrences, lazy interpretation and source-qualified partial coverage; independent corpus grading not_run. |
 | [O05](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O05) | Real domain and packet consumers | Open · PDF-05/06/07 | Rich context enters packet/source-frame identity, scope and consolidation; no CSS truth substitution. |
 | [O06](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O06) | Structural placement and serving | Open · PDF-08/11 | Real CLI/MCP, direct item/cell citations and source-qualified exports. |
 | [O07](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O07) | Book-scale lifecycle and retirement | Open · PDF-01/09/10/11 | Full-book source feasibility, reusable products, no active HTML route and historical read. |
-| [O08](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O08) | Explicit primary OCR; conditional verification | Open · PDF-01/04/09 | Actual selected provider/recipe and recovery behavior; optional verification dispositions below. |
+| [O08](../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O08) | Explicit primary OCR; conditional verification | Delivered selected primary OCR in bounded scope · PDF-01/04/09 | Actual CPU ONNX OCR and CUDA model-stage reports, word/raster transforms and broken-layer controls; independent secondary verification remains conditional. |
 
 ## 6. Investigation queue
 
@@ -118,14 +119,14 @@ repository records when a probe produces an accepted result. No new permanent ca
 
 | ID | Question and necessary output | State / constrains |
 |---|---|---|
-| I01 | Exact PDF-only extras, Python 3.14/runtime/model compatibility and actual per-stage providers | Partial: full installation/native runs; actual OCR CUDA and offline replay open · PDF-04/09 |
+| I01 | Exact PDF-only extras, Python 3.14/runtime/model compatibility and actual per-stage providers | Delivered selected runtime: full installation/offline assets; actual CUDA model stages and explicit CPU ONNX OCR, without an OCR CUDA claim · PDF-04/09 |
 | I02 | Heron versus Egret Large region detection; crop/repetition settings and chosen recipe | Bounded comparison delivered: retain Heron; no measured quality improvement · PDF-04 |
-| I03 | Attributable formula health; inline and table-cell coverage; supported rich-cell enrichment route if necessary | Partial: fallback/table gap confirmed; native cell extension prototype; production health/coverage open · PDF-02/04/06/07 |
+| I03 | Attributable formula health; inline and table-cell coverage; supported rich-cell enrichment route if necessary | Implemented: selected inline/cell enrichment, exact outcome/coverage and bounded unresolved diagnostics; actual source fidelity remains PDF-11 · PDF-02/04/06/07 |
 | I04 | Heading levels versus actual section groups; ordered intact hierarchy and descendant-selection semantics | Mechanism delivered: derived groups preserve refs/order; semantic heading fidelity remains PDF-05/07 · PDF-02/05/07 |
-| I05 | Native SymPy compatibility on real recognized formulas; smallest required grammar/occurrence gap | Compatibility gap identified: native default grammar insufficient; PDF-06 remedy/qualification open · PDF-06 |
-| I06 | JSON/schema roundtrip, validation mutation, image custody and native/region address precision | Bounded native/schema/JSONB probe passed; protected application publication remains PDF-03 · PDF-02/03/08 |
+| I05 | Native SymPy compatibility on real recognized formulas; smallest required grammar/occurrence gap | Implemented: direct native LaTeX with versioned Lark/SymPy frontend and retained occurrence/context; targeted semantics/deadline controls, final union PDF-11 · PDF-06 |
+| I06 | JSON/schema roundtrip, validation mutation, image custody and native/region address precision | Delivered: protected native JSONB and source-qualified projections; full Docling JSON reload/tree validation and lexical exports passed · PDF-02/03/08 |
 | I07 | Full-book conversion live state, cleanup, cancellation and stage capacity | Whole-book publication and final child cancellation/lease-loss controls passed; consumer adoption remains PDF-09 · PDF-09/10/11 |
-| I08 | Source inventory/defaults, independent PDF reference anchoring and concrete acceptance journey selection | Migration/split decisions delivered; actual anchors/provider/evaluation remain PDF-10/11 · PDF-10/11 |
+| I08 | Source inventory/defaults, independent PDF reference anchoring and concrete acceptance journey selection | Source inventory, five-section scope and independent native reference inputs delivered; actual A/B/C/provider/evaluation remain PDF-10/11 · PDF-10/11 |
 
 A known table-cell formula gap cannot disappear into a generic "unsupported" label while claiming
 supported table-math completion. Implement the selected supported enrichment route if required;
@@ -159,36 +160,46 @@ independent fidelity assessment separate from pipeline correctness. Resolve subs
 issues at coherent endpoints. Applicable lint-only maintenance does not invalidate prior tests.
 No grading-policy change, human grading or automatic historical re-anchoring is included.
 
-**Current checkpoint (2026-10-31):** Native contracts/migrations through 0054 are integrated
-and deployed to owned `corpus_pdf_20261031`. Whole-book source-ready run 2/task 2 retains the
-original plus native and organized Docling products for all 1,589 pages. The first failed book
-attempt remains unchanged. Final serial spawn-child lifecycle, actual OCR word observations and
-protected native controls have their own receipts; they do not relabel the older book producer.
+**Current checkpoint (2026-10-31):** Native contracts/migrations through 0055 are integrated
+and deployed to owned `corpus_pdf_20261031`. System/core revision 0.6.1 positively separates
+historical enum projections from the current native SourceView vocabulary; frozen legacy D3
+CHECKs/migrations remain unchanged. The public native enums and all admitted native inputs were
+verified unchanged by that projection correction.
 
-The strict unique numbered scope resolves exactly five intended roots. Custody authorization now
-checks the actual claimed native input before analysis-scope filtering. Actual retained section,
-formula, cell and trace reads passed through external stdio MCP after separating read-only
-hydration from analytical preparation. JSONL/Parquet selected projections match in order and native
-lexical values; whole Docling JSON export reload/tree validation passed for all pages.
+Source-ready run2/task2 retains native and organized Docling products for all 1,589 pages.
+Run5/task7 retains the selected enrichment as `math-enriched`, digest
+`8468df6fb3af853b1d0757b18facc7ecd2ff25fa301e8f4b8e05aa2930b6948d`.
+It recovered 648 inline anchors and retains 36 source-qualified unresolved reports, with honest
+partial scope coverage. Native word/crop order recovers punctuation and repeated contexts;
+ambiguous cases preserve source geometry and diagnostics rather than invented offsets.
 
-Actual adopted run 4 reached selected enrichment and exposed a local prose/PDF-word alignment
-issue. The full paragraph is present; a vector glyph overlapped the comma's metric box and the
-old adjacency rule skipped that actual following word. Producer/model integration owns native
-word-order recovery plus source-qualified unresolved alignment relations/coverage where needed.
-This correction reuses the retained conversion, with no invented source positions or silent
-complete-coverage claim. The new forward contract and final actual consumer journey remain open.
+Run6 (`release:743bdc97c3a1390bca0e0485c9ccbc44fb1856495bc038d3b4b69bf5bbcccbdc`)
+passed consumer source preparation over that exact enriched pin without another native inference
+or a relabelled producer. Five analysis views and five direct ancestor-context views are selected;
+M09/M11/M13 completed and five AgentOpus tasks await extraction. View role is included before
+identity construction. Exact recipe/policy/scoped-coverage and existing-view custody guard reuse.
+Native source CLI views/product reads passed. Current-run external MCP/render remains `not_run`.
 
-**Verification (2026-10-31):** warning-inclusive global `just types` passed after the Reader
-contract/fixture repairs and at the subsequent custody/retained-read endpoint. Native publication,
-SourceView, request, math, packet, independent-reference, ancestor, syntax, OCR, region and export
-controls passed in their recorded scopes. Initial failed selections, implementation-byte drift
-refusal, adoption scope failure, explicit old-release render refusal and run 4 alignment failure
-remain retained. These results do not establish the complete PDF plan union.
+Independent reference preparation for run6 passed and retains its own native frames, complete
+source/schema/guideline inputs and original page images. No author A/B/C, extraction provider,
+reference registration, grading or completed PDF result/default cutover is claimed. References
+will annotate both selected reference sections fully; six frozen original-PDF facts separately
+challenge source fidelity. Reference bytes and evaluator privileges do not enter extraction.
 
-**Next:** finish local native alignment/recovery and its connected diagnostic model, migrate and
-prepare the final five-section consumer run, author independent source-only references before
-actual extraction, then execute the configured provider. Complete current-release CLI/external
-MCP/render, automated evaluation and result/default selection. Finish `just test-all`, applicable
-hygiene and final evidence/plan/architecture handoff. All prior implementation worktrees are
-integrated and removed; operator library drafts remain preserved. Lint-only maintenance does
-not invalidate unaffected passing type/test evidence.
+**Verification:** Global warning-inclusive typing and focused native/legacy/CLI/reuse controls
+passed. The original broad `just test-all` receipt is failed/incomplete: eight failures were
+repaired and all eight passed a fresh focused rerun; a grammar deadline case terminated the
+session before complete reporting. Its bounded lazy-relation/deadline correction passed all 90 grammar/stage controls after
+isolating the test-owned memo; final global types, Ruff and other closeout checks are recorded
+in the adoption evidence. Zero listed Rust tests establish no Rust
+functional coverage. Preserve original failures and bounded source/context applicability; no
+full-plan qualification follows from these targeted results.
+
+**Remaining execution:** prepare a compatible current consumer release from
+`enriched-source-pin.json` after the final math adapter correction, reusing task7. Regenerate
+independent reference inputs for that exact consumer; do not relabel run6 frames. Execute the
+current external MCP/render journey, complete independent full-section A/B/C authoring before
+actual five-section extraction, register/grade the completed result, then select it and adopt
+PDF defaults. Finish the complete functional/provider/nonfunctional union and its evidence.
+All agent processes have settled and no implementation worktrees remain. Passing type/test
+receipts remain applicable across cosmetic maintenance; no grading policy or audit premise changed.
