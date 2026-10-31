@@ -42,7 +42,7 @@ class Reader:
     def store(self,method,result):
         for ordinal,draft in enumerate(result.observations):
             row=SimpleNamespace(payload=draft.payload.model_dump(mode='json'),native_pointer=draft.native_pointer,
-                observation_key=f'{method}:{ordinal}',payload_hash=str(ordinal))
+                observation_key=f'{method}:{ordinal}',payload_hash=str(ordinal),task_id=42)
             self.outputs.setdefault((method,draft.kind),[]).append(row)
 
 
@@ -57,13 +57,14 @@ def test_actual_methods_select_source_views_and_keep_native_offsets():
     assert [o.recognized_span for o in mentions]==[(0,1),(0,1),(2,3)]
     assert [o.projected_span for o in mentions]==[(4,5),(12,13),(14,15)]
     assert all(o.rendition_id is None and o.span is None for o in mentions)
+    reader.store('extract.math',m09)
     m11=NormalizeFormula().run([unit],NormalizeFormulaConfig(),ctx)[0]
     assert len([o for o in m11.observations if o.kind is ObservationKind.VALUE])==2
     records=[o for o in m11.observations if o.kind is ObservationKind.RECORD]
     assert len(records)==1
-    assert records[0].payload.items[0]['syntax']
+    assert records[0].payload.items[0]['interpretation_ref']['observation_key']
     assert records[0].payload.items[0]['symbolic']['expression']=="Symbol('x')"
-    reader.store('extract.math',m09);reader.store('normalize.formula',m11)
+    reader.store('normalize.formula',m11)
     cfg=SymbolScopeConfig(binders=Binders(sentence_initial=('let',)),sentences=SentenceConfig())
     # Scope consumes recorded M09/M11 values and may not re-enter mathematical inference.
     import unittest.mock
@@ -197,3 +198,49 @@ def test_context_only_parent_prepares_weak_variable_binding_for_child(monkeypatc
     assert all(o.payload.binding_source_view_id==7 for o in result.observations if o.kind is ObservationKind.SCOPE)
     assert all(any(ref.role=='native_parent_context' for ref in o.input_refs)
                for o in result.observations if o.kind is ObservationKind.SCOPE)
+
+
+def test_occurrence_owner_is_weak_and_normalization_reuses_retained_tree(monkeypatch):
+    from corpus_structure.methods.math.prepared import PreparedMathInput
+    from corpus_structure.methods.math import grammar
+    from corpus_structure.semantic.native_analysis import stored_native_analysis
+    reader=Reader();run=SimpleNamespace(reader=reader);ctx=SimpleNamespace(reader=reader)
+    unit=UnitView(UnitRef(TaskUnitType.SOURCE_VIEW,7,reader.view.ref.key),run,source_view_id=7)
+    with monkeypatch.context() as guard:
+        guard.setattr(PreparedMathInput,'symbolic_value',lambda *a,**k:(_ for _ in ()).throw(AssertionError('unasked symbolic work')))
+        guard.setattr(PreparedMathInput,'definedness_result',lambda *a,**k:(_ for _ in ()).throw(AssertionError('unasked definedness work')))
+        weak=ExtractMath().run([unit],ExtractMathConfig(),ctx)[0]
+    reader.store('extract.math',weak)
+    # Neither normalization nor inspection may reconstruct the original syntax tree.
+    with monkeypatch.context() as guard:
+        guard.setattr(grammar,'syntax',lambda *a,**k:(_ for _ in ()).throw(AssertionError('reparsed')))
+        strong=NormalizeFormula().run([unit],NormalizeFormulaConfig(),ctx)[0]
+        reader.store('normalize.formula',strong)
+        recorded=stored_native_analysis(reader,7,'#/texts/3')['#/texts/3']
+    assert recorded['interpretation']['recognized_latex']=='x+x'
+    assert recorded['normalization']['symbolic']['expression']=="Mul(Integer(2), Symbol('x'))"
+    assert [row['method'] for row in recorded['observations']]==['extract.math','normalize.formula']
+
+
+def test_normalization_refuses_missing_named_occurrence_owner():
+    import pytest
+    reader=Reader();run=SimpleNamespace(reader=reader);ctx=SimpleNamespace(reader=reader)
+    unit=UnitView(UnitRef(TaskUnitType.SOURCE_VIEW,7,reader.view.ref.key),run,source_view_id=7)
+    with pytest.raises(ValueError,match='one exact completed'):
+        NormalizeFormula().run([unit],NormalizeFormulaConfig(),ctx)
+
+
+def test_stored_analysis_refuses_cycles_and_stale_pins():
+    import pytest
+    from corpus_structure.semantic.native_analysis import stored_native_analysis,NativeAnalysisUnavailable
+    reader=Reader()
+    payload=dict(demand='symbolic',source_view_id=7,native_product=reader.view.ref.native_product.values(),
+        projection_digest=reader.view.ref.projection_digest,recipe_digest=reader.view.ref.recipe_digest,
+        items=[dict(pointer='#/texts/1',interpretation_ref=dict(observation_key='self',pointer='#/texts/1'))])
+    row=SimpleNamespace(payload=payload,observation_key='self',task_id=1,payload_hash='hash')
+    reader.outputs[('normalize.formula',ObservationKind.RECORD)]=[row]
+    with pytest.raises(NativeAnalysisUnavailable,match='cycle'):
+        stored_native_analysis(reader,7,'#/texts/1')
+    payload['native_product']={**payload['native_product'],'content_digest':'d'*64}
+    with pytest.raises(NativeAnalysisUnavailable,match='pinned source view'):
+        stored_native_analysis(reader,7,'#/texts/1')

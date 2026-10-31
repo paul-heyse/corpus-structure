@@ -40,14 +40,14 @@ import functools
 import heapq
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 from spacy.language import Language
 from spacy.matcher import Matcher, PhraseMatcher
 from spacy.tokens import Doc, Token
 
-from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
+from corpus_structure.core.evidence import MacroDef, Segment
 from corpus_structure.core.keys import symbol_form
 from corpus_structure.core.vocab import (
     ANNOTATION_UNIT,
@@ -66,6 +66,15 @@ from corpus_structure.ingest.sentences import (
     pipeline,
 )
 from corpus_structure.methods.math.spans import MathRelation, SpanValue, SymbolMention
+
+class ScopeContent(Protocol):
+    """Text-kernel input, independent of persisted rendition or source authority."""
+    @property
+    def canonical_text(self) -> str: ...
+    @property
+    def document(self) -> Segment: ...
+    def text(self,segment:Segment) -> str: ...
+
 
 MAX_GAP = 3  # words allowed between a sentence-initial binder and a reopen word
 
@@ -149,7 +158,7 @@ def _matchers(nlp: Language, binders: Binders) -> tuple[Matcher, PhraseMatcher]:
     return matcher, phrases
 
 
-def segment_block(content: RenditionContent, segment: Segment) -> Block:
+def segment_block(content: ScopeContent, segment: Segment) -> Block:
     """The block M03 split, rebuilt from the segment by M03's own helper."""
     markup = segment.attrs.get("markup")
     return block_of(
@@ -161,7 +170,7 @@ def segment_block(content: RenditionContent, segment: Segment) -> Block:
     )
 
 
-def _blocks(content: RenditionContent) -> list[tuple[Segment, list[Segment]]]:
+def _blocks(content: ScopeContent) -> list[tuple[Segment, list[Segment]]]:
     """Every block holding sentences, with its sentences in order."""
     out = []
     for segment in content.document.walk():
@@ -273,7 +282,7 @@ def math_tokens(
 
 
 def resolve_scopes(
-    content: RenditionContent,
+    content: ScopeContent,
     values: Sequence[SpanValue],
     mentions: Sequence[SymbolMention],
     relations: Sequence[MathRelation],
@@ -334,7 +343,7 @@ def resolve_scopes(
 
 
 def _sites(
-    content: RenditionContent,
+    content: ScopeContent,
     block: Segment,
     block_sentences: list[Segment],
     tokens: Mapping[int, MathToken],
@@ -444,7 +453,7 @@ class ScopeCoverage:
 
 
 def scope_coverage(
-    content: RenditionContent,
+    content: ScopeContent,
     values: Sequence[SpanValue],
     mentions: Sequence[SymbolMention],
     scopes: Sequence[Scope],

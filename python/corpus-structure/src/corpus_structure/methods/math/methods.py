@@ -133,6 +133,8 @@ class NormalizeFormulaConfig(_Config):
     """`normalize.formula/<name>` (D2 §12.1 `{backend: lark}`): the grammar's backend, the pack's
     math section and the parse deadline. SymPy conversion joins in phase 1."""
 
+    source_dependencies: Literal["source_view_interpretation"] = "source_view_interpretation"
+    source_dependency_method: Literal["extract.math"] = "extract.math"
     backend: Literal["lark"] = "lark"
     parse_seconds: float = Field(default=PARSE_SECONDS, gt=0)
 
@@ -379,7 +381,13 @@ class NormalizeFormula(_PerRendition):
 
     def input_digest(self, unit: UnitView, cfg: NormalizeFormulaConfig) -> Digest:
         if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
-            return _native_digest(unit)
+            if unit.ref.unit_id is None:
+                raise ValueError("normalization requires a source-view row")
+            from .native import required_occurrence_record
+            view=unit.run.reader.source_view(unit.ref.unit_id)
+            source=required_occurrence_record(unit.run.reader,view)
+            return Digest(canonical_json({"source":_native_digest(unit).bytes.decode(),
+                "occurrence_record":source.observation_key,"occurrence_hash":source.payload_hash}))
         return Digest(canonical_json(_source_product_digest(unit)))
 
     def run(
@@ -736,4 +744,4 @@ class SymbolScope(_PerRendition):
         return out
 
 
-METHODS = (NormalizeFormula(), ExtractMath(), SymbolScope())
+METHODS = (ExtractMath(), NormalizeFormula(), SymbolScope())

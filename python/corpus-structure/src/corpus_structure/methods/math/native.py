@@ -207,7 +207,7 @@ class NativeReading:
     context_issues: tuple[str,...] = ()
 
 
-def readings(view: Any, cfg: Any, reader: Any) -> tuple[NativeReading, ...]:
+def readings(view: Any, cfg: Any, reader: Any, *, demand:str="occurrences") -> tuple[NativeReading, ...]:
     """Prepare one ordered native input universe once per compatible operation batch."""
     from .methods import MathReadingsBatch
 
@@ -221,7 +221,9 @@ def readings(view: Any, cfg: Any, reader: Any) -> tuple[NativeReading, ...]:
     key = (view.ref.id, view.ref.projection_digest, seconds,
            section.model_dump_json())
     if key in batch.native:
-        return batch.native[key]
+        base=batch.native[key]
+        return base if demand=="occurrences" else tuple(
+            replace(row,result=row.prepared.symbolic_reading()) for row in base)
     health = {row["pointer"]: row["outcome"] for row in view.health.get("formula_outcomes", ())}
     pieces = {piece["item_ref"]: piece for piece in view.pieces if piece.get("item_ref")}
     inherited,context_issues=native_ancestor_declarations(reader,view,section.native_domain_rules,seconds)
@@ -255,10 +257,81 @@ def readings(view: Any, cfg: Any, reader: Any) -> tuple[NativeReading, ...]:
                 definitions.append(dict(symbol=symbol, role="function", authority="source",
                     evidence=f"{pointer}:{extent[0]}:{extent[1]}",
                     source_id=context.source_id,scope=scope,start=ordinal+1,end=end))
-        result = operand.symbolic_reading()
+        result = operand.interpretation()
         out.append(NativeReading(pointer, operand, result, start, context_issues))
     batch.native[key] = tuple(out)
-    return tuple(out)
+    return tuple(out) if demand=="occurrences" else tuple(
+        replace(row,result=row.prepared.symbolic_reading()) for row in out)
+
+
+def required_occurrence_record(reader:Any,view:Any):
+    records=[row for row in reader.source_observations(view.ref.id,"extract.math",ObservationKind.RECORD)
+        if row.payload.get("demand")=="occurrences"
+        and row.payload.get("source_view_id")==view.ref.id
+        and row.payload.get("native_product")==view.ref.native_product.values()
+        and row.payload.get("projection_digest")==view.ref.projection_digest
+        and row.payload.get("recipe_digest")==view.ref.recipe_digest]
+    if len(records)!=1:
+        raise ValueError("normalization requires one exact completed same-view occurrence RECORD")
+    return records[0]
+
+
+def _restore_reading(record:dict[str,Any],latex:str,context:Any)->grammar.MathResult:
+    from lark import Tree,Token
+    from lark.tree import Meta
+    def restore(node):
+        if "token" in node:
+            return Token(node["token"],node["text"],start_pos=node["start"],end_pos=node["end"])
+        meta=Meta()
+        if node.get("extent") is not None:
+            meta.empty=False
+            meta.start_pos,meta.end_pos=node["extent"]
+        return Tree(node["rule"],[restore(child) for child in node["children"]],meta=meta)
+    tree=None if record.get("syntax") is None else restore(record["syntax"])
+    if tree is not None and not isinstance(tree,Tree):
+        raise ValueError("retained native syntax root must be a tree")
+    return grammar.MathResult(latex,"any_value",ParseOutcome(record["outcome"]),
+        kind=record.get("kind"),tree=tree,
+        failure=None if record.get("failure") is None else grammar.Failure(**record["failure"]),
+        notes=tuple(record.get("notes",())),tail=record.get("tail",""),
+        occurrences=tuple(grammar.Occurrence(**o) for o in record.get("occurrences",())),
+        context=context.grammar_context,
+        declarations=tuple(grammar.LocalDeclaration(**d) for d in record.get("declarations",())))
+
+
+def normalization_readings(view:Any,cfg:Any,reader:Any)->tuple[NativeReading,...]:
+    """Normalize the exact retained occurrence product; do not recognize formulas again."""
+    from .prepared import PreparedMathInput
+    source=required_occurrence_record(reader,view)
+    items={item["self_ref"]:n for n,item in enumerate(view.items)}
+    pieces={piece["item_ref"]:piece for piece in view.pieces if piece.get("item_ref")}
+    result=[]
+    for record in source.payload["items"]:
+        pointer=record["pointer"]
+        basis=record["context"]
+        source_id=basis["source_id"]
+        declarations=[d for d in basis["declarations"] if d["authority"]=="source"]
+        context=prepare_interpretation_context(getattr(reader,"prepared",None),macros={},
+            constants=cfg.section().constants,source_id=source_id,scope=basis["scope"],offset=items[pointer],
+            scope_chain=(f"{source_id}:section:{view.ref.section_pointer}",),declarations=declarations,
+            demand="occurrences")
+        if context.stage_key("occurrences")!=record["occurrence_basis"]:
+            raise ValueError("normalization occurrence context differs from its named input")
+        operand=PreparedMathInput(context,record["recognized_latex"],seconds=cfg.parse_seconds)
+        syntax=_restore_reading(record.get("raw_syntax",record),operand.latex,context)
+        weak=_restore_reading(record,operand.latex,context)
+        object.__setattr__(operand,"_syntax",syntax)
+        object.__setattr__(operand,"_reading",weak)
+        operand._remember("syntax",syntax)
+        operand._remember("interpretation",weak)
+        operand._states["occurrences"]=operand.state("interpretation")
+        piece=pieces.get(pointer)
+        position=None
+        if piece is not None and view.text[piece["start"]:piece["end"]]==operand.latex:
+            position=piece["start"]
+        result.append(NativeReading(pointer,operand,operand.symbolic_reading(),position,
+                                    tuple(basis.get("issues",()))))
+    return tuple(result)
 
 
 def native_result(unit: Any, cfg: Any, ctx: Any, method: str) -> UnitResult:
@@ -268,7 +341,11 @@ def native_result(unit: Any, cfg: Any, ctx: Any, method: str) -> UnitResult:
     from corpus_structure.core.vocab import SegmentKind
 
     view = ctx.reader.source_view(unit.ref.unit_id)
-    selected = readings(view, cfg, ctx.reader)
+    demand="symbolic" if method=="normalize.formula" else "occurrences"
+    if demand=="symbolic":
+        selected=normalization_readings(view,cfg,ctx.reader)
+    else:
+        selected=readings(view,cfg,ctx.reader,demand=demand)
     drafts: list[ObservationDraft[Any]] = []
     for reading in selected:
         text = reading.prepared.latex
@@ -321,24 +398,43 @@ def native_result(unit: Any, cfg: Any, ctx: Any, method: str) -> UnitResult:
         operand=reading.prepared
         record=dict(pointer=reading.pointer,orig=source_items[reading.pointer].get("orig",""),
             recognized_latex=operand.latex,recognition_health="succeeded",
-            context_basis=operand.context.stage_key("symbolic"),
+            context_basis=operand.context.stage_key(demand),
+            occurrence_basis=operand.context.stage_key("occurrences"),
             context=dict(source_id=operand.context.source_id,scope=operand.context.scope,
                 declarations=[dataclasses.asdict(d) for d in operand.context.declarations],
                 issues=reading.context_issues),**_syntax_value(reading.result))
-        try:
-            record["symbolic"]=dict(format="sympy-srepr-1",expression=sympy.srepr(operand.symbolic_value()))
-        except (NotRepresentable,grammar.NotParsed,grammar.Ambiguous) as error:
-            record["symbolic"]=dict(outcome="unsupported",diagnostic=str(error))
-        record["definedness"]=dataclasses.asdict(operand.definedness_result())
+        if demand=="occurrences":
+            syntax_record=_syntax_value(operand.syntax())
+            if syntax_record!=_syntax_value(operand.interpretation()):
+                record["raw_syntax"]=syntax_record
+        if demand=="symbolic":
+            record["weak_interpretation"]=_syntax_value(operand.interpretation())
+            try:
+                record["symbolic"]=dict(format="sympy-srepr-1",expression=sympy.srepr(operand.symbolic_value()))
+            except (NotRepresentable,grammar.NotParsed,grammar.Ambiguous) as error:
+                record["symbolic"]=dict(outcome="unsupported",diagnostic=str(error))
+            record["definedness"]=dataclasses.asdict(operand.definedness_result())
         record["stages"]={name:dataclasses.asdict(operand.state(name)) for name in
             ("lexical","syntax","interpretation","occurrences","symbolic","scientific")}
         analysis_items.append(record)
-    if analysis_items:
+    if analysis_items or demand=="occurrences":
+        refs=()
+        if demand=="symbolic":
+            from corpus_structure.core.method import SourceObservationReference
+            source=required_occurrence_record(ctx.reader,view)
+            refs=(SourceObservationReference(source.observation_key,"native_analysis"),)
+            for item in analysis_items:
+                item.pop("weak_interpretation",None)
+                item["interpretation_ref"]=dict(observation_key=source.observation_key,pointer=item["pointer"])
+                weak=next(i for i in source.payload["items"] if i["pointer"]==item["pointer"])
+                if item.get("syntax")==weak.get("syntax"):
+                    item.pop("syntax",None)
+                    item.pop("occurrences",None)
         analysis=NativeAnalysisPayload(source_view_id=view.ref.id,
             native_product=view.ref.native_product.values(),projection_digest=view.ref.projection_digest,
-            recipe_digest=view.ref.recipe_digest,demand="symbolic",items=tuple(analysis_items))
+            recipe_digest=view.ref.recipe_digest,demand=demand,items=tuple(analysis_items))
         drafts.append(ObservationDraft(kind=ObservationKind.RECORD,payload=analysis,
-            payload_class=NativeAnalysisPayload,payload_version="1",source_view_id=view.ref.id))
+            payload_class=NativeAnalysisPayload,payload_version="1",source_view_id=view.ref.id,input_refs=refs))
     recognized = {r.pointer for r in selected}
     formulas = {i["self_ref"] for i in view.items if i.get("label") == "formula"}
     complete = formulas <= recognized and all(r.result.status == ParseOutcome.OK and not r.context_issues for r in selected)
@@ -372,6 +468,16 @@ def _syntax_value(result):
         syntax=None if result.tree is None else _tree_value(result.tree),
         occurrences=[dataclasses.asdict(o) for o in result.occurrences],
         declarations=[dataclasses.asdict(d) for d in result.declarations], notes=list(result.notes))
+
+
+class NativeAnalysisReferencePayload(BaseModel):
+    model_config=ConfigDict(frozen=True,extra="forbid")
+    source_view_id:int
+    native_product:dict[str,Any]
+    projection_digest:str
+    demand:Literal["occurrences"]="occurrences"
+    source_record:str
+    pointers:tuple[str,...]
 
 
 class NativeAnalysisPayload(BaseModel):
@@ -671,11 +777,21 @@ def _inherited_bindings(reader: Any, view: Any):
     return result,tuple(issues)
 
 
+@dataclass(frozen=True,slots=True)
+class NativeScopeContent:
+    """Pure scope-kernel lowering; raw projection text is not forced through legacy NFC custody."""
+    canonical_text:str
+    document:Any
+
+    def text(self,segment:Any)->str:
+        return self.canonical_text[segment.start:segment.end]
+
+
 def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
     """Reuse positioned scope kernels on an in-memory lowering of one native section."""
     from dataclasses import replace
     from hashlib import sha256
-    from corpus_structure.core.evidence import RenditionContent, Segment
+    from corpus_structure.core.evidence import Segment
     from corpus_structure.core.method import SourceObservationReference
     from corpus_structure.core.vocab import SegmentKind
     from corpus_structure.ingest.sentences import Block, SentenceConfig, TextLayout, split
@@ -738,7 +854,7 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
         root_children.append(Segment(kind=SegmentKind.UNIT,start=start,end=end,
             attrs={"native_pointer":pointer,"recognition_rule":rule.rule_id},children=children))
     root_children.extend(p for p in paragraphs if id(p) not in used)
-    content=RenditionContent(canonical_text=view.text,
+    content=NativeScopeContent(canonical_text=view.text,
         document=Segment(kind=SegmentKind.DOCUMENT,start=0,end=len(view.text),
                          attrs={"native_pointer":view.ref.section_pointer},children=tuple(root_children)))
     # This value is solely a pure-kernel lowering: it is never stored as kb.rendition.
