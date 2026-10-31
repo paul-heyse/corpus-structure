@@ -19,7 +19,7 @@ import tempfile
 import time
 import uuid
 from contextlib import suppress
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from hashlib import sha256
 from pathlib import Path
 
@@ -29,12 +29,11 @@ from jsonschema.validators import validator_for
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import (
-    locate_proposal, native_frame_from_dict, proposal_packet,
+    locate_proposal, native_frame_from_dict, native_source_frame, native_frame_source, proposal_packet,
 )
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.runtime import open_runtime_engine
 from corpus_structure.semantic.source_views import load_source_view, resolve_native_sections, selected_source_views
-from corpus_structure.semantic.source_frames import load_source_frame
 from corpus_structure.settings import Settings
 
 HERE = Path(__file__).resolve().parent
@@ -126,8 +125,8 @@ def prepare(args) -> None:
             run = conn.execute(select(table("ops.run")).where(table("ops.run").c.id == args.run_id)).mappings().one()
             release = open_release(conn, run["release_id"])
             references = selected_source_views(conn, args.run_id)
-            views = {ref.id: load_source_view(conn, ref.id) for ref in references if ref.analysis_eligible}
-            catalog = {identity: next(item["name"] for item in view.items if item["self_ref"] == view.ref.section_pointer) for identity, view in views.items()}
+            views = {ref.id: load_source_view(conn, ref.id) for ref in references}
+            catalog = {identity: next(item["name"] for item in view.items if item["self_ref"] == view.ref.section_pointer) for identity, view in views.items() if view.ref.analysis_eligible}
             selected = resolve_native_sections(catalog, [topic["section"] for topic in TOPICS.values()])
             for key, identity in zip(TOPICS, selected, strict=True):
                 view = views[identity]
@@ -136,27 +135,23 @@ def prepare(args) -> None:
                     raise ValueError("selected source does not match frozen original/project")
                 if view.ref.membership != "descendants":
                     raise ValueError("reference topics require the intact descendant section view")
-                frames, tasks, configs, methods = map(table, ("ops.native_source_frame", "ops.task", "ops.method_config", "ops.method"))
-                header = conn.execute(
-                    select(frames.c.task_id, frames.c.packet_hash)
-                    .join(tasks, tasks.c.id == frames.c.task_id)
-                    .join(configs, configs.c.id == tasks.c.method_config_id)
-                    .join(methods, methods.c.id == configs.c.method_id)
-                    .where(tasks.c.run_id == args.run_id, frames.c.source_view_id == view.ref.id)
-                    .order_by((methods.c.name == "agent.opus").desc(), tasks.c.id)
-                ).mappings().first()
-                if header is None:
-                    raise ValueError("adopted source lacks its immutable prepared native packet frame")
-                frame = load_source_frame(conn, header["task_id"])
-                if frame.source_view_id != view.ref.id or frame.native_product != view.ref.native_product or frame.text != view.text:
-                    raise ValueError("stored source frame differs from selected native view")
+                # Each independent reference owns its own frame over the exact retained
+                # source view. No extractor task/frame is a prerequisite or an input.
+                frame = native_source_frame(view, ())
+                ancestry = [item["self_ref"] for item in view.ancestors]
+                parents = [parent for parent in views.values()
+                    if parent.ref.membership == "direct"
+                    and parent.ref.native_product == view.ref.native_product
+                    and parent.ref.section_pointer in ancestry]
+                parents.sort(key=lambda parent: ancestry.index(parent.ref.section_pointer))
+                frame = replace(frame, context_sources=tuple(
+                    native_frame_source(native_source_frame(parent, ())) for parent in parents
+                ))
                 packet = proposal_packet(release, frame, guideline=run["guideline"], configuration={"reference_scope": "six-frozen-source-facts", "packet_cap_chars": 18000}, known_classes={})
                 exported[key] = {
                     "frame": asdict(frame),
                     "parts": {part.name: part.text for part in packet.parts()},
                     "packet_hash": packet.hash,
-                    "frame_task_id": header["task_id"],
-                    "source_packet_hash": header["packet_hash"],
                     "source_case": key, "topic": TOPICS[key],
                 }
             batch_schema = release.json_schema("AgentAuthoredBatch", mode="serialization")
@@ -165,8 +160,9 @@ def prepare(args) -> None:
                 "run_id": args.run_id, "release_id": release.release_id, "project_id": run["project_id"],
                 "created_unix": time.time(), "scope": "partial fidelity universe: two intact sections, six frozen source facts only",
                 "frozen_inputs": {key: {"name": name, "sha256": digest} for key, (name, digest) in FROZEN.items()},
-                "frames": {key: {"sha256": sha256(canonical_bytes(value["frame"])).hexdigest(), "reference_packet_hash": value["packet_hash"], "source_packet_hash": value["source_packet_hash"], "frame_task_id": value["frame_task_id"], "source_view_id": value["frame"]["source_view_id"]} for key, value in exported.items()},
+                "frames": {key: {"sha256": sha256(canonical_bytes(value["frame"])).hexdigest(), "reference_packet_hash": value["packet_hash"], "source_view_id": value["frame"]["source_view_id"]} for key, value in exported.items()},
                 "database_reads": "selected native source views/items, original document identity, run input/release only; no predictions",
+                "frame_owner": "independent reference, directly over immutable adopted views; no extractor packet/frame input",
             }
     write_new(output / "manifest.json", canonical_bytes(manifest))
     write_new(output / "sources.json", canonical_bytes(exported))
