@@ -22,6 +22,7 @@ from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
 from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.serve.source import SourceRequest, SourceResponse
+from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
 from corpus_structure.settings import Settings
 
 
@@ -321,13 +322,16 @@ def build_semantic_server(
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
-    def inspect_source(ctx: Context, request: SourceRequest) -> SourceResponse:
+    def inspect_source(ctx: Context, request: SourceRequest | NativeSourceRequest) -> SourceResponse | NativeSourceResponse:
         """Inspect pinned source products and qualified origins without interpretation."""
         from corpus_structure.semantic.query import read_snapshot
         from corpus_structure.serve.source import inspect_source as inspect_selected
 
         active = bound_run(ctx, request.run_id)
         with read_snapshot(active.engine) as conn:
+            if isinstance(request, NativeSourceRequest):
+                from corpus_structure.serve.native_source import inspect_native_source
+                return inspect_native_source(conn, request)
             return inspect_selected(conn, request)
 
     @server.tool

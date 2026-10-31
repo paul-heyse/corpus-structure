@@ -22,6 +22,7 @@ def _read(ctx: typer.Context, **values):
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.source import SourceRequest, inspect_source
+    from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
 
     with (
         failure_boundary(True, expected=(ValueError, OperationConflict, NoResultFound)),
@@ -30,6 +31,8 @@ def _read(ctx: typer.Context, **values):
         ) as engine,
         read_snapshot(engine) as conn,
     ):
+        if values.pop("version", None) == 2:
+            return inspect_native_source(conn, NativeSourceRequest(**values))
         return inspect_source(conn, SourceRequest(**values))
 
 
@@ -50,7 +53,7 @@ def products(
 def inspect(
     ctx: typer.Context,
     run: int,
-    rendition: int,
+    rendition: int | None = typer.Argument(None),
     product: str = "source",
     representation: str = "canonical",
     start: int = 0,
@@ -60,7 +63,22 @@ def inspect(
     producing_task: int | None = None,
     limit: int = 1000,
     json: JsonOpt = False,
+    native_digest: str | None = None,
+    pointer: str | None = None,
+    section: str | None = None,
+    cell: int | None = None,
+    native_view: Literal["items", "sections", "item", "formula", "cell", "regions", "trace"] = "items",
+    cursor: str | None = None,
 ):
+    if native_digest is not None:
+        if producing_task is None or rendition is not None:
+            raise typer.BadParameter("native inspection requires --producing-task and no rendition")
+        emit(_read(ctx, version=2, run_id=run, task_id=producing_task, product_key=product,
+            content_digest=native_digest, view=native_view, pointer=pointer,
+            section_pointer=section, cell_index=cell, cursor=cursor, limit=limit), json=json)
+        return
+    if rendition is None:
+        raise typer.BadParameter("select --native-digest or an archived rendition")
     emit(
         _read(
             ctx,
@@ -294,3 +312,38 @@ def request(
 
 def register(root: typer.Typer):
     root.add_typer(app, name="source")
+
+
+@app.command('native-export')
+def native_export(
+    ctx: typer.Context, run: int, producing_task: int, product: str, digest: str,
+    output: Path, section: str | None = None,
+    format: Literal['jsonl','parquet']='parquet',
+):
+    """Export a pinned native source projection without conversion or interpretation."""
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.serve.native_source import NativeSourceRequest, export_native_source
+    from corpus_structure.cli.failures import failure_boundary
+    with failure_boundary(True,expected=(ValueError,FileExistsError)), open_runtime_engine(
+        state(ctx).settings(),application_name='ci-native-export',purpose='read') as engine, read_snapshot(engine) as conn:
+        export_native_source(conn,NativeSourceRequest(run_id=run,task_id=producing_task,
+            product_key=product,content_digest=digest,section_pointer=section,limit=1000),output,format=format)
+
+
+@app.command('native-products')
+def native_products(ctx: typer.Context, run: int, json: JsonOpt=False):
+    """List immutable native source pins produced or selected by a run."""
+    from sqlalchemy import select,or_
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from pydantic_core import to_jsonable_python
+    with open_runtime_engine(state(ctx).settings(),application_name='ci-native-products',purpose='read') as engine, read_snapshot(engine) as conn:
+        products,tasks,views,selected=map(table,('ops.native_document_product','ops.task','kb.source_view','ops.run_source_view'))
+        pins=select(views.c.native_task_id).join(selected,selected.c.source_view_id==views.c.id).where(selected.c.run_id==run)
+        query=select(products.c.task_id,products.c.product_key,products.c.content_digest,
+            products.c.release_id,products.c.health).join(tasks,tasks.c.id==products.c.task_id).where(
+            or_(tasks.c.run_id==run,products.c.task_id.in_(pins))).order_by(products.c.task_id,products.c.product_key)
+        rows=[dict(row) for row in conn.execute(query).mappings()]
+        emit(to_jsonable_python(rows),json=json)

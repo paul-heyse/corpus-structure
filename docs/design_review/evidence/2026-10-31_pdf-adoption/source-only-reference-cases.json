@@ -1,0 +1,36 @@
+{
+  "source_sha256": "e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9",
+  "authoring_basis": "Rendered retained original physical page85, before any PDF knowledge extraction run. Native addresses to be bound separately; expected assertions frozen.",
+  "physical_page": 85,
+  "reference_image": "raw/source-page85.png",
+  "assertions": [
+    {
+      "id": "ordered-replacement",
+      "meaning": "Number of ordered samples of size k from n elements with replacement",
+      "latex": "n^k",
+      "source": "Sampling formulas table, with replacement / with order cell"
+    },
+    {
+      "id": "unordered-replacement",
+      "meaning": "Number of unordered samples (multisets) of size k from n elements with replacement",
+      "latex": "\\binom{n+k-1}{k}",
+      "source": "Sampling formulas table and theorem above it"
+    },
+    {
+      "id": "unordered-no-replacement",
+      "meaning": "Number of unordered samples of size k without replacement from n elements",
+      "latex": "\\binom{n}{k}",
+      "source": "Sampling formulas table, without replacement / without order cell"
+    },
+    {
+      "id": "multinomial-partition",
+      "meaning": "Number of ways to partition n elements into an ordered sequence of disjoint subsets of sizes n_1 through n_k",
+      "latex": "\\frac{n!}{n_1!\\cdots n_k!}",
+      "conditions": [
+        "n_i are nonnegative integers",
+        "sum(n_i)=n"
+      ],
+      "source": "Partitions of a Set, equation1.8.22 and preceding paragraph"
+    }
+  ]
+}

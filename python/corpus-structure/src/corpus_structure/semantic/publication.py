@@ -167,8 +167,10 @@ class OccurrenceEstablishmentRow:
 class EvidenceSourceRow:
     evidence_id: str
     observation_id: int
-    rendition_id: int
+    rendition_id: int | None
     span_id: int | None = None
+    source_view_id: int | None = None
+    native_address: str | None = None
 
 
 @dataclass(frozen=True)

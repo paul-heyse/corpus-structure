@@ -45,17 +45,22 @@ def read_native_items(
         raise ValueError("native item page requires limit 1..1000 and after >= -1")
     product = table("ops.native_document_product")
     actual = conn.execute(
-        select(product.c.content_digest, product.c.contract_digest, product.c.schema_digest).where(
+        select(product.c.content_digest, product.c.contract_digest, product.c.schema_digest, product.c.release_id).where(
             product.c.task_id == task_id,
             product.c.product_key == product_key,
         )
     ).one()
     if actual.content_digest != content_digest:
         raise ValueError("native product digest differs from selected pin")
-    from .pdf_contracts import PDF_CONTRACT_DIGEST
+    from .pdf_contracts import pdf_context_for_task
 
+    contexts = conn.info.setdefault("native_reader_contexts", {})
+    if actual.release_id not in contexts:
+        contexts[actual.release_id] = pdf_context_for_task(conn, task_id)
+    context = contexts[actual.release_id]
     if (
-        actual.contract_digest != PDF_CONTRACT_DIGEST
+        actual.contract_digest != context.contract_digest
+        or actual.schema_digest != context.native_schema_digest
         or actual.schema_digest != _reader_schema_digest()
     ):
         raise NativeDocumentUnavailable(
