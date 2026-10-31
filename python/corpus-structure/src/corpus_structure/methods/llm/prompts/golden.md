@@ -41,3 +41,14 @@ For a native source view, retain its qualified native product, projection and se
 in the submitted frame. Judge independently from the supplied source; recognition health and
 inferred structure are evidence to assess, not accepted answers. A PDF view is a different
 source from a historical HTML rendition, and historical anchors must not be silently relocated.
+
+Native packets also supply `native_source.native_evidence`: exact item, formula and table-cell
+text pieces with stable handles, qualified projection locators and native pointer/cell metadata.
+For direct native evidence, put the supplied `handle` in the citation's `sentence` field and
+quote a substring of that entry's `text` exactly. A native handle is searched only inside its
+retained piece, without relocation to another piece or fuzzy matching. Keep repeated-match
+ambiguity visible; do not infer missing positions. Ordinary sentence citations retain the
+release-declared placement cascade. Preserve every supplied frame entry, including the native
+evidence aliases, when retaining the source frame. These are projection offsets, not PDF glyph
+positions. Statement anchors may use the supplied unit key, sentence/evidence handle, or a
+supplied qualified native item/projection address; a bare native pointer is insufficient.

@@ -45,3 +45,16 @@ source observations. Inferred block labels and recognized LaTeX do not establish
 truth. Use the supplied qualified anchors; do not manufacture HTML locators or convert formula
 boxes into character positions. Read all transport pages of the intact section. Pinned source
 inspection and optional region rendering can clarify evidence without changing its identity.
+
+`native_source.native_evidence` lists direct evidence entries for retained native text pieces.
+Each entry supplies a `handle`, its native `pointer`, optional `cell_index`, `source_field`,
+exact `text`, and a qualified projection `locator`. Put that supplied handle in evidence's
+`sentence` field and copy a substring of that entry's `text` exactly. This places the quote
+only within that item, formula or table cell piece; it cannot relocate into another piece or
+use fuzzy matching. Repeated matches retain their reported ambiguity; do not guess a location.
+The supplied offsets describe the retained text projection, not PDF glyph positions. Ordinary
+sentence ids continue to use the release-declared evidence placement cascade.
+
+For a statement's `anchor`, use the supplied unit key, sentence id, native evidence handle,
+or supplied qualified native item/projection address. Preserve its product/view pins; do not
+construct an anchor from a bare `#/...` pointer.

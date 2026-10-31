@@ -32,17 +32,35 @@ classes:
       kind: {range: AgentStatementKind, required: true}
       anchor:
         required: true
-        description: Use the supplied unit_ref, a packet-local sentence id, or its supplied canonical locator.
+        description: >-
+          Use the supplied unit_ref, a packet-local sentence id, a supplied native_evidence
+          handle, its supplied canonical projection locator, or a supplied qualified native
+          item address. Native item addresses retain the product digest and pointer; a bare
+          native pointer or an invented address is not a source anchor.
       title: {}
       reference: {range: AgentReference, inlined: true}
   AgentEvidence:
     attributes:
-      sentence: {required: true}
+      sentence:
+        required: true
+        description: >-
+          Use an ordinary supplied sentence id or the exact handle from
+          native_source.native_evidence. For a native evidence handle, quote an exact
+          substring of that entry's text; it is placed only inside that retained item,
+          formula or cell piece, without cross-piece relocation or fuzzy matching.
+          Ordinary sentence evidence follows the release-declared placement cascade.
       quote: {required: true}
       role: {range: AgentEvidenceRole, required: true}
   AgentLocatedEvidence:
     attributes:
-      sentence: {required: true}
+      sentence:
+        required: true
+        description: >-
+          Use an ordinary supplied sentence id or the exact handle from
+          native_source.native_evidence. For a native evidence handle, quote an exact
+          substring of that entry's text; it is placed only inside that retained item,
+          formula or cell piece, without cross-piece relocation or fuzzy matching.
+          Ordinary sentence evidence follows the release-declared placement cascade.
       quote: {required: true}
       role: {range: AgentEvidenceRole, required: true}
       locator: {}
