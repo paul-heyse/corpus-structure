@@ -1,14 +1,16 @@
 """M24 `agent.opus` (agent interface §3.2; D4 M24, §1; D2 §12.1; D6 §4).
 
-Family and tier `agent`, unit type `source_view` (an intact native section projection). The pipeline never runs it: its
-tasks are created `awaiting_agent` and completed through the MCP server's `propose_claims`.
+Family and tier `agent`, unit type `source_view` (an intact native section projection).
+The pipeline never runs it: its tasks are created `awaiting_agent` and completed through
+the MCP server's `propose_claims`.
 
 - **Configuration** (`agent.opus/<name>` in `methods.yaml`): `mode`, `role` (an `expectation`
   configuration keeps golden-expectation digests apart), `examples: reference`, `hints: none`,
-  `packet_cap_chars`, the resolved named sentence configuration, the declared `model` (recorded with every intervention; the server cannot
-  observe the session's model), `max_units` (1 until A3 decides), the pack's `math` section (the
-  fallback macros the standing context and parse read) and the compiled artifacts by (compiler,
-  kind): the annotator reference, the model-facing JSON Schema and the rule set.
+  `packet_cap_chars`, the resolved named sentence configuration, the declared `model`
+  (recorded with every intervention; the server cannot observe the session's model), `max_units`
+  (1 until A3 decides), the pack's `math` section (the fallback macros the standing context and
+  parse read) and the compiled artifacts by (compiler, kind): the annotator reference, the
+  model-facing JSON Schema and the rule set.
 - **`select`**: the run's admitted, scoped native source views, by stable source-view key.
 - **`input_digest`** assembles the packet once per unit (cached) and returns
   `Digest(bytes, packet_hash)`; the bytes are the canonical JSON of the packet hash, the prompt-part

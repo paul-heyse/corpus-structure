@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
+from itertools import pairwise
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -1265,7 +1266,18 @@ def _stored_parent_candidates(reader: Any, view: Any):
         native_order = {item["self_ref"]: n for n, item in enumerate(parent.items)}
         candidates = {}
 
-        def offer(symbol, role, pointer, position, basis, row):
+        def offer(
+            symbol,
+            role,
+            pointer,
+            position,
+            basis,
+            row,
+            *,
+            native_order=native_order,
+            parent=parent,
+            candidates=candidates,
+        ):
             if pointer not in native_order:
                 issues.append(
                     "ancestor declaration pointer outside supplied source: " + str(pointer)
@@ -1488,7 +1500,7 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
             *(value for start, end, _, _ in domains for value in (start, end)),
         }
     )
-    for a, b in zip(cuts, cuts[1:]):
+    for a, b in pairwise(cuts):
         if a == b:
             continue
         mathematical = tuple(

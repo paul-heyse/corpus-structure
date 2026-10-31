@@ -1273,7 +1273,7 @@ def _project_cut(
                         "explicit unresolved external statement reference",
                     )
 
-        def statement_source_key(anchor):
+        def statement_source_key(anchor, *, descriptor=descriptor):
             from .proposals import NativeProposalFrame, native_statement_source
 
             frame = descriptor["frame"]
