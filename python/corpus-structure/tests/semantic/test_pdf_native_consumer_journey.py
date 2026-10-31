@@ -1,5 +1,7 @@
 """Native PDF frames enter the real proposal, consolidation and evaluator boundaries."""
 from hashlib import sha256
+from dataclasses import asdict
+from typing import Any
 from importlib.resources import files
 import json
 from types import SimpleNamespace
@@ -33,7 +35,7 @@ from corpus_structure.semantic.source_views import load_source_view, store_sourc
 from .test_agent_resubmission import lease_and_read
 
 
-def native_source_task(admin, writer, tmp_path):
+def native_source_task(admin, writer, tmp_path, *, ancestor=False):
     from docling_core.types.doc import DoclingDocument, DocItemLabel, GroupLabel
     from corpus_structure.ingest.pdf import PdfConversion, publication_payload
     from corpus_structure.ingest.pdf_hierarchy import snapshot
@@ -61,10 +63,21 @@ def native_source_task(admin, writer, tmp_path):
     recipe=b'{"recipe":"native-consumer-fixture"}'
     native_schema=files('corpus_structure').joinpath('model/semantic/docling-validation.schema.json').read_bytes()
     doc=DoclingDocument(name='Independent source')
-    section=doc.add_group(label=GroupLabel.SECTION,name='People')
+    parent=sibling=parent_text=sibling_text=None
+    if ancestor:
+        parent=doc.add_group(label=GroupLabel.SECTION,name='Assumptions')
+        parent_text=doc.add_text(label=DocItemLabel.TEXT,text='Suppose Alice is here.',orig='Suppose Alice is here.',parent=parent)
+    section=doc.add_group(label=GroupLabel.SECTION,name='People',parent=parent)
+    if ancestor:
+        sibling=doc.add_group(label=GroupLabel.SECTION,name='Other people',parent=parent)
+        sibling_text=doc.add_text(label=DocItemLabel.TEXT,text='Bob is there.',orig='Bob is there.',parent=sibling)
     paragraph=doc.add_text(label=DocItemLabel.TEXT,text='Alice is here.',orig='Alice is here.',parent=section)
     conversion=PdfConversion(sha256(original).hexdigest(),recipe,snapshot(doc),'success',(),(),(),None)
-    payload=publication_payload(conversion,product_key='native',schema_digest=sha256(native_schema).hexdigest(),section_refs=frozenset({section.self_ref}))
+    sections={section.self_ref}
+    if parent is not None:
+        assert sibling is not None
+        sections.update((parent.self_ref,sibling.self_ref))
+    payload=publication_payload(conversion,product_key='native',schema_digest=sha256(native_schema).hexdigest(),section_refs=frozenset(sections))
     product=prepare_pdf_product(payload,original,native_schema,recipe)
     from corpus_structure.ingest.sentences import SentenceConfig
     configuration={'model':'automated-native-fixture','mode':'extract','max_units':1,'packet_cap_chars':18000,
@@ -80,10 +93,20 @@ def native_source_task(admin, writer, tmp_path):
         claim=claim_tasks(conn,run_id=run,config_id=config,holder='native-fixture')[0]
         store_pdf_original(conn,task_id=source,attempt=claim.attempt,holder='native-fixture',original=original,recipe_bytes=recipe)
         store_pdf_product(conn,task_id=source,attempt=claim.attempt,holder='native-fixture',product=product)
+        if parent is not None:
+            assert parent_text is not None and sibling is not None and sibling_text is not None
+            parent_draft=SourceViewDraft('native-parent-section',document,ProductReference(source,'native',product.digest),parent.self_ref,'direct',parent_text.text,
+                ({'item_ref':parent_text.self_ref,'start':0,'end':len(parent_text.text),'kind':'native_text','source_field':'text'},),
+                (parent.self_ref,parent_text.self_ref),(),dict(payload['health'],formula_outcomes=[]),b'{"recipe":"parent-section"}',analysis_eligible=False)
+            store_source_view(conn,run_id=run,task_id=source,attempt=claim.attempt,holder='native-fixture',draft=parent_draft,position=0)
+            sibling_draft=SourceViewDraft('native-sibling-section',document,ProductReference(source,'native',product.digest),sibling.self_ref,'direct',sibling_text.text,
+                ({'item_ref':sibling_text.self_ref,'start':0,'end':len(sibling_text.text),'kind':'native_text','source_field':'text'},),
+                (sibling.self_ref,sibling_text.self_ref),(parent.self_ref,),dict(payload['health'],formula_outcomes=[]),b'{"recipe":"sibling-section"}',analysis_eligible=False)
+            store_source_view(conn,run_id=run,task_id=source,attempt=claim.attempt,holder='native-fixture',draft=sibling_draft,position=2)
         draft=SourceViewDraft('native-person-section',document,ProductReference(source,'native',product.digest),section.self_ref,'direct','Alice is here.',
             ({'item_ref':paragraph.self_ref,'start':0,'end':14,'kind':'native_text','source_field':'text'},),
-            (section.self_ref,paragraph.self_ref),(),dict(payload['health'],formula_outcomes=[]),b'{"recipe":"native-person-section"}')
-        view=store_source_view(conn,run_id=run,task_id=source,attempt=claim.attempt,holder='native-fixture',draft=draft,position=0)
+            (section.self_ref,paragraph.self_ref),(() if parent is None else (parent.self_ref,)),dict(payload['health'],formula_outcomes=[]),b'{"recipe":"native-person-section"}')
+        view=store_source_view(conn,run_id=run,task_id=source,attempt=claim.attempt,holder='native-fixture',draft=draft,position=1 if ancestor else 0)
         complete_task(conn,task_id=source,attempt=claim.attempt,holder='native-fixture',prepared=prepared,observations=[],outcome='empty')
         from corpus_structure.methods.llm.agent_opus import AgentOpus
         from corpus_structure.ingest.methods import SegmentSentences
@@ -106,7 +129,7 @@ chains:
     return prepared,run,task,view,draft.key
 
 
-def authored(unit, sentence, prefix):
+def authored(unit, sentence, prefix)->dict[str,Any]:
     # Independent expected authoring uses source text, never copied prediction entities/claims.
     return {'unit_ref':unit,'entities':[{'id':prefix+'_person','class_iri':'https://example.org/Person','label':'Alice'}],
         'statements':[{'id':prefix+'_statement','kind':'remark','anchor':sentence}],
@@ -159,13 +182,13 @@ def test_native_proposal_consolidation_and_independent_reference_journey(
                 matches=1,picked=False,timeouts=[],outcome='located',family='claims',item_ref='reference_name',evidence_index=0,
                 locator='pdf:'+canonical_bytes(invalid).decode())]
             with pytest.raises(DBAPIError,match="native"),conn.begin_nested():
-                conn.execute(text('SELECT eval.record_native_reference_pass(:unit,\'C\',\'forged\',:authored,CAST(:citations AS jsonb))'),
-                    dict(unit=unit,authored=expected,citations=json.dumps(citations)))
+                conn.execute(text('SELECT eval.record_native_reference_pass(:unit,\'C\',\'forged\',:authored,CAST(:citations AS jsonb),CAST(:source_frame AS jsonb))'),
+                    dict(unit=unit,authored=expected,citations=json.dumps(citations),source_frame=json.dumps(asdict(frame))))
 
         noncanonical=[dict(citations[0],locator='pdf:'+json.dumps(valid))]
         with pytest.raises(DBAPIError,match="canonical source product custody"),conn.begin_nested():
-            conn.execute(text("SELECT eval.record_native_reference_pass(:unit,'C','noncanonical',:authored,CAST(:citations AS jsonb))"),
-                dict(unit=unit,authored=expected,citations=json.dumps(noncanonical)))
+            conn.execute(text("SELECT eval.record_native_reference_pass(:unit,'C','noncanonical',:authored,CAST(:citations AS jsonb),CAST(:source_frame AS jsonb))"),
+                dict(unit=unit,authored=expected,citations=json.dumps(noncanonical),source_frame=json.dumps(asdict(frame))))
         assert conn.scalar(text('SELECT count(*) FROM eval.reference_pass WHERE unit_id=:unit'),{'unit':unit})==count_before
 
 
@@ -230,3 +253,83 @@ def test_ancestor_evidence_keeps_its_own_offsets_and_statement_source():
     assert roundtrip==frame
     with pytest.raises(ValueError,match='direct ancestor'):
         replace(frame,context_sources=(replace(parent_source,membership='descendants'),))
+
+
+def test_native_parent_premise_survives_submission_custody_and_independent_grade(
+        semantic_db_engine,semantic_writer_engine,semantic_evaluator_engine,tmp_path):
+    from dataclasses import asdict,replace
+    from corpus_structure.semantic.proposals import native_frame_source,native_address
+    from corpus_structure.semantic.source_projection import statement_identity
+    prepared,run,task,child,key=native_source_task(semantic_db_engine,semantic_writer_engine,tmp_path,ancestor=True)
+    with semantic_writer_engine.connect() as conn:
+        parent=conn.scalar(text("SELECT id FROM kb.source_view WHERE key='native-parent-section'"))
+        sibling=conn.scalar(text("SELECT id FROM kb.source_view WHERE key='native-sibling-section'"))
+        parent_view=load_source_view(conn,parent);child_view=load_source_view(conn,child);sibling_view=load_source_view(conn,sibling)
+    def claims(prefix,child_handle,parent_handle):
+        value=authored(key,child_handle,prefix)
+        value['statements'].append(dict(id=prefix+'_assumption',kind='assumption',anchor=parent_handle))
+        premise=dict(id=prefix+'_premise',subject=prefix+'_person',predicate='https://example.org/name',
+            object={'kind':'text','text':'Alice'},qualification={'modality':'supposed','polarity':True},
+            establishment='stated',statement=prefix+'_assumption',statement_role='premise',
+            evidence=[dict(sentence=parent_handle,quote='Alice is here.',role='primary')])
+        value['claims'][0]['qualification']['condition']={'kind':'claim','ref':premise['id']}
+        value['claims'].insert(0,premise)
+        return value
+    async def submit():
+        async with Client(build_semantic_server(SemanticAgentSession(semantic_writer_engine,run))) as client:
+            unit=await lease_and_read(client,run,task)
+            contexts=unit['native_source']['context_sources']
+            assert [source['source_view_id'] for source in contexts]==[parent]
+            handle=contexts[0]['native_evidence'][0]['handle']
+            result=await client.call_tool('propose_claims',{'task_id':task,
+                'batch':claims('prediction',unit['native_source']['native_evidence'][0]['handle'],handle)})
+            assert result.structured_content is not None
+            assert result.structured_content['submission_disposition']=='completed_accepted'
+    anyio.run(submit)
+    finalize_bound_run(semantic_writer_engine,run,'native-parent-result')
+    parent_frame=native_source_frame(parent_view,[('reference_parent',0,len(parent_view.text))])
+    frame=replace(native_source_frame(child_view,[('reference_child',0,len(child_view.text))]),
+        context_sources=(native_frame_source(parent_frame),))
+    parent_handle=f'native_context:{parent}:reference_parent'
+    expected=canonical_bytes(claims('reference','reference_child',parent_handle))
+    parent_locator=native_address(parent_frame,start=0,end=len(parent_view.text))
+    expected_statement=statement_identity(prepared.release_id,'native-parent-result',parent_view.ref.key,parent_locator)
+    with semantic_writer_engine.connect() as conn:
+        row=conn.execute(text('''SELECT es.native_address FROM data.evidence_source es
+            JOIN kb.observation observation ON observation.id=es.observation_id
+            WHERE observation.task_id=:task AND observation.source_view_id=:child AND es.source_view_id=:parent'''),
+            dict(task=task,child=child,parent=parent)).scalar_one()
+        address=json.loads(row[4:])
+        assert address['source_view_id']==parent and address['end']==22 and address['end']>len(child_view.text)
+        assert conn.scalar(text('SELECT count(*) FROM data.occurrence_context WHERE statement_entity_id=:statement AND statement_role=\'premise\''),
+            {'statement':expected_statement})==1
+        assert conn.scalar(text('SELECT count(*) FROM kb.rendition'))==0
+    with semantic_evaluator_engine.begin() as conn:
+        split_documents(conn,'native-consumer')
+        made=create_reference_set(conn,project_id='native-consumer',source_run_id=run,label='parent-independent',split='dev',size=1,forced=(key,))
+        unit=made['units'][key]
+        for kind in ('A','B','C'):
+            last_pass=record_pass(conn,unit_id=unit,pass_kind=kind,actor='automated-parent-'+kind,authored=expected,frame=frame)
+        result=reference_evaluate(conn,project_id='native-consumer',run_id=run,set_id=made['set_id'])
+        assert result.result['tiers']['full']['reference']==2
+        assert result.result['tiers']['full']['prediction']==2
+        assert result.result['tiers']['full']['matched']==2
+        entries=conn.scalar(text('SELECT frame FROM eval.reference_frame WHERE pass_id=:pass'),{'pass':last_pass})
+        # Bypass Python constructors to exercise the SQL source association authority.
+        sibling_frame=native_source_frame(sibling_view,[('forged_sibling',0,len(sibling_view.text))])
+        forged:dict[str,Any]=asdict(frame);forged['context_sources']=[asdict(native_frame_source(sibling_frame))]
+        with pytest.raises(DBAPIError,match='selected same-product direct ancestor'),conn.begin_nested():
+            conn.execute(text("SELECT eval.record_native_reference_pass(:unit,'C','forged-sibling',:authored,CAST(:entries AS jsonb),CAST(:frame AS jsonb))"),
+                dict(unit=unit,authored=expected,entries=json.dumps(entries),frame=json.dumps(forged)))
+        forged=asdict(frame);forged['context_sources'][0]['native_product']['content_digest']='f'*64
+        with pytest.raises(DBAPIError,match='source differs from immutable view'),conn.begin_nested():
+            conn.execute(text("SELECT eval.record_native_reference_pass(:unit,'C','forged-product',:authored,CAST(:entries AS jsonb),CAST(:frame AS jsonb))"),
+                dict(unit=unit,authored=expected,entries=json.dumps(entries),frame=json.dumps(forged)))
+
+        import copy
+        wrong_source=copy.deepcopy(entries)
+        premise=next(entry for entry in wrong_source if entry['item_ref']=='reference_premise')
+        premise.update(locator=frame.sentences[0].locator,start=0,end=14)
+        with pytest.raises(DBAPIError,match='outside supplied independent sentences'),conn.begin_nested():
+            conn.execute(text("SELECT eval.record_native_reference_pass(:unit,'C','cross-source-handle',:authored,CAST(:entries AS jsonb),CAST(:frame AS jsonb))"),
+                dict(unit=unit,authored=expected,entries=json.dumps(wrong_source),frame=json.dumps(asdict(frame))))
