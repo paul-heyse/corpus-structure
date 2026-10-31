@@ -50,7 +50,7 @@ from corpus_structure.core.vocab import (
 from corpus_structure.methods.llm import packet as P
 from corpus_structure.methods.llm import parts as parts_
 
-VERSION = "1"  # bumped on any change to the packet rendering or the prompts
+VERSION = "2"  # bumped on any change to the packet rendering or the prompts
 DEFAULT_MODEL = "claude-opus-5-5"
 
 
@@ -100,7 +100,7 @@ class AgentOpus:
     name = "agent.opus"
     version = VERSION
     family = MethodFamily.AGENT
-    unit_type = TaskUnitType.SEGMENT
+    unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.AGENT
     confidence_source: ConfidenceSource | None = ConfidenceSource.AGENT
     Config = AgentOpusConfig
@@ -114,17 +114,8 @@ class AgentOpus:
     # -- select --------------------------------------------------------------------------------
 
     def select(self, run: SourceRunContext, cfg: AgentOpusConfig) -> Iterable[UnitRef]:
-        out = []
-        for r in run.reader.renditions():
-            content = run.reader.content(r.rendition_id)
-            with run.reader.connection() as conn:
-                page = page_of(conn, r.document_id)
-            ids = run.reader.segments(r.rendition_id)
-            for unit in annotation_units(content, page).units:
-                s = unit.segment
-                key = segment_key(r.rendition_key, s.kind, s.start, s.end)
-                out.append(UnitRef(TaskUnitType.SEGMENT, ids.get(key), unit.key))
-        return out
+        return tuple(UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key)
+                     for ref in run.reader.source_views())
 
     # -- the packet and the parts --------------------------------------------------------------
 
@@ -200,6 +191,13 @@ class AgentOpus:
         }
 
     def input_digest(self, unit: UnitView, cfg: AgentOpusConfig) -> Digest:
+        if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
+            from corpus_structure.methods.math.native import native_proposal_packet
+            if unit.ref.unit_id is None:
+                raise ValueError("native agent task requires a source-view row")
+            packet = native_proposal_packet(unit.run.reader, unit.ref.unit_id,
+                getattr(unit.run.reader,"prepared"), cfg.model_dump(mode="json"))
+            return Digest(canonical_json({"packet":packet.hash,"model":cfg.model}), packet.hash)
         packet = self.packet(unit, cfg)
         return Digest(canonical_json(self.digest_inputs(unit, cfg, packet)), packet.hash)
 

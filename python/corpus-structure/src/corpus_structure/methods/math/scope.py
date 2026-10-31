@@ -40,7 +40,7 @@ import functools
 import heapq
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from spacy.language import Language
@@ -282,11 +282,12 @@ def resolve_scopes(
     sentences: SentenceConfig,
     *,
     text_layouts: Mapping[tuple[int, int], TextLayout] | None = None,
+    text_policy: Any = None,
 ) -> list[Scope]:
     """Every non-constant mention's scope: its binding site and the site it reopens, or none."""
     from corpus_structure.semantic.analysis_contracts import prepare_text_policy
 
-    policy = prepare_text_policy()
+    policy = prepare_text_policy() if text_policy is None else text_policy
     nlp = pipeline(sentences)
     matcher, phrases = _matchers(nlp, binders)
     tokens = math_tokens(values, mentions, relations)

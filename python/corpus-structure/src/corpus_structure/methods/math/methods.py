@@ -84,7 +84,9 @@ from corpus_structure.methods.math.spans import (
     read_spans,
 )
 
-VERSION = "4"
+from .native import NativeDomainRule
+
+VERSION = "5"
 PAYLOAD_VERSION = "2"
 M09, M11, M13 = "extract.math", "normalize.formula", "resolve.symbol_scope"
 _KIND_OF = {  # M11's payload `math_kind` back to the detected kind M13's rules read
@@ -103,6 +105,7 @@ class MathSection(BaseModel):
 
     macros: dict[str, str] = Field(default_factory=dict)
     constants: tuple[str, ...] = ()
+    native_domain_rules: tuple[NativeDomainRule, ...] = ()
 
     def macro_table(self) -> dict[str, MacroDef]:
         return {name: MacroDef(body=body) for name, body in self.macros.items()}
@@ -138,6 +141,7 @@ class SymbolScopeConfig(_Config):
     """`resolve.symbol_scope/<name>`: the pack's binder lexicon and math section, and the sentence
     configuration whose Doc M13 rebuilds (M03's)."""
 
+    source_dependencies: Literal["ancestor_source_view"] = "ancestor_source_view"
     binders: Annotated[Binders | None, PackSection("binders")] = None
     sentences: Annotated[str | SentenceConfig, ConfigRef("segment.sentences")] = (
         "segment.sentences/default"
@@ -187,16 +191,23 @@ def _rendition(reader: Reader, rendition_id: int) -> _Rendition:
 
 
 def _units(run: SourceRunContext) -> list[UnitRef]:
-    return [
-        UnitRef(TaskUnitType.RENDITION, r.rendition_id, r.document_key)
-        for r in run.reader.renditions()
-    ]
+    return [UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key)
+            for ref in run.reader.source_views()]
 
 
 def _content_digest(unit: UnitView) -> str:
     if unit.ref.unit_id is None:
         raise ValueError("a rendition unit names no rendition")
     return str(_row(unit.run.reader, unit.ref.unit_id).content_digest)
+
+
+def _native_digest(unit: UnitView) -> Digest:
+    if unit.ref.unit_id is None:
+        raise ValueError("native task requires a source-view row")
+    view = unit.run.reader.source_view(unit.ref.unit_id)
+    return Digest(canonical_json({"native": view.ref.native_product.values(),
+        "view": view.ref.key, "projection": view.ref.projection_digest,
+        "recipe": view.ref.recipe_digest}))
 
 
 def _source_product_digest(unit: UnitView) -> dict[str, Any]:
@@ -216,6 +227,7 @@ class MathReadingsBatch:
     readings: dict[tuple[int, str, str, bytes], list[Any]] = field(default_factory=dict)
     renditions: dict[int, _Rendition] = field(default_factory=dict)
     owner: object | None = field(default=None, repr=False)
+    native: dict[tuple[Any, ...], tuple[Any, ...]] = field(default_factory=dict)
 
     def bind(self, reader: object) -> None:
         if self.owner is None:
@@ -324,7 +336,7 @@ def _rendition_id(unit: UnitView) -> int:
 
 class _PerRendition:
     version = VERSION
-    unit_type = TaskUnitType.RENDITION
+    unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.DETERMINISTIC
     confidence_source: ConfidenceSource | None = None
     resources = Resources(worker="cpu", batch_size=4)
@@ -366,6 +378,8 @@ class NormalizeFormula(_PerRendition):
     Config = NormalizeFormulaConfig
 
     def input_digest(self, unit: UnitView, cfg: NormalizeFormulaConfig) -> Digest:
+        if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
+            return _native_digest(unit)
         return Digest(canonical_json(_source_product_digest(unit)))
 
     def run(
@@ -373,6 +387,10 @@ class NormalizeFormula(_PerRendition):
     ) -> Sequence[UnitResult]:
         out = []
         for unit in units:
+            if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
+                from .native import native_result
+                out.append(native_result(unit, cfg, ctx, self.name))
+                continue
             ren = _rendition(ctx.reader, _rendition_id(unit))
             readings = _readings(ren, cfg, ctx.reader)
             values = formula_values(readings)
@@ -446,6 +464,8 @@ class ExtractMath(_PerRendition):
     Config = ExtractMathConfig
 
     def input_digest(self, unit: UnitView, cfg: ExtractMathConfig) -> Digest:
+        if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
+            return _native_digest(unit)
         return Digest(canonical_json(_source_product_digest(unit)))
 
     def run(
@@ -453,6 +473,10 @@ class ExtractMath(_PerRendition):
     ) -> Sequence[UnitResult]:
         out = []
         for unit in units:
+            if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
+                from .native import native_result
+                out.append(native_result(unit, cfg, ctx, self.name))
+                continue
             ren = _rendition(ctx.reader, _rendition_id(unit))
             readings = _readings(ren, cfg, ctx.reader)
             found = extract(readings)
@@ -616,7 +640,7 @@ def scope_drafts(
 
 
 class SymbolScope(_PerRendition):
-    version = "3"  # layered preparation and stable source input references
+    version = "4"  # native source-view scope and stable source input references
     """`resolve.symbol_scope` (M13; module doc)."""
 
     name = M13
@@ -624,6 +648,19 @@ class SymbolScope(_PerRendition):
     Config = SymbolScopeConfig
 
     def input_digest(self, unit: UnitView, cfg: SymbolScopeConfig) -> Digest:
+        if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
+            if unit.ref.unit_id is None:
+                raise ValueError("native task requires a source-view row")
+            view = unit.run.reader.source_view(unit.ref.unit_id)
+            basis: dict[str,Any] = {"context_only":bool(getattr(unit,"context_only",False)
+                or not getattr(view.ref,"analysis_eligible",True))}
+            for method, kind in ((M09,ObservationKind.MENTION),(M09,ObservationKind.RELATION),
+                                 (M11,ObservationKind.VALUE)):
+                rows = unit.run.reader.source_observations(view.ref.id,method,kind)
+                basis[method+":"+str(kind)] = [(row.observation_key,row.payload_hash) for row in rows]
+            basis["coverage"] = [(row.task_id,row.coverage.outcome,row.coverage.reason)
+                for row in unit.run.reader.source_view_coverage(view.ref.id,M09)]
+            return Digest(canonical_json({"source":_native_digest(unit).bytes.decode(),**basis}))
         ren = _rendition(unit.run.reader, _rendition_id(unit))
         stored = stored_math(unit.run.reader, ren)
         return Digest(canonical_json({"rendition": ren.digest, **stored.payload_hashes}))
@@ -635,6 +672,10 @@ class SymbolScope(_PerRendition):
             raise ValueError("resolve.symbol_scope runs only under a resolved configuration")
         out = []
         for unit in units:
+            if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
+                from .native import native_scope_result
+                out.append(native_scope_result(unit,cfg,ctx))
+                continue
             ren = _rendition(ctx.reader, _rendition_id(unit))
             stored = stored_math(ctx.reader, ren)
             macros = tex.effective_macros(ren.content.macros, cfg.section().macro_table())

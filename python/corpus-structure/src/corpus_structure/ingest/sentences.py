@@ -224,11 +224,12 @@ def split(
     config: SentenceConfig,
     *,
     layouts: Sequence[TextLayout] | None = None,
+    policy: Any = None,
 ) -> list[list[tuple[int, int]]]:
     """Sentence extents of each block, relative to it, in input order."""
     from corpus_structure.semantic.analysis_contracts import prepare_text_policy
 
-    policy = prepare_text_policy()
+    policy = prepare_text_policy() if policy is None else policy
     nlp = pipeline(config)
     if layouts is not None and len(layouts) != len(blocks):
         raise ValueError("one text layout is required per block")

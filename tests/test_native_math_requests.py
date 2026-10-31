@@ -10,7 +10,7 @@ from corpus_structure.semantic.parsing_products import ProductReference
 
 def view(text="x+x", health="succeeded"):
     return SimpleNamespace(ref=SimpleNamespace(id=5, projection_digest="b"*64,
-        recipe_digest="c"*64,native_product=ProductReference(2,"native","a"*64)),
+        recipe_digest="c"*64,section_pointer="#/groups/0",native_product=ProductReference(2,"native","a"*64)),
         items=({"label":"formula","self_ref":"#/texts/0","orig":"backend","text":text},),
         health={"formula_outcomes":[{"pointer":"#/texts/0","outcome":health}]})
 
