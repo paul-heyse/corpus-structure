@@ -25,6 +25,11 @@ class PreparedSourceView:
     text_policy: Any = None
 
     @cached_property
+    def topology(self):
+        from corpus_structure.methods.math.native_topology import prepare_native_topology
+        return prepare_native_topology(self)
+
+    @cached_property
     def layout(self):
         from corpus_structure.ingest.sentences import Block, SentenceConfig, pipeline, prepare_layout
         native = {item['self_ref']: item for item in self.items}
@@ -141,7 +146,7 @@ def scope_source_views(conn: Connection,selected,scope):
     return tuple(ref for ref in selected if ref.id in matched)
 
 
-def source_view_health(health,section_pointer,membership,items,ancestors):
+def source_view_health(health,section_pointer,membership,items,ancestors,*,recognition_coverage=()):
     """Project coverage onto its named section and retain only local recognition outcomes.
 
     Native item mappings permit locally detected display processing to be qualified;
@@ -155,6 +160,21 @@ def source_view_health(health,section_pointer,membership,items,ancestors):
     if nodes:
         display={pointer for pointer,item in nodes.items() if item.get('label')=='formula' and nodes.get(item.get('parent',{}).get('$ref'),{}).get('label') not in {'table','inline'}}
         value['display_coverage']='complete' if all(outcomes.get(pointer)=='succeeded' for pointer in display) else 'partial' if any(pointer in outcomes for pointer in display) else 'unknown'
+    if recognition_coverage:
+        for key in ('inline_scope','cell_scope','inline_membership','cell_membership','candidate_policy','cells_policy'):
+            value.pop(key,None)
+        for universe in ('display','inline','cell'):
+            exact=[row for row in recognition_coverage if row['universe']==universe and row['section_pointer']==section_pointer and row['membership']==membership]
+            inherited=[row for row in recognition_coverage if row['universe']==universe and row['outcome']=='complete' and row['membership']=='descendants' and (row['section_pointer']==section_pointer or row['section_pointer'] in ancestors)]
+            chosen=(exact or inherited)
+            if not chosen:value[universe+'_coverage']='unknown';continue
+            row=chosen[0]
+            value[universe+'_coverage']=row['outcome']
+            if universe!='display':
+                value[universe+'_scope']=[section_pointer]
+                value[universe+'_membership']=membership
+                value['candidate_policy' if universe=='inline' else 'cells_policy']=row['policy']
+        return value
     for universe in ('inline','cell'):
         scopes=health.get(universe+'_scope',())
         source_membership=health.get(universe+'_membership')
