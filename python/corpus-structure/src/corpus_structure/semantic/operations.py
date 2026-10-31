@@ -457,7 +457,7 @@ def register_document(
     source_uri: str,
     original_path: str,
     original: bytes,
-    mime: str = "text/html",
+    mime: str,
     title: str | None = None,
     metadata: Mapping[str, Any] | None = None,
     prepared: PreparedRelease | None = None,
@@ -964,11 +964,21 @@ class BoundReader:
         product,build,artifact=table("ops.native_document_product"),table("ops.source_build"),table("kb.source_artifact")
         row=self.conn.execute(select(product,build.c.artifact_digest.label("original_digest")).join(build,build.c.task_id==product.c.task_id).where(product.c.task_id==reference.task_id,product.c.product_key==reference.product_key,product.c.content_digest==reference.content_digest)).mappings().one()
         permitted=any(v.native_product==reference for v in self.source_views())
+        if not permitted and self.source_tasks:
+            task,config,run,document=table("ops.task"),table("ops.method_config"),table("ops.run"),table("kb.document")
+            declared=self.conn.execute(select(config.c.params,document.c.content_hash,document.c.project_id).join(task,task.c.method_config_id==config.c.id).join(document,document.c.id==task.c.unit_id).where(task.c.id.in_(tuple(self.source_tasks.values())),task.c.run_id==self.run_id,task.c.unit_type=="document",task.c.status=="running")).mappings()
+            project=self.conn.execute(select(run.c.project_id).where(run.c.id==self.run_id)).scalar_one()
+            producer_project=self.conn.execute(select(run.c.project_id).join(task,task.c.run_id==run.c.id).where(task.c.id==reference.task_id)).scalar_one()
+            permitted=any(item["params"].get("native_product")==reference.values() and item["content_hash"]==row["original_digest"] and item["project_id"]==project==producer_project for item in declared)
         if not permitted:
-            raise OperationConflict("whole-native derivation requires explicitly selected source view")
+            raise OperationConflict("whole-native read requires a selected source view or exact claimed method input pin")
         context=pdf_context_for_task(self.conn,reference.task_id)
         if row["contract_digest"]!=context.contract_digest:
             raise OperationConflict("native product archived contract differs")
+        from .pdf_contracts import pdf_context_for_release
+        if row["schema_digest"]!=pdf_context_for_release(self.conn,self.prepared).native_schema_digest:
+            raise OperationConflict("native adoption consumer does not admit producer schema")
+        context.execution.require_operation("publish_native_document")
         contents=dict(self.conn.execute(select(artifact.c.artifact_digest,artifact.c.content).where(artifact.c.artifact_digest.in_([row["original_digest"],row["schema_digest"],row["recipe_digest"]]))).all())
         return PreparedPdfProduct(bytes(row["payload"]),bytes(contents[row["original_digest"]]),bytes(contents[row["schema_digest"]]),bytes(contents[row["recipe_digest"]]),row["contract_digest"])
 
