@@ -72,9 +72,11 @@ class ProfileSegments:
             items={item['self_ref']:item for item in view.items}
             math=[p for p in view.pieces if p.get('item_ref') in items and items[p['item_ref']]['label']=='formula']
             length=len(view.text)
-            inline=sum(items.get(items[p['item_ref']].get('parent',{}).get('$ref'),{}).get('label')=='inline' for p in math)
+            parent_labels=[items.get(items[p['item_ref']].get('parent',{}).get('$ref'),{}).get('label') for p in math]
+            inline=sum(label=='inline' for label in parent_labels)
+            display=sum(label not in {'inline','table'} for label in parent_labels)
             values={'chars':float(length),'math_share':round(sum(p['end']-p['start'] for p in math)/length,6) if length else 0.0,
-                    'inline_math':float(inline),'display_math':float(len(math)-inline)}
+                    'inline_math':float(inline),'display_math':float(display)}
             measurements=tuple(MeasurementDraft(metric='source_view.'+name,scope_type=MeasurementScope.SOURCE_VIEW,
                 scope_id=view.ref.id,scope_key=view.ref.key,value=value) for name,value in values.items())
             out.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.EMPTY,measurements=measurements))

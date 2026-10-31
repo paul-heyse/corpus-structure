@@ -299,3 +299,26 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(mo
     assert {r['origin_pointer'] for r in prepared[0]['derivation_mappings']}=={paragraph.self_ref}
     assert 'runtime_report' in prepared[0]
     assert json.loads(prepared[0]['runtime_report']['effective_options'])['do_formula_enrichment'] is True
+
+
+def test_source_view_drafts_derive_local_display_and_refuse_outside_scoped_inline_health():
+    from docling_core.types.doc import DoclingDocument,DocItemLabel
+    from corpus_structure.ingest.pdf_hierarchy import snapshot,organize
+    from corpus_structure.ingest.pdf_methods import _drafts
+    from corpus_structure.semantic.parsing_products import ProductReference
+    document=DoclingDocument(name='independent scoped health projection')
+    document.add_heading(text='1.1: Sets',level=1)
+    first=document.add_text(label=DocItemLabel.FORMULA,text='x')
+    document.add_heading(text='1.2: Functions',level=1)
+    second=document.add_text(label=DocItemLabel.FORMULA,text='y')
+    organized=organize(snapshot(document),PdfIngestConfig().section_policy())
+    left,right=(s.group_ref for s in organized.sections)
+    health={'conversion':'success','display_coverage':'partial','inline_coverage':'complete','cell_coverage':'complete',
+        'inline_scope':[left],'cell_scope':[left],'inline_membership':'direct','cell_membership':'direct',
+        'formula_outcomes':[{'pointer':first.self_ref,'outcome':'succeeded'},{'pointer':second.self_ref,'outcome':'failed'}]}
+    a,b=_drafts(1,ProductReference(1,'organized','a'*64),organized.document,health,(left,right),'direct','release1')
+    assert (a.health['display_coverage'],b.health['display_coverage'])==('complete','partial')
+    assert (a.health['inline_coverage'],b.health['inline_coverage'])==('complete','unknown')
+    assert (a.health['cell_coverage'],b.health['cell_coverage'])==('complete','unknown')
+    assert a.health['formula_outcomes']==[{'pointer':first.self_ref,'outcome':'succeeded'}]
+    assert b.health['formula_outcomes']==[{'pointer':second.self_ref,'outcome':'failed'}]

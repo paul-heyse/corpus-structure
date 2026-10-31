@@ -235,8 +235,9 @@ def _drafts(document_id: int,native_product: ProductReference,native: NativeSnap
             if item.parent.cref not in {'#/body','#/furniture'}:
                 ancestors.append(item.parent.cref)
             item=nodes[item.parent.cref]
-        selected=set(item_refs)
-        view_health={**health,'formula_outcomes':[o for o in health.get('formula_outcomes',[]) if o['pointer'] in selected]}
+        from corpus_structure.semantic.source_views import source_view_health
+        view_health=source_view_health(health,section,membership,
+            [nodes[p].model_dump(mode='json',by_alias=True) for p in item_refs],tuple(reversed(ancestors)))
         key='source-view:'+sha256(canonical_bytes({'consumer_release':consumer_release,
             'native':native_product.values(),'section':section,'membership':membership,
             'recipe':sha256(recipe).hexdigest()})).hexdigest()
