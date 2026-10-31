@@ -164,14 +164,16 @@ def prepare(args) -> None:
                 "database_reads": "selected native source views/items, original document identity, run input/release only; no predictions",
                 "frame_owner": "independent reference, directly over immutable adopted views; no extractor packet/frame input",
             }
+    inputs = {
+        "sources.json": canonical_bytes(exported),
+        "domain-definitions.json": canonical_bytes(domain_definitions),
+        "response.schema.json": canonical_bytes(response_schema(batch_schema)),
+        **{f"source-{key}.png": (HERE / value["reference_image"]).read_bytes() for key, value in expected.items()},
+    }
+    manifest["input_digests"] = {name: sha256(value).hexdigest() for name, value in inputs.items()}
+    for name, value in inputs.items():
+        write_new(output / name, value)
     write_new(output / "manifest.json", canonical_bytes(manifest))
-    write_new(output / "sources.json", canonical_bytes(exported))
-    write_new(output / "domain-definitions.json", canonical_bytes(domain_definitions))
-    write_new(output / "response.schema.json", canonical_bytes(response_schema(batch_schema)))
-    for key, value in expected.items():
-        source = HERE / value["reference_image"]
-        image = source.read_bytes()
-        write_new(output / f"source-{key}.png", image)
     print(json.dumps(manifest, indent=2))
 
 
@@ -280,6 +282,9 @@ def author(args) -> None:
     manifest = json.loads((directory / "manifest.json").read_bytes())
     if args.run_id != manifest["run_id"]:
         raise ValueError("explicit adopted run does not match prepared source frames")
+    for name, digest in manifest["input_digests"].items():
+        if sha256((directory / name).read_bytes()).hexdigest() != digest:
+            raise ValueError("prepared reference input changed: " + name)
     sources = json.loads((directory / "sources.json").read_bytes())
     schema = json.loads((directory / "response.schema.json").read_bytes())
     for key, source in sources.items():
