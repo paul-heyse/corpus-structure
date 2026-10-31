@@ -32,7 +32,9 @@ class InlineCandidate:
 
     @classmethod
     def from_wire(cls,value:dict[str,Any])->InlineCandidate:
-        return cls(**{**value,'font':value.get('font')})
+        return cls(page_no=value['page_no'],text=value['text'],left=value['left'],top=value['top'],
+            right=value['right'],bottom=value['bottom'],origin=value['origin'],font=value.get('font'),
+            basis=value['basis'],before=value.get('before',''),after=value.get('after',''))
 
 
 @dataclass(frozen=True, slots=True)
