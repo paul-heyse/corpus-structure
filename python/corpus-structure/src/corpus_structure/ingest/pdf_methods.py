@@ -19,6 +19,7 @@ from corpus_structure.core.method import (
     Resources,
     SourceRunContext,
     SourceViewDraft,
+    SourceViewRef,
     UnitRef,
     UnitResult,
     UnitView,
@@ -433,6 +434,7 @@ def _drafts(
     consumer_release: str,
     *,
     replacements: Mapping[tuple[str, str], int] | None = None,
+    analysis_eligible: bool = True,
     recognition_coverage: Sequence[Mapping[str, Any]] = (),
     document: Any = None,
     node_index: dict[str, Any] | None = None,
@@ -442,8 +444,9 @@ def _drafts(
     section_refs = frozenset(p for p, n in nodes.items() if str(n.label) in {"section", "chapter"})
     recipe = canonical_bytes(
         {
-            "recipe": "native-section-text-v3",
+            "recipe": "native-section-text-v4",
             "content_layers": ["body"],
+            "analysis_eligible": analysis_eligible,
             "organization_owner": native_product.values(),
         }
     )
@@ -483,6 +486,7 @@ def _drafts(
                         "native": native_product.values(),
                         "section": section,
                         "membership": membership,
+                        "analysis_eligible": analysis_eligible,
                         "recipe": sha256(recipe).hexdigest(),
                     }
                 )
@@ -502,9 +506,76 @@ def _drafts(
                 view_health,
                 recipe,
                 replaces_source_view_id=(replacements or {}).get((section, membership)),
+                analysis_eligible=analysis_eligible,
             )
         )
     return tuple(drafts)
+
+
+def _enrichment_view_drafts(
+    document_id: int,
+    reference: ProductReference,
+    native: NativeSnapshot,
+    health: Mapping[str, Any],
+    coverage: Sequence[Mapping[str, Any]],
+    specs: Sequence[tuple[str, Literal["direct", "descendants"]]],
+    views: Sequence[SourceViewRef],
+    release: str,
+    document: Any,
+    nodes: dict[str, Any],
+    *,
+    retain_existing: bool = False,
+) -> tuple[SourceViewDraft, ...]:
+    replacements: dict[tuple[str, str], int] = {
+        (view.section_pointer, view.membership): view.id for view in views
+    }
+    analysis_specs = {
+        (view.section_pointer, view.membership) for view in views if view.analysis_eligible
+    }
+    existing = {view.key for view in views}
+    drafts = tuple(
+        draft
+        for section, membership in specs
+        for draft in _drafts(
+            document_id,
+            reference,
+            native,
+            health,
+            (section,),
+            membership,
+            release,
+            replacements=replacements,
+            analysis_eligible=(section, membership) in analysis_specs,
+            recognition_coverage=coverage,
+            document=document,
+            node_index=nodes,
+        )
+    )
+    # The Ingest projection can already be the exact desired current-consumer view.
+    # Retain it without an invalid self-supersession or a fictional new producer.
+    return tuple(draft for draft in drafts if not retain_existing or draft.key not in existing)
+
+
+def _retained_enrichment_coverage(values, specs):
+    policies = {
+        "display": "detected-native-display-v1",
+        "inline": "native-font-token-vector-ocr-word-v3",
+        "cell": "all-nonempty-selected-cells-v1",
+    }
+    rows = values.get("recognition_coverage", ())
+    indexed = {(row["section_pointer"], row["membership"], row["universe"]): row for row in rows}
+    if len(indexed) != len(rows):
+        return None
+    for section, membership in specs:
+        for universe, policy in policies.items():
+            row = indexed.get((section, membership, universe))
+            if (
+                row is None
+                or row["policy"] != policy
+                or row["outcome"] not in {"complete", "partial", "unknown", "unsupported"}
+            ):
+                return None
+    return rows
 
 
 def _conversion_from_product(product, recipe_bytes: bytes) -> PdfConversion:
@@ -671,6 +742,32 @@ class EnrichPdfMath:
                     p for p, n in nodes.items() if str(n.label) in {"section", "chapter"}
                 )
 
+                retained = product.values()
+                coverage = _retained_enrichment_coverage(retained, specs)
+                if product.recipe_bytes == recipe_bytes and coverage is not None:
+                    drafts = _enrichment_view_drafts(
+                        unit.ref.unit_id,
+                        parent,
+                        conversion.native,
+                        retained["health"],
+                        coverage,
+                        specs,
+                        views,
+                        release,
+                        document,
+                        nodes,
+                        retain_existing=True,
+                    )
+                    outputs.append(
+                        UnitResult(
+                            ref=unit.ref,
+                            outcome=ObservationOutcome.EMPTY,
+                            native_products=(),
+                            source_views=drafts,
+                        )
+                    )
+                    continue
+
                 required_pages_by_scope = {
                     (section, membership): {
                         prov.page_no
@@ -807,32 +904,17 @@ class EnrichPdfMath:
                 reference = ctx.reader.native_product_reference(
                     unit.ref.unit_id, "math-enriched", prepared.digest
                 )
-                replacements: dict[tuple[str, str], int] = {
-                    (v.section_pointer, v.membership): v.id for v in views
-                }
-                drafts = tuple(
-                    draft
-                    for section, membership in specs
-                    for draft in _drafts(
-                        unit.ref.unit_id,
-                        reference,
-                        derived,
-                        payload["health"],
-                        (section,),
-                        membership,
-                        release,
-                        replacements=replacements,
-                        recognition_coverage=coverage,
-                        document=document,
-                        node_index=nodes,
-                    )
-                )
-                analysis_specs = {(v.section_pointer, v.membership) for v in views}
-                drafts = tuple(
-                    dataclasses.replace(
-                        d, analysis_eligible=(d.section_pointer, d.membership) in analysis_specs
-                    )
-                    for d in drafts
+                drafts = _enrichment_view_drafts(
+                    unit.ref.unit_id,
+                    reference,
+                    derived,
+                    payload["health"],
+                    coverage,
+                    specs,
+                    views,
+                    release,
+                    document,
+                    nodes,
                 )
                 outputs.append(
                     UnitResult(

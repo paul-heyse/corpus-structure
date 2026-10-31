@@ -451,7 +451,10 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
         def native_document(self, reference):
             reads.append(reference)
             return SimpleNamespace(
-                values=lambda: payload, original=b"%PDF-fixture", schema_bytes=b"{}"
+                values=lambda: payload,
+                original=b"%PDF-fixture",
+                schema_bytes=b"{}",
+                recipe_bytes=b"original-native-fixture",
             )
 
         def prepare_pdf_product(self, value, original, schema, recipe):
