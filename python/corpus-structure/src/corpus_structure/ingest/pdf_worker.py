@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import multiprocessing
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
 from threading import Lock
-from typing import TypeAlias
 
 from .pdf import PdfConversion, PdfConverter, PdfRecipe
 from .pdf_assets import PreparedPdfAssets
@@ -23,8 +23,8 @@ class ConvertRequest:
     page_range: tuple[int, int] | None
 
 
-Request: TypeAlias = ConvertRequest | PdfEnrichmentRequest
-Result: TypeAlias = PdfConversion | PdfEnrichmentResult
+type Request = ConvertRequest | PdfEnrichmentRequest
+type Result = PdfConversion | PdfEnrichmentResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,10 +182,8 @@ class PdfWorker:
         process = self._process
         connection = self._connection
         if graceful and connection is not None and process is not None and process.is_alive():
-            try:
+            with suppress(BrokenPipeError, EOFError, OSError):
                 connection.send(None)
-            except BrokenPipeError, EOFError, OSError:
-                pass
         if connection is not None:
             connection.close()
             self._connection = None

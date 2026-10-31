@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from .pdf import CellCandidate, CellEnrichment, PdfConversion, PdfConverter
@@ -117,8 +117,6 @@ def positioned_inline_candidates(
         for prov in item.prov:
             by_page[prov.page_no].append((item, prov))
     for page in pages:
-        if page.page_no in by_page and not page.has_words:
-            raise RecognitionUnavailable("inline discovery lacks computed native word cells")
         for candidate in page.candidates:
             matches = []
             for item, prov in by_page.get(page.page_no, ()):
@@ -177,7 +175,8 @@ def positioned_inline_candidates(
             matches = list(re.finditer(qualified, nodes[pointer].text))
             if len(matches) != 1:
                 raise RecognitionUnavailable(
-                    f"native inline text/geometry correspondence requires further alignment: {pointer} {spelling!r}"
+                    "native inline text/geometry correspondence requires further alignment: "
+                    f"{pointer} {spelling!r}"
                 )
             positioned.append(
                 PositionedCandidate(
@@ -400,8 +399,11 @@ def classify_cells(
             classification, basis = "math", "native-candidate-intersection"
         elif re.search(math_pattern, cell.text):
             classification, basis = "math", "native-math-token"
-        elif page and page.has_words and re.fullmatch(prose_pattern, cell.text.strip()):
-            classification, basis = "prose", "native-word-text"
+        elif page and page.usable_words and re.fullmatch(prose_pattern, cell.text.strip()):
+            classification, basis = (
+                "prose",
+                "ocr-word-text" if page.ocr_regions else "native-word-text",
+            )
         else:
             classification, basis = "unknown", "unresolved-native-evidence"
         reports.append(
@@ -459,38 +461,34 @@ def compute_enrichment(
     all_pages = {
         prov.page_no for pointer in request.selected for prov in getattr(nodes[pointer], "prov", ())
     }
-    required_pages = {
-        prov.page_no
-        for pointer in request.selected
-        if str(nodes[pointer].label) in {"text", "list_item", "caption", "footnote"}
-        and not nodes[pointer].children
-        and nodes[pointer].text.strip()
-        for prov in getattr(nodes[pointer], "prov", ())
-    }
     pages = {page.page_no: page for page in request.conversion.inline_candidates}
     absent = {
         number for number in all_pages if number not in pages or not pages[number].has_vectors
     }
     if absent:
-        pages.update(
-            {
-                page.page_no: page
-                for page in rediscover_candidates(
-                    request.original,
-                    tuple(sorted(absent)),
-                    parser_threads=converter.recipe.parser_threads,
+        for discovered in rediscover_candidates(
+            request.original,
+            tuple(sorted(absent)),
+            parser_threads=converter.recipe.parser_threads,
+        ):
+            previous = pages.get(discovered.page_no)
+            if previous is not None and previous.ocr_regions:
+                # Rediscovery recovers native vector availability, not the OCR run's words.
+                # Preserve observed OCR custody instead of replacing it with corrupt native text.
+                vectors = tuple(
+                    candidate
+                    for candidate in discovered.candidates
+                    if candidate.basis == "native-vector-gap-v1"
+                    and previous.native_text_quality != "broken"
                 )
-            }
-        )
+                pages[discovered.page_no] = replace(
+                    previous,
+                    has_vectors=discovered.has_vectors,
+                    candidates=previous.candidates + vectors,
+                )
+            else:
+                pages[discovered.page_no] = discovered
     candidates = tuple(pages[number] for number in sorted(pages))
-    if any(number not in pages or not pages[number].has_words for number in required_pages):
-        raise RecognitionUnavailable(
-            "selected native pages lack attributable word candidate discovery"
-        )
-    if any(not pages[number].has_vectors for number in required_pages):
-        raise RecognitionUnavailable(
-            "selected native pages lack attributable vector discovery for native-font-token-vector-v2"
-        )
     cells = table_candidates(document, request.selected)
     demanded, reports = classify_cells(
         document,

@@ -7,7 +7,13 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 _MATH_FONT = re.compile(r"(?:CMMI|CMSY|CMEX|MSAM|MSBM|Math|Symbol|STIX)", re.I)
-_MATH_TOKEN = re.compile(r"[=<>≤≥∈∉∪∩∑∏∫√∞α-ωΑ-Ω]|\\[A-Za-z]+|\b[A-Za-z]\s*\^")
+_MATH_TOKEN = re.compile(
+    "[=<>\u2264\u2265\u2208\u2209\u222a\u2229\u2211\u220f"
+    "\u222b\u221a\u221e\u03b1-\u03c9\u0391-\u03a9]|\\"
+    "\\[A-Za-z]+|\\"
+    "b[A-Za-z]\\s*"
+    "\\^"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,12 +29,18 @@ class InlineCandidate:
     basis: str
     before: str = ""
     after: str = ""
+    ocr_region_index: int | None = None
+    ocr_line_index: int | None = None
+    ocr_word_index: int | None = None
 
     def to_wire(self) -> dict[str, Any]:
         """An absent application slot is omitted; native document nulls are unrelated."""
         value = asdict(self)
         if self.font is None:
             value.pop("font")
+        for key in ("ocr_region_index", "ocr_line_index", "ocr_word_index"):
+            if value[key] is None:
+                value.pop(key)
         return value
 
     @classmethod
@@ -45,6 +57,9 @@ class InlineCandidate:
             basis=value["basis"],
             before=value.get("before", ""),
             after=value.get("after", ""),
+            ocr_region_index=value.get("ocr_region_index"),
+            ocr_line_index=value.get("ocr_line_index"),
+            ocr_word_index=value.get("ocr_word_index"),
         )
 
 
@@ -55,18 +70,31 @@ class CandidatePage:
     has_chars: bool
     candidates: tuple[InlineCandidate, ...]
     has_vectors: bool = False
+    native_text_quality: str = "unassessed"
+    ocr_regions: tuple[dict[str, Any], ...] = ()
+
+    @property
+    def usable_words(self) -> bool:
+        if self.ocr_regions:
+            return all(region["outcome"] == "complete" for region in self.ocr_regions)
+        return self.has_words and self.native_text_quality != "broken"
 
     def to_wire(self) -> dict[str, Any]:
-        return dict(
+        value: dict[str, Any] = dict(
             page_no=self.page_no,
             has_words=self.has_words,
             has_chars=self.has_chars,
             candidates=[candidate.to_wire() for candidate in self.candidates],
             has_vectors=self.has_vectors,
         )
+        if self.native_text_quality != "unassessed" or self.ocr_regions:
+            value.update(
+                native_text_quality=self.native_text_quality, ocr_regions=list(self.ocr_regions)
+            )
+        return value
 
 
-def capture_candidates(page: Any) -> CandidatePage:
+def capture_candidates(page: Any, ocr: dict[str, Any] | None = None) -> CandidatePage:
     """Enumerate available native words once; unknown extraction is not empty evidence.
 
     These are attributed discovery rules, not a universal mathematical-absence classifier.
@@ -75,8 +103,19 @@ def capture_candidates(page: Any) -> CandidatePage:
     parsed = page.parsed_page
     if parsed is None:
         return CandidatePage(page.page_no, False, False, ())
+    if ocr is None:
+        from docling.models.base_ocr_model import segregate_by_visibility
+        from docling.utils.text_quality import is_broken_text_layer
+
+        visible, _ = segregate_by_visibility(page.cells)
+        ocr = dict(
+            native_text_quality="broken"
+            if is_broken_text_layer("\n".join(cell.text for cell in visible))
+            else "not_flagged",
+            ocr_regions=(),
+        )
     rows = []
-    words = parsed.word_cells
+    words = parsed.word_cells if not ocr or ocr["native_text_quality"] != "broken" else []
     for index, cell in enumerate(words):
         font = getattr(cell, "font_name", None)
         font_match = font is not None and _MATH_FONT.search(font) is not None
@@ -162,8 +201,36 @@ def capture_candidates(page: Any) -> CandidatePage:
                     after,
                 )
             )
+    for region in (ocr or {}).get("ocr_regions", ()):
+        for line in region["lines"]:
+            for word in line["words"]:
+                if _MATH_TOKEN.search(word["text"]):
+                    rows.append(
+                        InlineCandidate(
+                            page.page_no,
+                            word["text"],
+                            word["left"],
+                            word["top"],
+                            word["right"],
+                            word["bottom"],
+                            "TOPLEFT",
+                            None,
+                            "ocr-word-token-v1",
+                            line["text"][: word["start"]],
+                            line["text"][word["end"] :],
+                            region["region_index"],
+                            line["line_index"],
+                            word["word_index"],
+                        )
+                    )
     return CandidatePage(
-        page.page_no, parsed.has_words, parsed.has_chars, tuple(rows), vectors is not None
+        page.page_no,
+        parsed.has_words,
+        parsed.has_chars,
+        tuple(rows),
+        vectors is not None,
+        (ocr or {}).get("native_text_quality", "unassessed"),
+        tuple((ocr or {}).get("ocr_regions", ())),
     )
 
 
@@ -241,7 +308,7 @@ def vector_boxes(backend: Any, size: Any) -> list[Any] | None:
 def rediscover_candidates(
     original: bytes, pages: tuple[int, ...], *, parser_threads: int = 8
 ) -> tuple[CandidatePage, ...]:
-    """Repair discovery metadata from retained PDF backends only, never layout/OCR/formula models."""
+    """Recover retained-PDF discovery using backends, without layout/OCR/formula models."""
     from io import BytesIO
 
     from docling.backend.docling_parse_backend import ThreadedDoclingParseDocumentBackend

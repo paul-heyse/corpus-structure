@@ -47,13 +47,13 @@ class PdfRecipe:
     parser_threads: int = 8
     stage_batch_size: int = 4
     timeout_seconds: float | None = None
-    recipe_id: str = "docling-standard-pdf-v1"
+    recipe_id: str = "docling-standard-pdf-v2"
     # Content-addressed prepared model assets; caller archives these bindings with recipe.
     model_artifacts: tuple[tuple[str, str], ...] = ()
     model_revisions: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
-        if self.recipe_id != "docling-standard-pdf-v1":
+        if self.recipe_id not in {"docling-standard-pdf-v1", "docling-standard-pdf-v2"}:
             raise ValueError("unadmitted PDF recipe")
         for revision in (self.layout_revision, self.formula_revision):
             if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
@@ -247,11 +247,28 @@ class PdfConverter:
             )
         if self.assets is not None:
             self._options.artifacts_path = self.assets.root
+        ocr_observations: dict[int, dict[str, Any]] = {}
+        pipeline_type = StandardPdfPipeline
+        if self.recipe.recipe_id == "docling-standard-pdf-v2":
+            from .pdf_ocr import observed_rapid_ocr_type
+
+            ocr_type = observed_rapid_ocr_type(ocr_observations)
+
+            class WordObservedPipeline(StandardPdfPipeline):
+                def _make_ocr_model(self, art_path: Any) -> Any:
+                    return ocr_type(
+                        enabled=self.pipeline_options.do_ocr,
+                        artifacts_path=art_path,
+                        options=self.pipeline_options.ocr_options,
+                        accelerator_options=self.pipeline_options.accelerator_options,
+                    )
+
+            pipeline_type = WordObservedPipeline
         converter = DocumentConverter(
             allowed_formats=[InputFormat.PDF],
             format_options={
                 InputFormat.PDF: PdfFormatOption(
-                    pipeline_cls=StandardPdfPipeline,
+                    pipeline_cls=pipeline_type,
                     pipeline_options=self._options,
                     backend_options=ThreadedDoclingParseBackendOptions(
                         parser_threads=self.recipe.parser_threads,
@@ -282,7 +299,9 @@ class PdfConverter:
                 self, conv_res: ConversionResult, page_batch: Iterable[Page]
             ) -> Iterable[Page]:
                 for page in native_assembler(conv_res, page_batch):
-                    capture.append(capture_candidates(page))
+                    capture.append(
+                        capture_candidates(page, ocr_observations.pop(page.page_no, None))
+                    )
                     yield page
 
         pipeline.assemble_model = CandidatePageAssembler()

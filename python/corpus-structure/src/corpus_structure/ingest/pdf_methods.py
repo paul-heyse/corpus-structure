@@ -222,7 +222,7 @@ class IngestPdf:
                     selected_product = cfg.native_product
                     products = ()
                     if not any(str(n.label) in {"section", "chapter"} for n in nodes.values()):
-                        # A successful conversion remains reusable if a previous organization failed.
+                        # Reuse successful conversion after a previous organization failure.
                         organization = organize(native, cfg.section_policy())
                         adopted_recipe = self.original_recipe(cfg)
                         conversion = _conversion_from_product(archived, adopted_recipe)
@@ -405,6 +405,24 @@ def _select_sections(
     return tuple(p for p in matched if not any(a in matched_set for a in ancestry(p)))
 
 
+def _member_order(nodes, section_refs, section, membership):
+    """Native body preorder for the explicit section membership, reused after mutation."""
+    pointers = []
+
+    def collect(pointer):
+        item = nodes[pointer]
+        if item.content_layer.value != "body" or (
+            pointer != section and pointer in section_refs and membership == "direct"
+        ):
+            return
+        pointers.append(pointer)
+        for child in item.children:
+            collect(child.cref)
+
+    collect(section)
+    return tuple(pointers)
+
+
 def _drafts(
     document_id: int,
     native_product: ProductReference,
@@ -439,19 +457,7 @@ def _drafts(
             section_refs=section_refs,
             node_index=nodes,
         )
-        item_refs = []
-
-        def collect(pointer):
-            item = nodes[pointer]
-            if item.content_layer.value != "body" or (
-                pointer != section and pointer in section_refs and membership == "direct"
-            ):
-                return
-            item_refs.append(pointer)
-            for child in item.children:
-                collect(child.cref)
-
-        collect(section)
+        item_refs = _member_order(nodes, section_refs, section, membership)
         ancestors = []
         item = nodes[section]
         while item.parent is not None:
@@ -510,6 +516,8 @@ def _conversion_from_product(product, recipe_bytes: bytes) -> PdfConversion:
             page["has_chars"],
             tuple(InlineCandidate.from_wire(candidate) for candidate in page["candidates"]),
             page.get("has_vectors", False),
+            page.get("native_text_quality", "unassessed"),
+            tuple(page.get("ocr_regions", ())),
         )
         for page in values.get("inline_candidate_pages", [])
     )
@@ -540,8 +548,11 @@ def _conversion_from_product(product, recipe_bytes: bytes) -> PdfConversion:
 
 class PdfEnrichConfig(PdfRuntimeConfig):
     # Released classification rules: a cell's nonempty recognition never establishes math.
-    cell_math_pattern: str = r"(?:[=+×÷∑∏∫√∞≤≥∈⊂∪∩^_\\]|(?<!\w)[A-Za-z](?!\w)|\d)"
-    cell_prose_pattern: str = r"[A-Za-z]{2,}(?:[\s,;:'’().-]+[A-Za-z]{2,})*[.!?]?"
+    cell_math_pattern: str = (
+        "(?:[=+\xd7\xf7\u2211\u220f\u222b\u221a\u221e\u2264\u2265\u2208\u2282\u222a\u2229^_\\\\]|"
+        "(?<!\\w)[A-Za-z](?!\\w)|\\d)"
+    )
+    cell_prose_pattern: str = "[A-Za-z]{2,}(?:[\\s,;:'\u2019().-]+[A-Za-z]{2,})*[.!?]?"
     crop_padding_points: float = Field(default=0.75, ge=0)
 
 
@@ -566,7 +577,7 @@ class EnrichPdfMath:
             {
                 "recipe_id": "native-scoped-math-v1",
                 "native_recipe": json.loads(recipe.to_bytes()),
-                "candidate_policy": "native-font-token-vector-v2",
+                "candidate_policy": "native-font-token-vector-ocr-word-v3",
                 "cells_policy": "all-nonempty-selected-cells-v1",
                 "cell_math_pattern": cfg.cell_math_pattern,
                 "cell_prose_pattern": cfg.cell_prose_pattern,
@@ -659,26 +670,22 @@ class EnrichPdfMath:
                     p for p, n in nodes.items() if str(n.label) in {"section", "chapter"}
                 )
 
-                def members(section, membership):
-                    pointers = set()
-
-                    def collect(pointer):
-                        item = nodes[pointer]
-                        if item.content_layer.value != "body" or (
-                            pointer != section
-                            and pointer in section_refs
-                            and membership == "direct"
-                        ):
-                            return
-                        pointers.add(pointer)
-                        for child in item.children:
-                            collect(child.cref)
-
-                    collect(section)
-                    return pointers
-
+                required_pages_by_scope = {
+                    (section, membership): {
+                        prov.page_no
+                        for pointer in _member_order(nodes, section_refs, section, membership)
+                        if str(nodes[pointer].label) in {"text", "list_item", "caption", "footnote"}
+                        and not nodes[pointer].children
+                        and nodes[pointer].text.strip()
+                        for prov in getattr(nodes[pointer], "prov", ())
+                    }
+                    for section, membership in specs
+                }
                 selected = set().union(
-                    *(members(section, membership) for section, membership in specs)
+                    *(
+                        _member_order(nodes, section_refs, section, membership)
+                        for section, membership in specs
+                    )
                 )
                 recipe, assets = self.producer._runtime(cfg)
                 worker = self.producer._worker(recipe, assets)
@@ -721,7 +728,7 @@ class EnrichPdfMath:
                 payload["health"].update(
                     inline_coverage="unknown",
                     cell_coverage="unknown",
-                    candidate_policy="native-font-token-vector-v2",
+                    candidate_policy="native-font-token-vector-ocr-word-v3",
                     cells_policy="all-nonempty-selected-cells-v1",
                 )
                 nodes = native_nodes(document)
@@ -730,7 +737,7 @@ class EnrichPdfMath:
                 }
                 coverage = []
                 for section, membership in specs:
-                    pointers = members(section, membership)
+                    pointers = _member_order(nodes, section_refs, section, membership)
                     formula_refs = [
                         pointer for pointer in pointers if str(nodes[pointer].label) == "formula"
                     ]
@@ -747,13 +754,20 @@ class EnrichPdfMath:
                         or str(nodes[nodes[pointer].parent.cref].label) not in {"inline", "table"}
                     ]
                     cell_rows = [row for row in reports if row["table_pointer"] in pointers]
+                    candidate_pages = {page.page_no: page for page in conversion.inline_candidates}
+                    required_pages = required_pages_by_scope[(section, membership)]
+                    discovery_complete = all(
+                        number in candidate_pages
+                        and candidate_pages[number].usable_words
+                        and candidate_pages[number].has_vectors
+                        for number in required_pages
+                    )
                     states = {
                         "display": all(
                             outcomes.get(pointer) == "succeeded" for pointer in display_refs
                         ),
-                        "inline": all(
-                            outcomes.get(pointer) == "succeeded" for pointer in inline_refs
-                        ),
+                        "inline": discovery_complete
+                        and all(outcomes.get(pointer) == "succeeded" for pointer in inline_refs),
                         "cell": all(
                             row["classification"] == "prose" or row["outcome"] == "succeeded"
                             for row in cell_rows
@@ -761,7 +775,7 @@ class EnrichPdfMath:
                     }
                     policies = {
                         "display": "detected-native-display-v1",
-                        "inline": "native-font-token-vector-v2",
+                        "inline": "native-font-token-vector-ocr-word-v3",
                         "cell": "all-nonempty-selected-cells-v1",
                     }
                     coverage.extend(

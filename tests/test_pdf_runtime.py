@@ -88,7 +88,7 @@ def test_native_inline_capture_distinguishes_missing_cells_from_empty_and_retain
     )
     captured = capture_candidates(
         SimpleNamespace(
-            page_no=1,
+            page_no=1, cells=[cell],
             parsed_page=SimpleNamespace(word_cells=[cell], has_words=True, has_chars=False),
         )
     )
@@ -527,13 +527,6 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     )
     unit = UnitView(UnitRef(TaskUnitType.DOCUMENT, 1, "actual-original-key"), run)
     (result,) = EnrichPdfMath(producer).run((unit,), cfg, ctx)
-    if missing_vectors:
-        assert result.outcome is ObservationOutcome.FAILED
-        assert result.error is not None
-        assert "vector discovery" in result.error
-        assert not prepared
-        assert not result.source_views
-        return
     assert result.outcome is ObservationOutcome.EMPTY
     assert guarded == ["release1"]
     assert reads == [pin]
@@ -548,8 +541,8 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
         if r["section_pointer"] == section and r["universe"] == "inline"
     )
     assert row["membership"] == membership
-    assert row["outcome"] == "complete"
-    assert result.source_views[0].health["inline_coverage"] == "complete"
+    assert row["outcome"] == ("partial" if missing_vectors else "complete")
+    assert result.source_views[0].health["inline_coverage"] == ("partial" if missing_vectors else "complete")
     if with_ancestor:
         assert len(result.source_views) == 2
         assert result.source_views[1].membership == "direct"
