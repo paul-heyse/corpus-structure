@@ -1,4 +1,5 @@
 """Author the small active PDF source; historical HTML inputs/batches remain archived controls."""
+
 from __future__ import annotations
 
 import ctypes
@@ -9,16 +10,35 @@ import pypdfium2 as pdfium
 import pypdfium2.raw as raw
 
 SECTIONS = (
-    ("Ownership register", (
-        "Acme (ORG-101) owns P-17 in 2020 and 2022, files F1 and F2 for 2021, records shares 0.5 and 0.8, and is reported by Alpha and Beta.",
-        "This register is an informational notice.",
-    )),
+    (
+        "Ownership register",
+        (
+            (
+                "Acme (ORG-101) owns P-17 in 2020 and 2022, files F1 and F2 for 2021, "
+                "records shares 0.5 and 0.8, and is reported by Alpha and Beta."
+            ),
+            "This register is an informational notice.",
+        ),
+    ),
     ("Registry identities", ("Acme (ORG-202) and Acme (org-101) each own P-17.",)),
-    ("Qualified ownership and inspection", (
-        "Custodian Acme (ORG-101) owns vessel P-17 from 2020-01-01 through 2020-12-31. Register Alpha reports this holding.",
-        "Inspector Boreal (ORG-202) inspected vessel P-17, held by custodian Acme (ORG-101), on 2020-07-01. The vessel was intact and its measured cargo quantity was exactly 12.3400 kg, on a dry-mass basis.",
-        "Register Beta separately reports that custodian Acme (ORG-101) owns vessel P-17 from 2020-01-01 through 2020-12-31.",
-    )),
+    (
+        "Qualified ownership and inspection",
+        (
+            (
+                "Custodian Acme (ORG-101) owns vessel P-17 from 2020-01-01 through "
+                "2020-12-31. Register Alpha reports this holding."
+            ),
+            (
+                "Inspector Boreal (ORG-202) inspected vessel P-17, held by custodian Acme "
+                "(ORG-101), on 2020-07-01. The vessel was intact and its measured cargo "
+                "quantity was exactly 12.3400 kg, on a dry-mass basis."
+            ),
+            (
+                "Register Beta separately reports that custodian Acme (ORG-101) owns vessel "
+                "P-17 from 2020-01-01 through 2020-12-31."
+            ),
+        ),
+    ),
 )
 
 
