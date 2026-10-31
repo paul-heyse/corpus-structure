@@ -1,7 +1,7 @@
 """Shared fixtures of the math tests (ingest and math §6, P0-I-2a).
 
-Pages are the production renditions (`ingest.html.build_rendition` with the Siegrist profile and
-the default sentence configuration), read by the production grammar, M11, M09 and M13. The four
+Pages are retained historical typed rendition inputs, read by the mathematical kernels.
+The retired HTML writer is not part of current fixture setup. The four
 spike pages are vendored under `fixtures/trace/corpus/` (P0-F-3), so their checks never skip; the
 three S0-R2 pages and the 78-page run read the gitignored corpus and are `corpus`-marked.
 
@@ -14,6 +14,8 @@ The pack constants below retain the independent historical oracle configuration.
 from __future__ import annotations
 
 import multiprocessing
+import json
+from functools import lru_cache
 import os
 import time
 from collections.abc import Callable, Iterable
@@ -23,8 +25,6 @@ from pathlib import Path
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef, RenditionContent
-from corpus_structure.ingest.html import build_rendition
-from corpus_structure.ingest.profile import CompiledProfile, compile_profile, load_profile
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.math.scope import Binders, Scope, resolve_scopes
 from corpus_structure.methods.math.spans import (
@@ -100,13 +100,13 @@ class PageMath:
     scopes: list[Scope]
 
 
-_PROFILE: list[CompiledProfile] = []
-
-
-def _profile() -> CompiledProfile:
-    if not _PROFILE:
-        _PROFILE.append(compile_profile(load_profile("siegrist")))
-    return _PROFILE[0]
+@lru_cache(maxsize=1)
+def _retained_inputs() -> dict:
+    fixture=REPO/"fixtures/trace/archived-renditions.json"
+    retained=json.loads(fixture.read_bytes())
+    if retained["source_revision"]!="7e6289a":
+        raise ValueError("historical mathematical inputs require their retained source revision")
+    return retained["pages"]
 
 
 def corpus_of(page: str) -> Path:
@@ -114,10 +114,10 @@ def corpus_of(page: str) -> Path:
 
 
 def read_page(page: str) -> PageReadings:
-    """Build a rendition and read its spans, without downstream extraction."""
-    source_uri = f"{ROOT}/{page}"
-    raw = (corpus_of(page) / source_uri).read_bytes()
-    content = build_rendition(raw, _profile(), SentenceConfig(), source_uri=source_uri).content
+    """Read a retained typed input and its spans, without source ingestion."""
+    if page not in _retained_inputs():
+        raise ValueError("no retained historical mathematical input for "+page)
+    content=RenditionContent.model_validate(_retained_inputs()[page]["content"])
     macros = tex.effective_macros(content.macros, PACK_MACROS)
     readings = read_spans(content, macros, CONSTANTS)
     return PageReadings(page, content, macros, readings)
