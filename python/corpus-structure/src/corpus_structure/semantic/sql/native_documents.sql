@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION ops.publish_native_document(
  p_original bytea,p_schema bytea,p_recipe bytea) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $native$
 DECLARE job ops.task; run ops.run; previous ops.native_document_product;
- product jsonb; parsing_item jsonb; digest text; artifact text; parent ops.native_document_product;
+ product jsonb; parsing_item jsonb; digest text; artifact text; parent ops.native_document_product; coverage jsonb;
 BEGIN
  SELECT r.* INTO STRICT run FROM ops.run r JOIN ops.task t ON t.run_id=r.id WHERE t.id=p_task FOR SHARE OF r;
  SELECT * INTO STRICT job FROM ops.task WHERE id=p_task AND run_id=run.id FOR UPDATE;
@@ -14,6 +14,15 @@ BEGIN
  -- {pdf_shape_guard}
  IF (product->>'source_scope'='page_range' AND (product->>'page_start' IS NULL OR product->>'page_end' IS NULL OR (product->>'page_start')::bigint>(product->>'page_end')::bigint)) OR (product->>'source_scope'='whole_document' AND (product ? 'page_start' OR product ? 'page_end')) THEN
   RAISE EXCEPTION 'native source scope differs' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM unnest(ARRAY['inline','cell']) universe WHERE product->'health'->>(universe||'_coverage')='complete' AND
+  (jsonb_array_length(COALESCE(product->'health'->(universe||'_scope'),'[]'))=0 OR product->'health'->>(universe||'_membership') IS NULL OR
+   product->'health'->>(CASE universe WHEN 'inline' THEN 'candidate_policy' ELSE 'cells_policy' END) IS NULL)) THEN
+  RAISE EXCEPTION 'complete recognition coverage requires a qualified scope/membership/policy' USING ERRCODE='23514'; END IF;
+ IF product ? 'runtime_report' AND (jsonb_typeof((product->'runtime_report'->>'effective_options')::jsonb) IS DISTINCT FROM 'object'
+  OR (product->'runtime_report' ? 'confidence' AND jsonb_typeof((product->'runtime_report'->>'confidence')::jsonb) IS DISTINCT FROM 'object')
+  OR (SELECT count(*) FROM jsonb_array_elements(COALESCE(product->'runtime_report'->'packages','[]')))<>(SELECT count(DISTINCT value->>'name') FROM jsonb_array_elements(COALESCE(product->'runtime_report'->'packages','[]')))
+  OR (SELECT count(*) FROM jsonb_array_elements(COALESCE(product->'runtime_report'->'bindings','[]')))<>(SELECT count(DISTINCT value->>'name') FROM jsonb_array_elements(COALESCE(product->'runtime_report'->'bindings','[]')))) THEN
+  RAISE EXCEPTION 'native runtime report has invalid options or duplicate bindings' USING ERRCODE='23514'; END IF;
  IF p_original IS NULL THEN
   SELECT artifact_digest INTO STRICT artifact FROM ops.source_build WHERE task_id=p_task;
   IF NOT EXISTS(SELECT FROM kb.source_artifact WHERE artifact_digest=artifact) THEN RAISE EXCEPTION 'retained original is unavailable' USING ERRCODE='23514'; END IF;
@@ -64,6 +73,51 @@ BEGIN
  INSERT INTO kb.native_document_derivation(task_id,product_key,pointer,mapping_index,origin_pointer,source_field,start_offset,end_offset,cell_index,kind)
  SELECT p_task,product->>'product_key',m.value->>'pointer',m.n-1,m.value->>'origin_pointer',m.value->>'source_field',(m.value->>'start')::bigint,(m.value->>'end')::bigint,(m.value->>'cell_index')::bigint,m.value->>'kind'
  FROM jsonb_array_elements(COALESCE(product->'derivation_mappings','[]')) WITH ORDINALITY m(value,n);
+ IF jsonb_array_length(COALESCE(product->'recognition_coverage','[]'))>0 AND (product->'health'->>'inline_coverage'<>'unknown' OR product->'health'->>'cell_coverage'<>'unknown') THEN
+  RAISE EXCEPTION 'scoped recognition rows cannot imply global inline/cell coverage' USING ERRCODE='23514'; END IF;
+ INSERT INTO kb.native_document_coverage(task_id,product_key,section_pointer,membership,universe,outcome,policy)
+ SELECT p_task,product->>'product_key',r.section_pointer,r.membership,r.universe,r.outcome,r.policy
+ FROM jsonb_populate_recordset(NULL::kb.native_document_coverage,COALESCE(product->'recognition_coverage','[]')) r;
+ FOR coverage IN SELECT value FROM jsonb_array_elements(COALESCE(product->'recognition_coverage','[]')) LOOP
+  IF NOT EXISTS(SELECT FROM kb.native_document_item i WHERE i.task_id=p_task AND i.product_key=product->>'product_key' AND i.pointer=coverage->>'section_pointer' AND i.label IN ('section','chapter')) THEN
+   RAISE EXCEPTION 'recognition coverage row is not a native organizational scope' USING ERRCODE='23514'; END IF;
+  IF coverage->>'outcome'='complete' AND coverage->>'universe' IN ('display','inline') AND EXISTS(
+   SELECT FROM kb.native_document_item i JOIN kb.native_document_item owner ON owner.task_id=i.task_id AND owner.product_key=i.product_key AND owner.pointer=i.parent_pointer
+   WHERE i.task_id=p_task AND i.product_key=product->>'product_key' AND i.label='formula'
+    AND i.pointer IN (SELECT ops.native_scope_items(p_task,product->>'product_key',coverage->>'section_pointer',coverage->>'membership'))
+    AND ((coverage->>'universe'='display' AND owner.label NOT IN ('table','inline')) OR (coverage->>'universe'='inline' AND owner.label='inline'))
+    AND NOT EXISTS(SELECT FROM jsonb_array_elements(product->'health'->'formula_outcomes') outcome WHERE outcome->>'pointer'=i.pointer AND outcome->>'outcome'='succeeded')) THEN
+   RAISE EXCEPTION 'complete scoped formula coverage lacks attributable recognition' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'cell_reports','[]')) report
+ LEFT JOIN kb.native_document_item item ON item.task_id=p_task AND item.product_key=product->>'product_key' AND item.pointer=report->>'table_pointer'
+ CROSS JOIN LATERAL (SELECT item.native_json->'data'->'table_cells'->((report->>'cell_index')::integer) value) cell
+ WHERE item.pointer IS NULL OR item.label<>'table' OR cell.value IS NULL OR NOT EXISTS(SELECT FROM kb.native_document_region region WHERE region.task_id=p_task AND region.product_key=product->>'product_key' AND region.pointer=item.pointer AND region.page_no=(report->>'page_no')::bigint)
+ OR (report->>'classification'='prose' AND (report->>'outcome'<>'not_requested' OR report->>'formula_pointer' IS NOT NULL))
+ OR (report->>'classification'='math' AND report->>'outcome'='succeeded' AND (cell.value->'ref'->>'$ref' IS DISTINCT FROM report->>'formula_pointer' OR NOT EXISTS(SELECT FROM kb.native_document_item formula WHERE formula.task_id=p_task AND formula.product_key=product->>'product_key' AND formula.pointer=report->>'formula_pointer' AND formula.label='formula') OR NOT EXISTS(SELECT FROM jsonb_array_elements(product->'health'->'formula_outcomes') outcome WHERE outcome->>'pointer'=report->>'formula_pointer' AND outcome->>'outcome'='succeeded')))) THEN
+ RAISE EXCEPTION 'native cell report is outside table/page/recognition custody' USING ERRCODE='23514'; END IF;
+ INSERT INTO kb.native_document_cell_report(task_id,product_key,table_pointer,cell_index,page_no,classification,basis,outcome,formula_pointer,error)
+ SELECT p_task,product->>'product_key',r.table_pointer,r.cell_index,r.page_no,r.classification,r.basis,r.outcome,r.formula_pointer,r.error
+ FROM jsonb_populate_recordset(NULL::kb.native_document_cell_report,COALESCE(product->'cell_reports','[]')) r;
+ IF product ? 'runtime_report' THEN INSERT INTO kb.native_document_runtime VALUES(p_task,product->>'product_key',product->'runtime_report'); END IF;
+ FOR coverage IN SELECT value FROM jsonb_array_elements(COALESCE(product->'recognition_coverage','[]')) WHERE value->>'universe'='cell' AND value->>'outcome'='complete' LOOP
+  IF EXISTS(SELECT FROM kb.native_document_cell_report r WHERE r.task_id=p_task AND r.product_key=product->>'product_key'
+   AND r.table_pointer IN (SELECT ops.native_scope_items(p_task,product->>'product_key',coverage->>'section_pointer',coverage->>'membership'))
+   AND (r.classification='unknown' OR (r.classification='math' AND r.outcome<>'succeeded'))) THEN
+   RAISE EXCEPTION 'complete scoped cell coverage contains unresolved recognition/classification' USING ERRCODE='23514'; END IF;
+  IF EXISTS(WITH expected AS (
+   SELECT item.pointer table_pointer,c.n-1 cell_index FROM kb.native_document_item item
+   LEFT JOIN kb.native_document_item source ON source.task_id=parent.task_id AND source.product_key=parent.product_key AND source.pointer=item.pointer
+   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(source.native_json->'data'->'table_cells',item.native_json->'data'->'table_cells','[]')) WITH ORDINALITY c(value,n)
+   WHERE item.task_id=p_task AND item.product_key=product->>'product_key' AND item.label='table'
+    AND item.pointer IN (SELECT ops.native_scope_items(p_task,product->>'product_key',coverage->>'section_pointer',coverage->>'membership'))
+    AND (length(trim(COALESCE(c.value->>'text','')))>0 OR c.value->'ref'->>'$ref' IS NOT NULL)
+  ) SELECT FROM expected LEFT JOIN kb.native_document_cell_report actual ON actual.task_id=p_task AND actual.product_key=product->>'product_key' AND actual.table_pointer=expected.table_pointer AND actual.cell_index=expected.cell_index WHERE actual.table_pointer IS NULL) THEN
+   RAISE EXCEPTION 'complete scoped cell coverage lacks its exact nonempty cell inventory' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ IF EXISTS(SELECT FROM kb.native_document_cell_report report WHERE report.task_id=p_task AND report.product_key=product->>'product_key' AND NOT EXISTS(
+  SELECT FROM kb.native_document_coverage c WHERE c.task_id=p_task AND c.product_key=product->>'product_key' AND c.universe='cell' AND report.table_pointer IN (SELECT ops.native_scope_items(p_task,product->>'product_key',c.section_pointer,c.membership)))) THEN
+  RAISE EXCEPTION 'native cell report is outside declared recognition scope' USING ERRCODE='23514'; END IF;
  -- Compare the complete access universe, not only whichever rows the caller supplied.
  IF EXISTS(
  WITH RECURSIVE nodes AS (

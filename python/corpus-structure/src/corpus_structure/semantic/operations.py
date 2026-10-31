@@ -380,6 +380,10 @@ def complete_task(
             data.setdefault("segment_id", task["unit_id"])
         elif data.get("rendition_id") is None and task["unit_type"] == "rendition":
             data["rendition_id"] = task["unit_id"]
+        if task['unit_type']=='source_view':
+            if data.get('source_view_id') not in (None,task['unit_id']) or any(data.get(field) is not None for field in ('rendition_id','segment_id','span_id')):
+                raise OperationConflict('source-view observation differs from its task unit')
+            data['source_view_id']=task['unit_id']
         supplied_key = data.pop("observation_key", None)
         if definition == "SourceObservation" and supplied_key != payload["observation_key"]:
             raise OperationConflict("source observation identity differs from bound report")

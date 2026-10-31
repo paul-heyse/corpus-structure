@@ -3963,3 +3963,54 @@ classes:
       ph:foreign_keys: '[{"columns":["task_id","product_key","pointer"],"target":"kb.native_document_item.task_id,product_key,pointer"}]'
       ph:indexes: '[["task_id","product_key","pointer"]]'
       ph:checks: '["mapping_index >= 0", "start_offset >= 0", "end_offset >= start_offset", "cell_index IS NULL OR cell_index >= 0", "source_field IN (''text'',''cell_text'')", "kind IN (''native_text_range'',''vector_region_anchor'',''table_cell'')"]'
+  native_document_cell_report:
+    in_subset: [kb]
+    description: Exact bounded access projection of qualified native table-cell classification and recognition outcomes.
+    attributes:
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      table_pointer: {range: string, required: true}
+      cell_index: {range: integer, required: true}
+      page_no: {range: integer, required: true}
+      classification: {range: string, required: true}
+      basis: {range: string, required: true}
+      outcome: {range: string, required: true}
+      formula_pointer: {range: string}
+      error: {range: string}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [task_id, product_key, table_pointer, cell_index]
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns":["task_id","product_key","table_pointer"],"target":"kb.native_document_item.task_id,product_key,pointer"},{"columns":["task_id","product_key","formula_pointer"],"target":"kb.native_document_item.task_id,product_key,pointer"}]'
+      ph:checks: '["cell_index >= 0", "page_no > 0"]'
+  native_document_runtime:
+    in_subset: [kb]
+    description: Bounded immutable projection of an observed native runtime report, present only when retained by its producer envelope.
+    attributes:
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      report: {range: json_payload, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [task_id, product_key]
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns":["task_id","product_key"],"target":"ops.native_document_product.task_id,product_key"}]'
+  native_document_coverage:
+    in_subset: [kb]
+    description: Immutable scoped recognition outcomes projected from the native envelope; distinct memberships and universes are additional qualified rows.
+    attributes:
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      section_pointer: {range: string, required: true}
+      membership: {range: string, required: true}
+      universe: {range: string, required: true}
+      outcome: {range: string, required: true}
+      policy: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [task_id, product_key, section_pointer, membership, universe]
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns":["task_id","product_key","section_pointer"],"target":"kb.native_document_item.task_id,product_key,pointer"}]'

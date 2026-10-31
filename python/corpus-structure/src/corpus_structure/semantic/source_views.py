@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any
+from typing import Any,TYPE_CHECKING
 
 from sqlalchemy import Connection, select, text
 
@@ -12,6 +12,11 @@ from corpus_structure.core.method import SourceViewDraft, SourceViewRef
 from .identity import canonical_bytes
 from .metadata import table
 from .parsing_products import ProductReference
+
+
+if TYPE_CHECKING:
+    from corpus_structure.ingest.sentences import SentenceConfig,TextLayout
+    from corpus_structure.methods.math.native_topology import NativeTopology
 
 
 @dataclass(frozen=True)
@@ -25,20 +30,20 @@ class PreparedSourceView:
     text_policy: Any = None
 
     @cached_property
-    def topology(self):
+    def topology(self) -> NativeTopology:
         from corpus_structure.methods.math.native_topology import prepare_native_topology
         return prepare_native_topology(self)
 
     @cached_property
-    def layout(self):
+    def layout(self) -> TextLayout:
         from corpus_structure.ingest.sentences import SentenceConfig
         return self.layout_for(SentenceConfig())
 
     @cached_property
-    def _layouts(self):
+    def _layouts(self) -> dict[bytes,TextLayout]:
         return {}
 
-    def layout_for(self,configuration):
+    def layout_for(self,configuration: SentenceConfig) -> TextLayout:
         from dataclasses import asdict
         from corpus_structure.ingest.sentences import Block,pipeline,prepare_layout
         from .analysis_contracts import prepare_text_policy

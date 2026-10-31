@@ -16,6 +16,8 @@ BEGIN
    RAISE EXCEPTION 'inconsistent terminal outcome';
  END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(p_rows) LOOP
+   IF t.unit_type='source_view' AND (item->>'source_view_id')::bigint IS DISTINCT FROM t.unit_id THEN
+    RAISE EXCEPTION 'native observation differs from producing source-view task unit' USING ERRCODE='23514'; END IF;
    IF item->>'rendition_id' IS NOT NULL AND NOT EXISTS(SELECT 1 FROM ops.run_rendition rr WHERE rr.run_id=t.run_id AND rr.rendition_id=(item->>'rendition_id')::bigint) THEN
      RAISE EXCEPTION 'observation rendition outside run';
    END IF;

@@ -68,6 +68,19 @@ enums:
       cell: {}
       regions: {}
       trace: {}
+  PdfRecognitionUniverse:
+    permissible_values: {display: {}, inline: {}, cell: {}}
+  PdfRecognitionPolicy:
+    permissible_values: {detected-native-display-v1: {}, native-font-token-vector-v2: {}, all-nonempty-selected-cells-v1: {}}
+  PdfCellClassification:
+    permissible_values: {math: {}, prose: {}, unknown: {}}
+  PdfCellClassificationBasis:
+    permissible_values:
+      native-candidate-intersection: {}
+      native-math-token: {}
+      native-word-text: {}
+      native-rich-reference: {}
+      unresolved-native-evidence: {}
   PdfDerivationKind:
     permissible_values:
       native_text_range: {}
@@ -344,6 +357,22 @@ classes:
         inlined: true
         inlined_as_list: true
         slot_uri: pdf:PdfNativeEnvelope_regions
+      recognition_coverage:
+        range: PdfRecognitionCoverage
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfNativeEnvelope_recognition_coverage
+      runtime_report:
+        range: PdfRuntimeReport
+        inlined: true
+        slot_uri: pdf:PdfNativeEnvelope_runtime_report
+      cell_reports:
+        range: PdfCellReport
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfNativeEnvelope_cell_reports
       inline_candidate_pages:
         range: PdfInlineCandidatePage
         required: false
@@ -513,6 +542,9 @@ classes:
         range: PdfNativeReadView
         required: true
         slot_uri: pdf:PdfNativeReadRequest_view
+      membership:
+        range: PdfMembership
+        slot_uri: pdf:PdfNativeReadRequest_membership
       section_pointer:
         range: PdfPointer
         required: false
@@ -726,3 +758,51 @@ classes:
   PdfNativeRunRequest:
     attributes:
       run_id: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: 'pdf:PdfNativeRunRequest_run_id'}
+  PdfCellReport:
+    attributes:
+      table_pointer: {range: PdfPointer, required: true, slot_uri: 'pdf:PdfCellReport_table_pointer'}
+      cell_index: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: 'pdf:PdfCellReport_cell_index'}
+      page_no: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: 'pdf:PdfCellReport_page_no'}
+      classification: {range: PdfCellClassification, required: true, slot_uri: 'pdf:PdfCellReport_classification'}
+      basis: {range: PdfCellClassificationBasis, required: true, slot_uri: 'pdf:PdfCellReport_basis'}
+      outcome: {range: PdfRecognitionOutcome, required: true, slot_uri: 'pdf:PdfCellReport_outcome'}
+      formula_pointer: {range: PdfPointer, slot_uri: 'pdf:PdfCellReport_formula_pointer'}
+      error: {range: PdfString, slot_uri: 'pdf:PdfCellReport_error'}
+  PdfRuntimePackage:
+    attributes:
+      name: {range: PdfString, required: true, slot_uri: 'pdf:PdfRuntimePackage_name'}
+      version: {range: PdfString, required: true, slot_uri: 'pdf:PdfRuntimePackage_version'}
+  PdfRuntimeBinding:
+    attributes:
+      name: {range: PdfString, required: true, slot_uri: 'pdf:PdfRuntimeBinding_name'}
+      value: {range: PdfString, required: true, slot_uri: 'pdf:PdfRuntimeBinding_value'}
+  PdfRuntimeReport:
+    description: Observed native package/provider bindings and upstream-owned effective options; not an execution-success assertion.
+    attributes:
+      packages: {range: PdfRuntimePackage, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfRuntimeReport_packages'}
+      bindings: {range: PdfRuntimeBinding, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfRuntimeReport_bindings'}
+      effective_options: {range: PdfString, required: true, slot_uri: 'pdf:PdfRuntimeReport_effective_options'}
+      confidence: {range: PdfString, slot_uri: 'pdf:PdfRuntimeReport_confidence'}
+  PdfRecognitionCoverage:
+    abstract: true
+    attributes:
+      section_pointer: {range: PdfPointer, required: true, slot_uri: 'pdf:PdfRecognitionCoverage_section_pointer'}
+      membership: {range: PdfMembership, required: true, slot_uri: 'pdf:PdfRecognitionCoverage_membership'}
+      universe: {range: PdfRecognitionUniverse, required: true, slot_uri: 'pdf:PdfRecognitionCoverage_universe'}
+      outcome: {range: PdfCoverage, required: true, slot_uri: 'pdf:PdfRecognitionCoverage_outcome'}
+      policy: {range: PdfRecognitionPolicy, required: true, slot_uri: 'pdf:PdfRecognitionCoverage_policy'}
+  PdfDisplayCoverage:
+    is_a: PdfRecognitionCoverage
+    attributes:
+      universe: {range: string, required: true, equals_string: display, slot_uri: 'pdf:PdfRecognitionCoverage_universe'}
+      policy: {range: string, required: true, equals_string: detected-native-display-v1, slot_uri: 'pdf:PdfRecognitionCoverage_policy'}
+  PdfInlineCoverage:
+    is_a: PdfRecognitionCoverage
+    attributes:
+      universe: {range: string, required: true, equals_string: inline, slot_uri: 'pdf:PdfRecognitionCoverage_universe'}
+      policy: {range: string, required: true, equals_string: native-font-token-vector-v2, slot_uri: 'pdf:PdfRecognitionCoverage_policy'}
+  PdfCellCoverage:
+    is_a: PdfRecognitionCoverage
+    attributes:
+      universe: {range: string, required: true, equals_string: cell, slot_uri: 'pdf:PdfRecognitionCoverage_universe'}
+      policy: {range: string, required: true, equals_string: all-nonempty-selected-cells-v1, slot_uri: 'pdf:PdfRecognitionCoverage_policy'}

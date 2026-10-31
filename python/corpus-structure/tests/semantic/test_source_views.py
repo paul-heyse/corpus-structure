@@ -18,7 +18,7 @@ from .test_operations import setup
 
 
 def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,semantic_writer_engine,tmp_path,monkeypatch):
-    from docling_core.types.doc import DoclingDocument,DocItemLabel,GroupLabel
+    from docling_core.types.doc import DoclingDocument,DocItemLabel,GroupLabel,TableData,TableCell,PageItem,Size,BoundingBox,ProvenanceItem
     from corpus_structure.ingest.pdf_hierarchy import snapshot
     from corpus_structure.ingest.pdf import PdfConversion,publication_payload
     from corpus_structure.semantic.proposals import native_source_frame
@@ -34,9 +34,17 @@ def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,s
     formula=doc.add_formula(text='f(x)=x',orig='f(x)=x',parent=section)
     child=doc.add_group(label=GroupLabel.SECTION,name='Child',parent=section)
     child_formula=doc.add_formula(text='f(2)',orig='f(2)',parent=child)
+    doc.pages[1]=PageItem(page_no=1,size=Size(width=200,height=300))
+    box=BoundingBox(l=10,t=20,r=150,b=50,coord_origin='TOPLEFT')
+    table=doc.add_table(data=TableData(num_rows=1,num_cols=1,table_cells=[TableCell(text='Probability',bbox=box,start_row_offset_idx=0,end_row_offset_idx=1,start_col_offset_idx=0,end_col_offset_idx=1,column_header=True)]),parent=child,prov=ProvenanceItem(page_no=1,bbox=box,charspan=(0,0)))
     from corpus_structure.ingest.pdf_health import FormulaOutcome
     conversion=PdfConversion(sha256(original).hexdigest(),recipe,snapshot(doc),'success',(),(FormulaOutcome(formula.self_ref,'succeeded'),FormulaOutcome(child_formula.self_ref,'succeeded')),(),None)
     payload=publication_payload(conversion,product_key='native',schema_digest=sha256(schema).hexdigest(),section_refs=frozenset({section.self_ref,child.self_ref}))
+    coverage=[{'section_pointer':pointer,'membership':membership,'universe':universe,'outcome':'complete','policy':policy} for pointer,membership in ((section.self_ref,'descendants'),(child.self_ref,'direct')) for universe,policy in (('display','detected-native-display-v1'),('inline','native-font-token-vector-v2'),('cell','all-nonempty-selected-cells-v1'))]
+    payload['recognition_coverage']=coverage
+    payload['cell_reports']=[dict(table_pointer=table.self_ref,cell_index=0,page_no=1,classification='prose',basis='native-word-text',outcome='not_requested')]
+    payload['runtime_report']={'packages':[{'name':'fixture','version':'1'}],'bindings':[{'name':'fixture.provider','value':'CPU'}],'effective_options':'{}','confidence':'{}'}
+    from corpus_structure.semantic.source_views import source_view_health
     product=prepare_pdf_product(payload,original,schema,recipe)
     with semantic_writer_engine.begin() as conn:
         run=create_run(conn,project_id='p',binding=OperationBinding(prepared.release_id,'z',0,b'{}'),kind='full',options={},code_commit='source-view-test')
@@ -50,15 +58,25 @@ def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,s
         store_pdf_product(conn,task_id=task,attempt=claim.attempt,holder='view-fixture',product=product)
         draft=SourceViewDraft('view-independent',document,ProductReference(task,'native',product.digest),section.self_ref,'direct','Independent source.\nf(x)=x',
             ({'item_ref':paragraph.self_ref,'start':0,'end':19,'kind':'native_text','source_field':'text'},{'start':19,'end':20,'kind':'synthetic_separator'},{'item_ref':formula.self_ref,'start':20,'end':26,'kind':'native_text','source_field':'text'}),
-            (section.self_ref,paragraph.self_ref,formula.self_ref),(),dict(payload['health'],formula_outcomes=[o for o in payload['health']['formula_outcomes'] if o['pointer']==formula.self_ref]),b'{"recipe":"section-view-fixture"}')
+            (section.self_ref,paragraph.self_ref,formula.self_ref),(),source_view_health(payload['health'],section.self_ref,'direct',tuple(n.model_dump(mode='json',by_alias=True) for n in (section,paragraph,formula)),(),recognition_coverage=coverage),b'{"recipe":"section-view-fixture"}')
         identity=store_source_view(conn,run_id=run,task_id=task,attempt=claim.attempt,holder='view-fixture',draft=draft,position=0)
-        child_draft=SourceViewDraft('view-child',document,ProductReference(task,'native',product.digest),child.self_ref,'direct','f(2)',
-            ({'item_ref':child_formula.self_ref,'start':0,'end':4,'kind':'native_text','source_field':'text'},),
-            (child.self_ref,child_formula.self_ref),(section.self_ref,),dict(payload['health'],formula_outcomes=[o for o in payload['health']['formula_outcomes'] if o['pointer']==child_formula.self_ref]),b'{"recipe":"section-view-fixture"}')
+        child_draft=SourceViewDraft('view-child',document,ProductReference(task,'native',product.digest),child.self_ref,'direct','f(2)\nProbability',
+            ({'item_ref':child_formula.self_ref,'start':0,'end':4,'kind':'native_text','source_field':'text'},{'start':4,'end':5,'kind':'synthetic_separator'},{'item_ref':table.self_ref,'start':5,'end':16,'kind':'native_text','source_field':'cell_text','cell_index':0}),
+            (child.self_ref,child_formula.self_ref,table.self_ref),(section.self_ref,),source_view_health(payload['health'],child.self_ref,'direct',tuple(n.model_dump(mode='json',by_alias=True) for n in (child,child_formula,table)),(section.self_ref,),recognition_coverage=coverage),b'{"recipe":"section-view-fixture"}')
         child_identity=store_source_view(conn,run_id=run,task_id=task,attempt=claim.attempt,holder='view-fixture',draft=child_draft,position=1)
+        assert conn.execute(text('SELECT count(*) FROM kb.native_document_coverage WHERE task_id=:task'),{'task':task}).scalar_one()==6
+        report=conn.execute(text('SELECT classification,outcome FROM kb.native_document_cell_report WHERE task_id=:task'),{'task':task}).one()
+        assert tuple(report)==('prose','not_requested')
+        assert conn.execute(text('SELECT report FROM kb.native_document_runtime WHERE task_id=:task'),{'task':task}).scalar_one()==payload['runtime_report']
+        from copy import deepcopy
+        bad=deepcopy(payload);bad['product_key']='bad-cell';bad['cell_reports'][0].update(classification='unknown',basis='unresolved-native-evidence',outcome='unknown')
+        malformed=prepare_pdf_product(bad,original,schema,recipe)
+        with pytest.raises(DBAPIError,match='unresolved recognition/classification'),conn.begin_nested():
+            store_pdf_product(conn,task_id=task,attempt=claim.attempt,holder='view-fixture',product=malformed)
         assert selected_source_views(conn,run)[0].id==identity
         loaded=load_source_view(conn,identity)
         assert loaded.text=='Independent source.\nf(x)=x'
+        assert loaded.health['inline_coverage']=='complete' and loaded.health['cell_coverage']=='complete'
         assert [i['self_ref'] for i in loaded.items]==[section.self_ref,paragraph.self_ref,formula.self_ref]
         with pytest.raises((ValueError,DBAPIError)),conn.begin_nested():
             store_source_view(conn,run_id=run,task_id=task,attempt=claim.attempt,holder='view-fixture',draft=replace(draft,key='wrong-membership',items=(paragraph.self_ref,)),position=1)
@@ -66,8 +84,15 @@ def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,s
         packet_hash='a'*64
         agent_config=record_method(conn,SimpleNamespace(name='native.packet-fixture',version='1',family='agent',tier='agent',confidence_source=None,unit_type='source_view',Config=create_model('NativePacketFixture')),'default',{},'native-packet-fixture')
         agent_task=create_task(conn,run_id=run,config_id=agent_config,stage='agent',unit_type='source_view',unit_id=identity,unit_key=draft.key,input_hash='packet-input',packet_hash=packet_hash,agent=True)
+        missing=asdict(frame);missing['sentences']=tuple(row for row in missing['sentences'] if not row['id'].startswith('native_evidence:'))
+        with pytest.raises(DBAPIError,match='alias inventory is incomplete'),conn.begin_nested():
+            store_native_source_frame(conn,task_id=agent_task,packet_hash=packet_hash,frame=missing)
+        mismatched=asdict(frame)
+        next(row for row in mismatched['sentences'] if row['id']=='native_evidence:0')['end']=1
+        with pytest.raises(DBAPIError,match='exact retained piece'),conn.begin_nested():
+            store_native_source_frame(conn,task_id=agent_task,packet_hash=packet_hash,frame=mismatched)
         store_native_source_frame(conn,task_id=agent_task,packet_hash=packet_hash,frame=asdict(frame))
-        assert conn.execute(text('SELECT count(*) FROM ops.native_source_frame_sentence WHERE task_id=:task'),{'task':agent_task}).scalar_one()==1
+        assert conn.execute(text('SELECT count(*) FROM ops.native_source_frame_sentence WHERE task_id=:task'),{'task':agent_task}).scalar_one()==3
         invalid=asdict(frame);invalid['native_context']=canonical_bytes(dict(loaded.context(),items=[])).decode()
         with pytest.raises(DBAPIError),conn.begin_nested():
             store_native_source_frame(conn,task_id=agent_task,packet_hash=packet_hash,frame=invalid)
@@ -153,3 +178,22 @@ def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,s
 def test_native_request_budget_is_finite_and_positive(seconds):
     from corpus_structure.semantic.native_requests import NativeRequestLimits
     with pytest.raises(ValueError):NativeRequestLimits(seconds=seconds)
+
+
+def test_source_view_health_is_relative_to_its_named_native_universe():
+    from corpus_structure.semantic.source_views import source_view_health
+    group={'self_ref':'#/groups/0','label':'section'}
+    formula={'self_ref':'#/texts/0','label':'formula','parent':{'$ref':'#/groups/0'}}
+    health={'conversion':'success','display_coverage':'partial','inline_coverage':'complete','cell_coverage':'complete',
+        'inline_scope':['#/groups/0'],'cell_scope':['#/groups/0'],'inline_membership':'direct','cell_membership':'direct',
+        'formula_outcomes':[{'pointer':'#/texts/0','outcome':'succeeded'},{'pointer':'#/texts/1','outcome':'failed'}]}
+    local=source_view_health(health,'#/groups/0','direct',(group,formula),())
+    assert local['display_coverage']=='complete' and local['inline_coverage']=='complete' and local['cell_coverage']=='complete'
+    assert local['formula_outcomes']==[{'pointer':'#/texts/0','outcome':'succeeded'}]
+    child={'self_ref':'#/groups/1','label':'section'}
+    outside=source_view_health(health,'#/groups/1','direct',(child,),('#/groups/0',))
+    assert outside['inline_coverage']=='unknown' and outside['cell_coverage']=='unknown'
+    strong=source_view_health(dict(health,inline_membership='descendants',cell_membership='descendants'),'#/groups/1','direct',(child,),('#/groups/0',))
+    assert strong['inline_coverage']=='complete' and strong['cell_coverage']=='complete'
+    unqualified=source_view_health(dict(health,inline_scope=[],cell_scope=[]),'#/groups/0','direct',(group,formula),())
+    assert unqualified['inline_coverage']=='unknown' and unqualified['cell_coverage']=='unknown'

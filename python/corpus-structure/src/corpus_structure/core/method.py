@@ -510,9 +510,12 @@ class SourceCoverageReading:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class UnitResult:
-    """One unit's outcome (D4 §1 rule 2): `produced` with at least one observation, `empty` with
-    none, or `failed` with an error and no output. `ingest.html` also returns the rendition
-    content and the build's `parse_detail`."""
+    """One unit outcome: produced observations, an empty result, or a failure diagnostic.
+
+    A failed operation publishes no claims or measurements. It may retain already validated
+    native capture/diagnostic products so later application preparation can recover without
+    repeating conversion. Native products and source views use the same fenced task owner.
+    """
 
     ref: UnitRef
     outcome: ObservationOutcome

@@ -1,9 +1,21 @@
+-- One native containment projection serves membership validation and scoped recognition.
+CREATE OR REPLACE FUNCTION ops.native_scope_items(p_task bigint,p_key text,p_section text,p_membership text)
+RETURNS SETOF text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $scope$
+ WITH RECURSIVE subtree AS (
+  SELECT pointer FROM kb.native_document_item WHERE task_id=p_task AND product_key=p_key AND pointer=p_section
+  UNION ALL SELECT child.pointer FROM kb.native_document_item child JOIN subtree parent ON child.parent_pointer=parent.pointer
+   WHERE child.task_id=p_task AND child.product_key=p_key AND p_membership='descendants'
+ ) SELECT pointer FROM kb.native_document_item WHERE task_id=p_task AND product_key=p_key AND content_layer='body'
+  AND ((p_membership='direct' AND section_pointer=p_section) OR (p_membership='descendants' AND pointer IN (SELECT pointer FROM subtree)))
+$scope$;
+REVOKE ALL ON FUNCTION ops.native_scope_items(bigint,text,text,text) FROM PUBLIC;
+
 -- Immutable section views are instances, never fabricated document/rendition rows.
 CREATE OR REPLACE FUNCTION ops.publish_source_view(p_run bigint,p_task bigint,p_attempt bigint,p_holder text,p_position bigint,p_payload bytea,p_recipe bytea) RETURNS bigint
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $view$
 DECLARE job ops.task; run ops.run; product jsonb; parsing_item jsonb; projection jsonb; piece jsonb;
  native ops.native_document_product; section kb.native_document_item; previous kb.source_view; result bigint;
- pos bigint:=0; stop bigint; node jsonb; spelling text; piece_pointer text; expected jsonb;
+ pos bigint:=0; stop bigint; node jsonb; spelling text; piece_pointer text; expected jsonb; coverage_universe text; local_coverage text; coverage_row kb.native_document_coverage;
 BEGIN
  SELECT * INTO STRICT run FROM ops.run WHERE id=p_run FOR SHARE;
  SELECT * INTO STRICT job FROM ops.task WHERE id=p_task AND run_id=p_run FOR UPDATE;
@@ -30,12 +42,8 @@ BEGIN
  RAISE EXCEPTION 'source view references an unqualified occurrence' USING ERRCODE='23514'; END IF;
  IF (SELECT count(*) FROM jsonb_array_elements_text(projection->'items'))<>(SELECT count(DISTINCT value) FROM jsonb_array_elements_text(projection->'items')) THEN
  RAISE EXCEPTION 'source view repeats an occurrence' USING ERRCODE='23514'; END IF;
- WITH RECURSIVE selected AS (
- SELECT * FROM kb.native_document_item WHERE task_id=native.task_id AND product_key=native.product_key AND pointer=section.pointer
- UNION ALL SELECT child.* FROM kb.native_document_item child JOIN selected parent ON child.parent_pointer=parent.pointer
- WHERE child.task_id=native.task_id AND child.product_key=native.product_key
- ) SELECT COALESCE(jsonb_agg(pointer ORDER BY ordinal),'[]'::jsonb) INTO expected FROM selected
- WHERE content_layer='body' AND (product->>'membership'='descendants' OR section_pointer=section.pointer);
+ SELECT COALESCE(jsonb_agg(pointer ORDER BY ordinal),'[]'::jsonb) INTO expected FROM kb.native_document_item
+ WHERE task_id=native.task_id AND product_key=native.product_key AND pointer IN (SELECT ops.native_scope_items(native.task_id,native.product_key,section.pointer,product->>'membership'));
  IF projection->'items' IS DISTINCT FROM expected THEN RAISE EXCEPTION 'source view membership/order is incomplete or differs' USING ERRCODE='23514'; END IF;
  WITH RECURSIVE ancestry AS (
  SELECT p.*,0 depth FROM kb.native_document_item p WHERE p.task_id=native.task_id AND p.product_key=native.product_key AND p.pointer=section.parent_pointer
@@ -62,6 +70,35 @@ BEGIN
   pos:=stop;
  END LOOP;
  SELECT (native.health - 'formula_outcomes') || jsonb_build_object('formula_outcomes',COALESCE(jsonb_agg(o.value ORDER BY o.n) FILTER(WHERE projection->'items' ? (o.value->>'pointer')),'[]')) INTO expected FROM jsonb_array_elements(COALESCE(native.health->'formula_outcomes','[]')) WITH ORDINALITY o(value,n);
+ IF EXISTS(SELECT FROM kb.native_document_coverage WHERE task_id=native.task_id AND product_key=native.product_key) THEN
+  expected:=expected-ARRAY['inline_scope','cell_scope','inline_membership','cell_membership','candidate_policy','cells_policy'];
+  FOREACH coverage_universe IN ARRAY ARRAY['display','inline','cell'] LOOP
+   SELECT * INTO coverage_row FROM kb.native_document_coverage c WHERE c.task_id=native.task_id AND c.product_key=native.product_key AND c.universe=coverage_universe AND
+    ((c.section_pointer=section.pointer AND c.membership=product->>'membership') OR (c.outcome='complete' AND c.membership='descendants' AND (c.section_pointer=section.pointer OR projection->'ancestors' ? c.section_pointer)))
+    ORDER BY (c.section_pointer=section.pointer AND c.membership=product->>'membership') DESC,c.section_pointer LIMIT 1;
+   IF FOUND THEN
+    expected:=jsonb_set(expected,ARRAY[coverage_universe||'_coverage'],to_jsonb(coverage_row.outcome));
+    IF coverage_universe<>'display' THEN
+     expected:=jsonb_set(expected,ARRAY[coverage_universe||'_scope'],jsonb_build_array(section.pointer));
+     expected:=jsonb_set(expected,ARRAY[coverage_universe||'_membership'],to_jsonb(product->>'membership'));
+     expected:=jsonb_set(expected,ARRAY[CASE coverage_universe WHEN 'inline' THEN 'candidate_policy' ELSE 'cells_policy' END],to_jsonb(coverage_row.policy));
+    END IF;
+   ELSE expected:=jsonb_set(expected,ARRAY[coverage_universe||'_coverage'],'"unknown"'::jsonb); END IF;
+  END LOOP;
+ ELSE
+ SELECT CASE WHEN count(i.pointer)=0 OR bool_and(COALESCE(o.value->>'outcome'='succeeded',false)) THEN 'complete' WHEN count(o.value)>0 THEN 'partial' ELSE 'unknown' END INTO local_coverage
+ FROM kb.native_document_item i LEFT JOIN kb.native_document_item parent ON parent.task_id=i.task_id AND parent.product_key=i.product_key AND parent.pointer=i.parent_pointer
+ LEFT JOIN jsonb_array_elements(COALESCE(native.health->'formula_outcomes','[]')) o(value) ON o.value->>'pointer'=i.pointer
+ WHERE i.task_id=native.task_id AND i.product_key=native.product_key AND projection->'items' ? i.pointer AND i.label='formula' AND COALESCE(parent.label,'') NOT IN ('table','inline');
+ expected:=jsonb_set(expected,'{display_coverage}',to_jsonb(local_coverage));
+ FOREACH coverage_universe IN ARRAY ARRAY['inline','cell'] LOOP
+  IF native.health->>(coverage_universe||'_coverage') IN ('complete','partial') AND NOT COALESCE((
+   ((native.health->(coverage_universe||'_scope') ? section.pointer) AND native.health->>(coverage_universe||'_membership')=product->>'membership') OR
+   (native.health->>(coverage_universe||'_membership')='descendants' AND ((native.health->(coverage_universe||'_scope') ? section.pointer) OR EXISTS(SELECT FROM jsonb_array_elements_text(COALESCE(projection->'ancestors','[]')) parent WHERE native.health->(coverage_universe||'_scope') ? parent)))),false) THEN
+   expected:=jsonb_set(expected,ARRAY[coverage_universe||'_coverage'],'"unknown"'::jsonb);
+  END IF;
+ END LOOP;
+ END IF;
  IF pos<>char_length(projection->>'text') OR projection->'health' IS DISTINCT FROM expected THEN
  RAISE EXCEPTION 'source view text extent/health differs' USING ERRCODE='23514'; END IF;
  SELECT * INTO previous FROM kb.source_view WHERE key=product->>'key' AND release_id=run.release_id;
@@ -106,7 +143,7 @@ GRANT EXECUTE ON FUNCTION ops.select_reused_source_views(bigint,bigint) TO corpu
 
 CREATE OR REPLACE FUNCTION ops.capture_native_source_frame(p_task bigint,p_hash text,p_frame jsonb) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $frame$
-DECLARE job ops.task; view kb.source_view; context jsonb; expected jsonb; previous ops.native_source_frame; sentence jsonb;
+DECLARE job ops.task; view kb.source_view; context jsonb; expected jsonb; previous ops.native_source_frame; sentence jsonb; piece jsonb;
 BEGIN
  SELECT * INTO STRICT job FROM ops.task WHERE id=p_task FOR UPDATE;
  PERFORM sem.require_execution_operation(job.release_id,'capture_native_source_frame');
@@ -120,6 +157,17 @@ BEGIN
  OR p_frame->'native_product'->>'product_key' IS DISTINCT FROM view.native_product_key
  OR p_frame->'native_product'->>'content_digest' IS DISTINCT FROM view.native_content_digest THEN
  RAISE EXCEPTION 'native packet frame differs from selected source view/task' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(view.projection->'pieces') WITH ORDINALITY piece(value,n)
+  WHERE piece.value->>'kind'='native_text' AND piece.value->>'item_ref' IS NOT NULL AND (piece.value->>'end')::bigint>(piece.value->>'start')::bigint
+  AND NOT EXISTS(SELECT FROM jsonb_array_elements(p_frame->'sentences') supplied WHERE supplied->>'id'='native_evidence:'||(piece.n-1)::text)) THEN
+ RAISE EXCEPTION 'native evidence alias inventory is incomplete' USING ERRCODE='23514'; END IF;
+ FOR sentence IN SELECT value FROM jsonb_array_elements(p_frame->'sentences') WHERE starts_with(value->>'id','native_evidence:') LOOP
+  IF substring(sentence->>'id' FROM length('native_evidence:')+1) !~ '^(0|[1-9][0-9]*)$' THEN
+   RAISE EXCEPTION 'native evidence alias has an invalid piece ordinal' USING ERRCODE='23514'; END IF;
+  piece:=view.projection->'pieces'->(substring(sentence->>'id' FROM length('native_evidence:')+1)::integer);
+  IF piece IS NULL OR piece->>'kind'<>'native_text' OR piece->>'item_ref' IS NULL OR (sentence->>'start')::bigint IS DISTINCT FROM (piece->>'start')::bigint OR (sentence->>'end')::bigint IS DISTINCT FROM (piece->>'end')::bigint THEN
+   RAISE EXCEPTION 'native evidence alias differs from its exact retained piece' USING ERRCODE='23514'; END IF;
+ END LOOP;
  context:=(p_frame->>'native_context')::jsonb;
  SELECT jsonb_build_object('pieces',view.projection->'pieces','health',view.projection->'health',
  'items',(SELECT COALESCE(jsonb_agg(i.native_json ORDER BY ptr.n),'[]') FROM jsonb_array_elements_text(view.projection->'items') WITH ORDINALITY ptr(value,n) JOIN kb.native_document_item i ON i.task_id=view.native_task_id AND i.product_key=view.native_product_key AND i.pointer=ptr.value),
