@@ -193,6 +193,14 @@ class ProjectedPiece:
     cell_index: int | None = None
     source_field: str | None = None
 
+    def to_wire(self)->dict[str,Any]:
+        value:dict[str,Any]=dict(start=self.start,end=self.end,kind=self.kind)
+        for name in ('item_ref','cell_index','source_field'):
+            field=getattr(self,name)
+            if field is not None:
+                value[name]=field
+        return value
+
 
 @dataclass(frozen=True, slots=True)
 class TextProjection:

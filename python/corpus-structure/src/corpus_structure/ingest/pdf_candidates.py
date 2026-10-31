@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass,asdict
 from typing import Any
 
 _MATH_FONT = re.compile(r"(?:CMMI|CMSY|CMEX|MSAM|MSBM|Math|Symbol|STIX)", re.I)
@@ -23,6 +23,17 @@ class InlineCandidate:
     before: str = ""
     after: str = ""
 
+    def to_wire(self) -> dict[str,Any]:
+        """An absent application slot is omitted; native document nulls are unrelated."""
+        value=asdict(self)
+        if self.font is None:
+            value.pop('font')
+        return value
+
+    @classmethod
+    def from_wire(cls,value:dict[str,Any])->InlineCandidate:
+        return cls(**{**value,'font':value.get('font')})
+
 
 @dataclass(frozen=True, slots=True)
 class CandidatePage:
@@ -31,6 +42,10 @@ class CandidatePage:
     has_chars: bool
     candidates: tuple[InlineCandidate, ...]
     has_vectors: bool = False
+
+    def to_wire(self)->dict[str,Any]:
+        return dict(page_no=self.page_no,has_words=self.has_words,has_chars=self.has_chars,
+                    candidates=[candidate.to_wire() for candidate in self.candidates],has_vectors=self.has_vectors)
 
 
 def capture_candidates(page: Any) -> CandidatePage:

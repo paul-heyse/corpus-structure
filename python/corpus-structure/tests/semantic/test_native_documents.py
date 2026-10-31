@@ -6,7 +6,7 @@ from importlib.resources import files
 from types import SimpleNamespace
 
 import pytest
-from pydantic import create_model
+from pydantic import create_model,ValidationError
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -69,7 +69,8 @@ def test_pdf_original_and_native_product_need_no_rendition(
         sha256(original).hexdigest(), recipe, snapshot(doc), "success", (), (), (), None
     )
     payload = publication_payload(
-        conversion, product_key="native", schema_digest=sha256(schema).hexdigest()
+        conversion, product_key="native", schema_digest=sha256(schema).hexdigest(),
+        include_application_metadata=False,
     )
     product = prepare_pdf_product(payload, original, schema, recipe)
     with semantic_writer_engine.begin() as conn:
@@ -81,21 +82,9 @@ def test_pdf_original_and_native_product_need_no_rendition(
             options={},
             code_commit="native-pdf-test",
         )
-        config = record_method(
-            conn,
-            SimpleNamespace(
-                name="pdf.fixture",
-                version="1",
-                family="ingest",
-                tier="deterministic",
-                confidence_source=None,
-                unit_type="document",
-                Config=create_model("PdfFixture"),
-            ),
-            "default",
-            {},
-            "pdf-fixture",
-        )
+        method=SimpleNamespace(name="pdf.fixture",version="1",family="ingest",tier="deterministic",
+            confidence_source=None,unit_type="document",Config=create_model("PdfFixture"))
+        config = record_method(conn,method,"default",{},"pdf-fixture")
         source_path = tmp_path / "source.pdf"
         source_path.write_bytes(original)
         document_id = register_document(
@@ -174,7 +163,36 @@ def test_pdf_original_and_native_product_need_no_rendition(
                         recipe=recipe,
                     ),
                 )
+    # Optional application preparation can fail after exact native capture. Existing terminal
+    # publication must retain that valid capture even when the task outcome is failed.
+    from corpus_structure.ingest.pdf_candidates import CandidatePage,InlineCandidate
+    from dataclasses import replace
+    from corpus_structure.ingest.pdf_methods import _error_summary
+    from corpus_structure.core.method import UnitRef,UnitResult
+    from corpus_structure.core.vocab import ObservationOutcome,TaskUnitType
+    from corpus_structure.semantic.operations import complete_unit_result
+    application_conversion=replace(conversion,inline_candidates=(CandidatePage(1,True,False,
+        (InlineCandidate(1,'',20,30,40,60,'TOPLEFT',None,'native-vector-gap-v1'),),True),))
+    application=publication_payload(application_conversion,product_key='organized',
+        schema_digest=sha256(schema).hexdigest(),parent=(task,'native',product.digest))
+    # Omission succeeds; explicit null remains a contract violation (no widened slot).
+    prepare_pdf_product(application,original,schema,recipe)
+    application['inline_candidate_pages'][0]['candidates'][0]['font']=None
+    with pytest.raises(ValidationError) as invalid:
+        prepare_pdf_product(application,original,schema,recipe)
+    summary=_error_summary(invalid.value)
+    assert 'inline_candidate_pages.0.candidates.0.font' in summary
+    failed=UnitResult(ref=UnitRef(TaskUnitType.DOCUMENT,document_id,'pdf-source'),
+        outcome=ObservationOutcome.FAILED,error=summary,native_products=(product,))
+    with semantic_writer_engine.begin() as conn:
+        complete_unit_result(conn,task_id=task,attempt=claim.attempt,holder='pdf-fixture',
+            prepared=prepared,result=failed,method=method,configuration_hash='pdf-fixture',source='file:pdf-fixture')
     with semantic_reader_engine.connect() as conn:
+        state=conn.execute(text('SELECT status,error FROM ops.task WHERE id=:task'),{'task':task}).one()
+        assert state.status=='failed'
+        assert len(str(state.error))<2000
+        retained=conn.execute(text('SELECT content_digest FROM ops.native_document_product WHERE task_id=:task'),{'task':task}).scalar_one()
+        assert retained==product.digest
         rows = read_native_items(
             conn, task_id=task, product_key="native", content_digest=digest, pointer="#/texts/0"
         )

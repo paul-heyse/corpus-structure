@@ -463,6 +463,7 @@ def publication_payload(
     section_refs: frozenset[str] = frozenset(),
     parent: tuple[int, str, str] | None = None,
     enrichment: CellEnrichment | None = None,
+    include_application_metadata: bool = True,
 ) -> dict[str, Any]:
     """Prepare declared native access rows for the shared semantic publication boundary.
 
@@ -574,7 +575,6 @@ def publication_payload(
         "recipe_digest": sha256(conversion.recipe).hexdigest(),
         "native_schema_version": selected.schema_version,
         "document": json.loads(selected.payload),
-        "inline_candidate_pages": [dataclasses.asdict(page) for page in conversion.inline_candidates],
         "derivation_mappings": list(enrichment.mappings) if enrichment is not None else [],
         "health": {
             "conversion": conversion.conversion_status,
@@ -594,7 +594,9 @@ def publication_payload(
         "items": items,
         "regions": regions,
     }
-    if conversion.packages or conversion.runtime or conversion.effective_options != b"{}":
+    if include_application_metadata:
+        result['inline_candidate_pages']=[page.to_wire() for page in conversion.inline_candidates]
+    if include_application_metadata and (conversion.packages or conversion.runtime or conversion.effective_options != b"{}"):
         result['runtime_report'] = {
             'packages':[dict(name=name,version=version) for name,version in conversion.packages],
             'bindings':[dict(name=name,value=value) for name,value in conversion.runtime],

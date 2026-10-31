@@ -373,3 +373,33 @@ def test_descendant_projection_selects_scoped_nested_roots_before_reader_filteri
     assert _select_sections(nodes,cfg)==(parent,)
     assert not isinstance(PdfEnrichConfig(),PdfIngestConfig)
     assert 'originals' not in PdfEnrichConfig.model_fields
+
+
+def test_application_wire_omits_absent_optionals_without_altering_native_nulls():
+    from corpus_structure.ingest.pdf_candidates import InlineCandidate,CandidatePage
+    from corpus_structure.ingest.pdf_hierarchy import ProjectedPiece
+    candidate=InlineCandidate(1,'',1,2,3,4,'TOPLEFT',None,'native-vector-gap-v1')
+    assert 'font' not in candidate.to_wire()
+    assert InlineCandidate.from_wire(candidate.to_wire())==candidate
+    assert 'font' not in CandidatePage(1,True,False,(candidate,),True).to_wire()['candidates'][0]
+    assert ProjectedPiece(None,0,1,'synthetic_separator').to_wire()=={
+        'start':0,'end':1,'kind':'synthetic_separator'}
+    assert ProjectedPiece('#/texts/0',1,2,'native_text',0,'text').to_wire()=={
+        'item_ref':'#/texts/0','start':1,'end':2,'kind':'native_text','cell_index':0,'source_field':'text'}
+
+
+def test_validation_error_terminal_summary_is_bounded_and_omits_input():
+    from pydantic import BaseModel,ValidationError
+    from corpus_structure.ingest.pdf_methods import _error_summary
+    class Row(BaseModel):
+        font:str
+    class Report(BaseModel):
+        rows:list[Row]
+    with pytest.raises(ValidationError) as caught:
+        Report.model_validate({'rows':[{'font':None} for _ in range(1000)]})
+    summary=_error_summary(caught.value)
+    assert '1000 errors' in summary
+    assert 'rows.0.font' in summary
+    assert 'rows.3.font' not in summary
+    assert 'input_value' not in summary
+    assert len(summary)<1800

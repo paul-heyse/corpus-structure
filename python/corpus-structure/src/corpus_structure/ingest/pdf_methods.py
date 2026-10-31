@@ -159,10 +159,11 @@ class IngestPdf:
                 schema_digest=sha256(schema_bytes).hexdigest()
                 original=ctx.reader.original(unit.ref.unit_id)
                 conversion=converter.convert_bytes(original)
-                raw_payload=publication_payload(conversion,product_key="native",schema_digest=schema_digest)
+                raw_payload=publication_payload(conversion,product_key="native",schema_digest=schema_digest,
+                    include_application_metadata=False)
                 raw=ctx.reader.prepare_pdf_product(raw_payload,original,schema_bytes,conversion.recipe)
-                raw_ref=ctx.reader.native_product_reference(unit.ref.unit_id,"native",raw.digest)
                 retained_native = (raw,)
+                raw_ref=ctx.reader.native_product_reference(unit.ref.unit_id,"native",raw.digest)
                 organization=organize(conversion.native,cfg.section_policy())
                 section_refs=frozenset(s.group_ref for s in organization.sections)
                 organized_payload=publication_payload(conversion,product_key="organized",
@@ -177,9 +178,10 @@ class IngestPdf:
                 outputs.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.EMPTY,
                     native_products=(raw,organized),source_views=drafts))
             except Exception as error:
-                ctx.logger.warning("ingest.pdf %s: %s",unit.ref.unit_key,error)
+                summary=_error_summary(error)
+                ctx.logger.warning("ingest.pdf %s: %s",unit.ref.unit_key,summary)
                 outputs.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.FAILED,
-                    error=f"{type(error).__name__}: {error}",native_products=retained_native))
+                    error=summary,native_products=retained_native))
         return outputs
 
 
@@ -257,7 +259,7 @@ def _drafts(document_id: int,native_product: ProductReference,native: NativeSnap
             'native':native_product.values(),'section':section,'membership':membership,
             'recipe':sha256(recipe).hexdigest()})).hexdigest()
         drafts.append(SourceViewDraft(key,document_id,native_product,section,membership,projection.text,
-            tuple(dataclasses.asdict(p) for p in projection.pieces),tuple(item_refs),tuple(reversed(ancestors)),
+            tuple(p.to_wire() for p in projection.pieces),tuple(item_refs),tuple(reversed(ancestors)),
             view_health,recipe,replaces_source_view_id=(replacements or {}).get((section,membership))))
     return tuple(drafts)
 
@@ -265,7 +267,7 @@ def _drafts(document_id: int,native_product: ProductReference,native: NativeSnap
 def _conversion_from_product(product,recipe_bytes:bytes) -> PdfConversion:
     values=product.values()
     candidates=tuple(CandidatePage(page['page_no'],page['has_words'],page['has_chars'],
-        tuple(InlineCandidate(**candidate) for candidate in page['candidates']),page.get('has_vectors',False))
+        tuple(InlineCandidate.from_wire(candidate) for candidate in page['candidates']),page.get('has_vectors',False))
         for page in values.get('inline_candidate_pages',[]))
     return PdfConversion(values['artifact_digest'],recipe_bytes,_snapshot_from_values(values),
         values['health']['conversion'],tuple(values['health'].get('issues',[])),
@@ -438,8 +440,9 @@ class EnrichPdfMath:
                 outputs.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.EMPTY,
                     native_products=(prepared,),source_views=drafts))
             except Exception as error:
-                ctx.logger.warning('enrich.pdf_math %s: %s',unit.ref.unit_id,error)
-                outputs.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.FAILED,error=f'{type(error).__name__}: {error}'))
+                summary=_error_summary(error)
+                ctx.logger.warning('enrich.pdf_math %s: %s',unit.ref.unit_id,summary)
+                outputs.append(UnitResult(ref=unit.ref,outcome=ObservationOutcome.FAILED,error=summary))
         return outputs
 
 
@@ -447,3 +450,16 @@ def _require_enrichment_operation(ctx:MethodContext,release:str)->None:
     from corpus_structure.semantic.contracts import require_database_operation
     with ctx.reader.connection() as conn:
         require_database_operation(conn,release,'enrich_pdf_math')
+
+
+def _error_summary(error:Exception)->str:
+    """Bound terminal/log diagnostics without multiplying validation failures or input JSON."""
+    from pydantic import ValidationError
+    from jsonschema.exceptions import ValidationError as JsonSchemaError
+    if isinstance(error,ValidationError):
+        examples=error.errors(include_url=False,include_context=False,include_input=False)[:3]
+        locations='; '.join('.'.join(map(str,row['loc']))+': '+row['msg'] for row in examples)
+        return f'ValidationError: {error.error_count()} errors; {locations}'[:1800]
+    if isinstance(error,JsonSchemaError):
+        return ('JSONSchemaValidationError: '+'.'.join(map(str,error.absolute_path))+': '+error.message)[:1800]
+    return (type(error).__name__+': '+str(error))[:1800]
