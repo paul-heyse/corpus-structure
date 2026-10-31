@@ -235,213 +235,218 @@ def run_source_methods(
         start_run(conn, rid)
     holder = f"semantic-source:{rid}"
     try:
-        for stage, steps in graph.stages:
-            for group in _source_step_groups(steps, configs, prepared):
-                scheduled = []
-                def register_ref(conn,view,method,config,cid,ref):
-                    unit = _unit(conn, view, ref)
-                    digest = method.input_digest(unit, config.config)
-                    ih = sha256(
-                        canonical_bytes(
-                            [
-                                prepared.release_id,
-                                binding.input_realization_id,
-                                binding.input_revision,
-                                binding.dependency_digest,
-                                method.name,
-                                method.version,
-                                config.config_hash,
-                                digest.bytes.hex(),
-                            ]
-                        )
-                    ).hexdigest()
-                    task_id = create_task(
-                        conn,
-                        run_id=rid,
-                        config_id=cid,
-                        stage=str(stage),
-                        unit_type=str(ref.unit_type),
-                        unit_id=ref.unit_id,
-                        unit_key=ref.unit_key,
-                        input_hash=ih,
-                        packet_hash=digest.packet_hash,
-                        fresh=method.name in fresh,
-                    )
-                    if ref.unit_type == TaskUnitType.DOCUMENT and ref.unit_id is not None:
-                        task_table = table("ops.task")
-                        if (
-                            conn.execute(
-                                select(task_table.c.status).where(
-                                    task_table.c.id == task_id
-                                )
-                            ).scalar_one()
-                            == "reused"
-                        ):
-                            from corpus_structure.semantic.operations import read_original
-
-                            read_original(conn, ref.unit_id, prepared=prepared)
-                            from corpus_structure.semantic.source_views import select_reused_source_views
-                            select_reused_source_views(conn,run_id=rid,task_id=task_id)
-                    return task_id
-
-                deferred=[]
-                registered={}
-                for step in group:
-                    name = step.config.split("/", 1)[0]
-                    method = registry.method(name)
-                    config = configs[name]
-                    with engine.begin() as conn:
-                        cid = record_method(
+        try:
+            for stage, steps in graph.stages:
+                for group in _source_step_groups(steps, configs, prepared):
+                    scheduled = []
+                    def register_ref(conn,view,method,config,cid,ref):
+                        unit = _unit(conn, view, ref)
+                        digest = method.input_digest(unit, config.config)
+                        ih = sha256(
+                            canonical_bytes(
+                                [
+                                    prepared.release_id,
+                                    binding.input_realization_id,
+                                    binding.input_revision,
+                                    binding.dependency_digest,
+                                    method.name,
+                                    method.version,
+                                    config.config_hash,
+                                    digest.bytes.hex(),
+                                ]
+                            )
+                        ).hexdigest()
+                        task_id = create_task(
                             conn,
-                            method,
-                            config.name,
-                            config.params,
-                            config.config_hash,
-                            prepared=prepared,
+                            run_id=rid,
+                            config_id=cid,
+                            stage=str(stage),
+                            unit_type=str(ref.unit_type),
+                            unit_id=ref.unit_id,
+                            unit_key=ref.unit_key,
+                            input_hash=ih,
+                            packet_hash=digest.packet_hash,
+                            fresh=method.name in fresh,
                         )
-                        view = run_view(conn, rid, prepared)
-                        refs=list(method.select(view,config.config))
-                        if config.params.get("source_dependencies")=="ancestor_source_view":
-                            required={ref.unit_id:ref for ref in refs}
-                            parent_ids={}
-                            for ref in tuple(refs):
-                                for ancestor in view.reader.ancestor_source_views(ref.unit_id):
-                                    required.setdefault(ancestor.id,UnitRef(TaskUnitType.SOURCE_VIEW,ancestor.id,ancestor.key))
-                            for identity,ref in required.items():
-                                parent_ids[identity]=tuple(a.id for a in view.reader.ancestor_source_views(identity) if a.id in required)
-                            for identity,ref in required.items():
-                                if parent_ids[identity]:
-                                    deferred.append((method,config,cid,ref,tuple((cid,parent) for parent in parent_ids[identity])))
-                                else:
-                                    registered[(cid,identity)]=register_ref(conn,view,method,config,cid,ref)
-                        elif config.params.get("source_dependencies")=="source_view_interpretation":
-                            prerequisite_name=config.params.get("source_dependency_method")
-                            if prerequisite_name not in configs:
-                                raise OperationConflict("required interpretation producer configuration is unavailable")
-                            prerequisite=registry.method(prerequisite_name)
-                            prerequisite_config=configs[prerequisite_name]
-                            prerequisite_cid=record_method(conn,prerequisite,prerequisite_config.name,prerequisite_config.params,prerequisite_config.config_hash,prepared=prepared)
-                            if not any(entry[2]==prerequisite_cid for entry in scheduled):
-                                scheduled.append((prerequisite,prerequisite_config,prerequisite_cid))
-                            for ref in refs:
-                                key=(prerequisite_cid,ref.unit_id)
-                                if key not in registered:
-                                    registered[key]=register_ref(conn,view,prerequisite,prerequisite_config,prerequisite_cid,ref)
-                                deferred.append((method,config,cid,ref,(key,)))
-                        else:
-                            for ref in refs:
-                                registered[(cid,ref.unit_id)]=register_ref(conn,view,method,config,cid,ref)
-                    scheduled.append((method, config, cid))
-                while True:
-                    # Child identity is formed only after its declared parent outputs exist.
-                    # This does not queue ancestor agent work or force parent mathematical values.
-                    if deferred:
-                        with engine.begin() as dependency_conn:
-                            ready=[]
-                            for entry in deferred:
-                                method,config,cid,ref,parents=entry
-                                if not all(parent in registered for parent in parents):
-                                    continue
-                                parent_tasks=[registered[parent] for parent in parents]
-                                task_table=table("ops.task")
-                                statuses=list(dependency_conn.execute(select(task_table.c.status).where(task_table.c.id.in_(parent_tasks))).scalars())
-                                if not all(status in {"done","empty","reused"} for status in statuses):
-                                    continue
-                                dependency_view=run_view(dependency_conn,rid,prepared)
-                                task_id=register_ref(dependency_conn,dependency_view,method,config,cid,ref)
-                                for parent_task in parent_tasks:
-                                    dependency_conn.execute(__import__('sqlalchemy').text('SELECT ops.add_source_task_dependency(:child,:parent)'),dict(child=task_id,parent=parent_task))
-                                registered[(cid,ref.unit_id)]=task_id
-                                ready.append(entry)
-                            deferred=[entry for entry in deferred if entry not in ready]
-                    work = []
-                    for method, config, cid in scheduled:
-                        with engine.begin() as conn:
-                            claimed = claim_tasks(
-                                conn,
-                                run_id=rid,
-                                config_id=cid,
-                                holder=holder,
-                                limit=method.resources.batch_size,
-                            )
-                        if claimed:
-                            work.append((method, config, claimed))
-                    if not work:
-                        if deferred:
-                            raise OperationConflict("required native ancestor context is not ready")
-                        break
-                    # The original/recipe commit precedes native inference. Read-only method
-                    # connections are rolled back and cannot own this durable custody boundary.
-                    for method,config,claimed in work:
-                        original_recipe=getattr(method,"original_recipe",None)
-                        if original_recipe is not None:
-                            from corpus_structure.semantic.pdf_contracts import store_pdf_original
-                            from corpus_structure.semantic.operations import read_original
-                            recipe=original_recipe(config.config)
-                            with engine.begin() as original_conn:
-                                for claimed_task in claimed:
-                                    document_id=claimed_task.unit_id
-                                    if claimed_task.unit_type=="source_view":
-                                        view_table=table("kb.source_view")
-                                        document_id=original_conn.execute(select(view_table.c.document_id).where(view_table.c.id==claimed_task.unit_id)).scalar_one()
-                                    if document_id is None or claimed_task.unit_type not in {"document","source_view"}:
-                                        raise OperationConflict("original preparation requires an original-bound task")
-                                    original=read_original(original_conn,document_id,prepared=prepared)
-                                    store_pdf_original(original_conn,task_id=claimed_task.task_id,
-                                        attempt=claimed_task.attempt,holder=holder,original=original,recipe_bytes=recipe)
-                    completed = []
-                    with engine.connect() as conn:
-                        view = run_view(conn, rid, prepared)
-                        if len(group) > 1:
-                            from corpus_structure.methods.math.methods import MathReadingsBatch
+                        if ref.unit_type == TaskUnitType.DOCUMENT and ref.unit_id is not None:
+                            task_table = table("ops.task")
+                            if (
+                                conn.execute(
+                                    select(task_table.c.status).where(
+                                        task_table.c.id == task_id
+                                    )
+                                ).scalar_one()
+                                == "reused"
+                            ):
+                                from corpus_structure.semantic.operations import read_original
 
-                            view.reader.math_readings_batch = MathReadingsBatch()
-                        for method, config, claimed in work:
-                            view.reader.bind_source_tasks(
-                                {
-                                    int(task.unit_id if task.unit_type=="document" else conn.execute(select(table("kb.source_view").c.document_id).where(table("kb.source_view").c.id==task.unit_id)).scalar_one()): task.task_id
-                                    for task in claimed
-                                    if task.unit_type in {"document","source_view"} and task.unit_id is not None
-                                }
+                                read_original(conn, ref.unit_id, prepared=prepared)
+                                from corpus_structure.semantic.source_views import select_reused_source_views
+                                select_reused_source_views(conn,run_id=rid,task_id=task_id)
+                        return task_id
+
+                    deferred=[]
+                    registered={}
+                    for step in group:
+                        name = step.config.split("/", 1)[0]
+                        method = registry.method(name)
+                        config = configs[name]
+                        with engine.begin() as conn:
+                            cid = record_method(
+                                conn,
+                                method,
+                                config.name,
+                                config.params,
+                                config.config_hash,
+                                prepared=prepared,
                             )
-                            units = [
-                                _unit(
-                                    conn,
-                                    view,
-                                    UnitRef(TaskUnitType(t.unit_type), t.unit_id, t.unit_key),
-                                )
-                                for t in claimed
-                            ]
-                            from corpus_structure.semantic.claim_lifetime import maintained_claims
-                            with maintained_claims(engine,claimed,holder):
-                                results = method.run(
-                                    units,
-                                    config.config,
-                                    MethodContext(
-                                        view,
-                                        view.reader,
-                                        method_settings,
-                                        logging.getLogger(method.name),
-                                    ),
-                                )
-                            completed.append((method, config, claimed, results))
-                        conn.rollback()
-                    for method, config, claimed, results in completed:
-                        for task, result in zip(claimed, results, strict=True):
+                            view = run_view(conn, rid, prepared)
+                            refs=list(method.select(view,config.config))
+                            if config.params.get("source_dependencies")=="ancestor_source_view":
+                                required={ref.unit_id:ref for ref in refs}
+                                parent_ids={}
+                                for ref in tuple(refs):
+                                    for ancestor in view.reader.ancestor_source_views(ref.unit_id):
+                                        required.setdefault(ancestor.id,UnitRef(TaskUnitType.SOURCE_VIEW,ancestor.id,ancestor.key))
+                                for identity,ref in required.items():
+                                    parent_ids[identity]=tuple(a.id for a in view.reader.ancestor_source_views(identity) if a.id in required)
+                                for identity,ref in required.items():
+                                    if parent_ids[identity]:
+                                        deferred.append((method,config,cid,ref,tuple((cid,parent) for parent in parent_ids[identity])))
+                                    else:
+                                        registered[(cid,identity)]=register_ref(conn,view,method,config,cid,ref)
+                            elif config.params.get("source_dependencies")=="source_view_interpretation":
+                                prerequisite_name=config.params.get("source_dependency_method")
+                                if prerequisite_name not in configs:
+                                    raise OperationConflict("required interpretation producer configuration is unavailable")
+                                prerequisite=registry.method(prerequisite_name)
+                                prerequisite_config=configs[prerequisite_name]
+                                prerequisite_cid=record_method(conn,prerequisite,prerequisite_config.name,prerequisite_config.params,prerequisite_config.config_hash,prepared=prepared)
+                                if not any(entry[2]==prerequisite_cid for entry in scheduled):
+                                    scheduled.append((prerequisite,prerequisite_config,prerequisite_cid))
+                                for ref in refs:
+                                    key=(prerequisite_cid,ref.unit_id)
+                                    if key not in registered:
+                                        registered[key]=register_ref(conn,view,prerequisite,prerequisite_config,prerequisite_cid,ref)
+                                    deferred.append((method,config,cid,ref,(key,)))
+                            else:
+                                for ref in refs:
+                                    registered[(cid,ref.unit_id)]=register_ref(conn,view,method,config,cid,ref)
+                        scheduled.append((method, config, cid))
+                    while True:
+                        # Child identity is formed only after its declared parent outputs exist.
+                        # This does not queue ancestor agent work or force parent mathematical values.
+                        if deferred:
+                            with engine.begin() as dependency_conn:
+                                ready=[]
+                                for entry in deferred:
+                                    method,config,cid,ref,parents=entry
+                                    if not all(parent in registered for parent in parents):
+                                        continue
+                                    parent_tasks=[registered[parent] for parent in parents]
+                                    task_table=table("ops.task")
+                                    statuses=list(dependency_conn.execute(select(task_table.c.status).where(task_table.c.id.in_(parent_tasks))).scalars())
+                                    if not all(status in {"done","empty","reused"} for status in statuses):
+                                        continue
+                                    dependency_view=run_view(dependency_conn,rid,prepared)
+                                    task_id=register_ref(dependency_conn,dependency_view,method,config,cid,ref)
+                                    for parent_task in parent_tasks:
+                                        dependency_conn.execute(__import__('sqlalchemy').text('SELECT ops.add_source_task_dependency(:child,:parent)'),dict(child=task_id,parent=parent_task))
+                                    registered[(cid,ref.unit_id)]=task_id
+                                    ready.append(entry)
+                                deferred=[entry for entry in deferred if entry not in ready]
+                        work = []
+                        for method, config, cid in scheduled:
                             with engine.begin() as conn:
-                                complete_unit_result(
+                                claimed = claim_tasks(
                                     conn,
-                                    task_id=task.task_id,
-                                    attempt=task.attempt,
+                                    run_id=rid,
+                                    config_id=cid,
                                     holder=holder,
-                                    prepared=prepared,
-                                    result=result,
-                                    method=method,
-                                    configuration_hash=config.config_hash,
-                                    source=result.ref.unit_key or "run",
+                                    limit=method.resources.batch_size,
                                 )
-                            if result.error is not None:
-                                raise OperationConflict(result.error)
+                            if claimed:
+                                work.append((method, config, claimed))
+                        if not work:
+                            if deferred:
+                                raise OperationConflict("required native ancestor context is not ready")
+                            break
+                        # The original/recipe commit precedes native inference. Read-only method
+                        # connections are rolled back and cannot own this durable custody boundary.
+                        for method,config,claimed in work:
+                            original_recipe=getattr(method,"original_recipe",None)
+                            if original_recipe is not None:
+                                from corpus_structure.semantic.pdf_contracts import store_pdf_original
+                                from corpus_structure.semantic.operations import read_original
+                                recipe=original_recipe(config.config)
+                                with engine.begin() as original_conn:
+                                    for claimed_task in claimed:
+                                        document_id=claimed_task.unit_id
+                                        if claimed_task.unit_type=="source_view":
+                                            view_table=table("kb.source_view")
+                                            document_id=original_conn.execute(select(view_table.c.document_id).where(view_table.c.id==claimed_task.unit_id)).scalar_one()
+                                        if document_id is None or claimed_task.unit_type not in {"document","source_view"}:
+                                            raise OperationConflict("original preparation requires an original-bound task")
+                                        original=read_original(original_conn,document_id,prepared=prepared)
+                                        store_pdf_original(original_conn,task_id=claimed_task.task_id,
+                                            attempt=claimed_task.attempt,holder=holder,original=original,recipe_bytes=recipe)
+                        completed = []
+                        with engine.connect() as conn:
+                            view = run_view(conn, rid, prepared)
+                            if len(group) > 1:
+                                from corpus_structure.methods.math.methods import MathReadingsBatch
+
+                                view.reader.math_readings_batch = MathReadingsBatch()
+                            for method, config, claimed in work:
+                                view.reader.bind_source_tasks(
+                                    {
+                                        int(task.unit_id if task.unit_type=="document" else conn.execute(select(table("kb.source_view").c.document_id).where(table("kb.source_view").c.id==task.unit_id)).scalar_one()): task.task_id
+                                        for task in claimed
+                                        if task.unit_type in {"document","source_view"} and task.unit_id is not None
+                                    }
+                                )
+                                units = [
+                                    _unit(
+                                        conn,
+                                        view,
+                                        UnitRef(TaskUnitType(t.unit_type), t.unit_id, t.unit_key),
+                                    )
+                                    for t in claimed
+                                ]
+                                from corpus_structure.semantic.claim_lifetime import maintained_claims
+                                with maintained_claims(engine,claimed,holder) as check_active:
+                                    results = method.run(
+                                        units,
+                                        config.config,
+                                        MethodContext(
+                                            view,
+                                            view.reader,
+                                            method_settings,
+                                            logging.getLogger(method.name),
+                                            check_active=check_active,
+                                        ),
+                                    )
+                                completed.append((method, config, claimed, results))
+                            conn.rollback()
+                        for method, config, claimed, results in completed:
+                            for task, result in zip(claimed, results, strict=True):
+                                with engine.begin() as conn:
+                                    complete_unit_result(
+                                        conn,
+                                        task_id=task.task_id,
+                                        attempt=task.attempt,
+                                        holder=holder,
+                                        prepared=prepared,
+                                        result=result,
+                                        method=method,
+                                        configuration_hash=config.config_hash,
+                                        source=result.ref.unit_key or "run",
+                                    )
+                                if result.error is not None:
+                                    raise OperationConflict(result.error)
+        finally:
+            import sys
+            _close_source_resources(registry,sys.exception())
         with engine.begin() as conn:
             cut = seal_cut(conn, rid, "source-ready")
             queued = (
@@ -945,3 +950,27 @@ def _source_step_groups(steps, configs, prepared):
                     index += 1
         yield group
         index += 1
+
+
+def _close_source_resources(registry,primary:BaseException|None)->None:
+    """Attempt every owned closer before returning or cancelling the source run."""
+    errors=[]
+    for method in registry.methods():
+        close=getattr(method,'close',None)
+        if close is None:
+            continue
+        try:
+            close()
+        except BaseException as error:
+            errors.append(error)
+    if not errors:
+        return
+    if primary is not None:
+        for error in errors:
+            primary.add_note('source resource teardown failed: '+str(error)[:1800])
+        return
+    fatal=next((error for error in errors if not isinstance(error,Exception)),errors[0])
+    for error in errors:
+        if error is not fatal:
+            fatal.add_note('additional source resource teardown failure: '+str(error)[:1800])
+    raise fatal

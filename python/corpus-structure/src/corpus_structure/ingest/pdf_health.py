@@ -117,3 +117,15 @@ class FormulaPageLifetime:
             if self.remaining[number]==0:
                 BasePipeline._release_page_resources(self.pages[number])
         return prepared
+
+def error_summary(error:Exception)->str:
+    """Bound terminal/log diagnostics without multiplying validation failures or input JSON."""
+    from pydantic import ValidationError
+    from jsonschema.exceptions import ValidationError as JsonSchemaError
+    if isinstance(error,ValidationError):
+        examples=error.errors(include_url=False,include_context=False,include_input=False)[:3]
+        locations='; '.join('.'.join(map(str,row['loc']))+': '+row['msg'] for row in examples)
+        return f'ValidationError: {error.error_count()} errors; {locations}'[:1800]
+    if isinstance(error,JsonSchemaError):
+        return ('JSONSchemaValidationError: '+'.'.join(map(str,error.absolute_path))+': '+error.message)[:1800]
+    return (type(error).__name__+': '+str(error))[:1800]

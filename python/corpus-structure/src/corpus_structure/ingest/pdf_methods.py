@@ -20,8 +20,10 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.parsing_products import ProductReference
 from corpus_structure.semantic.metadata import table
 
-from .pdf import PdfConversion, PdfConverter, PdfRecipe, publication_payload, pdf_package_versions
-from .pdf_health import FormulaOutcome
+from .pdf import PdfConversion, PdfRecipe, publication_payload
+from .pdf_health import FormulaOutcome,error_summary as _error_summary
+from .pdf_worker import PdfWorker
+from .pdf_enrichment import PdfEnrichmentRequest
 from .pdf_candidates import CandidatePage, InlineCandidate
 from .pdf_assets import PreparedPdfAssets, prepare_pdf_assets
 from .pdf_hierarchy import NativeSnapshot, SectionPolicy, load_snapshot, native_nodes, organize, project_section
@@ -71,7 +73,7 @@ class IngestPdf:
 
     def __init__(self) -> None:
         self._prepared: dict[tuple[str,str], tuple[PdfRecipe, PreparedPdfAssets]] = {}
-        self._workers: dict[str, PdfConverter] = {}
+        self._workers: dict[str, PdfWorker] = {}
 
     def _runtime(self, cfg: PdfRuntimeConfig) -> tuple[PdfRecipe, PreparedPdfAssets]:
         base = cfg.recipe()
@@ -80,6 +82,33 @@ class IngestPdf:
             assets = prepare_pdf_assets(base, cache=cfg.model_cache, offline=True)
             self._prepared[key] = (dataclasses.replace(base, model_artifacts=assets.files, model_revisions=assets.repositories), assets)
         return self._prepared[key]
+
+    def _worker(self,recipe:PdfRecipe,assets:PreparedPdfAssets)->PdfWorker:
+        worker=self._workers.get(recipe.digest)
+        if worker is not None and worker.closed and worker.pid is not None:
+            worker.close()
+            if worker.pid is not None:
+                raise RuntimeError('a native PDF child has not completed shutdown')
+        if worker is None or worker.closed:
+            worker=PdfWorker(recipe,assets=assets)
+            self._workers[recipe.digest]=worker
+        return worker
+
+    def close(self)->None:
+        errors=[]
+        for worker in self._workers.values():
+            try:
+                worker.close()
+            except BaseException as error:
+                errors.append(error)
+        self._workers={key:worker for key,worker in self._workers.items() if worker.pid is not None}
+        if errors:
+            primary=next((error for error in errors if not isinstance(error,Exception)),errors[0])
+            for error in errors:
+                if error is primary:
+                    continue
+                primary.add_note('additional PDF child teardown failure: '+str(error)[:1800])
+            raise primary
 
     def original_recipe(self, cfg: PdfIngestConfig) -> bytes:
         """Preparation only; orchestration commits original custody before calling run."""
@@ -143,6 +172,7 @@ class IngestPdf:
                             parent=(cfg.native_product.task_id,cfg.native_product.product_key,cfg.native_product.content_digest))
                         current=ctx.reader.prepare_pdf_product(payload,archived.original,archived.schema_bytes,adopted_recipe)
                         products=(current,)
+                        retained_native=products
                         selected_product=ctx.reader.native_product_reference(unit.ref.unit_id,'organized',current.digest)
                         native=organization.document
                         values=payload
@@ -154,11 +184,11 @@ class IngestPdf:
                                               native_products=products,source_views=drafts))
                     continue
                 recipe,assets=self._runtime(cfg)
-                converter=self._workers.setdefault(recipe.digest,PdfConverter(recipe,assets=assets))
+                converter=self._worker(recipe,assets)
                 schema_bytes=files("corpus_structure").joinpath("model","semantic","docling-validation.schema.json").read_bytes()
                 schema_digest=sha256(schema_bytes).hexdigest()
                 original=ctx.reader.original(unit.ref.unit_id)
-                conversion=converter.convert_bytes(original)
+                conversion=converter.convert_bytes(original,check_active=ctx.check_active)
                 raw_payload=publication_payload(conversion,product_key="native",schema_digest=schema_digest,
                     include_application_metadata=False)
                 raw=ctx.reader.prepare_pdf_product(raw_payload,original,schema_bytes,conversion.recipe)
@@ -170,6 +200,7 @@ class IngestPdf:
                     schema_digest=schema_digest,native=organization.document,section_refs=section_refs,
                     parent=(raw_ref.task_id,raw_ref.product_key,raw_ref.content_digest))
                 organized=ctx.reader.prepare_pdf_product(organized_payload,original,schema_bytes,conversion.recipe)
+                retained_native=(raw,organized)
                 organized_ref=ctx.reader.native_product_reference(unit.ref.unit_id,"organized",organized.digest)
                 doc=load_snapshot(organization.document)
                 drafts=_drafts(unit.ref.unit_id,organized_ref,organization.document,
@@ -322,10 +353,8 @@ class EnrichPdfMath:
             'recipe':sha256(self.original_recipe(cfg)).hexdigest()}))
 
     def run(self,units:Sequence[UnitView],cfg:PdfEnrichConfig,ctx:MethodContext)->Sequence[UnitResult]:
-        from .pdf import CellEnrichment,apply_cells
-        from .pdf_enrichment import (PdfRegionRenderer,RecognitionUnavailable,apply_inline,classify_cells,
-                                     positioned_inline_candidates,table_candidates)
-        from .pdf_hierarchy import snapshot
+        from .pdf import CellEnrichment
+        from .pdf_enrichment import RecognitionUnavailable
         outputs=[]
         release=_consumer_release(ctx)
         _require_enrichment_operation(ctx,release)
@@ -364,42 +393,18 @@ class EnrichPdfMath:
                     collect(section)
                     return pointers
                 selected=set().union(*(members(section,membership) for section,membership in specs))
-                pages={p.page_no:p for p in conversion.inline_candidates}
-                required_pages={prov.page_no for pointer in selected
-                    if str(nodes[pointer].label) in {'text','list_item','caption','footnote'}
-                    and not nodes[pointer].children and nodes[pointer].text.strip()
-                    for prov in getattr(nodes[pointer],'prov',())}
-                if any(p not in pages or not pages[p].has_words for p in required_pages):
-                    raise RecognitionUnavailable('selected native pages lack attributable word candidate discovery')
-                if any(not pages[p].has_vectors for p in required_pages):
-                    raise RecognitionUnavailable('selected native pages lack attributable vector discovery for native-font-token-vector-v2')
-                cells=table_candidates(document,frozenset(selected))
-                demanded,reports=classify_cells(document,cells,conversion.inline_candidates,
-                    math_pattern=cfg.cell_math_pattern,prose_pattern=cfg.cell_prose_pattern)
-                inline=positioned_inline_candidates(document,conversion.inline_candidates,frozenset(selected))
                 recipe,assets=self.producer._runtime(cfg)
-                converter=self.producer._workers.setdefault(recipe.digest,PdfConverter(recipe,assets=assets))
-                stage=converter.formula_stage()
-                with PdfRegionRenderer(product.original,padding_points=cfg.crop_padding_points) as renderer:
-                    cell_outcomes,cell_mappings=apply_cells(document,demanded,stage=stage,render_region=renderer)
-                    inline_outcomes,inline_mappings=apply_inline(document,inline,stage=stage,render_region=renderer)
-                outcome_by_ref={o.item_ref:o for o in conversion.formula_outcomes+cell_outcomes}
-                mapping_by_cell={(m['origin_pointer'],m['cell_index']):m for m in cell_mappings}
-                for report in reports:
-                    if report.get('formula_pointer') in outcome_by_ref:
-                        report['outcome']=outcome_by_ref[report['formula_pointer']].outcome
-                    mapped=mapping_by_cell.get((report['table_pointer'],report['cell_index']))
-                    if mapped is not None:
-                        outcome=outcome_by_ref[mapped['pointer']]
-                        report.update(formula_pointer=mapped['pointer'],outcome=outcome.outcome)
-                        if outcome.error:
-                            report['error']=outcome.error
-                conversion=dataclasses.replace(conversion,
-                    packages=pdf_package_versions(),
-                    runtime=converter.runtime_bindings(),effective_options=recipe.options().model_dump_json(serialize_as_any=True).encode())
-                derived=snapshot(document)
-                enriched=CellEnrichment(conversion.native.digest,derived,cell_outcomes+inline_outcomes,
-                    cell_mappings+inline_mappings)
+                worker=self.producer._worker(recipe,assets)
+                computed=worker.enrich(PdfEnrichmentRequest(conversion,product.original,frozenset(selected),
+                    cfg.cell_math_pattern,cfg.cell_prose_pattern,cfg.crop_padding_points),check_active=ctx.check_active)
+                conversion=dataclasses.replace(conversion,packages=computed.packages,
+                    runtime=computed.runtime,effective_options=computed.effective_options,
+                    inline_candidates=computed.candidate_pages)
+                derived=computed.native
+                document=load_snapshot(derived)
+                nodes=native_nodes(document)
+                reports=list(computed.cell_reports)
+                enriched=CellEnrichment(conversion.native.digest,derived,computed.outcomes,computed.mappings)
                 payload=publication_payload(conversion,product_key='math-enriched',
                     schema_digest=sha256(product.schema_bytes).hexdigest(),native=derived,
                     section_refs=section_refs,parent=(parent.task_id,parent.product_key,parent.content_digest),enrichment=enriched)
@@ -451,15 +456,3 @@ def _require_enrichment_operation(ctx:MethodContext,release:str)->None:
     with ctx.reader.connection() as conn:
         require_database_operation(conn,release,'enrich_pdf_math')
 
-
-def _error_summary(error:Exception)->str:
-    """Bound terminal/log diagnostics without multiplying validation failures or input JSON."""
-    from pydantic import ValidationError
-    from jsonschema.exceptions import ValidationError as JsonSchemaError
-    if isinstance(error,ValidationError):
-        examples=error.errors(include_url=False,include_context=False,include_input=False)[:3]
-        locations='; '.join('.'.join(map(str,row['loc']))+': '+row['msg'] for row in examples)
-        return f'ValidationError: {error.error_count()} errors; {locations}'[:1800]
-    if isinstance(error,JsonSchemaError):
-        return ('JSONSchemaValidationError: '+'.'.join(map(str,error.absolute_path))+': '+error.message)[:1800]
-    return (type(error).__name__+': '+str(error))[:1800]

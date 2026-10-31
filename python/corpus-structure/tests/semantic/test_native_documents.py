@@ -1,6 +1,7 @@
 """Restricted PDF publication independent of HTML rendition custody."""
 
 from copy import deepcopy
+from decimal import Decimal
 from hashlib import sha256
 from importlib.resources import files
 from types import SimpleNamespace
@@ -23,7 +24,9 @@ from corpus_structure.semantic.pdf_storage import read_native_items, read_native
 from .test_operations import setup
 
 
+@pytest.mark.parametrize('captured_page',[False,pytest.param(True,marks=pytest.mark.corpus)])
 def test_pdf_original_and_native_product_need_no_rendition(
+    captured_page,
     semantic_db_engine,
     semantic_writer_engine,
     semantic_reader_engine,
@@ -68,11 +71,37 @@ def test_pdf_original_and_native_product_need_no_rendition(
     conversion = PdfConversion(
         sha256(original).hexdigest(), recipe, snapshot(doc), "success", (), (), (), None
     )
+    source_path=tmp_path/"source.pdf"
+    if captured_page:
+        import json
+        import os
+        from pathlib import Path
+        from corpus_structure.ingest.pdf_methods import _conversion_from_product
+        from corpus_structure.ingest.pdf_hierarchy import load_snapshot
+        repository=Path(__file__).resolve().parents[4]
+        evidence=repository/'docs/design_review/evidence/2026-10-31_pdf-serialization-retention/raw'
+        source=Path(os.environ.get('CORPUS_PDF_QUALIFICATION_SOURCE',str(repository/'docs/statistics_corpus/corpus/siegrist_random/Full_PDF/Full.pdf')))
+        if not source.exists() or not (evidence/'convert.payload.json').exists():
+            pytest.skip('actual page85 native capture and retained original are required')
+        source_path=source
+        original=source.read_bytes()
+        recipe=(evidence/'convert.recipe.json').read_bytes()
+        captured=json.loads((evidence/'convert.payload.json').read_bytes())
+        assert captured['artifact_digest']==sha256(original).hexdigest()
+        assert (captured['page_start'],captured['page_end'])==(85,85)
+        conversion=_conversion_from_product(SimpleNamespace(values=lambda:captured),recipe)
+        doc=load_snapshot(conversion.native)
+    probe=next(item for item in doc.texts if item.text and item.prov)
+    expected_text=probe.text
+    expected_box=probe.prov[0].bbox
+    expected_origin={'TOPLEFT':'top_left','BOTTOMLEFT':'bottom_left'}[expected_box.coord_origin.value]
     payload = publication_payload(
         conversion, product_key="native", schema_digest=sha256(schema).hexdigest(),
         include_application_metadata=False,
     )
     product = prepare_pdf_product(payload, original, schema, recipe)
+    qualified_payload=publication_payload(conversion,product_key='qualified',schema_digest=sha256(schema).hexdigest())
+    qualified=prepare_pdf_product(qualified_payload,original,schema,recipe)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
             conn,
@@ -85,8 +114,8 @@ def test_pdf_original_and_native_product_need_no_rendition(
         method=SimpleNamespace(name="pdf.fixture",version="1",family="ingest",tier="deterministic",
             confidence_source=None,unit_type="document",Config=create_model("PdfFixture"))
         config = record_method(conn,method,"default",{},"pdf-fixture")
-        source_path = tmp_path / "source.pdf"
-        source_path.write_bytes(original)
+        if not captured_page:
+            source_path.write_bytes(original)
         document_id = register_document(
             conn,
             project_id="p",
@@ -123,6 +152,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
             conn, task_id=task, attempt=claim.attempt, holder="pdf-fixture", product=product
         )
         assert digest == product.digest
+        assert store_pdf_product(conn,task_id=task,attempt=claim.attempt,holder='pdf-fixture',product=qualified)==qualified.digest
         assert (
             store_pdf_product(
                 conn, task_id=task, attempt=claim.attempt, holder="pdf-fixture", product=product
@@ -158,7 +188,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
                         holder="pdf-fixture",
                         contract=product.contract_digest,
                         payload=canonical_bytes(invalid),
-                        original=original,
+                        original=None,
                         schema=schema,
                         recipe=recipe,
                     ),
@@ -171,8 +201,9 @@ def test_pdf_original_and_native_product_need_no_rendition(
     from corpus_structure.core.method import UnitRef,UnitResult
     from corpus_structure.core.vocab import ObservationOutcome,TaskUnitType
     from corpus_structure.semantic.operations import complete_unit_result
-    application_conversion=replace(conversion,inline_candidates=(CandidatePage(1,True,False,
-        (InlineCandidate(1,'',20,30,40,60,'TOPLEFT',None,'native-vector-gap-v1'),),True),))
+    page_no=next(iter(doc.pages))
+    application_conversion=replace(conversion,inline_candidates=(CandidatePage(page_no,True,False,
+        (InlineCandidate(page_no,'',20,30,40,60,'TOPLEFT',None,'native-vector-gap-v1'),),True),))
     application=publication_payload(application_conversion,product_key='organized',
         schema_digest=sha256(schema).hexdigest(),parent=(task,'native',product.digest))
     # Omission succeeds; explicit null remains a contract violation (no widened slot).
@@ -183,7 +214,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
     summary=_error_summary(invalid.value)
     assert 'inline_candidate_pages.0.candidates.0.font' in summary
     failed=UnitResult(ref=UnitRef(TaskUnitType.DOCUMENT,document_id,'pdf-source'),
-        outcome=ObservationOutcome.FAILED,error=summary,native_products=(product,))
+        outcome=ObservationOutcome.FAILED,error=summary,native_products=(product,qualified))
     with semantic_writer_engine.begin() as conn:
         complete_unit_result(conn,task_id=task,attempt=claim.attempt,holder='pdf-fixture',
             prepared=prepared,result=failed,method=method,configuration_hash='pdf-fixture',source='file:pdf-fixture')
@@ -191,16 +222,17 @@ def test_pdf_original_and_native_product_need_no_rendition(
         state=conn.execute(text('SELECT status,error FROM ops.task WHERE id=:task'),{'task':task}).one()
         assert state.status=='failed'
         assert len(str(state.error))<2000
-        retained=conn.execute(text('SELECT content_digest FROM ops.native_document_product WHERE task_id=:task'),{'task':task}).scalar_one()
+        retained=conn.execute(text("SELECT content_digest FROM ops.native_document_product WHERE task_id=:task AND product_key='native'"),{'task':task}).scalar_one()
         assert retained==product.digest
         rows = read_native_items(
-            conn, task_id=task, product_key="native", content_digest=digest, pointer="#/texts/0"
+            conn, task_id=task, product_key="native", content_digest=digest, pointer=probe.self_ref
         )
-        assert rows[0]["text"] == "Independent source."
+        assert rows[0]["text"] == expected_text
         regions = read_native_regions(
-            conn, task_id=task, product_key="native", content_digest=digest, pointer="#/texts/0"
+            conn, task_id=task, product_key="native", content_digest=digest, pointer=probe.self_ref
         )
-        assert len(regions) == 1 and regions[0]["left"] == 20 and regions[0]["origin"] == "top_left"
+        assert len(regions) == len(probe.prov)
+        assert regions[0]["left"] == Decimal(str(expected_box.l)) and regions[0]["origin"] == expected_origin
         with pytest.raises(ValueError, match="digest"):
             read_native_items(conn, task_id=task, product_key="native", content_digest="0" * 64)
         assert (
@@ -209,3 +241,17 @@ def test_pdf_original_and_native_product_need_no_rendition(
             ).scalar_one()
             == 0
         )
+
+    if not captured_page:
+        from corpus_structure.semantic.operations import end_source_run
+        with semantic_writer_engine.begin() as conn:
+            late=create_task(conn,run_id=run,config_id=config,stage='ingest',unit_type='document',
+                unit_id=document_id,unit_key='pdf-source',input_hash=sha256(original+b'late').hexdigest())
+            late_claim=claim_tasks(conn,run_id=run,config_id=config,holder='late-native')[0]
+            store_pdf_original(conn,task_id=late,attempt=late_claim.attempt,holder='late-native',
+                original=original,recipe_bytes=recipe)
+            assert end_source_run(conn,run)==1
+        with pytest.raises(DBAPIError),semantic_writer_engine.begin() as conn:
+            store_pdf_product(conn,task_id=late,attempt=late_claim.attempt,holder='late-native',product=product)
+        with semantic_reader_engine.connect() as conn:
+            assert conn.execute(text('SELECT count(*) FROM ops.native_document_product WHERE task_id=:task'),{'task':late}).scalar_one()==0

@@ -101,7 +101,9 @@ METHODS: tuple[Any, ...] = (
 
 def registry(pack: Path) -> MethodRegistry:
     """The phase 0 registry over the pack's `methods.yaml` (an absent file is an empty one)."""
-    return MethodRegistry(METHODS, load_methods(pack / "methods.yaml"))
+    native_names={method.name for method in ingest_methods.METHODS}
+    methods=(*ingest_methods.native_methods(),*(method for method in METHODS if method.name not in native_names))
+    return MethodRegistry(methods,load_methods(pack / "methods.yaml"))
 
 
 def stub_pass(conn: Connection, run_id: int, pass_: str, m19_task_id: int | None) -> PassReport:

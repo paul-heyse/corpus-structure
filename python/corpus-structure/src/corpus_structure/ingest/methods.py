@@ -83,5 +83,10 @@ class ProfileSegments:
         return out
 
 
-_pdf=IngestPdf()
-METHODS=(_pdf,EnrichPdfMath(_pdf),SegmentSentences(),ProfileSegments())
+def native_methods():
+    """Fresh operation ownership per registry; enrichment shares its run's PDF child owner."""
+    producer=IngestPdf()
+    return (producer,EnrichPdfMath(producer),SegmentSentences(),ProfileSegments())
+
+
+METHODS=native_methods()

@@ -7,9 +7,11 @@ from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
 from threading import Lock
 from typing import TypeAlias
+from collections.abc import Callable
 
 from .pdf import PdfConversion,PdfConverter,PdfRecipe
 from .pdf_assets import PreparedPdfAssets
+from .pdf_health import error_summary
 from .pdf_enrichment import PdfEnrichmentRequest,PdfEnrichmentResult,compute_enrichment
 
 
@@ -52,7 +54,7 @@ def _native_child(connection:Connection,recipe:PdfRecipe,assets:PreparedPdfAsset
             except Exception as error:
                 # App-envelope preparation remains in the parent. Native failures cross as
                 # ordinary bounded diagnostics, never live exceptions/models/backend handles.
-                connection.send(NativeReply(error=(type(error).__name__+': '+str(error))[:1800]))
+                connection.send(NativeReply(error=error_summary(error)))
     finally:
         connection.close()
 
@@ -98,7 +100,7 @@ class PdfWorker:
         finally:
             child.close()
 
-    def _exchange(self,request:Request)->Result:
+    def _exchange(self,request:Request,check_active:Callable[[],None]|None=None)->Result:
         with self._lock:
             try:
                 self._start()
@@ -106,11 +108,19 @@ class PdfWorker:
                 process=self._process
                 if connection is None or process is None:
                     raise PdfWorkerError('native PDF child has no connected owner')
+                if check_active is not None:
+                    check_active()
                 connection.send(request)
                 while not connection.poll(0.2):
+                    if check_active is not None:
+                        check_active()
                     if not process.is_alive():
                         raise PdfWorkerError(f'native PDF child exited with code {process.exitcode}')
+                if check_active is not None:
+                    check_active()
                 reply=connection.recv()
+                if check_active is not None:
+                    check_active()
                 if not isinstance(reply,NativeReply):
                     raise PdfWorkerError('native PDF child returned an unsupported response')
                 if reply.error is not None:
@@ -130,15 +140,15 @@ class PdfWorker:
                 raise
 
     def convert_bytes(self,original:bytes,*,name:str='original.pdf',
-                      page_range:tuple[int,int]|None=None)->PdfConversion:
-        value=self._exchange(ConvertRequest(original,name,page_range))
+                      page_range:tuple[int,int]|None=None,check_active:Callable[[],None]|None=None)->PdfConversion:
+        value=self._exchange(ConvertRequest(original,name,page_range),check_active)
         if not isinstance(value,PdfConversion):
             self.close()
             raise PdfWorkerError('native PDF child returned an enrichment for conversion')
         return value
 
-    def enrich(self,request:PdfEnrichmentRequest)->PdfEnrichmentResult:
-        value=self._exchange(request)
+    def enrich(self,request:PdfEnrichmentRequest,*,check_active:Callable[[],None]|None=None)->PdfEnrichmentResult:
+        value=self._exchange(request,check_active)
         if not isinstance(value,PdfEnrichmentResult):
             self.close()
             raise PdfWorkerError('native PDF child returned a conversion for enrichment')
@@ -169,6 +179,7 @@ class PdfWorker:
                 process.join(timeout=5)
             if process.is_alive():
                 raise PdfWorkerError(f'native PDF child {process.pid} did not exit after terminate/kill')
+            process.join(timeout=0)
         process.close()
         self._process=None
 

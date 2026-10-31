@@ -237,7 +237,8 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(mo
     section=organization.sections[1 if with_ancestor else 0].group_ref
     membership='descendants' if with_ancestor else 'direct'
     candidate=InlineCandidate(1,'x',25,10,35,30,'TOPLEFT','CMMI10','native-math-font-v1')
-    conversion=PdfConversion('a'*64,b'{}',organization.document,'success',(),(),(),None,
+    from hashlib import sha256
+    conversion=PdfConversion(sha256(b'%PDF-fixture').hexdigest(),b'{}',organization.document,'success',(),(),(),None,
         inline_candidates=(CandidatePage(1,True,False,(candidate,),not missing_vectors),))
     payload=publication_payload(conversion,product_key='organized',schema_digest='b'*64,
         section_refs=frozenset([section]))
@@ -269,13 +270,19 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(mo
             self.engine.predict_batch(batch)
             yield from (e.item for e in batch)
     stage=ObservedFormulaStage(Stage())
+    monkeypatch.setattr('corpus_structure.ingest.pdf_candidates.rediscover_candidates',
+        lambda original,pages,parser_threads:(CandidatePage(1,True,False,(candidate,),False),))
     cfg=PdfEnrichConfig()
     producer=IngestPdf()
     recipe=cfg.recipe()
     converter=PdfConverter(recipe)
     monkeypatch.setattr(converter,'formula_stage',lambda:stage)
     monkeypatch.setattr(converter,'runtime_bindings',lambda:())
-    producer._workers[recipe.digest]=converter
+    from corpus_structure.ingest.pdf_worker import PdfWorker
+    from corpus_structure.ingest.pdf_enrichment import compute_enrichment
+    worker=PdfWorker(recipe)
+    monkeypatch.setattr(worker,'enrich',lambda request,**kwargs:compute_enrichment(request,converter))
+    producer._workers[recipe.digest]=worker
     monkeypatch.setattr(producer,'_runtime',lambda cfg:(recipe,None))
     monkeypatch.setattr('corpus_structure.ingest.pdf_methods._consumer_release',lambda ctx:'release1')
     guarded=[]

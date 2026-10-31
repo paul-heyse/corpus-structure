@@ -185,7 +185,7 @@ def rediscover_candidates(original:bytes,pages:tuple[int,...],*,parser_threads:i
     for start,end in ranges:
         source=InputDocument(BytesIO(original),InputFormat.PDF,ThreadedDoclingParseDocumentBackend,
             backend_options=ThreadedDoclingParseBackendOptions(parser_threads=parser_threads,
-                max_concurrent_results=parser_threads,render_pages=False),
+                max_concurrent_results=parser_threads,render_pages=True),
             filename='retained.pdf',limits=DocumentLimits(page_range=(start,end)))
         try:
             backend=source._backend
