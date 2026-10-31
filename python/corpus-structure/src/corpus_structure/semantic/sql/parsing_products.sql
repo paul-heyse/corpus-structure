@@ -83,9 +83,6 @@ BEGIN
  IF p_contract IS DISTINCT FROM '{parsing_contract_digest}' OR NOT EXISTS(SELECT FROM sem.input WHERE release_id=run.release_id AND input_kind='dependency' AND input_name='execution/schema/parsing_products' AND encode(sha256(content),'hex')=p_contract) THEN
   RAISE EXCEPTION 'parsing contract is not bound to the source release' USING ERRCODE='23514'; END IF;
  SELECT a INTO adapter FROM sem.registry_row m CROSS JOIN LATERAL jsonb_array_elements(convert_from(m.body,'UTF8')::jsonb->'parsing_adapters') a WHERE m.release_id=run.release_id AND m.kind='execution_model' AND a->>'adapter_id'=product->>'adapter_id';
- PERFORM sem.require_execution_operation(run.release_id,'decompose_source');
- PERFORM sem.require_execution_operation(run.release_id,'recognize_html');
- PERFORM sem.require_execution_operation(run.release_id,'project_canonical');
  IF product ? 'adapter_id' AND NOT EXISTS(SELECT FROM sem.registry_row m CROSS JOIN LATERAL jsonb_array_elements(convert_from(m.body,'UTF8')::jsonb->'parsing_adapters') a
   WHERE m.release_id=run.release_id AND m.kind='execution_model' AND a->>'adapter_id'=product->>'adapter_id') THEN
   RAISE EXCEPTION 'parsing adapter is not admitted by bound release' USING ERRCODE='23514'; END IF;

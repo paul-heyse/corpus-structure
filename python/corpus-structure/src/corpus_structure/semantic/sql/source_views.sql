@@ -18,7 +18,7 @@ BEGIN
  SELECT * INTO STRICT native FROM ops.native_document_product WHERE task_id=(product->>'native_task_id')::bigint AND product_key=product->>'native_product_key' AND content_digest=product->>'native_content_digest';
  -- Cross-release reuse is explicitly pinned to an archived native schema and producer contract.
  IF NOT EXISTS(SELECT FROM kb.document d JOIN ops.source_build b ON b.artifact_digest=d.content_hash JOIN ops.task t ON t.id=b.task_id JOIN ops.run r ON r.id=t.run_id
- WHERE d.id=(product->>'document_id')::bigint AND d.project_id=run.project_id AND b.task_id=native.task_id AND r.project_id=run.project_id) THEN
+ WHERE d.id=(product->>'document_id')::bigint AND d.project_id=run.project_id AND b.task_id=native.task_id AND r.project_id=run.project_id AND EXISTS(SELECT FROM ops.source_build own WHERE own.task_id=p_task AND own.artifact_digest=b.artifact_digest)) THEN
  RAISE EXCEPTION 'native source view outside original/project custody' USING ERRCODE='23514'; END IF;
  IF NOT EXISTS(SELECT FROM sem.input WHERE release_id=native.release_id AND input_kind='dependency' AND input_name='execution/schema/pdf_products' AND encode(sha256(content),'hex')=native.contract_digest)
  OR NOT EXISTS(SELECT FROM sem.input WHERE release_id=run.release_id AND input_kind='dependency' AND input_name='execution/implementation/pdf/docling-validation.schema.json' AND encode(sha256(content),'hex')=native.schema_digest) THEN
@@ -113,6 +113,7 @@ BEGIN
  SELECT * INTO STRICT view FROM kb.source_view WHERE id=(p_frame->>'source_view_id')::bigint;
  IF job.unit_type<>'source_view' OR job.unit_id<>view.id OR job.packet_hash IS DISTINCT FROM p_hash OR job.unit_key IS DISTINCT FROM p_frame->>'unit_ref'
  OR NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=job.run_id AND source_view_id=view.id)
+ OR p_frame->>'section_pointer' IS DISTINCT FROM view.section_pointer OR p_frame->>'membership' IS DISTINCT FROM view.membership
  OR p_frame->>'text' IS DISTINCT FROM view.projection->>'text'
  OR p_frame->>'projection_digest' IS DISTINCT FROM view.projection_digest OR p_frame->>'recipe_digest' IS DISTINCT FROM view.recipe_digest
  OR (p_frame->'native_product'->>'task_id')::bigint IS DISTINCT FROM view.native_task_id
@@ -127,13 +128,18 @@ BEGIN
  IF context IS DISTINCT FROM expected THEN RAISE EXCEPTION 'native packet omitted or changed supplied source context' USING ERRCODE='23514'; END IF;
  SELECT * INTO previous FROM ops.native_source_frame WHERE task_id=p_task;
  IF FOUND THEN
-  IF previous.packet_hash<>p_hash OR previous.context_json IS DISTINCT FROM context THEN RAISE EXCEPTION 'immutable native frame replay differs' USING ERRCODE='23514'; END IF;
+  IF previous.packet_hash<>p_hash OR previous.context_json IS DISTINCT FROM context
+   OR (SELECT count(*) FROM ops.native_source_frame_sentence WHERE task_id=p_task)<>jsonb_array_length(p_frame->'sentences')
+   OR EXISTS(SELECT FROM jsonb_array_elements(p_frame->'sentences') item LEFT JOIN ops.native_source_frame_sentence saved ON saved.task_id=p_task AND saved.sentence_id=item->>'id'
+    WHERE saved.task_id IS NULL OR saved.locator IS DISTINCT FROM item->>'locator' OR saved.start_offset IS DISTINCT FROM (item->>'start')::bigint OR saved.end_offset IS DISTINCT FROM (item->>'end')::bigint)
+  THEN RAISE EXCEPTION 'immutable native frame replay differs' USING ERRCODE='23514'; END IF;
   RETURN;
  END IF;
  INSERT INTO ops.native_source_frame VALUES(p_task,p_hash,p_frame->>'unit_ref',view.id,view.native_task_id,view.native_product_key,view.native_content_digest,view.projection_digest,view.recipe_digest,context);
  FOR sentence IN SELECT value FROM jsonb_array_elements(p_frame->'sentences') LOOP
   IF (sentence->>'start')::bigint<0 OR (sentence->>'end')::bigint<=(sentence->>'start')::bigint OR (sentence->>'end')::bigint>char_length(view.projection->>'text') THEN
    RAISE EXCEPTION 'native frame sentence lies outside projected text' USING ERRCODE='23514'; END IF;
+  PERFORM ops.native_source_address(view.id,sentence->>'locator',(sentence->>'start')::bigint,(sentence->>'end')::bigint);
   INSERT INTO ops.native_source_frame_sentence VALUES(p_task,sentence->>'id',sentence->>'locator',(sentence->>'start')::bigint,(sentence->>'end')::bigint);
  END LOOP;
 END $frame$;
@@ -181,19 +187,26 @@ GRANT EXECUTE ON FUNCTION ops.publish_pdf_region_artifact(bigint,bigint,text,jso
 
 CREATE OR REPLACE FUNCTION ops.add_source_task_dependency(p_child bigint,p_parent bigint) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $dependency$
-DECLARE child ops.task; parent ops.task; view kb.source_view; ancestor kb.source_view;
+DECLARE child ops.task; parent ops.task; view kb.source_view; ancestor kb.source_view; dependency text;
 BEGIN
  SELECT * INTO STRICT child FROM ops.task WHERE id=p_child;
  SELECT * INTO STRICT parent FROM ops.task WHERE id=p_parent;
  PERFORM sem.require_execution_operation(child.release_id,'schedule');
  SELECT * INTO STRICT view FROM kb.source_view WHERE id=child.unit_id;
  SELECT * INTO STRICT ancestor FROM kb.source_view WHERE id=parent.unit_id;
- IF child.run_id<>parent.run_id OR child.method_config_id<>parent.method_config_id OR child.unit_type<>'source_view' OR parent.unit_type<>'source_view'
- OR view.native_task_id<>ancestor.native_task_id OR view.native_product_key<>ancestor.native_product_key OR view.native_content_digest<>ancestor.native_content_digest
- OR NOT (view.projection->'ancestors' ? ancestor.section_pointer)
- OR NOT EXISTS(SELECT FROM ops.method_config WHERE id=child.method_config_id AND params->>'source_dependencies'='ancestor_source_view') THEN
- RAISE EXCEPTION 'source prerequisite is not a declared ancestor view dependency' USING ERRCODE='23514'; END IF;
- INSERT INTO ops.task_dependency VALUES(p_child,p_parent,'ancestor_source_view') ON CONFLICT DO NOTHING;
+ SELECT params->>'source_dependencies' INTO dependency FROM ops.method_config WHERE id=child.method_config_id;
+ IF child.run_id<>parent.run_id OR child.unit_type<>'source_view' OR parent.unit_type<>'source_view'
+ OR view.native_task_id<>ancestor.native_task_id OR view.native_product_key<>ancestor.native_product_key OR view.native_content_digest<>ancestor.native_content_digest THEN
+ RAISE EXCEPTION 'source prerequisite is outside bound run/product' USING ERRCODE='23514'; END IF;
+ IF dependency='ancestor_source_view' THEN
+  IF child.method_config_id<>parent.method_config_id OR NOT(view.projection->'ancestors' ? ancestor.section_pointer) THEN
+   RAISE EXCEPTION 'source prerequisite is not a declared ancestor' USING ERRCODE='23514'; END IF;
+ ELSIF dependency='source_view_interpretation' THEN
+  IF child.unit_id<>parent.unit_id OR NOT EXISTS(SELECT FROM ops.method_config consumer JOIN ops.method_config producer ON producer.id=parent.method_config_id JOIN ops.method method ON method.id=producer.method_id
+    WHERE consumer.id=child.method_config_id AND consumer.params->>'source_dependency_method'=method.name) THEN
+   RAISE EXCEPTION 'source prerequisite is not the declared same-view interpretation producer' USING ERRCODE='23514'; END IF;
+ ELSE RAISE EXCEPTION 'source method has no admitted prerequisite declaration' USING ERRCODE='23514'; END IF;
+ INSERT INTO ops.task_dependency VALUES(p_child,p_parent,dependency) ON CONFLICT DO NOTHING;
 END $dependency$;
 REVOKE ALL ON FUNCTION ops.add_source_task_dependency(bigint,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.add_source_task_dependency(bigint,bigint) TO corpus_sem_writer;

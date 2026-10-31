@@ -301,12 +301,26 @@ def run_source_methods(
                                 parent_ids[identity]=tuple(a.id for a in view.reader.ancestor_source_views(identity) if a.id in required)
                             for identity,ref in required.items():
                                 if parent_ids[identity]:
-                                    deferred.append((method,config,cid,ref,parent_ids[identity]))
+                                    deferred.append((method,config,cid,ref,tuple((cid,parent) for parent in parent_ids[identity])))
                                 else:
                                     registered[(cid,identity)]=register_ref(conn,view,method,config,cid,ref)
+                        elif config.params.get("source_dependencies")=="source_view_interpretation":
+                            prerequisite_name=config.params.get("source_dependency_method")
+                            if prerequisite_name not in configs:
+                                raise OperationConflict("required interpretation producer configuration is unavailable")
+                            prerequisite=registry.method(prerequisite_name)
+                            prerequisite_config=configs[prerequisite_name]
+                            prerequisite_cid=record_method(conn,prerequisite,prerequisite_config.name,prerequisite_config.params,prerequisite_config.config_hash,prepared=prepared)
+                            if not any(entry[2]==prerequisite_cid for entry in scheduled):
+                                scheduled.append((prerequisite,prerequisite_config,prerequisite_cid))
+                            for ref in refs:
+                                key=(prerequisite_cid,ref.unit_id)
+                                if key not in registered:
+                                    registered[key]=register_ref(conn,view,prerequisite,prerequisite_config,prerequisite_cid,ref)
+                                deferred.append((method,config,cid,ref,(key,)))
                         else:
                             for ref in refs:
-                                register_ref(conn,view,method,config,cid,ref)
+                                registered[(cid,ref.unit_id)]=register_ref(conn,view,method,config,cid,ref)
                     scheduled.append((method, config, cid))
                 while True:
                     # Child identity is formed only after its declared parent outputs exist.
@@ -316,9 +330,9 @@ def run_source_methods(
                             ready=[]
                             for entry in deferred:
                                 method,config,cid,ref,parents=entry
-                                if not all((cid,parent) in registered for parent in parents):
+                                if not all(parent in registered for parent in parents):
                                     continue
-                                parent_tasks=[registered[(cid,parent)] for parent in parents]
+                                parent_tasks=[registered[parent] for parent in parents]
                                 task_table=table("ops.task")
                                 statuses=list(dependency_conn.execute(select(task_table.c.status).where(task_table.c.id.in_(parent_tasks))).scalars())
                                 if not all(status in {"done","empty","reused"} for status in statuses):

@@ -3605,7 +3605,6 @@ classes:
     in_subset:
     - kb
     attributes:
-      native_json: {range: json_payload, required: true}
       task_id:
         range: integer
         required: true
@@ -3633,6 +3632,7 @@ classes:
       text:
         range: string
         required: false
+      native_json: {range: json_payload, required: true}
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -3939,5 +3939,27 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns":
         ["dependency_task_id"], "target": "ops.task.id"}]'
-      ph:checks: '["kind=''ancestor_source_view''", "task_id<>dependency_task_id"]'
+      ph:checks: '["kind IN (''ancestor_source_view'',''source_view_interpretation'')", "task_id<>dependency_task_id"]'
       ph:indexes: '[["dependency_task_id"]]'
+  native_document_derivation:
+    in_subset: [kb]
+    description: Exact bounded access projection of native envelope derivation mappings; parent product pins remain in the native product header.
+    attributes:
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      pointer: {range: string, required: true}
+      mapping_index: {range: integer, required: true}
+      origin_pointer: {range: string, required: true}
+      source_field: {range: string, required: true}
+      start_offset: {range: integer, required: true}
+      end_offset: {range: integer, required: true}
+      cell_index: {range: integer}
+      kind: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [task_id, product_key, mapping_index]
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns":["task_id","product_key","pointer"],"target":"kb.native_document_item.task_id,product_key,pointer"}]'
+      ph:indexes: '[["task_id","product_key","pointer"]]'
+      ph:checks: '["mapping_index >= 0", "start_offset >= 0", "end_offset >= start_offset", "cell_index IS NULL OR cell_index >= 0", "source_field IN (''text'',''cell_text'')", "kind IN (''native_text_range'',''vector_region_anchor'',''table_cell'')"]'

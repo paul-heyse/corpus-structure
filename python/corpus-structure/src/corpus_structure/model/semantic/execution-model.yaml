@@ -7565,10 +7565,11 @@ operations:
   effects:
   - atomic_native_publication
   outcomes:
-  - applied
-  - replay
-  - conflict
-  outcome_domain: transaction
+  - source_ready
+  - failed
+  outcome_domain: source_request
+  result_dimensions:
+  - {id: status, field: status, outcome_domain: source_request}
   dependencies:
   - semantic_release
   - execution_model
@@ -9975,6 +9976,9 @@ transitions:
   - replay
   - conflict
 outcome_domains:
+- id: source_request
+  authority: code
+  values: [source_ready, failed]
 - id: preparation
   authority: code
   values:
@@ -10405,3 +10409,4 @@ parsing_adapters:
   ambiguity_policy: explicit-alternatives
   lifetime: operation
   capabilities: [math/lexical, math/structure, math/syntax, math/interpretation, math/assessment]
+

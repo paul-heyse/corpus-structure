@@ -448,6 +448,15 @@ class ObservationDraft[P: BaseModel]:
             raise ValueError("an observation draft names its payload class's version")
         if self.span is not None and not 0 <= self.span[0] < self.span[1]:
             raise ValueError(f"span {self.span} is empty or reversed")
+        if self.source_view_id is None and any(value is not None for value in (self.native_pointer,self.projected_span,self.recognized_span)):
+            raise ValueError("native observation coordinates require a source view")
+        if self.source_view_id is not None and any(value is not None for value in (self.rendition_id,self.segment_id,self.span)):
+            raise ValueError("native observations cannot alias rendition coordinates")
+        if self.recognized_span is not None and self.native_pointer is None:
+            raise ValueError("recognized-text coordinates require a native item pointer")
+        for extent in (self.projected_span,self.recognized_span):
+            if extent is not None and not 0<=extent[0]<extent[1]:
+                raise ValueError("native observation extent is empty or reversed")
 
     def source(self, method: Method[Any]) -> ConfidenceSource | None:
         """The draft's confidence source: its own, or else the method's."""

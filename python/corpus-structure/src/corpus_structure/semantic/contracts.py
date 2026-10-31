@@ -746,6 +746,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}},
         model_id,
         effect_versions=effect_versions,
+        reader_only=data["inputs"]["compiler_version"]!=EXECUTION_COMPILER_VERSION,
     )
 
 
@@ -940,7 +941,7 @@ _PRODUCT_CONVERTER = _product_converter()
 
 
 def _normalize(
-    data: dict[str, Any], model_id: str, *, effect_versions: Mapping[str, str] | None = None
+    data: dict[str, Any], model_id: str, *, effect_versions: Mapping[str, str] | None = None, reader_only: bool = False
 ) -> ExecutionModelProducts:
     # Version is already checked by the admitted LinkML catalog boundary.
     fields = {key: value for key, value in data.items() if key != "version"}
@@ -950,16 +951,17 @@ def _normalize(
         )
     except Exception as exc:
         _fail("contract_product", "ExecutionCatalog", "; ".join(transform_error(exc)))
-    _validate(products, effect_versions=effect_versions)
+    _validate(products, effect_versions=effect_versions, reader_only=reader_only)
     return products
 
 
 def _validate(
-    products: ExecutionModelProducts, *, effect_versions: Mapping[str, str] | None = None
+    products: ExecutionModelProducts, *, effect_versions: Mapping[str, str] | None = None, reader_only: bool = False
 ) -> None:
     from .analysis_contracts import validate_analysis_profiles
 
-    validate_analysis_profiles(products)
+    if not reader_only:
+        validate_analysis_profiles(products)
     c = _index(products.concepts, "concepts")
     r = _index(products.relationships, "relationships")
     lifecycles = _index(products.lifecycles, "lifecycles")
@@ -1066,7 +1068,7 @@ def _validate(
             )
     for item in (*products.operations, *products.transitions, *products.implementations):
         _refs(item.effects, effects, item.id)
-    owned = approved_implementations()
+    owned = {} if reader_only else approved_implementations()
     for binding in products.implementations:
         implementation = owned.get(binding.id)
         expected = (
@@ -1077,7 +1079,7 @@ def _validate(
             if implementation is not None
             else None
         )
-        if expected != (binding.owner, binding.symbol):
+        if not reader_only and expected != (binding.owner, binding.symbol):
             _fail("unapproved_implementation", binding.id, f"{binding.owner}:{binding.symbol}")
         _refs(binding.input_concepts, c, binding.id)
         _refs(binding.result_concepts, c, binding.id)
@@ -1170,11 +1172,12 @@ def _validate(
                 operation.id,
                 "operation and implementation effects differ",
             )
-        _validate_effect_support(products, operation)
+        if not reader_only:
+            _validate_effect_support(products, operation)
         for edge in operation.transitions:
             if t[edge].operation != operation.id:
                 _fail("operation_transition", operation.id, edge)
-    if any(concept.id == "ParsingProduct" for concept in products.concepts):
+    if not reader_only and any(concept.id == "ParsingProduct" for concept in products.concepts):
         from .parsing_contracts import validate_parsing_contracts
 
         validate_parsing_contracts(products)

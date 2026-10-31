@@ -104,7 +104,8 @@ def test_pdf_original_and_native_product_need_no_rendition(
             source_uri="file:pdf-fixture",
             original_path=str(source_path),
             original=original,
-         mime='application/pdf')
+            mime="application/pdf",
+        )
         task = create_task(
             conn,
             run_id=run,

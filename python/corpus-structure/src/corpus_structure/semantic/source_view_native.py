@@ -66,6 +66,15 @@ def source_view_products(model=None):
     sql+='\n'.join(RawStream()(statement.stmt).replace('__migration_owner__','__MIGRATION_OWNER__')+';' for statement in parse_sql(kernels.content.decode()) if statement.stmt is not None and not isinstance(statement.stmt,ast.CreateTrigStmt) and not (isinstance(statement.stmt,ast.InsertStmt) and statement.stmt.relation is not None and statement.stmt.relation.schemaname=='sem' and statement.stmt.relation.relname=='physical_contract'))+'\n'
 
     sql+='\nDO $reference$'+physical.content.decode().split('DO $reference$',1)[1]
+    admission=native_admission_sql(sql,model)
+    return (NativeProduct('semantic_0048_source_views.sql',sql.encode()),
+            NativeProduct('semantic_0048_admission.sql',admission.encode()))
+
+
+def native_admission_sql(sql,model=None,*,extra_relations=()):
+    from .native_products import consolidation_products
+    from pglast import parse_sql,ast
+    from pglast.stream import RawStream
     import json
     from hashlib import sha256
     from .native_products import function_bodies
@@ -79,18 +88,51 @@ def source_view_products(model=None):
     literal=cast.arg.val.sval
     if literal is None:raise ValueError("descriptor string is absent")
     descriptor=json.loads(literal)
-    bodies={}
+    from copy import copy
+    functions={item['signature']:item for item in descriptor['functions']}
     for raw in parse_sql(sql.replace('__MIGRATION_OWNER__','corpus_migration_owner')):
-        function_stmt=raw.stmt
-        if isinstance(function_stmt,ast.CreateFunctionStmt):
-            signature='.'.join(part.sval for part in function_stmt.funcname or ())+'('+','.join(RawStream()(parameter.argType) for parameter in function_stmt.parameters or ())+')'
-            options={option.defname:option.arg for option in function_stmt.options or ()}
-            bodies[signature]=options['as'][0].sval
-    for function in descriptor['functions']:
-        if function['signature'] in bodies:function['body_sha256']=sha256(bodies[function['signature']].encode()).hexdigest()
+        stmt=raw.stmt
+        if isinstance(stmt,ast.CreateFunctionStmt):
+            signature='.'.join(part.sval for part in stmt.funcname or ())+'('+','.join(RawStream()(parameter.argType) for parameter in stmt.parameters or ())+')'
+            options={option.defname:option.arg for option in stmt.options or ()}
+            previous=functions.get(signature,{})
+            if stmt.returnType is None:raise ValueError('native function return type missing')
+            result_type=copy(stmt.returnType);result_type.setof=False
+            functions[signature]=dict(signature=signature,body_sha256=sha256(options['as'][0].sval.encode()).hexdigest(),language=options['language'].sval,
+                security=bool(options.get('security') and options['security'].boolval),strict=bool(options.get('strict') and options['strict'].boolval),
+                volatility={'immutable':'i','stable':'s','volatile':'v'}.get(options.get('volatility').sval if options.get('volatility') else 'volatile','v'),
+                parallel='u',leakproof=False,setof=bool(stmt.returnType.setof),result=RawStream()(result_type),config=['search_path=pg_catalog, pg_temp'],
+                owner=previous.get('owner','corpus_sem_publisher'),execute_roles=list(previous.get('execute_roles',[])))
+        elif isinstance(stmt,ast.GrantStmt) and stmt.objtype is not None and stmt.objtype.name=='OBJECT_FUNCTION':
+            for obj in stmt.objects or ():
+                signature='.'.join(part.sval for part in obj.objname)+'('+','.join(RawStream()(arg) for arg in obj.objargs or ())+')'
+                if signature not in functions:continue
+                roles=set(functions[signature]['execute_roles'])
+                for grantee in stmt.grantees or ():
+                    if grantee.rolename:
+                        if stmt.is_grant:roles.add(grantee.rolename)
+                        else:roles.discard(grantee.rolename)
+                functions[signature]['execute_roles']=sorted(roles)
+    descriptor['functions']=sorted(functions.values(),key=lambda item:item['signature'])
+    tables={item['relation']:item for item in descriptor['tables']}
+    for name in extra_relations:
+        relation=metadata.tables[name]
+        columns=[]
+        for column in relation.columns:
+            kind=column.type.compile(dialect=dialect()).lower()
+            if kind=='float':kind='double precision'
+            columns.append(dict(name=column.name,type=kind,not_null=not column.nullable,default=None,
+                identity=('a' if column.identity.always else 'd') if column.identity is not None else '',generated=''))
+        tables[name]=dict(relation=name,owner='corpus_sem_publisher',columns=columns,primary_key=[c.name for c in relation.primary_key.columns],
+            foreign_keys=[dict(name=dialect().identifier_preparer.format_constraint(c),columns=[v.name for v in c.columns],
+                target=c.elements[0].target_fullname.rsplit('.',1)[0],remote_columns=[e.target_fullname.rsplit('.',1)[1] for e in c.elements],
+                on_delete='a',on_update='a',match='s',deferrable=False,deferred=False,validated=True)
+                for c in sorted(relation.foreign_key_constraints,key=lambda c:str(dialect().identifier_preparer.format_constraint(c)))])
+        descriptor['triggers']=[t for t in descriptor['triggers'] if not(t['relation']==name and t['name']=='semantic_immutable')]
+        descriptor['triggers'].append(dict(relation=name,name='semantic_immutable',function='sem.refuse_immutable_mutation()',type=58,columns=[],when=None,args='',deferrable=False,deferred=False))
+    descriptor['tables']=sorted(tables.values(),key=lambda item:item['relation'])
     encoded=canonical_bytes(descriptor).decode().replace("'","''")
     _,separator,required=admission.partition('$descriptor$;')
     if not separator:raise ValueError('missing native descriptor boundary')
     admission="SET LOCAL ROLE corpus_sem_publisher;\nCREATE OR REPLACE FUNCTION data.execution_contract_descriptor() RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $descriptor$\n SELECT '"+encoded+"'::jsonb\n$descriptor$;"+required
-    return (NativeProduct('semantic_0048_source_views.sql',sql.encode()),
-            NativeProduct('semantic_0048_admission.sql',admission.encode()))
+    return admission

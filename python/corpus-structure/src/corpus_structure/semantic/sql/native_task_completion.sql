@@ -1,6 +1,6 @@
 CREATE OR REPLACE FUNCTION ops.complete_task(p_task bigint,p_attempt bigint,p_holder text,p_rows jsonb,p_outcome text,p_error jsonb,p_envelope jsonb DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE t ops.task; r ops.run; item jsonb; ids bigint[] := '{}'; oid bigint; digest text;
+DECLARE t ops.task; r ops.run; item jsonb; ids bigint[] := '{}'; oid bigint; digest text; native_input jsonb; origin kb.observation; view kb.source_view; ancestor kb.source_view;
 BEGIN
  SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
  SELECT * INTO STRICT r FROM ops.run WHERE id=t.run_id FOR SHARE;
@@ -22,8 +22,25 @@ BEGIN
    IF item->>'source_view_id' IS NOT NULL THEN
     IF item->>'rendition_id' IS NOT NULL OR item->>'span_id' IS NOT NULL OR item->>'segment_id' IS NOT NULL OR NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=t.run_id AND source_view_id=(item->>'source_view_id')::bigint) THEN
      RAISE EXCEPTION 'native observation is outside run or aliases coordinates' USING ERRCODE='23514'; END IF;
+    SELECT * INTO STRICT view FROM kb.source_view WHERE id=(item->>'source_view_id')::bigint;
+    FOR native_input IN SELECT value FROM jsonb_array_elements(COALESCE(item->'payload'->'inputs','[]')) LOOP
+     -- {native_input_shape_guard}
+     SELECT * INTO STRICT origin FROM kb.observation WHERE release_id=t.release_id AND observation_key=native_input->>'observation_key';
+     IF NOT EXISTS(SELECT FROM ops.task selected WHERE selected.run_id=t.run_id AND (selected.id=origin.task_id OR selected.reused_task_id=origin.task_id) AND selected.status IN ('done','empty','reused')) THEN
+      RAISE EXCEPTION 'native observation input is not a selected completed source' USING ERRCODE='23514'; END IF;
+     SELECT * INTO STRICT ancestor FROM kb.source_view WHERE id=origin.source_view_id;
+     IF ancestor.native_task_id<>view.native_task_id OR ancestor.native_product_key<>view.native_product_key OR ancestor.native_content_digest<>view.native_content_digest
+       OR (native_input->>'role'='native_parent_context' AND NOT(view.projection->'ancestors' ? ancestor.section_pointer))
+       OR (native_input->>'role'<>'native_parent_context' AND ancestor.id<>view.id)
+       OR (native_input->>'role'='native_analysis' AND origin.kind<>'record') THEN
+      RAISE EXCEPTION 'native observation input differs from its declared source relation' USING ERRCODE='23514'; END IF;
+    END LOOP;
     IF item->'payload'->>'native_pointer' IS NOT NULL AND NOT EXISTS(SELECT FROM kb.source_view v JOIN kb.native_document_item n ON n.task_id=v.native_task_id AND n.product_key=v.native_product_key AND n.pointer=item->'payload'->>'native_pointer' WHERE v.id=(item->>'source_view_id')::bigint AND v.projection->'items' ? n.pointer) THEN
      RAISE EXCEPTION 'native observation pointer outside selected view' USING ERRCODE='23514'; END IF;
+    IF num_nonnulls(item->'payload'->>'projected_start',item->'payload'->>'projected_end') NOT IN (0,2)
+      OR num_nonnulls(item->'payload'->>'recognized_start',item->'payload'->>'recognized_end') NOT IN (0,2)
+      OR (item->'payload'->>'recognized_start' IS NOT NULL AND NOT EXISTS(SELECT FROM kb.native_document_item n WHERE n.task_id=view.native_task_id AND n.product_key=view.native_product_key AND n.pointer=item->'payload'->>'native_pointer' AND 0<=(item->'payload'->>'recognized_start')::bigint AND (item->'payload'->>'recognized_start')::bigint<(item->'payload'->>'recognized_end')::bigint AND (item->'payload'->>'recognized_end')::bigint<=char_length(n.native_json->>'text'))) THEN
+     RAISE EXCEPTION 'native observation extent is not a qualified native/projected range' USING ERRCODE='23514'; END IF;
     IF item->'payload'->>'projected_start' IS NOT NULL AND NOT EXISTS(SELECT FROM kb.source_view v WHERE v.id=(item->>'source_view_id')::bigint AND 0<=(item->'payload'->>'projected_start')::bigint AND (item->'payload'->>'projected_start')::bigint<(item->'payload'->>'projected_end')::bigint AND (item->'payload'->>'projected_end')::bigint<=char_length(v.projection->>'text')) THEN
      RAISE EXCEPTION 'native projected observation outside text' USING ERRCODE='23514'; END IF;
    END IF;

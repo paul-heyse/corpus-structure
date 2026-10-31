@@ -40,12 +40,17 @@ BEGIN
   IF NOT EXISTS(SELECT FROM ops.source_build b JOIN ops.task t ON t.id=b.task_id JOIN ops.run r ON r.id=t.run_id WHERE b.task_id=parent.task_id AND b.artifact_digest=artifact AND r.project_id=run.project_id) THEN
    RAISE EXCEPTION 'native parent outside original/release/project custody' USING ERRCODE='23514'; END IF;
  END IF;
- IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'derivation_mappings','[]')) m WHERE
-  NOT EXISTS(SELECT FROM jsonb_array_elements(product->'items') i WHERE i->>'pointer'=m->>'pointer')
-  OR product->>'parent_task_id' IS NULL
-  OR NOT EXISTS(SELECT FROM kb.native_document_item i WHERE i.task_id=parent.task_id AND i.product_key=parent.product_key AND i.pointer=m->>'origin_pointer')
-  OR m->>'source_field' NOT IN ('text','cell_text') OR m->>'kind' NOT IN ('native_text_range','vector_region_anchor','table_cell')
-  OR (m->>'start')::bigint>(m->>'end')::bigint) THEN
+ IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'derivation_mappings','[]')) m
+ LEFT JOIN kb.native_document_item origin ON origin.task_id=parent.task_id AND origin.product_key=parent.product_key AND origin.pointer=m->>'origin_pointer'
+ CROSS JOIN LATERAL (SELECT CASE WHEN m->>'source_field'='cell_text' THEN origin.native_json->'data'->'table_cells'->((m->>'cell_index')::integer)->>'text' ELSE origin.native_json->>'text' END spelling) source
+ CROSS JOIN LATERAL (SELECT product->'document' #> string_to_array(substr(m->>'pointer',3),'/') node) target
+ WHERE product->>'parent_task_id' IS NULL OR origin.pointer IS NULL OR target.node IS NULL
+  OR NOT EXISTS(SELECT FROM jsonb_array_elements(product->'items') i WHERE i->>'pointer'=m->>'pointer')
+  OR source.spelling IS NULL OR (m->>'start')::bigint>(m->>'end')::bigint OR (m->>'start')::bigint<0 OR (m->>'end')::bigint>char_length(source.spelling)
+  OR (m->>'source_field'='cell_text') IS DISTINCT FROM (m->>'cell_index' IS NOT NULL)
+  OR (m->>'kind'='table_cell') IS DISTINCT FROM (m->>'source_field'='cell_text')
+  OR (m->>'kind' IN ('native_text_range','table_cell') AND target.node->>'orig' IS DISTINCT FROM substr(source.spelling,(m->>'start')::integer+1,(m->>'end')::integer-(m->>'start')::integer))
+  OR (m->>'kind'='vector_region_anchor' AND (target.node->>'orig' IS DISTINCT FROM '' OR substr(source.spelling,(m->>'start')::integer+1,(m->>'end')::integer-(m->>'start')::integer) ~ '[^[:space:]]'))) THEN
  RAISE EXCEPTION 'native derivation endpoints/range are unqualified' USING ERRCODE='23514'; END IF;
  INSERT INTO kb.source_artifact(artifact_digest,content) SELECT encode(sha256(content),'hex'),content FROM unnest(ARRAY[p_original,p_schema,p_recipe]) content WHERE content IS NOT NULL ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM ops.source_build WHERE task_id=p_task AND release_id=run.release_id AND artifact_digest=artifact) THEN
@@ -56,6 +61,9 @@ BEGIN
  SELECT p_task,product->>'product_key',i.pointer,i.ordinal,i.label,i.parent_pointer,i.section_pointer,i.content_layer,i.text,product->'document' #> string_to_array(substr(i.pointer,3),'/') FROM jsonb_populate_recordset(NULL::kb.native_document_item,product->'items') i;
  INSERT INTO kb.native_document_region(task_id,product_key,pointer,region_index,page_no,page_width,page_height,"left",top,"right",bottom,origin)
  SELECT p_task,product->>'product_key',i.pointer,i.region_index,i.page_no,i.page_width,i.page_height,i."left",i.top,i."right",i.bottom,i.origin FROM jsonb_populate_recordset(NULL::kb.native_document_region,product->'regions') i;
+ INSERT INTO kb.native_document_derivation(task_id,product_key,pointer,mapping_index,origin_pointer,source_field,start_offset,end_offset,cell_index,kind)
+ SELECT p_task,product->>'product_key',m.value->>'pointer',m.n-1,m.value->>'origin_pointer',m.value->>'source_field',(m.value->>'start')::bigint,(m.value->>'end')::bigint,(m.value->>'cell_index')::bigint,m.value->>'kind'
+ FROM jsonb_array_elements(COALESCE(product->'derivation_mappings','[]')) WITH ORDINALITY m(value,n);
  -- Compare the complete access universe, not only whichever rows the caller supplied.
  IF EXISTS(
  WITH RECURSIVE nodes AS (
