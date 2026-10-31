@@ -117,7 +117,26 @@ process configuration once; it does not supply semantic defaults or merge method
 
 ## Parsing contract compilation
 
-**Accepted target; source scope implemented as qualified below (2026-10-30).** Extend the trusted LinkML/execution
+**Accepted PDF target; Proposed implementation (2026-10-31).** Docling/core owns its native
+versioned Pydantic document schema. Archive the supported upstream schema/runtime binding rather
+than re-author every native class in LinkML. Trusted LinkML/execution definitions govern
+application operations, state/coverage, identity/dependency recipes, domain recognition and
+cross-product relationships. Derived Core/JSON Schema/Pydantic and selected RDF/SHACL projections
+realize their scoped contracts; no projection becomes another editable policy authority.
+
+Finite adapter admission distinguishes native conversion, section organization, view projection,
+recognition, interpretation/assessment, packet binding and publication. Required unsupported
+semantics refuse before effects; no general workflow interpreter is introduced. Validate native
+schema/reference structure at its trust boundary, then finalize any library normalization before
+identity/publication. Schema validity does not establish correct OCR or mathematical recognition.
+PDF-02/03 own executable contracts/enforcement; PDF-01 supplies capability evidence.
+
+### Retained HTML realization
+
+The following clauses describe the retained HTML route only; they do not constrain the new PDF
+contract. Its runtime remains installed until the scheduled migration replaces it.
+
+**Existing HTML contract and implementation boundary (2026-10-30).** Extend the trusted LinkML/execution
 compiler with D1's representation-qualified ranges, occurrence relationships, partitions,
 mappings and interpretation products. Effective definitions feed runtime boundaries, JSON Schema,
 Core/native requirements and selected RDF/SHACL views; none independently defines parsing meaning.
@@ -144,7 +163,7 @@ assessment adapters are bound under profile 6. Macro-event selection uses discri
 metadata rather than explanatory value strings. Unsupported required recipes refuse before effects. [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
 retain independent invalid-input and native enforcement results.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
+> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
 
 ## 1. Principles
 

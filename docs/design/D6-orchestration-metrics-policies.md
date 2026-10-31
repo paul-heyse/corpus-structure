@@ -30,7 +30,29 @@ are not the selected production path or a second authority for semantic executio
 
 ## Parsing demand and product lifecycle
 
-**Accepted target; source scope implemented as qualified below (2026-10-30).** Bind discrete parsing demands to the
+**Accepted PDF target; Proposed implementation (2026-10-31).** Existing operation/task/attempt
+ownership drives conversion and downstream demands. One original, conversion, page, section and
+item are distinct semantic units, not a requirement for one task/transaction apiece. Reuse successful
+immutable conversion/derived products by complete dependencies and keep interpretation/assessment
+lazy. Source-ready work is neither completed knowledge extraction nor independent grading.
+
+Use Docling's bounded stage queues/batching and owned converter/model lifetime before adding
+process pools or services. Native parser/formula backends and images share a combined live set;
+cleanup follows their last use. Prepare outside publication locks, then seal required products
+coherently under existing source/attempt fences. Cancellation drains owned work and stale attempts
+cannot publish. Partial conversion or caught formula-enrichment failure cannot satisfy a stronger
+complete/recognized-result promise. No second workflow engine, retry owner or global cache is added.
+
+PDF-01/09 qualify actual runtime/providers and full-book feasibility. No arbitrary page-range
+concatenation or section chunking is selected. Installed optional capabilities remain dormant until
+an operation explicitly selects them.
+
+### Retained HTML realization
+
+The following clauses describe the retained HTML route only; they do not constrain the new PDF
+contract. Its runtime remains installed until the scheduled migration replaces it.
+
+**Existing HTML contract and implementation boundary (2026-10-30).** Bind discrete parsing demands to the
 existing prepared operation/dependency and protected effect machinery. Source inspection may
 request decomposition without interpretation; M09/M11/M13 adopt changed demands/results only
 through versioned contracts and complete consumer migration. Prepare release/profile support
@@ -61,7 +83,7 @@ attempt/source fences. Explicit archived requests reuse successful compatible ta
 remain retryable attempts, and cancellation drains the owned run. Broader qualification and
 operational adoption are recorded separately at PP-10.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
+> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
 
 ## Agent supervision and current retirement boundary
 

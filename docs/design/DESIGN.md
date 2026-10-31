@@ -227,6 +227,24 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+**Accepted PDF target; Proposed implementation (2026-10-31).** PostgreSQL retains original
+PDF bytea, immutable native DoclingDocument JSONB and separate conversion health. Application
+contracts govern conversion-qualified occurrences, ordered relationships, source regions and
+purposeful derived indexes/text views. Native document schema authority is scoped to Docling;
+LinkML/trusted execution definitions govern application operations, dependencies, states and
+cross-product/domain relationships. Shared Core metadata and forward native migrations realize
+instance integrity; existing protected publication remains the only ordinary write authority.
+Original bytes survive conversion failure, and derived hierarchy/corrections never mutate the
+native conversion. [D3](D3-database.md#parsing-product-custody) owns the target realization.
+
+> Decision: ADR-0038
+
+**Retained HTML implementation boundary.**
+
+The following source/layered guarantees describe the installed HTML route and its dated evidence,
+not a constraint that forces PDF documents into HTML partitions or canonical-only identities.
+
+
 **Accepted parsing target; PP-00–PP-04 source scope implemented and scoped Tested (2026-10-30).** PostgreSQL `bytea` owns
 immutable original bytes once per source content identity, separately linked to document/acquisition
 identity. Representations, partitions, structures, transformations and interpretations have
@@ -244,9 +262,9 @@ structure and syntax requests do not implicitly construct symbolic values. Exist
 publication and archived read authority govern the layers; PP-05–PP-10 own implementation and
 qualification. Method/output versions migrate with their consumers.
 
-> Decision: ADR-0037
+> Decision: ADR-0038
 
-> Decision: ADR-0036
+> Decision: ADR-0038
 
 **Proposed accepted target (2026-10-30).** Analytical ownership and preparation contracts use existing release-scoped rows and immutable products; physical capture may be resident or detached spooled under one snapshot/custody contract.
 
@@ -319,6 +337,31 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
+**Accepted PDF target; Proposed implementation (2026-10-31).** One admitted application semantic
+release governs interpretation-changing behavior and cross-product relationships. It binds the
+versioned native Docling schema rather than re-authoring it. New ingestion is PDF-only through
+StandardPdfPipeline with OCR, formula/table recognition and heading hierarchy. Sections and
+subsections remain intact; no section chunking is planned. PDF geometry, recognized LaTeX and
+derived text spans are distinct qualified representations; recognition is not exact original
+TeX recovery or mathematical truth. Rich native items/relations reach actual packet/frame,
+method, consolidation, placement, query/export and evaluator contracts through versioned migration.
+
+Immutable custody, pinned producing products, independent grading and protected publication
+survive. Weak source demands do not construct stronger mathematical results. Formula recognition
+health and inline/table coverage remain explicit; failed enrichment cannot imply successful
+LaTeX or complete absence. [D1](D1-knowledge-representation.md#311-representation-qualified-source-products)
+owns the concepts and D2–D8 their realization. The
+[PDF coordinator](../plans/pdf-docling-pipeline_2026-10-31.md) owns implementation and qualification;
+accepted target does not establish conversion, deployment or performance/fidelity benefits.
+
+> Decision: ADR-0038
+
+**Retained HTML implementation boundary.**
+
+The following implemented clauses apply to the installed HTML route until its active consumers
+are replaced; existing historical evidence and identities retain their meanings.
+
+
 **Implemented; scoped Tested parsing target (2026-10-30).** Trusted LinkML/execution
 definitions govern representation-qualified source ranges, occurrence relationships, mappings,
 coverage and discrete parsing operations. Existing canonical evidence anchors and full rendition
@@ -334,7 +377,7 @@ protected native consumers are implemented. The [parsing coordinator](../plans/p
 owns required-union qualification and fresh operational adoption; these claims do not imply
 universal grammar support or exact attribution of every repaired HTML node.
 
-> Decision: ADR-0036, ADR-0037
+> Decision: ADR-0038
 
 **Implemented (2026-10-30).** One admitted interpretation authority governs distinct qualified physical frontends and model-bound context, demand, result and dependency projections. Source declarations are prepared independently of downstream resolution, and each native stage consumes its admitted capability contract.
 

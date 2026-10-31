@@ -134,7 +134,31 @@ new rendition beside the old one instead of rewriting it (P0CL-01; operator, 202
 
 ### 3.1.1 Representation-qualified source products
 
-**Accepted target; source scope implemented as qualified below (2026-10-30).** Original source artifacts retain
+**Accepted PDF target; Proposed implementation (2026-10-31).** Retain the PDF original and
+native DoclingDocument as distinct immutable products. Conversion-qualified native item pointers,
+ordered occurrence relationships, section/subsection membership and page regions preserve rich
+structure. Repeated equal formulas/text never collapse source occurrence identity. PDF bytes,
+physical page/point geometry, native text spans, recognized LaTeX and derived text ranges are
+qualified spaces; an item box is not exact glyph attribution or original TeX custody.
+
+Sections/subsections remain intact. Verify heading levels against actual containment and create
+a derived Docling document with source mappings if section containers are absent. Body order,
+figures/captions, table cells/spans/header roles and formula references remain accessible. No
+section chunking is planned. Canonical text is a governed derived consumer view, not a replacement
+for native structure. Conversion health, recognition coverage, structural validity and fidelity
+remain separate; inline/table mathematics cannot be declared absent from missing formula items.
+
+New PDF evidence receives its own qualified source/anchor contracts. Existing HTML canonical
+rendition identities and historical evidence retain their original meanings; no conversion of old
+anchors or grades is implied. The [PDF coordinator](../plans/pdf-docling-pipeline_2026-10-31.md)
+owns migration and corpus qualification.
+
+#### Retained HTML realization
+
+The following clauses describe the retained HTML route only; they do not constrain the new PDF
+contract. Its runtime remains installed until the scheduled migration replaces it.
+
+**Existing HTML contract and implementation boundary (2026-10-30).** Original source artifacts retain
 immutable bytes in PostgreSQL custody ([D3](D3-database.md#parsing-product-custody)). Artifact
 content identity is separate from document/acquisition identity. A representation names its
 artifact/dependencies, coordinate unit, encoding or transformation recipe and producing build.
@@ -183,7 +207,7 @@ implementation and remaining assembled acceptance are owned by
 [PP-05–PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution). [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
 own the selected qualification boundary.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
+> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
 
 ### 3.2 Segments
 

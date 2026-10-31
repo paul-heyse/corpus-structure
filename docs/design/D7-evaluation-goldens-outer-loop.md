@@ -29,7 +29,24 @@ JSON field serializers before reference rewriting/revalidation.
 
 ## Parsing adoption and independent evidence
 
-**Accepted target; Proposed implementation (2026-10-30).** Parsing-contract migration preserves
+**Accepted PDF target; Proposed implementation (2026-10-31).** Independent automated reference
+preparation and evaluator authority remain isolated from extraction. New PDF anchors and native
+item/region evidence need independently authored or explicitly versioned reference inputs;
+never relabel HTML anchors as PDF evidence or copy extracted output into expected results.
+Historical answers, grades and source meanings remain unchanged. No grading-policy change,
+human grading requirement or historical regrading is introduced.
+
+Distinguish full-book source conversion, intact-section consumer journeys, completed knowledge
+extraction, independent source fidelity and measured benefits. Schema validity, a formula label
+or successful process exit is not complete recognition. I08/PDF-10/11 own concrete new reference
+scope, actual journeys and adoption evidence; no such qualification is established by this target.
+
+### Retained HTML realization
+
+The following clauses describe the retained HTML route only; they do not constrain the new PDF
+contract. Its runtime remains installed until the scheduled migration replaces it.
+
+**Existing HTML contract and implementation boundary (2026-10-30).** Parsing-contract migration preserves
 independent reference inputs, preparation scope and decisions. Source interpretation cannot use
 reference decisions to choose symbol roles or resolve ambiguity. Existing canonical evidence,
 citation frames, exact-quote checks and grading policy retain their meanings. Original-source
@@ -43,7 +60,7 @@ or segmentation receives new rendition/anchor identities under D1; existing fram
 and staleness rules continue to apply. PP-06/PP-10 own boundary migration and actual acceptance;
 this decision supplies no new grades, changed evidence policy or qualification claim.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
 
 ## 1. The problem and the answer
 

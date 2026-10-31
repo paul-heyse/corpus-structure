@@ -78,7 +78,28 @@ until their applicable current-source results are recorded in the owning plan.
 
 ## Source-product query and explanation boundary
 
-**Accepted target; source scope implemented as qualified below (2026-10-30).** Source inspection and explanation
+**Accepted PDF target; Proposed implementation (2026-10-31).** Version source APIs and
+packet/native-frame contracts to expose pinned section ancestry, item/table-cell/formula evidence,
+PDF regions and recognition/scope health. Bind the actual supplied context into packet identity;
+sentence-only rendering with a passive JSON attachment does not deliver this contract. Keep
+Docling schema/convert dependencies out of ordinary registration and bounded read startup.
+
+Use native item references for direct placement; retain exact/normalized/RapidFuzz alignment as
+a qualified fallback within explicit section/item candidates, with ties and edit witnesses.
+Expose native JSON whole-document access separately from bounded hierarchy/item/cell/region reads.
+PDF geometry and recognized-text offsets retain different types and fidelity. Arrow/Parquet views
+preserve source pointers, ordering and lexical values rather than become another document authority.
+
+Historical read selection, ambiguous-build refusal, corruption refusal and source-ready request
+semantics survive. New PDF anchors do not rewrite historical canonical evidence. PDF-07/08 own
+actual consumers and PDF-10/11 own external CLI/MCP/adoption evidence.
+
+### Retained HTML realization
+
+The following clauses describe the retained HTML route only; they do not constrain the new PDF
+contract. Its runtime remains installed until the scheduled migration replaces it.
+
+**Existing HTML contract and implementation boundary (2026-10-30).** Source inspection and explanation
 select pinned run/build products alongside the shared rendition. Reuse follows existing
 producing-task/`reused_task_id` resolution; multiple producing candidates refuse rather than
 silently selecting latest. Typed reads expose representation identity, range unit/bounds,
@@ -113,7 +134,7 @@ full source coverage rows are not copied into every prompt. Unknown coverage giv
 nonblocking diagnostic rather than an assertion that relevant context is absent. CLI/MCP transport, provider
 and adoption evidence belong to [PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution).
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
+> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
 
 ## 1. Surfaces
 

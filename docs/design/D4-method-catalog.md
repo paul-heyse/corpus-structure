@@ -13,7 +13,29 @@ realization** subsection directly; anything that changes a contract goes in a
 
 ## Parsing operations and versioned method adoption
 
-**Accepted target; source scope implemented as qualified below (2026-10-30).** Discrete model-owned operations cover
+**Accepted PDF target; Proposed implementation (2026-10-31).** New ingestion accepts PDF only
+and uses StandardPdfPipeline with explicit OCR, layout/table recognition, formula enrichment and
+heading hierarchy. Full Docling with the operator-selected extras supplies available capabilities;
+installation does not activate every backend or change PDF-only applicability. Replace obsolete
+DOM/CSS, delimiter, macro-acquisition and rendering-conversion paths as consumers migrate.
+
+Formula items provide recognized LaTeX directly to native SymPy parsing. M09 retains consumed
+occurrence positions/multiplicity, M11 retains lazy contextual/scientific assessment, and M13
+retains source-qualified scope/binding. Native values cannot replace source occurrences. Unknown
+recognition, ambiguity, unsupported syntax, assumptions and definedness remain explicit. Detection,
+transcription and mathematical interpretation have distinct health/coverage contracts, including
+inline and table-cell mathematics. PDF-01 qualifies library mechanisms; PDF-04–07 migrate methods.
+
+Version method/payload/input promises together with actual producers, requests, packets, native
+frames, consolidation and query/evaluator consumers. Weak demands do not perform stronger work.
+Generic algorithms remain library implementations under finite admitted operation contracts.
+
+### Retained HTML realization
+
+The following clauses describe the retained HTML route only; they do not constrain the new PDF
+contract. Its runtime remains installed until the scheduled migration replaces it.
+
+**Existing HTML contract and implementation boundary (2026-10-30).** Discrete model-owned operations cover
 source decomposition, HTML structure recognition, canonical projection, text preparation,
 mathematical interpretation/assessment and source publication. Their prepared contracts declare
 required products, input universe, applicability, typed outcomes, coverage, dependencies and
@@ -62,7 +84,7 @@ restrictions precede native cancellation. Timeouts retain failed attempt state
 and serialization does not retry the failed operation. [PP-05–PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
 own assembled consumer acceptance, independently from these implementation claims.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
+> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
 
 ## 1. The method contract
 

@@ -27,8 +27,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0033](0033-relational-execution-products.md) | Release-scoped execution rows govern stable protected kernels | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Implemented |  |
 | [ADR-0034](0034-recorded-agent-supervision.md) | Agents execute the semantic queue through supervised or interactive MCP sessions | 2026-10-30 | [§B3](../design/DESIGN.md#section-b3) | Implemented | [ADR-0015](0015-agent-work-queue.md) |
 | [ADR-0035](0035-model-governed-analysis.md) | One interpretation authority governs prepared analytical representations | 2026-10-30 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0012](0012-math-grammar-token-keys.md) |
-| [ADR-0036](0036-representation-qualified-parsing-products.md) | Preserve source custody through representation-qualified parsing products | 2026-10-30 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
-| [ADR-0037](0037-layered-parsing-products.md) | Publish immutable parsing layers under explicit capability demands | 2026-10-30 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0038](0038-pdf-native-docling-products.md) | Use PDF-native Docling products under governed domain contracts | 2026-10-31 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0036](0036-representation-qualified-parsing-products.md), [ADR-0037](0037-layered-parsing-products.md) |
 
 ## Superseded, still in the tree
 
@@ -46,5 +45,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0022](0022-schema-change-modelled.md) | Schema change is modelled: revisions, a payload-schema registry and change records with compatibility classes | 2026-10-28 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0023](0023-declared-identity.md) | Identity is declared: qualifier key roles, canonical forms by range, case policy and a versioned key scheme | 2026-10-28 | [§B1](../design/DESIGN.md#section-b1) | Proposed |  |
 | [ADR-0025](0025-semantic-publication.md) | Semantic publication uses protected staging and release-bound native enforcement | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0036](0036-representation-qualified-parsing-products.md) | Preserve source custody through representation-qualified parsing products | 2026-10-30 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0037](0037-layered-parsing-products.md) | Publish immutable parsing layers under explicit capability demands | 2026-10-30 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).

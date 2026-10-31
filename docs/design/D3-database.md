@@ -42,7 +42,30 @@ revision and keeps only the explanatory prose. Column comments that would repeat
 
 ## Parsing product custody
 
-**Accepted target; source scope implemented as qualified below (2026-10-30).** PostgreSQL `bytea` retains immutable
+**Accepted PDF target; Proposed implementation (2026-10-31).** PostgreSQL bytea retains original
+PDF bytes before conversion. Native DoclingDocument JSONB, conversion health and derived hierarchy
+or access products have separate immutable identities/dependencies under existing protected
+publication. Upstream schema version, exact package/model/configuration and resolved runtime
+bindings participate in the supported conversion specification. JSONB meaning is distinct from
+serialization bytes and original PDF custody.
+
+Generate fixed shared Core relations from the physical model for required item/edge/section/cell/
+region queries. Reuse existing product/endpoint contracts where semantics fit; geometry must not
+masquerade as integer extents. Retain native JSON alongside purposeful derived indexes so bounded
+reads do not hydrate the full book. Source pointers are conversion-qualified; derived views retain
+native mappings and cannot be edited independently. Image references need immutable artifact
+custody, not transient paths; missing images are unavailable payload rather than absent pictures.
+
+Finalize native validation/normalization before hashing and publish coherent products under existing
+attempt/source fences. Use forward migrations and supported archived readers; never edit frozen
+revisions or reinterpret old records. PDF-03/09 own persistence and publication, PDF-10/11 adoption.
+
+### Retained HTML realization
+
+The following clauses describe the retained HTML route only; they do not constrain the new PDF
+contract. Its runtime remains installed until the scheduled migration replaces it.
+
+**Existing HTML contract and implementation boundary (2026-10-30).** PostgreSQL `bytea` retains immutable
 original bytes once per source content identity, separately linked to document/acquisition identity.
 Decoding failure does not discard custody. Acquired files and exports are inputs or derived
 artifacts; recovering the retained original does not depend on an external file remaining present.
@@ -88,7 +111,7 @@ changes in that index-only revision.
 [PP-09/10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
 own assembled acceptance and fresh operational adoption.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md), [ADR-0037](../adr/0037-layered-parsing-products.md)
+> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
 
 ## Current task authority and historical storage
 

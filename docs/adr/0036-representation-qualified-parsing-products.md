@@ -1,10 +1,10 @@
 ---
 id: ADR-0036
 title: Preserve source custody through representation-qualified parsing products
-status: accepted
+status: superseded
 date: 2026-10-30
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0038
 design: [§B4, §B5]
 evidence: Proposed
 revisit: The qualified HTML source-location route cannot preserve the required original partition or a consumer requires unavailable exact repair provenance.

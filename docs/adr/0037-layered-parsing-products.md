@@ -1,10 +1,10 @@
 ---
 id: ADR-0037
 title: Publish immutable parsing layers under explicit capability demands
-status: accepted
+status: superseded
 date: 2026-10-30
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0038
 design: [§B4, §B5]
 evidence: Proposed
 revisit: A required parsing capability cannot retain product-qualified custody or a weak demand still performs stronger interpretation.

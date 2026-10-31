@@ -19,7 +19,24 @@ validation set status. Consolidation is methods M17 and M18 of
 
 ## Parsing products and binding demands
 
-**Accepted target; Proposed implementation (2026-10-30).** Binding and consolidation consume
+**Accepted PDF target; Proposed implementation (2026-10-31).** Binding consumes native source
+occurrences and section/item relationships with qualified interpretation/scope coverage. Structural
+ancestry supplies context, while declarations retain source position and forward applicability;
+a later declaration cannot govern earlier formulas or unrelated sibling statements. Page breaks
+do not end logical scope, and missing formula recognition does not establish absent bindings.
+
+PDF labels and recognized theorem/proof/exercise structures produce attributed observations,
+not automatic scientific truth or `proves` claims. Only consolidation writes knowledge claims.
+Packets/source frames bind actual native items, table cells/formulas, captions, regions and health
+into their identity. New evidence is PDF-qualified; historical canonical spans retain meaning.
+PDF-06/07 own producer/consumer migration without changing confidence or grading policy.
+
+### Retained HTML realization
+
+The following clauses describe the retained HTML route only; they do not constrain the new PDF
+contract. Its runtime remains installed until the scheduled migration replaces it.
+
+**Existing HTML contract and implementation boundary (2026-10-30).** Binding and consolidation consume
 pinned occurrence, scope and interpretation products under the versioned M09/M11/M13 contracts
 in [D4](D4-method-catalog.md#parsing-operations-and-versioned-method-adoption). Source-local
 declarations and macro authority are inputs to interpretation; resolved downstream entity
@@ -35,7 +52,7 @@ build and dependencies even when renditions are content-identical. PP-06/PP-10 o
 scope/binding, quote placement and affected consumers; this target establishes no new binding,
 scientific equivalence, confidence or evidence-grading policy.
 
-> Decision: [ADR-0036](../adr/0036-representation-qualified-parsing-products.md)
+> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
 
 ## Shared scientific evidence and analytical inputs
 
