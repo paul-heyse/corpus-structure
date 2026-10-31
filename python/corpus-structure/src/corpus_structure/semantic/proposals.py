@@ -245,7 +245,8 @@ def statement_anchor(
         if anchor == frame.unit_ref:
             return native_address(frame, pointer=frame.section_pointer)
         context = json.loads(frame.native_context)
-        known = {native_address(frame, pointer=item["pointer"]) for item in context["items"]}
+        known = {native_address(frame, pointer=item.get("self_ref", item.get("pointer")))
+                 for item in context["items"]}
         known.update(sentences.values())
         if anchor not in known:
             raise ProposalRefused("statement anchor is outside the bound native source view")
@@ -624,6 +625,7 @@ class ProposalPacket:
     bootstrap_terms: tuple[str, ...] = ()
     macros: tuple[tuple[str, MacroDef], ...] = ()
     source_coverage: StandingContextCoverage | None = None
+    native_observations: tuple[Mapping[str, Any], ...] = ()
 
     @property
     def schema_hash(self) -> str:
@@ -651,6 +653,7 @@ class ProposalPacket:
                     self.bootstrap_terms,
                     [(name, macro.model_dump(mode="json")) for name, macro in self.macros],
                     *([asdict(self.source_coverage)] if self.source_coverage is not None else []),
+                    *([self.native_observations] if self.native_observations else []),
                 ]
             )
         ).hexdigest()
@@ -693,6 +696,8 @@ class ProposalPacket:
                         for entity in self.known_entities
                     ],
                     "bootstrap_terms": self.bootstrap_terms,
+                    **({"native_observations": self.native_observations}
+                       if self.native_observations else {}),
                     "macros": {name: macro.model_dump(mode="json") for name, macro in self.macros},
                     **(
                         {"source_coverage": asdict(self.source_coverage)}
@@ -724,6 +729,7 @@ def proposal_packet(
     bootstrap_terms: tuple[str, ...] = (),
     macros: Mapping[str, MacroDef] | None = None,
     source_coverage: StandingContextCoverage | None = None,
+    native_observations: tuple[Mapping[str, Any], ...] = (),
 ) -> ProposalPacket:
     """Bind all model-facing parts and their complete source frame before queuing agent work."""
     from .identity import canonical_bytes
@@ -746,4 +752,5 @@ def proposal_packet(
         bootstrap_terms,
         tuple(sorted((macros or {}).items())),
         source_coverage,
+        native_observations,
     )
