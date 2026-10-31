@@ -130,6 +130,91 @@ class ProposalFrame:
             raise ValueError("proposal sentence lies outside canonical source text")
 
 
+@dataclass(frozen=True)
+class NativeProposalFrame:
+    """A section-local projection and the exact native context actually supplied to agents."""
+
+    unit_ref: str
+    text: str
+    sentences: tuple[ProposalSentence, ...]
+    source_view_id: int
+    native_product: Any
+    section_pointer: str
+    membership: str
+    projection_digest: str
+    recipe_digest: str
+    native_context: str
+
+    def __post_init__(self) -> None:
+        from .identity import canonical_bytes
+
+        # Reuse coordinate/handle validation while keeping the historical dataclass/hash intact.
+        ProposalFrame(self.unit_ref, self.text, self.sentences)
+        if self.source_view_id < 1 or self.membership not in {"direct", "descendants"}:
+            raise ValueError("native frame requires a real source view and membership policy")
+        context = json.loads(self.native_context)
+        if not isinstance(context, dict) or set(context) != {"items", "pieces", "ancestors", "health"}:
+            raise ValueError("native frame context must retain items, pieces, ancestry and health")
+        if canonical_bytes(context).decode() != self.native_context:
+            raise ValueError("native frame context must use canonical semantic JSON")
+        for digest in (self.projection_digest, self.recipe_digest,
+                       self.native_product.content_digest):
+            if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+                raise ValueError("native frame requires immutable product/projection/recipe pins")
+        for sentence in self.sentences:
+            expected = native_address(self, start=sentence.start, end=sentence.end)
+            if sentence.locator != expected:
+                raise ValueError("native sentence locator differs from its qualified projection")
+
+
+def native_address(frame: NativeProposalFrame, *, pointer: str | None = None,
+                   start: int | None = None, end: int | None = None) -> str:
+    """Typed native address encoded canonically, never parsed as an HTML locator."""
+    from .identity import canonical_bytes
+
+    value: dict[str, Any] = {"product_digest": frame.native_product.content_digest}
+    if pointer is not None:
+        if start is not None or end is not None or not pointer.startswith("#/"):
+            raise ValueError("native item address cannot mix projected offsets")
+        value["pointer"] = pointer
+    else:
+        if start is None or end is None or not 0 <= start < end <= len(frame.text):
+            raise ValueError("native projection address lies outside its source view")
+        value.update(source_view_id=frame.source_view_id, projection_digest=frame.projection_digest,
+                     start=start, end=end)
+    return "pdf:" + canonical_bytes(value).decode()
+
+
+def native_source_frame(view: Any, sentences: Sequence[tuple[str, int, int]]) -> NativeProposalFrame:
+    """Bind actual prepared section context and supplied sentence offsets without inference."""
+    from dataclasses import asdict, is_dataclass
+    from .identity import canonical_bytes
+
+    def plain(value: Any) -> Any:
+        if isinstance(value, BaseModel):
+            return value.model_dump(mode="json")
+        if is_dataclass(value) and not isinstance(value, type):
+            return plain(asdict(value))
+        if isinstance(value, Mapping):
+            return {key: plain(child) for key, child in value.items()}
+        if isinstance(value, (tuple, list)):
+            return [plain(child) for child in value]
+        return value
+
+    context = canonical_bytes({name: plain(getattr(view, name))
+                               for name in ("items", "pieces", "ancestors", "health")}).decode()
+    ref = view.ref
+    # Coordinates are authored from the already prepared text projection, never guessed by
+    # searching repeated strings in the book or reinterpreted as PDF glyph positions.
+    located = tuple(ProposalSentence(id, "pdf:" + canonical_bytes({
+        "product_digest": ref.native_product.content_digest, "source_view_id": ref.id,
+        "projection_digest": ref.projection_digest, "start": start, "end": end}).decode(), start, end)
+        for id, start, end in sentences)
+    return NativeProposalFrame(ref.key, view.text, located, ref.id, ref.native_product,
+                               ref.section_pointer, ref.membership, ref.projection_digest,
+                               ref.recipe_digest, context)
+
+
 def source_frame(
     unit_ref: str, content: RenditionContent, page: str, sentences: Sequence[SentenceEntry]
 ) -> ProposalFrame:
@@ -145,7 +230,7 @@ def source_frame(
 
 
 def statement_anchor(
-    anchor: str, frame: ProposalFrame, *, index: LocatorIndex | None = None
+    anchor: str, frame: ProposalFrame | NativeProposalFrame, *, index: LocatorIndex | None = None
 ) -> str:
     """Resolve a local handle through its frame, never through another packet's namespace.
 
@@ -153,6 +238,18 @@ def statement_anchor(
     consolidation boundary can additionally resolve an explicit source locator on the exact
     rendition; unsupported strings never become located statement identities.
     """
+    if isinstance(frame, NativeProposalFrame):
+        sentences = {sentence.id: sentence.locator for sentence in frame.sentences}
+        if anchor in sentences:
+            return sentences[anchor]
+        if anchor == frame.unit_ref:
+            return native_address(frame, pointer=frame.section_pointer)
+        context = json.loads(frame.native_context)
+        known = {native_address(frame, pointer=item["pointer"]) for item in context["items"]}
+        known.update(sentences.values())
+        if anchor not in known:
+            raise ProposalRefused("statement anchor is outside the bound native source view")
+        return anchor
     sentences = {sentence.id: sentence.locator for sentence in frame.sentences}
     known = {frame.unit_ref, *sentences.values()}
     if anchor in sentences:
@@ -396,7 +493,7 @@ def _refuse_rounded_decimals(prepared: PreparedRelease, batch: Mapping[str, Any]
 def locate_proposal(
     prepared: PreparedRelease,
     batch: Mapping[str, Any],
-    frame: ProposalFrame,
+    frame: ProposalFrame | NativeProposalFrame,
     *,
     macros: Mapping[str, MacroDef] | None = None,
     known_classes: Mapping[str, tuple[str, ...]] | None = None,
@@ -518,7 +615,7 @@ class KnownProposalEntity:
 @dataclass(frozen=True)
 class ProposalPacket:
     release_id: str
-    frame: ProposalFrame
+    frame: ProposalFrame | NativeProposalFrame
     schema: bytes
     guideline: str
     configuration: bytes
@@ -569,6 +666,15 @@ class ProposalPacket:
             "unit": canonical_bytes(
                 {
                     "unit_ref": self.frame.unit_ref,
+                    **({"native_source": {
+                        "source_view_id": self.frame.source_view_id,
+                        "native_product": asdict(self.frame.native_product),
+                        "section_pointer": self.frame.section_pointer,
+                        "membership": self.frame.membership,
+                        "projection_digest": self.frame.projection_digest,
+                        "recipe_digest": self.frame.recipe_digest,
+                        "context": json.loads(self.frame.native_context),
+                    }} if isinstance(self.frame, NativeProposalFrame) else {}),
                     "sentences": [
                         {
                             "id": sentence.id,
@@ -609,7 +715,7 @@ class ProposalPacket:
 
 def proposal_packet(
     prepared: PreparedRelease,
-    frame: ProposalFrame,
+    frame: ProposalFrame | NativeProposalFrame,
     *,
     guideline: str,
     configuration: Mapping[str, Any],
