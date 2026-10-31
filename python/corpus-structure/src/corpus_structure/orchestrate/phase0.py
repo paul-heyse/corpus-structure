@@ -41,14 +41,18 @@ from corpus_structure.orchestrate.runner import Graph, PassReport, Step
 from corpus_structure.validate.runner import RulesMethod
 
 M01, M02 = "ingest.pdf", "profile.segments"
+MATH_ENRICH = "enrich.pdf_math"
 M09, M11, M13 = "extract.math", "normalize.formula", "resolve.symbol_scope"
 
 PHASE0 = Graph(
     (
-        (Stage.INGEST, (Step(f"{M01}/default"), Step(f"{M02}/default", upstream=(M01,)))),
+        (Stage.INGEST, (Step(f"{M01}/default"),)),
         (
             Stage.NORMALIZE,
-            (Step(f"{M09}/default", upstream=(M01,)), Step(f"{M11}/default", upstream=(M01,))),
+            (Step(f"{MATH_ENRICH}/default", upstream=(M01,)),
+             Step(f"{M02}/default", upstream=(MATH_ENRICH,)),
+             Step(f"{M09}/default", upstream=(MATH_ENRICH,)),
+             Step(f"{M11}/default", upstream=(MATH_ENRICH,))),
         ),
         (Stage.SCOPE, (Step(f"{M13}/default", upstream=(M09, M11)),)),
     ),

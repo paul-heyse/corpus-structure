@@ -45,6 +45,8 @@ configs:                                               # named configurations, r
     default: {}
   evaluate.score:                                      # a stand-in until P0-E-2b
     default: {}
+  enrich.pdf_math:
+    default: {}
   ingest.pdf:
     default: {originals: [siegrist_random/Full_PDF/Full.pdf]}
   segment.sentences:

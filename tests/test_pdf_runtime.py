@@ -17,7 +17,9 @@ def test_active_registry_selects_pdf_not_html():
     configured = registry(Path(__file__).resolve().parents[1]/'domains/statistics')
     assert 'ingest.pdf' in {m.name for m in configured.methods()}
     assert 'ingest.html' not in {m.name for m in configured.methods()}
-    assert configured.resolve('ingest.pdf','default').config.originals == ('siegrist_random/Full_PDF/Full.pdf',)
+    cfg=configured.resolve('ingest.pdf','default').config
+    assert isinstance(cfg,PdfIngestConfig)
+    assert cfg.originals == ('siegrist_random/Full_PDF/Full.pdf',)
     assert PHASE0.stages[0][1][0].config == 'ingest.pdf/default'
     assert PdfIngestConfig().recipe().timeout_seconds is None
 
@@ -87,7 +89,18 @@ def test_inline_decomposition_keeps_prose_and_qualified_formula_in_same_native_h
     from corpus_structure.ingest.pdf_enrichment import PositionedCandidate,enrich_inline
     from corpus_structure.ingest.pdf_health import ObservedFormulaStage
     from corpus_structure.ingest.pdf_hierarchy import snapshot,load_snapshot,organize,project_section
-    from test_pdf_conversion import CatchingStage,Engine
+    class Engine:
+        def predict_batch(self,inputs):
+            return [SimpleNamespace(text='x') for _ in inputs]
+    class CatchingStage:
+        enabled=True
+        elements_batch_size=4
+        def __init__(self,engine):
+            self.engine=engine
+        def __call__(self,doc,element_batch):
+            batch=list(element_batch)
+            self.engine.predict_batch(batch)
+            yield from (e.item for e in batch)
     document=DoclingDocument(name='independent inline geometry fixture')
     document.pages[1]=PageItem(page_no=1,size=Size(width=100,height=100))
     document.add_heading(text='1.1: Sets',level=1)
@@ -107,8 +120,10 @@ def test_inline_decomposition_keeps_prose_and_qualified_formula_in_same_native_h
     assert len(formulas)==1
     assert formulas[0].text=='x'
     assert formulas[0].prov[0].charspan==(0,1)
-    assert result.mappings[0]['origin_pointer']==paragraph.self_ref
-    assert (result.mappings[0]['start'],result.mappings[0]['end'])==(4,5)
+    formula_mapping=next(m for m in result.mappings if m['pointer']==formulas[0].self_ref)
+    assert formula_mapping['origin_pointer']==paragraph.self_ref
+    assert (formula_mapping['start'],formula_mapping['end'])==(4,5)
+    assert [(m['start'],m['end']) for m in result.mappings]==[(0,4),(4,5),(5,14)]
     assert native.texts[int(paragraph.self_ref.rsplit('/',1)[1])].orig=='Let x be real.'
     assert result.outcomes[0].outcome=='succeeded'
 

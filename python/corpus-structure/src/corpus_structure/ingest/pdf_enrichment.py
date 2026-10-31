@@ -6,7 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
-from .pdf import CellCandidate, CellEnrichment, enrich_cells
+from .pdf import CellCandidate, CellEnrichment
 from .pdf_candidates import CandidatePage, InlineCandidate
 from .pdf_health import ObservedFormulaStage
 from .pdf_hierarchy import NativeSnapshot, load_snapshot, native_nodes, snapshot
@@ -18,10 +18,11 @@ class RecognitionUnavailable(ValueError):
 
 class PdfRegionRenderer:
     """One owned PDF renderer, at most one detached page image live between crops."""
-    def __init__(self, original: bytes, *, scale: float = 2.0) -> None:
+    def __init__(self, original: bytes, *, scale: float = 2.0, padding_points: float = 0.75) -> None:
         import pypdfium2
         self.document = pypdfium2.PdfDocument(original)
         self.scale = scale
+        self.padding_points = padding_points
         self._page_no: int | None = None
         self._image: Any = None
 
@@ -48,7 +49,9 @@ class PdfRegionRenderer:
                 page.close()
             self._page_no = page_no
         height = self._image.height/self.scale
-        box = bbox.to_top_left_origin(height).expand_by_scale(0.18,0.18)
+        box = bbox.to_top_left_origin(height)
+        box = box.model_copy(update=dict(l=box.l-self.padding_points,t=box.t-self.padding_points,
+                                        r=box.r+self.padding_points,b=box.b+self.padding_points))
         left=max(0,int(box.l*self.scale)); top=max(0,int(box.t*self.scale))
         right=min(self._image.width,int(box.r*self.scale)+1)
         bottom=min(self._image.height,int(box.b*self.scale)+1)
@@ -153,6 +156,15 @@ def enrich_inline(source: NativeSnapshot, candidates: tuple[PositionedCandidate,
     from docling.datamodel.base_models import ItemAndImageEnrichmentElement
     from docling_core.types.doc import BoundingBox,CoordOrigin,DocItemLabel,ProvenanceItem
     document=load_snapshot(source)
+    outcomes,mappings=apply_inline(document,candidates,stage=stage,render_region=render_region)
+    return CellEnrichment(source.digest,snapshot(document),outcomes,mappings)
+
+
+def apply_inline(document: Any,candidates: tuple[PositionedCandidate,...],*,
+                 stage: ObservedFormulaStage,render_region: Any):
+    """Apply selected inline decomposition within one owned document-enrichment operation."""
+    from docling.datamodel.base_models import ItemAndImageEnrichmentElement
+    from docling_core.types.doc import BoundingBox,CoordOrigin,DocItemLabel,ProvenanceItem
     nodes=native_nodes(document)
     grouped: dict[str,list[PositionedCandidate]]=defaultdict(list)
     for candidate in candidates:
@@ -178,7 +190,9 @@ def enrich_inline(source: NativeSnapshot, candidates: tuple[PositionedCandidate,
             if position<part.start:
                 raw=original[position:part.start]
                 projected=(" " if following_gap and raw and raw[0].isalnum() else "")+raw
-                document.add_text(label=DocItemLabel.TEXT,text=projected,orig=raw,parent=group)
+                child=document.add_text(label=DocItemLabel.TEXT,text=projected,orig=raw,parent=group)
+                mappings.append(dict(pointer=child.self_ref,origin_pointer=pointer,source_field="text",
+                    start=position,end=part.start,kind="native_text_range"))
             c=part.candidate
             regions=part.regions or (c,)
             boxes=[BoundingBox(l=r.left,t=r.top,r=r.right,b=r.bottom,coord_origin=CoordOrigin(r.origin)) for r in regions]
@@ -201,7 +215,9 @@ def enrich_inline(source: NativeSnapshot, candidates: tuple[PositionedCandidate,
         if position<len(original):
             raw=original[position:]
             projected=(" " if following_gap and raw and raw[0].isalnum() else "")+raw
-            document.add_text(label=DocItemLabel.TEXT,text=projected,orig=raw,parent=group)
+            child=document.add_text(label=DocItemLabel.TEXT,text=projected,orig=raw,parent=group)
+            mappings.append(dict(pointer=child.self_ref,origin_pointer=pointer,source_field="text",
+                start=position,end=len(original),kind="native_text_range"))
     size=max(1,stage.elements_batch_size)
     for offset in range(0,len(pending),size):
         batch=pending[offset:offset+size]
@@ -211,4 +227,39 @@ def enrich_inline(source: NativeSnapshot, candidates: tuple[PositionedCandidate,
         finally:
             for element in batch:
                 element.image.close()
-    return CellEnrichment(source.digest,snapshot(document),tuple(stage.outcomes[start:]),tuple(mappings))
+    return tuple(stage.outcomes[start:]),tuple(mappings)
+
+
+def classify_cells(document: Any, candidates: tuple[CellCandidate,...], pages: tuple[CandidatePage,...],
+                   *, math_pattern: str, prose_pattern: str) -> tuple[tuple[CellCandidate,...],list[dict[str,Any]]]:
+    """Account for every cell before recognition; nonempty model output is not a classifier."""
+    nodes=native_nodes(document)
+    by_page={p.page_no:p for p in pages}
+    demanded=[]
+    reports=[]
+    for candidate in candidates:
+        cell=nodes[candidate.table_ref].data.table_cells[candidate.cell_index]
+        page=by_page.get(candidate.page_no)
+        box=cell.bbox.to_top_left_origin(document.pages[candidate.page_no].size.height)
+        intersects=False
+        for region in page.candidates if page else ():
+            region_top,region_bottom=region.top,region.bottom
+            if region.origin=='BOTTOMLEFT':
+                height=document.pages[candidate.page_no].size.height
+                region_top,region_bottom=height-region.top,height-region.bottom
+            if box.l<region.right and region.left<box.r and min(box.t,box.b)<max(region_top,region_bottom) and min(region_top,region_bottom)<max(box.t,box.b):
+                intersects=True
+                break
+        if intersects:
+            classification,basis='math','native-candidate-intersection'
+        elif re.search(math_pattern,cell.text):
+            classification,basis='math','native-math-token'
+        elif page and page.has_words and re.fullmatch(prose_pattern,cell.text.strip()):
+            classification,basis='prose','native-word-text'
+        else:
+            classification,basis='unknown','unresolved-native-evidence'
+        reports.append(dict(table_pointer=candidate.table_ref,cell_index=candidate.cell_index,page_no=candidate.page_no,
+            classification=classification,basis=basis,outcome='not_requested' if classification=='prose' else 'unknown'))
+        if classification=='math':
+            demanded.append(candidate)
+    return tuple(demanded),reports

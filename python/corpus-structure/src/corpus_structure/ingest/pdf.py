@@ -365,6 +365,15 @@ def enrich_cells(
     from .pdf_hierarchy import load_snapshot
 
     document = load_snapshot(source)
+    outcomes,mappings = apply_cells(document,candidates,stage=stage,render_region=render_region)
+    return CellEnrichment(source.digest,snapshot(document),outcomes,mappings)
+
+
+def apply_cells(document: Any,candidates: tuple[CellCandidate,...],*,
+                stage: ObservedFormulaStage,render_region: Any):
+    """Mutate an operation-owned native document; the enclosing operation finalizes identity."""
+    from docling.datamodel.base_models import ItemAndImageEnrichmentElement
+    from docling_core.types.doc import DocItemLabel,ProvenanceItem,RichTableCell
     nodes = native_nodes(document)
     if len(set(candidates)) != len(candidates):
         raise ValueError("duplicate cell candidate")
@@ -408,7 +417,7 @@ def enrich_cells(
         finally:
             for element in elements:
                 element.image.close()
-    return CellEnrichment(source.digest, snapshot(document), tuple(stage.outcomes[start:]), tuple(mappings))
+    return tuple(stage.outcomes[start:]), tuple(mappings)
 
 
 def publication_payload(
