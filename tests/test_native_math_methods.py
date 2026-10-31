@@ -261,3 +261,35 @@ def test_scope_digest_binds_exact_ancestor_preparation_record():
     first=SymbolScope().input_digest(unit,SymbolScopeConfig()).bytes
     row.payload_hash='second'
     assert SymbolScope().input_digest(unit,SymbolScopeConfig()).bytes!=first
+
+
+def test_strong_request_reuses_qualified_stored_parent_roles_without_parsing(monkeypatch):
+    from dataclasses import replace
+    from corpus_structure.methods.math.native import stored_native_ancestor_declarations,native_request_analysis
+    from corpus_structure.methods.math.prepared import PreparedMathInput
+    parent_group={'self_ref':'#/groups/parent','label':'section','children':[
+        {'$ref':'#/texts/parent'},{'$ref':'#/groups/0'}]}
+    parent=PreparedSourceView(replace(view().ref,id=6,key='parent',section_pointer='#/groups/parent'),'f(x)=x',
+        ({'item_ref':'#/texts/parent','start':0,'end':6},),
+        (parent_group,{'self_ref':'#/texts/parent','label':'formula','text':'f(x)=x','orig':'f(x)=x','parent':{'$ref':'#/groups/parent'}}),(),{})
+    child_group={'self_ref':'#/groups/0','label':'section','parent':{'$ref':'#/groups/parent'}}
+    child=PreparedSourceView(view().ref,'f(2)',({'item_ref':'#/texts/0','start':0,'end':4},),
+        (child_group,{'self_ref':'#/texts/0','label':'formula','text':'f(2)','orig':'f(2)','parent':{'$ref':'#/groups/0'}}),
+        (parent_group,),{'formula_outcomes':[dict(pointer='#/texts/0',outcome='succeeded')]})
+    payload=dict(demand='context_declarations',source_view_id=6,native_product=parent.ref.native_product.values(),
+        projection_digest=parent.ref.projection_digest,declarations=[dict(symbol='f',role='function',rule_id='function-definition-1',
+        source_pointer='#/texts/parent',recognized_start=0,recognized_end=1,scope_pointer=parent.ref.section_pointer,quote='f(x)=x')])
+    row=SimpleNamespace(payload=payload,observation_key='parent-function',payload_hash='qualified')
+    reader=Reader();reader.source_view=lambda id:{6:parent,7:child}[id]
+    reader.ancestor_source_views=lambda id:[parent.ref]
+    reader.source_observations=lambda id,method,kind:[row] if id==6 and kind is ObservationKind.RECORD else []
+    with monkeypatch.context() as guard:
+        guard.setattr(PreparedMathInput,'syntax',lambda *a,**k:(_ for _ in ()).throw(AssertionError('parent reparse')))
+        declarations,issues=stored_native_ancestor_declarations(reader,child)
+    assert issues==()
+    assert declarations[0]['symbol']=='f' and 'parent-function' in declarations[0]['evidence']
+    result=native_request_analysis(child,None,'interpretation',ancestor_declarations=declarations)
+    assert result.items[0]['outcome']=='ok'
+    payload['projection_digest']='e'*64
+    declarations,issues=stored_native_ancestor_declarations(reader,child)
+    assert declarations==() and any('differs from supplied source pin' in issue for issue in issues)

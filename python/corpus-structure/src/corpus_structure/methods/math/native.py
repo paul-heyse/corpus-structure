@@ -724,7 +724,8 @@ def native_context_result(unit:Any,view:Any,cfg:Any,reader:Any)->UnitResult:
             required_capability="context_declarations"),))
 
 
-def _inherited_bindings(reader: Any, view: Any):
+def _stored_parent_candidates(reader: Any, view: Any):
+    """Select persisted, forward-applicable declarations once for scopes and demand callers."""
     parents,missing=ancestor_views(reader,view)
     issues=list(missing)
     result={}
@@ -735,37 +736,80 @@ def _inherited_bindings(reader: Any, view: Any):
             issues.append("ancestor symbol-scope coverage incomplete: "+parent.ref.key)
         native_order={item["self_ref"]:n for n,item in enumerate(parent.items)}
         candidates={}
+        def offer(symbol,role,pointer,position,basis,row):
+            if pointer not in native_order:
+                issues.append("ancestor declaration pointer outside supplied source: "+str(pointer));return
+            before=_before_descendant(parent,view,pointer)
+            if before is None:
+                issues.append("ancestor declaration source order unavailable: "+pointer)
+            if before is not True:return
+            identity=(symbol,role)
+            if identity not in candidates or position>candidates[identity][0]:
+                candidates[identity]=(position,parent,dict(basis,role=role,
+                    preparation_observation=row.observation_key,preparation_hash=row.payload_hash))
         for row in rows:
             value=row.payload
             if value.get("outcome")!="resolved" or value.get("scope_pointer")!=parent.ref.section_pointer:
                 continue
             pointer=value.get("binding_pointer")
-            if pointer is None or _before_descendant(parent,view,pointer) is not True:
-                continue
-            position=(native_order.get(pointer,-1),value.get("scope_start") or 0)
-            symbol=value["symbol"]
-            if symbol not in candidates or position>candidates[symbol][0]:
-                candidates[symbol]=(position,parent,value)
+            if (value.get("binding_source_view_id")!=parent.ref.id
+                or value.get("binding_projection_digest")!=parent.ref.projection_digest):
+                issues.append("ancestor binding differs from supplied source pin: "+row.observation_key);continue
+            if pointer is None:continue
+            offer(value["symbol"],"variable",pointer,(native_order.get(pointer,-1),value.get("scope_start") or 0),value,row)
         for row in reader.source_observations(parent.ref.id,"resolve.symbol_scope",ObservationKind.RECORD):
             value=row.payload
             if value.get("demand")!="context_declarations":continue
+            if (value.get("source_view_id")!=parent.ref.id
+                or value.get("native_product")!=parent.ref.native_product.values()
+                or value.get("projection_digest")!=parent.ref.projection_digest):
+                issues.append("ancestor preparation differs from supplied source pin: "+row.observation_key);continue
+            issues.extend(value.get("issues",()))
             for declaration in value.get("declarations",()):
-                if declaration.get("role")!="variable" or declaration.get("scope_pointer")!=parent.ref.section_pointer:
-                    continue
+                role=declaration.get("role")
+                if role not in {"variable","function"}:
+                    issues.append("ancestor declaration role unsupported: "+str(role));continue
+                if declaration.get("scope_pointer")!=parent.ref.section_pointer:continue
                 pointer=declaration["source_pointer"]
-                if _before_descendant(parent,view,pointer) is not True:continue
-                position=(native_order.get(pointer,-1),declaration["recognized_start"])
-                symbol=declaration["symbol"]
                 basis=dict(binding_observation=row.observation_key,binding_pointer=pointer,
                     binding_source_view_id=parent.ref.id,binding_projection_digest=parent.ref.projection_digest,
                     binding_quote=declaration["quote"],scope_pointer=parent.ref.section_pointer,
                     scope_start=declaration.get("projection_start"),scope_end=len(parent.text),
-                    input_role="native_parent_context")
-                if symbol not in candidates or position>candidates[symbol][0]:
-                    candidates[symbol]=(position,parent,basis)
-        for symbol,(_,owner,value) in candidates.items():
-            result.setdefault(symbol,(owner,value))
-    return result,tuple(issues)
+                    recognized_start=declaration["recognized_start"],recognized_end=declaration["recognized_end"],
+                    rule_id=declaration["rule_id"],input_role="native_parent_context")
+                offer(declaration["symbol"],role,pointer,
+                    (native_order.get(pointer,-1),declaration["recognized_start"]),basis,row)
+        prepared_functions={basis["binding_pointer"] for (_,role),(_,_,basis) in candidates.items()
+                            if role=="function"}
+        for item in parent.items:
+            text=item.get("text","")
+            if (item.get("label")=="formula" and "(" in text.partition("=")[0] and "=" in text
+                and _before_descendant(parent,view,item["self_ref"]) is True
+                and item["self_ref"] not in prepared_functions):
+                issues.append("ancestor function role preparation unavailable: "+item["self_ref"])
+        for identity,(_,owner,value) in candidates.items():
+            result.setdefault(identity,(owner,value))
+    return result,tuple(dict.fromkeys(issues))
+
+
+def stored_native_ancestor_declarations(reader: Any,view: Any):
+    """Hydrate qualified stored roles for on-demand interpretation; never parse parents."""
+    from corpus_structure.semantic.identity import canonical_bytes
+    candidates,issues=_stored_parent_candidates(reader,view)
+    source=f"source-view:{view.ref.id}:{view.ref.projection_digest}:native-order"
+    declarations=[]
+    for (symbol,role),(parent,basis) in sorted(candidates.items()):
+        evidence=dict(basis,native_product=parent.ref.native_product.values(),source_view_id=parent.ref.id,
+            projection_digest=parent.ref.projection_digest,before_descendant=True)
+        declarations.append(dict(symbol=symbol,role=role,authority="source",source_id=source,
+            scope=f"{source}:section:{view.ref.section_pointer}",start=0,end=len(view.items),
+            evidence=canonical_bytes(evidence).decode()))
+    return tuple(declarations),issues
+
+
+def _inherited_bindings(reader: Any,view: Any):
+    candidates,issues=_stored_parent_candidates(reader,view)
+    return {symbol:value for (symbol,role),value in candidates.items() if role=="variable"},issues
 
 
 @dataclass(frozen=True,slots=True)
