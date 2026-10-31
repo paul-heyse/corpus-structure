@@ -55,7 +55,7 @@ def source_view_products(model=None):
     for name in sorted(RELATIONS):
         sql += (
             f"CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON {name} "
-                                                                                             "FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();\n"
+            "FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();\n"
         )
         sql += (
             f"GRANT SELECT ON {name} TO corpus_sem_writer,corpus_sem_reader,"
@@ -76,8 +76,8 @@ def source_view_products(model=None):
         sql += (
             "DO $owner$ DECLARE r text; BEGIN SELECT pg_get_userbyid(relowner) INTO r "
             f"FROM pg_class WHERE oid='{name}'::regclass; "
-                                             "EXECUTE format('GRANT REFERENCES ON kb.source_view TO %I',r); "
-                                             "EXECUTE format('SET LOCAL ROLE %I',r); END $owner$;\n"
+            "EXECUTE format('GRANT REFERENCES ON kb.source_view TO %I',r); "
+            "EXECUTE format('SET LOCAL ROLE %I',r); END $owner$;\n"
         )
         for column in relation.columns:
             if column.name in {"source_view_id", "native_address", "projection_digest"}:
