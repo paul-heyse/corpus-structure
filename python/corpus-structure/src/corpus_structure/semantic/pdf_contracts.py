@@ -7,7 +7,7 @@ shape; the exact local validation schema is retained with the product, never fet
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import lru_cache
 from hashlib import sha256
@@ -246,7 +246,9 @@ def prepare_pdf_product(
     before = native.model_dump(mode="json", by_alias=True)
     try:
         # Upstream annotates this decorated method as a descriptor, not a callable.
-        validate_tree: Callable[[], object] = native.validate_document
+        validate_tree = native.validate_document
+        if not callable(validate_tree):
+            raise TypeError("native Docling tree validator is not callable")
         validate_tree()
     except (ValueError, IndexError) as error:
         raise ValueError("malformed native document tree/reference") from error

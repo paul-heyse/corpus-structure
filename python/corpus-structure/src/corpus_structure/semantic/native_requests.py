@@ -59,7 +59,7 @@ def request_source_view(engine:Engine,*,source_run_id:int,source_view_id:int,dem
     from .releases import open_release
     from .contracts import require_bound_operation
     from .claim_lifetime import maintained_claims
-    from corpus_structure.methods.math.native import NativeAnalysisPayload,NativeDomainRule,native_request_analysis,native_ancestor_declarations
+    from corpus_structure.methods.math.native import NativeAnalysisPayload,NativeDomainRule,native_request_analysis,stored_native_ancestor_declarations
 
     limits=NativeRequestLimits(seconds=seconds,scale=scale)
     seconds,scale=limits.seconds,limits.scale
@@ -84,6 +84,8 @@ def request_source_view(engine:Engine,*,source_run_id:int,source_view_id:int,dem
         contextual=demand in {'interpretation','symbolic','assessment'}
         ancestor_refs=tuple(reader.ancestor_source_views(source_view_id)) if contextual else ()
         ancestor_views=tuple(reader.source_view(ref.id) for ref in ancestor_refs)
+        parent_records={(ref.id,kind):tuple(reader.source_observations(ref.id,'resolve.symbol_scope',kind)) for ref in ancestor_refs for kind in (ObservationKind.RECORD,ObservationKind.SCOPE)}
+        parent_coverage={ref.id:tuple(reader.source_view_coverage(ref.id,'resolve.symbol_scope')) for ref in ancestor_refs}
     # Native syntax work runs after the bounded database snapshot has been released.
     kernel_rules=tuple(NativeDomainRule.model_validate(rule) for rule in domain_rules)
     declarations=issues=()
@@ -92,7 +94,9 @@ def request_source_view(engine:Engine,*,source_run_id:int,source_view_id:int,dem
             def __init__(self):self.prepared=prepared
             def ancestor_source_views(self,identity):return ancestor_refs
             def source_view(self,identity):return next(parent for parent in ancestor_views if parent.ref.id==identity)
-        declarations,issues=native_ancestor_declarations(AncestorSnapshot(),view,kernel_rules,seconds)
+            def source_observations(self,identity,method,kind):return parent_records.get((identity,kind),())
+            def source_view_coverage(self,identity,method):return parent_coverage.get(identity,())
+        declarations,issues=stored_native_ancestor_declarations(AncestorSnapshot(),view)
     renderer=None
     if demand=='render':
         from importlib.metadata import version
@@ -102,7 +106,9 @@ def request_source_view(engine:Engine,*,source_run_id:int,source_view_id:int,dem
     config=NativeRequestConfig(source_view_id=source_view_id,native_product=view.ref.native_product.values(),
         projection_digest=view.ref.projection_digest,recipe_digest=view.ref.recipe_digest,demand=demand,
         pointer=pointer,question=question,predicate=predicate,seconds=seconds,region_index=region_index,scale=scale,domain_rules=domain_rules,
-        ancestor_context=canonical_bytes(dict(source_views=[asdict(ref) for ref in ancestor_refs],declarations=declarations,issues=issues)).decode(),renderer=renderer)
+        ancestor_context=canonical_bytes(dict(source_views=[asdict(ref) for ref in ancestor_refs],declarations=declarations,issues=issues,
+            observations=[dict(source_view_id=identity,kind=kind,observation_key=row.observation_key,payload_hash=row.payload_hash) for (identity,kind),rows in parent_records.items() for row in rows],
+            coverage=[dict(source_view_id=identity,**asdict(row)) for identity,rows in parent_coverage.items() for row in rows])).decode(),renderer=renderer)
     if demand=='render' and (pointer is None or region_index is None):
         raise ValueError('render requires native occurrence and region index')
     if demand=='assessment' and not question:
@@ -162,7 +168,7 @@ def request_source_view(engine:Engine,*,source_run_id:int,source_view_id:int,dem
             payload=analysis,payload_class=NativeAnalysisPayload,payload_version='1',source_view_id=source_view_id,native_pointer=pointer),)
         result=UnitResult(ref=UnitRef(TaskUnitType.SOURCE_VIEW,source_view_id,'native-request:'+digest),
                           outcome=ObservationOutcome.PRODUCED if observations else ObservationOutcome.EMPTY,observations=observations,
-                          coverage=(CoverageDraft(family=method.name,scope=view.ref.key,outcome=analysis_coverage(analysis),required_capability=demand),))
+                          coverage=(CoverageDraft(family=method.name,scope=view.ref.key,outcome=analysis_coverage(analysis),required_capability=demand,reason=None if analysis_coverage(analysis)=='complete' else 'native demand coverage is incomplete; inspect the retained item diagnostics'),))
         with engine.begin() as conn:
             artifact_digest=None
             if artifact_bytes is not None:

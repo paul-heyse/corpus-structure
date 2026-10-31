@@ -31,10 +31,12 @@ def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,s
     doc=DoclingDocument(name='Independent view')
     section=doc.add_group(label=GroupLabel.SECTION,name='Independent')
     paragraph=doc.add_text(label=DocItemLabel.TEXT,text='Independent source.',orig='Independent source.',parent=section)
-    formula=doc.add_formula(text='x+1',orig='x+1',parent=section)
+    formula=doc.add_formula(text='f(x)=x',orig='f(x)=x',parent=section)
+    child=doc.add_group(label=GroupLabel.SECTION,name='Child',parent=section)
+    child_formula=doc.add_formula(text='f(2)',orig='f(2)',parent=child)
     from corpus_structure.ingest.pdf_health import FormulaOutcome
-    conversion=PdfConversion(sha256(original).hexdigest(),recipe,snapshot(doc),'success',(),(FormulaOutcome(formula.self_ref,'succeeded'),),(),None)
-    payload=publication_payload(conversion,product_key='native',schema_digest=sha256(schema).hexdigest(),section_refs=frozenset({section.self_ref}))
+    conversion=PdfConversion(sha256(original).hexdigest(),recipe,snapshot(doc),'success',(),(FormulaOutcome(formula.self_ref,'succeeded'),FormulaOutcome(child_formula.self_ref,'succeeded')),(),None)
+    payload=publication_payload(conversion,product_key='native',schema_digest=sha256(schema).hexdigest(),section_refs=frozenset({section.self_ref,child.self_ref}))
     product=prepare_pdf_product(payload,original,schema,recipe)
     with semantic_writer_engine.begin() as conn:
         run=create_run(conn,project_id='p',binding=OperationBinding(prepared.release_id,'z',0,b'{}'),kind='full',options={},code_commit='source-view-test')
@@ -46,13 +48,17 @@ def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,s
         store_pdf_original(conn,task_id=task,attempt=claim.attempt,holder='view-fixture',original=original,recipe_bytes=recipe)
     with semantic_writer_engine.begin() as conn:
         store_pdf_product(conn,task_id=task,attempt=claim.attempt,holder='view-fixture',product=product)
-        draft=SourceViewDraft('view-independent',document,ProductReference(task,'native',product.digest),section.self_ref,'direct','Independent source.\nx+1',
-            ({'item_ref':paragraph.self_ref,'start':0,'end':19,'kind':'native_text','source_field':'text'},{'start':19,'end':20,'kind':'synthetic_separator'},{'item_ref':formula.self_ref,'start':20,'end':23,'kind':'native_text','source_field':'text'}),
-            (section.self_ref,paragraph.self_ref,formula.self_ref),(),payload['health'],b'{"recipe":"section-view-fixture"}')
+        draft=SourceViewDraft('view-independent',document,ProductReference(task,'native',product.digest),section.self_ref,'direct','Independent source.\nf(x)=x',
+            ({'item_ref':paragraph.self_ref,'start':0,'end':19,'kind':'native_text','source_field':'text'},{'start':19,'end':20,'kind':'synthetic_separator'},{'item_ref':formula.self_ref,'start':20,'end':26,'kind':'native_text','source_field':'text'}),
+            (section.self_ref,paragraph.self_ref,formula.self_ref),(),dict(payload['health'],formula_outcomes=[o for o in payload['health']['formula_outcomes'] if o['pointer']==formula.self_ref]),b'{"recipe":"section-view-fixture"}')
         identity=store_source_view(conn,run_id=run,task_id=task,attempt=claim.attempt,holder='view-fixture',draft=draft,position=0)
+        child_draft=SourceViewDraft('view-child',document,ProductReference(task,'native',product.digest),child.self_ref,'direct','f(2)',
+            ({'item_ref':child_formula.self_ref,'start':0,'end':4,'kind':'native_text','source_field':'text'},),
+            (child.self_ref,child_formula.self_ref),(section.self_ref,),dict(payload['health'],formula_outcomes=[o for o in payload['health']['formula_outcomes'] if o['pointer']==child_formula.self_ref]),b'{"recipe":"section-view-fixture"}')
+        child_identity=store_source_view(conn,run_id=run,task_id=task,attempt=claim.attempt,holder='view-fixture',draft=child_draft,position=1)
         assert selected_source_views(conn,run)[0].id==identity
         loaded=load_source_view(conn,identity)
-        assert loaded.text=='Independent source.\nx+1'
+        assert loaded.text=='Independent source.\nf(x)=x'
         assert [i['self_ref'] for i in loaded.items]==[section.self_ref,paragraph.self_ref,formula.self_ref]
         with pytest.raises((ValueError,DBAPIError)),conn.begin_nested():
             store_source_view(conn,run_id=run,task_id=task,attempt=claim.attempt,holder='view-fixture',draft=replace(draft,key='wrong-membership',items=(paragraph.self_ref,)),position=1)
@@ -67,10 +73,27 @@ def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,s
             store_native_source_frame(conn,task_id=agent_task,packet_hash=packet_hash,frame=invalid)
         assert conn.execute(text('SELECT count(*) FROM ops.rendition_build WHERE task_id=:task'),{'task':task}).scalar_one()==0
 
+    from corpus_structure.semantic.operations import BoundReader,OperationConflict
+    # An archived native product is adopted only by an exact declared, claimed input.
+    with semantic_writer_engine.begin() as conn:
+        adopted=create_run(conn,project_id='p',binding=OperationBinding(prepared.release_id,'z',0,b'{}'),kind='slice',options={},code_commit='native-adoption-fixture')
+        adoption_model=create_model('AdoptionFixture',native_product=(ProductReference,...))
+        adoption=SimpleNamespace(name='pdf.adoption-fixture',version='1',family='ingest',tier='deterministic',confidence_source=None,unit_type='document',Config=adoption_model)
+        params={'native_product':loaded.ref.native_product.values()}
+        config_id=record_method(conn,adoption,'input',params,'adoption-fixture',prepared=prepared)
+        adoption_task=create_task(conn,run_id=adopted,config_id=config_id,stage='ingest',unit_type='document',unit_id=document,unit_key='adopted-original',input_hash='adopted-source')
+        claim_tasks(conn,run_id=adopted,config_id=config_id,holder='adopter')
+        reader=BoundReader(conn,adopted,prepared)
+        with pytest.raises(OperationConflict):reader.native_document(loaded.ref.native_product)
+        reader.bind_source_tasks({document:adoption_task})
+        archived=reader.native_document(loaded.ref.native_product)
+        assert archived.digest==product.digest and archived.original==original
+
     from corpus_structure.semantic.native_requests import request_source_view
     lexical=request_source_view(semantic_writer_engine,source_run_id=run,source_view_id=identity,demand='lexical',pointer=formula.self_ref,code_commit='request-fixture')
     assert lexical.status=='source_ready'
-    assert lexical.result['items'][0]['recognized_latex']=='x+1'
+    assert lexical.result is not None
+    assert lexical.result['items'][0]['recognized_latex']=='f(x)=x'
     assert lexical.result['items'][0]['lexical']
     from corpus_structure.methods.math import native
     def forbidden(*args,**kwargs):raise AssertionError('reused native request must not execute its kernel')
@@ -78,6 +101,39 @@ def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,s
         patch.setattr(native,'native_request_analysis',forbidden)
         repeated=request_source_view(semantic_writer_engine,source_run_id=run,source_view_id=identity,demand='lexical',pointer=formula.self_ref,code_commit='request-fixture')
     assert repeated.status=='source_ready' and repeated.result==lexical.result
+    # Parent roles are retained source products. Strong requests hydrate these exact
+    # records, while weak requests must never invoke parent context preparation.
+    from corpus_structure.core.method import UnitRef,UnitResult,ObservationDraft,CoverageDraft
+    from corpus_structure.core.vocab import TaskUnitType,ObservationKind,ObservationOutcome
+    from corpus_structure.semantic.operations import OperationDescriptor,complete_unit_result
+    parent_method=OperationDescriptor('resolve.symbol_scope','4','resolve','deterministic',TaskUnitType.SOURCE_VIEW,create_model('ParentContextFixture'))
+    with semantic_writer_engine.begin() as conn:
+        parent_config=record_method(conn,parent_method,'context',{},'context-fixture',prepared=prepared)
+        parent_task=create_task(conn,run_id=run,config_id=parent_config,stage='scope',unit_type='source_view',unit_id=identity,unit_key=loaded.ref.key,input_hash='parent-context-fixture')
+        parent_claim=claim_tasks(conn,run_id=run,config_id=parent_config,holder='context-fixture')[0]
+        parent_payload=native.NativeContextPayload(source_view_id=identity,native_product=loaded.ref.native_product.values(),projection_digest=loaded.ref.projection_digest,
+            declarations=(native.NativeContextDeclaration(symbol='f',role='function',rule_id='function-definition-1',source_pointer=formula.self_ref,recognized_start=0,recognized_end=1,scope_pointer=section.self_ref,quote='f(x)=x',projection_start=20,projection_end=26),),issues=())
+        parent_result=UnitResult(ref=UnitRef(TaskUnitType.SOURCE_VIEW,identity,loaded.ref.key),outcome=ObservationOutcome.PRODUCED,
+            observations=(ObservationDraft(kind=ObservationKind.RECORD,payload=parent_payload,payload_class=native.NativeContextPayload,payload_version='1',source_view_id=identity),),
+            coverage=(CoverageDraft(family='resolve.symbol_scope',scope=loaded.ref.key,outcome='complete',required_capability='context_declarations'),))
+        complete_unit_result(conn,task_id=parent_task,attempt=parent_claim.attempt,holder='context-fixture',prepared=prepared,result=parent_result,method=parent_method,configuration_hash='context-fixture',source=loaded.ref.key)
+    with monkeypatch.context() as patch:
+        patch.setattr(native,'native_ancestor_declarations',forbidden)
+        patch.setattr(native,'stored_native_ancestor_declarations',forbidden)
+        child_weak=request_source_view(semantic_writer_engine,source_run_id=run,source_view_id=child_identity,demand='lexical',pointer=child_formula.self_ref,code_commit='request-fixture')
+        assert child_weak.status=='source_ready'
+    with monkeypatch.context() as patch:
+        patch.setattr(native,'native_ancestor_declarations',forbidden)
+        child_strong=request_source_view(semantic_writer_engine,source_run_id=run,source_view_id=child_identity,demand='interpretation',pointer=child_formula.self_ref,code_commit='request-fixture')
+    assert child_strong.result is not None
+    declarations=child_strong.result['items'][0]['context']['declarations']
+    assert any(d['symbol']=='f' and d['role']=='function' and 'preparation_observation' in d['evidence'] for d in declarations)
+    with semantic_writer_engine.connect() as conn:
+        params=conn.execute(text('SELECT c.params FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id WHERE t.id=:task'),{'task':child_strong.task_id}).scalar_one()
+        import json
+        basis=json.loads(params['ancestor_context'])
+        assert basis['observations'][0]['source_view_id']==identity
+        assert basis['observations'][0]['payload_hash']
     calls=[]
     def timed_out(*args,**kwargs):
         calls.append(1)
@@ -86,6 +142,7 @@ def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,s
         patch.setattr(native,'native_request_analysis',timed_out)
         for _ in range(2):
             failed=request_source_view(semantic_writer_engine,source_run_id=run,source_view_id=identity,demand='syntax',pointer=formula.self_ref,seconds=.01,code_commit='request-fixture')
+            assert failed.result is not None
             assert failed.status=='failed' and failed.cut_id is None and failed.result['items'][0]['failure']['category']=='timeout'
             with semantic_writer_engine.connect() as conn:
                 assert conn.execute(text('SELECT status FROM ops.task WHERE id=:task'),{'task':failed.task_id}).scalar_one()=='failed'
