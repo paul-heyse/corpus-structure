@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/92d2df3faac6/policy_action.json",
+  "$id": "https://corpus-structure.dev/schemas/ba316957d50d/policy_action.json",
   "$defs": {
     "PolicyThen": {
       "description": "What a policy rule's chain does after its action (D3 §6.3). Lifecycle: static.",

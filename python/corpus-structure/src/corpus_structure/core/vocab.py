@@ -394,14 +394,32 @@ class EmbeddingTarget(StrEnum):
     ALIAS = "alias"
 
 
-class TaskUnitType(StrEnum):
-    """`ops.task.unit_type`, `ops.policy_rule.unit_type`, and `Method.unit_type` (D4 §1). Lifecycle:
-    static.
+class LegacyTaskUnitType(StrEnum):
+    """Unit kinds of the frozen D3 task and policy tables; native runtime kinds extend this set.
+    Lifecycle: static.
     """
 
     DOCUMENT = "document"
     RENDITION = "rendition"
+    SEGMENT = "segment"
+    SPAN = "span"
+    OBSERVATION = "observation"
+    ENTITY = "entity"
+    CLAIM = "claim"
+    ALTERNATIVE_GROUP = "alternative_group"
+    IDENTITY_GROUP = "identity_group"
+    RUN = "run"
+    GOLDEN_UNIT = "golden_unit"
+
+
+class TaskUnitType(StrEnum):
+    """Current method and native task unit kinds, extending the historical D3 vocabulary. Lifecycle:
+    static.
+    """
+
     SOURCE_VIEW = "source_view"
+    DOCUMENT = "document"
+    RENDITION = "rendition"
     SEGMENT = "segment"
     SPAN = "span"
     OBSERVATION = "observation"
@@ -483,12 +501,31 @@ class LinkType(StrEnum):
     REFINES = "refines"
 
 
-class MeasurementScope(StrEnum):
-    """`ops.measurement.scope_type`. Lifecycle: static."""
+class LegacyMeasurementScope(StrEnum):
+    """Subject kinds of the frozen D3 measurement table; native runtime scopes extend this set.
+    Lifecycle: static.
+    """
 
     RUN = "run"
     RENDITION = "rendition"
+    SEGMENT = "segment"
+    ENTITY = "entity"
+    CLAIM = "claim"
+    PREDICATE = "predicate"
+    CLASS = "class"
+    STAGE = "stage"
+    METHOD = "method"
+    RULE = "rule"
+
+
+class MeasurementScope(StrEnum):
+    """Current native measurement subject kinds, extending the historical D3 vocabulary. Lifecycle:
+    static.
+    """
+
     SOURCE_VIEW = "source_view"
+    RUN = "run"
+    RENDITION = "rendition"
     SEGMENT = "segment"
     ENTITY = "entity"
     CLAIM = "claim"
@@ -1192,6 +1229,7 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     RunKind: Lifecycle.STATIC,
     RunStatus: Lifecycle.STATIC,
     EmbeddingTarget: Lifecycle.STATIC,
+    LegacyTaskUnitType: Lifecycle.STATIC,
     TaskUnitType: Lifecycle.STATIC,
     TaskStatus: Lifecycle.STATIC,
     ObservationKind: Lifecycle.STATIC,
@@ -1199,6 +1237,7 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     AliasKind: Lifecycle.STATIC,
     ClaimStatus: Lifecycle.STATIC,
     LinkType: Lifecycle.STATIC,
+    LegacyMeasurementScope: Lifecycle.STATIC,
     MeasurementScope: Lifecycle.STATIC,
     InterventionKind: Lifecycle.STATIC,
     ExperimentDecision: Lifecycle.STATIC,

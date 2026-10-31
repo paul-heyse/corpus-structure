@@ -164,3 +164,127 @@
     judgment_carry_over: null
     compiled_artifacts: []
     source_profiles: []
+- label: 0.6.1
+  content_hash: ba316957d50d1d98142506eadaca77bcb6fe83dc4befee9e91111e3fb0451bc7
+  key_scheme: 1
+  compilers:
+    corpus_structure.schema.generate: '1'
+    corpus_structure.schema.interchange: '1'
+    corpus_structure.schema.relational: '2'
+    linkml-runtime: 1.12.1
+  parent: 92d2df3faac6e6ce7e4b5eac89984b86447807c4e5c5063c479061beaf3840ca
+  change_record:
+    from_revision: 92d2df3faac6e6ce7e4b5eac89984b86447807c4e5c5063c479061beaf3840ca
+    to_revision: ba316957d50d1d98142506eadaca77bcb6fe83dc4befee9e91111e3fb0451bc7
+    changes:
+    - element: core
+      change: changed
+      aspect: version
+      compatibility_class: descriptive
+      reason: Separate frozen D3 table closed sets from current native runtime vocabularies; restore the
+        existing 0001-0003 schema projection without changing current runtime members.
+      authorized_by: Operator-approved PDF/Docling execution; coordinator-authorized legacy projection
+        correction, 2026-10-31
+      decision: null
+      upcaster: null
+    - element: sys:LegacyMeasurementScope
+      change: added
+      aspect: null
+      compatibility_class: nested-additive
+      reason: Separate frozen D3 table closed sets from current native runtime vocabularies; restore the
+        existing 0001-0003 schema projection without changing current runtime members.
+      authorized_by: Operator-approved PDF/Docling execution; coordinator-authorized legacy projection
+        correction, 2026-10-31
+      decision: null
+      upcaster: absent
+    - element: sys:LegacyTaskUnitType
+      change: added
+      aspect: null
+      compatibility_class: nested-additive
+      reason: Separate frozen D3 table closed sets from current native runtime vocabularies; restore the
+        existing 0001-0003 schema projection without changing current runtime members.
+      authorized_by: Operator-approved PDF/Docling execution; coordinator-authorized legacy projection
+        correction, 2026-10-31
+      decision: null
+      upcaster: absent
+    - element: sys:Measurement.scope_type
+      change: changed
+      aspect: range
+      compatibility_class: breaking
+      reason: Separate frozen D3 table closed sets from current native runtime vocabularies; restore the
+        existing 0001-0003 schema projection without changing current runtime members.
+      authorized_by: Operator-approved PDF/Docling execution; coordinator-authorized legacy projection
+        correction, 2026-10-31
+      decision: Restore the accepted frozen legacy schema; native source_view remains in current runtime
+        and semantic physical contracts.
+      upcaster: null
+    - element: sys:MeasurementScope
+      change: changed
+      aspect: description
+      compatibility_class: descriptive
+      reason: Separate frozen D3 table closed sets from current native runtime vocabularies; restore the
+        existing 0001-0003 schema projection without changing current runtime members.
+      authorized_by: Operator-approved PDF/Docling execution; coordinator-authorized legacy projection
+        correction, 2026-10-31
+      decision: null
+      upcaster: null
+    - element: sys:MeasurementScope
+      change: changed
+      aspect: inherits
+      compatibility_class: breaking
+      reason: Separate frozen D3 table closed sets from current native runtime vocabularies; restore the
+        existing 0001-0003 schema projection without changing current runtime members.
+      authorized_by: Operator-approved PDF/Docling execution; coordinator-authorized legacy projection
+        correction, 2026-10-31
+      decision: Restore the accepted frozen legacy schema; native source_view remains in current runtime
+        and semantic physical contracts.
+      upcaster: null
+    - element: sys:PolicyRule.unit_type
+      change: changed
+      aspect: range
+      compatibility_class: breaking
+      reason: Separate frozen D3 table closed sets from current native runtime vocabularies; restore the
+        existing 0001-0003 schema projection without changing current runtime members.
+      authorized_by: Operator-approved PDF/Docling execution; coordinator-authorized legacy projection
+        correction, 2026-10-31
+      decision: Restore the accepted frozen legacy schema; native source_view remains in current runtime
+        and semantic physical contracts.
+      upcaster: null
+    - element: sys:Task.unit_type
+      change: changed
+      aspect: range
+      compatibility_class: breaking
+      reason: Separate frozen D3 table closed sets from current native runtime vocabularies; restore the
+        existing 0001-0003 schema projection without changing current runtime members.
+      authorized_by: Operator-approved PDF/Docling execution; coordinator-authorized legacy projection
+        correction, 2026-10-31
+      decision: Restore the accepted frozen legacy schema; native source_view remains in current runtime
+        and semantic physical contracts.
+      upcaster: null
+    - element: sys:TaskUnitType
+      change: changed
+      aspect: description
+      compatibility_class: descriptive
+      reason: Separate frozen D3 table closed sets from current native runtime vocabularies; restore the
+        existing 0001-0003 schema projection without changing current runtime members.
+      authorized_by: Operator-approved PDF/Docling execution; coordinator-authorized legacy projection
+        correction, 2026-10-31
+      decision: null
+      upcaster: null
+    - element: sys:TaskUnitType
+      change: changed
+      aspect: inherits
+      compatibility_class: breaking
+      reason: Separate frozen D3 table closed sets from current native runtime vocabularies; restore the
+        existing 0001-0003 schema projection without changing current runtime members.
+      authorized_by: Operator-approved PDF/Docling execution; coordinator-authorized legacy projection
+        correction, 2026-10-31
+      decision: Restore the accepted frozen legacy schema; native source_view remains in current runtime
+        and semantic physical contracts.
+      upcaster: null
+    name_map: {}
+    alembic_revision: null
+    key_consequences: null
+    judgment_carry_over: null
+    compiled_artifacts: []
+    source_profiles: []

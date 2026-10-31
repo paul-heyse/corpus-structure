@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/92d2df3faac6/payload.relation.json",
+  "$id": "https://corpus-structure.dev/schemas/ba316957d50d/payload.relation.json",
   "$defs": {
     "LabelledSpan": {
       "additionalProperties": false,

@@ -8,7 +8,7 @@ description: >-
   agent_reuse by_unit. System classes are tables unless ci:store says otherwise; their table is the
   snake case of the class name (or the native local_names sql entry) in the schema their subset
   names; a single-valued class-ranged attribute is a foreign key column named <attribute>_id.
-version: 0.6.0
+version: 0.6.1
 license: https://creativecommons.org/publicdomain/zero/1.0/
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -1257,7 +1257,7 @@ classes:
         required: true
         description: position in the chain (D6 §7.1)
       unit_type:
-        range: TaskUnitType
+        range: LegacyTaskUnitType
         required: true
         description: the chain's default or the entry's own (D6 §7.1)
       condition:
@@ -1680,7 +1680,7 @@ classes:
         required: true
         description: The stage.
       unit_type:
-        range: TaskUnitType
+        range: LegacyTaskUnitType
         required: true
         description: The unit type.
       unit_id:
@@ -2328,7 +2328,7 @@ classes:
         required: true
         description: The iteration.
       scope_type:
-        range: MeasurementScope
+        range: LegacyMeasurementScope
         required: true
         description: The scope type.
       scope_id:
@@ -2968,13 +2968,12 @@ enums:
       segment: {}
       entity: {}
       alias: {}
-  TaskUnitType:
-    description: "`ops.task.unit_type`, `ops.policy_rule.unit_type`, and `Method.unit_type` (D4 §1)."
+  LegacyTaskUnitType:
+    description: "Unit kinds of the frozen D3 task and policy tables; native runtime kinds extend this set."
     annotations: {ci:lifecycle: static}
     permissible_values:
       document: {}
       rendition: {}
-      source_view: {description: "A pinned native PDF section projection; never a rendition alias."}
       segment: {}
       span: {description: "M12's unit: a `kb.span` row (D4 §1)"}
       observation: {}
@@ -2984,6 +2983,12 @@ enums:
       identity_group: {}
       run: {}
       golden_unit: {}
+  TaskUnitType:
+    description: "Current method and native task unit kinds, extending the historical D3 vocabulary."
+    annotations: {ci:lifecycle: static}
+    inherits: [LegacyTaskUnitType]
+    permissible_values:
+      source_view: {description: "A pinned native PDF section projection; never a rendition alias."}
   TaskStatus:
     description: "`ops.task.status`."
     annotations: {ci:lifecycle: static}
@@ -3048,13 +3053,12 @@ enums:
       equivalent_to: {}
       alternative_of: {}
       refines: {}
-  MeasurementScope:
-    description: "`ops.measurement.scope_type`."
+  LegacyMeasurementScope:
+    description: "Subject kinds of the frozen D3 measurement table; native runtime scopes extend this set."
     annotations: {ci:lifecycle: static}
     permissible_values:
       run: {}
       rendition: {}
-      source_view: {description: "A pinned native PDF section projection; never a rendition alias."}
       segment: {}
       entity: {}
       claim: {}
@@ -3063,6 +3067,12 @@ enums:
       stage: {}
       method: {}
       rule: {}
+  MeasurementScope:
+    description: "Current native measurement subject kinds, extending the historical D3 vocabulary."
+    annotations: {ci:lifecycle: static}
+    inherits: [LegacyMeasurementScope]
+    permissible_values:
+      source_view: {description: "A pinned native PDF section projection; never a rendition alias."}
   InterventionKind:
     description: "`ops.intervention.kind`."
     annotations: {ci:lifecycle: static}

@@ -7,7 +7,7 @@ description: >-
   core/_model/ are generated from it, the vocabulary and model facts by Stage A and the Pydantic
   shapes by Stage B (P0-M-5). Native LinkML carries every meaning it can; the remaining ci:
   annotations are scalar and listed in D2 §3.
-version: 0.6.0
+version: 0.6.1
 license: https://creativecommons.org/publicdomain/zero/1.0/
 prefixes:
   linkml: https://w3id.org/linkml/
