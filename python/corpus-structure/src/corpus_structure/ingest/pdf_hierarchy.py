@@ -166,6 +166,7 @@ class ProjectedPiece:
     end: int
     kind: Literal["native_text", "synthetic_separator"]
     cell_index: int | None = None
+    source_field: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,18 +185,19 @@ def project_section(
     membership: Literal["direct", "descendant"],
     *,
     section_refs: frozenset[str],
+    node_index: dict[str, Any] | None = None,
 ) -> TextProjection:
     """One explicit section view, retaining tables/cells and synthetic separators."""
     if membership not in {"direct", "descendant"}:
         raise ValueError("membership must be direct or descendant")
-    nodes = native_nodes(document)
+    nodes = native_nodes(document) if node_index is None else node_index
     if section_ref not in section_refs or section_ref not in nodes:
         raise ValueError("section selector is not qualified by this organization")
     text: list[str] = []
     pieces: list[ProjectedPiece] = []
     position = 0
 
-    def append(value: str, ref: str, cell_index: int | None = None) -> None:
+    def append(value: str, ref: str, cell_index: int | None = None, source_field: str = "text") -> None:
         nonlocal position
         if not value:
             return
@@ -205,11 +207,13 @@ def project_section(
             position += 1
         text.append(value)
         pieces.append(
-            ProjectedPiece(ref, position, position + len(value), "native_text", cell_index)
+            ProjectedPiece(ref, position, position + len(value), "native_text", cell_index, source_field)
         )
         position += len(value)
 
     def visit(node: Any) -> None:
+        if node.content_layer.value != "body":
+            return
         if (
             node.self_ref != section_ref
             and node.self_ref in section_refs
@@ -218,7 +222,12 @@ def project_section(
             return
         if hasattr(node, "data") and hasattr(node.data, "table_cells"):
             for index, cell in enumerate(node.data.table_cells):
-                append(cell.text, node.self_ref, index)
+                reference = getattr(cell, "ref", None)
+                if reference is not None:
+                    formula = nodes[reference.cref]
+                    append(formula.text, formula.self_ref, index)
+                else:
+                    append(cell.text, node.self_ref, index, "cell_text")
             # Rich-cell formula children are represented by the cell above, not duplicated.
             return
         if hasattr(node, "text"):

@@ -31,6 +31,7 @@ class PdfRecipe:
     recipe_id: str = "docling-standard-pdf-v1"
     # Content-addressed prepared model assets; caller archives these bindings with recipe.
     model_artifacts: tuple[tuple[str, str], ...] = ()
+    model_revisions: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         if self.recipe_id != "docling-standard-pdf-v1":
@@ -42,6 +43,11 @@ class PdfRecipe:
             raise ValueError("device must be explicit CPU or CUDA")
         if self.parser_threads < 1 or self.stage_batch_size < 1 or (self.timeout_seconds is not None and self.timeout_seconds <= 0):
             raise ValueError("PDF capacity and deadline must be positive")
+        repositories: set[str] = set()
+        for repository, revision in self.model_revisions:
+            if not repository or repository in repositories or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+                raise ValueError("runtime model repository revisions must be unique immutable commits")
+            repositories.add(repository)
         names: set[str] = set()
         for name, digest in self.model_artifacts:
             if not name or name in names or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
@@ -196,6 +202,8 @@ class PdfConverter:
         )
         converter.initialize_pipeline(InputFormat.PDF)
         pipeline = next(iter(converter.initialized_pipelines.values()))
+        if not isinstance(pipeline, StandardPdfPipeline):
+            raise RuntimeError("PDF conversion did not initialize the admitted StandardPdfPipeline")
         for index, stage in enumerate(pipeline.enrichment_pipe):
             if isinstance(stage, CodeFormulaVlmModel):
                 self._formula = ObservedFormulaStage(stage)
@@ -481,6 +489,7 @@ def publication_payload(
         "recipe_digest": sha256(conversion.recipe).hexdigest(),
         "native_schema_version": selected.schema_version,
         "document": json.loads(selected.payload),
+        "inline_candidate_pages": [dataclasses.asdict(page) for page in conversion.inline_candidates],
         "health": {
             "conversion": conversion.conversion_status,
             "display_coverage": "unknown",

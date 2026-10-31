@@ -344,4 +344,7 @@ class ProfileSegments:
         return out
 
 
-METHODS = (IngestHtml(), SegmentSentences(), ProfileSegments())
+from .pdf_methods import IngestPdf
+
+# Retired HTML writer is retained only for historical fixture construction, never admitted.
+METHODS = (IngestPdf(), SegmentSentences(), ProfileSegments())

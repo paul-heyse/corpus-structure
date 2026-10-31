@@ -45,8 +45,8 @@ configs:                                               # named configurations, r
     default: {}
   evaluate.score:                                      # a stand-in until P0-E-2b
     default: {}
-  ingest.html:
-    default: {source_profile: siegrist, sentences: segment.sentences/default}   # both resolved into the hash
+  ingest.pdf:
+    default: {originals: [siegrist_random/Full_PDF/Full.pdf]}
   segment.sentences:
     default: {model: en_core_web_sm, variant: math_as_word, exclude: [ner, lemmatizer]}
                                                        # b′ (D4 M03): each inline math span and reference marker is one

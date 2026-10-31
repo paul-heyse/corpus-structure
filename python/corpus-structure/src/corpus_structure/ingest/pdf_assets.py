@@ -19,6 +19,7 @@ class PreparedPdfAssets:
     root: Path
     manifest: bytes
     files: tuple[tuple[str, str], ...]
+    repositories: tuple[tuple[str, str], ...] = ()
 
     @property
     def digest(self) -> str:
@@ -93,6 +94,6 @@ def prepare_pdf_assets(recipe: PdfRecipe, *, cache: Path, offline: bool = True) 
         except BaseException:
             shutil.rmtree(temporary, ignore_errors=True)
             raise
-    prepared = PreparedPdfAssets(destination, manifest, files)
+    prepared = PreparedPdfAssets(destination, manifest, files, tuple(revisions))
     prepared.verify()
     return prepared

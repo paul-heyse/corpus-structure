@@ -40,7 +40,7 @@ from corpus_structure.orchestrate.registry import MethodRegistry, load_methods
 from corpus_structure.orchestrate.runner import Graph, PassReport, Step
 from corpus_structure.validate.runner import RulesMethod
 
-M01, M02 = "ingest.html", "profile.segments"
+M01, M02 = "ingest.pdf", "profile.segments"
 M09, M11, M13 = "extract.math", "normalize.formula", "resolve.symbol_scope"
 
 PHASE0 = Graph(
