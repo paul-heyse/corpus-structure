@@ -6,7 +6,7 @@ _Updated 2026-10-31 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 - [PDF/Docling functional review](docs/functional_reviews/pdf-docling-pipeline_2026-10-31.md)
   and [target model](docs/functional_reviews/pdf-docling-pipeline_2026-10-31_target-model.md)
   propose PDF-only StandardPdfPipeline, native JSON custody, intact section hierarchy and
-  migrated consumers. No section chunking; OCR recovery is distinct from verification.
+  migrated consumers. Added layout/formula tuning and table-cell math gap guidance; no chunking.
   Source/API review completed 2026-10-31; conversion/inference/product qualification **not_run**.
   Recommendations do not change production, existing plans, architectural authority or audits.
 - **2026-10-31 docs:** `just docs-check` failed on concurrent title-less rendering-library draft.

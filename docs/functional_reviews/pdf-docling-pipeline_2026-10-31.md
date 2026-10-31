@@ -19,7 +19,7 @@ units, not new document sections or persistent semantic chunks.
 Inspected production baseline: `5a6045f4813769af5706c2530b6c6da398450b91`, with current
 `STATUS.md` and completed PP-00–PP-10 coordinator. Concurrent modifications to the supplied
 `docs/libraries/docling.md` and untracked `docs/libraries/pdf_rendering_libraries.md` are operator
-inputs, not review-authored changes. The 1,601-line Docling reference and 864-line [OCR guide](../libraries/docling_ocr.md) were read end to end.
+inputs, not review-authored changes. The 1,601-line Docling reference and [OCR guide](../libraries/docling_ocr.md), including the added technical-PDF guidance at lines 867–1044, were reviewed.
 The standard is core 3.3, efficiency heuristics 1.0, applicable code-intelligence fidelity and
 relationship guidance 1.4, and the repository binding. This functional inquiry requires no
 broad diagnostic audit; no audit premises were changed.
@@ -84,6 +84,25 @@ Default formula candidate is `CodeFormulaVlmOptions.from_preset("codeformulav2")
 supported runtime. This is a formula enrichment model inside StandardPdfPipeline, not adoption
 of `VlmPipeline` for whole-document conversion. A selected pipeline does not forbid its own
 native enrichment stages.
+
+For this mathematical corpus, prioritize **layout detection plus formula enrichment before
+adding general OCR passes**. Explicitly bind
+`LayoutObjectDetectionOptions.from_preset("layout_heron_default")` as the starting layout
+candidate and compare `layout_egret_large` on representative dense equations, inline mathematics,
+headings and formula-bearing tables. The tagged API recommends Egret Large/Xlarge for complex
+documents, but no Siegrist-specific quality/throughput advantage is established. Evaluate element
+detection separately from transcription: a stronger formula recognizer cannot repair a formula
+region that layout never exposes. Select the layout after this focused comparison rather than
+silently inherit the default or mandate the largest model.
+
+Make formula crop policy part of the archived conversion specification:
+`CodeFormulaVlmOptions.from_preset("codeformulav2", scale=2.0,
+expansion_factor=0.18, stop_on_repetition=True)`, with `max_size` and `engine_options` explicit
+when selected. For dense equations or equation-number contamination, compare a reduced margin
+such as `0.08`; do not adopt it globally without checking clipped bounds, subscripts and neighboring
+content. Repetition stopping limits pathological generation; it does not prove faithful math.
+`granite_docling` is a native alternative **formula-stage** preset to investigate for demonstrated
+CodeFormulaV2 failures, separate from replacing the whole document pipeline.
 
 **Material uncertainty:** the tagged formula enrichment catches inference-batch exceptions,
 logs them, and yields original items unchanged. A formula label or nonempty `text` therefore
@@ -198,8 +217,28 @@ Recognition availability is independent of lazy symbolic demand.
 
 **Investigations before deletion:** inline mathematics left inside ordinary prose, multi-line
 formulas, equation numbers, matrices/sets/relations, recognition failures, and `f(x)` ambiguity.
-An absent formula item does not establish absence of mathematics. Preserve unsupported/unknown
-coverage and a source-region inspection/reconversion remedy. Do not add a second recognizer
+An absent formula item does not establish absence of mathematics. In particular, formulas
+inside ordinary PDF table cells are a **specific known enrichment gap**, not merely another
+inline-text edge case. [Upstream issue #3828](https://github.com/docling-project/docling/issues/3828)
+is open as checked 2026-10-31; tagged 2.145.0 enrichment admits code/formula text items, not
+ordinary `TableCell` text. Core's rich-cell references can represent a formula relationship,
+but that capacity does not establish that PDF conversion populates it.
+
+Before retiring supported table-math handling, inspect actual Siegrist formula-bearing cells.
+If the gap is encountered, prefer a supported cell-aware enrichment extension that reuses the
+existing cell bounding box/page backend and produces a `FormulaItem` linked through a rich-cell
+reference in a derived DoclingDocument. Preserve original cell text, new recognition evidence,
+cell/section ancestry and health; do not attempt to reconstruct lost two-dimensional notation
+from jumbled plain cell text. If no suitable supported extension exists, record the unresolved
+capability and compare Docling-supported `mineru2_pro` (MinerU2.5-Pro) or Nemotron 3.5 Parse on
+the affected pages as **investigative alternatives**, not additional selected entry pipelines.
+Any eventual replacement of StandardPdfPipeline needs an explicit revised recommendation and
+native-text/provenance comparison. Nemotron Parse is distinct from Nemotron-OCR.
+
+Formula coverage must distinguish ordinary detected formulas, inline prose math and table-cell
+math, with explicit unassessed/unsupported regions. A successful document conversion or a
+nonempty formula list cannot close all three. Preserve unsupported/unknown coverage and a
+source-region inspection/reconversion remedy. Do not add a second recognizer
 preemptively; resolve actual selected-adapter coverage first.
 
 <a id="O05"></a>
@@ -291,9 +330,14 @@ old meanings without retaining active HTML conversion or promising to rerun old 
 **Value:** recover image/vector text and broken encodings while preserving useful native text.
 Use `RapidOcrOptions(backend="onnxruntime", lang=["iso:en"],
 mode=OcrMode.PDF_AWARE_LAYOUT_REGIONS, replace_broken_text_layer=True)` as the recommended
-initial recipe, subject to corpus/runtime qualification. Archive model weights/revisions,
+initial recipe, with `model_size="small"`, subject to corpus/runtime qualification. Compare
+`medium` only for observed difficult text; larger general OCR is not a replacement for layout
+or formula structure. Archive model weights/revisions,
 `scale`, thresholds, language, orientation and runtime configuration. RapidOCR's default
-language is not English, so explicit language is material. `OcrAutoOptions` selects one
+language is not English, so explicit language is material. A pipeline CUDA accelerator setting does not establish that
+RapidOCR/ONNX actually uses a CUDA execution provider. Record the resolved provider/device per
+stage and verify availability rather than assume every model shares the same accelerator.
+`OcrAutoOptions` selects one
 available engine, not an ensemble, and can change results with installed packages.
 
 Tagged `base_ocr_model.py` confirms PDF-aware selection uses PDF-first geometric merging.
@@ -332,8 +376,8 @@ Primary mechanism: [tagged OCR selection and merge implementation](https://githu
 
 ## 11. Alternatives, priority and decision impacts
 
-The coherent sequence is O01/O02/O03 foundation, O04/O05 consumer redesign, then O06/O07 with O08's explicit primary OCR recipe
-integration/retirement. These are recommendation dependencies, not a new execution plan.
+The coherent sequence is O01/O02/O03 foundation with O08's explicit primary OCR recipe,
+O04/O05 consumer redesign, then O06/O07 integration/retirement. These are recommendation dependencies, not a new execution plan.
 
 | Candidate | Disposition in this review | Trigger or reason |
 |---|---|---|
@@ -343,7 +387,9 @@ integration/retirement. These are recommendation dependencies, not a new executi
 | Hierarchical/Hybrid/token chunkers | Deferred, not planned | Actual required consumer fails on a measured large section; preserve child hierarchy if reopened. |
 | Figure/page-region evidence | Recommended capability | Source-grounded inspection; exact retained raster policy needs consumer choice. |
 | Chart extraction/picture descriptions/code enrichment | Conditional | Named analysis consumer and attributable uncertainty; not baseline enrichment. |
-| TableFormer V2 preview / whole-document VLM | Not baseline | Evidence of a material StandardPdfPipeline limitation on this corpus. |
+| Heron versus Egret Large layout | Focused comparison recommended | Formula/heading/table-region detection on actual dense Siegrist pages; not an assumed global accuracy gain. |
+| Formula-stage Granite Docling | Conditional comparison | Demonstrated CodeFormulaV2 transcription failure; retains StandardPdfPipeline entry. |
+| TableFormer V2 preview / whole-document VLM | Not baseline | Material corpus limitation; `mineru2_pro` or Nemotron 3.5 Parse are diagnostic candidates, not approved parallel pipelines. |
 | Native widget extraction | Deferred | A supported corpus containing native forms; this PDF reports no forms. |
 | Raw glyph/font/annotation inventory | Conditional | Concrete evidence or geometry requirement not served by native JSON/original PDF. |
 | New graph/service/workflow system | Not selected | No consumer requiring machinery beyond current Core/native operations. |
@@ -365,7 +411,10 @@ probe environment if needed. Do not substitute broad synthetic tests for these u
 |---|---|
 | Corpus hierarchy | Sections/subsections on representative book regions; establish level-to-container mapping, no automatic chunks. |
 | OCR selection and repair | Native/image/vector cases plus detectably broken text; preserve native precedence and distinguish unverified from verified content. |
-| Formula coverage/health | Inline and displayed math, inference failure and equation numbers; successful LaTeX distinguished from unchanged fallback text. |
+| Layout/formula composition | Compare Heron/Egret Large on missed/misclassified regions, then crop margins/repetition controls on transcription; distinguish detection from recognition. |
+| Formula coverage/health | Inline/display/table-cell math, inference failure and equation numbers; successful LaTeX distinguished from unchanged fallback text and unsupported cells. |
+| Table-math structure | Actual formula-bearing cells retain cell→formula and section relationships; unresolved enrichment is an explicit gap, not complete coverage. |
+| Per-stage acceleration | Resolved ONNX provider and model device recorded; CUDA configuration alone is not execution evidence. |
 | Direct mathematical input | Feed actual recognized formulas to native SymPy; characterize ambiguity, unsupported constructs and occurrence needs. |
 | Table/figure structure | Cell/header/caption evidence and page transition; no false exact numerical/chart recovery or table-continuation claim. |
 | Native round trip | JSONB reload and tree/reference consistency, geometry precision, artifact availability, original PDF integrity. |
@@ -392,7 +441,7 @@ Production pointers are relative to `python/corpus-structure/src/corpus_structur
 - `semantic/{parsing_products,parsing_requests,contracts,archive_reader,metadata}.py`: custody,
   demand, implementation archive, historical decoding and physical authority.
 
-Primary library sources (read 2026-10-31):
+Primary library sources (read 2026-10-31; technical-PDF guidance reconciled in place):
 
 - [Docling 2.145.0 pipeline/options](https://github.com/docling-project/docling/blob/v2.145.0/docling/pipeline/standard_pdf_pipeline.py),
   [backend controls](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/backend_options.py),
