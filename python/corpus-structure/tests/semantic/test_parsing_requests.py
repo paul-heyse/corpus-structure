@@ -9,8 +9,6 @@ from sqlalchemy import func, select
 
 from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.vocab import SegmentKind
-from corpus_structure.ingest.html import _parse_with_capture
-from corpus_structure.ingest.source_capture import Extent, Projection
 from corpus_structure.ingest.text_product import text_product_artifacts, text_product_payload
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
@@ -49,12 +47,10 @@ def source_build(admin, writer, tmp_path, *, canonical="x+x", macros=None, range
 
     prepared = setup(admin, observations=True, composed=True)
     raw = ("<p>" + canonical + "</p>").encode()
-    _, _, capture = _parse_with_capture(raw)
-    pure = capture.finish(
-        canonical,
-        (Projection(0, len(canonical), (Extent(3, 3 + len(canonical)),), category="math"),),
-    )
-    source = prepare_parsing_product(pure.values(), raw)
+    from pathlib import Path
+
+    archive = json.loads((Path(__file__).with_name("fixtures") / "retained-html-inputs.json").read_bytes())
+    source = prepare_parsing_product(archive["request_sources"][canonical], raw)
     dependencies = canonical_bytes(
         {
             "operations": {

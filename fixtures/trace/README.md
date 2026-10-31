@@ -21,6 +21,12 @@ product locator generator (`corpus_structure.core.locators`).
 
 The reader and the support models are `python/corpus-structure/tests/fixtures/support.py`.
 
+`archived-renditions.json` retains the four historical rendition inputs from the HTML writer
+at `7e6289a`, captured on 2026-10-31 in an isolated exported source tree. Each input records its
+original SHA-256. Archived-reference and scientific tests read these inputs after retirement of
+the application HTML writer. Existing target assertions remain independently authored and unchanged;
+these snapshots establish no PDF parsing or fidelity result.
+
 ## Segments (`<unit>.segments.json`, model `TraceSegments`)
 
 | Field | Content |

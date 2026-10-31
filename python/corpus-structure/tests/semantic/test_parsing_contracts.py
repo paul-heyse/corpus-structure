@@ -1,6 +1,8 @@
 """Source-defined parsing contract, provenance and bounded native-reader examples."""
 
+import base64
 import json
+from pathlib import Path
 from dataclasses import replace
 
 import pytest
@@ -23,9 +25,9 @@ def test_actual_producer_operations_are_admitted_but_unbound_declarations_refuse
         "prepare_parsing_text",
         "interpret_parsing_math",
         "assess_parsing_math",
-        "decompose_source",
-        "recognize_html",
-        "project_canonical",
+        "retain_pdf_original",
+        "prepare_native_document",
+        "publish_native_document",
     )
     for name in names:
         assert model.require_operation(name).implementation == name
@@ -101,29 +103,12 @@ def test_unsupported_role_cardinality_and_adapter_revision_refuse():
         )
 
 
-@pytest.mark.parametrize(
-    "raw",
-    [
-        b"<p>a&amp;b</p>",
-        b"<table>a<tr><td>b</table>",
-        b'<p A="x" a="y" empty="">text</p>',
-        b"<p>a\x00b</p>",
-        b"\xef\xbb\xbf<p>\xc3\xa9\r\nx</p>",
-    ],
-)
-def test_actual_html_products_satisfy_the_prepared_contract(raw):
-    from corpus_structure.ingest.html import build_rendition
-    from corpus_structure.ingest.profile import compile_profile, load_profile
-    from corpus_structure.ingest.sentences import SentenceConfig
-
-    result = build_rendition(
-        raw,
-        compile_profile(load_profile("siegrist")),
-        SentenceConfig(),
-        source_uri="siegrist_random/random/test/Page.html",
-    )
-    assert result.parsing_product is not None
-    product = prepare_parsing_product(result.parsing_product.values(), raw)
+@pytest.mark.parametrize("case", range(5))
+def test_archived_html_inputs_satisfy_the_retained_contract(case):
+    archive = json.loads((Path(__file__).with_name("fixtures") / "retained-html-inputs.json").read_bytes())
+    retained = archive["parsing"][case]
+    raw = base64.b64decode(retained["original_base64"])
+    product = prepare_parsing_product(retained["payload"], raw)
     values = product.values()
     assert values["provenance_universe"] == "canonical_output"
     assert values["provenance_state"] == "complete"

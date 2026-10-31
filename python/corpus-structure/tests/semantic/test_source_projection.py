@@ -1,11 +1,9 @@
+import json
 from pathlib import Path
 
 import pytest
 
-from corpus_structure.core.evidence import content_digest, rendition_key, segment_key
-from corpus_structure.ingest.html import build_rendition
-from corpus_structure.ingest.profile import compile_profile, load_profile
-from corpus_structure.ingest.sentences import SentenceConfig
+from corpus_structure.core.evidence import RenditionContent, content_digest, rendition_key, segment_key
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.consolidation import assemble
 from corpus_structure.semantic.source_projection import project_markup
@@ -38,30 +36,22 @@ classes:
             ),
         )
     prepared = prepare_release(SourceBundle(root, sources))
-    result = build_rendition(
-        (
-            b'<html><body><div class="unit" id="theorem"><p class="math">A '
-            b"theorem.</p><details><summary>Proof</summary><p>The "
-            b"proof.</p></details></div></body></html>"
-        ),
-        compile_profile(load_profile("siegrist")),
-        SentenceConfig(),
-        source_uri="siegrist_random/random/test/Page.html",
-    )
-    rk = rendition_key("document:test", content_digest(result.content))
+    archive = json.loads((Path(__file__).with_name("fixtures") / "retained-html-inputs.json").read_bytes())["markup"]
+    content = RenditionContent.model_validate(archive["content"])
+    rk = rendition_key("document:test", content_digest(content))
     projections = []
-    for i, draft in enumerate(result.markup):
+    for i, draft in enumerate(archive["markup"]):
         projections.append(
             project_markup(
                 prepared,
                 "realization",
                 observation_key=f"observation:{i}",
-                payload=draft.payload.model_dump(mode="json", by_alias=True),
-                content=result.content,
-                page=result.page,
+                payload=draft["payload"],
+                content=content,
+                page=archive["page"],
                 source_uri="siegrist_random/random/test/Page.html",
                 rendition_key=rk,
-                segment_key=segment_key(rk, draft.segment.kind, draft.segment[1], draft.segment[2]),
+                segment_key=segment_key(rk, *draft["segment"]),
                 provider="ingest.html",
                 operation_version="test",
             )

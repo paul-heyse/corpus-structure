@@ -6,13 +6,11 @@ from pathlib import Path
 import pytest
 import yaml
 
+from corpus_structure.core.evidence import RenditionContent
 from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.locators import parse as parse_locator
 from corpus_structure.evaluate.sampling import GoldenSetError, PoolUnit, sample
 from corpus_structure.evaluate.semantic import ReferenceError, _forced_slice_units
-from corpus_structure.ingest.html import build_rendition
-from corpus_structure.ingest.profile import compile_profile, load_profile
-from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.semantic.proposals import ProposalFrame, ProposalSentence, locate_proposal
 from corpus_structure.semantic.regeneration import prepare_pack
 
@@ -22,17 +20,11 @@ ROOT = Path(__file__).resolve().parents[4]
 @pytest.fixture(scope="module")
 def trace_source():
     batches = json.loads((ROOT / "fixtures/trace/semantic-trace-reference.json").read_bytes())
-    content = {}
-    for batch in batches:
-        page = parse_locator(batch["unit_ref"]).page
-        if page not in content:
-            raw = (ROOT / "fixtures/trace/corpus/siegrist_random/random" / page).read_bytes()
-            content[page] = build_rendition(
-                raw,
-                compile_profile(load_profile("siegrist")),
-                SentenceConfig(),
-                source_uri="siegrist_random/random/" + page,
-            ).content
+    archive = json.loads((ROOT / "fixtures/trace/archived-renditions.json").read_bytes())
+    content = {
+        page: RenditionContent.model_validate(value["content"])
+        for page, value in archive["pages"].items()
+    }
     return batches, content
 
 
