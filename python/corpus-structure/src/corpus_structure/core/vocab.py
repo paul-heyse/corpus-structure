@@ -401,6 +401,7 @@ class TaskUnitType(StrEnum):
 
     DOCUMENT = "document"
     RENDITION = "rendition"
+    SOURCE_VIEW = "source_view"
     SEGMENT = "segment"
     SPAN = "span"
     OBSERVATION = "observation"

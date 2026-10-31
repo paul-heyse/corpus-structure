@@ -51,6 +51,8 @@ from corpus_structure.core.vocab import (
 
 if typing.TYPE_CHECKING:
     from corpus_structure.ingest.sentences import TextLayout
+    from corpus_structure.semantic.pdf_contracts import PreparedPdfProduct
+    from corpus_structure.semantic.source_views import PreparedSourceView
     from corpus_structure.semantic.parsing_products import (
         PreparedLayeredParsingProduct,
         PreparedParsingProduct,
@@ -116,6 +118,67 @@ class UnitRef:
     unit_type: TaskUnitType
     unit_id: int | None = None
     unit_key: str | None = None
+
+
+
+@dataclass(frozen=True, slots=True)
+class SourceViewRef:
+    id: int
+    key: str
+    document_id: int
+    native_product: ProductReference
+    section_pointer: str
+    membership: Literal["direct", "descendants"]
+    projection_digest: str
+    recipe_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class SourceViewDraft:
+    key: str
+    document_id: int
+    native_product: ProductReference
+    section_pointer: str
+    membership: Literal["direct", "descendants"]
+    text: str
+    pieces: tuple[Mapping[str, JsonValue], ...]
+    items: tuple[str, ...]
+    ancestors: tuple[str, ...]
+    health: Mapping[str, JsonValue]
+    recipe_bytes: bytes
+    _projection: bytes = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if not self.key or self.document_id < 1 or self.membership not in {"direct", "descendants"}:
+            raise ValueError("source view requires original custody and explicit section membership")
+        value = {"text": self.text, "pieces": self.pieces, "items": self.items,
+                 "ancestors": self.ancestors, "health": self.health}
+        object.__setattr__(self, "_projection", canonical_json(value))
+        if len(set(self.items)) != len(self.items):
+            raise ValueError("source view items must retain distinct native occurrence identity")
+        position = 0
+        for piece in self.pieces:
+            if piece["start"] != position or not isinstance(piece["end"], int) or not isinstance(piece["start"], int):
+                raise ValueError("source view pieces do not partition projected text")
+            if piece["end"] <= position:
+                raise ValueError("source view piece must have positive extent")
+            position = piece["end"]
+            if position > len(self.text):
+                raise ValueError("source view piece exceeds projected text")
+        if position != len(self.text):
+            raise ValueError("source view pieces do not cover projected text")
+
+    @property
+    def projection_digest(self) -> str:
+        return hashlib.sha256(self._projection).hexdigest()
+
+    @property
+    def recipe_digest(self) -> str:
+        return hashlib.sha256(self.recipe_bytes).hexdigest()
+
+    def projection(self) -> dict[str, Any]:
+        import json
+        return json.loads(self._projection)
 
 
 class RunRendition(NamedTuple):
@@ -207,6 +270,14 @@ class Reader(Protocol):
     def require_parsing_operations(self, names: Sequence[str]) -> None:
         """Refuse unsupported parsing operations against this run's archived contract."""
         ...
+
+    def source_views(self) -> Sequence[SourceViewRef]: ...
+
+    def source_view(self, source_view_id: int) -> PreparedSourceView: ...
+
+    def native_product_reference(self, document_id: int, product_key: str, digest: str) -> ProductReference: ...
+
+    def prepare_pdf_product(self, payload: Mapping[str, Any], original: bytes, schema_bytes: bytes, recipe_bytes: bytes) -> PreparedPdfProduct: ...
 
     def renditions(self) -> Sequence[RunRendition]:
         """The run's documents and its rendition of each."""
@@ -318,6 +389,7 @@ class UnitView:
     run: SourceRunContext
     document_id: int | None = None
     rendition_id: int | None = None
+    source_view_id: int | None = None
 
 
 # --- Drafts and results ------------------------------------------------------------------------
@@ -348,6 +420,9 @@ class ObservationDraft[P: BaseModel]:
     outcome: ObservationOutcome = ObservationOutcome.PRODUCED
     confidence_source: ConfidenceSource | Literal[_Source.METHOD] | None = METHOD_SOURCE
     input_refs: tuple[SourceObservationReference, ...] = ()
+    source_view_id: int | None = None
+    native_pointer: str | None = None
+    projected_span: tuple[int, int] | None = None
 
     def __post_init__(self) -> None:
         if type(self.payload) is not self.payload_class:
@@ -428,6 +503,8 @@ class UnitResult:
     parsing_product: PreparedParsingProduct | None = None
     parsing_products: PreparedParsingProductSet | None = None
     coverage: tuple[CoverageDraft, ...] = ()
+    native_products: tuple[PreparedPdfProduct, ...] = ()
+    source_views: tuple[SourceViewDraft, ...] = ()
 
     def __post_init__(self) -> None:
         if self.text_layouts and self.rendition is None:
