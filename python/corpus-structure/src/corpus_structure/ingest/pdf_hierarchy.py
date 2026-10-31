@@ -89,6 +89,12 @@ class SectionPolicy:
 
 @dataclass(frozen=True, slots=True)
 class SectionBasis:
+    """Convenience index over persisted facts, not an independent provenance artifact.
+
+    A new group's first child is its source heading; native heading.level and the producing
+    task's archived section policy provide level/rule. The parent product pin distinguishes
+    pre-existing native groups from newly allocated organizational groups by pointer presence.
+    """
     group_ref: str
     heading_ref: str
     level: int
@@ -105,6 +111,13 @@ class OrganizedDocument:
 
 
 def organize(source: NativeSnapshot, policy: SectionPolicy) -> OrganizedDocument:
+    """Derive containers while retaining source occurrence pointers and native reading order.
+
+    Each newly allocated group has its triggering native heading as its first child.
+    Publication binds the immutable parent native product and producer configuration; together
+    with that heading/containment relation they preserve the meaning indexed by SectionBasis.
+    Existing native groups keep their original pointers and remain identifiable in the parent.
+    """
     from docling_core.types.doc import ContentLayer, DocItemLabel, GroupLabel
 
     document = load_snapshot(source)

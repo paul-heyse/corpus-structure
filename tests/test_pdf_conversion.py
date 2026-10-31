@@ -100,7 +100,14 @@ def test_organization_keeps_proof_local_and_direct_membership_distinct():
     assert len(result.sections) == 3
     assert source.payload == snapshot(document).payload
     derived = load_snapshot(result.document)
-    assert original_refs <= native_nodes(derived).keys()
+    derived_nodes=native_nodes(derived)
+    assert original_refs <= derived_nodes.keys()
+    assert derived_nodes.keys()-original_refs=={section.group_ref for section in result.sections}
+    for section in result.sections:
+        group=derived_nodes[section.group_ref]
+        assert group.children[0].cref==section.heading_ref
+        assert derived_nodes[section.heading_ref].level==section.level
+        assert section.rule_id=='numbered-book-headings-v1'
     sections = frozenset(s.group_ref for s in result.sections)
     direct = project_section(
         derived,
