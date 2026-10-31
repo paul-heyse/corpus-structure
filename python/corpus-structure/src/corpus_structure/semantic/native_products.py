@@ -19,7 +19,7 @@ from sqlalchemy.schema import (
 from .metadata import metadata
 
 NATIVE_PREDECESSOR = "semantic_0047"
-NATIVE_REVISION = "semantic_0053"
+NATIVE_REVISION = "semantic_0054"
 
 
 def selected_fact_query():
@@ -917,9 +917,9 @@ def parsing_contract_products(model=None) -> tuple[NativeProduct, ...]:
 
 def forward_products(model=None) -> tuple[NativeProduct, ...]:
     """Author the native PDF custody extension; historical revisions stay frozen."""
-    from .native_syntax_native import native_syntax_products
+    from .native_ocr_native import native_ocr_products
 
-    return native_syntax_products(model)
+    return native_ocr_products(model)
 
 
 def parsing_publication_sql(

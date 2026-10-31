@@ -426,33 +426,13 @@ def prepare_pdf_product(
             raise ValueError("native effective options must be an upstream option object")
         if "confidence" in runtime and not isinstance(json.loads(runtime["confidence"]), dict):
             raise ValueError("native confidence must be its upstream report object")
-        for field in ("packages", "bindings"):
-            names = [row["name"] for row in runtime.get(field, ())]
+        for runtime_field in ("packages", "bindings"):
+            names = [row["name"] for row in runtime.get(runtime_field, ())]
             if len(names) != len(set(names)):
                 raise ValueError("native runtime report repeats a named binding")
-    candidate_pages = set()
-    for page in value.get("inline_candidate_pages", []):
-        page_no = page["page_no"]
-        if page_no in candidate_pages or str(page_no) not in document.get("pages", {}):
-            raise ValueError("inline candidate page is duplicate or outside native scope")
-        candidate_pages.add(page_no)
-        dimensions = document["pages"][str(page_no)]["size"]
-        for candidate in page.get("candidates", []):
-            if (
-                candidate["page_no"] != page_no
-                or candidate["origin"] not in {"TOPLEFT", "BOTTOMLEFT"}
-                or candidate["basis"]
-                not in {"native-math-font-v1", "native-math-token-v1", "native-vector-gap-v1"}
-            ):
-                raise ValueError("inline candidate has an unqualified page/origin/basis")
-            if not (
-                0 <= candidate["left"] <= candidate["right"] <= dimensions["width"]
-                and 0
-                <= min(candidate["top"], candidate["bottom"])
-                <= max(candidate["top"], candidate["bottom"])
-                <= dimensions["height"]
-            ):
-                raise ValueError("inline candidate is outside physical page")
+    from .pdf_ocr_contracts import validate_pdf_ocr_pages
+
+    validate_pdf_ocr_pages(value)
     result = PreparedPdfProduct(
         canonical_bytes(value), original, schema_bytes, recipe_bytes, context.contract_digest
     )

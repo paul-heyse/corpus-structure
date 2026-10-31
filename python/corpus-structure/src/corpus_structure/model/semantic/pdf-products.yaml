@@ -71,7 +71,7 @@ enums:
   PdfRecognitionUniverse:
     permissible_values: {display: {}, inline: {}, cell: {}}
   PdfRecognitionPolicy:
-    permissible_values: {detected-native-display-v1: {}, native-font-token-vector-v2: {}, all-nonempty-selected-cells-v1: {}}
+    permissible_values: {detected-native-display-v1: {}, native-font-token-vector-v2: {}, native-font-token-vector-ocr-word-v3: {}, all-nonempty-selected-cells-v1: {}}
   PdfCellClassification:
     permissible_values: {math: {}, prose: {}, unknown: {}}
   PdfCellClassificationBasis:
@@ -79,6 +79,7 @@ enums:
       native-candidate-intersection: {}
       native-math-token: {}
       native-word-text: {}
+      ocr-word-text: {}
       native-rich-reference: {}
       unresolved-native-evidence: {}
   PdfDerivationKind:
@@ -109,9 +110,14 @@ enums:
     permissible_values:
       native-math-font-or-token-v1: {}
       native-font-token-vector-v2: {}
+      native-font-token-vector-ocr-word-v3: {}
   PdfCellCandidatePolicy:
     permissible_values:
       all-nonempty-selected-cells-v1: {}
+  PdfNativeTextQuality:
+    permissible_values: {broken: {}, not_flagged: {}, unassessed: {}}
+  PdfOcrInventoryOutcome:
+    permissible_values: {complete: {}, partial: {}, unknown: {}}
 classes:
   PdfItemAddress:
     attributes:
@@ -633,6 +639,9 @@ classes:
         range: PdfString
         required: false
         slot_uri: pdf:PdfInlineCandidate_after
+      ocr_region_index: {range: PdfInteger, required: false, minimum_value: 0, slot_uri: 'pdf:PdfInlineCandidate_ocr_region_index'}
+      ocr_line_index: {range: PdfInteger, required: false, minimum_value: 0, slot_uri: 'pdf:PdfInlineCandidate_ocr_line_index'}
+      ocr_word_index: {range: PdfInteger, required: false, minimum_value: 0, slot_uri: 'pdf:PdfInlineCandidate_ocr_word_index'}
   PdfInlineCandidatePage:
     attributes:
       page_no:
@@ -659,6 +668,8 @@ classes:
         inlined: true
         inlined_as_list: true
         slot_uri: pdf:PdfInlineCandidatePage_candidates
+      native_text_quality: {range: PdfNativeTextQuality, required: false, slot_uri: 'pdf:PdfInlineCandidatePage_native_text_quality'}
+      ocr_regions: {range: PdfOcrRegion, required: false, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfInlineCandidatePage_ocr_regions'}
   PdfNativeSourceScope:
     attributes:
       kind:
@@ -829,3 +840,44 @@ classes:
     is_a: PdfFrameSource
     attributes:
       context_sources: {range: PdfFrameSource, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfNativeProposalFrame_context_sources'}
+  PdfOcrInlineCoverage:
+    is_a: PdfRecognitionCoverage
+    attributes:
+      universe: {range: string, required: true, equals_string: inline, slot_uri: 'pdf:PdfRecognitionCoverage_universe'}
+      policy: {range: string, required: true, equals_string: native-font-token-vector-ocr-word-v3, slot_uri: 'pdf:PdfRecognitionCoverage_policy'}
+  PdfOcrWord:
+    description: Provider-estimated axis-aligned CTC word geometry and offsets within a recognized OCR line; never original PDF glyph custody.
+    attributes:
+      word_index: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: 'pdf:PdfOcrWord_word_index'}
+      text: {range: PdfString, required: true, slot_uri: 'pdf:PdfOcrWord_text'}
+      confidence: {range: PdfNumber, required: true, minimum_value: 0, maximum_value: 1, slot_uri: 'pdf:PdfOcrWord_confidence'}
+      start: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: 'pdf:PdfOcrWord_start'}
+      end: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: 'pdf:PdfOcrWord_end'}
+      raster_left: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrWord_raster_left'}
+      raster_top: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrWord_raster_top'}
+      raster_right: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrWord_raster_right'}
+      raster_bottom: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrWord_raster_bottom'}
+      left: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrWord_left'}
+      top: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrWord_top'}
+      right: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrWord_right'}
+      bottom: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrWord_bottom'}
+  PdfOcrLine:
+    attributes:
+      line_index: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: 'pdf:PdfOcrLine_line_index'}
+      text: {range: PdfString, required: true, slot_uri: 'pdf:PdfOcrLine_text'}
+      words: {range: PdfOcrWord, required: true, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfOcrLine_words'}
+  PdfOcrRegion:
+    description: Unrotated OCR crop in PDF TOPLEFT points; scale is raster pixels per PDF point. Word geometry is an estimate from this raster, not native glyph placement.
+    attributes:
+      region_index: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: 'pdf:PdfOcrRegion_region_index'}
+      engine: {range: string, required: true, equals_string: rapidocr, slot_uri: 'pdf:PdfOcrRegion_engine'}
+      raster_width: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: 'pdf:PdfOcrRegion_raster_width'}
+      raster_height: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: 'pdf:PdfOcrRegion_raster_height'}
+      scale: {range: PdfNumber, required: true, minimum_value: 0, slot_uri: 'pdf:PdfOcrRegion_scale'}
+      orientation: {range: PdfInteger, required: true, minimum_value: 0, maximum_value: 0, slot_uri: 'pdf:PdfOcrRegion_orientation'}
+      outcome: {range: PdfOcrInventoryOutcome, required: true, slot_uri: 'pdf:PdfOcrRegion_outcome'}
+      lines: {range: PdfOcrLine, required: true, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfOcrRegion_lines'}
+      left: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrRegion_left'}
+      top: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrRegion_top'}
+      right: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrRegion_right'}
+      bottom: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrRegion_bottom'}
