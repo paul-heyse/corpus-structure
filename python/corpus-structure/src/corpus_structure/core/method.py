@@ -26,7 +26,7 @@ import hashlib
 import logging
 import math
 import typing
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from enum import Enum
@@ -582,15 +582,21 @@ class MethodSettings(BaseModel):
     model_cache: Path
 
 
+def _unleased_operation() -> None:
+    """Standalone method kernels have no external task lease to maintain."""
+
+
 @dataclass(frozen=True, slots=True)
 class MethodContext:
     """What `run` receives beside its units: the run view, its reader, the settings view and a
-    logger."""
+    logger. The execution owner supplies check_active for leased work; native workers poll
+    that control port without acquiring database or lease ownership."""
 
     run: SourceRunContext
     reader: Reader
     settings: MethodSettings
     logger: logging.Logger
+    check_active: Callable[[], None] = _unleased_operation
 
 
 # --- Configuration references ------------------------------------------------------------------
