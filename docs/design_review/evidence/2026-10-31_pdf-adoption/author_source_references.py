@@ -24,6 +24,7 @@ from hashlib import sha256
 from pathlib import Path
 
 from sqlalchemy import select, text
+from jsonschema.validators import validator_for
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
@@ -187,6 +188,8 @@ def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, sou
     command = shutil.which("claude")
     if command is None:
         raise RuntimeError("authenticated Claude CLI is required")
+    validator_class = validator_for(schema)
+    validator_class.check_schema(schema)
     schema_text = canonical_bytes(schema).decode()
     if len(schema_text.encode()) > 100_000:
         raise ValueError("schema exceeds safe single CLI argument size; do not weaken the rich schema")
@@ -246,6 +249,7 @@ def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, sou
     if response.get("session_id") != session:
         raise RuntimeError("provider response differs from independent session identity")
     value = response["structured_output"]
+    validator_class(schema).validate(value)
     write_new(directory / f"{kind}.structured.json", canonical_bytes(value))
     return value
 
