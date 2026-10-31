@@ -29,6 +29,12 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0035](0035-model-governed-analysis.md) | One interpretation authority governs prepared analytical representations | 2026-10-30 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0012](0012-math-grammar-token-keys.md) |
 | [ADR-0038](0038-pdf-native-docling-products.md) | Use PDF-native Docling products under governed domain contracts | 2026-10-31 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0036](0036-representation-qualified-parsing-products.md), [ADR-0037](0037-layered-parsing-products.md) |
 
+## Proposed: open choices, not accepted decisions
+
+| ADR | Title | Date | Governs | Evidence | Replaces |
+|---|---|---|---|---|---|
+| [ADR-0039](0039-joint-stream-interpretation.md) | Stream outputs are observations combined by calibrated joint inference | 2026-10-31 |  | Proposed |  |
+
 ## Superseded, still in the tree
 
 | ADR | Title | Date | Governs | Evidence | Replaces |

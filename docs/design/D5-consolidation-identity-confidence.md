@@ -849,3 +849,110 @@ remain atomic. Candidate input construction derives admitted occurrence/evidence
 while external inputs retain full independent boundary enforcement.
 
 > Decision: [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+## 14. Joint interpretation of stream observations
+
+**Proposed (2026-10-31); stage-1 machinery and prototype 1 implemented and scoped Tested
+(2026-10-31, `tests/interpret/`, synthetic pump passage).** No production consumer reads it yet:
+§5.3 fusion and §6 confidence remain the runtime path until a stage of the rollout plan adopts
+the layer for one decision type. The layer lives in `corpus_structure.interpret`, depends on
+numpy only and imports no parser. It is distinct from the notation-interpretation contexts of
+ADR-0035: it decides which reading of a passage the evidence supports, not what notation means.
+
+The value of several parsers is more than the sum of their separate outputs only where one
+stream's output changes how another's is read. The layer makes that explicit: every stream
+output is an **observation**, every choice is a typed **decision** with an `UNKNOWN` option, and
+records are accepted from a joint posterior
+
+`log P(z | e, O) = Σ_a w_a f_a(z, e) + Σ_b u_b g_b(z, O) − log Z`
+
+where evidence features `f_a` are calibrated log-likelihood ratios and the template and ontology
+supply compatibility and hard-constraint factors `g_b`. Synergy lives only in factors spanning
+two or more decisions; with unary factors alone the joint is a product of independent readings.
+
+### 14.1 Record types and thresholds
+
+Each record type carries the value `v` of a correct accepted record and the cost `c` of a wrong
+one; it is accepted when its posterior reaches `τ = c / (c + v)`. This generalizes the §6.1
+per-predicate-group threshold (0.8 is `c = 4v`). The values are policy data.
+
+### 14.2 Observations
+
+An observation is one stream's reading of one decision: its scored alternatives or an explicit
+abstention, the score kind, the input's reliability grade, its correlation group and the
+provenance variables it introduces. Its cache key covers stream, model, model version, full
+configuration hash, input digest and decision, so changing any of them is a new observation and
+cached observations can be masked out of a run without re-running parsers (§14.9). `abstained`
+is not `silent` (§6.2): an abstention says the stream looked and declined.
+
+### 14.3 Calibration
+
+Scores become LLRs per model, decision type and reliability grade:
+`LLR(s) = logit P(z | s) − logit(base rate)`, fitted by Platt scaling or isotonic regression on
+labelled decisions. Subtracting the calibration set's prior is what allows several streams to be
+added without counting the prior once per stream. An observation without a calibrator
+contributes no evidence and is reported as uncalibrated. ECE > 0.05 triggers recalibration, as
+in §6.4.
+
+### 14.4 Decisions and candidate sets
+
+Every decision's options end with `UNKNOWN`; a record on an `UNKNOWN` outcome is never accepted.
+Candidate sets are sized by split-conformal calibration: with nonconformity `1 − p(y | x)` and
+`q̂` its `⌈(n+1)(1−α)⌉ / n` quantile on labelled decisions, `{y : 1 − p(y | x) ≤ q̂}` contains the
+true option with probability at least `1 − α`. Candidate recall becomes a stated budget.
+
+### 14.5 Factors and exact inference
+
+Templates are local (a passage, a table, a frame), so inference is exact: connected components
+are enumerated, and a component larger than the budget (default 65,536 joint states) is refused
+rather than approximated. Correlated models of one correlation group form one factor, discounted
+to their effective count (§14.8). Corpus-scale weighted rules are a later stage and will need
+their own approximate engine; that choice is not made here.
+
+### 14.6 Lineage
+
+Each record carries a provenance polynomial in N[X] over the observations and decisions it used:
+joins multiply, alternative derivations add. Evaluated in the Boolean, counting, Viterbi and
+why-provenance semirings it answers whether the record survives a withdrawal, in how many ways it
+is derived, the strength of its best derivation and its minimal witness sets. Withdrawing an
+input sets its variable to 0. Probability is computed exactly by Shannon expansion over
+independent variables, or from the factor posterior when they are correlated; Fréchet bounds
+apply when only marginals are known.
+
+### 14.7 Acceptance and escalation
+
+Expected utility is `max(0, p v − (1 − p) c)`. An additional observation (another parser, a CPU
+LLM call, a human check) is requested only when its expected value of information exceeds
+`λ` times its CPU cost, best ratio first and at most one action per decision. EVI is zero both for
+confident decisions and for decisions no outcome could change, which keeps both off the LLM
+queue.
+
+### 14.8 Corpus support
+
+Source `g` contributes `Λ_g = π_g r_g + (1 − π_g)`, with `π_g` its extraction reliability (from
+calibration or the §6.4 latent-truth model) and `r_g` its likelihood ratio. With `k` sources of
+mean correlation `ρ`, `k_eff = k / (1 + (k − 1) ρ)` and the support is
+`prior + (k_eff / k) Σ_g log Λ_g`; provenance clusters (copies of one origin) are discounted
+within and independent across.
+
+### 14.9 Evaluation harness
+
+`V(S)` is the realized utility of the records accepted with only stream groups `S` present
+(layer masking over cached observations). Over all subsets of up to twelve groups the harness
+computes Möbius dividends (value that appears only with every group of a subset present),
+Shapley values and the pairwise Shapley interaction index. A nested gain decomposition separates
+assembly and closure, cross-decision disambiguation over fixed candidates, and wider candidate
+coverage. Uncertainty comes from resampling documents, never sentences.
+
+### 14.10 Templates
+
+Prototype 1, `templates.numeric_reference`, resolves a numeric reference ("cavitate below this
+pressure") jointly with the value roles of the quantities it may denote. The unit dimension is a
+hard constraint, proximity and syntax are antecedent evidence, and the frame slot couples the
+reference decision to the referent's role decision. On the pump passage proximity alone prefers
+the 100 m³/h rating and stays below `τ`; no group alone resolves the reference, units with
+either partner does, and the three together give 0.94 (scoped Tested, 2026-10-31). Later
+templates (qualification, propositions and tables, argument, entity linking) reuse the same
+machinery as their parsers arrive.
+
+> Decision: [ADR-0039](../adr/0039-joint-stream-interpretation.md)
