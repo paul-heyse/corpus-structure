@@ -1,4 +1,4 @@
-"""Production renditions of the seven S0/S0-R2 pages against the spike renditions, the trace
+"""Retained historical renditions of the seven S0/S0-R2 pages against the spike renditions, the trace
 segment fixtures, locators on them, content digests across M03 configurations, and M02.
 
 ingest and math §5 P0-I-1a and §6. The spike side is the thin fixture `data/spike_renditions.json`
@@ -20,7 +20,11 @@ import pytest
 from corpus_structure.core.evidence import RenditionContent, Segment, content_digest
 from corpus_structure.core.locators import LocatorIndex, parse
 from corpus_structure.core.vocab import SegmentKind
-from corpus_structure.ingest.html import IngestResult, build_rendition
+from typing import Protocol
+
+class IngestResult(Protocol):
+    content: RenditionContent
+    page: str
 from corpus_structure.ingest.profile import CompiledProfile
 from corpus_structure.ingest.profile_segments import MEASURED, features, measurements
 from corpus_structure.ingest.sentences import SentenceConfig
@@ -172,18 +176,6 @@ def test_the_trace_segment_fixtures_match(unit: str, ingest: Ingest) -> None:
             continue
         assert any((name, record["start"], record["end"]) in produced for name in names), record
         assert result.content.canonical_text[record["start"] : record["end"]] == record["text"]
-
-
-def test_builds_whose_m03_configurations_differ_but_split_alike_share_a_digest() -> None:
-    raw = (TRACE / "corpus/siegrist_random/random/special/LogNormal.html").read_bytes()
-    uri = "siegrist_random/random/special/LogNormal.html"
-    from corpus_structure.ingest.profile import compile_profile, load_profile
-
-    prof = compile_profile(load_profile("siegrist"))
-    one = build_rendition(raw, prof, SentenceConfig(batch_size=64), source_uri=uri)
-    two = build_rendition(raw, prof, SentenceConfig(batch_size=7), source_uri=uri)
-    assert SentenceConfig(batch_size=64) != SentenceConfig(batch_size=7)
-    assert content_digest(one.content) == content_digest(two.content)
 
 
 def test_m02_features_count_characters_and_math(ingest: Ingest, profile: CompiledProfile) -> None:

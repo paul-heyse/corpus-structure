@@ -62,21 +62,6 @@ def test_a_configuration_naming_other_versions_is_refused() -> None:
         pipeline(SentenceConfig(model_version="3.7.1"))
 
 
-def test_sentences_never_cross_a_block_in_a_rendition(profile: CompiledProfile) -> None:
-    from corpus_structure.ingest.html import build_rendition
-
-    raw = (
-        b"<!DOCTYPE html><html><head><meta charset=utf-8></head><body><ul><li>First item. It has"
-        b" two.</li><li>Second</li></ul><p>A para. Ends.</p></body></html>"
-    )
-    r = build_rendition(raw, profile, CONFIG, source_uri="siegrist_random/random/t/a.html")
-    for segment in r.content.document.walk():
-        sentences = [c for c in segment.children if c.kind == "sentence"]
-        assert all(segment.start <= s.start < s.end <= segment.end for s in sentences)
-    texts = [r.content.text(s) for s in r.content.document.walk() if s.kind == "sentence"]
-    assert texts == ["First item.", "It has two.", "Second", "A para.", "Ends."]
-
-
 def test_prepared_layout_roundtrips_absolute_offsets_without_retokenizing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -114,26 +99,11 @@ def test_prepared_layout_roundtrips_absolute_offsets_without_retokenizing(
         make_doc(nlp, block, restored, start=0)
 
 
-def test_ingestion_retains_the_exact_layout_consumed_by_segmentation(
-    profile: CompiledProfile,
-) -> None:
-    from corpus_structure.ingest.html import build_rendition
-    from corpus_structure.methods.math.scope import segment_block
-
-    built = build_rendition(
-        b"<html><body><p>Let \\(x\\) be real. Then [3] holds.</p></body></html>",
-        profile,
-        CONFIG,
-        source_uri="siegrist_random/random/t/a.html",
-    )
-    blocks = [
-        s for s in built.content.document.walk() if any(c.kind == "sentence" for c in s.children)
-    ]
-    assert len(built.text_layouts) == len(blocks) == 1
-    for layout, segment in zip(built.text_layouts, blocks, strict=True):
-        assert (layout.block_start, layout.block_end) == (segment.start, segment.end)
-        reconstructed = make_doc(
-            pipeline(CONFIG), segment_block(built.content, segment), layout, start=segment.start
-        )
-        assert reconstructed.text == built.content.text(segment)
-        assert any(token.role == "math" for token in layout.tokens)
+def test_native_text_math_ranges_are_prepared_once_without_delimiter_parsing():
+    from corpus_structure.ingest.sentences import prepare_layout
+    text='Let x be real. Then it holds.'
+    block=Block(text,[(4,5)],[],[])
+    layout=prepare_layout(pipeline(CONFIG),block)
+    reconstructed=make_doc(pipeline(CONFIG),block,layout)
+    assert reconstructed.text==text
+    assert any(t.role=='math' and (t.start,t.end)==(4,5) for t in layout.tokens)

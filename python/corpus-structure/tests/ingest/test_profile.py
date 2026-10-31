@@ -23,7 +23,12 @@ from corpus_structure.core.vocab import (
     SynthesisObject,
 )
 from corpus_structure.ingest import profile as profiles
-from corpus_structure.ingest.html import parse
+from lxml import html
+
+def parse(raw: bytes):
+    """Independent selector fixture tree; no ingestion or source-coordinate claims."""
+    return html.fromstring(raw),None
+
 from corpus_structure.ingest.profile import (
     BlockHint,
     CorpusIndex,
