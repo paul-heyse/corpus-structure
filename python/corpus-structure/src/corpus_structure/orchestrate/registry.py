@@ -195,10 +195,20 @@ class MethodRegistry:
                         continue
                     _set(dump, path, found)
                 case ConfigRef(method=other):
-                    ref = str(value or DEFAULT)
-                    other_name = ref.split("/", 1)[1] if ref.startswith(f"{other}/") else ref
-                    inner = self.resolve(other, other_name, artifacts, (*_seen, key))
-                    _set(dump, path, dict(inner.params))
+                    if isinstance(value, Mapping):
+                        # A literal configuration is already the referenced value, rather
+                        # than the textual name of another configuration.
+                        try:
+                            literal=self.method(other).Config.model_validate(value)
+                        except ValidationError as error:
+                            problems.extend(f"{where}: {e['msg']}" for e in error.errors())
+                            continue
+                        _set(dump,path,literal.model_dump(mode="json"))
+                    else:
+                        ref = str(value or DEFAULT)
+                        other_name = ref.split("/", 1)[1] if ref.startswith(f"{other}/") else ref
+                        inner = self.resolve(other, other_name, artifacts, (*_seen, key))
+                        _set(dump, path, dict(inner.params))
                 case SourceProfileRef():
                     _set(dump, path, self._profile(str(value), where))
                 case PackSection(name=section):

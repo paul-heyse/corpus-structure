@@ -621,7 +621,12 @@ def native_proposal_packet(reader: Any, source_view_id: int, prepared: Any,
     mathematical = tuple((piece["start"], piece["end"]) for piece in view.pieces
         if piece.get("item_ref") in native and native[piece["item_ref"]].get("label") == "formula")
     block = Block(view.text, mathematical, (), ())
-    extents = split([block], SentenceConfig(), layouts=[view.layout],
+    raw=configuration.model_dump(mode="python") if isinstance(configuration,BaseModel) else configuration
+    sentence_values=raw.get("sentences")
+    if not isinstance(sentence_values,(dict,SentenceConfig)):
+        raise ValueError("native packet requires a resolved admitted sentence configuration")
+    sentence_config=SentenceConfig.model_validate(sentence_values)
+    extents = split([block], sentence_config, layouts=[view.layout_for(sentence_config)],
                     policy=getattr(view,"text_policy",None))[0]
     frame = native_source_frame(view, [(f"s{index+1}", start, end)
                                        for index, (start, end) in enumerate(extents)])
@@ -698,7 +703,7 @@ def native_context_result(unit:Any,view:Any,cfg:Any,reader:Any)->UnitResult:
     native={i["self_ref"]:i for i in view.items}
     mathematical=tuple((p["start"],p["end"]) for p in view.pieces
         if p.get("item_ref") in native and native[p["item_ref"]].get("label")=="formula")
-    sentences=split([Block(view.text,mathematical,(),())],cfg.sentences,layouts=[view.layout],
+    sentences=split([Block(view.text,mathematical,(),())],cfg.sentences,layouts=[view.layout_for(cfg.sentences)],
                     policy=getattr(view,"text_policy",None))[0]
     health={o["pointer"]:o["outcome"] for o in view.health.get("formula_outcomes",())}
     declarations=[];issues=[]
@@ -905,7 +910,7 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
                            if a<=node.start and node.end<=b)
         blocks.append(Block(view.text[a:b],mathematical,(),()))
         pieces.append(dict(start=a,end=b))
-        base=view.layout
+        base=view.layout_for(cfgsentences)
         layouts[a,b]=replace(base,block_start=a,block_end=b,
             text_digest=sha256(view.text[a:b].encode()).hexdigest(),
             tokens=tuple(token for token in base.tokens if a<=token.start and token.end<=b),display=())

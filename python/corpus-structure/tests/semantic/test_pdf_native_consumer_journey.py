@@ -66,7 +66,9 @@ def native_source_task(admin, writer, tmp_path):
     conversion=PdfConversion(sha256(original).hexdigest(),recipe,snapshot(doc),'success',(),(),(),None)
     payload=publication_payload(conversion,product_key='native',schema_digest=sha256(native_schema).hexdigest(),section_refs=frozenset({section.self_ref}))
     product=prepare_pdf_product(payload,original,native_schema,recipe)
-    configuration={'model':'automated-native-fixture','mode':'extract','max_units':1,'packet_cap_chars':18000}
+    from corpus_structure.ingest.sentences import SentenceConfig
+    configuration={'model':'automated-native-fixture','mode':'extract','max_units':1,'packet_cap_chars':18000,
+        'sentences':SentenceConfig().model_dump(mode='json')}
     with writer.begin() as conn:
         run=create_run(conn,project_id='native-consumer',binding=OperationBinding(prepared.release_id,'native-input',0,b'{}'),kind='full',
             options={'agent_configs':{'extract':configuration}},code_commit='native-consumer-test')

@@ -388,3 +388,19 @@ def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leaka
     declarations=context.observations[0].payload.declarations
     assert next(d.scope_pointer for d in declarations if d.symbol=='f')==root['self_ref']
     assert next(d.scope_pointer for d in declarations if d.symbol=='g')==child['self_ref']
+
+
+def test_native_layout_uses_explicit_sentence_configuration_and_scoped_cache():
+    import pytest
+    source=view();configuration=SentenceConfig()
+    first=source.layout_for(configuration)
+    assert source.layout_for(configuration) is first
+    with pytest.raises(OSError):
+        source.layout_for(configuration.model_copy(update={'model':'native_sentence_control_missing_model'}))
+
+
+def test_native_frame_refuses_unresolved_sentence_configuration():
+    import pytest
+    from corpus_structure.methods.math.native import native_proposal_packet
+    with pytest.raises(ValueError,match='resolved admitted sentence configuration'):
+        native_proposal_packet(Reader(),7,None,{'sentences':'segment.sentences/default'})

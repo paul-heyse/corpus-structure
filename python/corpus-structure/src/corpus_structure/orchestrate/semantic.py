@@ -115,7 +115,7 @@ def run_source_methods(
     from corpus_structure.semantic.proposals import SEMANTIC_AGENT_VERSION
 
     operation_versions = {name: registry.method(name).version for name in configs}
-    from corpus_structure.core.method import ArtifactRef, PackSection, config_references
+    from corpus_structure.core.method import ArtifactRef, ConfigRef, PackSection, config_references
 
     for method_name, config_name in registry.named():
         if method_name != "agent.opus":
@@ -128,6 +128,16 @@ def run_source_methods(
                 if len(path) != 1:
                     raise OperationConflict("nested agent operation sections are unsupported")
                 raw[path[0]] = registry.file.sections[marker.name]
+            elif isinstance(marker,ConfigRef):
+                if len(path)!=1:
+                    raise OperationConflict("nested agent configuration references are unsupported")
+                value=raw[path[0]]
+                if isinstance(value,dict):
+                    raw[path[0]]=registry.method(marker.method).Config.model_validate(value).model_dump(mode="json")
+                else:
+                    reference=str(value)
+                    name=reference.split("/",1)[1] if reference.startswith(marker.method+"/") else reference
+                    raw[path[0]]=dict(registry.resolve(marker.method,name).params)
         values = type(config).model_validate(raw).model_dump(mode="json")
         for path, marker in markers.items():
             if isinstance(marker, ArtifactRef):

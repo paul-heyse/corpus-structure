@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "agent.yaml"
 _EMPTY_DEPENDENCIES = ResolvedDependencies()
-SEMANTIC_AGENT_VERSION = "semantic-3"
+SEMANTIC_AGENT_VERSION = "semantic-4"
 
 
 def proposal_inputs(

@@ -1,16 +1,15 @@
 """M24 `agent.opus` (agent interface §3.2; D4 M24, §1; D2 §12.1; D6 §4).
 
-Family and tier `agent`, unit type `segment` (an annotation unit). The pipeline never runs it: its
+Family and tier `agent`, unit type `source_view` (an intact native section projection). The pipeline never runs it: its
 tasks are created `awaiting_agent` and completed through the MCP server's `propose_claims`.
 
 - **Configuration** (`agent.opus/<name>` in `methods.yaml`): `mode`, `role` (an `expectation`
   configuration keeps golden-expectation digests apart), `examples: reference`, `hints: none`,
-  `packet_cap_chars`, the declared `model` (recorded with every intervention; the server cannot
+  `packet_cap_chars`, the resolved named sentence configuration, the declared `model` (recorded with every intervention; the server cannot
   observe the session's model), `max_units` (1 until A3 decides), the pack's `math` section (the
   fallback macros the standing context and parse read) and the compiled artifacts by (compiler,
   kind): the annotator reference, the model-facing JSON Schema and the rule set.
-- **`select`**: the annotation units of the run's renditions, by unit key (their generated
-  locator); policies narrow them.
+- **`select`**: the run's admitted, scoped native source views, by stable source-view key.
 - **`input_digest`** assembles the packet once per unit (cached) and returns
   `Digest(bytes, packet_hash)`; the bytes are the canonical JSON of the packet hash, the prompt-part
   hashes, the artifact hashes and the declared model. Under `agent_reuse: by_unit` the guideline
@@ -31,6 +30,7 @@ from corpus_structure.core.evidence import MacroDef, segment_key
 from corpus_structure.core.locators import annotation_units
 from corpus_structure.core.method import (
     ArtifactRef,
+    ConfigRef,
     Digest,
     MethodContext,
     PackSection,
@@ -50,7 +50,9 @@ from corpus_structure.core.vocab import (
 from corpus_structure.methods.llm import packet as P
 from corpus_structure.methods.llm import parts as parts_
 
-VERSION = "3"  # bumped on any change to the packet rendering or the prompts
+from corpus_structure.ingest.sentences import SentenceConfig
+
+VERSION = "4"  # bumped on any change to the packet rendering or the prompts
 DEFAULT_MODEL = "claude-opus-5-5"
 
 
@@ -77,6 +79,7 @@ class AgentOpusConfig(BaseModel):
     max_alternatives: int | None = None
     model: str = DEFAULT_MODEL
     max_units: int = Field(1, ge=1)
+    sentences: Annotated[str | SentenceConfig, ConfigRef("segment.sentences")] = "segment.sentences/default"
     math: Annotated[MathSection, PackSection("math")] = MathSection()
     reference: Annotated[str, ArtifactRef("annotator_reference", "reference")] = ""
     json_schema: Annotated[str, ArtifactRef("json_schema", "batch.model_facing")] = ""
