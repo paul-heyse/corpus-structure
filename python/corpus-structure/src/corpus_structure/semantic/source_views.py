@@ -139,3 +139,25 @@ def scope_source_views(conn: Connection,selected,scope):
             names += [parent.get('name','') for parent in row['ancestors']]
         if any(normalized(name) in wanted for name in names): matched.add(row['id'])
     return tuple(ref for ref in selected if ref.id in matched)
+
+
+def source_view_health(health,section_pointer,membership,items,ancestors):
+    """Project coverage onto its named section and retain only local recognition outcomes.
+
+    Native item mappings permit locally detected display processing to be qualified;
+    pointer-only archival callers conservatively retain the producer summary.
+    """
+    value=dict(health)
+    nodes={item['self_ref']:item for item in items if isinstance(item,dict)}
+    pointers={item['self_ref'] if isinstance(item,dict) else item for item in items}
+    outcomes={row['pointer']:row['outcome'] for row in health.get('formula_outcomes',())}
+    value['formula_outcomes']=[row for row in health.get('formula_outcomes',()) if row['pointer'] in pointers]
+    if nodes:
+        display={pointer for pointer,item in nodes.items() if item.get('label')=='formula' and nodes.get(item.get('parent',{}).get('$ref'),{}).get('label') not in {'table','inline'}}
+        value['display_coverage']='complete' if all(outcomes.get(pointer)=='succeeded' for pointer in display) else 'partial' if any(pointer in outcomes for pointer in display) else 'unknown'
+    for universe in ('inline','cell'):
+        scopes=health.get(universe+'_scope',())
+        source_membership=health.get(universe+'_membership')
+        covered=(section_pointer in scopes and membership==source_membership) or (source_membership=='descendants' and (section_pointer in scopes or any(pointer in scopes for pointer in ancestors)))
+        if not covered and health.get(universe+'_coverage') in {'complete','partial'}:value[universe+'_coverage']='unknown'
+    return value
