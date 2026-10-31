@@ -140,7 +140,8 @@ classes:
             original_path=str(raw),
             original=raw.read_bytes(),
             metadata={"page": "source.html"},
-         mime='text/html')
+            mime="text/html",
+        )
         rendition = store_rendition(
             conn,
             run_id=run,

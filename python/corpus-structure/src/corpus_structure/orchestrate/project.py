@@ -66,6 +66,7 @@ def init_bound_project(
         if registry.method(method).family.value != "ingest":
             continue
         from corpus_structure.ingest.pdf_methods import PdfIngestConfig
+
         configured = registry.resolve(method, config).config
         if isinstance(configured, PdfIngestConfig):
             profiles.add("pdf-originals")
@@ -73,15 +74,28 @@ def init_bound_project(
                 if uri in seen:
                     continue
                 original = (corpus / uri).resolve()
-                if not original.is_relative_to(corpus.resolve()) or original.suffix.lower() != ".pdf":
+                if (
+                    not original.is_relative_to(corpus.resolve())
+                    or original.suffix.lower() != ".pdf"
+                ):
                     raise ProjectError("PDF original must remain within the selected corpus")
                 raw = original.read_bytes()
                 if not raw.startswith(b"%PDF-"):
                     raise ProjectError(f"configured original is not a PDF: {uri}")
-                register_document(conn, project_id=project_id, source_uri=uri,
-                    original_path=str(original), original=raw, mime="application/pdf", title=original.stem,
-                    metadata={"input_format":"pdf","source_inventory":"configured-pdf-originals"},
-                    prepared=prepared)
+                register_document(
+                    conn,
+                    project_id=project_id,
+                    source_uri=uri,
+                    original_path=str(original),
+                    original=raw,
+                    mime="application/pdf",
+                    title=original.stem,
+                    metadata={
+                        "input_format": "pdf",
+                        "source_inventory": "configured-pdf-originals",
+                    },
+                    prepared=prepared,
+                )
                 seen.add(uri)
                 count += 1
             continue

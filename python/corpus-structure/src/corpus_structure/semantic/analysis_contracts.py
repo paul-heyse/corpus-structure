@@ -324,10 +324,27 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
             visit(name, frozenset(), demands, location)
         kinds: set[str] = set()
         if profile.scientific_questions:
-            questions={row.question:row for row in profile.scientific_questions}
-            expected={'definedness':(('interpretation',),('definedness',)),**{name:(('symbolic',),('definedness','symbolic')) for name in ('predicate','refine','free_symbols','calculate')}}
-            if len(questions)!=len(profile.scientific_questions) or set(questions)!=set(expected) or any((rule.prerequisites,rule.result_basis)!=expected[name] for name,rule in questions.items()):
-                _fail('scientific_question',location,'question prerequisites/basis differ from the admitted native capabilities')
+            questions = {row.question: row for row in profile.scientific_questions}
+            expected = {
+                "definedness": (("interpretation",), ("definedness",)),
+                **{
+                    name: (("symbolic",), ("definedness", "symbolic"))
+                    for name in ("predicate", "refine", "free_symbols", "calculate")
+                },
+            }
+            if (
+                len(questions) != len(profile.scientific_questions)
+                or set(questions) != set(expected)
+                or any(
+                    (rule.prerequisites, rule.result_basis) != expected[name]
+                    for name, rule in questions.items()
+                )
+            ):
+                _fail(
+                    "scientific_question",
+                    location,
+                    "question prerequisites/basis differ from the admitted native capabilities",
+                )
         for role in profile.binding_roles:
             if role.kind in kinds or role.kind not in {
                 "variable",
@@ -975,6 +992,6 @@ def invocation_identity(
     return digest(normalized.model_dump(mode="json", exclude_none=True))
 
 
-def scientific_question_rule(profile: AnalysisProfile,question: str):
+def scientific_question_rule(profile: AnalysisProfile, question: str):
     """Resolve archived question-specific work; absence is unsupported, never a current default."""
-    return next((rule for rule in profile.scientific_questions if rule.question==question),None)
+    return next((rule for rule in profile.scientific_questions if rule.question == question), None)

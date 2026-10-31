@@ -380,10 +380,12 @@ def complete_task(
             data.setdefault("segment_id", task["unit_id"])
         elif data.get("rendition_id") is None and task["unit_type"] == "rendition":
             data["rendition_id"] = task["unit_id"]
-        if task['unit_type']=='source_view':
-            if data.get('source_view_id') not in (None,task['unit_id']) or any(data.get(field) is not None for field in ('rendition_id','segment_id','span_id')):
-                raise OperationConflict('source-view observation differs from its task unit')
-            data['source_view_id']=task['unit_id']
+        if task["unit_type"] == "source_view":
+            if data.get("source_view_id") not in (None, task["unit_id"]) or any(
+                data.get(field) is not None for field in ("rendition_id", "segment_id", "span_id")
+            ):
+                raise OperationConflict("source-view observation differs from its task unit")
+            data["source_view_id"] = task["unit_id"]
         supplied_key = data.pop("observation_key", None)
         if definition == "SourceObservation" and supplied_key != payload["observation_key"]:
             raise OperationConflict("source observation identity differs from bound report")
@@ -805,13 +807,24 @@ def complete_unit_result(
         )
     if result.native_products:
         from .pdf_contracts import store_pdf_product
+
         for product in result.native_products:
-            store_pdf_product(conn,task_id=task_id,attempt=attempt,holder=holder,product=product)
+            store_pdf_product(
+                conn, task_id=task_id, attempt=attempt, holder=holder, product=product
+            )
     if result.source_views:
         from .source_views import store_source_view
-        for position,draft in enumerate(result.source_views):
-            store_source_view(conn,run_id=task["run_id"],task_id=task_id,attempt=attempt,
-                              holder=holder,draft=draft,position=position)
+
+        for position, draft in enumerate(result.source_views):
+            store_source_view(
+                conn,
+                run_id=task["run_id"],
+                task_id=task_id,
+                attempt=attempt,
+                holder=holder,
+                draft=draft,
+                position=position,
+            )
     rows = []
     for item in items:
         rid = item.get("rendition_id", rendition_id)
@@ -893,8 +906,8 @@ class SourceObservationView:
     input_refs: tuple[SourceObservationReference, ...] = ()
     source_view_id: int | None = None
     native_pointer: str | None = None
-    projected_span: tuple[int,int] | None = None
-    recognized_span: tuple[int,int] | None = None
+    projected_span: tuple[int, int] | None = None
+    recognized_span: tuple[int, int] | None = None
 
 
 class BoundReader:
@@ -923,84 +936,163 @@ class BoundReader:
 
     def pdf_contract(self):
         from .pdf_contracts import pdf_context_for_release
-        return pdf_context_for_release(self.conn,self.prepared).boundary
+
+        return pdf_context_for_release(self.conn, self.prepared).boundary
 
     def source_views(self):
-        cached=getattr(self,"_native_view_refs",None)
+        cached = getattr(self, "_native_view_refs", None)
         if cached is not None:
             return cached
         from .source_views import selected_source_views
-        selected=tuple(v for v in selected_source_views(self.conn,self.run_id) if v.analysis_eligible)
-        run=table("ops.run")
-        options=self.conn.execute(select(run.c.options).where(run.c.id==self.run_id)).scalar_one()
-        scope=options.get("scope")
-        if not isinstance(scope,dict) or scope.get("kind")!="native_sections":
-            self._native_view_refs=selected
+
+        selected = tuple(
+            v for v in selected_source_views(self.conn, self.run_id) if v.analysis_eligible
+        )
+        run = table("ops.run")
+        options = self.conn.execute(
+            select(run.c.options).where(run.c.id == self.run_id)
+        ).scalar_one()
+        scope = options.get("scope")
+        if not isinstance(scope, dict) or scope.get("kind") != "native_sections":
+            self._native_view_refs = selected
             return selected
-        boundary=self.pdf_contract()
-        scope=boundary.validate_json("PdfNativeSourceScope",__import__('json').dumps(scope)).model_dump(mode="json")
+        boundary = self.pdf_contract()
+        scope = boundary.validate_json(
+            "PdfNativeSourceScope", __import__("json").dumps(scope)
+        ).model_dump(mode="json")
         from .source_views import scope_source_views
-        self._native_view_refs=scope_source_views(self.conn,selected,scope)
+
+        self._native_view_refs = scope_source_views(self.conn, selected, scope)
         return self._native_view_refs
 
     def source_view(self, source_view_id: int):
-        from .source_views import load_source_view
-        from .source_views import selected_source_views
-        if source_view_id not in {r.id for r in selected_source_views(self.conn,self.run_id)}:
+        from .source_views import load_source_view, selected_source_views
+
+        if source_view_id not in {r.id for r in selected_source_views(self.conn, self.run_id)}:
             raise OperationConflict("source view is outside bound run")
-        cache=getattr(self,"_native_views",None)
+        cache = getattr(self, "_native_views", None)
         if cache is None:
-            cache={}
-            self._native_views=cache
+            cache = {}
+            self._native_views = cache
         if source_view_id not in cache:
-            cache[source_view_id]=load_source_view(self.conn,source_view_id)
+            cache[source_view_id] = load_source_view(self.conn, source_view_id)
         return cache[source_view_id]
 
-    def ancestor_source_views(self,source_view_id:int):
+    def ancestor_source_views(self, source_view_id: int):
         from .source_views import selected_source_views
-        source=self.source_view(source_view_id)
-        ancestors={a['self_ref'] for a in source.ancestors}
-        selected=selected_source_views(self.conn,self.run_id)
-        return tuple(v for v in selected if v.native_product==source.ref.native_product and v.section_pointer in ancestors)
 
-    def native_document(self,reference):
-        from .pdf_contracts import PreparedPdfProduct,pdf_context_for_task
-        product,build,artifact=table("ops.native_document_product"),table("ops.source_build"),table("kb.source_artifact")
-        row=self.conn.execute(select(product,build.c.artifact_digest.label("original_digest")).join(build,build.c.task_id==product.c.task_id).where(product.c.task_id==reference.task_id,product.c.product_key==reference.product_key,product.c.content_digest==reference.content_digest)).mappings().one()
-        permitted=any(v.native_product==reference for v in self.source_views())
+        source = self.source_view(source_view_id)
+        ancestors = {a["self_ref"] for a in source.ancestors}
+        selected = selected_source_views(self.conn, self.run_id)
+        return tuple(
+            v
+            for v in selected
+            if v.native_product == source.ref.native_product and v.section_pointer in ancestors
+        )
+
+    def native_document(self, reference):
+        from .pdf_contracts import PreparedPdfProduct, pdf_context_for_task
+
+        product, build, artifact = (
+            table("ops.native_document_product"),
+            table("ops.source_build"),
+            table("kb.source_artifact"),
+        )
+        row = (
+            self.conn.execute(
+                select(product, build.c.artifact_digest.label("original_digest"))
+                .join(build, build.c.task_id == product.c.task_id)
+                .where(
+                    product.c.task_id == reference.task_id,
+                    product.c.product_key == reference.product_key,
+                    product.c.content_digest == reference.content_digest,
+                )
+            )
+            .mappings()
+            .one()
+        )
+        permitted = any(v.native_product == reference for v in self.source_views())
         if not permitted and self.source_tasks:
-            task,config,run,document=table("ops.task"),table("ops.method_config"),table("ops.run"),table("kb.document")
-            declared=self.conn.execute(select(config.c.params,document.c.content_hash,document.c.project_id).join(task,task.c.method_config_id==config.c.id).join(document,document.c.id==task.c.unit_id).where(task.c.id.in_(tuple(self.source_tasks.values())),task.c.run_id==self.run_id,task.c.unit_type=="document",task.c.status=="running")).mappings()
-            project=self.conn.execute(select(run.c.project_id).where(run.c.id==self.run_id)).scalar_one()
-            producer_project=self.conn.execute(select(run.c.project_id).join(task,task.c.run_id==run.c.id).where(task.c.id==reference.task_id)).scalar_one()
-            permitted=any(item["params"].get("native_product")==reference.values() and item["content_hash"]==row["original_digest"] and item["project_id"]==project==producer_project for item in declared)
+            task, config, run, document = (
+                table("ops.task"),
+                table("ops.method_config"),
+                table("ops.run"),
+                table("kb.document"),
+            )
+            declared = self.conn.execute(
+                select(config.c.params, document.c.content_hash, document.c.project_id)
+                .join(task, task.c.method_config_id == config.c.id)
+                .join(document, document.c.id == task.c.unit_id)
+                .where(
+                    task.c.id.in_(tuple(self.source_tasks.values())),
+                    task.c.run_id == self.run_id,
+                    task.c.unit_type == "document",
+                    task.c.status == "running",
+                )
+            ).mappings()
+            project = self.conn.execute(
+                select(run.c.project_id).where(run.c.id == self.run_id)
+            ).scalar_one()
+            producer_project = self.conn.execute(
+                select(run.c.project_id)
+                .join(task, task.c.run_id == run.c.id)
+                .where(task.c.id == reference.task_id)
+            ).scalar_one()
+            permitted = any(
+                item["params"].get("native_product") == reference.values()
+                and item["content_hash"] == row["original_digest"]
+                and item["project_id"] == project == producer_project
+                for item in declared
+            )
         if not permitted:
-            raise OperationConflict("whole-native read requires a selected source view or exact claimed method input pin")
-        context=pdf_context_for_task(self.conn,reference.task_id)
-        if row["contract_digest"]!=context.contract_digest:
+            raise OperationConflict(
+                "whole-native read requires a selected source view or exact claimed method input pin"
+            )
+        context = pdf_context_for_task(self.conn, reference.task_id)
+        if row["contract_digest"] != context.contract_digest:
             raise OperationConflict("native product archived contract differs")
         from .pdf_contracts import pdf_context_for_release
-        if row["schema_digest"]!=pdf_context_for_release(self.conn,self.prepared).native_schema_digest:
+
+        if (
+            row["schema_digest"]
+            != pdf_context_for_release(self.conn, self.prepared).native_schema_digest
+        ):
             raise OperationConflict("native adoption consumer does not admit producer schema")
         context.execution.require_operation("publish_native_document")
-        contents=dict(self.conn.execute(select(artifact.c.artifact_digest,artifact.c.content).where(artifact.c.artifact_digest.in_([row["original_digest"],row["schema_digest"],row["recipe_digest"]]))).all())
-        return PreparedPdfProduct(bytes(row["payload"]),bytes(contents[row["original_digest"]]),bytes(contents[row["schema_digest"]]),bytes(contents[row["recipe_digest"]]),row["contract_digest"])
+        contents = dict(
+            self.conn.execute(
+                select(artifact.c.artifact_digest, artifact.c.content).where(
+                    artifact.c.artifact_digest.in_(
+                        [row["original_digest"], row["schema_digest"], row["recipe_digest"]]
+                    )
+                )
+            ).all()
+        )
+        return PreparedPdfProduct(
+            bytes(row["payload"]),
+            bytes(contents[row["original_digest"]]),
+            bytes(contents[row["schema_digest"]]),
+            bytes(contents[row["recipe_digest"]]),
+            row["contract_digest"],
+        )
 
     def native_product_reference(self, document_id: int, product_key: str, digest: str):
         from .parsing_products import ProductReference
+
         if document_id not in self.source_tasks:
             raise OperationConflict("native product requires real claimed source task")
-        return ProductReference(self.source_tasks[document_id],product_key,digest)
+        return ProductReference(self.source_tasks[document_id], product_key, digest)
 
-    def prepare_pdf_product(self,payload,original,schema_bytes,recipe_bytes):
-        from .pdf_contracts import pdf_context_for_task,prepare_pdf_product
+    def prepare_pdf_product(self, payload, original, schema_bytes, recipe_bytes):
+        from .pdf_contracts import pdf_context_for_task, prepare_pdf_product
+
         if not self.source_tasks:
             raise OperationConflict("native preparation requires bound source task")
-        context=getattr(self,"_pdf_context",None)
+        context = getattr(self, "_pdf_context", None)
         if context is None:
-            context=pdf_context_for_task(self.conn,next(iter(self.source_tasks.values())))
-            self._pdf_context=context
-        return prepare_pdf_product(payload,original,schema_bytes,recipe_bytes,context=context)
+            context = pdf_context_for_task(self.conn, next(iter(self.source_tasks.values())))
+            self._pdf_context = context
+        return prepare_pdf_product(payload, original, schema_bytes, recipe_bytes, context=context)
 
     def renditions(self) -> Sequence[RunRendition]:
         from corpus_structure.core.method import RunRendition
@@ -1202,16 +1294,16 @@ class BoundReader:
             )
         }
 
-    def source_observations(self,source_view_id: int,method: str,kind: ObservationKind):
+    def source_observations(self, source_view_id: int, method: str, kind: ObservationKind):
         self.source_view(source_view_id)
-        return self._observations(source_view_id,method,kind,native=True)
+        return self._observations(source_view_id, method, kind, native=True)
 
     def observations(
         self, rendition_id: int, method: str, kind: ObservationKind
     ) -> Sequence[ObservationReading]:
-        return self._observations(rendition_id,method,kind,native=False)
+        return self._observations(rendition_id, method, kind, native=False)
 
-    def _observations(self,source_id: int,method: str,kind: ObservationKind,*,native: bool):
+    def _observations(self, source_id: int, method: str, kind: ObservationKind, *, native: bool):
         from corpus_structure.core.method import payload_hash
         from corpus_structure.core.vocab import ObservationKind, ObservationOutcome
 
@@ -1269,22 +1361,58 @@ class BoundReader:
                     ),
                     row["source_view_id"],
                     row["payload"].get("native_pointer"),
-                    ((row["payload"]["projected_start"],row["payload"]["projected_end"]) if row["payload"].get("projected_start") is not None else None),
-                    ((row["payload"]["recognized_start"],row["payload"]["recognized_end"]) if row["payload"].get("recognized_start") is not None else None),
+                    (
+                        (row["payload"]["projected_start"], row["payload"]["projected_end"])
+                        if row["payload"].get("projected_start") is not None
+                        else None
+                    ),
+                    (
+                        (row["payload"]["recognized_start"], row["payload"]["recognized_end"])
+                        if row["payload"].get("recognized_start") is not None
+                        else None
+                    ),
                 )
             )
         return out
 
-    def source_view_coverage(self,source_view_id: int,method: str):
-        from corpus_structure.core.method import CoverageDraft,SourceCoverageReading
-        source=self.source_view(source_view_id)
-        task,result,config,producer=map(table,("ops.task","ops.task_result","ops.method_config","ops.method"))
-        query=select(result).select_from(task).join(result,result.c.task_id==func.coalesce(task.c.reused_task_id,task.c.id)).join(config,task.c.method_config_id==config.c.id).join(producer,producer.c.id==config.c.method_id).where(task.c.run_id==self.run_id,task.c.unit_type=="source_view",task.c.unit_id==source_view_id,producer.c.name==method)
+    def source_view_coverage(self, source_view_id: int, method: str):
+        from corpus_structure.core.method import CoverageDraft, SourceCoverageReading
+
+        source = self.source_view(source_view_id)
+        task, result, config, producer = map(
+            table, ("ops.task", "ops.task_result", "ops.method_config", "ops.method")
+        )
+        query = (
+            select(result)
+            .select_from(task)
+            .join(result, result.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id))
+            .join(config, task.c.method_config_id == config.c.id)
+            .join(producer, producer.c.id == config.c.method_id)
+            .where(
+                task.c.run_id == self.run_id,
+                task.c.unit_type == "source_view",
+                task.c.unit_id == source_view_id,
+                producer.c.name == method,
+            )
+        )
         if self.cut_id is not None:
-            cut=table("ops.cut_task")
-            query=query.join(cut,cut.c.origin_task_id==result.c.task_id).where(cut.c.cut_id==self.cut_id)
-        return tuple(SourceCoverageReading(CoverageDraft(**item),row["task_id"],row["release_id"],position,0,len(source.text))
-            for row in self.conn.execute(query).mappings() for position,item in enumerate(row["body"].get("coverage",())) if item["family"]==method)
+            cut = table("ops.cut_task")
+            query = query.join(cut, cut.c.origin_task_id == result.c.task_id).where(
+                cut.c.cut_id == self.cut_id
+            )
+        return tuple(
+            SourceCoverageReading(
+                CoverageDraft(**item),
+                row["task_id"],
+                row["release_id"],
+                position,
+                0,
+                len(source.text),
+            )
+            for row in self.conn.execute(query).mappings()
+            for position, item in enumerate(row["body"].get("coverage", ()))
+            if item["family"] == method
+        )
 
     def source_coverage(self, rendition_id: int, method: str):
         """Read immutable source coverage through this run's effective task origins."""

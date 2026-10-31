@@ -36,8 +36,8 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.core.text_structure import capture_text
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.ingest.pdf import PdfConverter
+    from corpus_structure.ingest.pdf_hierarchy import organize, project_section
     from corpus_structure.ingest.pdf_methods import EnrichPdfMath
-    from corpus_structure.ingest.pdf_hierarchy import organize,project_section
     from corpus_structure.intervene.semantic import ProposalSession
     from corpus_structure.methods.math.prepared import assess_parsing_math, interpret_parsing_math
     from corpus_structure.orchestrate import project, semantic
@@ -53,7 +53,6 @@ def approved_implementations() -> Mapping[str, Any]:
         ontology,
         operations,
         parsing_products,
-        source_views,
         pdf_contracts,
         prepare,
         proposals,
@@ -61,6 +60,7 @@ def approved_implementations() -> Mapping[str, Any]:
         query,
         releases,
         runtime,
+        source_views,
     )
 
     return MappingProxyType(
@@ -467,8 +467,8 @@ class InvocationPolicyDefinition:
 @dataclass(frozen=True)
 class ScientificQuestionRule:
     question: str
-    prerequisites: tuple[str,...]
-    result_basis: tuple[str,...]
+    prerequisites: tuple[str, ...]
+    result_basis: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -484,7 +484,7 @@ class AnalysisProfile:
     transformer_recipe: str = ""
     shared_consumers: tuple[str, ...] = ()
     scientific_profiles: tuple[ScientificComputationProfile, ...] = ()
-    scientific_questions: tuple[ScientificQuestionRule,...] = ()
+    scientific_questions: tuple[ScientificQuestionRule, ...] = ()
     mathematical_conventions: tuple[str, ...] = ()
     text_policy: TextPreparationPolicy | None = None
     alignment_policy: AlignmentPolicyDefinition | None = None
@@ -756,7 +756,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}},
         model_id,
         effect_versions=effect_versions,
-        reader_only=data["inputs"]["compiler_version"]!=EXECUTION_COMPILER_VERSION,
+        reader_only=data["inputs"]["compiler_version"] != EXECUTION_COMPILER_VERSION,
     )
 
 
@@ -899,7 +899,8 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                         "regex",
                         "lxml",
                     )
-                } | dict(pdf_package_versions())
+                }
+                | dict(pdf_package_versions())
             ),
         ),
     )
@@ -951,7 +952,11 @@ _PRODUCT_CONVERTER = _product_converter()
 
 
 def _normalize(
-    data: dict[str, Any], model_id: str, *, effect_versions: Mapping[str, str] | None = None, reader_only: bool = False
+    data: dict[str, Any],
+    model_id: str,
+    *,
+    effect_versions: Mapping[str, str] | None = None,
+    reader_only: bool = False,
 ) -> ExecutionModelProducts:
     # Version is already checked by the admitted LinkML catalog boundary.
     fields = {key: value for key, value in data.items() if key != "version"}
@@ -966,7 +971,10 @@ def _normalize(
 
 
 def _validate(
-    products: ExecutionModelProducts, *, effect_versions: Mapping[str, str] | None = None, reader_only: bool = False
+    products: ExecutionModelProducts,
+    *,
+    effect_versions: Mapping[str, str] | None = None,
+    reader_only: bool = False,
 ) -> None:
     from .analysis_contracts import validate_analysis_profiles
 
@@ -1333,7 +1341,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "parsing/contracts.py",
         "parsing/queries.py",
         "ingest/methods.py",
-
         "text/model.json",
         "grammar/grammar.py",
         "grammar/extension.lark",

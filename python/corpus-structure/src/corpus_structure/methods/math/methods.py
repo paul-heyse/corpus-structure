@@ -193,8 +193,7 @@ def _rendition(reader: Reader, rendition_id: int) -> _Rendition:
 
 
 def _units(run: SourceRunContext) -> list[UnitRef]:
-    return [UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key)
-            for ref in run.reader.source_views()]
+    return [UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key) for ref in run.reader.source_views()]
 
 
 def _content_digest(unit: UnitView) -> str:
@@ -207,9 +206,16 @@ def _native_digest(unit: UnitView) -> Digest:
     if unit.ref.unit_id is None:
         raise ValueError("native task requires a source-view row")
     view = unit.run.reader.source_view(unit.ref.unit_id)
-    return Digest(canonical_json({"native": view.ref.native_product.values(),
-        "view": view.ref.key, "projection": view.ref.projection_digest,
-        "recipe": view.ref.recipe_digest}))
+    return Digest(
+        canonical_json(
+            {
+                "native": view.ref.native_product.values(),
+                "view": view.ref.key,
+                "projection": view.ref.projection_digest,
+                "recipe": view.ref.recipe_digest,
+            }
+        )
+    )
 
 
 def _source_product_digest(unit: UnitView) -> dict[str, Any]:
@@ -384,10 +390,18 @@ class NormalizeFormula(_PerRendition):
             if unit.ref.unit_id is None:
                 raise ValueError("normalization requires a source-view row")
             from .native import required_occurrence_record
-            view=unit.run.reader.source_view(unit.ref.unit_id)
-            source=required_occurrence_record(unit.run.reader,view)
-            return Digest(canonical_json({"source":_native_digest(unit).bytes.decode(),
-                "occurrence_record":source.observation_key,"occurrence_hash":source.payload_hash}))
+
+            view = unit.run.reader.source_view(unit.ref.unit_id)
+            source = required_occurrence_record(unit.run.reader, view)
+            return Digest(
+                canonical_json(
+                    {
+                        "source": _native_digest(unit).bytes.decode(),
+                        "occurrence_record": source.observation_key,
+                        "occurrence_hash": source.payload_hash,
+                    }
+                )
+            )
         return Digest(canonical_json(_source_product_digest(unit)))
 
     def run(
@@ -397,6 +411,7 @@ class NormalizeFormula(_PerRendition):
         for unit in units:
             if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
                 from .native import native_result
+
                 out.append(native_result(unit, cfg, ctx, self.name))
                 continue
             ren = _rendition(ctx.reader, _rendition_id(unit))
@@ -483,6 +498,7 @@ class ExtractMath(_PerRendition):
         for unit in units:
             if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
                 from .native import native_result
+
                 out.append(native_result(unit, cfg, ctx, self.name))
                 continue
             ren = _rendition(ctx.reader, _rendition_id(unit))
@@ -660,26 +676,47 @@ class SymbolScope(_PerRendition):
             if unit.ref.unit_id is None:
                 raise ValueError("native task requires a source-view row")
             view = unit.run.reader.source_view(unit.ref.unit_id)
-            basis: dict[str,Any] = {"context_only":bool(getattr(unit,"context_only",False)
-                or not getattr(view.ref,"analysis_eligible",True))}
-            for method, kind in ((M09,ObservationKind.MENTION),(M09,ObservationKind.RELATION),
-                                 (M11,ObservationKind.VALUE)):
-                rows = unit.run.reader.source_observations(view.ref.id,method,kind)
-                basis[method+":"+str(kind)] = [(row.observation_key,row.payload_hash) for row in rows]
-            basis["coverage"] = [(row.task_id,row.coverage.outcome,row.coverage.reason)
-                for row in unit.run.reader.source_view_coverage(view.ref.id,M09)]
+            basis: dict[str, Any] = {
+                "context_only": bool(
+                    getattr(unit, "context_only", False)
+                    or not getattr(view.ref, "analysis_eligible", True)
+                )
+            }
+            for method, kind in (
+                (M09, ObservationKind.MENTION),
+                (M09, ObservationKind.RELATION),
+                (M11, ObservationKind.VALUE),
+            ):
+                rows = unit.run.reader.source_observations(view.ref.id, method, kind)
+                basis[method + ":" + str(kind)] = [
+                    (row.observation_key, row.payload_hash) for row in rows
+                ]
+            basis["coverage"] = [
+                (row.task_id, row.coverage.outcome, row.coverage.reason)
+                for row in unit.run.reader.source_view_coverage(view.ref.id, M09)
+            ]
             from .native import ancestor_views
-            parents,missing=ancestor_views(unit.run.reader,view)
-            basis["ancestor_context_issues"]=missing
-            basis["ancestor_inputs"]=[dict(source=parent.ref.key,
-                native_product=parent.ref.native_product.values(),projection_digest=parent.ref.projection_digest,
-                records=[(row.observation_key,row.payload_hash) for kind in
-                         (ObservationKind.SCOPE,ObservationKind.RECORD)
-                         for row in unit.run.reader.source_observations(parent.ref.id,M13,kind)],
-                coverage=[(row.task_id,row.coverage.outcome,row.coverage.reason)
-                          for row in unit.run.reader.source_view_coverage(parent.ref.id,M13)])
-                for parent in parents]
-            return Digest(canonical_json({"source":_native_digest(unit).bytes.decode(),**basis}))
+
+            parents, missing = ancestor_views(unit.run.reader, view)
+            basis["ancestor_context_issues"] = missing
+            basis["ancestor_inputs"] = [
+                dict(
+                    source=parent.ref.key,
+                    native_product=parent.ref.native_product.values(),
+                    projection_digest=parent.ref.projection_digest,
+                    records=[
+                        (row.observation_key, row.payload_hash)
+                        for kind in (ObservationKind.SCOPE, ObservationKind.RECORD)
+                        for row in unit.run.reader.source_observations(parent.ref.id, M13, kind)
+                    ],
+                    coverage=[
+                        (row.task_id, row.coverage.outcome, row.coverage.reason)
+                        for row in unit.run.reader.source_view_coverage(parent.ref.id, M13)
+                    ],
+                )
+                for parent in parents
+            ]
+            return Digest(canonical_json({"source": _native_digest(unit).bytes.decode(), **basis}))
         ren = _rendition(unit.run.reader, _rendition_id(unit))
         stored = stored_math(unit.run.reader, ren)
         return Digest(canonical_json({"rendition": ren.digest, **stored.payload_hashes}))
@@ -693,7 +730,8 @@ class SymbolScope(_PerRendition):
         for unit in units:
             if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
                 from .native import native_scope_result
-                out.append(native_scope_result(unit,cfg,ctx))
+
+                out.append(native_scope_result(unit, cfg, ctx))
                 continue
             ren = _rendition(ctx.reader, _rendition_id(unit))
             stored = stored_math(ctx.reader, ren)

@@ -42,11 +42,16 @@ def read_native_items(
     limit: int = 100,
 ) -> list[dict[str, Any]]:
     """Read a pinned page of item projections; an incorrect pin always refuses."""
-    if not 1 <= limit <= 1000 or after < -1 or membership not in {"direct","descendants"}:
+    if not 1 <= limit <= 1000 or after < -1 or membership not in {"direct", "descendants"}:
         raise ValueError("native item page requires limit 1..1000 and after >= -1")
     product = table("ops.native_document_product")
     actual = conn.execute(
-        select(product.c.content_digest, product.c.contract_digest, product.c.schema_digest, product.c.release_id).where(
+        select(
+            product.c.content_digest,
+            product.c.contract_digest,
+            product.c.schema_digest,
+            product.c.release_id,
+        ).where(
             product.c.task_id == task_id,
             product.c.product_key == product_key,
         )
@@ -75,8 +80,13 @@ def read_native_items(
         if membership == "direct":
             query = query.where(item.c.section_pointer == section_pointer)
         else:
-            query = query.where(item.c.pointer.in_(native_descendant_pointers(
-                task_id=task_id,product_key=product_key,section_pointer=section_pointer)))
+            query = query.where(
+                item.c.pointer.in_(
+                    native_descendant_pointers(
+                        task_id=task_id, product_key=product_key, section_pointer=section_pointer
+                    )
+                )
+            )
     if pointer is not None:
         query = query.where(item.c.pointer == pointer)
     return [
@@ -84,28 +94,53 @@ def read_native_items(
     ]
 
 
-def native_descendant_pointers(*,task_id: int,product_key: str,section_pointer: str):
+def native_descendant_pointers(*, task_id: int, product_key: str, section_pointer: str):
     """An indexed containment selection, preserving native ordinals in its caller."""
-    item=table('kb.native_document_item')
-    members=select(item.c.pointer).where(item.c.task_id==task_id,item.c.product_key==product_key,
-        item.c.pointer==section_pointer).cte('native_members',recursive=True)
-    children=item.alias('native_children')
-    members=members.union_all(select(children.c.pointer).join(members,
-        children.c.parent_pointer==members.c.pointer).where(children.c.task_id==task_id,
-            children.c.product_key==product_key))
+    item = table("kb.native_document_item")
+    members = (
+        select(item.c.pointer)
+        .where(
+            item.c.task_id == task_id,
+            item.c.product_key == product_key,
+            item.c.pointer == section_pointer,
+        )
+        .cte("native_members", recursive=True)
+    )
+    children = item.alias("native_children")
+    members = members.union_all(
+        select(children.c.pointer)
+        .join(members, children.c.parent_pointer == members.c.pointer)
+        .where(children.c.task_id == task_id, children.c.product_key == product_key)
+    )
     return select(members.c.pointer)
 
 
 def selected_native_ancestry(run_id: int):
     """Selected products and their exact immutable input pins, never ambient project products."""
-    views,selected,products=map(table,('kb.source_view','ops.run_source_view','ops.native_document_product'))
-    pins=select(views.c.native_task_id.label('task_id'),views.c.native_product_key.label('product_key'),
-        views.c.native_content_digest.label('content_digest')).join(selected,
-            selected.c.source_view_id==views.c.id).where(selected.c.run_id==run_id).distinct().cte(
-                'selected_native_ancestry',recursive=True)
-    pins=pins.union(select(products.c.parent_task_id,products.c.parent_product_key,products.c.parent_digest)
-        .join(pins,(products.c.task_id==pins.c.task_id)&(products.c.product_key==pins.c.product_key)&
-              (products.c.content_digest==pins.c.content_digest)).where(products.c.parent_task_id.is_not(None)))
+    views, selected, products = map(
+        table, ("kb.source_view", "ops.run_source_view", "ops.native_document_product")
+    )
+    pins = (
+        select(
+            views.c.native_task_id.label("task_id"),
+            views.c.native_product_key.label("product_key"),
+            views.c.native_content_digest.label("content_digest"),
+        )
+        .join(selected, selected.c.source_view_id == views.c.id)
+        .where(selected.c.run_id == run_id)
+        .distinct()
+        .cte("selected_native_ancestry", recursive=True)
+    )
+    pins = pins.union(
+        select(products.c.parent_task_id, products.c.parent_product_key, products.c.parent_digest)
+        .join(
+            pins,
+            (products.c.task_id == pins.c.task_id)
+            & (products.c.product_key == pins.c.product_key)
+            & (products.c.content_digest == pins.c.content_digest),
+        )
+        .where(products.c.parent_task_id.is_not(None))
+    )
     return pins
 
 

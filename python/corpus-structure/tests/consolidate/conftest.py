@@ -20,8 +20,8 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from archived_source import archived_rendition, archived_title
 import yaml
+from archived_source import archived_rendition, archived_title
 
 from corpus_structure.consolidate.assemble import Inputs, Page
 from corpus_structure.consolidate.pass_ import ConsolidateConfig

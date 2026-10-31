@@ -79,7 +79,6 @@ def data(name: str) -> Any:
     return json.loads((DATA / f"{name}.json").read_text(encoding="utf-8"))
 
 
-
 def raw_page(page: str) -> bytes:
     corpus = VENDORED if page in SPIKE_PAGES else CORPUS
     return (corpus / ROOT / page).read_bytes()

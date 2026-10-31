@@ -177,17 +177,28 @@ class NativeEvidenceLink:
 def _evidence_link(observation, descriptor, start, end, locator):
     frame = descriptor.get("frame")
     from .proposals import NativeProposalFrame, native_address, native_statement_source
+
     if isinstance(frame, NativeProposalFrame):
-        cited=native_statement_source(frame,locator)
-        return NativeEvidenceLink(observation["id"],cited.source_view_id,start,end,
-                                   native_address(cited,start=start,end=end))
+        cited = native_statement_source(frame, locator)
+        return NativeEvidenceLink(
+            observation["id"],
+            cited.source_view_id,
+            start,
+            end,
+            native_address(cited, start=start, end=end),
+        )
     return observation["id"], descriptor["rendition_id"], start, end
 
 
-def _evidence_source_text(descriptor,locator):
-    from .proposals import NativeProposalFrame,native_statement_source
-    frame=descriptor.get("frame")
-    return native_statement_source(frame,locator).text if isinstance(frame,NativeProposalFrame) else descriptor["text"]
+def _evidence_source_text(descriptor, locator):
+    from .proposals import NativeProposalFrame, native_statement_source
+
+    frame = descriptor.get("frame")
+    return (
+        native_statement_source(frame, locator).text
+        if isinstance(frame, NativeProposalFrame)
+        else descriptor["text"]
+    )
 
 
 @dataclass(frozen=True)
@@ -669,7 +680,7 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
         source_frames = load_source_frames(
             conn, conn.execute(select(required_origins.c.id).distinct()).scalars()
         )
-        descriptors: dict[int,dict[str,Any]|None] = {}
+        descriptors: dict[int, dict[str, Any] | None] = {}
         o, t, seg = table("kb.observation"), table("ops.task"), table("kb.segment")
         config, method = table("ops.method_config"), table("ops.method")
         effective = func.coalesce(
@@ -723,20 +734,34 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
             if rid is None:
                 from .proposals import NativeProposalFrame
                 from .source_views import load_source_view
+
                 report = reports_by_id[source["id"]]
                 frame = source_frames.get(report["task_id"])
                 if isinstance(frame, NativeProposalFrame) or source["source_view_id"] is not None:
-                    view = load_source_view(conn, frame.source_view_id if isinstance(frame,NativeProposalFrame)
-                                            else source["source_view_id"])
-                    document = conn.execute(select(d).where(
-                        d.c.id == view.ref.document_id)).mappings().one()
+                    view = load_source_view(
+                        conn,
+                        frame.source_view_id
+                        if isinstance(frame, NativeProposalFrame)
+                        else source["source_view_id"],
+                    )
+                    document = (
+                        conn.execute(select(d).where(d.c.id == view.ref.document_id))
+                        .mappings()
+                        .one()
+                    )
                     descriptors[source["id"]] = {
-                        "rendition_id": None, "source_view_id": view.ref.id,
-                        "source_uri": document["source_uri"], "text": view.text,
-                        "provider": source["provider"], "version": source["version"],
-                        "rendition_key": view.ref.key, "content": {"macros": {}},
-                        "page": document["source_uri"], "math": source["params"].get("math"),
-                        "frame": frame, "native_view": view,
+                        "rendition_id": None,
+                        "source_view_id": view.ref.id,
+                        "source_uri": document["source_uri"],
+                        "text": view.text,
+                        "provider": source["provider"],
+                        "version": source["version"],
+                        "rendition_key": view.ref.key,
+                        "content": {"macros": {}},
+                        "page": document["source_uri"],
+                        "math": source["params"].get("math"),
+                        "frame": frame,
+                        "native_view": view,
                     }
                 else:
                     descriptors[source["id"]] = None
@@ -1067,8 +1092,11 @@ def _project_cut(
             for name, value in descriptor["content"].get("macros", {}).items()
         }
         contexts[observation["id"]] = (
-            ({} if descriptor.get("source_view_id") is not None
-             else effective_macros(source_macros, section.macro_table())),
+            (
+                {}
+                if descriptor.get("source_view_id") is not None
+                else effective_macros(source_macros, section.macro_table())
+            ),
             tuple(sorted(set(section.constants))),
         )
     if len({constants for _, constants in contexts.values()}) > 1:
@@ -1224,8 +1252,14 @@ def _project_cut(
 
         if statements:
             from .proposals import NativeProposalFrame
-            source_index = (None if isinstance(descriptor["frame"], NativeProposalFrame)
-                else LocatorIndex(RenditionContent.model_validate(descriptor["content"]), descriptor["page"]))
+
+            source_index = (
+                None
+                if isinstance(descriptor["frame"], NativeProposalFrame)
+                else LocatorIndex(
+                    RenditionContent.model_validate(descriptor["content"]), descriptor["page"]
+                )
+            )
             for statement in statements.values():
                 if statement["kind"] != "outside":
                     statement["anchor"] = statement_anchor(
@@ -1238,13 +1272,23 @@ def _project_cut(
                         "partial",
                         "explicit unresolved external statement reference",
                     )
+
         def statement_source_key(anchor):
-            from .proposals import NativeProposalFrame,native_statement_source
-            frame=descriptor["frame"]
-            return native_statement_source(frame,anchor).unit_ref if isinstance(frame,NativeProposalFrame) else descriptor["rendition_key"]
+            from .proposals import NativeProposalFrame, native_statement_source
+
+            frame = descriptor["frame"]
+            return (
+                native_statement_source(frame, anchor).unit_ref
+                if isinstance(frame, NativeProposalFrame)
+                else descriptor["rendition_key"]
+            )
+
         statement_ids = {
             ref: statement_identity(
-                prepared.release_id, output, statement_source_key(statement["anchor"]), statement["anchor"]
+                prepared.release_id,
+                output,
+                statement_source_key(statement["anchor"]),
+                statement["anchor"],
             )
             for ref, statement in statements.items()
             if statement["kind"] != "outside"
@@ -1371,7 +1415,7 @@ def _project_cut(
                 if e.get("outcome") != "located" or e.get("start") is None or e.get("end") is None:
                     continue
                 start, end = e["start"], e["end"]
-                if not 0 <= start < end <= len(_evidence_source_text(descriptor,e["locator"])):
+                if not 0 <= start < end <= len(_evidence_source_text(descriptor, e["locator"])):
                     raise DomainOperationRefused("claim evidence lies outside its cited source")
                 # Location uncertainty is source evidence, never silently upgraded to exactness.
                 key = "evidence:" + sha256(canonical_bytes([source, "claims", i, j, e])).hexdigest()
@@ -1387,7 +1431,9 @@ def _project_cut(
                         descriptor["version"],
                     )
                 )
-                source_links[key] = _evidence_link(observation, descriptor, start, end, e["locator"])
+                source_links[key] = _evidence_link(
+                    observation, descriptor, start, end, e["locator"]
+                )
                 evidence_roles[key] = e["role"]
             if not located or not any(
                 e.get("outcome") == "located" and e["role"] == "primary" for e in claim["evidence"]
@@ -1475,7 +1521,12 @@ def _project_cut(
                 if citation.get("outcome") != "located":
                     continue
                 start, end = citation["start"], citation["end"]
-                if not 0 <= start < end <= len(_evidence_source_text(descriptor,citation["locator"])):
+                if (
+                    not 0
+                    <= start
+                    < end
+                    <= len(_evidence_source_text(descriptor, citation["locator"]))
+                ):
                     raise DomainOperationRefused("identity evidence lies outside its cited source")
                 eid = (
                     "evidence:"
@@ -1502,7 +1553,9 @@ def _project_cut(
                     )
                 )
                 evidence_roles[eid] = citation["role"]
-                source_links[eid] = _evidence_link(observation, descriptor, start, end, citation["locator"])
+                source_links[eid] = _evidence_link(
+                    observation, descriptor, start, end, citation["locator"]
+                )
             for endpoint in (exclusion["left"], exclusion["right"]):
                 if endpoint["kind"] != "local":
                     continue
@@ -1735,7 +1788,12 @@ def _project_cut(
                 if citation.get("outcome") != "located":
                     continue
                 start, end = citation["start"], citation["end"]
-                if not 0 <= start < end <= len(_evidence_source_text(descriptor,citation["locator"])):
+                if (
+                    not 0
+                    <= start
+                    < end
+                    <= len(_evidence_source_text(descriptor, citation["locator"]))
+                ):
                     raise DomainOperationRefused("identity evidence lies outside its cited source")
                 eid = (
                     "evidence:"
@@ -1762,7 +1820,9 @@ def _project_cut(
                     )
                 )
                 evidence_roles[eid] = citation["role"]
-                source_links[eid] = _evidence_link(observation, descriptor, start, end, citation["locator"])
+                source_links[eid] = _evidence_link(
+                    observation, descriptor, start, end, citation["locator"]
+                )
                 exclusion_links.append(IdentityExclusionEvidenceRow(xid, eid))
                 for identity, value in ((left, exclusion["left"]), (right, exclusion["right"])):
                     exclusion_entities.add(EntityRow(identity))
@@ -2080,20 +2140,23 @@ def consolidate_cut(
             rows = []
             span = table("kb.span")
             coordinates = sorted(
-                {(link[1], link[2], link[3]) for link in source_links.values()
-                 if not isinstance(link, NativeEvidenceLink)}
+                {
+                    (link[1], link[2], link[3])
+                    for link in source_links.values()
+                    if not isinstance(link, NativeEvidenceLink)
+                }
             )
             if coordinates:
                 conn.execute(
                     pg_insert(span)
                     .values(
-                    [
-                        {"rendition_id": rid, "start_offset": start, "end_offset": end}
-                        for rid, start, end in coordinates
-                    ]
+                        [
+                            {"rendition_id": rid, "start_offset": start, "end_offset": end}
+                            for rid, start, end in coordinates
+                        ]
+                    )
+                    .on_conflict_do_nothing()
                 )
-                .on_conflict_do_nothing()
-            )
             ids = {
                 (row.rendition_id, row.start_offset, row.end_offset): row.id
                 for row in conn.execute(
@@ -2106,8 +2169,16 @@ def consolidate_cut(
             }
             for eid, link in sorted(source_links.items()):
                 if isinstance(link, NativeEvidenceLink):
-                    rows.append(EvidenceSourceRow(eid, link.observation_id, None, None,
-                        source_view_id=link.source_view_id, native_address=link.native_address))
+                    rows.append(
+                        EvidenceSourceRow(
+                            eid,
+                            link.observation_id,
+                            None,
+                            None,
+                            source_view_id=link.source_view_id,
+                            native_address=link.native_address,
+                        )
+                    )
                 else:
                     oid, rid, start, end = link
                     rows.append(EvidenceSourceRow(eid, oid, rid, ids[rid, start, end]))

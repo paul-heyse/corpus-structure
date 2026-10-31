@@ -1,4 +1,5 @@
 """Native source context and historical packet/frame identities stay distinct."""
+
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -7,20 +8,33 @@ import pytest
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.parsing_products import ProductReference
 from corpus_structure.semantic.proposals import (
-    NativeProposalFrame, ProposalFrame, ProposalPacket, ProposalRefused, native_address,
-    native_source_frame, statement_anchor,
+    NativeProposalFrame,
+    ProposalFrame,
+    ProposalPacket,
+    ProposalRefused,
+    native_address,
+    native_source_frame,
+    statement_anchor,
 )
 
 
 def view():
     return SimpleNamespace(
-        ref=SimpleNamespace(id=5, key="section:5", document_id=1,
+        ref=SimpleNamespace(
+            id=5,
+            key="section:5",
+            document_id=1,
             native_product=ProductReference(2, "organized", "a" * 64),
-            section_pointer="#/groups/0", membership="direct",
-            projection_digest="b" * 64, recipe_digest="c" * 64),
-        text="x is positive.", pieces=[{"pointer": "#/texts/0", "start": 0, "end": 14}],
+            section_pointer="#/groups/0",
+            membership="direct",
+            projection_digest="b" * 64,
+            recipe_digest="c" * 64,
+        ),
+        text="x is positive.",
+        pieces=[{"pointer": "#/texts/0", "start": 0, "end": 14}],
         items=[{"pointer": "#/texts/0", "label": "text", "text": "x is positive."}],
-        ancestors=[], health={"inline_coverage": "unknown"},
+        ancestors=[],
+        health={"inline_coverage": "unknown"},
     )
 
 
@@ -33,9 +47,17 @@ def test_native_context_is_supplied_and_committed_by_packet_identity():
     frame = native_source_frame(source, [("s1", 0, len(source.text))])
     assert isinstance(frame, NativeProposalFrame)
     first = packet(frame)
-    changed = replace(frame, native_context=canonical_bytes({
-        "pieces": source.pieces, "items": source.items, "ancestors": [],
-        "health": {"inline_coverage": "partial"}}).decode())
+    changed = replace(
+        frame,
+        native_context=canonical_bytes(
+            {
+                "pieces": source.pieces,
+                "items": source.items,
+                "ancestors": [],
+                "health": {"inline_coverage": "partial"},
+            }
+        ).decode(),
+    )
     assert first.hash != packet(changed).hash
     rendered = next(part.text for part in first.parts() if part.name == "unit")
     assert '"native_source"' in rendered
@@ -63,5 +85,9 @@ def test_native_sentence_cannot_change_projection_coordinates():
 
 def test_legacy_frame_shape_has_no_new_fields():
     from dataclasses import asdict
+
     assert asdict(ProposalFrame("historical", "text", ())) == {
-        "unit_ref": "historical", "text": "text", "sentences": ()}
+        "unit_ref": "historical",
+        "text": "text",
+        "sentences": (),
+    }

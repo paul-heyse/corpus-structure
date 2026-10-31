@@ -1,8 +1,8 @@
 """Retained historical inputs for archive controls; never invokes a retired writer."""
 
+import json
 from functools import cache
 from hashlib import sha256
-import json
 from pathlib import Path
 
 from corpus_structure.core.evidence import RenditionContent

@@ -21,8 +21,8 @@ from corpus_structure.semantic.operations import OperationConflict
 from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
 from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.semantic.types import PreparedRelease
-from corpus_structure.serve.source import SourceRequest, SourceResponse
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
+from corpus_structure.serve.source import SourceRequest, SourceResponse
 from corpus_structure.settings import Settings
 
 
@@ -322,7 +322,9 @@ def build_semantic_server(
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
-    def inspect_source(ctx: Context, request: SourceRequest | NativeSourceRequest) -> SourceResponse | NativeSourceResponse:
+    def inspect_source(
+        ctx: Context, request: SourceRequest | NativeSourceRequest
+    ) -> SourceResponse | NativeSourceResponse:
         """Inspect pinned source products and qualified origins without interpretation."""
         from corpus_structure.semantic.query import read_snapshot
         from corpus_structure.serve.source import inspect_source as inspect_selected
@@ -331,30 +333,54 @@ def build_semantic_server(
         with read_snapshot(active.engine) as conn:
             if isinstance(request, NativeSourceRequest):
                 from corpus_structure.serve.native_source import inspect_native_source
+
                 return inspect_native_source(conn, request)
             return inspect_selected(conn, request)
 
     @server.tool(annotations={"readOnlyHint": False})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
-    def render_source_region(ctx: Context, run_id: int, source_view_id: int,
-                             pointer: str, region_index: int = 0, scale: float = 2) -> ToolResult:
+    def render_source_region(
+        ctx: Context,
+        run_id: int,
+        source_view_id: int,
+        pointer: str,
+        region_index: int = 0,
+        scale: float = 2,
+    ) -> ToolResult:
         """Demand and retain a source-qualified PDF region image through native task ownership."""
-        from corpus_structure.semantic.native_requests import request_source_view
-        from corpus_structure.semantic.metadata import table
-        from fastmcp.utilities.types import Image
         from dataclasses import asdict
-        active=bound_run(ctx,run_id)
-        result=request_source_view(active.engine,source_run_id=run_id,source_view_id=source_view_id,
-            demand='render',pointer=pointer,region_index=region_index,scale=scale,
-            code_commit='native-source-mcp-v2')
-        if result.status == 'failed':
-            raise ValueError(result.error or 'native region render failed')
-        artifacts=table('kb.source_artifact')
+
+        from fastmcp.utilities.types import Image
+
+        from corpus_structure.semantic.metadata import table
+        from corpus_structure.semantic.native_requests import request_source_view
+
+        active = bound_run(ctx, run_id)
+        result = request_source_view(
+            active.engine,
+            source_run_id=run_id,
+            source_view_id=source_view_id,
+            demand="render",
+            pointer=pointer,
+            region_index=region_index,
+            scale=scale,
+            code_commit="native-source-mcp-v2",
+        )
+        if result.status == "failed":
+            raise ValueError(result.error or "native region render failed")
+        artifacts = table("kb.source_artifact")
         with active.engine.connect() as conn:
-            content=bytes(conn.execute(select(artifacts.c.content).where(
-                artifacts.c.artifact_digest==result.artifact_digest)).scalar_one())
-        return ToolResult(content=[Image(data=content,format='png').to_image_content()],
-            structured_content=asdict(result))
+            content = bytes(
+                conn.execute(
+                    select(artifacts.c.content).where(
+                        artifacts.c.artifact_digest == result.artifact_digest
+                    )
+                ).scalar_one()
+            )
+        return ToolResult(
+            content=[Image(data=content, format="png").to_image_content()],
+            structured_content=asdict(result),
+        )
 
     @server.tool
     @tool_refusals(ProposalRefused, OperationConflict)

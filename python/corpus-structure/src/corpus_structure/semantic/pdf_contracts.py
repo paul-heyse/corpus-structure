@@ -91,7 +91,6 @@ def trusted_pdf_context() -> PreparedPdfContext:
 
 
 def pdf_context_for_task(conn: Connection, task_id: int) -> PreparedPdfContext:
-    from .contracts import execution_payload
     from .releases import open_release
 
     tasks, runs, inputs = table("ops.task"), table("ops.run"), table("sem.input")
@@ -101,13 +100,14 @@ def pdf_context_for_task(conn: Connection, task_id: int) -> PreparedPdfContext:
         .where(tasks.c.id == task_id)
     ).scalar_one()
     prepared = open_release(conn, release_id)
-    return pdf_context_for_release(conn,prepared)
+    return pdf_context_for_release(conn, prepared)
 
 
-def pdf_context_for_release(conn: Connection,prepared: PreparedRelease) -> PreparedPdfContext:
+def pdf_context_for_release(conn: Connection, prepared: PreparedRelease) -> PreparedPdfContext:
     from .contracts import execution_payload
-    inputs=table("sem.input")
-    release_id=prepared.release_id
+
+    inputs = table("sem.input")
+    release_id = prepared.release_id
     payload = execution_payload(prepared)
     if payload is None:
         raise ValueError("producing task has no archived execution binding")
@@ -133,11 +133,12 @@ def pdf_context_for_release(conn: Connection,prepared: PreparedRelease) -> Prepa
     return prepare_pdf_context(prepared, bundle)
 
 
-def pdf_context_for_run(conn: Connection,run_id: int) -> PreparedPdfContext:
+def pdf_context_for_run(conn: Connection, run_id: int) -> PreparedPdfContext:
     from .releases import open_release
-    runs=table("ops.run")
-    release=conn.execute(select(runs.c.release_id).where(runs.c.id==run_id)).scalar_one()
-    return pdf_context_for_release(conn,open_release(conn,release))
+
+    runs = table("ops.run")
+    release = conn.execute(select(runs.c.release_id).where(runs.c.id == run_id)).scalar_one()
+    return pdf_context_for_release(conn, open_release(conn, release))
 
 
 def table(name: str):
@@ -309,11 +310,14 @@ def prepare_pdf_product(
             raise ValueError("formula recognition outcome has no native occurrence")
     if value["health"]["display_coverage"] == "complete":
         successful = {o["pointer"] for o in outcomes if o["outcome"] == "succeeded"}
+
         def display_item(item):
-            if item["label"]!="formula": return False
-            parent=item.get("parent_pointer")
-            label=resolve_native_pointer(document,parent).get("label") if parent else None
-            return label not in {"table","inline"}
+            if item["label"] != "formula":
+                return False
+            parent = item.get("parent_pointer")
+            label = resolve_native_pointer(document, parent).get("label") if parent else None
+            return label not in {"table", "inline"}
+
         if any(display_item(i) and i["pointer"] not in successful for i in value["items"]):
             raise ValueError("complete formula coverage lacks attributable recognition")
     seen_regions = set()
@@ -357,69 +361,110 @@ def prepare_pdf_product(
             region["origin"] == "bottom_left" and region["top"] < region["bottom"]
         ):
             raise ValueError("region coordinate origin contradicts vertical bounds")
-    health=value['health']
-    for universe,policy in (('inline','candidate_policy'),('cell','cells_policy')):
-        if health.get(universe+'_coverage')=='complete' and (not health.get(universe+'_scope') or health.get(universe+'_membership') not in {'direct','descendants'} or not health.get(policy)):
-            raise ValueError('complete recognition coverage requires its named scope, membership and candidate policy')
-        for pointer in health.get(universe+'_scope',()):
-            if resolve_native_pointer(document,pointer).get('label') not in {'section','chapter'}:
-                raise ValueError('recognition coverage scope is not a native section')
-    coverage=set()
-    for row in value.get('recognition_coverage',()):
-        key=row['section_pointer'],row['membership'],row['universe']
-        if key in coverage:raise ValueError('duplicate scoped recognition coverage')
+    health = value["health"]
+    for universe, policy in (("inline", "candidate_policy"), ("cell", "cells_policy")):
+        if health.get(universe + "_coverage") == "complete" and (
+            not health.get(universe + "_scope")
+            or health.get(universe + "_membership") not in {"direct", "descendants"}
+            or not health.get(policy)
+        ):
+            raise ValueError(
+                "complete recognition coverage requires its named scope, membership and candidate policy"
+            )
+        for pointer in health.get(universe + "_scope", ()):
+            if resolve_native_pointer(document, pointer).get("label") not in {"section", "chapter"}:
+                raise ValueError("recognition coverage scope is not a native section")
+    coverage = set()
+    for row in value.get("recognition_coverage", ()):
+        key = row["section_pointer"], row["membership"], row["universe"]
+        if key in coverage:
+            raise ValueError("duplicate scoped recognition coverage")
         coverage.add(key)
-        if resolve_native_pointer(document,row['section_pointer']).get('label') not in {'section','chapter'}:
-            raise ValueError('recognition coverage row requires a native section')
-    if coverage and any(health.get(universe+'_coverage')!='unknown' for universe in ('inline','cell')):
-        raise ValueError('scoped row coverage cannot masquerade as a global native summary')
-    reports=set()
-    outcomes={row['pointer']:row['outcome'] for row in health.get('formula_outcomes',())}
-    for report in value.get('cell_reports',()):
-        key=report['table_pointer'],report['cell_index']
-        if key in reports:raise ValueError('duplicate native cell report')
+        if resolve_native_pointer(document, row["section_pointer"]).get("label") not in {
+            "section",
+            "chapter",
+        }:
+            raise ValueError("recognition coverage row requires a native section")
+    if coverage and any(
+        health.get(universe + "_coverage") != "unknown" for universe in ("inline", "cell")
+    ):
+        raise ValueError("scoped row coverage cannot masquerade as a global native summary")
+    reports = set()
+    outcomes = {row["pointer"]: row["outcome"] for row in health.get("formula_outcomes", ())}
+    for report in value.get("cell_reports", ()):
+        key = report["table_pointer"], report["cell_index"]
+        if key in reports:
+            raise ValueError("duplicate native cell report")
         reports.add(key)
-        table=resolve_native_pointer(document,report['table_pointer'])
-        cells=table.get('data',{}).get('table_cells',())
-        if table.get('label')!='table' or not 0<=report['cell_index']<len(cells) or str(report['page_no']) not in document.get('pages',{}):
-            raise ValueError('cell report is outside its native table/cell/page')
-        if not any(p['page_no']==report['page_no'] for p in table.get('prov',())):
-            raise ValueError('cell report page differs from its native table')
-        if report['classification']=='prose' and (report['outcome']!='not_requested' or report.get('formula_pointer') is not None):
-            raise ValueError('prose cell report cannot claim native formula recognition')
-        if report['classification']=='math' and report['outcome']=='succeeded':
-            pointer=report.get('formula_pointer')
-            if pointer is None or (cells[report['cell_index']].get('ref') or {}).get('$ref')!=pointer or resolve_native_pointer(document,pointer).get('label')!='formula' or outcomes.get(pointer)!='succeeded':
-                raise ValueError('successful math cell lacks qualified rich formula recognition')
-    runtime=value.get('runtime_report')
+        table = resolve_native_pointer(document, report["table_pointer"])
+        cells = table.get("data", {}).get("table_cells", ())
+        if (
+            table.get("label") != "table"
+            or not 0 <= report["cell_index"] < len(cells)
+            or str(report["page_no"]) not in document.get("pages", {})
+        ):
+            raise ValueError("cell report is outside its native table/cell/page")
+        if not any(p["page_no"] == report["page_no"] for p in table.get("prov", ())):
+            raise ValueError("cell report page differs from its native table")
+        if report["classification"] == "prose" and (
+            report["outcome"] != "not_requested" or report.get("formula_pointer") is not None
+        ):
+            raise ValueError("prose cell report cannot claim native formula recognition")
+        if report["classification"] == "math" and report["outcome"] == "succeeded":
+            pointer = report.get("formula_pointer")
+            if (
+                pointer is None
+                or (cells[report["cell_index"]].get("ref") or {}).get("$ref") != pointer
+                or resolve_native_pointer(document, pointer).get("label") != "formula"
+                or outcomes.get(pointer) != "succeeded"
+            ):
+                raise ValueError("successful math cell lacks qualified rich formula recognition")
+    runtime = value.get("runtime_report")
     if runtime is not None:
-        if not isinstance(json.loads(runtime['effective_options']),dict):raise ValueError('native effective options must be an upstream option object')
-        if 'confidence' in runtime and not isinstance(json.loads(runtime['confidence']),dict):raise ValueError('native confidence must be its upstream report object')
-        for field in ('packages','bindings'):
-            names=[row['name'] for row in runtime.get(field,())]
-            if len(names)!=len(set(names)):raise ValueError('native runtime report repeats a named binding')
-    candidate_pages=set()
-    for page in value.get("inline_candidate_pages",[]):
-        page_no=page["page_no"]
-        if page_no in candidate_pages or str(page_no) not in document.get("pages",{}):
+        if not isinstance(json.loads(runtime["effective_options"]), dict):
+            raise ValueError("native effective options must be an upstream option object")
+        if "confidence" in runtime and not isinstance(json.loads(runtime["confidence"]), dict):
+            raise ValueError("native confidence must be its upstream report object")
+        for field in ("packages", "bindings"):
+            names = [row["name"] for row in runtime.get(field, ())]
+            if len(names) != len(set(names)):
+                raise ValueError("native runtime report repeats a named binding")
+    candidate_pages = set()
+    for page in value.get("inline_candidate_pages", []):
+        page_no = page["page_no"]
+        if page_no in candidate_pages or str(page_no) not in document.get("pages", {}):
             raise ValueError("inline candidate page is duplicate or outside native scope")
         candidate_pages.add(page_no)
-        dimensions=document["pages"][str(page_no)]["size"]
-        for candidate in page.get("candidates",[]):
-            if candidate["page_no"]!=page_no or candidate["origin"] not in {"TOPLEFT","BOTTOMLEFT"} or candidate["basis"] not in {"native-math-font-v1","native-math-token-v1","native-vector-gap-v1"}:
+        dimensions = document["pages"][str(page_no)]["size"]
+        for candidate in page.get("candidates", []):
+            if (
+                candidate["page_no"] != page_no
+                or candidate["origin"] not in {"TOPLEFT", "BOTTOMLEFT"}
+                or candidate["basis"]
+                not in {"native-math-font-v1", "native-math-token-v1", "native-vector-gap-v1"}
+            ):
                 raise ValueError("inline candidate has an unqualified page/origin/basis")
-            if not (0<=candidate["left"]<=candidate["right"]<=dimensions["width"] and 0<=min(candidate["top"],candidate["bottom"])<=max(candidate["top"],candidate["bottom"])<=dimensions["height"]):
+            if not (
+                0 <= candidate["left"] <= candidate["right"] <= dimensions["width"]
+                and 0
+                <= min(candidate["top"], candidate["bottom"])
+                <= max(candidate["top"], candidate["bottom"])
+                <= dimensions["height"]
+            ):
                 raise ValueError("inline candidate is outside physical page")
     result = PreparedPdfProduct(
         canonical_bytes(value), original, schema_bytes, recipe_bytes, context.contract_digest
     )
-    object.__setattr__(result,"_validated",True)
+    object.__setattr__(result, "_validated", True)
     return result
 
 
 def require_pdf_coverage(
-    product: PreparedPdfProduct, *universes: str, whole_document: bool = False,
-    section_pointer: str | None = None, membership: str | None = None
+    product: PreparedPdfProduct,
+    *universes: str,
+    whole_document: bool = False,
+    section_pointer: str | None = None,
+    membership: str | None = None,
 ) -> None:
     """A complete consumer cannot reinterpret missing/unknown recognition as absence."""
     values = product.values()
@@ -427,9 +472,15 @@ def require_pdf_coverage(
         raise ValueError("whole-document source coverage is unavailable")
     health = values["health"]
     for universe in universes:
-        scope=health.get(universe+"_scope",[])
-        if scope and (whole_document or section_pointer not in scope or membership!=health.get(universe+"_membership")):
-            raise ValueError("required PDF recognition coverage is outside the qualified section scope")
+        scope = health.get(universe + "_scope", [])
+        if scope and (
+            whole_document
+            or section_pointer not in scope
+            or membership != health.get(universe + "_membership")
+        ):
+            raise ValueError(
+                "required PDF recognition coverage is outside the qualified section scope"
+            )
     if health["conversion"] != "success" or any(
         health.get(universe + "_coverage") != "complete" for universe in universes
     ):
@@ -454,8 +505,14 @@ def store_pdf_product(
     if archived.release_id is None:
         raise ValueError("native publication requires an archived release")
     require_database_operation(conn, archived.release_id, "publish_native_document")
-    if not product._validated or product.contract_digest!=archived.contract_digest or sha256(product.schema_bytes).hexdigest()!=archived.native_schema_digest:
-        raise ValueError("native publication requires a prepared immutable product under this archive")
+    if (
+        not product._validated
+        or product.contract_digest != archived.contract_digest
+        or sha256(product.schema_bytes).hexdigest() != archived.native_schema_digest
+    ):
+        raise ValueError(
+            "native publication requires a prepared immutable product under this archive"
+        )
     return conn.execute(
         text(
             "SELECT ops.publish_native_document(:task,:attempt,:holder,:contract,:payload,"

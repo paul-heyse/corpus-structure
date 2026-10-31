@@ -26,8 +26,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.core.canonical import canonical_json
-from corpus_structure.core.evidence import MacroDef, segment_key
-from corpus_structure.core.locators import annotation_units
+from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.method import (
     ArtifactRef,
     ConfigRef,
@@ -47,10 +46,9 @@ from corpus_structure.core.vocab import (
     MethodTier,
     TaskUnitType,
 )
+from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.llm import packet as P
 from corpus_structure.methods.llm import parts as parts_
-
-from corpus_structure.ingest.sentences import SentenceConfig
 
 VERSION = "5"  # bumped on any change to the packet rendering or the prompts
 DEFAULT_MODEL = "claude-opus-5-5"
@@ -79,7 +77,9 @@ class AgentOpusConfig(BaseModel):
     max_alternatives: int | None = None
     model: str = DEFAULT_MODEL
     max_units: int = Field(1, ge=1)
-    sentences: Annotated[str | SentenceConfig, ConfigRef("segment.sentences")] = "segment.sentences/default"
+    sentences: Annotated[str | SentenceConfig, ConfigRef("segment.sentences")] = (
+        "segment.sentences/default"
+    )
     math: Annotated[MathSection, PackSection("math")] = MathSection()
     reference: Annotated[str, ArtifactRef("annotator_reference", "reference")] = ""
     json_schema: Annotated[str, ArtifactRef("json_schema", "batch.model_facing")] = ""
@@ -117,8 +117,9 @@ class AgentOpus:
     # -- select --------------------------------------------------------------------------------
 
     def select(self, run: SourceRunContext, cfg: AgentOpusConfig) -> Iterable[UnitRef]:
-        return tuple(UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key)
-                     for ref in run.reader.source_views())
+        return tuple(
+            UnitRef(TaskUnitType.SOURCE_VIEW, ref.id, ref.key) for ref in run.reader.source_views()
+        )
 
     # -- the packet and the parts --------------------------------------------------------------
 
@@ -196,11 +197,16 @@ class AgentOpus:
     def input_digest(self, unit: UnitView, cfg: AgentOpusConfig) -> Digest:
         if unit.ref.unit_type is TaskUnitType.SOURCE_VIEW:
             from corpus_structure.methods.math.native import native_proposal_packet
+
             if unit.ref.unit_id is None:
                 raise ValueError("native agent task requires a source-view row")
-            packet = native_proposal_packet(unit.run.reader, unit.ref.unit_id,
-                getattr(unit.run.reader,"prepared"), cfg.model_dump(mode="json"))
-            return Digest(canonical_json({"packet":packet.hash,"model":cfg.model}), packet.hash)
+            packet = native_proposal_packet(
+                unit.run.reader,
+                unit.ref.unit_id,
+                unit.run.reader.prepared,
+                cfg.model_dump(mode="json"),
+            )
+            return Digest(canonical_json({"packet": packet.hash, "model": cfg.model}), packet.hash)
         packet = self.packet(unit, cfg)
         return Digest(canonical_json(self.digest_inputs(unit, cfg, packet)), packet.hash)
 

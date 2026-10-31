@@ -13,21 +13,22 @@ import hashlib
 import json
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import pytest
 
-from corpus_structure.core.evidence import RenditionContent, Segment, content_digest
+from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.locators import LocatorIndex, parse
 from corpus_structure.core.vocab import SegmentKind
-from typing import Protocol
+
 
 class IngestResult(Protocol):
     content: RenditionContent
     page: str
+
+
 from corpus_structure.ingest.profile import CompiledProfile
 from corpus_structure.ingest.profile_segments import MEASURED, features, measurements
-from corpus_structure.ingest.sentences import SentenceConfig
 
 REPO = Path(__file__).resolve().parents[4]
 SPIKE = json.loads((Path(__file__).with_name("data") / "spike_renditions.json").read_text())

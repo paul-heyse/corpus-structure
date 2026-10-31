@@ -75,14 +75,24 @@ def validate_parsing_contracts(model: ExecutionModelProducts) -> None:
     # Future declarations express required distinctions without advertising a producer.
     for name in FUTURE_PARSING_OPERATIONS:
         model.operation(name)
-    native = any(a.adapter_id=="docling-pdf-source-1" for a in model.parsing_adapters)
-    names=("convert_pdf","organize_pdf","project_pdf_source","publish_source_view","read_source_view") if native else (
-        "prepare_parsing_product",
-        "publish_parsing_product",
-        "read_parsing_product",
-        "decompose_source",
-        "recognize_html",
-        "project_canonical",
+    native = any(a.adapter_id == "docling-pdf-source-1" for a in model.parsing_adapters)
+    names = (
+        (
+            "convert_pdf",
+            "organize_pdf",
+            "project_pdf_source",
+            "publish_source_view",
+            "read_source_view",
+        )
+        if native
+        else (
+            "prepare_parsing_product",
+            "publish_parsing_product",
+            "read_parsing_product",
+            "decompose_source",
+            "recognize_html",
+            "project_canonical",
+        )
     )
     for name in names:
         model.require_operation(name)
@@ -136,9 +146,19 @@ def validate_parsing_contracts(model: ExecutionModelProducts) -> None:
             )
 
     profiles = {
-        "docling-pdf-source-1": ("docling-standard-pdf-v1","docling-2.145.0/core-2.105.0",None,
-            "native-normalize-before-identity","explicit-partial",
-            {"source/native-document","source/native-items","source/pdf-regions","source/section-projection"}),
+        "docling-pdf-source-1": (
+            "docling-standard-pdf-v1",
+            "docling-2.145.0/core-2.105.0",
+            None,
+            "native-normalize-before-identity",
+            "explicit-partial",
+            {
+                "source/native-document",
+                "source/native-items",
+                "source/pdf-regions",
+                "source/section-projection",
+            },
+        ),
         "lark-structure-1": (
             "text-structure-2",
             "sympy-1.14.0-lark-1.3.1",

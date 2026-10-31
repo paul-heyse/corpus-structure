@@ -49,10 +49,12 @@ PHASE0 = Graph(
         (Stage.INGEST, (Step(f"{M01}/default"),)),
         (
             Stage.NORMALIZE,
-            (Step(f"{MATH_ENRICH}/default", upstream=(M01,)),
-             Step(f"{M02}/default", upstream=(MATH_ENRICH,)),
-             Step(f"{M09}/default", upstream=(MATH_ENRICH,)),
-             Step(f"{M11}/default", upstream=(MATH_ENRICH,))),
+            (
+                Step(f"{MATH_ENRICH}/default", upstream=(M01,)),
+                Step(f"{M02}/default", upstream=(MATH_ENRICH,)),
+                Step(f"{M09}/default", upstream=(MATH_ENRICH,)),
+                Step(f"{M11}/default", upstream=(MATH_ENRICH,)),
+            ),
         ),
         (Stage.SCOPE, (Step(f"{M13}/default", upstream=(M09, M11)),)),
     ),
@@ -101,9 +103,12 @@ METHODS: tuple[Any, ...] = (
 
 def registry(pack: Path) -> MethodRegistry:
     """The phase 0 registry over the pack's `methods.yaml` (an absent file is an empty one)."""
-    native_names={method.name for method in ingest_methods.METHODS}
-    methods=(*ingest_methods.native_methods(),*(method for method in METHODS if method.name not in native_names))
-    return MethodRegistry(methods,load_methods(pack / "methods.yaml"))
+    native_names = {method.name for method in ingest_methods.METHODS}
+    methods = (
+        *ingest_methods.native_methods(),
+        *(method for method in METHODS if method.name not in native_names),
+    )
+    return MethodRegistry(methods, load_methods(pack / "methods.yaml"))
 
 
 def stub_pass(conn: Connection, run_id: int, pass_: str, m19_task_id: int | None) -> PassReport:

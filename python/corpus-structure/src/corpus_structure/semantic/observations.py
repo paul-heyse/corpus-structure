@@ -212,15 +212,19 @@ def bind_result(
         if draft.span is not None:
             row["span_start"], row["span_end"] = draft.span
         if draft.source_view_id is not None:
-            if draft.rendition_id is not None or draft.segment_id is not None or draft.span is not None:
+            if (
+                draft.rendition_id is not None
+                or draft.segment_id is not None
+                or draft.span is not None
+            ):
                 raise ValueError("native observation cannot alias rendition coordinates")
-            row["source_view_id"]=draft.source_view_id
+            row["source_view_id"] = draft.source_view_id
             if draft.native_pointer is not None:
-                row["native_pointer"]=draft.native_pointer
+                row["native_pointer"] = draft.native_pointer
             if draft.projected_span is not None:
-                row["projected_start"],row["projected_end"]=draft.projected_span
+                row["projected_start"], row["projected_end"] = draft.projected_span
             if draft.recognized_span is not None:
-                row["recognized_start"],row["recognized_end"]=draft.recognized_span
+                row["recognized_start"], row["recognized_end"] = draft.recognized_span
         observations.append(row)
     payload: dict[str, object] = {
         "release_id": prepared.release_id,

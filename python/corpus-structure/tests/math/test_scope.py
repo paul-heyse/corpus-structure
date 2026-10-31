@@ -26,7 +26,7 @@ from typing import Any
 import pytest
 
 from corpus_structure.core import tex
-from corpus_structure.core.evidence import RenditionContent,Segment
+from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.keys import symbol_form
 from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.vocab import MathKind, ScopeExtent, SegmentKind
@@ -163,20 +163,32 @@ def scopes_of(env: Any, content: RenditionContent) -> tuple[Any, list[Any], list
 def test_a_list_binds_every_symbol(env: Any) -> None:
     """M11 reads `a, b` as a list; M13 binds both symbols at the binder sentence, and their later
     mentions in the unit go to those sites."""
-    text=(r"Let \(a, b\) be real numbers. Then \(a + b\) is real and \(c\) is free.")
-    math=[]
-    for value in (r"\(a, b\)",r"\(a + b\)",r"\(c\)"):
-        start=text.index(value)
-        math.append(Segment(kind=SegmentKind.MATH_INLINE,start=start,end=start+len(value),
-                            attrs={"open":r"\(","close":r"\)"}))
-    split_at=text.index("Then")
-    sentences=(Segment(kind=SegmentKind.SENTENCE,start=0,end=split_at-1),
-               Segment(kind=SegmentKind.SENTENCE,start=split_at,end=len(text)))
-    paragraph=Segment(kind=SegmentKind.PARAGRAPH,start=0,end=len(text),children=(*math,*sentences))
-    unit=Segment(kind=SegmentKind.UNIT,start=0,end=len(text),children=(paragraph,))
-    source=RenditionContent(canonical_text=text,document=Segment(
-        kind=SegmentKind.DOCUMENT,start=0,end=len(text),children=(unit,)))
-    content, values, scopes = scopes_of(env,source)
+    text = r"Let \(a, b\) be real numbers. Then \(a + b\) is real and \(c\) is free."
+    math = []
+    for value in (r"\(a, b\)", r"\(a + b\)", r"\(c\)"):
+        start = text.index(value)
+        math.append(
+            Segment(
+                kind=SegmentKind.MATH_INLINE,
+                start=start,
+                end=start + len(value),
+                attrs={"open": r"\(", "close": r"\)"},
+            )
+        )
+    split_at = text.index("Then")
+    sentences = (
+        Segment(kind=SegmentKind.SENTENCE, start=0, end=split_at - 1),
+        Segment(kind=SegmentKind.SENTENCE, start=split_at, end=len(text)),
+    )
+    paragraph = Segment(
+        kind=SegmentKind.PARAGRAPH, start=0, end=len(text), children=(*math, *sentences)
+    )
+    unit = Segment(kind=SegmentKind.UNIT, start=0, end=len(text), children=(paragraph,))
+    source = RenditionContent(
+        canonical_text=text,
+        document=Segment(kind=SegmentKind.DOCUMENT, start=0, end=len(text), children=(unit,)),
+    )
+    content, values, scopes = scopes_of(env, source)
     assert [v.math_kind for v in values][:1] == [MathKind.LIST]
     later = [s for s in scopes if content.canonical_text.index("Then") < s.mention.start]
     bound = {s.symbol: s.site for s in later}

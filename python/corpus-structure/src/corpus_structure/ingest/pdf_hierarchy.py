@@ -95,6 +95,7 @@ class SectionBasis:
     task's archived section policy provide level/rule. The parent product pin distinguishes
     pre-existing native groups from newly allocated organizational groups by pointer presence.
     """
+
     group_ref: str
     heading_ref: str
     level: int
@@ -150,9 +151,14 @@ def organize(source: NativeSnapshot, policy: SectionPolicy) -> OrganizedDocument
             if item.children:
                 regroup(item)
             is_section = item.label == DocItemLabel.SECTION_HEADER and (
-                item.self_ref in policy.organizational_refs or (
-                    (pattern.search(item.text) is not None or organizational.search(item.text) is not None)
-                    and local.search(item.text) is None)
+                item.self_ref in policy.organizational_refs
+                or (
+                    (
+                        pattern.search(item.text) is not None
+                        or organizational.search(item.text) is not None
+                    )
+                    and local.search(item.text) is None
+                )
             )
             if is_section:
                 level = item.level
@@ -193,12 +199,12 @@ class ProjectedPiece:
     cell_index: int | None = None
     source_field: str | None = None
 
-    def to_wire(self)->dict[str,Any]:
-        value:dict[str,Any]=dict(start=self.start,end=self.end,kind=self.kind)
-        for name in ('item_ref','cell_index','source_field'):
-            field=getattr(self,name)
+    def to_wire(self) -> dict[str, Any]:
+        value: dict[str, Any] = dict(start=self.start, end=self.end, kind=self.kind)
+        for name in ("item_ref", "cell_index", "source_field"):
+            field = getattr(self, name)
             if field is not None:
-                value[name]=field
+                value[name] = field
         return value
 
 
@@ -230,7 +236,13 @@ def project_section(
     pieces: list[ProjectedPiece] = []
     position = 0
 
-    def append(value: str, ref: str, cell_index: int | None = None, source_field: str = "text", separator: bool = True) -> None:
+    def append(
+        value: str,
+        ref: str,
+        cell_index: int | None = None,
+        source_field: str = "text",
+        separator: bool = True,
+    ) -> None:
         nonlocal position
         if not value:
             return
@@ -240,7 +252,9 @@ def project_section(
             position += 1
         text.append(value)
         pieces.append(
-            ProjectedPiece(ref, position, position + len(value), "native_text", cell_index, source_field)
+            ProjectedPiece(
+                ref, position, position + len(value), "native_text", cell_index, source_field
+            )
         )
         position += len(value)
 
@@ -266,7 +280,9 @@ def project_section(
         if hasattr(node, "text"):
             append(node.text, node.self_ref, separator=separator)
         for index, child in enumerate(node.children):
-            child_separator = (separator if index == 0 else False) if str(node.label) == "inline" else True
+            child_separator = (
+                (separator if index == 0 else False) if str(node.label) == "inline" else True
+            )
             visit(nodes[child.cref], separator=child_separator)
 
     visit(nodes[section_ref])

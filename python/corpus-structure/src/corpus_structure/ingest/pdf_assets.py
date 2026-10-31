@@ -1,4 +1,5 @@
 """Content-addressed, offline native model bundles; preparation never runs inference."""
+
 from __future__ import annotations
 
 import json
@@ -40,7 +41,9 @@ def _hash(path: Path) -> str:
     return digest.hexdigest()
 
 
-def prepare_pdf_assets(recipe: PdfRecipe, *, cache: Path, offline: bool = True) -> PreparedPdfAssets:
+def prepare_pdf_assets(
+    recipe: PdfRecipe, *, cache: Path, offline: bool = True
+) -> PreparedPdfAssets:
     """Pin actual selected repositories and OCR files into an owned immutable bundle.
 
     Local HF refs resolve the table tag to an immutable snapshot. A missing offline dependency
@@ -57,25 +60,37 @@ def prepare_pdf_assets(recipe: PdfRecipe, *, cache: Path, offline: bool = True) 
     roots: list[tuple[str, Path]] = []
     revisions: list[tuple[str, str]] = []
     for repository, revision in repositories:
-        source = Path(snapshot_download(repo_id=repository, revision=revision, local_files_only=offline))
+        source = Path(
+            snapshot_download(repo_id=repository, revision=revision, local_files_only=offline)
+        )
         if re.fullmatch(r"[0-9a-f]{40}", source.name) is None:
             raise ValueError("HF model did not resolve to an immutable snapshot")
         roots.append((repository.replace("/", "--"), source))
         revisions.append((repository, source.name))
     ocr_root = cache / "RapidOcr"
-    ocr_files = ("PP-OCRv6_det_small.onnx", "ch_ppocr_mobile_v2.0_cls_mobile.onnx", "PP-OCRv6_rec_small.onnx")
+    ocr_files = (
+        "PP-OCRv6_det_small.onnx",
+        "ch_ppocr_mobile_v2.0_cls_mobile.onnx",
+        "PP-OCRv6_rec_small.onnx",
+    )
     selected: list[tuple[str, Path]] = []
     for folder, source in roots:
-        selected.extend((f"{folder}/{file.relative_to(source).as_posix()}", file)
-                        for file in sorted(source.rglob("*")) if file.is_file())
+        selected.extend(
+            (f"{folder}/{file.relative_to(source).as_posix()}", file)
+            for file in sorted(source.rglob("*"))
+            if file.is_file()
+        )
     for name in ocr_files:
         path = ocr_root / name
         if not path.is_file():
             raise FileNotFoundError(f"prefetched RapidOCR artifact is missing: {path}")
         selected.append((f"RapidOcr/{name}", path))
     files = tuple((name, _hash(path)) for name, path in selected)
-    manifest = json.dumps({"recipe": "pdf-model-assets-v1", "repositories": revisions,
-                           "files": files}, sort_keys=True, separators=(",", ":")).encode()
+    manifest = json.dumps(
+        {"recipe": "pdf-model-assets-v1", "repositories": revisions, "files": files},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
     destination = cache / "qualified" / sha256(manifest).hexdigest()
     if not destination.exists():
         destination.parent.mkdir(parents=True, exist_ok=True)

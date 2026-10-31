@@ -360,7 +360,8 @@ def test_actual_global_helper_requires_its_bound_operation(operation, semantic_w
                 original_path="missing",
                 original=b"",
                 prepared=missing,
-             mime='text/html')
+                mime="text/html",
+            )
     assert refused.value.diagnostics[0].code == "missing_operation"
     assert refused.value.diagnostics[0].contract_id == operation
 

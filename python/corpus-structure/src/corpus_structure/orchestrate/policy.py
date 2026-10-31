@@ -176,7 +176,10 @@ def unit_language(
             "confidence": "function(string)->string?",
         },
         values={
-            ("Unit", "kind"): _vocab("source unit kind" if native_unit_kinds else "SegmentKind", (*SegmentKind,*native_unit_kinds)),
+            ("Unit", "kind"): _vocab(
+                "source unit kind" if native_unit_kinds else "SegmentKind",
+                (*SegmentKind, *native_unit_kinds),
+            ),
             ("Unit", "statement_kind"): _vocab("StatementKind", statement_kinds),
             ("Target", "kind"): _vocab("JudgmentTargetKind", JudgmentTargetKind),
             (CALL, "outcome"): _vocab("ObservationOutcome", ObservationOutcome),

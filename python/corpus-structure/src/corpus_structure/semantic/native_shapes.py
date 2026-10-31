@@ -96,7 +96,9 @@ def record_shape_guards(prepared: PreparedRelease, class_name: str, expression: 
                 )
             for pattern in prop.patterns or ((prop.pattern,) if prop.pattern else ()):
                 if prop.multivalued:
-                    invalid.append(f"({expression} ? {key} AND EXISTS(SELECT FROM jsonb_array_elements_text({value}) element WHERE element !~ {quoted(pattern)}))")
+                    invalid.append(
+                        f"({expression} ? {key} AND EXISTS(SELECT FROM jsonb_array_elements_text({value}) element WHERE element !~ {quoted(pattern)}))"
+                    )
                 else:
                     invalid.append(
                         f"({expression} ? {key} AND {expression}->>{key} !~ {quoted(pattern)})"

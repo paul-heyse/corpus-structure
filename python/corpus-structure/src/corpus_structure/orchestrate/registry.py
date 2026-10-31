@@ -199,11 +199,11 @@ class MethodRegistry:
                         # A literal configuration is already the referenced value, rather
                         # than the textual name of another configuration.
                         try:
-                            literal=self.method(other).Config.model_validate(value)
+                            literal = self.method(other).Config.model_validate(value)
                         except ValidationError as error:
                             problems.extend(f"{where}: {e['msg']}" for e in error.errors())
                             continue
-                        _set(dump,path,literal.model_dump(mode="json"))
+                        _set(dump, path, literal.model_dump(mode="json"))
                     else:
                         ref = str(value or DEFAULT)
                         other_name = ref.split("/", 1)[1] if ref.startswith(f"{other}/") else ref

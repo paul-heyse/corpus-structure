@@ -30,7 +30,7 @@ def main() -> None:
     root = Path(os.environ["CS_ABI10_SOURCE_ROOT"])
     assert Path(contracts.__file__).is_relative_to(root)
     assert contracts.EXECUTION_COMPILER_VERSION == "10"
-    historical_ingest=import_module("corpus_structure.ingest.html")
+    historical_ingest = import_module("corpus_structure.ingest.html")
     assert historical_ingest.__file__ is not None
     assert Path(historical_ingest.__file__).is_relative_to(root)
     engine = create_engine(os.environ["CS_ABI10_DATABASE_URL"])

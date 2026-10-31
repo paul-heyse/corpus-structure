@@ -318,7 +318,9 @@ class FakeReader:
     def native_product_reference(self, document_id: int, product_key: str, digest: str) -> Never:
         raise AssertionError("the archived prompt digest must not produce native references")
 
-    def prepare_pdf_product(self, payload, original: bytes, schema_bytes: bytes, recipe_bytes: bytes) -> Never:
+    def prepare_pdf_product(
+        self, payload, original: bytes, schema_bytes: bytes, recipe_bytes: bytes
+    ) -> Never:
         raise AssertionError("the archived prompt digest must not prepare native documents")
 
     def renditions(self) -> Never:

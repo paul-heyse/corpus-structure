@@ -100,14 +100,16 @@ def test_organization_keeps_proof_local_and_direct_membership_distinct():
     assert len(result.sections) == 3
     assert source.payload == snapshot(document).payload
     derived = load_snapshot(result.document)
-    derived_nodes=native_nodes(derived)
+    derived_nodes = native_nodes(derived)
     assert original_refs <= derived_nodes.keys()
-    assert derived_nodes.keys()-original_refs=={section.group_ref for section in result.sections}
+    assert derived_nodes.keys() - original_refs == {
+        section.group_ref for section in result.sections
+    }
     for section in result.sections:
-        group=derived_nodes[section.group_ref]
-        assert group.children[0].cref==section.heading_ref
-        assert derived_nodes[section.heading_ref].level==section.level
-        assert section.rule_id=='numbered-book-headings-v1'
+        group = derived_nodes[section.group_ref]
+        assert group.children[0].cref == section.heading_ref
+        assert derived_nodes[section.heading_ref].level == section.level
+        assert section.rule_id == "numbered-book-headings-v1"
     sections = frozenset(s.group_ref for s in result.sections)
     direct = project_section(
         derived,
@@ -283,7 +285,7 @@ def test_converter_hashes_and_consumes_same_immutable_snapshot(tmp_path, monkeyp
             errors=[],
             status=SimpleNamespace(value="success"),
             input=SimpleNamespace(release=lambda: None),
-            confidence=SimpleNamespace(model_dump_json=lambda:'{"layout_score":0.75}'),
+            confidence=SimpleNamespace(model_dump_json=lambda: '{"layout_score":0.75}'),
         )
 
     def prepare():

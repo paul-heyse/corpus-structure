@@ -146,7 +146,8 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             original_path=str(path),
             original=path.read_bytes(),
             metadata={"page": "source.html"},
-         mime='text/html')
+            mime="text/html",
+        )
 
         class SourceConfig(BaseModel):
             pass

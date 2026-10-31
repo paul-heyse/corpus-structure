@@ -36,7 +36,8 @@ def test_native_declared_corpus_and_final_open_task_guard(
             source_uri="source",
             original_path=str(source),
             original=source.read_bytes(),
-         mime='text/html')
+            mime="text/html",
+        )
         run = create_run(
             conn,
             project_id="p",

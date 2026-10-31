@@ -68,10 +68,16 @@ class ObservedFormulaStage:
             outcome: Literal["succeeded", "failed", "unknown", "not_requested"] = (
                 "failed" if error else "succeeded" if observer.calls else "unknown"
             )
-            self.outcomes.extend(FormulaOutcome(e.item.self_ref,
-                'failed' if outcome=='succeeded' and not e.item.text.strip() else outcome,
-                'native engine returned empty recognition' if outcome=='succeeded' and not e.item.text.strip() else error)
-                for e in batch)
+            self.outcomes.extend(
+                FormulaOutcome(
+                    e.item.self_ref,
+                    "failed" if outcome == "succeeded" and not e.item.text.strip() else outcome,
+                    "native engine returned empty recognition"
+                    if outcome == "succeeded" and not e.item.text.strip()
+                    else error,
+                )
+                for e in batch
+            )
             yield from outputs
         except Exception as error:
             message = f"{type(error).__name__}: {error}"
@@ -87,45 +93,56 @@ class FormulaPageLifetime:
     The owning finite recipe disables image exports and other image enrichment. Count from
     native processability, so several formulas on a page share its cache until the last crop.
     """
+
     def __init__(self) -> None:
         self.document: Any = None
-        self.remaining: dict[int,int] = {}
-        self.pages: dict[int,Any] = {}
+        self.remaining: dict[int, int] = {}
+        self.pages: dict[int, Any] = {}
 
-    def clear(self)->None:
-        self.document=None
+    def clear(self) -> None:
+        self.document = None
         self.remaining.clear()
         self.pages.clear()
 
-    def prepare(self,conv_res:Any,model:Any,element:Any)->Any:
+    def prepare(self, conv_res: Any, model: Any, element: Any) -> Any:
         from docling.pipeline.base_pipeline import BasePipeline
+
         if self.document is not conv_res.document:
-            self.document=conv_res.document
-            self.pages={page.page_no:page for page in conv_res.pages}
-            self.remaining={page:0 for page in self.pages}
-            for item,_ in conv_res.document.iterate_items():
-                if model.is_processable(conv_res.document,item) and getattr(item,'prov',()):
-                    number=item.prov[0].page_no
-                    self.remaining[number]=self.remaining.get(number,0)+1
-            for number,page in self.pages.items():
+            self.document = conv_res.document
+            self.pages = {page.page_no: page for page in conv_res.pages}
+            self.remaining = {page: 0 for page in self.pages}
+            for item, _ in conv_res.document.iterate_items():
+                if model.is_processable(conv_res.document, item) and getattr(item, "prov", ()):
+                    number = item.prov[0].page_no
+                    self.remaining[number] = self.remaining.get(number, 0) + 1
+            for number, page in self.pages.items():
                 if not self.remaining[number]:
                     BasePipeline._release_page_resources(page)
-        prepared=model.prepare_element(conv_res,element)
-        if model.is_processable(conv_res.document,element) and getattr(element,'prov',()):
-            number=element.prov[0].page_no
-            self.remaining[number]-=1
-            if self.remaining[number]==0:
+        prepared = model.prepare_element(conv_res, element)
+        if model.is_processable(conv_res.document, element) and getattr(element, "prov", ()):
+            number = element.prov[0].page_no
+            self.remaining[number] -= 1
+            if self.remaining[number] == 0:
                 BasePipeline._release_page_resources(self.pages[number])
         return prepared
 
-def error_summary(error:Exception)->str:
+
+def error_summary(error: Exception) -> str:
     """Bound terminal/log diagnostics without multiplying validation failures or input JSON."""
-    from pydantic import ValidationError
     from jsonschema.exceptions import ValidationError as JsonSchemaError
-    if isinstance(error,ValidationError):
-        examples=error.errors(include_url=False,include_context=False,include_input=False)[:3]
-        locations='; '.join('.'.join(map(str,row['loc']))+': '+row['msg'] for row in examples)
-        return f'ValidationError: {error.error_count()} errors; {locations}'[:1800]
-    if isinstance(error,JsonSchemaError):
-        return ('JSONSchemaValidationError: '+'.'.join(map(str,error.absolute_path))+': '+error.message)[:1800]
-    return (type(error).__name__+': '+str(error))[:1800]
+    from pydantic import ValidationError
+
+    if isinstance(error, ValidationError):
+        examples = error.errors(include_url=False, include_context=False, include_input=False)[:3]
+        locations = "; ".join(
+            ".".join(map(str, row["loc"])) + ": " + row["msg"] for row in examples
+        )
+        return f"ValidationError: {error.error_count()} errors; {locations}"[:1800]
+    if isinstance(error, JsonSchemaError):
+        return (
+            "JSONSchemaValidationError: "
+            + ".".join(map(str, error.absolute_path))
+            + ": "
+            + error.message
+        )[:1800]
+    return (type(error).__name__ + ": " + str(error))[:1800]

@@ -2,8 +2,8 @@
 
 import base64
 import json
-from pathlib import Path
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -105,7 +105,9 @@ def test_unsupported_role_cardinality_and_adapter_revision_refuse():
 
 @pytest.mark.parametrize("case", range(5))
 def test_archived_html_shape_survives_without_admitting_a_current_html_producer(case):
-    archive = json.loads((Path(__file__).with_name("fixtures") / "retained-html-inputs.json").read_bytes())
+    archive = json.loads(
+        (Path(__file__).with_name("fixtures") / "retained-html-inputs.json").read_bytes()
+    )
     retained = archive["parsing"][case]
     raw = base64.b64decode(retained["original_base64"])
     values = retained["payload"]
@@ -179,5 +181,3 @@ def test_native_bounded_queries_retain_order_and_refuse_limits(
             trace_origins(conn, task_id=task, representation_id="canonical", start=0, end=1).outcome
             == "partial"
         )
-
-

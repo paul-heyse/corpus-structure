@@ -324,7 +324,8 @@ def test_source_rendition_fidelity_and_original_change(
             source_uri="file:source",
             original_path=str(original),
             original=original.read_bytes(),
-         mime='text/html')
+            mime="text/html",
+        )
         ren = store_rendition(
             c,
             run_id=run,
@@ -637,7 +638,8 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(
             source_uri="toy/input.html",
             original_path=str(raw),
             original=raw.read_bytes(),
-         mime='text/html')
+            mime="text/html",
+        )
     from corpus_structure.orchestrate.phase0 import PHASE0
 
     graph = PHASE0

@@ -3,7 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.core.evidence import RenditionContent, content_digest, rendition_key, segment_key
+from corpus_structure.core.evidence import (
+    RenditionContent,
+    content_digest,
+    rendition_key,
+    segment_key,
+)
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.consolidation import assemble
 from corpus_structure.semantic.source_projection import project_markup
@@ -36,7 +41,9 @@ classes:
             ),
         )
     prepared = prepare_release(SourceBundle(root, sources))
-    archive = json.loads((Path(__file__).with_name("fixtures") / "retained-html-inputs.json").read_bytes())["markup"]
+    archive = json.loads(
+        (Path(__file__).with_name("fixtures") / "retained-html-inputs.json").read_bytes()
+    )["markup"]
     content = RenditionContent.model_validate(archive["content"])
     rk = rendition_key("document:test", content_digest(content))
     projections = []

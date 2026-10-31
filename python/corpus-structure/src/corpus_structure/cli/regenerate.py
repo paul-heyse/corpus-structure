@@ -32,7 +32,8 @@ def regenerate(
     corpus: Annotated[Path, typer.Option(exists=True, file_okay=False)],
     project: Annotated[str | None, typer.Option()] = None,
     slice: Annotated[
-        str | None, typer.Option(help="Named source scope (uses the pack's declared default scope).")
+        str | None,
+        typer.Option(help="Named source scope (uses the pack's declared default scope)."),
     ] = None,
     scope: Annotated[str | None, typer.Option(help="Named source scope.")] = None,
     resume_run: Annotated[

@@ -175,7 +175,11 @@ def text_product_payload(
             origin="literal",
         )
         if syntax_kind is not None:
-            row.update(syntax_kind=syntax_kind,upstream_role=upstream_role,grammar_revision=grammar_revision)
+            row.update(
+                syntax_kind=syntax_kind,
+                upstream_role=upstream_role,
+                grammar_revision=grammar_revision,
+            )
         if macro_event is not None:
             row["macro_event"] = dict(macro_event)
         if name is not None:

@@ -13,14 +13,14 @@ The pack constants below retain the independent historical oracle configuration.
 
 from __future__ import annotations
 
-import multiprocessing
 import json
-from functools import lru_cache
+import multiprocessing
 import os
 import time
 from collections.abc import Callable, Iterable
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 from corpus_structure.core import tex
@@ -102,9 +102,9 @@ class PageMath:
 
 @lru_cache(maxsize=1)
 def _retained_inputs() -> dict:
-    fixture=REPO/"fixtures/trace/archived-renditions.json"
-    retained=json.loads(fixture.read_bytes())
-    if retained["source_revision"]!="7e6289a":
+    fixture = REPO / "fixtures/trace/archived-renditions.json"
+    retained = json.loads(fixture.read_bytes())
+    if retained["source_revision"] != "7e6289a":
         raise ValueError("historical mathematical inputs require their retained source revision")
     return retained["pages"]
 
@@ -116,8 +116,8 @@ def corpus_of(page: str) -> Path:
 def read_page(page: str) -> PageReadings:
     """Read a retained typed input and its spans, without source ingestion."""
     if page not in _retained_inputs():
-        raise ValueError("no retained historical mathematical input for "+page)
-    content=RenditionContent.model_validate(_retained_inputs()[page]["content"])
+        raise ValueError("no retained historical mathematical input for " + page)
+    content = RenditionContent.model_validate(_retained_inputs()[page]["content"])
     macros = tex.effective_macros(content.macros, PACK_MACROS)
     readings = read_spans(content, macros, CONSTANTS)
     return PageReadings(page, content, macros, readings)

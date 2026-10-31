@@ -51,8 +51,6 @@ from corpus_structure.core.vocab import (
 
 if typing.TYPE_CHECKING:
     from corpus_structure.ingest.sentences import TextLayout
-    from corpus_structure.semantic.pdf_contracts import PreparedPdfProduct
-    from corpus_structure.semantic.source_views import PreparedSourceView
     from corpus_structure.semantic.parsing_products import (
         PreparedLayeredParsingProduct,
         PreparedParsingProduct,
@@ -60,6 +58,8 @@ if typing.TYPE_CHECKING:
         ProductReference,
         SelectedParsingProduct,
     )
+    from corpus_structure.semantic.pdf_contracts import PreparedPdfProduct
+    from corpus_structure.semantic.source_views import PreparedSourceView
 
 
 # --- Digests and payload hashes ----------------------------------------------------------------
@@ -120,7 +120,6 @@ class UnitRef:
     unit_key: str | None = None
 
 
-
 @dataclass(frozen=True, slots=True)
 class SourceViewRef:
     id: int
@@ -153,16 +152,34 @@ class SourceViewDraft:
 
     def __post_init__(self) -> None:
         if not self.key or self.document_id < 1 or self.membership not in {"direct", "descendants"}:
-            raise ValueError("source view requires original custody and explicit section membership")
-        value = {"text": self.text, "pieces": self.pieces, "items": self.items,
-                 "ancestors": self.ancestors, "health": self.health}
+            raise ValueError(
+                "source view requires original custody and explicit section membership"
+            )
+        value = {
+            "text": self.text,
+            "pieces": self.pieces,
+            "items": self.items,
+            "ancestors": self.ancestors,
+            "health": self.health,
+        }
         import json
-        object.__setattr__(self, "_projection", json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False,allow_nan=False).encode())
+
+        object.__setattr__(
+            self,
+            "_projection",
+            json.dumps(
+                value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+            ).encode(),
+        )
         if len(set(self.items)) != len(self.items):
             raise ValueError("source view items must retain distinct native occurrence identity")
         position = 0
         for piece in self.pieces:
-            if piece["start"] != position or not isinstance(piece["end"], int) or not isinstance(piece["start"], int):
+            if (
+                piece["start"] != position
+                or not isinstance(piece["end"], int)
+                or not isinstance(piece["start"], int)
+            ):
                 raise ValueError("source view pieces do not partition projected text")
             if piece["end"] <= position:
                 raise ValueError("source view piece must have positive extent")
@@ -182,6 +199,7 @@ class SourceViewDraft:
 
     def projection(self) -> dict[str, Any]:
         import json
+
         return json.loads(self._projection)
 
 
@@ -279,17 +297,25 @@ class Reader(Protocol):
 
     def source_view(self, source_view_id: int) -> PreparedSourceView: ...
 
-    def ancestor_source_views(self,source_view_id:int) -> Sequence[SourceViewRef]: ...
+    def ancestor_source_views(self, source_view_id: int) -> Sequence[SourceViewRef]: ...
 
-    def native_document(self,reference:ProductReference) -> PreparedPdfProduct: ...
+    def native_document(self, reference: ProductReference) -> PreparedPdfProduct: ...
 
-    def source_observations(self,source_view_id:int,method:str,kind:ObservationKind) -> Sequence[StableObservationReading]: ...
+    def source_observations(
+        self, source_view_id: int, method: str, kind: ObservationKind
+    ) -> Sequence[StableObservationReading]: ...
 
-    def source_view_coverage(self,source_view_id:int,method:str) -> tuple[SourceCoverageReading,...]: ...
+    def source_view_coverage(
+        self, source_view_id: int, method: str
+    ) -> tuple[SourceCoverageReading, ...]: ...
 
-    def native_product_reference(self, document_id: int, product_key: str, digest: str) -> ProductReference: ...
+    def native_product_reference(
+        self, document_id: int, product_key: str, digest: str
+    ) -> ProductReference: ...
 
-    def prepare_pdf_product(self, payload: Mapping[str, Any], original: bytes, schema_bytes: bytes, recipe_bytes: bytes) -> PreparedPdfProduct: ...
+    def prepare_pdf_product(
+        self, payload: Mapping[str, Any], original: bytes, schema_bytes: bytes, recipe_bytes: bytes
+    ) -> PreparedPdfProduct: ...
 
     def renditions(self) -> Sequence[RunRendition]:
         """The run's documents and its rendition of each."""
@@ -448,14 +474,19 @@ class ObservationDraft[P: BaseModel]:
             raise ValueError("an observation draft names its payload class's version")
         if self.span is not None and not 0 <= self.span[0] < self.span[1]:
             raise ValueError(f"span {self.span} is empty or reversed")
-        if self.source_view_id is None and any(value is not None for value in (self.native_pointer,self.projected_span,self.recognized_span)):
+        if self.source_view_id is None and any(
+            value is not None
+            for value in (self.native_pointer, self.projected_span, self.recognized_span)
+        ):
             raise ValueError("native observation coordinates require a source view")
-        if self.source_view_id is not None and any(value is not None for value in (self.rendition_id,self.segment_id,self.span)):
+        if self.source_view_id is not None and any(
+            value is not None for value in (self.rendition_id, self.segment_id, self.span)
+        ):
             raise ValueError("native observations cannot alias rendition coordinates")
         if self.recognized_span is not None and self.native_pointer is None:
             raise ValueError("recognized-text coordinates require a native item pointer")
-        for extent in (self.projected_span,self.recognized_span):
-            if extent is not None and not 0<=extent[0]<extent[1]:
+        for extent in (self.projected_span, self.recognized_span):
+            if extent is not None and not 0 <= extent[0] < extent[1]:
                 raise ValueError("native observation extent is empty or reversed")
 
     def source(self, method: Method[Any]) -> ConfidenceSource | None:

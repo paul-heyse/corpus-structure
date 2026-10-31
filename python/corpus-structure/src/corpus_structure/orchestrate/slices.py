@@ -80,15 +80,30 @@ def records(
                 if not isinstance(entry, dict) or set(entry) != {"native_sections"}:
                     raise SliceError("native PDF scopes require native_sections selections")
                 values = entry["native_sections"]
-                if not isinstance(values, list) or not values or not all(isinstance(v, str) and v for v in values):
+                if (
+                    not isinstance(values, list)
+                    or not values
+                    or not all(isinstance(v, str) and v for v in values)
+                ):
                     raise SliceError("native section selection requires nonempty headings")
                 selected_sections.extend(values)
-        corpus_record = {"name": "pdf-originals", "locators": [],
+        corpus_record = {
+            "name": "pdf-originals",
+            "locators": [],
             "documents": [document["key"] for document in docs],
-            "hash": digest([(document["key"], document["content_hash"]) for document in docs])}
-        scope_record = None if name is None else {"kind": "native_sections", "name": name,
-            "sections": list(dict.fromkeys(selected_sections)), "include_descendants": True,
-            "hash": digest(selected_sections)}
+            "hash": digest([(document["key"], document["content_hash"]) for document in docs]),
+        }
+        scope_record = (
+            None
+            if name is None
+            else {
+                "kind": "native_sections",
+                "name": name,
+                "sections": list(dict.fromkeys(selected_sections)),
+                "include_descendants": True,
+                "hash": digest(selected_sections),
+            }
+        )
         return corpus_record, scope_record
 
     def chosen(name: str | None) -> tuple[str, ...]:

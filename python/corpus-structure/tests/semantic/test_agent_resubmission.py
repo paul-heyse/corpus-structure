@@ -143,7 +143,8 @@ def source_task(
             original_path=str(path),
             original=path.read_bytes(),
             metadata={"page": "source.html"},
-         mime='text/html')
+            mime="text/html",
+        )
         from pydantic import BaseModel
 
         class SourceConfig(BaseModel):

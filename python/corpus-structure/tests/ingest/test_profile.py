@@ -11,6 +11,7 @@ from typing import Any
 import cssselect2
 import pytest
 import yaml
+from lxml import html
 from lxml.cssselect import CSSSelector
 
 from corpus_structure.core.vocab import (
@@ -23,11 +24,12 @@ from corpus_structure.core.vocab import (
     SynthesisObject,
 )
 from corpus_structure.ingest import profile as profiles
-from lxml import html
+
 
 def parse(raw: bytes):
     """Independent selector fixture tree; no ingestion or source-coordinate claims."""
-    return html.fromstring(raw),None
+    return html.fromstring(raw), None
+
 
 from corpus_structure.ingest.profile import (
     BlockHint,

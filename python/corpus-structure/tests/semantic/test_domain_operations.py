@@ -215,7 +215,8 @@ def fixture(
             original_path=str(path),
             original=original,
             metadata={"page": "page"},
-         mime='text/html')
+            mime="text/html",
+        )
         document_key = conn.execute(
             select(table("kb.document").c.key).where(table("kb.document").c.id == document)
         ).scalar_one()

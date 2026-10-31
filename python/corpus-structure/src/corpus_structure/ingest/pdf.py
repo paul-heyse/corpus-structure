@@ -13,19 +13,29 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
 
-from .pdf_health import FormulaOutcome, ObservedFormulaStage, FormulaPageLifetime
 from .pdf_assets import PreparedPdfAssets
 from .pdf_candidates import CandidatePage, capture_candidates
+from .pdf_health import FormulaOutcome, FormulaPageLifetime, ObservedFormulaStage
 from .pdf_hierarchy import NativeSnapshot, native_nodes, snapshot
 
+PDF_PACKAGE_FAMILY = (
+    "docling",
+    "docling-core",
+    "docling-parse",
+    "torch",
+    "rapidocr",
+    "onnxruntime",
+    "pypdfium2",
+    "Pillow",
+    "transformers",
+    "huggingface-hub",
+    "safetensors",
+)
 
-PDF_PACKAGE_FAMILY=("docling","docling-core","docling-parse","torch","rapidocr","onnxruntime",
-                    "pypdfium2","Pillow","transformers","huggingface-hub","safetensors")
 
-
-def pdf_package_versions() -> tuple[tuple[str,str],...]:
+def pdf_package_versions() -> tuple[tuple[str, str], ...]:
     """Distribution metadata only; no imports, model initialization or asset loading."""
-    return tuple((name,version(name)) for name in PDF_PACKAGE_FAMILY)
+    return tuple((name, version(name)) for name in PDF_PACKAGE_FAMILY)
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,12 +60,22 @@ class PdfRecipe:
                 raise ValueError("model revision must be an immutable commit")
         if self.device not in {"cpu", "cuda"} or self.ocr_device not in {"cpu", "cuda"}:
             raise ValueError("device must be explicit CPU or CUDA")
-        if self.parser_threads < 1 or self.stage_batch_size < 1 or (self.timeout_seconds is not None and self.timeout_seconds <= 0):
+        if (
+            self.parser_threads < 1
+            or self.stage_batch_size < 1
+            or (self.timeout_seconds is not None and self.timeout_seconds <= 0)
+        ):
             raise ValueError("PDF capacity and deadline must be positive")
         repositories: set[str] = set()
         for repository, revision in self.model_revisions:
-            if not repository or repository in repositories or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
-                raise ValueError("runtime model repository revisions must be unique immutable commits")
+            if (
+                not repository
+                or repository in repositories
+                or re.fullmatch(r"[0-9a-f]{40}", revision) is None
+            ):
+                raise ValueError(
+                    "runtime model repository revisions must be unique immutable commits"
+                )
             repositories.add(repository)
         names: set[str] = set()
         for name, digest in self.model_artifacts:
@@ -69,6 +89,7 @@ class PdfRecipe:
     @classmethod
     def from_bytes(cls, payload: bytes) -> PdfRecipe:
         from pydantic import TypeAdapter
+
         values = json.loads(payload)
         if not isinstance(values, dict) or set(values) != {f.name for f in dataclasses.fields(cls)}:
             raise ValueError("archived PDF recipe fields differ from this admitted recipe")
@@ -163,7 +184,7 @@ class PdfConverter:
         self._formula: ObservedFormulaStage | None = None
         self._pipeline: Any = None
         self._options: Any = None
-        self._page_lifetime=FormulaPageLifetime()
+        self._page_lifetime = FormulaPageLifetime()
 
     def _prepare(self) -> None:
         if self._converter is not None:
@@ -173,12 +194,12 @@ class PdfConverter:
         from docling.datamodel.document import ConversionResult
         from docling.document_converter import DocumentConverter, PdfFormatOption
         from docling.models.base_model import GenericEnrichmentModel
-        from docling.models.stages.page_assemble.page_assemble_model import PageAssembleModel
         from docling.models.stages.code_formula.code_formula_vlm_model import CodeFormulaVlmModel
+        from docling.models.stages.page_assemble.page_assemble_model import PageAssembleModel
         from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
         from docling_core.types.doc import DoclingDocument, NodeItem
 
-        page_lifetime=self._page_lifetime
+        page_lifetime = self._page_lifetime
 
         class NativeObservedStage(GenericEnrichmentModel[ItemAndImageEnrichmentElement]):
             progress_step = CodeFormulaVlmModel.progress_step
@@ -195,14 +216,14 @@ class PdfConverter:
             def prepare_element(
                 self, conv_res: ConversionResult, element: NodeItem
             ) -> ItemAndImageEnrichmentElement | None:
-                return self.page_lifetime.prepare(conv_res,self.native,element)
+                return self.page_lifetime.prepare(conv_res, self.native, element)
 
             def __call__(
                 self, doc: DoclingDocument, element_batch: Iterable[ItemAndImageEnrichmentElement]
             ) -> Iterable[NodeItem]:
-                batch=tuple(element_batch)
+                batch = tuple(element_batch)
                 try:
-                    yield from self.observer(doc,batch)
+                    yield from self.observer(doc, batch)
                 finally:
                     for element in batch:
                         element.image.close()
@@ -212,11 +233,18 @@ class PdfConverter:
             if self.recipe.model_artifacts != self.assets.files:
                 raise ValueError("recipe model manifest differs from prepared runtime assets")
         self._options = self.recipe.options()
-        if (self._options.generate_page_images or self._options.generate_picture_images
-                or self._options.generate_table_images or self._options.generate_parsed_pages
-                or self._options.do_picture_classification or self._options.do_picture_description
-                or self._options.do_chart_extraction):
-            raise ValueError('formula page-lifetime policy requires image exports/enrichments disabled')
+        if (
+            self._options.generate_page_images
+            or self._options.generate_picture_images
+            or self._options.generate_table_images
+            or self._options.generate_parsed_pages
+            or self._options.do_picture_classification
+            or self._options.do_picture_description
+            or self._options.do_chart_extraction
+        ):
+            raise ValueError(
+                "formula page-lifetime policy requires image exports/enrichments disabled"
+            )
         if self.assets is not None:
             self._options.artifacts_path = self.assets.root
         converter = DocumentConverter(
@@ -245,15 +273,18 @@ class PdfConverter:
             raise RuntimeError("pinned pipeline lacks the required formula stage")
         native_assembler = pipeline.assemble_model
         capture = self._candidate_pages
+
         class CandidatePageAssembler(PageAssembleModel):
             def __init__(self) -> None:
                 self.options = native_assembler.options
 
-            def __call__(self, conv_res: ConversionResult,
-                         page_batch: Iterable[Page]) -> Iterable[Page]:
+            def __call__(
+                self, conv_res: ConversionResult, page_batch: Iterable[Page]
+            ) -> Iterable[Page]:
                 for page in native_assembler(conv_res, page_batch):
                     capture.append(capture_candidates(page))
                     yield page
+
         pipeline.assemble_model = CandidatePageAssembler()
         self._converter = converter
         self._pipeline = pipeline
@@ -262,18 +293,26 @@ class PdfConverter:
         """Reuse the native formula engine without initializing unused layout/table/OCR stages."""
         if self._formula is None:
             from docling.datamodel.accelerator_options import AcceleratorOptions
-            from docling.models.stages.code_formula.code_formula_vlm_model import CodeFormulaVlmModel
+            from docling.models.stages.code_formula.code_formula_vlm_model import (
+                CodeFormulaVlmModel,
+            )
+
             if self.assets is not None:
                 self.assets.verify()
                 if self.recipe.model_artifacts != self.assets.files:
                     raise ValueError("formula recipe model manifest differs from prepared assets")
-            options=self.recipe.options()
-            native=CodeFormulaVlmModel(enabled=True,enable_remote_services=False,
+            options = self.recipe.options()
+            native = CodeFormulaVlmModel(
+                enabled=True,
+                enable_remote_services=False,
                 artifacts_path=self.assets.root if self.assets is not None else None,
                 options=options.code_formula_options,
-                accelerator_options=AcceleratorOptions(num_threads=self.recipe.parser_threads,device=self.recipe.device))
-            native.elements_batch_size=self.recipe.stage_batch_size
-            self._formula=ObservedFormulaStage(native)
+                accelerator_options=AcceleratorOptions(
+                    num_threads=self.recipe.parser_threads, device=self.recipe.device
+                ),
+            )
+            native.elements_batch_size = self.recipe.stage_batch_size
+            self._formula = ObservedFormulaStage(native)
         return self._formula
 
     def runtime_bindings(self) -> tuple[tuple[str, str], ...]:
@@ -281,11 +320,16 @@ class PdfConverter:
         if self._formula is None:
             return ()
         if self._pipeline is None:
-            return (("layout.engine","not_executed"),("layout.device","not_executed"),
-                    ("table.device","not_executed"),("ocr.det.providers","not_executed"),
-                    ("ocr.cls.providers","not_executed"),("ocr.rec.providers","not_executed"),
-                    ("formula.engine",type(self._formula.native.engine).__name__),
-                    ("formula.device",str(getattr(self._formula.native.engine,"device","unknown"))))
+            return (
+                ("layout.engine", "not_executed"),
+                ("layout.device", "not_executed"),
+                ("table.device", "not_executed"),
+                ("ocr.det.providers", "not_executed"),
+                ("ocr.cls.providers", "not_executed"),
+                ("ocr.rec.providers", "not_executed"),
+                ("formula.engine", type(self._formula.native.engine).__name__),
+                ("formula.device", str(getattr(self._formula.native.engine, "device", "unknown"))),
+            )
         pipeline = self._pipeline
         entries = [
             ("layout.engine", type(pipeline.layout_model.engine).__name__),
@@ -311,8 +355,13 @@ class PdfConverter:
             raise ValueError("only PDF originals are admitted")
         return self.convert_bytes(path.read_bytes(), name=path.name, page_range=page_range)
 
-    def convert_bytes(self, original: bytes, *, name: str = "original.pdf",
-                      page_range: tuple[int, int] | None = None) -> PdfConversion:
+    def convert_bytes(
+        self,
+        original: bytes,
+        *,
+        name: str = "original.pdf",
+        page_range: tuple[int, int] | None = None,
+    ) -> PdfConversion:
         """Consume the already retained immutable original, without reopening an operator path."""
         if Path(name).suffix.lower() != ".pdf":
             raise ValueError("only PDF originals are admitted")
@@ -393,21 +442,25 @@ def enrich_cells(
     all-table or inline coverage claim. Renderers receive physical page and native bbox,
     retaining origin; no visual-order string cleanup stands in for model inference.
     """
-    from docling.datamodel.base_models import ItemAndImageEnrichmentElement
-    from docling_core.types.doc import DocItemLabel, ProvenanceItem, RichTableCell
 
     from .pdf_hierarchy import load_snapshot
 
     document = load_snapshot(source)
-    outcomes,mappings = apply_cells(document,candidates,stage=stage,render_region=render_region)
-    return CellEnrichment(source.digest,snapshot(document),outcomes,mappings)
+    outcomes, mappings = apply_cells(document, candidates, stage=stage, render_region=render_region)
+    return CellEnrichment(source.digest, snapshot(document), outcomes, mappings)
 
 
-def apply_cells(document: Any,candidates: tuple[CellCandidate,...],*,
-                stage: ObservedFormulaStage,render_region: Any):
+def apply_cells(
+    document: Any,
+    candidates: tuple[CellCandidate, ...],
+    *,
+    stage: ObservedFormulaStage,
+    render_region: Any,
+):
     """Mutate an operation-owned native document; the enclosing operation finalizes identity."""
     from docling.datamodel.base_models import ItemAndImageEnrichmentElement
-    from docling_core.types.doc import DocItemLabel,ProvenanceItem,RichTableCell
+    from docling_core.types.doc import DocItemLabel, ProvenanceItem, RichTableCell
+
     nodes = native_nodes(document)
     if len(set(candidates)) != len(candidates):
         raise ValueError("duplicate cell candidate")
@@ -416,9 +469,13 @@ def apply_cells(document: Any,candidates: tuple[CellCandidate,...],*,
     batch_size = max(1, stage.elements_batch_size)
     for offset in range(0, len(candidates), batch_size):
         elements = []
-        for candidate in candidates[offset:offset + batch_size]:
+        for candidate in candidates[offset : offset + batch_size]:
             table = nodes.get(candidate.table_ref)
-            if table is None or not hasattr(table, "data") or not hasattr(table.data, "table_cells"):
+            if (
+                table is None
+                or not hasattr(table, "data")
+                or not hasattr(table.data, "table_cells")
+            ):
                 raise ValueError("candidate does not name a native table")
             if not 0 <= candidate.cell_index < len(table.data.table_cells):
                 raise ValueError("cell index outside native table")
@@ -439,8 +496,17 @@ def apply_cells(document: Any,candidates: tuple[CellCandidate,...],*,
                     page_no=candidate.page_no, bbox=cell.bbox, charspan=(0, len(cell.text))
                 ),
             )
-            mappings.append(dict(pointer=item.self_ref,origin_pointer=table.self_ref,
-                source_field="cell_text",start=0,end=len(cell.text),cell_index=candidate.cell_index,kind="table_cell"))
+            mappings.append(
+                dict(
+                    pointer=item.self_ref,
+                    origin_pointer=table.self_ref,
+                    source_field="cell_text",
+                    start=0,
+                    end=len(cell.text),
+                    cell_index=candidate.cell_index,
+                    kind="table_cell",
+                )
+            )
             elements.append(ItemAndImageEnrichmentElement(item=item, image=image))
             table.data.table_cells[candidate.cell_index] = RichTableCell(
                 **cell.model_dump(), ref=item.get_ref()
@@ -513,11 +579,15 @@ def publication_payload(
             health_by_pointer[pointer] = FormulaOutcome(
                 pointer, "unknown", "no attributable inference outcome"
             )
-    display_pointers = [pointer for pointer, item in nodes.items()
-        if str(item.label) == "formula" and (item.parent is None or
-            str(nodes[item.parent.cref].label) not in {"table", "inline"})]
+    display_pointers = [
+        pointer
+        for pointer, item in nodes.items()
+        if str(item.label) == "formula"
+        and (item.parent is None or str(nodes[item.parent.cref].label) not in {"table", "inline"})
+    ]
     display_complete = conversion.conversion_status == "success" and all(
-        health_by_pointer[pointer].outcome == "succeeded" for pointer in display_pointers)
+        health_by_pointer[pointer].outcome == "succeeded" for pointer in display_pointers
+    )
     items: list[dict[str, Any]] = []
     regions: list[dict[str, Any]] = []
     for ordinal, pointer in enumerate(order):
@@ -595,14 +665,17 @@ def publication_payload(
         "regions": regions,
     }
     if include_application_metadata:
-        result['inline_candidate_pages']=[page.to_wire() for page in conversion.inline_candidates]
-    if include_application_metadata and (conversion.packages or conversion.runtime or conversion.effective_options != b"{}"):
-        result['runtime_report'] = {
-            'packages':[dict(name=name,version=version) for name,version in conversion.packages],
-            'bindings':[dict(name=name,value=value) for name,value in conversion.runtime],
-            'effective_options':conversion.effective_options.decode('utf-8')}
-        if conversion.confidence!=b'{}':
-            result['runtime_report']['confidence']=conversion.confidence.decode('utf-8')
+        result["inline_candidate_pages"] = [page.to_wire() for page in conversion.inline_candidates]
+    if include_application_metadata and (
+        conversion.packages or conversion.runtime or conversion.effective_options != b"{}"
+    ):
+        result["runtime_report"] = {
+            "packages": [dict(name=name, version=version) for name, version in conversion.packages],
+            "bindings": [dict(name=name, value=value) for name, value in conversion.runtime],
+            "effective_options": conversion.effective_options.decode("utf-8"),
+        }
+        if conversion.confidence != b"{}":
+            result["runtime_report"]["confidence"] = conversion.confidence.decode("utf-8")
     if parent is not None:
         result.update(
             parent_task_id=parent[0], parent_product_key=parent[1], parent_digest=parent[2]

@@ -51,25 +51,86 @@ def source_build(admin, writer, tmp_path, *, canonical="x+x", macros=None, range
     # Independently constructed source data exercises the retained layered-request ABI.
     # It is neither an HTML conversion nor a Docling/PDF qualification result.
     raw = canonical.encode()
-    source = prepare_parsing_product(dict(
-        recipe="source-products-v1", artifact_digest=sha256(raw).hexdigest(),
-        lifecycle="available", semantic_state="ok", provenance_state="partial",
-        representations=[dict(representation_id="raw",kind="original",unit="byte",
-            extent_length=len(raw),partition_state="complete",recognition_state="complete"),
-            dict(representation_id="canonical",kind="canonical",unit="codepoint",
-                extent_length=len(canonical),text_content=canonical,
-                partition_state="complete",recognition_state="complete")],
-        components=[dict(component_id="r0",representation_id="raw",unit="byte",start_offset=0,
-            end_offset=len(raw),ordinal=0,category="text"),
-            dict(component_id="c0",representation_id="canonical",unit="codepoint",start_offset=0,
-                end_offset=len(canonical),ordinal=0,category="math")],
-        nodes=[],relationships=[],endpoints=[],
-        mappings=[dict(mapping_id="source",operation="decode",fidelity="unknown",
-            reason="Independent fixture declares canonical text without an exact original-origin claim")],
-        mapping_endpoints=[dict(mapping_id="source",side="source",ordinal=0,
-            representation_id="raw",unit="byte",start_offset=0,end_offset=len(raw)),
-            dict(mapping_id="source",side="target",ordinal=0,representation_id="canonical",
-                unit="codepoint",start_offset=0,end_offset=len(canonical))]),raw)
+    source = prepare_parsing_product(
+        dict(
+            recipe="source-products-v1",
+            artifact_digest=sha256(raw).hexdigest(),
+            lifecycle="available",
+            semantic_state="ok",
+            provenance_state="partial",
+            representations=[
+                dict(
+                    representation_id="raw",
+                    kind="original",
+                    unit="byte",
+                    extent_length=len(raw),
+                    partition_state="complete",
+                    recognition_state="complete",
+                ),
+                dict(
+                    representation_id="canonical",
+                    kind="canonical",
+                    unit="codepoint",
+                    extent_length=len(canonical),
+                    text_content=canonical,
+                    partition_state="complete",
+                    recognition_state="complete",
+                ),
+            ],
+            components=[
+                dict(
+                    component_id="r0",
+                    representation_id="raw",
+                    unit="byte",
+                    start_offset=0,
+                    end_offset=len(raw),
+                    ordinal=0,
+                    category="text",
+                ),
+                dict(
+                    component_id="c0",
+                    representation_id="canonical",
+                    unit="codepoint",
+                    start_offset=0,
+                    end_offset=len(canonical),
+                    ordinal=0,
+                    category="math",
+                ),
+            ],
+            nodes=[],
+            relationships=[],
+            endpoints=[],
+            mappings=[
+                dict(
+                    mapping_id="source",
+                    operation="decode",
+                    fidelity="unknown",
+                    reason="Independent fixture declares canonical text without an exact original-origin claim",
+                )
+            ],
+            mapping_endpoints=[
+                dict(
+                    mapping_id="source",
+                    side="source",
+                    ordinal=0,
+                    representation_id="raw",
+                    unit="byte",
+                    start_offset=0,
+                    end_offset=len(raw),
+                ),
+                dict(
+                    mapping_id="source",
+                    side="target",
+                    ordinal=0,
+                    representation_id="canonical",
+                    unit="codepoint",
+                    start_offset=0,
+                    end_offset=len(canonical),
+                ),
+            ],
+        ),
+        raw,
+    )
     dependencies = canonical_bytes(
         {
             "operations": {
@@ -101,7 +162,11 @@ def source_build(admin, writer, tmp_path, *, canonical="x+x", macros=None, range
         path = tmp_path / "source.txt"
         path.write_bytes(raw)
         doc = register_document(
-            conn, project_id="p", source_uri="request-source", original_path=str(path), original=raw,
+            conn,
+            project_id="p",
+            source_uri="request-source",
+            original_path=str(path),
+            original=raw,
             mime="text/plain",
         )
         task = create_task(
@@ -198,7 +263,7 @@ def test_native_weak_requests_use_pinned_inputs_and_leave_source_sealed(
                 demand=demand,
                 code_commit="request-test",
             )
-        assert result.status == "source_ready",result.diagnostic
+        assert result.status == "source_ready", result.diagnostic
         assert result.run_id != source_run and result.task_id != root.task_id
         with semantic_reader_engine.begin() as conn:
             products = select_layered_products(conn, run_id=result.run_id, rendition_id=rendition)
@@ -207,22 +272,37 @@ def test_native_weak_requests_use_pinned_inputs_and_leave_source_sealed(
                 conn, next(r for r in result.products if r.product_key == "text:" + demand)
             )
             assert product is not None
-            views=[json.loads(node["value"]) for node in product.values()["nodes"] if node["kind"]=="parse_view"]
-            assert [view["structure_outcome"] for view in views]==["not_requested" if demand=="lexical" else "available"]
-            if demand=="structure":
+            views = [
+                json.loads(node["value"])
+                for node in product.values()["nodes"]
+                if node["kind"] == "parse_view"
+            ]
+            assert [view["structure_outcome"] for view in views] == [
+                "not_requested" if demand == "lexical" else "available"
+            ]
+            if demand == "structure":
                 from copy import deepcopy
+
                 from pydantic import ValidationError
-                syntax=[node for node in product.values()["nodes"] if node["kind"]=="syntax"]
-                assert [(node["name"],node["start_offset"],node["end_offset"]) for node in syntax if node["syntax_kind"]=="token"]==[("x",0,1),("+",1,2),("x",2,3)]
-                assert {node["grammar_revision"] for node in syntax}=={"sympy-1.14.0-lark-1.3.1"}
-                assert {node["upstream_role"] for node in syntax}=={"content"}
-                malformed=deepcopy(product.values());malformed["nodes"]=syntax
+
+                syntax = [node for node in product.values()["nodes"] if node["kind"] == "syntax"]
+                assert [
+                    (node["name"], node["start_offset"], node["end_offset"])
+                    for node in syntax
+                    if node["syntax_kind"] == "token"
+                ] == [("x", 0, 1), ("+", 1, 2), ("x", 2, 3)]
+                assert {node["grammar_revision"] for node in syntax} == {"sympy-1.14.0-lark-1.3.1"}
+                assert {node["upstream_role"] for node in syntax} == {"content"}
+                malformed = deepcopy(product.values())
+                malformed["nodes"] = syntax
                 malformed["nodes"][0].pop("syntax_kind")
-                with pytest.raises(ValidationError,match="syntax_kind"):
+                with pytest.raises(ValidationError, match="syntax_kind"):
                     prepare_layered_product(malformed)
-                stale=deepcopy(product.values())
-                next(node for node in stale["nodes"] if node["kind"]=="syntax")["grammar_revision"]="unqualified-grammar"
-                with pytest.raises(ValueError,match="released frontend"):
+                stale = deepcopy(product.values())
+                next(node for node in stale["nodes"] if node["kind"] == "syntax")[
+                    "grammar_revision"
+                ] = "unqualified-grammar"
+                with pytest.raises(ValueError, match="released frontend"):
                     prepare_layered_product(stale)
             artifacts = [
                 r["text_content"]

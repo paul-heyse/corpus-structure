@@ -215,10 +215,14 @@ def test_recorded_rows_and_the_runs_map(db: Connection, tmp_path: Path) -> None:
         later.config("agent.opus", "expectation")
 
 
-def test_literal_configuration_reference_is_validated_as_referenced_value(tmp_path:Path):
+def test_literal_configuration_reference_is_validated_as_referenced_value(tmp_path: Path):
     import copy
-    source:dict[str,Any]=copy.deepcopy(FILE)
-    source['configs']['ingest.html']['default']['sentences']={'model':'explicit-model','exclude':[]}
-    registry=reg.MethodRegistry(METHODS,methods_file(tmp_path,source))
-    result=registry.resolve('ingest.html','default',ARTIFACTS)
-    assert result.params['sentences']=={'model':'explicit-model','exclude':[]}
+
+    source: dict[str, Any] = copy.deepcopy(FILE)
+    source["configs"]["ingest.html"]["default"]["sentences"] = {
+        "model": "explicit-model",
+        "exclude": [],
+    }
+    registry = reg.MethodRegistry(METHODS, methods_file(tmp_path, source))
+    result = registry.resolve("ingest.html", "default", ARTIFACTS)
+    assert result.params["sentences"] == {"model": "explicit-model", "exclude": []}

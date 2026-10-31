@@ -18,10 +18,12 @@ def capture_source_frame(conn: Connection, task_id: int, packet: ProposalPacket)
     """Capture exact packet coordinates through the protected native append-only routine."""
     if isinstance(packet.frame, NativeProposalFrame):
         from dataclasses import asdict
+
         from .source_views import store_native_source_frame
 
-        store_native_source_frame(conn, task_id=task_id, packet_hash=packet.hash,
-                                  frame=asdict(packet.frame))
+        store_native_source_frame(
+            conn, task_id=task_id, packet_hash=packet.hash, frame=asdict(packet.frame)
+        )
         return
     tasks, renditions, segments, selected = map(
         table, ("ops.task", "kb.rendition", "kb.segment", "ops.run_rendition")
@@ -110,17 +112,23 @@ def capture_source_frame(conn: Connection, task_id: int, packet: ProposalPacket)
     )
 
 
-def load_source_frames(conn: Connection, task_ids) -> dict[int, ProposalFrame | NativeProposalFrame]:
+def load_source_frames(
+    conn: Connection, task_ids
+) -> dict[int, ProposalFrame | NativeProposalFrame]:
     """Acquire distinct immutable origins in bounded sets, independent of observations."""
     tasks = table("ops.task")
     wanted = sorted(set(task_ids))
-    native_ids = set(conn.execute(select(tasks.c.id).where(
-        tasks.c.id.in_(wanted), tasks.c.unit_type == "source_view")).scalars())
+    native_ids = set(
+        conn.execute(
+            select(tasks.c.id).where(tasks.c.id.in_(wanted), tasks.c.unit_type == "source_view")
+        ).scalars()
+    )
     native_frames: dict[int, ProposalFrame | NativeProposalFrame] = {}
     if native_ids:
         from .source_views import load_native_source_frames
-        native_frames.update(load_native_source_frames(conn,native_ids))
-        if native_ids-native_frames.keys():
+
+        native_frames.update(load_native_source_frames(conn, native_ids))
+        if native_ids - native_frames.keys():
             raise OperationConflict("native source tasks lack their immutable packet frame")
     frames, sentences, segments, renditions = map(
         table, ("ops.source_frame", "ops.source_frame_sentence", "kb.segment", "kb.rendition")
@@ -163,12 +171,15 @@ def load_source_frames(conn: Connection, task_ids) -> dict[int, ProposalFrame | 
                 )
             ).all()
         )
-    return {**native_frames, **{
-        task_id: ProposalFrame(
-            row["unit_ref"], texts[row["rendition_id"]], tuple(coordinates.get(task_id, ()))
-        )
-        for task_id, row in headers.items()
-    }}
+    return {
+        **native_frames,
+        **{
+            task_id: ProposalFrame(
+                row["unit_ref"], texts[row["rendition_id"]], tuple(coordinates.get(task_id, ()))
+            )
+            for task_id, row in headers.items()
+        },
+    }
 
 
 def load_source_frame(conn: Connection, task_id: int) -> ProposalFrame | NativeProposalFrame:

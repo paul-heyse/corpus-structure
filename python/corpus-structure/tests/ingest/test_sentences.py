@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from corpus_structure.ingest.profile import CompiledProfile
 from corpus_structure.ingest.sentences import (
     Block,
     SentenceConfig,
@@ -101,9 +100,10 @@ def test_prepared_layout_roundtrips_absolute_offsets_without_retokenizing(
 
 def test_native_text_math_ranges_are_prepared_once_without_delimiter_parsing():
     from corpus_structure.ingest.sentences import prepare_layout
-    text='Let x be real. Then it holds.'
-    block=Block(text,[(4,5)],[],[])
-    layout=prepare_layout(pipeline(CONFIG),block)
-    reconstructed=make_doc(pipeline(CONFIG),block,layout)
-    assert reconstructed.text==text
-    assert any(t.role=='math' and (t.start,t.end)==(4,5) for t in layout.tokens)
+
+    text = "Let x be real. Then it holds."
+    block = Block(text, [(4, 5)], [], [])
+    layout = prepare_layout(pipeline(CONFIG), block)
+    reconstructed = make_doc(pipeline(CONFIG), block, layout)
+    assert reconstructed.text == text
+    assert any(t.role == "math" and (t.start, t.end) == (4, 5) for t in layout.tokens)
