@@ -1,4 +1,5 @@
 """Native section selectors bind one numbered occurrence before subtree expansion."""
+
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -24,14 +25,21 @@ CATALOG = {
     "#/groups/72": "Functions",
 }
 SELECTORS = (
-    "1.1: Sets", "1.2: Functions", "1.3: Relations",
-    "1.8: Combinatorial Structures", "5.6: The Normal Distribution",
+    "1.1: Sets",
+    "1.2: Functions",
+    "1.3: Relations",
+    "1.8: Combinatorial Structures",
+    "5.6: The Normal Distribution",
 )
 
 
 def test_numbered_selectors_do_not_expand_to_repeated_titles():
     assert resolve_native_sections(CATALOG, SELECTORS) == (
-        "#/groups/11", "#/groups/12", "#/groups/13", "#/groups/18", "#/groups/56",
+        "#/groups/11",
+        "#/groups/12",
+        "#/groups/13",
+        "#/groups/18",
+        "#/groups/56",
     )
     assert normalized_native_section_title(" 1.2— FUNCTIONS. ") == "1.2 functions"
     assert resolve_native_sections(CATALOG, ["1.2 — functions!"]) == ("#/groups/12",)
@@ -55,18 +63,36 @@ def test_reader_resolves_catalog_before_descendant_and_maximal_root_selection():
     selected = []
     rows = []
     for index, (pointer, title) in enumerate(CATALOG.items(), 1):
-        selected.append(SimpleNamespace(id=index, native_product=product,
-            section_pointer=pointer, membership="descendants"))
-        rows.append(dict(id=index, section={"self_ref":pointer,"name":title}, ancestors=[]))
-    selected.append(SimpleNamespace(id=10, native_product=product,
-        section_pointer="#/groups/child", membership="descendants"))
-    rows.append(dict(id=10, section={"self_ref":"#/groups/child","name":"Operations"},
-        ancestors=[{"self_ref":"#/groups/11","name":"1.1: Sets"}]))
+        selected.append(
+            SimpleNamespace(
+                id=index, native_product=product, section_pointer=pointer, membership="descendants"
+            )
+        )
+        rows.append(dict(id=index, section={"self_ref": pointer, "name": title}, ancestors=[]))
+    selected.append(
+        SimpleNamespace(
+            id=10,
+            native_product=product,
+            section_pointer="#/groups/child",
+            membership="descendants",
+        )
+    )
+    rows.append(
+        dict(
+            id=10,
+            section={"self_ref": "#/groups/child", "name": "Operations"},
+            ancestors=[{"self_ref": "#/groups/11", "name": "1.1: Sets"}],
+        )
+    )
     conn = Mock()
     conn.execute.return_value.mappings.return_value = rows
-    scope = {"sections":SELECTORS,"include_descendants":True}
+    scope = {"sections": SELECTORS, "include_descendants": True}
     assert [ref.section_pointer for ref in scope_source_views(conn, selected, scope)] == [
-        "#/groups/11", "#/groups/12", "#/groups/13", "#/groups/18", "#/groups/56",
+        "#/groups/11",
+        "#/groups/12",
+        "#/groups/13",
+        "#/groups/18",
+        "#/groups/56",
     ]
     with pytest.raises(SourceReadRefused, match="ambiguous native section selector"):
         scope_source_views(conn, selected, dict(scope, sections=["Functions"]))

@@ -285,10 +285,8 @@ def request_source_view(*args, **kwargs):
 def store_region_artifact(conn, *, task_id, attempt, holder, selection, recipe_bytes, content):
     return conn.execute(
         text(
-
-                "SELECT ops.publish_pdf_region_artifact(:task,:attempt,:holder,CAST(:sele"
-                "ction AS jsonb),:recipe,:content)"
-
+            "SELECT ops.publish_pdf_region_artifact(:task,:attempt,:holder,CAST(:sele"
+            "ction AS jsonb),:recipe,:content)"
         ),
         dict(
             task=task_id,
@@ -309,7 +307,7 @@ def _native_section_title_parts(value: str) -> tuple[str | None, str]:
         r"^\s*(\d+(?:\.\d+)*)(?=$|\s|[:.)\u2013\u2014-])(?:\s|[:.)\u2013\u2014-])*", value
     )
     number = prefix[1] if prefix else None
-    title = value[prefix.end():] if prefix else value
+    title = value[prefix.end() :] if prefix else value
     title = "".join(" " if unicodedata.category(char).startswith("P") else char for char in title)
     return number, " ".join(title.casefold().split())
 
@@ -333,7 +331,8 @@ def resolve_native_sections[Key](
         if not number and not title:
             raise SourceReadRefused("invalid", "native section selector is empty")
         matches = [
-            key for key, (candidate_number, candidate_title) in normalized.items()
+            key
+            for key, (candidate_number, candidate_title) in normalized.items()
             if (number is None or candidate_number == number)
             and (not title or candidate_title == title)
         ]

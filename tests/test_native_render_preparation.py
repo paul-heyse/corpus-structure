@@ -107,12 +107,14 @@ def test_render_request_prepares_only_retained_view_and_renderer(renderer_archiv
     monkeypatch.setattr(native_requests, "load_source_view", load)
     monkeypatch.setattr(releases, "open_release", lambda *args: prepared)
     # Rendering must not resolve or validate unrelated mathematical domain-rule contexts.
-    dependencies = canonical_bytes({
-        "operations": {
-            "a": {"parameters": {"math": {"native_domain_rules": [{"rule": "a"}]}}},
-            "b": {"parameters": {"math": {"native_domain_rules": [{"rule": "b"}]}}},
+    dependencies = canonical_bytes(
+        {
+            "operations": {
+                "a": {"parameters": {"math": {"native_domain_rules": [{"rule": "a"}]}}},
+                "b": {"parameters": {"math": {"native_domain_rules": [{"rule": "b"}]}}},
+            }
         }
-    })
+    )
     monkeypatch.setattr(
         native_requests,
         "binding_of",

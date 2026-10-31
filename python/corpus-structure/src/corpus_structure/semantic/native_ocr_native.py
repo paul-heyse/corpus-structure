@@ -1,4 +1,5 @@
 """Forward admission of optional source-qualified OCR word inventories."""
+
 from pathlib import Path
 
 from .migrations import ALEMBIC_DIR

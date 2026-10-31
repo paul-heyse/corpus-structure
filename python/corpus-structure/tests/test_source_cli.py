@@ -27,9 +27,7 @@ class SourceRuntime:
 def source_runtime(monkeypatch):
     from corpus_structure.semantic import pdf_contracts, query, runtime
 
-    controlled = SourceRuntime(
-        MagicMock(spec=Engine), MagicMock(spec=Connection), MagicMock(), []
-    )
+    controlled = SourceRuntime(MagicMock(spec=Engine), MagicMock(spec=Connection), MagicMock(), [])
 
     @contextmanager
     def open_engine(settings, *, application_name, purpose):
@@ -71,9 +69,7 @@ def test_native_products_json_retains_report_shape(cli, source_runtime, empty):
     assert result.stderr == ""
     assert json.loads(result.stdout) == rows
     assert source_runtime.opened == [("ci-native-products", "read")]
-    source_runtime.context.execution.require_operation.assert_called_once_with(
-        "read_native_source"
-    )
+    source_runtime.context.execution.require_operation.assert_called_once_with("read_native_source")
     source_runtime.context.boundary.validate_json.assert_called_once_with(
         "PdfNativeRunRequest", '{"run_id": 17}'
     )
@@ -123,9 +119,7 @@ def test_native_views_json_retains_nested_pins_and_eligibility(
     assert json.loads(result.stdout) == ([] if empty else expected)
     select_views.assert_called_once_with(source_runtime.connection, 17)
     assert source_runtime.opened == [("ci-source-views", "read")]
-    source_runtime.context.execution.require_operation.assert_called_once_with(
-        "read_source_view"
-    )
+    source_runtime.context.execution.require_operation.assert_called_once_with("read_source_view")
     source_runtime.context.boundary.validate_json.assert_called_once_with(
         "PdfNativeRunRequest", '{"run_id": 17}'
     )

@@ -975,9 +975,7 @@ def test_partial_recognition_preserves_usable_consumers_without_complete_context
         assert context_only.coverage[0].outcome == "partial"
         context = context_only.observations[0].payload
         assert context.declarations
-        assert any(
-            f"inline recognition context {recognition}" in issue for issue in context.issues
-        )
+        assert any(f"inline recognition context {recognition}" in issue for issue in context.issues)
 
         requested = native.native_request_analysis(
             reader.view,

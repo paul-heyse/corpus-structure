@@ -59,7 +59,7 @@ def source_view_products(model=None):
         )
         sql += (
             f"GRANT SELECT ON {name} TO corpus_sem_writer,corpus_sem_reader,"
-                                    "corpus_sem_admitter,corpus_sem_evaluator;\n"
+            "corpus_sem_admitter,corpus_sem_evaluator;\n"
         )
     sql += "ALTER TABLE kb.native_document_item ADD COLUMN native_json jsonb;\n"
     sql += "ALTER TABLE kb.native_document_item DISABLE TRIGGER semantic_immutable;\n"
@@ -91,7 +91,7 @@ def source_view_products(model=None):
             "DO $constraints$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint "
             f"WHERE conrelid='{name}'::regclass AND contype='c' LOOP "
             f"EXECUTE format('ALTER TABLE {name} DROP CONSTRAINT %I',n); "
-                                                "END LOOP; END $constraints$;\n"
+            "END LOOP; END $constraints$;\n"
         )
         for constraint in relation.constraints:
             if (
