@@ -72,11 +72,19 @@ class SectionPolicy:
     rule_id: str
     numbered_pattern: str = r"^\d+(?:\.\d+)*\s*[:.)-]?\s+\S"
     organizational_refs: frozenset[str] = frozenset()
+    organizational_pattern: str = r"\S"
+    local_heading_pattern: str = (
+        r"(?i)^\s*(?:(?:proof|answer|solution)\b.*|"
+        r"(?:definition|theorem|lemma|example|exercise|remark|corollary|proposition|claim|note)"
+        r"(?:\s+\d+(?:\.\d+)*|\s*\([^)]*\))?\s*[:.]?)\s*$"
+    )
 
     def __post_init__(self) -> None:
         if not self.rule_id:
             raise ValueError("section policy requires its admitted rule identity")
         re.compile(self.numbered_pattern)
+        re.compile(self.organizational_pattern)
+        re.compile(self.local_heading_pattern)
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +122,8 @@ def organize(source: NativeSnapshot, policy: SectionPolicy) -> OrganizedDocument
         )
     ]
     pattern = re.compile(policy.numbered_pattern)
+    organizational = re.compile(policy.organizational_pattern)
+    local = re.compile(policy.local_heading_pattern)
     section_rows: list[SectionBasis] = []
     original_pointers = tuple(nodes)
 
@@ -127,7 +137,9 @@ def organize(source: NativeSnapshot, policy: SectionPolicy) -> OrganizedDocument
             if item.children:
                 regroup(item)
             is_section = item.label == DocItemLabel.SECTION_HEADER and (
-                item.self_ref in policy.organizational_refs or pattern.search(item.text) is not None
+                item.self_ref in policy.organizational_refs or (
+                    (pattern.search(item.text) is not None or organizational.search(item.text) is not None)
+                    and local.search(item.text) is None)
             )
             if is_section:
                 level = item.level

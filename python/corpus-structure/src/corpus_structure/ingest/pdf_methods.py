@@ -34,10 +34,17 @@ class PdfIngestConfig(BaseModel):
     timeout_seconds: float | None = None
     parser_threads: int = Field(default=8, ge=1)
     stage_batch_size: int = Field(default=4, ge=1)
-    section_rule: str = "numbered-book-sections-v1"
+    section_rule: str = "native-organizational-headings-v2"
     section_pattern: str = r"^\d+(?:\.\d+)*\s*[:.)-]?\s+\S"
+    organizational_heading_pattern: str = r"\S"
+    local_heading_pattern: str = SectionPolicy("default").local_heading_pattern
     sections: tuple[str, ...] = ()
     membership: Literal["direct", "descendants"] = "direct"
+
+    def section_policy(self) -> SectionPolicy:
+        return SectionPolicy(self.section_rule,self.section_pattern,
+            organizational_pattern=self.organizational_heading_pattern,
+            local_heading_pattern=self.local_heading_pattern)
 
     def recipe(self) -> PdfRecipe:
         return PdfRecipe(self.layout_revision, self.formula_revision, self.device, self.ocr_device,
@@ -103,7 +110,7 @@ class IngestPdf:
                 raw_payload = publication_payload(conversion, product_key="native", schema_digest=schema_digest)
                 raw = ctx.reader.prepare_pdf_product(raw_payload, original, schema_bytes, conversion.recipe)
                 raw_ref = ctx.reader.native_product_reference(unit.ref.unit_id, "native", raw.digest)
-                organization = organize(conversion.native, SectionPolicy(cfg.section_rule, cfg.section_pattern))
+                organization = organize(conversion.native, cfg.section_policy())
                 section_refs = frozenset(s.group_ref for s in organization.sections)
                 organized_payload = publication_payload(conversion, product_key="organized",
                     schema_digest=schema_digest, native=organization.document, section_refs=section_refs,
@@ -118,7 +125,9 @@ class IngestPdf:
                     raise ValueError("requested intact section selection is missing or ambiguous")
                 drafts = []
                 projection_recipe = canonical_bytes({"recipe": "native-section-text-v1",
-                    "content_layers":["body"],"section_policy": {"rule_id":cfg.section_rule,"numbered_pattern":cfg.section_pattern,"organizational_refs":[]}})
+                    "content_layers":["body"],"section_policy": {"rule_id":cfg.section_rule,"numbered_pattern":cfg.section_pattern,
+                        "organizational_pattern":cfg.organizational_heading_pattern,
+                        "local_heading_pattern":cfg.local_heading_pattern,"organizational_refs":[]}})
                 for section in selected:
                     projection = project_section(document, organization.document.digest,
                         section.group_ref, "direct" if cfg.membership=="direct" else "descendant",

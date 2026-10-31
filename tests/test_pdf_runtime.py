@@ -62,3 +62,19 @@ def test_native_inline_capture_distinguishes_missing_cells_from_empty_and_retain
     missing=capture_candidates(SimpleNamespace(page_no=2,parsed_page=None))
     assert missing.has_words is False
     assert missing.candidates==()
+
+
+def test_unnumbered_organizational_subheads_preserve_native_levels():
+    from docling_core.types.doc import DoclingDocument,DocItemLabel
+    from corpus_structure.ingest.pdf_hierarchy import organize,snapshot,load_snapshot
+    document=DoclingDocument(name='independent unnumbered hierarchy fixture')
+    for label,level in [('1.1: Sets',1),('Sets and subsets',2),('Definition',3),
+                        ('Proof of Theorem 1',3),('Examples and Applications',2),
+                        ('Answer',3),('Distribution Functions',2)]:
+        document.add_heading(text=label,level=level)
+        document.add_text(label=DocItemLabel.TEXT,text='Content under '+label)
+    organization=organize(snapshot(document),PdfIngestConfig().section_policy())
+    derived=load_snapshot(organization.document)
+    names=[derived.groups[int(s.group_ref.rsplit('/',1)[1])].name for s in organization.sections]
+    assert names==['1.1: Sets','Sets and subsets','Examples and Applications','Distribution Functions']
+    assert [s.level for s in organization.sections]==[1,2,2,2]
