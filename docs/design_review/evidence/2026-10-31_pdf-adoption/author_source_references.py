@@ -1,4 +1,4 @@
-"""Independent source-only A/B/C reference authoring for six frozen PDF facts.
+"""Independent full-section A/B/C references with six frozen original-PDF challenges.
 
 Preparation reads selected source views and their archived release only. Authoring
 runs three fresh tool-free Claude sessions; it never reads predictions or writes
@@ -147,7 +147,7 @@ def prepare(args) -> None:
                 frame = replace(frame, context_sources=tuple(
                     native_frame_source(native_source_frame(parent, ())) for parent in parents
                 ))
-                packet = proposal_packet(release, frame, guideline=run["guideline"], configuration={"reference_scope": "six-frozen-source-facts", "packet_cap_chars": 18000}, known_classes={})
+                packet = proposal_packet(release, frame, guideline=run["guideline"], configuration={"reference_scope": "complete-two-intact-native-sections", "packet_cap_chars": 18000}, known_classes={})
                 exported[key] = {
                     "frame": asdict(frame),
                     "parts": {part.name: part.text for part in packet.parts()},
@@ -158,7 +158,7 @@ def prepare(args) -> None:
             domain_definitions = [asdict(definition) for definition in release.definitions if definition.iri.startswith("https://corpus-structure.dev/domains/statistics/") or definition.name in {"Entity", "Statement", "MathematicalExpression", "Value"}]
             manifest = {
                 "run_id": args.run_id, "release_id": release.release_id, "project_id": run["project_id"],
-                "created_unix": time.time(), "scope": "partial fidelity universe: two intact sections, six frozen source facts only",
+                "created_unix": time.time(), "scope": "complete supported content of two intact native sections; independent original-PDF fidelity challenge limited to two pages/six frozen facts",
                 "frozen_inputs": {key: {"name": name, "sha256": digest} for key, (name, digest) in FROZEN.items()},
                 "frames": {key: {"sha256": sha256(canonical_bytes(value["frame"])).hexdigest(), "reference_packet_hash": value["packet_hash"], "source_view_id": value["frame"]["source_view_id"]} for key, value in exported.items()},
                 "database_reads": "selected native source views/items, original document identity, run input/release only; no predictions",
@@ -182,7 +182,7 @@ def provider_environment() -> dict[str, str]:
     return {key: value for key, value in os.environ.items() if not key.startswith(("CORPUS_", "PG", "DATABASE", "UV_")) and key not in {"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "PWD", "OLDPWD", "BASH_ENV"}}
 
 
-def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, sources: dict, schema: dict, previous: dict | None = None) -> dict:
+def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, max_output_tokens: int, sources: dict, schema: dict, previous: dict | None = None) -> dict:
     command = shutil.which("claude")
     if command is None:
         raise RuntimeError("authenticated Claude CLI is required")
@@ -192,10 +192,13 @@ def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, sou
     if len(schema_text.encode()) > 100_000:
         raise ValueError("schema exceeds safe single CLI argument size; do not weaken the rich schema")
     instructions = (
-        "Author an independent source-only reference for precisely the six supplied topics. "
+        "Author an independent source-only reference containing the COMPLETE supported content of BOTH intact supplied native sections. "
         "Use the rendered original PDF pages for mathematical source meaning, and the complete pinned native frames for exact evidence addresses. "
         "Output the supplied rich AgentAuthoredBatch schema for each intact source unit, including locally declared entities, statements, conditions, bindings and evidence. "
-        "Scope claims to the named topics, plus necessary source-stated premises/entity declarations; do not extract other facts from the larger section. "
+        "Follow the archived annotation guideline for ALL supported entities, statements, claims, premises, conditions, bindings, qualifications and explicitly unsupported content in each whole section. "
+        "The six named topics are highlighted original-PDF fidelity challenges, NOT a restriction on the full authored batches. "
+        "For the rest of each section, completeness is relative to the supplied retained source; do not invent missing native content from general knowledge. "
+        "The two original images independently challenge those six highlighted facts only; no full-original-PDF fidelity claim is requested. "
         "Do not guess missing facts, infer a theorem from recognition health, or cite an address absent from the frame. "
         "Cite exact native_evidence:<index> handles and quotes from the supplied unit's native_evidence inventory. "
         "Supplied native_context:<source_view_id>:<local_id> handles retain the ancestor's own coordinates; do not rebase them into the child. "
@@ -207,7 +210,7 @@ def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, sou
         "No existing reference answers, extractor predictions, production facts, tools or database are available. "
     )
     if kind == "C":
-        instructions += "You are fresh adjudicator C. Independently compare A and B with the original source; resolve differences from source evidence. Do not merely take their intersection. Record unresolved differences honestly in notes. "
+        instructions += "You are fresh adjudicator C. Adjudicate the COMPLETE content of BOTH sections from the full independent A and B batches and supplied sources. Resolve omissions as well as disagreements from source evidence. Do not merely take their intersection. Record unresolved differences honestly in notes. "
     else:
         instructions += f"You are independent author {kind}; no other author output is supplied. "
     content = [{"type": "text", "text": instructions + "\n" + canonical_bytes({"sources": sources, "domain_definitions": json.loads((directory / 'domain-definitions.json').read_bytes()), **({"independent_authors": previous} if previous is not None else {})}).decode()}]
@@ -220,8 +223,10 @@ def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, sou
         config = Path(isolated) / "mcp.json"
         config.write_text('{"mcpServers":{}}')
         argv = [command, "-p", "--model", model, "--input-format", "stream-json", "--output-format", "json", "--json-schema", schema_text, "--session-id", session, "--tools", "", "--strict-mcp-config", "--mcp-config", str(config), "--permission-mode", "dontAsk", "--no-session-persistence", "--max-turns", "8", "--restricted", "--disable-slash-commands", "--setting-sources", "", "--settings", json.dumps({"disableAllHooks": True, "claudeMdExcludes": ["**"], "autoMemoryEnabled": False})]
-        write_new(directory / f"{kind}.invocation.json", canonical_bytes({"session_id": session, "model": model, "pass_kind": kind, "prompt_digest": sha256(message).hexdigest(), "schema_digest": sha256(canonical_bytes(schema)).hexdigest(), "independent_prior_passes": [] if previous is None else list(previous), "database_credentials_forwarded": False, "tools": [], "mcp_servers": [], "timeout": timeout}))
-        process = subprocess.Popen(argv, cwd=isolated, env=provider_environment(), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        write_new(directory / f"{kind}.invocation.json", canonical_bytes({"session_id": session, "model": model, "pass_kind": kind, "prompt_digest": sha256(message).hexdigest(), "schema_digest": sha256(canonical_bytes(schema)).hexdigest(), "independent_prior_passes": [] if previous is None else list(previous), "database_credentials_forwarded": False, "tools": [], "mcp_servers": [], "timeout": timeout, "requested_max_output_tokens": max_output_tokens}))
+        environment = provider_environment()
+        environment["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(max_output_tokens)
+        process = subprocess.Popen(argv, cwd=isolated, env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         try:
             stdout, stderr = process.communicate(input=message, timeout=timeout)
         except BaseException:
@@ -296,7 +301,7 @@ def author(args) -> None:
             release = open_release(conn, manifest["release_id"])
     values = {}
     for kind in ("A", "B", "C"):
-        values[kind] = provider_pass(directory, kind, model=args.model, timeout=args.timeout, sources=sources, schema=schema, previous=values.copy() if kind == "C" else None)
+        values[kind] = provider_pass(directory, kind, model=args.model, timeout=args.timeout, max_output_tokens=args.max_output_tokens, sources=sources, schema=schema, previous=values.copy() if kind == "C" else None)
         validate_pass(release, sources, values[kind], directory, kind)
     # Only after all independent sessions finish do local frozen expected values enter comparison.
     actual = {row["id"]: row for row in values["C"]["assertions"]}
@@ -323,8 +328,11 @@ def main() -> None:
     authored.add_argument("--run-id", type=int, required=True)
     authored.add_argument("--input", type=Path, required=True)
     authored.add_argument("--model", required=True)
-    authored.add_argument("--timeout", type=float, default=900)
+    authored.add_argument("--timeout", type=float, default=1800)
+    authored.add_argument("--max-output-tokens", type=int, default=128000)
     args = parser.parse_args()
+    if args.command == "author" and (args.max_output_tokens < 1 or args.timeout <= 0):
+        raise ValueError("provider limits must be positive")
     if args.run_id < 1:
         raise ValueError("a concrete adopted run ID is required")
     (prepare if args.command == "prepare" else author)(args)
