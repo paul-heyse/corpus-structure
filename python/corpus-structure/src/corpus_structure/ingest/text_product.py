@@ -12,6 +12,7 @@ from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.tex import MacroBinding, Token, effective_macros, tokens
 from corpus_structure.core.text_structure import (
     ADAPTER_ID,
+    FRONTEND_REVISION,
     TEX_COMPONENT_CATEGORIES,
     TextComponent,
     canonical_partition,
@@ -160,6 +161,9 @@ def text_product_payload(
         value: str | None = None,
         ordinal: int | None = None,
         macro_event: Mapping[str, Any] | None = None,
+        syntax_kind: str | None = None,
+        upstream_role: str | None = None,
+        grammar_revision: str | None = None,
     ) -> None:
         row: dict[str, Any] = dict(
             node_id=key,
@@ -170,6 +174,8 @@ def text_product_payload(
             end_offset=b,
             origin="literal",
         )
+        if syntax_kind is not None:
+            row.update(syntax_kind=syntax_kind,upstream_role=upstream_role,grammar_revision=grammar_revision)
         if macro_event is not None:
             row["macro_event"] = dict(macro_event)
         if name is not None:
@@ -379,12 +385,15 @@ def text_product_payload(
             key = f"tex:{index}:{item.node_id}"
             node(
                 key,
-                item.kind,
+                "syntax",
                 "canonical",
                 item.start,
                 item.end,
                 name=item.name,
                 ordinal=item.argument_index,
+                syntax_kind=item.kind,
+                upstream_role=item.role,
+                grammar_revision=FRONTEND_REVISION,
             )
             relation(
                 "structural_parent", f"tex:{index}:{item.parent}" if item.parent else view_key, key

@@ -2620,6 +2620,18 @@ concepts:
     range: text
     required: false
     multivalued: false
+  - name: syntax_kind
+    range: text
+    required: false
+    multivalued: false
+  - name: upstream_role
+    range: text
+    required: false
+    multivalued: false
+  - name: grammar_revision
+    range: text
+    required: false
+    multivalued: false
   relationships:
   - parsing_contains
   - parsing_structural_parent

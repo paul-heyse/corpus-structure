@@ -2785,6 +2785,9 @@ classes:
       name_end_offset: {range: integer, required: false}
       value_start_offset: {range: integer, required: false}
       value_end_offset: {range: integer, required: false}
+      syntax_kind: {range: string, required: false}
+      upstream_role: {range: string, required: false}
+      grammar_revision: {range: string, required: false}
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -2794,7 +2797,7 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.parsing_product.task_id"},
         {"columns": ["task_id", "representation_id", "unit"], "target": "kb.parsing_representation.task_id,representation_id,unit"}]'
-      ph:checks: '["(origin = ''literal'' AND num_nonnulls(representation_id,unit,start_offset,end_offset) = 4 AND origin_reason IS NULL) OR (origin IN (''synthetic'',''derived'') AND num_nonnulls(representation_id,unit,start_offset,end_offset) = 0 AND origin_reason IS NOT NULL)", "start_offset >= 0 AND end_offset >= start_offset"]'
+      ph:checks: '["(origin = ''literal'' AND num_nonnulls(representation_id,unit,start_offset,end_offset) = 4 AND origin_reason IS NULL) OR (origin IN (''synthetic'',''derived'') AND num_nonnulls(representation_id,unit,start_offset,end_offset) = 0 AND origin_reason IS NOT NULL)", "start_offset >= 0 AND end_offset >= start_offset", "(kind = ''syntax'' AND num_nonnulls(syntax_kind,upstream_role,grammar_revision) = 3 AND length(syntax_kind) > 0 AND upstream_role IN (''content'',''alternative'') AND length(grammar_revision) > 0) OR (kind <> ''syntax'' AND num_nonnulls(syntax_kind,upstream_role,grammar_revision) = 0)"]'
 
   parsing_dependency:
     in_subset:
@@ -3214,6 +3217,9 @@ classes:
         range: string
         required: true
       macro_event: {range: json_payload, required: false}
+      syntax_kind: {range: string, required: false}
+      upstream_role: {range: string, required: false}
+      grammar_revision: {range: string, required: false}
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -3226,7 +3232,7 @@ classes:
         {"columns": ["task_id", "product_key", "representation_id", "unit"], "target": "kb.parsing_layer_representation.task_id,product_key,representation_id,unit"}]'
       ph:checks: '["(origin = ''literal'' AND num_nonnulls(representation_id,unit,start_offset,end_offset)
         = 4 AND origin_reason IS NULL) OR (origin IN (''synthetic'',''derived'') AND num_nonnulls(representation_id,unit,start_offset,end_offset)
-        = 0 AND origin_reason IS NOT NULL)", "start_offset >= 0 AND end_offset >= start_offset"]'
+        = 0 AND origin_reason IS NOT NULL)", "start_offset >= 0 AND end_offset >= start_offset", "(kind = ''syntax'' AND num_nonnulls(syntax_kind,upstream_role,grammar_revision) = 3 AND length(syntax_kind) > 0 AND upstream_role IN (''content'',''alternative'') AND length(grammar_revision) > 0) OR (kind <> ''syntax'' AND num_nonnulls(syntax_kind,upstream_role,grammar_revision) = 0)"]'
   parsing_layer_relationship:
     in_subset:
     - kb

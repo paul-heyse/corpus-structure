@@ -176,6 +176,7 @@ def test_native_weak_requests_use_pinned_inputs_and_leave_source_sealed(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, monkeypatch
 ):
     from corpus_structure.methods.math import grammar
+    from corpus_structure.methods.math.prepared import PreparedMathInput
 
     def forbidden(*args, **kwargs):
         raise AssertionError("weak demand entered mathematical recognition")
@@ -183,16 +184,21 @@ def test_native_weak_requests_use_pinned_inputs_and_leave_source_sealed(
     _, source_run, root, text, rendition = source_build(
         semantic_db_engine, semantic_writer_engine, tmp_path, macros={r"\archived": "OLD"}
     )
-    monkeypatch.setattr(grammar, "parser_for", forbidden)
+    for name in ("interpretation", "symbolic_reading", "symbolic_value", "assess"):
+        monkeypatch.setattr(PreparedMathInput, name, forbidden)
+    monkeypatch.setattr(grammar, "interpret", forbidden)
     for demand in ("lexical", "structure"):
-        result = request_parsing(
-            semantic_writer_engine,
-            root=root,
-            text_product=text,
-            demand=demand,
-            code_commit="request-test",
-        )
-        assert result.status == "source_ready"
+        with monkeypatch.context() as demand_guard:
+            if demand == "lexical":
+                demand_guard.setattr(grammar, "parser_for", forbidden)
+            result = request_parsing(
+                semantic_writer_engine,
+                root=root,
+                text_product=text,
+                demand=demand,
+                code_commit="request-test",
+            )
+        assert result.status == "source_ready",result.diagnostic
         assert result.run_id != source_run and result.task_id != root.task_id
         with semantic_reader_engine.begin() as conn:
             products = select_layered_products(conn, run_id=result.run_id, rendition_id=rendition)
@@ -201,6 +207,23 @@ def test_native_weak_requests_use_pinned_inputs_and_leave_source_sealed(
                 conn, next(r for r in result.products if r.product_key == "text:" + demand)
             )
             assert product is not None
+            views=[json.loads(node["value"]) for node in product.values()["nodes"] if node["kind"]=="parse_view"]
+            assert [view["structure_outcome"] for view in views]==["not_requested" if demand=="lexical" else "available"]
+            if demand=="structure":
+                from copy import deepcopy
+                from pydantic import ValidationError
+                syntax=[node for node in product.values()["nodes"] if node["kind"]=="syntax"]
+                assert [(node["name"],node["start_offset"],node["end_offset"]) for node in syntax if node["syntax_kind"]=="token"]==[("x",0,1),("+",1,2),("x",2,3)]
+                assert {node["grammar_revision"] for node in syntax}=={"sympy-1.14.0-lark-1.3.1"}
+                assert {node["upstream_role"] for node in syntax}=={"content"}
+                malformed=deepcopy(product.values());malformed["nodes"]=syntax
+                malformed["nodes"][0].pop("syntax_kind")
+                with pytest.raises(ValidationError,match="syntax_kind"):
+                    prepare_layered_product(malformed)
+                stale=deepcopy(product.values())
+                next(node for node in stale["nodes"] if node["kind"]=="syntax")["grammar_revision"]="unqualified-grammar"
+                with pytest.raises(ValueError,match="released frontend"):
+                    prepare_layered_product(stale)
             artifacts = [
                 r["text_content"]
                 for r in product.values()["representations"]

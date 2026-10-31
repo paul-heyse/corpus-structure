@@ -210,6 +210,12 @@ def representation_text(row: Mapping[str, Any]) -> str:
     raise ValueError("text representation requires exactly one typed content variant")
 
 
+def _validate_syntax_nodes(nodes,adapter):
+    for node in nodes:
+        if node["kind"]=="syntax" and (adapter is None or node["grammar_revision"]!=adapter.frontend_revision or not node["syntax_kind"]):
+            raise ValueError("syntax node grammar identity differs from its released frontend")
+
+
 def _validate_product(p: dict[str, Any], original: bytes, context: PreparedParsingContext) -> None:
     from .parsing_contracts import parsing_relationships
 
@@ -220,6 +226,7 @@ def _validate_product(p: dict[str, Any], original: bytes, context: PreparedParsi
     )
     if adapter_id is not None and adapter is None:
         raise ValueError("parsing product adapter is not admitted by its bound execution contract")
+    _validate_syntax_nodes(p["nodes"],adapter)
     if p["artifact_digest"] != sha256(original).hexdigest():
         raise ValueError("original artifact digest differs")
     if p["lifecycle"] not in {"available", "failed", "cancelled"}:
@@ -789,6 +796,7 @@ def _validate_layered_product(p: dict[str, Any], context: PreparedParsingContext
     }[p["kind"]]
     if adapter is None or capability not in adapter.capabilities:
         raise ValueError("product kind has no admitted producer adapter capability")
+    _validate_syntax_nodes(p["nodes"],adapter)
     if not p["product_key"] or p["product_key"] == "source":
         raise ValueError("derived products require a non-root product key")
     root = ProductReference(**p["root"])

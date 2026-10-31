@@ -99,6 +99,7 @@ enums:
     permissible_values: {retained: {}, discarded_duplicate: {}, unknown: {}}
   StructuralKind:
     permissible_values:
+      syntax: {}
       macro: {}
       unknown_macro: {}
       chars: {}
@@ -118,6 +119,8 @@ enums:
       math: *id010
       group: *id010
       symbol: *id010
+  SyntaxRole:
+    permissible_values: {content: {}, alternative: {}}
   RelationshipKind:
     permissible_values:
       text_of: {}
@@ -292,6 +295,19 @@ classes:
       ordinal:
         range: ParsingInteger
         slot_uri: pp:ParsingNode_ordinal
+  ParsingSyntaxNode:
+    is_a: ParsingNode
+    description: Positioned upstream grammar node. The released adapter/frontend and archived grammar sources qualify syntax_kind; grammar productions are not domain node categories.
+    attributes:
+      kind: {range: string, required: true, equals_string: syntax, slot_uri: 'pp:ParsingSyntaxNode_kind'}
+      syntax_kind: {range: ParsingString, required: true, slot_uri: 'pp:ParsingSyntaxNode_syntax_kind'}
+      upstream_role: {range: SyntaxRole, required: true, slot_uri: 'pp:ParsingSyntaxNode_upstream_role'}
+      grammar_revision: {range: ParsingString, required: true, description: 'Released frontend identity; the named archived grammar implementation sources supply byte identity.', slot_uri: 'pp:ParsingSyntaxNode_grammar_revision'}
+      representation_id: {range: ParsingString, required: true, slot_uri: 'pp:ParsingNode_representation_id'}
+      unit: {range: string, required: true, equals_string: codepoint, slot_uri: 'pp:ParsingNode_unit'}
+      start_offset: {range: ParsingInteger, required: true, minimum_value: 0, slot_uri: 'pp:ParsingNode_start_offset'}
+      end_offset: {range: ParsingInteger, required: true, minimum_value: 0, slot_uri: 'pp:ParsingNode_end_offset'}
+      origin: {range: string, required: true, equals_string: literal, slot_uri: 'pp:ParsingNode_origin'}
   ParsingDocumentNode:
     is_a: ParsingNode
     attributes:
