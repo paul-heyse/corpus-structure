@@ -3,10 +3,10 @@
 import json
 import runpy
 import shutil
-import yaml
 from pathlib import Path
 
 import pytest
+import yaml
 from sqlalchemy import select, text
 from typer.testing import CliRunner
 
@@ -33,7 +33,11 @@ def test_real_source_preparation_does_not_select_partial_output(
         },
         paths={"data_dir": tmp_path / "data", "model_cache": tmp_path / "models"},
     )
-    from pdf_acceptance_support import install_no_inference_boundary, retained_document, seed_retained_product
+    from pdf_acceptance_support import (
+        install_no_inference_boundary,
+        retained_document,
+        seed_retained_product,
+    )
 
     builder = runpy.run_path(str(ROOT / "fixtures/toy/build_pdf.py"))
     domains = tmp_path / "domains"
@@ -45,16 +49,31 @@ def test_real_source_preparation_does_not_select_partial_output(
         methods = domains / domain / "methods.yaml"
         values = yaml.safe_load(methods.read_text())
         values["configs"]["ingest.pdf"]["default"]["originals"] = ["fixture.pdf"]
-        methods.write_text(yaml.safe_dump(values,sort_keys=False))
-        (domains/domain/'slices.yaml').write_text(yaml.safe_dump({'version':'0.2.0','slices':{'acceptance-native':[{'native_sections':['Acceptance native section']}]}}))
+        methods.write_text(yaml.safe_dump(values, sort_keys=False))
+        (domains / domain / "slices.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "version": "0.2.0",
+                    "slices": {
+                        "acceptance-native": [{"native_sections": ["Acceptance native section"]}]
+                    },
+                }
+            )
+        )
     else:
         sections = builder["SECTIONS"]
         original = corpus / "toy.pdf"
     builder["write_pdf"](original, sections)
-    monkeypatch.setattr("corpus_structure.schema.pack.DOMAINS",domains)
-    install_no_inference_boundary(monkeypatch,tmp_path/'no-model-assets')
-    pin = seed_retained_product(settings,domain=domain,corpus=corpus,domains=domains,conversion=retained_document(original.read_bytes(),sections))
-    pin_path=tmp_path/'retained-native.json'
+    monkeypatch.setattr("corpus_structure.schema.pack.DOMAINS", domains)
+    install_no_inference_boundary(monkeypatch, tmp_path / "no-model-assets")
+    pin = seed_retained_product(
+        settings,
+        domain=domain,
+        corpus=corpus,
+        domains=domains,
+        conversion=retained_document(original.read_bytes(), sections),
+    )
+    pin_path = tmp_path / "retained-native.json"
     pin_path.write_text(json.dumps(pin))
     with semantic_db_engine.connect() as conn:
         before = conn.execute(
@@ -92,10 +111,25 @@ def test_real_source_preparation_does_not_select_partial_output(
             == "running"
         )
         cut = table("ops.input_cut")
-        assert conn.scalar(select(cut.c.id).where(cut.c.run_id == report["run_id"], cut.c.name == "source-ready")) is not None
+        assert (
+            conn.scalar(
+                select(cut.c.id).where(
+                    cut.c.run_id == report["run_id"], cut.c.name == "source-ready"
+                )
+            )
+            is not None
+        )
         tasks = table("ops.task")
-        task_identities = conn.execute(select(tasks.c.id,tasks.c.method_config_id,tasks.c.unit_key,tasks.c.input_hash).where(tasks.c.run_id==report["run_id"]).order_by(tasks.c.id)).all()
-        states = conn.execute(select(tasks.c.status).where(tasks.c.run_id==report["run_id"])).scalars().all()
+        task_identities = conn.execute(
+            select(tasks.c.id, tasks.c.method_config_id, tasks.c.unit_key, tasks.c.input_hash)
+            .where(tasks.c.run_id == report["run_id"])
+            .order_by(tasks.c.id)
+        ).all()
+        states = (
+            conn.execute(select(tasks.c.status).where(tasks.c.run_id == report["run_id"]))
+            .scalars()
+            .all()
+        )
         assert "awaiting_agent" in states
         after = conn.execute(
             text(
@@ -109,12 +143,24 @@ def test_real_source_preparation_does_not_select_partial_output(
     # Preparation resumption uses the archived release and the original task identities.
     resumed = CliRunner().invoke(
         app,
-        [*args[:args.index("--native-source")], *args[args.index("--native-source")+2:], "--resume-run", str(report["run_id"])],
+        [
+            *args[: args.index("--native-source")],
+            *args[args.index("--native-source") + 2 :],
+            "--resume-run",
+            str(report["run_id"]),
+        ],
         obj=CliState(settings_factory=lambda: settings),
     )
     assert resumed.exit_code == 0, (resumed.output, resumed.exception)
     assert json.loads(resumed.stdout)["run_id"] == report["run_id"]
 
     with semantic_db_engine.connect() as conn:
-        tasks=table("ops.task")
-        assert conn.execute(select(tasks.c.id,tasks.c.method_config_id,tasks.c.unit_key,tasks.c.input_hash).where(tasks.c.run_id==report["run_id"]).order_by(tasks.c.id)).all()==task_identities
+        tasks = table("ops.task")
+        assert (
+            conn.execute(
+                select(tasks.c.id, tasks.c.method_config_id, tasks.c.unit_key, tasks.c.input_hash)
+                .where(tasks.c.run_id == report["run_id"])
+                .order_by(tasks.c.id)
+            ).all()
+            == task_identities
+        )
