@@ -31,13 +31,24 @@ class PreparedSourceView:
 
     @cached_property
     def layout(self):
-        from corpus_structure.ingest.sentences import Block, SentenceConfig, pipeline, prepare_layout
-        native = {item['self_ref']: item for item in self.items}
-        math = tuple((p['start'],p['end']) for p in self.pieces
-                     if p.get('item_ref') in native and native[p['item_ref']].get('label') == 'formula')
+        from corpus_structure.ingest.sentences import SentenceConfig
+        return self.layout_for(SentenceConfig())
+
+    @cached_property
+    def _layouts(self):
+        return {}
+
+    def layout_for(self,configuration):
+        from dataclasses import asdict
+        from corpus_structure.ingest.sentences import Block,pipeline,prepare_layout
         from .analysis_contracts import prepare_text_policy
         policy=self.text_policy or prepare_text_policy()
-        return prepare_layout(pipeline(SentenceConfig()), Block(self.text, math, (), ()),recipe=policy.recipe)
+        key=canonical_bytes(dict(configuration=configuration.model_dump(mode='json'),policy=asdict(policy)))
+        if key not in self._layouts:
+            native={item['self_ref']:item for item in self.items}
+            math=tuple((piece['start'],piece['end']) for piece in self.pieces if piece.get('item_ref') in native and native[piece['item_ref']].get('label')=='formula')
+            self._layouts[key]=prepare_layout(pipeline(configuration),Block(self.text,math,(),()),recipe=policy.recipe)
+        return self._layouts[key]
 
     def context(self) -> dict[str, Any]:
         return dict(pieces=self.pieces,items=self.items,ancestors=self.ancestors,health=self.health)
@@ -140,6 +151,7 @@ def scope_source_views(conn: Connection,selected,scope):
        FROM kb.source_view v JOIN kb.native_document_item i ON i.task_id=v.native_task_id AND i.product_key=v.native_product_key AND i.pointer=v.section_pointer
        WHERE v.id=ANY(:ids)"""),dict(ids=ids)).mappings()
     matched=set()
+    represented=set()
     ancestors_by_id={}
     for row in rows:
         section=row['section']
@@ -147,7 +159,12 @@ def scope_source_views(conn: Connection,selected,scope):
         if scope['include_descendants']:
             names += [parent.get('name','') for parent in row['ancestors']]
         ancestors_by_id[row['id']]={parent['self_ref'] for parent in row['ancestors']}
-        if any(normalized_native_section_title(name) in wanted for name in names): matched.add(row['id'])
+        row_names={normalized_native_section_title(name) for name in names}
+        represented.update(row_names & wanted)
+        if row_names & wanted:matched.add(row['id'])
+    if wanted-represented:
+        from .operations import SourceReadRefused
+        raise SourceReadRefused('missing','requested native sections are unavailable: '+', '.join(sorted(wanted-represented)))
     roots=tuple(ref for ref in selected if ref.id in matched)
     return tuple(ref for ref in roots if ref.membership!='descendants' or not any(
         other.id!=ref.id and other.membership=='descendants' and other.native_product==ref.native_product
