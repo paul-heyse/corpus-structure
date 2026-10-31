@@ -69,3 +69,12 @@ def test_unmodeled_scientific_question_never_requests_inference(monkeypatch):
     assert item['scientific_question'] is None
     assert item['stages']['syntax']['work']=='not_requested'
     assert item['stages']['symbolic']['work']=='not_requested'
+
+
+def test_scientific_symbolic_leaf_retains_declared_input_basis():
+    result=native_request_analysis(view('x/x'),None,'scientific',question='free_symbols')
+    item=result.items[0]
+    assert item['scientific_question']['prerequisites']==('symbolic',)
+    assert item['symbolic']['expression']=='Integer(1)'
+    assert item['definedness']['conditions'][0]['expression']=='x'
+    assert item['assessment']['outcome']=='resolved'

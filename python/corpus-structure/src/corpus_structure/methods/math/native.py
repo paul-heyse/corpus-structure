@@ -594,8 +594,13 @@ def native_request_analysis(view: Any, prepared: Any, demand: str, pointer: str 
                 value["scientific_question"]=None if question_rule is None else dataclasses.asdict(question_rule)
                 if question_rule is not None:
                     value["definedness"]=dataclasses.asdict(operand.definedness_result())
+                    if "symbolic" in question_rule.result_basis:
+                        try:
+                            value["symbolic"]=dict(format="sympy-srepr-1",expression=sympy.srepr(operand.symbolic_value()))
+                        except (NotRepresentable,grammar.NotParsed,grammar.Ambiguous) as error:
+                            value["symbolic"]=dict(outcome="unsupported",diagnostic=str(error))
                 value["assessment"] = dict(question=assessment.question, outcome=assessment.outcome,
-                    value=None if assessment.value is None else sympy.srepr(assessment.value),
+                    value=None if assessment.value is None or question=="definedness" else sympy.srepr(assessment.value),
                     conditions=[dataclasses.asdict(c) for c in assessment.conditions],
                     diagnostic=assessment.diagnostic, coverage=assessment.coverage)
         value["stages"] = {name: dataclasses.asdict(operand.state(name)) for name in allowed}
