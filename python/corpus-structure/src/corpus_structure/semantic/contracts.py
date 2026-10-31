@@ -893,9 +893,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                         "networkx",
                         "rapidfuzz",
                         "regex",
-                        "html5lib",
                         "lxml",
-                        "pylatexenc",
                     )
                 } | dict(pdf_package_versions())
             ),

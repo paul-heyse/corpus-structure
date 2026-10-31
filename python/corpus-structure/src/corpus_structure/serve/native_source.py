@@ -69,11 +69,12 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
     if header.content_digest != request.content_digest:
         raise ValueError('native source product differs from requested pin')
     if header.origin_run != request.run_id:
-        # Cross-run reads require an explicitly selected view, never equal text or latest build.
-        selected,views = table('ops.run_source_view'),table('kb.source_view')
-        chosen = conn.execute(select(views.c.id).join(selected,selected.c.source_view_id==views.c.id).where(
-            selected.c.run_id==request.run_id,views.c.native_task_id==request.task_id,
-            views.c.native_product_key==request.product_key,views.c.native_content_digest==request.content_digest
+        # A retained input pin is reachable through the selected immutable product graph.
+        from corpus_structure.semantic.pdf_storage import selected_native_ancestry
+        selected=selected_native_ancestry(request.run_id)
+        chosen = conn.execute(select(selected.c.task_id).where(
+            selected.c.task_id==request.task_id,selected.c.product_key==request.product_key,
+            selected.c.content_digest==request.content_digest
         ).limit(1)).first()
         if chosen is None:
             raise ValueError('native source is not selected by the requested run')
@@ -106,7 +107,8 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                 item.c.pointer!=request.section_pointer]
         else:
             scope=[item.c.parent_pointer==request.section_pointer]
-        rows=[dict(r) for r in conn.execute(select(*[c for c in item.columns if c.name != "native_json"]).where(item.c.task_id==request.task_id,
+        rows=[dict(r) for r in conn.execute(select(*[c for c in item.columns if c.name != "native_json"],
+            item.c.native_json['name'].as_string().label('name')).where(item.c.task_id==request.task_id,
             item.c.product_key==request.product_key,item.c.label.in_(['section','chapter']),
             item.c.ordinal>after,*scope).order_by(item.c.ordinal).limit(request.limit)).mappings()]
     elif request.view in {'item','formula','cell','regions','trace'}:
@@ -232,6 +234,7 @@ def export_native_source(conn: Connection, request: NativeSourceRequest, destina
         product_key=source.parent_product_key,content_digest=source.parent_digest)
     schema=pa.schema([pa.field(c.name,_sql_arrow(c.type),nullable=bool(c.nullable))
         for c in relation.columns if c.name != 'native_json']+[pa.field('content_digest',pa.string(),nullable=False),
+            pa.field('name',pa.string()),
             pa.field('artifact_digest',pa.string(),nullable=False),
             pa.field('parent_product',pa.struct([pa.field('task_id',pa.int64()),
                 pa.field('product_key',pa.string()),pa.field('content_digest',pa.string())])),
@@ -264,6 +267,7 @@ def export_native_source(conn: Connection, request: NativeSourceRequest, destina
                     .order_by(derivation.c.pointer,derivation.c.mapping_index)).mappings():
                     mappings[row['pointer']].append(dict(row))
                 rows=[dict(row,content_digest=request.content_digest,
+                    name=native[row['pointer']].get('name'),
                     artifact_digest=source.artifact_digest,parent_product=parent,
                     derivation_mappings=mappings[row['pointer']],
                     native_json=json.dumps(native[row['pointer']],ensure_ascii=False,allow_nan=False),

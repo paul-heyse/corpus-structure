@@ -96,6 +96,19 @@ def native_descendant_pointers(*,task_id: int,product_key: str,section_pointer: 
     return select(members.c.pointer)
 
 
+def selected_native_ancestry(run_id: int):
+    """Selected products and their exact immutable input pins, never ambient project products."""
+    views,selected,products=map(table,('kb.source_view','ops.run_source_view','ops.native_document_product'))
+    pins=select(views.c.native_task_id.label('task_id'),views.c.native_product_key.label('product_key'),
+        views.c.native_content_digest.label('content_digest')).join(selected,
+            selected.c.source_view_id==views.c.id).where(selected.c.run_id==run_id).distinct().cte(
+                'selected_native_ancestry',recursive=True)
+    pins=pins.union(select(products.c.parent_task_id,products.c.parent_product_key,products.c.parent_digest)
+        .join(pins,(products.c.task_id==pins.c.task_id)&(products.c.product_key==pins.c.product_key)&
+              (products.c.content_digest==pins.c.content_digest)).where(products.c.parent_task_id.is_not(None)))
+    return pins
+
+
 def read_native_regions(
     conn: Connection,
     *,

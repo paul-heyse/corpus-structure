@@ -352,10 +352,10 @@ def native_products(ctx: typer.Context, run: int, json: JsonOpt=False):
         context.boundary.validate_json('PdfNativeRunRequest',jsonlib.dumps(dict(run_id=run)))
         products,tasks,views,selected=map(table,('ops.native_document_product','ops.task','kb.source_view','ops.run_source_view'))
         runtime=table('kb.native_document_runtime')
-        pins=select(views.c.id).join(selected,selected.c.source_view_id==views.c.id).where(
-            selected.c.run_id==run,views.c.native_task_id==products.c.task_id,
-            views.c.native_product_key==products.c.product_key,
-            views.c.native_content_digest==products.c.content_digest)
+        from corpus_structure.semantic.pdf_storage import selected_native_ancestry
+        ancestors=selected_native_ancestry(run)
+        pins=select(ancestors.c.task_id).where(ancestors.c.task_id==products.c.task_id,
+            ancestors.c.product_key==products.c.product_key,ancestors.c.content_digest==products.c.content_digest)
         query=select(products.c.task_id,products.c.product_key,products.c.content_digest,
             products.c.release_id,products.c.health.op("-")("formula_outcomes").label("health"),
             runtime.c.report.label('runtime_report')).join(tasks,tasks.c.id==products.c.task_id).outerjoin(runtime,
