@@ -333,7 +333,7 @@ def _recorded_interpretations(conn: Connection, request: NativeSourceRequest) ->
     release = conn.execute(
         select(runs.c.release_id).where(runs.c.id == request.run_id)
     ).scalar_one()
-    reader = BoundReader(conn, request.run_id, open_release(conn, release))
+    reader = BoundReader(conn, request.run_id, open_release(conn, release), analysis=False)
     results = []
     views, selection = table("kb.source_view"), table("ops.run_source_view")
     newer = selection.alias("newer_analysis_selection")

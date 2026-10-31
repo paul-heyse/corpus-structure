@@ -30,6 +30,7 @@ class PreparedSourceView:
     ancestors: tuple[dict[str, Any], ...]
     health: dict[str, Any]
     text_policy: Any = None
+    analysis_enabled: bool = True
 
     @cached_property
     def topology(self) -> NativeTopology:
@@ -48,6 +49,8 @@ class PreparedSourceView:
         return {}
 
     def layout_for(self, configuration: SentenceConfig) -> TextLayout:
+        if not self.analysis_enabled:
+            raise ValueError("retained source view cannot prepare analytical layout")
         from dataclasses import asdict
 
         from corpus_structure.ingest.sentences import Block, pipeline, prepare_layout
@@ -110,7 +113,10 @@ def selected_source_views(conn: Connection, run_id: int) -> tuple[SourceViewRef,
     return tuple(_ref(row) for row in rows)
 
 
-def load_source_view(conn: Connection, source_view_id: int) -> PreparedSourceView:
+def load_source_view(
+    conn: Connection, source_view_id: int, *, analysis: bool = True
+) -> PreparedSourceView:
+    """Hydrate retained fields; analytical mode additionally binds the archived text policy."""
     views = table("kb.source_view")
     row = conn.execute(select(views).where(views.c.id == source_view_id)).mappings().one()
     reference = _ref(row)
@@ -136,7 +142,7 @@ def load_source_view(conn: Connection, source_view_id: int) -> PreparedSourceVie
     from .analysis_contracts import prepare_text_policy
     from .releases import open_release
 
-    policy = prepare_text_policy(open_release(conn, row["release_id"]))
+    policy = prepare_text_policy(open_release(conn, row["release_id"])) if analysis else None
     return PreparedSourceView(
         reference,
         projection["text"],
@@ -145,6 +151,7 @@ def load_source_view(conn: Connection, source_view_id: int) -> PreparedSourceVie
         tuple(native[p] for p in projection["ancestors"]),
         projection["health"],
         policy,
+        analysis,
     )
 
 

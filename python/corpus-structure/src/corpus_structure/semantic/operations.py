@@ -911,12 +911,23 @@ class SourceObservationView:
 
 
 class BoundReader:
-    """Run-scoped source reader; never consults an active project pointer."""
+    """Run-scoped source reader; never consults an active project pointer.
+
+    Retained-read mode preserves source custody without admitting analytical preparation.
+    Its callers still require the archived read operation and database read privileges.
+    """
 
     def __init__(
-        self, conn: Connection, run_id: int, prepared: PreparedRelease, cut_id: int | None = None
+        self,
+        conn: Connection,
+        run_id: int,
+        prepared: PreparedRelease,
+        cut_id: int | None = None,
+        *,
+        analysis: bool = True,
     ):
         self.conn, self.run_id, self.prepared, self.cut_id = conn, run_id, prepared, cut_id
+        self._analysis_enabled = analysis
         import json
 
         from .contracts import EXECUTION_COMPILER_VERSION, execution_payload
@@ -927,7 +938,8 @@ class BoundReader:
         self.math_readings_batch = None
         self.source_tasks: dict[int, int] = {}
         if (
-            payload is not None
+            analysis
+            and payload is not None
             and json.loads(payload)["inputs"]["compiler_version"] == EXECUTION_COMPILER_VERSION
         ):
             from .analysis_contracts import bind_analysis_family
@@ -975,7 +987,9 @@ class BoundReader:
             cache = {}
             self._native_views = cache
         if source_view_id not in cache:
-            cache[source_view_id] = load_source_view(self.conn, source_view_id)
+            cache[source_view_id] = load_source_view(
+                self.conn, source_view_id, analysis=self._analysis_enabled
+            )
         return cache[source_view_id]
 
     def ancestor_source_views(self, source_view_id: int):
@@ -1118,6 +1132,8 @@ class BoundReader:
         ]
 
     def content(self, rendition_id: int) -> RenditionContent:
+        if not self._analysis_enabled:
+            raise OperationConflict("retained source reader cannot prepare analytical inputs")
         if self._source_contract is not None:
             self._source_inputs[rendition_id] = self._source_contract.prepare(
                 release=self.prepared.release_id,
