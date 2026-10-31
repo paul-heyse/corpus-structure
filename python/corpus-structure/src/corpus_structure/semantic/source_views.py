@@ -125,25 +125,33 @@ def store_region_artifact(conn,*,task_id,attempt,holder,selection,recipe_bytes,c
         dict(task=task_id,attempt=attempt,holder=holder,selection=json.dumps(selection),recipe=recipe_bytes,content=content)).scalar_one()
 
 
+def normalized_native_section_title(value: str) -> str:
+    """The admitted title selector's shared normalization, never source identity."""
+    import re
+    return re.sub(r"^\s*\d+(?:\.\d+)*\s*[:.)-]?\s*", "", " ".join(value.split())).casefold()
+
+
 def scope_source_views(conn: Connection,selected,scope):
     """Match released organizational titles, then include declared descendants once."""
-    import re
-    def normalized(value):
-        return re.sub(r"^\s*\d+(?:\.\d+)*\s*[:.)-]?\s*", "", " ".join(value.split())).casefold()
-    wanted={normalized(title) for title in scope['sections']}
+    wanted={normalized_native_section_title(title) for title in scope['sections']}
     ids=[ref.id for ref in selected]
     rows=conn.execute(text("""SELECT v.id,i.native_json AS section,
        (SELECT COALESCE(jsonb_agg(a.native_json ORDER BY refs.n),'[]') FROM jsonb_array_elements_text(v.projection->'ancestors') WITH ORDINALITY refs(value,n) JOIN kb.native_document_item a ON a.task_id=v.native_task_id AND a.product_key=v.native_product_key AND a.pointer=refs.value) AS ancestors
        FROM kb.source_view v JOIN kb.native_document_item i ON i.task_id=v.native_task_id AND i.product_key=v.native_product_key AND i.pointer=v.section_pointer
        WHERE v.id=ANY(:ids)"""),dict(ids=ids)).mappings()
     matched=set()
+    ancestors_by_id={}
     for row in rows:
         section=row['section']
         names=[section.get('name','')]
         if scope['include_descendants']:
             names += [parent.get('name','') for parent in row['ancestors']]
-        if any(normalized(name) in wanted for name in names): matched.add(row['id'])
-    return tuple(ref for ref in selected if ref.id in matched)
+        ancestors_by_id[row['id']]={parent['self_ref'] for parent in row['ancestors']}
+        if any(normalized_native_section_title(name) in wanted for name in names): matched.add(row['id'])
+    roots=tuple(ref for ref in selected if ref.id in matched)
+    return tuple(ref for ref in roots if ref.membership!='descendants' or not any(
+        other.id!=ref.id and other.membership=='descendants' and other.native_product==ref.native_product
+        and other.section_pointer in ancestors_by_id.get(ref.id,()) for other in roots))
 
 
 def source_view_health(health,section_pointer,membership,items,ancestors,*,recognition_coverage=()):
