@@ -118,6 +118,8 @@ enums:
     permissible_values: {broken: {}, not_flagged: {}, unassessed: {}}
   PdfOcrInventoryOutcome:
     permissible_values: {complete: {}, partial: {}, unknown: {}}
+  PdfInlineAlignmentBasis:
+    permissible_values: {ambiguous-native-items: {}, unmatched-native-text: {}}
 classes:
   PdfItemAddress:
     attributes:
@@ -379,6 +381,13 @@ classes:
         inlined: true
         inlined_as_list: true
         slot_uri: pdf:PdfNativeEnvelope_cell_reports
+      inline_alignment_reports:
+        range: PdfInlineAlignmentReport
+        required: false
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfNativeEnvelope_inline_alignment_reports
       inline_candidate_pages:
         range: PdfInlineCandidatePage
         required: false
@@ -881,3 +890,12 @@ classes:
       top: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrRegion_top'}
       right: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrRegion_right'}
       bottom: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrRegion_bottom'}
+  PdfInlineAlignmentReport:
+    description: An unresolved retained candidate and its original prose items, with no invented character range. The envelope parent product qualifies original item custody.
+    attributes:
+      page_no: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: 'pdf:PdfInlineAlignmentReport_page_no'}
+      candidate_index: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: 'pdf:PdfInlineAlignmentReport_candidate_index'}
+      item_pointers: {range: PdfPointer, required: true, multivalued: true, minimum_cardinality: 1, slot_uri: 'pdf:PdfInlineAlignmentReport_item_pointers'}
+      outcome: {range: string, required: true, equals_string: unresolved, slot_uri: 'pdf:PdfInlineAlignmentReport_outcome'}
+      basis: {range: PdfInlineAlignmentBasis, required: true, slot_uri: 'pdf:PdfInlineAlignmentReport_basis'}
+      detail: {range: PdfString, required: true, slot_uri: 'pdf:PdfInlineAlignmentReport_detail'}

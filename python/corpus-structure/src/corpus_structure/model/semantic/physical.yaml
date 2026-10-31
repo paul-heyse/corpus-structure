@@ -4081,3 +4081,38 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key","section_pointer"],"target":"kb.native_document_item.task_id,product_key,pointer"}]'
+
+  native_document_inline_alignment_report:
+    in_subset: [kb]
+    attributes:
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      page_no: {range: integer, required: true}
+      candidate_index: {range: integer, required: true}
+      outcome: {range: string, required: true}
+      basis: {range: string, required: true}
+      detail: {range: string, required: true}
+      candidate_basis: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [task_id, product_key, page_no, candidate_index]
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns":["task_id","product_key"],"target":"ops.native_document_product.task_id,product_key"}]'
+      ph:checks: '["page_no > 0", "candidate_index >= 0", "outcome = ''unresolved''", "basis IN (''ambiguous-native-items'',''unmatched-native-text'')"]'
+  native_document_inline_alignment_item:
+    in_subset: [kb]
+    attributes:
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      page_no: {range: integer, required: true}
+      candidate_index: {range: integer, required: true}
+      item_pointer: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [task_id, product_key, page_no, candidate_index, item_pointer]
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns":["task_id","product_key","page_no","candidate_index"],"target":"kb.native_document_inline_alignment_report.task_id,product_key,page_no,candidate_index"},{"columns":["task_id","product_key","item_pointer"],"target":"kb.native_document_item.task_id,product_key,pointer"}]'
+      ph:checks: '[]'
+      ph:indexes: '[["task_id","product_key","item_pointer","page_no","candidate_index"]]'

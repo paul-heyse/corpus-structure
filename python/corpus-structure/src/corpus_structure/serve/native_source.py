@@ -47,6 +47,39 @@ class NativeSourceResponse(BaseModel):
     next_cursor: str | None = None
 
 
+def _inline_alignment_reports(conn: Connection, *, task_id: int, product_key: str, pointer: str):
+    """Read one item's own/ancestor prose diagnostics through fixed bounded projections."""
+    rows = conn.execute(
+        text("""
+        WITH RECURSIVE ancestors(pointer) AS (
+          SELECT pointer FROM kb.native_document_item
+          WHERE task_id=:task AND product_key=:key AND pointer=:pointer
+          UNION
+          SELECT item.parent_pointer FROM kb.native_document_item item
+          JOIN ancestors parent ON parent.pointer=item.pointer
+          WHERE item.task_id=:task AND item.product_key=:key
+            AND item.parent_pointer IS NOT NULL
+        )
+        SELECT report.page_no,report.candidate_index,report.outcome,report.basis,
+          report.detail,report.candidate_basis,
+          (SELECT jsonb_agg(endpoint.item_pointer ORDER BY endpoint.item_pointer)
+           FROM kb.native_document_inline_alignment_item endpoint
+           WHERE endpoint.task_id=report.task_id AND endpoint.product_key=report.product_key
+             AND endpoint.page_no=report.page_no
+             AND endpoint.candidate_index=report.candidate_index) AS item_pointers
+        FROM kb.native_document_inline_alignment_report report
+        WHERE report.task_id=:task AND report.product_key=:key AND EXISTS(
+          SELECT FROM kb.native_document_inline_alignment_item linked
+          WHERE linked.task_id=report.task_id AND linked.product_key=report.product_key
+            AND linked.page_no=report.page_no AND linked.candidate_index=report.candidate_index
+            AND linked.item_pointer IN (SELECT pointer FROM ancestors))
+        ORDER BY report.page_no,report.candidate_index
+    """),
+        dict(task=task_id, key=product_key, pointer=pointer),
+    ).mappings()
+    return [dict(row) for row in rows]
+
+
 def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> NativeSourceResponse:
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.pdf_storage import read_native_items, read_native_regions
@@ -200,6 +233,22 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
     elif request.view in {"item", "formula", "cell", "regions", "trace"}:
         if request.pointer is None or len(rows) != 1:
             raise ValueError("native occurrence inspection requires one existing pointer")
+        alignment = (
+            _inline_alignment_reports(
+                conn,
+                task_id=request.task_id,
+                product_key=request.product_key,
+                pointer=request.pointer,
+            )
+            if request.view in {"item", "formula", "trace"}
+            else []
+        )
+        for report in alignment:
+            report["source_product"] = dict(
+                task_id=header.parent_task_id,
+                product_key=header.parent_product_key,
+                content_digest=header.parent_digest,
+            )
         if request.view in {"regions", "trace"}:
             rows = read_native_regions(conn, **pin, pointer=request.pointer)
             if request.view == "trace":
@@ -233,6 +282,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                         regions=rows,
                         parent_product=parent,
                         derivation_mappings=mappings,
+                        inline_alignment_reports=alignment,
                     )
                 ]
         else:
@@ -298,12 +348,13 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                         original_text=native.get("orig"),
                         recognized_latex=native.get("text"),
                         recognition=health,
+                        inline_alignment_reports=alignment,
                         interpretation=_recorded_interpretations(conn, request),
                         regions=read_native_regions(conn, **pin, pointer=request.pointer),
                     )
                 ]
             else:
-                rows = [dict(rows[0], native=native)]
+                rows = [dict(rows[0], native=native, inline_alignment_reports=alignment)]
     if request.view in {"items", "sections"} and len(rows) == request.limit:
         next_cursor = base64.urlsafe_b64encode(
             json.dumps(

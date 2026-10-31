@@ -71,6 +71,7 @@ BEGIN
  INSERT INTO kb.native_document_region(task_id,product_key,pointer,region_index,page_no,page_width,page_height,"left",top,"right",bottom,origin)
  SELECT p_task,product->>'product_key',i.pointer,i.region_index,i.page_no,i.page_width,i.page_height,i."left",i.top,i."right",i.bottom,i.origin FROM jsonb_populate_recordset(NULL::kb.native_document_region,product->'regions') i;
  PERFORM ops.validate_pdf_ocr_pages(p_task,product);
+ PERFORM ops.publish_pdf_inline_reports(p_task,product);
  INSERT INTO kb.native_document_derivation(task_id,product_key,pointer,mapping_index,origin_pointer,source_field,start_offset,end_offset,cell_index,kind)
  SELECT p_task,product->>'product_key',m.value->>'pointer',m.n-1,m.value->>'origin_pointer',m.value->>'source_field',(m.value->>'start')::bigint,(m.value->>'end')::bigint,(m.value->>'cell_index')::bigint,m.value->>'kind'
  FROM jsonb_array_elements(COALESCE(product->'derivation_mappings','[]')) WITH ORDINALITY m(value,n);

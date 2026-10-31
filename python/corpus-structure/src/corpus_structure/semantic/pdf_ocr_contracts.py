@@ -191,3 +191,101 @@ def validate_pdf_ocr_pages(product: Mapping[str, Any]) -> None:
             )
             if not usable:
                 raise ValueError("complete OCR discovery policy lacks complete word inventory")
+
+
+def validate_pdf_inline_reports(product: Mapping[str, Any]) -> None:
+    """Keep unresolved source correspondence explicit, without inventing text offsets."""
+    reports = product.get("inline_alignment_reports", ())
+    if not reports:
+        return
+    if not all(
+        product.get(key) is not None
+        for key in ("parent_task_id", "parent_product_key", "parent_digest")
+    ):
+        raise ValueError("inline alignment report requires its original parent product")
+    pages = {page["page_no"]: page for page in product.get("inline_candidate_pages", ())}
+    items = {item["pointer"]: item for item in product["items"]}
+    seen = set()
+    unresolved = set()
+    for report in reports:
+        key = report["page_no"], report["candidate_index"]
+        page = pages.get(report["page_no"])
+        if (
+            key in seen
+            or page is None
+            or report["candidate_index"] >= len(page.get("candidates", ()))
+        ):
+            raise ValueError("inline alignment report has duplicate or unavailable candidate")
+        seen.add(key)
+        candidate = page["candidates"][report["candidate_index"]]
+        pointers = report["item_pointers"]
+        if not pointers or len(pointers) != len(set(pointers)) or not report["detail"].strip():
+            raise ValueError("inline alignment report needs distinct items and a diagnostic")
+        if (report["basis"] == "ambiguous-native-items" and len(pointers) < 2) or (
+            report["basis"] == "unmatched-native-text" and len(pointers) != 1
+        ):
+            raise ValueError("inline alignment basis differs from its item cardinality")
+        x = (candidate["left"] + candidate["right"]) / 2
+        y = (candidate["top"] + candidate["bottom"]) / 2
+        size = product["document"]["pages"][str(report["page_no"])]["size"]
+        if candidate["origin"] == "BOTTOMLEFT":
+            y = size["height"] - y
+        for pointer in pointers:
+            item = items.get(pointer)
+            if (
+                item is None
+                or item["label"] not in {"text", "list_item", "caption", "footnote"}
+                or item["content_layer"] != "body"
+            ):
+                raise ValueError("inline alignment report item is not retained body prose")
+
+            def contains(region, x=x, y=y, size=size):
+                top, bottom = region["top"], region["bottom"]
+                if region["origin"] == "bottom_left":
+                    top, bottom = size["height"] - top, size["height"] - bottom
+                return region["left"] <= x <= region["right"] and min(top, bottom) <= y <= max(
+                    top, bottom
+                )
+
+            if not any(
+                region["pointer"] == pointer
+                and region["page_no"] == report["page_no"]
+                and contains(region)
+                for region in product.get("regions", ())
+            ):
+                raise ValueError(
+                    "inline alignment report item differs from candidate page geometry"
+                )
+            unresolved.add(pointer)
+    rows = [
+        row
+        for row in product.get("recognition_coverage", ())
+        if row["universe"] == "inline" and row["outcome"] == "complete"
+    ]
+    health = product["health"]
+    if health.get("inline_coverage") == "complete":
+        rows += [
+            dict(section_pointer=pointer, membership=health["inline_membership"])
+            for pointer in health.get("inline_scope", ())
+        ]
+    for row in rows:
+        for pointer in unresolved:
+            if row["membership"] == "direct":
+                selected = (
+                    pointer == row["section_pointer"]
+                    or items[pointer].get("section_pointer") == row["section_pointer"]
+                )
+            else:
+                current = pointer
+                visited = set()
+                selected = False
+                while current in items and current not in visited:
+                    if current == row["section_pointer"]:
+                        selected = True
+                        break
+                    visited.add(current)
+                    current = items[current].get("parent_pointer")
+            if selected:
+                raise ValueError(
+                    "complete inline coverage contains unresolved source correspondence"
+                )

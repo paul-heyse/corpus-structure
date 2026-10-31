@@ -430,9 +430,10 @@ def prepare_pdf_product(
             names = [row["name"] for row in runtime.get(runtime_field, ())]
             if len(names) != len(set(names)):
                 raise ValueError("native runtime report repeats a named binding")
-    from .pdf_ocr_contracts import validate_pdf_ocr_pages
+    from .pdf_ocr_contracts import validate_pdf_inline_reports, validate_pdf_ocr_pages
 
     validate_pdf_ocr_pages(value)
+    validate_pdf_inline_reports(value)
     result = PreparedPdfProduct(
         canonical_bytes(value), original, schema_bytes, recipe_bytes, context.contract_digest
     )
