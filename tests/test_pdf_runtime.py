@@ -111,3 +111,32 @@ def test_inline_decomposition_keeps_prose_and_qualified_formula_in_same_native_h
     assert (result.mappings[0]['start'],result.mappings[0]['end'])==(4,5)
     assert native.texts[int(paragraph.self_ref.rsplit('/',1)[1])].orig=='Let x be real.'
     assert result.outcomes[0].outcome=='succeeded'
+
+
+def test_pinned_adoption_recipe_does_not_initialize_models(tmp_path):
+    from corpus_structure.ingest.pdf_methods import IngestPdf
+    from corpus_structure.semantic.parsing_products import ProductReference
+    cfg=PdfIngestConfig(native_product=ProductReference(1,'organized','a'*64),model_cache=tmp_path/'missing')
+    producer=IngestPdf()
+    recipe=producer.original_recipe(cfg)
+    assert b'native-pdf-adoption-v1' in recipe
+    assert not producer._prepared
+    assert not producer._workers
+
+
+def test_source_view_key_qualifies_consumer_release_and_full_native_pin():
+    from corpus_structure.ingest.pdf_methods import _drafts
+    from corpus_structure.ingest.pdf_hierarchy import snapshot,organize
+    from corpus_structure.semantic.parsing_products import ProductReference
+    from docling_core.types.doc import DoclingDocument,DocItemLabel
+    document=DoclingDocument(name='independent adoption fixture')
+    document.add_heading(text='1.1: Sets',level=1)
+    document.add_text(label=DocItemLabel.TEXT,text='Source content')
+    organized=organize(snapshot(document),PdfIngestConfig().section_policy())
+    section=organized.sections[0].group_ref
+    health={'conversion':'success','formula_outcomes':[]}
+    first=_drafts(1,ProductReference(1,'organized','a'*64),organized.document,health,(section,),'direct','release1')[0]
+    new_release=_drafts(1,ProductReference(1,'organized','a'*64),organized.document,health,(section,),'direct','release2')[0]
+    new_producer=_drafts(1,ProductReference(2,'organized','a'*64),organized.document,health,(section,),'direct','release1')[0]
+    assert len({first.key,new_release.key,new_producer.key})==3
+    assert first.text==new_release.text==new_producer.text
