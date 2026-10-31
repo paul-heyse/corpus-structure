@@ -88,7 +88,8 @@ def test_native_inline_capture_distinguishes_missing_cells_from_empty_and_retain
     )
     captured = capture_candidates(
         SimpleNamespace(
-            page_no=1, cells=[cell],
+            page_no=1,
+            cells=[cell],
             parsed_page=SimpleNamespace(word_cells=[cell], has_words=True, has_chars=False),
         )
     )
@@ -351,10 +352,11 @@ def test_cell_inventory_does_not_turn_plain_headers_into_formula_items():
 
 
 @pytest.mark.parametrize(
-    "with_ancestor,missing_vectors", [(False, False), (True, False), (False, True)]
+    "with_ancestor,missing_vectors,unresolved_context",
+    [(False, False, False), (True, False, False), (False, True, False), (False, False, True)],
 )
 def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
-    monkeypatch, with_ancestor, missing_vectors
+    monkeypatch, with_ancestor, missing_vectors, unresolved_context
 ):
     """Pure orchestration control; this does not qualify a model or database publication."""
     import json
@@ -404,6 +406,20 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     section = organization.sections[1 if with_ancestor else 0].group_ref
     membership = "descendants" if with_ancestor else "direct"
     candidate = InlineCandidate(1, "x", 25, 10, 35, 30, "TOPLEFT", "CMMI10", "native-math-font-v1")
+    if unresolved_context:
+        candidate = InlineCandidate(
+            1,
+            "",
+            25,
+            10,
+            35,
+            30,
+            "TOPLEFT",
+            None,
+            "native-vector-gap-v1",
+            "absent native context",
+            "",
+        )
     from hashlib import sha256
 
     conversion = PdfConversion(
@@ -466,7 +482,7 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     monkeypatch.setattr(
         "corpus_structure.ingest.pdf_candidates.rediscover_candidates",
         lambda original, pages, parser_threads: (
-            CandidatePage(1, True, False, (candidate,), False),
+            CandidatePage(1, True, False, (candidate,), not missing_vectors),
         ),
     )
     cfg = PdfEnrichConfig()
@@ -541,8 +557,14 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
         if r["section_pointer"] == section and r["universe"] == "inline"
     )
     assert row["membership"] == membership
-    assert row["outcome"] == ("partial" if missing_vectors else "complete")
-    assert result.source_views[0].health["inline_coverage"] == ("partial" if missing_vectors else "complete")
+    expected_coverage = "partial" if missing_vectors or unresolved_context else "complete"
+    assert row["outcome"] == expected_coverage
+    assert result.source_views[0].health["inline_coverage"] == expected_coverage
+    if unresolved_context:
+        assert prepared[0]["inline_alignment_reports"][0]["item_pointers"] == [paragraph.self_ref]
+        assert prepared[0]["inline_alignment_reports"][0]["candidate_index"] == 0
+        assert prepared[0]["derivation_mappings"] == []
+        return
     if with_ancestor:
         assert len(result.source_views) == 2
         assert result.source_views[1].membership == "direct"

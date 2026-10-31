@@ -94,7 +94,9 @@ class CandidatePage:
         return value
 
 
-def capture_candidates(page: Any, ocr: dict[str, Any] | None = None) -> CandidatePage:
+def capture_candidates(
+    page: Any, ocr: dict[str, Any] | None = None, *, centroid_order: bool = True
+) -> CandidatePage:
     """Enumerate available native words once; unknown extraction is not empty evidence.
 
     These are attributed discovery rules, not a universal mathematical-absence classifier.
@@ -165,10 +167,34 @@ def capture_candidates(page: Any, ocr: dict[str, Any] | None = None) -> Candidat
                 if abs((wb.t + wb.b) / 2 - center_y) <= max(wb.height, box.height) / 2
             ]
             left = sorted(
-                [(word, wb) for word, wb in nearby if wb.r <= box.l], key=lambda pair: pair[1].r
+                [
+                    (word, wb)
+                    for word, wb in nearby
+                    if (
+                        wb.r <= box.l
+                        or (
+                            centroid_order
+                            and wb.l <= box.l <= wb.r
+                            and (wb.l + wb.r) / 2 < (box.l + box.r) / 2
+                        )
+                    )
+                ],
+                key=lambda pair: pair[1].r,
             )
             right = sorted(
-                [(word, wb) for word, wb in nearby if wb.l >= box.r], key=lambda pair: pair[1].l
+                [
+                    (word, wb)
+                    for word, wb in nearby
+                    if (
+                        wb.l >= box.r
+                        or (
+                            centroid_order
+                            and wb.l <= box.r <= wb.r
+                            and (wb.l + wb.r) / 2 > (box.l + box.r) / 2
+                        )
+                    )
+                ],
+                key=lambda pair: pair[1].l,
             )
             if not left and not right:
                 continue

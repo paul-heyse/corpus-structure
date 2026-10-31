@@ -575,7 +575,8 @@ class EnrichPdfMath:
         recipe, _ = self.producer._runtime(cfg)
         return canonical_bytes(
             {
-                "recipe_id": "native-scoped-math-v1",
+                "recipe_id": "native-scoped-math-v2",
+                "inline_alignment_policy": "native-prose-context-order-v1",
                 "native_recipe": json.loads(recipe.to_bytes()),
                 "candidate_policy": "native-font-token-vector-ocr-word-v3",
                 "cells_policy": "all-nonempty-selected-cells-v1",
@@ -724,6 +725,9 @@ class EnrichPdfMath:
                     enrichment=enriched,
                 )
                 payload["cell_reports"] = reports
+                payload["inline_alignment_reports"] = [
+                    row.to_wire() for row in computed.alignment_reports
+                ]
                 # Whole-book native content is retained; only the declared rows close recognition.
                 payload["health"].update(
                     inline_coverage="unknown",
@@ -738,6 +742,7 @@ class EnrichPdfMath:
                 coverage = []
                 for section, membership in specs:
                     pointers = _member_order(nodes, section_refs, section, membership)
+                    scope_pointers = set(pointers)
                     formula_refs = [
                         pointer for pointer in pointers if str(nodes[pointer].label) == "formula"
                     ]
@@ -767,6 +772,11 @@ class EnrichPdfMath:
                             outcomes.get(pointer) == "succeeded" for pointer in display_refs
                         ),
                         "inline": discovery_complete
+                        and not any(
+                            pointer in scope_pointers
+                            for report in computed.alignment_reports
+                            for pointer in report.item_pointers
+                        )
                         and all(outcomes.get(pointer) == "succeeded" for pointer in inline_refs),
                         "cell": all(
                             row["classification"] == "prose" or row["outcome"] == "succeeded"

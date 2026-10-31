@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass, replace
-from typing import Any
+from dataclasses import asdict, dataclass, replace
+from functools import cmp_to_key
+from typing import Any, Literal
 
 from .pdf import CellCandidate, CellEnrichment, PdfConversion, PdfConverter
 from .pdf_candidates import CandidatePage, InlineCandidate
@@ -103,12 +104,90 @@ class PositionedCandidate:
     regions: tuple[InlineCandidate, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class InlineAlignmentReport:
+    page_no: int
+    candidate_index: int
+    item_pointers: tuple[str, ...]
+    basis: Literal["ambiguous-native-items", "unmatched-native-text"]
+    detail: str
+    outcome: Literal["unresolved"] = "unresolved"
+
+    def to_wire(self) -> dict[str, Any]:
+        value = asdict(self)
+        value["item_pointers"] = list(self.item_pointers)
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class InlineDiscovery:
+    candidates: tuple[PositionedCandidate, ...]
+    reports: tuple[InlineAlignmentReport, ...]
+
+
+def _ordered_context_candidates(document, item, candidates):
+    """Unique reading order within ONE native prose item and its own provenance spans."""
+    anchors = {}
+    for index, candidate in candidates:
+        height = document.pages[candidate.page_no].size.height
+        top, bottom = candidate.top, candidate.bottom
+        if candidate.origin == "BOTTOMLEFT":
+            top, bottom = height - top, height - bottom
+        spans = set()
+        for prov in item.prov:
+            if prov.page_no != candidate.page_no:
+                continue
+            box = prov.bbox.to_top_left_origin(height)
+            if (
+                box.l <= (candidate.left + candidate.right) / 2 <= box.r
+                and box.t <= (top + bottom) / 2 <= box.b
+            ):
+                spans.add(tuple(prov.charspan))
+        if len(spans) != 1:
+            return None
+        anchors[candidate.page_no, index] = (next(iter(spans)), top, bottom)
+
+    def compare(left, right):
+        li, a = left
+        ri, b = right
+        a_span, a_top, a_bottom = anchors[a.page_no, li]
+        b_span, b_top, b_bottom = anchors[b.page_no, ri]
+        if a_span != b_span:
+            if a_span[1] <= b_span[0]:
+                return -1
+            if b_span[1] <= a_span[0]:
+                return 1
+            return 0
+        if a.page_no != b.page_no:
+            return 0
+        if a_bottom <= b_top:
+            return -1
+        if b_bottom <= a_top:
+            return 1
+        same_line = (
+            abs((a_top + a_bottom - b_top - b_bottom) / 2)
+            <= min(a_bottom - a_top, b_bottom - b_top) / 2
+        )
+        if same_line and a.right <= b.left:
+            return -1
+        if same_line and b.right <= a.left:
+            return 1
+        return 0
+
+    ordered = sorted(candidates, key=cmp_to_key(compare))
+    if any(
+        compare(left, right) != -1 for i, left in enumerate(ordered) for right in ordered[i + 1 :]
+    ):
+        return None
+    return ordered
+
+
 def positioned_inline_candidates(
     document: Any, pages: tuple[CandidatePage, ...], selected: frozenset[str]
-) -> tuple[PositionedCandidate, ...]:
-    """Bind retained native candidates to exact native-text occurrences, refusing ambiguity."""
+) -> InlineDiscovery:
+    """Locate exact native anchors; retain unresolved source custody without guessed offsets."""
     nodes = native_nodes(document)
-    grouped: dict[tuple[str, str], list[InlineCandidate]] = defaultdict(list)
+    grouped: dict[tuple[str, str], list[tuple[int, InlineCandidate]]] = defaultdict(list)
     by_page: dict[int, list[Any]] = defaultdict(list)
     for pointer in selected:
         item = nodes[pointer]
@@ -116,8 +195,9 @@ def positioned_inline_candidates(
             continue
         for prov in item.prov:
             by_page[prov.page_no].append((item, prov))
+    reports = []
     for page in pages:
-        for candidate in page.candidates:
+        for candidate_index, candidate in enumerate(page.candidates):
             matches = []
             for item, prov in by_page.get(page.page_no, ()):
                 box = prov.bbox.to_top_left_origin(document.pages[page.page_no].size.height)
@@ -133,12 +213,19 @@ def positioned_inline_candidates(
                     matches.append(item)
             unique = {item.self_ref: item for item in matches}
             if len(unique) > 1:
-                raise RecognitionUnavailable(
-                    "inline candidate belongs to overlapping native text items"
+                reports.append(
+                    InlineAlignmentReport(
+                        page.page_no,
+                        candidate_index,
+                        tuple(sorted(unique)),
+                        "ambiguous-native-items",
+                        "candidate center belongs to multiple native prose items",
+                    )
                 )
+                continue
             if unique:
                 item = next(iter(unique.values()))
-                grouped[(item.self_ref, candidate.text)].append(candidate)
+                grouped[(item.self_ref, candidate.text)].append((candidate_index, candidate))
     positioned = []
     for (pointer, spelling), candidates in grouped.items():
         # Whole-word boundaries avoid matching a variable inside a prose identifier.
@@ -153,18 +240,25 @@ def positioned_inline_candidates(
         )
         offsets = list(re.finditer(pattern, nodes[pointer].text))
         if spelling and len(offsets) == len(candidates):
-            positioned.extend(
-                PositionedCandidate(pointer, m.start(), m.end(), candidate)
-                for m, candidate in zip(offsets, candidates, strict=True)
-            )
-            continue
-        for candidate in candidates:
+            ordered = _ordered_context_candidates(document, nodes[pointer], candidates)
+            if len(candidates) == 1 or ordered is not None:
+                positioned.extend(
+                    PositionedCandidate(pointer, m.start(), m.end(), candidate)
+                    for m, (_, candidate) in zip(
+                        offsets, candidates if ordered is None else ordered, strict=True
+                    )
+                )
+                continue
+        contexts = defaultdict(list)
+        for candidate_index, candidate in candidates:
+            contexts[candidate.before, candidate.after].append((candidate_index, candidate))
+        for (before_text, after_text), context_candidates in contexts.items():
 
             def context_pattern(value: str) -> str:
                 return r"\s+".join(re.escape(word) for word in value.split())
 
-            before = context_pattern(candidate.before)
-            after = context_pattern(candidate.after)
+            before = context_pattern(before_text)
+            after = context_pattern(after_text)
             qualified = (
                 (before + r"\s*" if before else "")
                 + r"(?P<math>"
@@ -173,15 +267,34 @@ def positioned_inline_candidates(
                 + (r"\s*" + after if after else "")
             )
             matches = list(re.finditer(qualified, nodes[pointer].text))
-            if len(matches) != 1:
-                raise RecognitionUnavailable(
-                    "native inline text/geometry correspondence requires further alignment: "
-                    f"{pointer} {spelling!r}"
-                )
-            positioned.append(
-                PositionedCandidate(
-                    pointer, matches[0].start("math"), matches[0].end("math"), candidate
-                )
+            ordered = (
+                _ordered_context_candidates(document, nodes[pointer], context_candidates)
+                if len(matches) == len(context_candidates)
+                else None
+            )
+            if len(matches) == 1:
+                assignments = [(candidate, matches[0]) for _, candidate in context_candidates]
+            elif len(matches) > 1 and ordered is not None:
+                assignments = [
+                    (candidate, match)
+                    for (_, candidate), match in zip(ordered, matches, strict=True)
+                ]
+            else:
+                for candidate_index, candidate in context_candidates:
+                    reports.append(
+                        InlineAlignmentReport(
+                            candidate.page_no,
+                            candidate_index,
+                            (pointer,),
+                            "unmatched-native-text",
+                            "native word context has no unique exact projection "
+                            "anchor or reading order",
+                        )
+                    )
+                continue
+            positioned.extend(
+                PositionedCandidate(pointer, match.start("math"), match.end("math"), candidate)
+                for candidate, match in assignments
             )
     by_anchor: dict[tuple[str, int, int], list[PositionedCandidate]] = defaultdict(list)
     for part in positioned:
@@ -196,7 +309,9 @@ def positioned_inline_candidates(
                 pointer, start, end, regions[0], regions if len(regions) > 1 else ()
             )
         )
-    return tuple(sorted(merged, key=lambda c: (c.item_ref, c.start, c.end)))
+    return InlineDiscovery(
+        tuple(sorted(merged, key=lambda c: (c.item_ref, c.start, c.end))), tuple(reports)
+    )
 
 
 def enrich_inline(
@@ -441,6 +556,7 @@ class PdfEnrichmentResult:
     packages: tuple[tuple[str, str], ...]
     runtime: tuple[tuple[str, str], ...]
     effective_options: bytes
+    alignment_reports: tuple[InlineAlignmentReport, ...] = ()
 
 
 def compute_enrichment(
@@ -497,7 +613,24 @@ def compute_enrichment(
         math_pattern=request.cell_math_pattern,
         prose_pattern=request.cell_prose_pattern,
     )
-    inline = positioned_inline_candidates(document, candidates, request.selected)
+    discovery = positioned_inline_candidates(document, candidates, request.selected)
+    repair_pages = {
+        report.page_no
+        for report in discovery.reports
+        if report.basis == "unmatched-native-text" and not pages[report.page_no].ocr_regions
+    }
+    if repair_pages:
+        # Older captures excluded punctuation whose font metric box slightly overlapped
+        # a vector glyph. Refresh only unresolved pages through the retained PDF backend.
+        for page in rediscover_candidates(
+            request.original,
+            tuple(sorted(repair_pages)),
+            parser_threads=converter.recipe.parser_threads,
+        ):
+            pages[page.page_no] = page
+        candidates = tuple(pages[number] for number in sorted(pages))
+        discovery = positioned_inline_candidates(document, candidates, request.selected)
+    inline = discovery.candidates
     cell_outcomes: tuple[FormulaOutcome, ...] = ()
     inline_outcomes: tuple[FormulaOutcome, ...] = ()
     cell_mappings: tuple[dict[str, Any], ...] = ()
@@ -539,4 +672,5 @@ def compute_enrichment(
         pdf_package_versions(),
         converter.runtime_bindings(),
         options.model_dump_json(serialize_as_any=True).encode(),
+        discovery.reports,
     )

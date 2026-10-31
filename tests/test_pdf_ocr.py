@@ -115,7 +115,7 @@ def test_ocr_token_candidate_has_word_address_and_no_native_font():
 def test_recipe_v1_archives_remain_decodable_while_v2_changes_observation_identity():
     old = PdfRecipe("a" * 40, "b" * 40, recipe_id="docling-standard-pdf-v1")
     new = PdfRecipe("a" * 40, "b" * 40)
-    assert new.recipe_id == "docling-standard-pdf-v2"
+    assert new.recipe_id == "docling-standard-pdf-v3"
     assert old.digest != new.digest
     assert PdfRecipe.from_bytes(old.to_bytes()) == old
     assert old.options().model_dump() == new.options().model_dump()
