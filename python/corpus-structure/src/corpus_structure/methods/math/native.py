@@ -179,8 +179,8 @@ def native_ancestor_declarations(reader: Any, view: Any, rules: tuple[NativeDoma
                 issues.append("ancestor declaration source order unavailable: "+item["self_ref"])
             if before is not True:
                 continue
-            _,scope,_=_declaration_scope(parent,rules,ordinal)
-            if ":section:" not in scope:
+            parent_source,scope,_=_declaration_scope(parent,rules,ordinal)
+            if scope!=f"{parent_source}:section:{parent.ref.section_pointer}":
                 continue
             if health.get(item["self_ref"])!="succeeded":
                 issues.append("ancestor function declaration recognition unavailable: "+item["self_ref"])
@@ -721,7 +721,7 @@ def native_context_result(unit:Any,view:Any,cfg:Any,reader:Any)->UnitResult:
             for symbol,(a,b) in _heads(syntax):
                 declarations.append(NativeContextDeclaration(symbol=symbol,role="function",
                     rule_id="function-definition-1",source_pointer=pointer,recognized_start=a,recognized_end=b,
-                    scope_pointer=view.ref.section_pointer,quote=quote,
+                    scope_pointer=native_topology(view).section(pointer),quote=quote,
                     projection_start=None if sentence is None else sentence[0],projection_end=None if sentence is None else sentence[1]))
         if initial or clause or wide:
             reading=operand.interpretation()
@@ -734,7 +734,7 @@ def native_context_result(unit:Any,view:Any,cfg:Any,reader:Any)->UnitResult:
                     declarations.append(NativeContextDeclaration(symbol=mention.name,role="variable",
                         rule_id="binder:section_wide" if wide else "binder:initial" if initial else "binder:clause",
                         source_pointer=pointer,recognized_start=mention.start,recognized_end=mention.end,
-                        scope_pointer=view.ref.section_pointer,quote=quote,
+                        scope_pointer=native_topology(view).section(pointer),quote=quote,
                         projection_start=None if sentence is None else sentence[0],projection_end=None if sentence is None else sentence[1]))
     payload=NativeContextPayload(source_view_id=view.ref.id,native_product=view.ref.native_product.values(),
         projection_digest=view.ref.projection_digest,declarations=tuple(declarations),issues=tuple(issues))

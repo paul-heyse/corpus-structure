@@ -381,3 +381,10 @@ def test_descendant_view_preserves_section_roles_and_scope_without_sibling_leaka
     assert scopes[formulas['grandchild_y']].outcome=='resolved'
     assert scopes[formulas['grandchild_y']].scope_pointer==child['self_ref']
     assert scopes[formulas['sibling_y']].outcome=='unresolved'
+    # Weak context preparation also retains declaration ownership inside this view.
+    from corpus_structure.methods.math.native import native_context_result
+    context=native_context_result(unit,source,SymbolScopeConfig(math=section,
+        binders=Binders(sentence_initial=('let',)),sentences=SentenceConfig()),reader)
+    declarations=context.observations[0].payload.declarations
+    assert next(d.scope_pointer for d in declarations if d.symbol=='f')==root['self_ref']
+    assert next(d.scope_pointer for d in declarations if d.symbol=='g')==child['self_ref']
