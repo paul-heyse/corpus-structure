@@ -93,7 +93,7 @@ def trusted_pdf_context() -> PreparedPdfContext:
 def pdf_context_for_task(conn: Connection, task_id: int) -> PreparedPdfContext:
     from .releases import open_release
 
-    tasks, runs, inputs = table("ops.task"), table("ops.run"), table("sem.input")
+    tasks, runs = table("ops.task"), table("ops.run")
     release_id = conn.execute(
         select(runs.c.release_id)
         .join_from(tasks, runs, tasks.c.run_id == runs.c.id)
@@ -229,13 +229,13 @@ def prepare_pdf_product(
     value["document"] = document
     value.setdefault("regions", [])
     value["health"].setdefault("issues", [])
-    for field, content in (
+    for digest_field, content in (
         ("artifact_digest", original),
         ("schema_digest", schema_bytes),
         ("recipe_digest", recipe_bytes),
     ):
-        if value[field] != sha256(content).hexdigest():
-            raise ValueError(field + " differs from retained bytes")
+        if value[digest_field] != sha256(content).hexdigest():
+            raise ValueError(digest_field + " differs from retained bytes")
     if value["schema_digest"] != context.native_schema_digest:
         raise ValueError("native schema is not admitted by the archived producer contract")
     _native_validator(schema_bytes).validate(document)
@@ -294,9 +294,9 @@ def prepare_pdf_product(
         native_parent = (native.get("parent") or {}).get("$ref")
         if native_parent != item.get("parent_pointer"):
             raise ValueError("item parent differs from native occurrence")
-        for field in ("parent_pointer", "section_pointer"):
-            if field in item:
-                resolve_native_pointer(document, item[field])
+        for pointer_field in ("parent_pointer", "section_pointer"):
+            if pointer_field in item:
+                resolve_native_pointer(document, item[pointer_field])
     for item in value["items"]:
         if item.get("parent_pointer") is not None and item["parent_pointer"] not in pointers:
             raise ValueError("native parent is missing from item projection")
@@ -369,7 +369,8 @@ def prepare_pdf_product(
             or not health.get(policy)
         ):
             raise ValueError(
-                "complete recognition coverage requires its named scope, membership and candidate policy"
+                "complete recognition coverage requires its named scope, membership and "
+                "candidate policy"
             )
         for pointer in health.get(universe + "_scope", ()):
             if resolve_native_pointer(document, pointer).get("label") not in {"section", "chapter"}:
@@ -515,8 +516,8 @@ def store_pdf_product(
         )
     return conn.execute(
         text(
-            "SELECT ops.publish_native_document(:task,:attempt,:holder,:contract,:payload,"
-            ":original,:schema_bytes,:recipe_bytes)"
+            "SELECT ops.publish_native_document(:task,:attempt,:holder,:contract,:pay"
+            "load,:original,:schema_bytes,:recipe_bytes)"
         ),
         dict(
             task=task_id,
@@ -561,9 +562,9 @@ def pdf_shape_guard_sql() -> str:
     from .native_shapes import record_shape_guards
 
     return (
-        "IF product ? 'document_json' THEN "
-        "RAISE EXCEPTION 'internal PDF field supplied' USING ERRCODE='23514'; END IF;\n"
-        "parsing_item := (product - 'document') || "
-        "jsonb_build_object('document_json', (product->'document')::text);\n"
+        "IF product ? 'document_json' THEN RAISE EXCEPTION 'internal PDF field "
+        "supplied' USING ERRCODE='23514'; END IF;\nparsing_item := (product - "
+        "'document') || jsonb_build_object('document_json', "
+        "(product->'document')::text);\n"
         + record_shape_guards(trusted_pdf_context().boundary, "PdfNativeEnvelope", "parsing_item")
     )

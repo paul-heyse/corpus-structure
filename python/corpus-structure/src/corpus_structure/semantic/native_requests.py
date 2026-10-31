@@ -387,7 +387,10 @@ def request_source_view(
                     required_capability=demand,
                     reason=None
                     if analysis_coverage(analysis) == "complete"
-                    else "native demand coverage is incomplete; inspect the retained item diagnostics",
+                    else (
+                        "native demand coverage is incomplete; inspect the retained item "
+                        "diagnostics"
+                    ),
                 ),
             ),
         )

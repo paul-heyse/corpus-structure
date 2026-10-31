@@ -114,13 +114,15 @@ def load_source_view(conn: Connection, source_view_id: int) -> PreparedSourceVie
     row = conn.execute(select(views).where(views.c.id == source_view_id)).mappings().one()
     reference = _ref(row)
     projection = row["projection"]
-    product = table("ops.native_document_product")
     pointers = tuple(dict.fromkeys([*projection["items"], *projection["ancestors"]]))
     # One set-shaped query transfers only selected native values, never the book JSON.
     values = conn.execute(
-        text("""SELECT refs.pointer,i.native_json AS item
-        FROM kb.native_document_item i JOIN unnest(CAST(:pointers AS text[])) WITH ORDINALITY refs(pointer,position) ON refs.pointer=i.pointer
-        WHERE i.task_id=:task AND i.product_key=:key ORDER BY refs.position"""),
+        text(
+            "SELECT refs.pointer,i.native_json AS item\n        FROM "
+            "kb.native_document_item i JOIN unnest(CAST(:pointers AS text[])) WITH "
+            "ORDINALITY refs(pointer,position) ON refs.pointer=i.pointer\n        "
+            "WHERE i.task_id=:task AND i.product_key=:key ORDER BY refs.position"
+        ),
         dict(
             pointers=list(pointers),
             task=reference.native_product.task_id,
@@ -236,7 +238,9 @@ def load_native_source_frames(conn: Connection, task_ids):
         view = views[view_id]
         sentences = conn.execute(
             text(
-                "SELECT sentence_id,locator,start_offset,end_offset FROM ops.native_source_frame_sentence WHERE task_id=:task ORDER BY start_offset,end_offset,sentence_id"
+                "SELECT sentence_id,locator,start_offset,end_offset FROM "
+                "ops.native_source_frame_sentence WHERE task_id=:task ORDER BY "
+                "start_offset,end_offset,sentence_id"
             ),
             dict(task=row["task_id"]),
         ).mappings()
@@ -273,7 +277,10 @@ def request_source_view(*args, **kwargs):
 def store_region_artifact(conn, *, task_id, attempt, holder, selection, recipe_bytes, content):
     return conn.execute(
         text(
-            "SELECT ops.publish_pdf_region_artifact(:task,:attempt,:holder,CAST(:selection AS jsonb),:recipe,:content)"
+
+                "SELECT ops.publish_pdf_region_artifact(:task,:attempt,:holder,CAST(:sele"
+                "ction AS jsonb),:recipe,:content)"
+
         ),
         dict(
             task=task_id,
@@ -298,10 +305,17 @@ def scope_source_views(conn: Connection, selected, scope):
     wanted = {normalized_native_section_title(title) for title in scope["sections"]}
     ids = [ref.id for ref in selected]
     rows = conn.execute(
-        text("""SELECT v.id,i.native_json AS section,
-       (SELECT COALESCE(jsonb_agg(a.native_json ORDER BY refs.n),'[]') FROM jsonb_array_elements_text(v.projection->'ancestors') WITH ORDINALITY refs(value,n) JOIN kb.native_document_item a ON a.task_id=v.native_task_id AND a.product_key=v.native_product_key AND a.pointer=refs.value) AS ancestors
-       FROM kb.source_view v JOIN kb.native_document_item i ON i.task_id=v.native_task_id AND i.product_key=v.native_product_key AND i.pointer=v.section_pointer
-       WHERE v.id=ANY(:ids)"""),
+        text(
+            "SELECT v.id,i.native_json AS section,\n       (SELECT "
+            "COALESCE(jsonb_agg(a.native_json ORDER BY refs.n),'[]') FROM "
+            "jsonb_array_elements_text(v.projection->'ancestors') WITH ORDINALITY "
+            "refs(value,n) JOIN kb.native_document_item a ON "
+            "a.task_id=v.native_task_id AND a.product_key=v.native_product_key AND "
+            "a.pointer=refs.value) AS ancestors\n       FROM kb.source_view v JOIN "
+            "kb.native_document_item i ON i.task_id=v.native_task_id AND "
+            "i.product_key=v.native_product_key AND i.pointer=v.section_pointer\n     "
+            "  WHERE v.id=ANY(:ids)"
+        ),
         dict(ids=ids),
     ).mappings()
     matched = set()

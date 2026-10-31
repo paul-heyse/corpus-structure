@@ -53,16 +53,32 @@ def source_view_products(model=None):
     for name in referenced:
         sql += f"REVOKE REFERENCES ON {name} FROM __MIGRATION_OWNER__;\n"
     for name in sorted(RELATIONS):
-        sql += f"CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON {name} FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();\n"
-        sql += f"GRANT SELECT ON {name} TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;\n"
+        sql += (
+            f"CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON {name} "
+                                                                                             "FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();\n"
+        )
+        sql += (
+            f"GRANT SELECT ON {name} TO corpus_sem_writer,corpus_sem_reader,"
+                                    "corpus_sem_admitter,corpus_sem_evaluator;\n"
+        )
     sql += "ALTER TABLE kb.native_document_item ADD COLUMN native_json jsonb;\n"
     sql += "ALTER TABLE kb.native_document_item DISABLE TRIGGER semantic_immutable;\n"
-    sql += "UPDATE kb.native_document_item i SET native_json=p.native_json #> string_to_array(substr(i.pointer,3),'/') FROM ops.native_document_product p WHERE p.task_id=i.task_id AND p.product_key=i.product_key;\n"
+    sql += (
+        "UPDATE kb.native_document_item i SET native_json=p.native_json #> "
+        "string_to_array(substr(i.pointer,3),'/') FROM "
+        "ops.native_document_product p WHERE p.task_id=i.task_id AND "
+        "p.product_key=i.product_key;\n"
+    )
     sql += "ALTER TABLE kb.native_document_item ALTER COLUMN native_json SET NOT NULL;\n"
     sql += "ALTER TABLE kb.native_document_item ENABLE TRIGGER semantic_immutable;\n"
     for name in ALTERED:
         relation = metadata.tables[name]
-        sql += f"DO $owner$ DECLARE r text; BEGIN SELECT pg_get_userbyid(relowner) INTO r FROM pg_class WHERE oid='{name}'::regclass; EXECUTE format('GRANT REFERENCES ON kb.source_view TO %I',r); EXECUTE format('SET LOCAL ROLE %I',r); END $owner$;\n"
+        sql += (
+            "DO $owner$ DECLARE r text; BEGIN SELECT pg_get_userbyid(relowner) INTO r "
+            f"FROM pg_class WHERE oid='{name}'::regclass; "
+                                             "EXECUTE format('GRANT REFERENCES ON kb.source_view TO %I',r); "
+                                             "EXECUTE format('SET LOCAL ROLE %I',r); END $owner$;\n"
+        )
         for column in relation.columns:
             if column.name in {"source_view_id", "native_address", "projection_digest"}:
                 kind = "bigint" if column.name == "source_view_id" else "text"
@@ -71,7 +87,12 @@ def source_view_products(model=None):
             sql += f"ALTER TABLE {name} ALTER COLUMN rendition_id DROP NOT NULL;\n"
         if name == "eval.reference_frame":
             sql += f"ALTER TABLE {name} ALTER COLUMN rendition_digest DROP NOT NULL;\n"
-        sql += f"DO $constraints$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint WHERE conrelid='{name}'::regclass AND contype='c' LOOP EXECUTE format('ALTER TABLE {name} DROP CONSTRAINT %I',n); END LOOP; END $constraints$;\n"
+        sql += (
+            "DO $constraints$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint "
+            f"WHERE conrelid='{name}'::regclass AND contype='c' LOOP "
+            f"EXECUTE format('ALTER TABLE {name} DROP CONSTRAINT %I',n); "
+                                                "END LOOP; END $constraints$;\n"
+        )
         for constraint in relation.constraints:
             if (
                 isinstance(constraint, ForeignKeyConstraint)
@@ -318,7 +339,11 @@ def native_admission_sql(sql, model=None, *, extra_relations=(), base_admission=
     if not separator:
         raise ValueError("missing native descriptor boundary")
     admission = (
-        "SET LOCAL ROLE corpus_sem_publisher;\nCREATE OR REPLACE FUNCTION data.execution_contract_descriptor() RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $descriptor$\n SELECT '"
+        (
+            "SET LOCAL ROLE corpus_sem_publisher;\nCREATE OR REPLACE FUNCTION "
+            "data.execution_contract_descriptor() RETURNS jsonb LANGUAGE sql "
+            "IMMUTABLE SET search_path=pg_catalog,pg_temp AS $descriptor$\n SELECT '"
+        )
         + encoded
         + "'::jsonb\n$descriptor$;"
         + required

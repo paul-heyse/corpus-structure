@@ -406,8 +406,8 @@ def complete_task(
     try:
         result = conn.execute(
             text(
-                "SELECT ops.complete_task(:task,:attempt,:holder,CAST(:rows AS jsonb),"
-                ":outcome,CAST(:error AS jsonb),CAST(:envelope AS jsonb))::text"
+                "SELECT ops.complete_task(:task,:attempt,:holder,CAST(:rows AS "
+                "jsonb),:outcome,CAST(:error AS jsonb),CAST(:envelope AS jsonb))::text"
             ),
             dict(
                 task=task_id,
@@ -1046,7 +1046,8 @@ class BoundReader:
             )
         if not permitted:
             raise OperationConflict(
-                "whole-native read requires a selected source view or exact claimed method input pin"
+                "whole-native read requires a selected source view or exact claimed "
+                "method input pin"
             )
         context = pdf_context_for_task(self.conn, reference.task_id)
         if row["contract_digest"] != context.contract_digest:
@@ -1173,8 +1174,8 @@ class BoundReader:
                 sections.append(section.get("macros", {}))
         if sections and any(section != sections[0] for section in sections[1:]):
             raise OperationConflict(
-                "source capture has competing fallback macro contexts; "
-                "select one admitted configuration"
+                "source capture has competing fallback macro contexts; select one "
+                "admitted configuration"
             )
         macros = sections[0] if sections else {}
         reference = f"run:{self.run_id}:dependencies:{binding.dependency_digest}:math"
@@ -1582,8 +1583,8 @@ def hold_agent_result(
     try:
         held = conn.execute(
             text(
-                "SELECT ops.hold_agent_result(:task,:attempt,:holder,:packet,:clean,"
-                "CAST(:result AS jsonb))"
+                "SELECT ops.hold_agent_result(:task,:attempt,:holder,:packet,:clean,CAST("
+                ":result AS jsonb))"
             ),
             {
                 "task": task_id,

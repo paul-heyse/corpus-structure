@@ -18,7 +18,10 @@ def native_syntax_products(model=None):
         for column in ("syntax_kind", "upstream_role", "grammar_revision"):
             sql += "ALTER TABLE " + name + " ADD COLUMN " + column + " text;\n"
         sql += (
-            "DO $checks$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint WHERE conrelid='"
+            (
+                "DO $checks$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM "
+                "pg_constraint WHERE conrelid='"
+            )
             + name
             + "'::regclass AND contype='c' LOOP EXECUTE format('ALTER TABLE "
             + name

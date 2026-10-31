@@ -36,17 +36,29 @@ def native_context_products(model=None):
     )
     for name in sorted(referenced):
         sql += "REVOKE REFERENCES ON " + name + " FROM __MIGRATION_OWNER__;\n"
-    sql += """INSERT INTO ops.native_source_frame_source(task_id,unit_ref,source_view_id,product_task_id,product_key,product_digest,projection_digest,recipe_digest,section_pointer,membership,role,context_json)
- SELECT f.task_id,f.unit_ref,f.source_view_id,f.product_task_id,f.product_key,f.product_digest,f.projection_digest,f.recipe_digest,v.section_pointer,v.membership,'primary',f.context_json FROM ops.native_source_frame f JOIN kb.source_view v ON v.id=f.source_view_id;
- CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON ops.native_source_frame_source FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();
- GRANT SELECT ON ops.native_source_frame_source TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;
- ALTER TABLE ops.native_source_frame ADD COLUMN source_frame jsonb;
- ALTER TABLE ops.native_source_frame_sentence ADD COLUMN source_view_id bigint;
- ALTER TABLE ops.native_source_frame_sentence DISABLE TRIGGER semantic_immutable;
- UPDATE ops.native_source_frame_sentence s SET source_view_id=f.source_view_id FROM ops.native_source_frame f WHERE f.task_id=s.task_id;
- ALTER TABLE ops.native_source_frame_sentence ENABLE TRIGGER semantic_immutable;
- ALTER TABLE ops.native_source_frame_sentence ALTER COLUMN source_view_id SET NOT NULL;
-"""
+    sql += (
+        "INSERT INTO ops.native_source_frame_source(task_id,unit_ref,source_view_"
+        "id,product_task_id,product_key,product_digest,projection_digest,recipe_d"
+        "igest,section_pointer,membership,role,context_json)\n SELECT "
+        "f.task_id,f.unit_ref,f.source_view_id,f.product_task_id,f.product_key,f."
+        "product_digest,f.projection_digest,f.recipe_digest,v.section_pointer,v.m"
+        "embership,'primary',f.context_json FROM ops.native_source_frame f JOIN "
+        "kb.source_view v ON v.id=f.source_view_id;\n CREATE TRIGGER "
+        "semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON "
+        "ops.native_source_frame_source FOR EACH STATEMENT EXECUTE FUNCTION "
+        "sem.refuse_immutable_mutation();\n GRANT SELECT ON "
+        "ops.native_source_frame_source TO corpus_sem_writer,corpus_sem_reader,co"
+        "rpus_sem_admitter,corpus_sem_evaluator;\n ALTER TABLE "
+        "ops.native_source_frame ADD COLUMN source_frame jsonb;\n ALTER TABLE "
+        "ops.native_source_frame_sentence ADD COLUMN source_view_id bigint;\n "
+        "ALTER TABLE ops.native_source_frame_sentence DISABLE TRIGGER "
+        "semantic_immutable;\n UPDATE ops.native_source_frame_sentence s SET "
+        "source_view_id=f.source_view_id FROM ops.native_source_frame f WHERE "
+        "f.task_id=s.task_id;\n ALTER TABLE ops.native_source_frame_sentence "
+        "ENABLE TRIGGER semantic_immutable;\n ALTER TABLE "
+        "ops.native_source_frame_sentence ALTER COLUMN source_view_id SET NOT "
+        "NULL;\n"
+    )
     for constraint in metadata.tables["ops.native_source_frame_sentence"].constraints:
         if isinstance(constraint, ForeignKeyConstraint) and any(
             e.parent.name == "source_view_id" for e in constraint.elements
@@ -57,7 +69,13 @@ def native_context_products(model=None):
                 ).strip()
                 + ";\n"
             )
-    sql += "DO $owner$ DECLARE r text; BEGIN SELECT pg_get_userbyid(relowner) INTO r FROM pg_class WHERE oid='eval.reference_frame'::regclass; EXECUTE format('SET LOCAL ROLE %I',r); END $owner$;\nALTER TABLE eval.reference_frame ADD COLUMN source_frame jsonb;\nSET LOCAL ROLE corpus_sem_publisher;\n"
+    sql += (
+        "DO $owner$ DECLARE r text; BEGIN SELECT pg_get_userbyid(relowner) INTO "
+        "r FROM pg_class WHERE oid='eval.reference_frame'::regclass; EXECUTE "
+        "format('SET LOCAL ROLE %I',r); END $owner$;\nALTER TABLE "
+        "eval.reference_frame ADD COLUMN source_frame jsonb;\nSET LOCAL ROLE "
+        "corpus_sem_publisher;\n"
+    )
     source = Path(__file__).with_name("sql")
     sql += (source / "source_views.sql").read_text().replace(
         "-- {source_view_shape_guard}",

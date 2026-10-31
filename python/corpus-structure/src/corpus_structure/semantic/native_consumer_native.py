@@ -52,11 +52,19 @@ def native_consumer_products(model=None):
         sql += (
             "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON "
             + name
-            + " FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();\nGRANT SELECT ON "
+            + (
+                " FOR EACH STATEMENT EXECUTE FUNCTION "
+                "sem.refuse_immutable_mutation();\nGRANT SELECT ON "
+            )
             + name
             + " TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;\n"
         )
-    sql += "DO $checks$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint WHERE conrelid='ops.task_dependency'::regclass AND contype='c' LOOP EXECUTE format('ALTER TABLE ops.task_dependency DROP CONSTRAINT %I',n); END LOOP; END $checks$;\n"
+    sql += (
+        "DO $checks$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM "
+        "pg_constraint WHERE conrelid='ops.task_dependency'::regclass AND "
+        "contype='c' LOOP EXECUTE format('ALTER TABLE ops.task_dependency DROP "
+        "CONSTRAINT %I',n); END LOOP; END $checks$;\n"
+    )
     for constraint in metadata.tables["ops.task_dependency"].constraints:
         if isinstance(constraint, CheckConstraint):
             sql += (
