@@ -63,10 +63,7 @@ class PdfRecipe:
         values = json.loads(payload)
         if not isinstance(values, dict) or set(values) != {f.name for f in dataclasses.fields(cls)}:
             raise ValueError("archived PDF recipe fields differ from this admitted recipe")
-        recipe = TypeAdapter(cls).validate_json(payload)
-        if recipe.to_bytes() != payload:
-            raise ValueError("archived PDF recipe is not canonically typed")
-        return recipe
+        return TypeAdapter(cls).validate_json(payload, strict=True)
 
     @property
     def digest(self) -> str:
@@ -346,6 +343,7 @@ class CellEnrichment:
     source_digest: str
     native: NativeSnapshot
     outcomes: tuple[FormulaOutcome, ...]
+    mappings: tuple[dict[str, Any], ...] = ()
 
 
 def enrich_cells(
@@ -371,6 +369,7 @@ def enrich_cells(
     if len(set(candidates)) != len(candidates):
         raise ValueError("duplicate cell candidate")
     start = len(stage.outcomes)
+    mappings: list[dict[str, Any]] = []
     batch_size = max(1, stage.elements_batch_size)
     for offset in range(0, len(candidates), batch_size):
         elements = []
@@ -397,6 +396,8 @@ def enrich_cells(
                     page_no=candidate.page_no, bbox=cell.bbox, charspan=(0, len(cell.text))
                 ),
             )
+            mappings.append(dict(pointer=item.self_ref,origin_pointer=table.self_ref,
+                source_field="cell_text",start=0,end=len(cell.text),cell_index=candidate.cell_index,kind="table_cell"))
             elements.append(ItemAndImageEnrichmentElement(item=item, image=image))
             table.data.table_cells[candidate.cell_index] = RichTableCell(
                 **cell.model_dump(), ref=item.get_ref()
@@ -407,7 +408,7 @@ def enrich_cells(
         finally:
             for element in elements:
                 element.image.close()
-    return CellEnrichment(source.digest, snapshot(document), tuple(stage.outcomes[start:]))
+    return CellEnrichment(source.digest, snapshot(document), tuple(stage.outcomes[start:]), tuple(mappings))
 
 
 def publication_payload(
@@ -531,6 +532,7 @@ def publication_payload(
         "native_schema_version": selected.schema_version,
         "document": json.loads(selected.payload),
         "inline_candidate_pages": [dataclasses.asdict(page) for page in conversion.inline_candidates],
+        "derivation_mappings": list(enrichment.mappings) if enrichment is not None else [],
         "health": {
             "conversion": conversion.conversion_status,
             "display_coverage": "complete" if display_complete else "partial",

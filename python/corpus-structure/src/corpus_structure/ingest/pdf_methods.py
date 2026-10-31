@@ -62,15 +62,16 @@ class IngestPdf:
     resources = Resources(worker="encoder", batch_size=1, max_concurrency=1)
 
     def __init__(self) -> None:
-        self._prepared: dict[PdfIngestConfig, tuple[PdfRecipe, PreparedPdfAssets]] = {}
+        self._prepared: dict[tuple[str,str], tuple[PdfRecipe, PreparedPdfAssets]] = {}
         self._workers: dict[str, PdfConverter] = {}
 
     def _runtime(self, cfg: PdfIngestConfig) -> tuple[PdfRecipe, PreparedPdfAssets]:
-        if cfg not in self._prepared:
-            base = cfg.recipe()
+        base = cfg.recipe()
+        key = (base.digest, str(cfg.model_cache.resolve()))
+        if key not in self._prepared:
             assets = prepare_pdf_assets(base, cache=cfg.model_cache, offline=True)
-            self._prepared[cfg] = (dataclasses.replace(base, model_artifacts=assets.files, model_revisions=assets.repositories), assets)
-        return self._prepared[cfg]
+            self._prepared[key] = (dataclasses.replace(base, model_artifacts=assets.files, model_revisions=assets.repositories), assets)
+        return self._prepared[key]
 
     def original_recipe(self, cfg: PdfIngestConfig) -> bytes:
         """Preparation only; orchestration commits original custody before calling run."""
@@ -134,7 +135,7 @@ class IngestPdf:
                         node = nodes[node.parent.cref]
                 selected = [s for s in organization.sections if under_selected(s.group_ref)] if cfg.membership=="direct" else matched
                 drafts = []
-                projection_recipe = canonical_bytes({"recipe": "native-section-text-v1",
+                projection_recipe = canonical_bytes({"recipe": "native-section-text-v2",
                     "content_layers":["body"],"section_policy": {"rule_id":cfg.section_rule,"numbered_pattern":cfg.section_pattern,
                         "organizational_pattern":cfg.organizational_heading_pattern,
                         "local_heading_pattern":cfg.local_heading_pattern,"organizational_refs":[]}})

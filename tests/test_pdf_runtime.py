@@ -106,5 +106,8 @@ def test_inline_decomposition_keeps_prose_and_qualified_formula_in_same_native_h
     formulas=[n for n in native.texts if str(n.label)=='formula']
     assert len(formulas)==1
     assert formulas[0].text=='x'
+    assert formulas[0].prov[0].charspan==(0,1)
+    assert result.mappings[0]['origin_pointer']==paragraph.self_ref
+    assert (result.mappings[0]['start'],result.mappings[0]['end'])==(4,5)
     assert native.texts[int(paragraph.self_ref.rsplit('/',1)[1])].orig=='Let x be real.'
     assert result.outcomes[0].outcome=='succeeded'

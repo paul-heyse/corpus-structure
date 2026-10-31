@@ -83,6 +83,7 @@ class PositionedCandidate:
     start: int
     end: int
     candidate: InlineCandidate
+    regions: tuple[InlineCandidate,...] = ()
 
 
 def positioned_inline_candidates(document: Any, pages: tuple[CandidatePage,...],
@@ -121,9 +122,9 @@ def positioned_inline_candidates(document: Any, pages: tuple[CandidatePage,...],
     positioned=[]
     for (pointer,spelling),candidates in grouped.items():
         # Whole-word boundaries avoid matching a variable inside a prose identifier.
-        pattern=r'(?<!\w)'+re.escape(spelling)+r'(?!\w)' if spelling.isalnum() else re.escape(spelling)
+        pattern=(r'(?<!\w)'+re.escape(spelling)+r'(?!\w)' if spelling.isalnum() else re.escape(spelling)) if spelling else r'\s*'
         offsets=list(re.finditer(pattern,nodes[pointer].text))
-        if len(offsets)==len(candidates):
+        if spelling and len(offsets)==len(candidates):
             positioned.extend(PositionedCandidate(pointer,m.start(),m.end(),candidate)
                               for m,candidate in zip(offsets,candidates,strict=True))
             continue
@@ -137,7 +138,14 @@ def positioned_inline_candidates(document: Any, pages: tuple[CandidatePage,...],
             if len(matches)!=1:
                 raise RecognitionUnavailable(f'native inline text/geometry correspondence requires further alignment: {pointer} {spelling!r}')
             positioned.append(PositionedCandidate(pointer,matches[0].start('math'),matches[0].end('math'),candidate))
-    return tuple(sorted(positioned,key=lambda c:(c.item_ref,c.start,c.end)))
+    by_anchor: dict[tuple[str,int,int],list[PositionedCandidate]]=defaultdict(list)
+    for part in positioned:
+        by_anchor[(part.item_ref,part.start,part.end)].append(part)
+    merged=[]
+    for (pointer,start,end),parts in by_anchor.items():
+        regions=tuple(sorted((part.candidate for part in parts),key=lambda c:(c.page_no,c.top,c.left)))
+        merged.append(PositionedCandidate(pointer,start,end,regions[0],regions if len(regions)>1 else ()))
+    return tuple(sorted(merged,key=lambda c:(c.item_ref,c.start,c.end)))
 
 
 def enrich_inline(source: NativeSnapshot, candidates: tuple[PositionedCandidate,...], *,
@@ -151,32 +159,56 @@ def enrich_inline(source: NativeSnapshot, candidates: tuple[PositionedCandidate,
         grouped[candidate.item_ref].append(candidate)
     start=len(stage.outcomes)
     pending=[]
+    mappings=[]
     for pointer,parts in grouped.items():
         item=nodes[pointer]
         original=item.text
         previous=0
         for part in parts:
-            if part.start<previous or original[part.start:part.end]!=part.candidate.text:
+            source_span=original[part.start:part.end]
+            vector_anchor=part.candidate.basis=='native-vector-gap-v1' and not source_span.strip()
+            if part.start<previous or (not vector_anchor and source_span!=part.candidate.text):
                 raise RecognitionUnavailable('inline candidate offsets overlap or differ from native text')
             previous=part.end
         group=document.add_inline_group(parent=item)
         item.text=''  # Raw original stays in the parent product and this item's orig field.
         position=0
+        following_gap=False
         for part in parts:
             if position<part.start:
-                document.add_text(label=DocItemLabel.TEXT,text=original[position:part.start],
-                                  orig=original[position:part.start],parent=group)
+                raw=original[position:part.start]
+                projected=(" " if following_gap and raw and raw[0].isalnum() else "")+raw
+                document.add_text(label=DocItemLabel.TEXT,text=projected,orig=raw,parent=group)
             c=part.candidate
-            box=BoundingBox(l=c.left,t=c.top,r=c.right,b=c.bottom,coord_origin=CoordOrigin(c.origin))
-            formula=document.add_text(label=DocItemLabel.FORMULA,text=c.text,orig=c.text,parent=group,
-                prov=ProvenanceItem(page_no=c.page_no,bbox=box,charspan=(part.start,part.end)))
-            pending.append(ItemAndImageEnrichmentElement(item=formula,image=render_region(c.page_no,box)))
+            regions=part.regions or (c,)
+            boxes=[BoundingBox(l=r.left,t=r.top,r=r.right,b=r.bottom,coord_origin=CoordOrigin(r.origin)) for r in regions]
+            formula=document.add_text(label=DocItemLabel.FORMULA,text=c.text,orig=c.text,parent=group)
+            formula.prov=[ProvenanceItem(page_no=r.page_no,bbox=box,charspan=(0,len(c.text))) for r,box in zip(regions,boxes,strict=True)]
+            crops=[render_region(r.page_no,box) for r,box in zip(regions,boxes,strict=True)]
+            if len(crops)==1:
+                image=crops[0]
+            else:
+                from PIL import Image
+                image=Image.new("RGB",(sum(crop.width for crop in crops)+4*(len(crops)-1),max(crop.height for crop in crops)),"white")
+                x=0
+                for crop in crops:
+                    image.paste(crop,(x,image.height-crop.height));x+=crop.width+4;crop.close()
+            pending.append(ItemAndImageEnrichmentElement(item=formula,image=image))
+            mappings.append(dict(pointer=formula.self_ref,origin_pointer=pointer,source_field="text",
+                start=part.start,end=part.end,kind="vector_region_anchor" if not c.text else "native_text_range"))
             position=part.end
+            following_gap=not c.text
         if position<len(original):
-            document.add_text(label=DocItemLabel.TEXT,text=original[position:],orig=original[position:],parent=group)
+            raw=original[position:]
+            projected=(" " if following_gap and raw and raw[0].isalnum() else "")+raw
+            document.add_text(label=DocItemLabel.TEXT,text=projected,orig=raw,parent=group)
     size=max(1,stage.elements_batch_size)
     for offset in range(0,len(pending),size):
         batch=pending[offset:offset+size]
-        if len(list(stage(document,batch)))!=len(batch):
-            raise RecognitionUnavailable('native inline inference did not return its complete batch')
-    return CellEnrichment(source.digest,snapshot(document),tuple(stage.outcomes[start:]))
+        try:
+            if len(list(stage(document,batch)))!=len(batch):
+                raise RecognitionUnavailable('native inline inference did not return its complete batch')
+        finally:
+            for element in batch:
+                element.image.close()
+    return CellEnrichment(source.digest,snapshot(document),tuple(stage.outcomes[start:]),tuple(mappings))
