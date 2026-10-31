@@ -105,7 +105,7 @@ def test_native_proposal_consolidation_and_independent_reference_journey(
             unit=await lease_and_read(client,run,task)
             assert unit['native_source']['source_view_id']==view
             response=await client.call_tool('propose_claims',{'task_id':task,
-                'batch':authored(key,unit['sentences'][0]['id'],'prediction')})
+                'batch':authored(key,unit['native_source']['native_evidence'][0]['handle'],'prediction')})
             assert response.structured_content is not None
             assert response.structured_content['submission_disposition']=='completed_accepted'
     anyio.run(submit)
@@ -115,7 +115,7 @@ def test_native_proposal_consolidation_and_independent_reference_journey(
         assert conn.scalar(text('SELECT count(*) FROM kb.rendition'))==0
         source=load_source_view(conn,view)
     frame=native_source_frame(source,[('reference_sentence',0,14)])
-    expected=canonical_bytes(authored(key,'reference_sentence','reference'))
+    expected=canonical_bytes(authored(key,'native_evidence:0','reference'))
     with semantic_evaluator_engine.begin() as conn:
         split_documents(conn,'native-consumer')
         made=create_reference_set(conn,project_id='native-consumer',source_run_id=run,label='native-independent',split='dev',size=1,forced=(key,))
