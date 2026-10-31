@@ -62,7 +62,7 @@ def record_shape_guards(prepared: PreparedRelease, class_name: str, expression: 
                 if prop.maximum_cardinality is not None:
                     predicate += f" OR jsonb_array_length({value}) > {prop.maximum_cardinality}"
 
-            elif prop.range in {"ParsingBoolean", "boolean"}:
+            elif prop.range in {"ParsingBoolean", "PdfBoolean", "boolean"}:
                 predicate = f"jsonb_typeof({value}) IS DISTINCT FROM 'boolean'"
             elif prop.range in {"ParsingInteger", "PdfInteger", "integer"}:
                 predicate = (
@@ -95,9 +95,12 @@ def record_shape_guards(prepared: PreparedRelease, class_name: str, expression: 
                     f"{expression}->>{key} IS DISTINCT FROM {quoted(prop.equals_string)}"
                 )
             for pattern in prop.patterns or ((prop.pattern,) if prop.pattern else ()):
-                invalid.append(
-                    f"({expression} ? {key} AND {expression}->>{key} !~ {quoted(pattern)})"
-                )
+                if prop.multivalued:
+                    invalid.append(f"({expression} ? {key} AND EXISTS(SELECT FROM jsonb_array_elements_text({value}) element WHERE element !~ {quoted(pattern)}))")
+                else:
+                    invalid.append(
+                        f"({expression} ? {key} AND {expression}->>{key} !~ {quoted(pattern)})"
+                    )
             if prop.minimum is not None:
                 invalid.append(
                     f"({expression} ? {key} AND ({expression}->>{key})::numeric < {prop.minimum})"

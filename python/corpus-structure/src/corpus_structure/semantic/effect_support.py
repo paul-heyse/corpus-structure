@@ -6,6 +6,16 @@ They are compatibility requirements, never evidence that hashing code proves its
 """
 
 SUPPORTED_EFFECTS = {
+    'convert_pdf': {'effects': (), 'implementation': 'convert_pdf', 'transitions': {}, 'version': '1'},
+    'organize_pdf': {'effects': (), 'implementation': 'organize_pdf', 'transitions': {}, 'version': '1'},
+    'project_pdf_source': {'effects': (), 'implementation': 'project_pdf_source', 'transitions': {}, 'version': '1'},
+    'publish_source_view': {'effects': ('atomic_native_publication',), 'implementation': 'publish_source_view', 'transitions': {}, 'version': '1'},
+    'read_source_view': {'effects': (), 'implementation': 'read_source_view', 'transitions': {}, 'version': '1'},
+    'read_native_source': {'effects': (), 'implementation': 'read_native_source', 'transitions': {}, 'version': '1'},
+    'capture_native_source_frame': {'effects': ('atomic_native_publication',), 'implementation': 'capture_native_source_frame', 'transitions': {}, 'version': '1'},
+    'request_native_source': {'effects': ('atomic_native_publication',), 'implementation': 'request_native_source', 'transitions': {}, 'version': '1'},
+    'publish_pdf_region_artifact': {'effects': ('atomic_native_publication',), 'implementation': 'publish_pdf_region_artifact', 'transitions': {}, 'version': '1'},
+
     "prepare_native_document": {
         "effects": (),
         "implementation": "prepare_native_document",

@@ -80,6 +80,7 @@ BEGIN
  RETURN QUERY WITH candidates AS MATERIALIZED (
   SELECT id FROM ops.task WHERE run_id=p_run AND method_config_id=p_config
    AND (status=CASE WHEN p_agent THEN 'awaiting_agent' ELSE 'pending' END OR (status='running' AND lease_until<clock_timestamp()))
+  AND NOT EXISTS(SELECT FROM ops.task_dependency d JOIN ops.task prerequisite ON prerequisite.id=d.dependency_task_id WHERE d.task_id=ops.task.id AND prerequisite.status NOT IN ('done','empty','reused'))
   ORDER BY priority DESC,id LIMIT p_limit FOR UPDATE SKIP LOCKED
  ) UPDATE ops.task t SET status='running',attempt=t.attempt+1,claimed_by=p_holder,
   lease_until=clock_timestamp()+interval '5 minutes',started_at=COALESCE(t.started_at,clock_timestamp())

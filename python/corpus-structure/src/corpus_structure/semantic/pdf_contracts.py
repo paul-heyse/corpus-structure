@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
@@ -195,6 +195,7 @@ class PreparedPdfProduct:
     schema_bytes: bytes
     recipe_bytes: bytes
     contract_digest: str
+    _validated: bool = field(default=False, init=False, repr=False, compare=False)
 
     @property
     def digest(self) -> str:
@@ -306,7 +307,12 @@ def prepare_pdf_product(
             raise ValueError("formula recognition outcome has no native occurrence")
     if value["health"]["display_coverage"] == "complete":
         successful = {o["pointer"] for o in outcomes if o["outcome"] == "succeeded"}
-        if any(i["label"] == "formula" and i["pointer"] not in successful for i in value["items"]):
+        def display_item(item):
+            if item["label"]!="formula": return False
+            parent=item.get("parent_pointer")
+            label=resolve_native_pointer(document,parent).get("label") if parent else None
+            return label not in {"table","inline"}
+        if any(display_item(i) and i["pointer"] not in successful for i in value["items"]):
             raise ValueError("complete formula coverage lacks attributable recognition")
     seen_regions = set()
     for region in value["regions"]:
@@ -349,19 +355,38 @@ def prepare_pdf_product(
             region["origin"] == "bottom_left" and region["top"] < region["bottom"]
         ):
             raise ValueError("region coordinate origin contradicts vertical bounds")
-    return PreparedPdfProduct(
+    candidate_pages=set()
+    for page in value.get("inline_candidate_pages",[]):
+        page_no=page["page_no"]
+        if page_no in candidate_pages or str(page_no) not in document.get("pages",{}):
+            raise ValueError("inline candidate page is duplicate or outside native scope")
+        candidate_pages.add(page_no)
+        dimensions=document["pages"][str(page_no)]["size"]
+        for candidate in page.get("candidates",[]):
+            if candidate["page_no"]!=page_no or candidate["origin"] not in {"TOPLEFT","BOTTOMLEFT"} or candidate["basis"] not in {"native-math-font-v1","native-math-token-v1","native-vector-gap-v1"}:
+                raise ValueError("inline candidate has an unqualified page/origin/basis")
+            if not (0<=candidate["left"]<=candidate["right"]<=dimensions["width"] and 0<=min(candidate["top"],candidate["bottom"])<=max(candidate["top"],candidate["bottom"])<=dimensions["height"]):
+                raise ValueError("inline candidate is outside physical page")
+    result = PreparedPdfProduct(
         canonical_bytes(value), original, schema_bytes, recipe_bytes, context.contract_digest
     )
+    object.__setattr__(result,"_validated",True)
+    return result
 
 
 def require_pdf_coverage(
-    product: PreparedPdfProduct, *universes: str, whole_document: bool = False
+    product: PreparedPdfProduct, *universes: str, whole_document: bool = False,
+    section_pointer: str | None = None, membership: str | None = None
 ) -> None:
     """A complete consumer cannot reinterpret missing/unknown recognition as absence."""
     values = product.values()
     if whole_document and values["source_scope"] != "whole_document":
         raise ValueError("whole-document source coverage is unavailable")
     health = values["health"]
+    for universe in universes:
+        scope=health.get(universe+"_scope",[])
+        if scope and (whole_document or section_pointer not in scope or membership!=health.get(universe+"_membership")):
+            raise ValueError("required PDF recognition coverage is outside the qualified section scope")
     if health["conversion"] != "success" or any(
         health.get(universe + "_coverage") != "complete" for universe in universes
     ):
@@ -386,17 +411,8 @@ def store_pdf_product(
     if archived.release_id is None:
         raise ValueError("native publication requires an archived release")
     require_database_operation(conn, archived.release_id, "publish_native_document")
-    if (
-        prepare_pdf_product(
-            product.values(),
-            product.original,
-            product.schema_bytes,
-            product.recipe_bytes,
-            context=archived,
-        )
-        != product
-    ):
-        raise ValueError("native product canonical bytes or contract differs")
+    if not product._validated or product.contract_digest!=archived.contract_digest or sha256(product.schema_bytes).hexdigest()!=archived.native_schema_digest:
+        raise ValueError("native publication requires a prepared immutable product under this archive")
     return conn.execute(
         text(
             "SELECT ops.publish_native_document(:task,:attempt,:holder,:contract,:payload,"
@@ -408,7 +424,7 @@ def store_pdf_product(
             holder=holder,
             contract=product.contract_digest,
             payload=product.payload,
-            original=product.original,
+            original=None,
             schema_bytes=product.schema_bytes,
             recipe_bytes=product.recipe_bytes,
         ),

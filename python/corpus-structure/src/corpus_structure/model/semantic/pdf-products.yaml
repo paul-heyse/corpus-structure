@@ -23,6 +23,9 @@ types:
   PdfNumber:
     base: float
     uri: xsd:double
+  PdfBoolean:
+    base: bool
+    uri: xsd:boolean
 enums:
   PdfCoverage:
     permissible_values:
@@ -51,6 +54,27 @@ enums:
       failed: {}
       unknown: {}
       not_requested: {}
+  PdfMembership:
+    permissible_values:
+      direct: {}
+      descendants: {}
+  PdfNativeReadView:
+    permissible_values:
+      products: {}
+      items: {}
+      sections: {}
+      item: {}
+      formula: {}
+      cell: {}
+      regions: {}
+      trace: {}
+  PdfInlineCandidatePolicy:
+    permissible_values:
+      native-math-font-or-token-v1: {}
+      native-font-token-vector-v2: {}
+  PdfCellCandidatePolicy:
+    permissible_values:
+      all-nonempty-selected-cells-v1: {}
 classes:
   PdfItemAddress:
     attributes:
@@ -193,6 +217,32 @@ classes:
         inlined: true
         inlined_as_list: true
         slot_uri: pdf:PdfConversionHealth_formula_outcomes
+      candidate_policy:
+        range: PdfInlineCandidatePolicy
+        required: false
+        slot_uri: pdf:PdfConversionHealth_candidate_policy
+      cells_policy:
+        range: PdfCellCandidatePolicy
+        required: false
+        slot_uri: pdf:PdfConversionHealth_cells_policy
+      inline_scope:
+        range: PdfPointer
+        required: false
+        multivalued: true
+        slot_uri: pdf:PdfConversionHealth_inline_scope
+      cell_scope:
+        range: PdfPointer
+        required: false
+        multivalued: true
+        slot_uri: pdf:PdfConversionHealth_cell_scope
+      inline_membership:
+        range: PdfMembership
+        required: false
+        slot_uri: pdf:PdfConversionHealth_inline_membership
+      cell_membership:
+        range: PdfMembership
+        required: false
+        slot_uri: pdf:PdfConversionHealth_cell_membership
   PdfNativeEnvelope:
     attributes:
       recipe:
@@ -270,6 +320,20 @@ classes:
         inlined: true
         inlined_as_list: true
         slot_uri: pdf:PdfNativeEnvelope_regions
+      inline_candidate_pages:
+        range: PdfInlineCandidatePage
+        required: false
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfNativeEnvelope_inline_candidate_pages
+      derivation_mappings:
+        range: PdfDerivationMapping
+        required: false
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfNativeEnvelope_derivation_mappings
   PdfFormulaOutcome:
     attributes:
       pointer:
@@ -284,3 +348,315 @@ classes:
         range: PdfString
         required: false
         slot_uri: pdf:PdfFormulaOutcome_error
+  PdfViewPiece:
+    attributes:
+      item_ref:
+        range: PdfPointer
+        required: false
+        slot_uri: pdf:PdfViewPiece_item_ref
+      start:
+        range: PdfInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pdf:PdfViewPiece_start
+      end:
+        range: PdfInteger
+        required: true
+        minimum_value: 0
+        slot_uri: pdf:PdfViewPiece_end
+      kind:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfViewPiece_kind
+      cell_index:
+        range: PdfInteger
+        required: false
+        minimum_value: 0
+        slot_uri: pdf:PdfViewPiece_cell_index
+      source_field:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfViewPiece_source_field
+  PdfViewProjection:
+    attributes:
+      text:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfViewProjection_text
+      pieces:
+        range: PdfViewPiece
+        required: false
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfViewProjection_pieces
+      items:
+        range: PdfPointer
+        required: true
+        multivalued: true
+        slot_uri: pdf:PdfViewProjection_items
+      ancestors:
+        range: PdfPointer
+        required: false
+        multivalued: true
+        slot_uri: pdf:PdfViewProjection_ancestors
+      health:
+        range: PdfConversionHealth
+        required: true
+        inlined: true
+        slot_uri: pdf:PdfViewProjection_health
+  PdfSourceViewPublication:
+    attributes:
+      key:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfSourceViewPublication_key
+      document_id:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pdf:PdfSourceViewPublication_document_id
+      native_task_id:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pdf:PdfSourceViewPublication_native_task_id
+      native_product_key:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfSourceViewPublication_native_product_key
+      native_content_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfSourceViewPublication_native_content_digest
+      section_pointer:
+        range: PdfPointer
+        required: true
+        slot_uri: pdf:PdfSourceViewPublication_section_pointer
+      membership:
+        range: PdfMembership
+        required: true
+        slot_uri: pdf:PdfSourceViewPublication_membership
+      projection_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfSourceViewPublication_projection_digest
+      recipe_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfSourceViewPublication_recipe_digest
+      projection:
+        range: PdfViewProjection
+        required: true
+        inlined: true
+        slot_uri: pdf:PdfSourceViewPublication_projection
+      replaces_source_view_id:
+        range: PdfInteger
+        required: false
+        minimum_value: 1
+        slot_uri: pdf:PdfSourceViewPublication_replaces_source_view_id
+      analysis_eligible:
+        range: PdfBoolean
+        required: true
+        slot_uri: pdf:PdfSourceViewPublication_analysis_eligible
+  PdfNativeReadRequest:
+    attributes:
+      version:
+        range: PdfInteger
+        required: true
+        minimum_value: 2
+        maximum_value: 2
+        slot_uri: pdf:PdfNativeReadRequest_version
+      run_id:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pdf:PdfNativeReadRequest_run_id
+      task_id:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pdf:PdfNativeReadRequest_task_id
+      product_key:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfNativeReadRequest_product_key
+      content_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfNativeReadRequest_content_digest
+      view:
+        range: PdfNativeReadView
+        required: true
+        slot_uri: pdf:PdfNativeReadRequest_view
+      section_pointer:
+        range: PdfPointer
+        required: false
+        slot_uri: pdf:PdfNativeReadRequest_section_pointer
+      pointer:
+        range: PdfPointer
+        required: false
+        slot_uri: pdf:PdfNativeReadRequest_pointer
+      cell_index:
+        range: PdfInteger
+        required: false
+        minimum_value: 0
+        slot_uri: pdf:PdfNativeReadRequest_cell_index
+      cursor:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfNativeReadRequest_cursor
+      limit:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        maximum_value: 10000
+        slot_uri: pdf:PdfNativeReadRequest_limit
+  PdfDomainRule:
+    attributes:
+      rule_id:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfDomainRule_rule_id
+      pattern:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfDomainRule_pattern
+      statement_kind:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfDomainRule_statement_kind
+      scope_role:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfDomainRule_scope_role
+  PdfInlineCandidate:
+    attributes:
+      page_no:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pdf:PdfInlineCandidate_page_no
+      text:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfInlineCandidate_text
+      left:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfInlineCandidate_left
+      top:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfInlineCandidate_top
+      right:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfInlineCandidate_right
+      bottom:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfInlineCandidate_bottom
+      origin:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfInlineCandidate_origin
+      font:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfInlineCandidate_font
+      basis:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfInlineCandidate_basis
+      before:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfInlineCandidate_before
+      after:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfInlineCandidate_after
+  PdfInlineCandidatePage:
+    attributes:
+      page_no:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pdf:PdfInlineCandidatePage_page_no
+      has_words:
+        range: PdfBoolean
+        required: true
+        slot_uri: pdf:PdfInlineCandidatePage_has_words
+      has_chars:
+        range: PdfBoolean
+        required: true
+        slot_uri: pdf:PdfInlineCandidatePage_has_chars
+      has_vectors:
+        range: PdfBoolean
+        required: false
+        slot_uri: pdf:PdfInlineCandidatePage_has_vectors
+      candidates:
+        range: PdfInlineCandidate
+        required: false
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfInlineCandidatePage_candidates
+  PdfNativeSourceScope:
+    attributes:
+      kind:
+        range: string
+        equals_string: native_sections
+        required: true
+        slot_uri: pdf:PdfNativeSourceScope_kind
+      name:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfNativeSourceScope_name
+      sections:
+        range: PdfString
+        required: true
+        multivalued: true
+        slot_uri: pdf:PdfNativeSourceScope_sections
+      include_descendants:
+        range: PdfBoolean
+        required: true
+        slot_uri: pdf:PdfNativeSourceScope_include_descendants
+      hash:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfNativeSourceScope_hash
+  PdfDerivationMapping:
+    attributes:
+      pointer:
+        range: PdfPointer
+        required: true
+        slot_uri: pdf:PdfDerivationMapping_pointer
+      origin_pointer:
+        range: PdfPointer
+        required: true
+        slot_uri: pdf:PdfDerivationMapping_origin_pointer
+      source_field:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfDerivationMapping_source_field
+      start:
+        range: PdfInteger
+        required: true
+        slot_uri: pdf:PdfDerivationMapping_start
+        minimum_value: 0
+      end:
+        range: PdfInteger
+        required: true
+        slot_uri: pdf:PdfDerivationMapping_end
+        minimum_value: 0
+      cell_index:
+        range: PdfInteger
+        required: false
+        slot_uri: pdf:PdfDerivationMapping_cell_index
+        minimum_value: 0
+      kind:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfDerivationMapping_kind

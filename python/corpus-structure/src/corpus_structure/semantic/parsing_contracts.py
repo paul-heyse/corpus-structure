@@ -75,14 +75,16 @@ def validate_parsing_contracts(model: ExecutionModelProducts) -> None:
     # Future declarations express required distinctions without advertising a producer.
     for name in FUTURE_PARSING_OPERATIONS:
         model.operation(name)
-    for name in (
+    native = any(a.adapter_id=="docling-pdf-source-1" for a in model.parsing_adapters)
+    names=("convert_pdf","organize_pdf","project_pdf_source","publish_source_view","read_source_view") if native else (
         "prepare_parsing_product",
         "publish_parsing_product",
         "read_parsing_product",
         "decompose_source",
         "recognize_html",
         "project_canonical",
-    ):
+    )
+    for name in names:
         model.require_operation(name)
     supported_capabilities = {
         "source/raw-partition",
@@ -97,6 +99,7 @@ def validate_parsing_contracts(model: ExecutionModelProducts) -> None:
     }
     supported_ids = {
         "html5lib-source-1",
+        "docling-pdf-source-1",
         "pylatexenc-structure-1",
         "lark-structure-1",
         "lark-math-3",
@@ -111,27 +114,31 @@ def validate_parsing_contracts(model: ExecutionModelProducts) -> None:
             "parsing_adapters",
             "declare the qualified html5lib-source-1 adapter profile",
         )
-    adapter = next(a for a in model.parsing_adapters if a.adapter_id == "html5lib-source-1")
-    if (
-        adapter.adapter_id != "html5lib-source-1"
-        or adapter.implementation_revision != "source-capture-1"
-        or adapter.frontend_revision != "html5lib-1.1/lxml-6.1.3"
-        or adapter.grammar_revision is not None
-        or adapter.coordinate_fidelity != "exact"
-        or adapter.repair_policy != "html5lib-html5"
-        or adapter.ambiguity_policy != "explicit-partial"
-        or adapter.lifetime != "operation"
-        or adapter.provenance_universe != "canonical_output"
-        or set(adapter.capabilities) != supported_capabilities
-    ):
-        _fail(
-            "unsupported_parsing_adapter",
-            "parsing_adapters/" + adapter.adapter_id,
-            "qualify adapter revision/capabilities and its native admission "
-            "before changing this profile",
-        )
+    if not native:
+        adapter = next(a for a in model.parsing_adapters if a.adapter_id == "html5lib-source-1")
+        if (
+            adapter.adapter_id != "html5lib-source-1"
+            or adapter.implementation_revision != "source-capture-1"
+            or adapter.frontend_revision != "html5lib-1.1/lxml-6.1.3"
+            or adapter.grammar_revision is not None
+            or adapter.coordinate_fidelity != "exact"
+            or adapter.repair_policy != "html5lib-html5"
+            or adapter.ambiguity_policy != "explicit-partial"
+            or adapter.lifetime != "operation"
+            or adapter.provenance_universe != "canonical_output"
+            or set(adapter.capabilities) != supported_capabilities
+        ):
+            _fail(
+                "unsupported_parsing_adapter",
+                "parsing_adapters/" + adapter.adapter_id,
+                "qualify adapter revision/capabilities and its native admission "
+                "before changing this profile",
+            )
 
     profiles = {
+        "docling-pdf-source-1": ("docling-standard-pdf-v1","docling-2.145.0/core-2.105.0",None,
+            "native-normalize-before-identity","explicit-partial",
+            {"source/native-document","source/native-items","source/pdf-regions","source/section-projection"}),
         "lark-structure-1": (
             "text-structure-2",
             "sympy-1.14.0-lark-1.3.1",

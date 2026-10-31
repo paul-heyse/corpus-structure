@@ -19,7 +19,7 @@ from .source_views import load_source_view,store_region_artifact
 
 
 class NativeRequestConfig(BaseModel):
-    model_config=ConfigDict(frozen=True,extra='forbid')
+    model_config=ConfigDict(frozen=True,extra='forbid',allow_inf_nan=False)
     source_view_id:int=Field(gt=0)
     native_product:dict[str,Any]
     projection_digest:str
@@ -47,7 +47,7 @@ class NativeRequestResult:
     error:str|None=None
 
 
-def request_source_view(engine:Engine,*,source_run_id:int,source_view_id:int,demand:str,
+def request_source_view(engine:Engine,*,source_run_id:int,source_view_id:int,demand:Literal['lexical','structure','syntax','interpretation','symbolic','assessment','render'],
                         code_commit:str,pointer:str|None=None,question:str|None=None,
                         predicate:str|None=None,seconds:float=2,region_index:int|None=None,
                         scale:float=2,holder:str='native-source-request')->NativeRequestResult:
@@ -99,7 +99,8 @@ def request_source_view(engine:Engine,*,source_run_id:int,source_view_id:int,dem
             return NativeRequestResult(run_id,task_id,cut,'source_ready',source_view_id,
                 sha256(canonical_bytes(body)).hexdigest(),artifact,result)
         claim=claim_tasks(conn,run_id=run_id,config_id=config_id,holder=holder)[0]
-        region=None; original=None
+        region: dict[str,Any] | None=None
+        original=None
         if demand=='render':
             regions=table('kb.native_document_region')
             region=dict(conn.execute(select(regions).where(regions.c.task_id==view.ref.native_product.task_id,
@@ -116,8 +117,8 @@ def request_source_view(engine:Engine,*,source_run_id:int,source_view_id:int,dem
                 artifact_bytes=render_pdf_region(original,region,scale=scale)
                 analysis=None
             else:
-                analysis=native_request_analysis(view,prepared,demand,pointer,question,predicate,seconds,domain_rules=domain_rules)
-        observations=() if analysis is None else (ObservationDraft(kind=ObservationKind.FORMULA,
+                analysis=native_request_analysis(view,prepared,"scientific" if demand=="assessment" else demand,pointer,question,predicate,seconds,domain_rules=domain_rules)
+        observations=() if analysis is None else (ObservationDraft(kind=ObservationKind.RECORD,
             payload=analysis,payload_class=NativeAnalysisPayload,payload_version='1',source_view_id=source_view_id,native_pointer=pointer),)
         result=UnitResult(ref=UnitRef(TaskUnitType.SOURCE_VIEW,source_view_id,'native-request:'+digest),
                           outcome=ObservationOutcome.PRODUCED if observations else ObservationOutcome.EMPTY,observations=observations)

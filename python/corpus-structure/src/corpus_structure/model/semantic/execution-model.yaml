@@ -2896,6 +2896,18 @@ concepts:
   attributes:
   - {name: payload, range: bytes, required: true, multivalued: false}
   relationships: []
+- id: SourceView
+  family: interpretation
+  scope: global
+  meaning: Immutable qualified native section projection with original and producing
+    product custody
+  identity: Native product/task/digest, section, membership, projection and recipe
+  attributes:
+  - name: projection_digest
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
 relationships:
 - id: bundle_contains
   kind: ownership
@@ -7278,99 +7290,6 @@ operations:
   transitions: []
   projections: []
   implementation: read_parsing_product
-- id: decompose_source
-  inputs:
-  - SourceArtifact
-  - ParsingAdapterSupport
-  results:
-  - ParsingRepresentation
-  - ParsingComponent
-  applicability: []
-  universe: Pinned source representations and declared required scope; no ambient
-    latest build
-  effects: []
-  outcomes:
-  - complete
-  - partial
-  - unknown
-  - unsupported
-  - failed
-  outcome_domain: source_coverage
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  - source_representation
-  - adapter_revision
-  precision: Exact representation-qualified extents; mapping coverage and semantic
-    outcome remain independent
-  transitions: []
-  projections: []
-  implementation: decompose_source
-- id: recognize_html
-  inputs:
-  - ParsingRepresentation
-  - ParsingComponent
-  - ParsingAdapterSupport
-  results:
-  - ParsingNode
-  - ParsingRelationship
-  - ParsingMapping
-  applicability: []
-  universe: Pinned source representations and declared required scope; no ambient
-    latest build
-  effects: []
-  outcomes:
-  - complete
-  - partial
-  - unknown
-  - unsupported
-  - failed
-  outcome_domain: source_coverage
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  - source_representation
-  - adapter_revision
-  precision: Exact representation-qualified extents; mapping coverage and semantic
-    outcome remain independent
-  transitions: []
-  projections: []
-  implementation: recognize_html
-- id: project_canonical
-  inputs:
-  - ParsingNode
-  - MethodConfiguration
-  - ParsingAdapterSupport
-  results:
-  - ParsingRepresentation
-  - ParsingMapping
-  applicability: []
-  universe: Pinned source representations and declared required scope; no ambient
-    latest build
-  effects: []
-  outcomes:
-  - complete
-  - partial
-  - unknown
-  - unsupported
-  - failed
-  outcome_domain: source_coverage
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  - source_representation
-  - adapter_revision
-  precision: Exact representation-qualified extents; mapping coverage and semantic
-    outcome remain independent
-  transitions: []
-  projections: []
-  implementation: project_canonical
 - id: prepare_parsing_text
   inputs:
   - ParsingRepresentation
@@ -7461,7 +7380,364 @@ operations:
 
   implementation: assess_parsing_math
 
+- id: convert_pdf
+  inputs:
+  - SourceArtifact
+  results:
+  - PdfNativeEnvelope
+  applicability: []
+  universe: Pinned native original/product and section/item universe with explicit
+    named dependencies
+  effects: []
+  outcomes:
+  - complete
+  - partial
+  - unknown
+  - unsupported
+  - failed
+  outcome_domain: source_coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Native page geometry, recognized text and projected offsets remain distinct
+  transitions: []
+  projections: []
+  implementation: convert_pdf
+- id: organize_pdf
+  inputs:
+  - PdfNativeEnvelope
+  results:
+  - PdfNativeEnvelope
+  applicability: []
+  universe: Pinned native original/product and section/item universe with explicit
+    named dependencies
+  effects: []
+  outcomes:
+  - complete
+  - partial
+  - unknown
+  - unsupported
+  - failed
+  outcome_domain: source_coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Native page geometry, recognized text and projected offsets remain distinct
+  transitions: []
+  projections: []
+  implementation: organize_pdf
+- id: project_pdf_source
+  inputs:
+  - PdfNativeEnvelope
+  results:
+  - SourceView
+  applicability: []
+  universe: Pinned native original/product and section/item universe with explicit
+    named dependencies
+  effects: []
+  outcomes:
+  - complete
+  - partial
+  - unknown
+  - unsupported
+  - failed
+  outcome_domain: source_coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Native page geometry, recognized text and projected offsets remain distinct
+  transitions: []
+  projections: []
+  implementation: project_pdf_source
+- id: publish_source_view
+  inputs:
+  - TaskInvocation
+  - SourceView
+  results:
+  - SourceView
+  applicability: []
+  universe: Pinned native original/product and section/item universe with explicit
+    named dependencies
+  effects:
+  - atomic_native_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Native page geometry, recognized text and projected offsets remain distinct
+  transitions: []
+  projections: []
+  implementation: publish_source_view
+- id: read_source_view
+  inputs:
+  - SourceView
+  results:
+  - SourceView
+  applicability: []
+  universe: Pinned native original/product and section/item universe with explicit
+    named dependencies
+  effects: []
+  outcomes:
+  - source_ready
+  - missing
+  - invalid
+  - unsupported
+  outcome_domain: read
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Native page geometry, recognized text and projected offsets remain distinct
+  transitions: []
+  projections: []
+  implementation: read_source_view
+- id: read_native_source
+  inputs:
+  - TaskInvocation
+  results:
+  - SourceView
+  applicability: []
+  universe: Pinned native original/product and section/item universe with explicit
+    named dependencies
+  effects: []
+  outcomes:
+  - source_ready
+  - missing
+  - invalid
+  - unsupported
+  outcome_domain: read
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Native page geometry, recognized text and projected offsets remain distinct
+  transitions: []
+  projections: []
+  implementation: read_native_source
+- id: capture_native_source_frame
+  inputs:
+  - TaskInvocation
+  - SourceView
+  results:
+  - SourceView
+  applicability: []
+  universe: Pinned native original/product and section/item universe with explicit
+    named dependencies
+  effects:
+  - atomic_native_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Native page geometry, recognized text and projected offsets remain distinct
+  transitions: []
+  projections: []
+  implementation: capture_native_source_frame
+- id: request_native_source
+  inputs:
+  - TaskInvocation
+  - SourceView
+  results:
+  - SourceView
+  applicability: []
+  universe: Pinned native original/product and section/item universe with explicit
+    named dependencies
+  effects:
+  - atomic_native_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Native page geometry, recognized text and projected offsets remain distinct
+  transitions: []
+  projections: []
+  implementation: request_native_source
+- id: publish_pdf_region_artifact
+  inputs:
+  - TaskInvocation
+  - SourceArtifact
+  results:
+  - SourceArtifact
+  applicability: []
+  universe: Pinned native original/product and section/item universe with explicit
+    named dependencies
+  effects:
+  - atomic_native_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Native page geometry, recognized text and projected offsets remain distinct
+  transitions: []
+  projections: []
+  implementation: publish_pdf_region_artifact
 implementations:
+- id: convert_pdf
+  owner: ingest.pdf
+  symbol: PdfConverter.convert_bytes
+  version: '1'
+  placement: pure
+  input_concepts:
+  - SourceArtifact
+  result_concepts:
+  - PdfNativeEnvelope
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: organize_pdf
+  owner: ingest.pdf_hierarchy
+  symbol: organize
+  version: '1'
+  placement: pure
+  input_concepts:
+  - PdfNativeEnvelope
+  result_concepts:
+  - PdfNativeEnvelope
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: project_pdf_source
+  owner: ingest.pdf_hierarchy
+  symbol: project_section
+  version: '1'
+  placement: pure
+  input_concepts:
+  - PdfNativeEnvelope
+  result_concepts:
+  - SourceView
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: publish_source_view
+  owner: semantic.source_views
+  symbol: store_source_view
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - SourceView
+  result_concepts:
+  - SourceView
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_native_publication
+  required_capabilities: []
+- id: read_source_view
+  owner: semantic.source_views
+  symbol: load_source_view
+  version: '1'
+  placement: core
+  input_concepts:
+  - SourceView
+  result_concepts:
+  - SourceView
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: read_native_source
+  owner: semantic.source_views
+  symbol: read_native_source
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  result_concepts:
+  - SourceView
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: capture_native_source_frame
+  owner: semantic.source_views
+  symbol: store_native_source_frame
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - SourceView
+  result_concepts:
+  - SourceView
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_native_publication
+  required_capabilities: []
+- id: request_native_source
+  owner: semantic.source_views
+  symbol: request_source_view
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - SourceView
+  result_concepts:
+  - SourceView
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_native_publication
+  required_capabilities: []
+- id: publish_pdf_region_artifact
+  owner: semantic.source_views
+  symbol: store_region_artifact
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - SourceArtifact
+  result_concepts:
+  - SourceArtifact
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_native_publication
+  required_capabilities: []
 - id: resolve_identity
   owner: semantic.domain_operations
   symbol: _entity_mappings
@@ -8153,57 +8429,6 @@ implementations:
   effects: []
   required_capabilities: []
 
-- id: decompose_source
-  owner: ingest.source_capture
-  symbol: lexical_partition
-  version: '1'
-  placement: pure
-  input_concepts:
-  - SourceArtifact
-  - ParsingAdapterSupport
-  result_concepts:
-  - ParsingRepresentation
-  - ParsingComponent
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: []
-  required_capabilities: []
-- id: recognize_html
-  owner: ingest.html
-  symbol: _parse_with_capture
-  version: '1'
-  placement: pure
-  input_concepts:
-  - ParsingRepresentation
-  - ParsingComponent
-  - ParsingAdapterSupport
-  result_concepts:
-  - ParsingNode
-  - ParsingRelationship
-  - ParsingMapping
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: []
-  required_capabilities: []
-- id: project_canonical
-  owner: ingest.html
-  symbol: _serialize
-  version: '1'
-  placement: pure
-  input_concepts:
-  - ParsingNode
-  - MethodConfiguration
-  - ParsingAdapterSupport
-  result_concepts:
-  - ParsingRepresentation
-  - ParsingMapping
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: []
-  required_capabilities: []
 - id: retain_pdf_original
   owner: semantic.pdf_contracts
   symbol: store_pdf_original
@@ -10152,25 +10377,15 @@ analysis_profiles:
   - {id: read, concept: Archive, operation: reload, lifetime: scope, dependencies: [release, archive, boundary]}
 
 parsing_adapters:
-- adapter_id: html5lib-source-1
+- adapter_id: docling-pdf-source-1
   provenance_universe: canonical_output
-  implementation_revision: source-capture-1
-  frontend_revision: html5lib-1.1/lxml-6.1.3
+  implementation_revision: docling-standard-pdf-v1
+  frontend_revision: docling-2.145.0/core-2.105.0
   coordinate_fidelity: exact
-  repair_policy: html5lib-html5
+  repair_policy: native-normalize-before-identity
   ambiguity_policy: explicit-partial
   lifetime: operation
-  capabilities:
-  - source/raw-partition
-  - source/canonical-partition
-  - source/html-structure
-  - source/partial-origin
-  - mapping/decode
-  - mapping/normalize
-  - mapping/copy
-  - mapping/synthetic
-  - mapping/exclude
-
+  capabilities: [source/native-document, source/native-items, source/pdf-regions, source/section-projection]
 - adapter_id: lark-structure-1
   provenance_universe: canonical_output
   implementation_revision: text-structure-2

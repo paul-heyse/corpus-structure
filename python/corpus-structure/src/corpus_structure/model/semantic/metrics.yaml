@@ -8,14 +8,40 @@ metrics:
   value_type: SourceNumberOrNull
   subject_kind: segment
   detail_schema: SourceObject
-  description: Fraction of segment characters inside math, rounded to six decimal places by M02.
+  description: Fraction of segment characters inside math, rounded to six decimal
+    places by M02.
 - id: segment.inline_math
   value_type: SourceNumberOrNull
   subject_kind: segment
   detail_schema: SourceObject
-  description: Count of inline math segments inside the measured segment; existing float transport.
+  description: Count of inline math segments inside the measured segment; existing
+    float transport.
 - id: segment.display_math
   value_type: SourceNumberOrNull
   subject_kind: segment
   detail_schema: SourceObject
-  description: Count of display math segments inside the measured segment; existing float transport.
+  description: Count of display math segments inside the measured segment; existing
+    float transport.
+- id: source_view.chars
+  value_type: SourceNumberOrNull
+  subject_kind: source_view
+  detail_schema: SourceObject
+  description: Character length of the measured source view; existing float transport.
+- id: source_view.math_share
+  value_type: SourceNumberOrNull
+  subject_kind: source_view
+  detail_schema: SourceObject
+  description: Fraction of source view characters inside math, rounded to six decimal
+    places by M02.
+- id: source_view.inline_math
+  value_type: SourceNumberOrNull
+  subject_kind: source_view
+  detail_schema: SourceObject
+  description: Count of inline math source views inside the measured source view;
+    existing float transport.
+- id: source_view.display_math
+  value_type: SourceNumberOrNull
+  subject_kind: source_view
+  detail_schema: SourceObject
+  description: Count of display math source views inside the measured source view;
+    existing float transport.

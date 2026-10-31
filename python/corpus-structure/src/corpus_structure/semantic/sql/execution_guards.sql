@@ -137,6 +137,8 @@ BEGIN
  IF NOT ops.valid_reuse(NEW) THEN RAISE EXCEPTION 'reuse origin has another bound source context'; END IF;
  IF NEW.unit_type='document' AND NOT EXISTS(SELECT 1 FROM kb.document WHERE id=NEW.unit_id AND project_id=bound.project_id) THEN
    RAISE EXCEPTION 'task document is outside bound project';
+ ELSIF NEW.unit_type='source_view' AND NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=NEW.run_id AND source_view_id=NEW.unit_id) THEN
+   RAISE EXCEPTION 'task source view outside bound run';
  ELSIF NEW.unit_type='rendition' AND NOT EXISTS(SELECT 1 FROM ops.run_rendition WHERE run_id=NEW.run_id AND rendition_id=NEW.unit_id) THEN
    RAISE EXCEPTION 'task rendition is outside bound run';
  ELSIF NEW.unit_type='segment' AND NOT EXISTS(SELECT 1 FROM kb.segment s JOIN ops.run_rendition rr ON rr.rendition_id=s.rendition_id WHERE rr.run_id=NEW.run_id AND s.id=NEW.unit_id) THEN

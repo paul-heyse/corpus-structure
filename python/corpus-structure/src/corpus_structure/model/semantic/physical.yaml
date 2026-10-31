@@ -1491,6 +1491,9 @@ classes:
       outcome:
         range: string
         required: true
+      source_view_id:
+        range: integer
+        required: false
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -1507,12 +1510,15 @@ classes:
         - release_id
         - id
       source_identity:
-        unique_key_slots: [release_id, observation_key]
+        unique_key_slots:
+        - release_id
+        - observation_key
     annotations:
       ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"},
         {"columns": ["rendition_id"], "target": "kb.rendition.id"}, {"columns": ["rendition_id",
         "segment_id"], "target": "kb.segment.rendition_id,id"}, {"columns": ["rendition_id",
-        "span_id"], "target": "kb.span.rendition_id,id"}]'
+        "span_id"], "target": "kb.span.rendition_id,id"}, {"columns": ["source_view_id"],
+        "target": "kb.source_view.id"}]'
       ph:checks: '["ordinal >= 0"]'
   run_rendition:
     in_subset:
@@ -1727,9 +1733,15 @@ classes:
         required: true
       rendition_id:
         range: integer
-        required: true
+        required: false
       span_id:
         range: integer
+        required: false
+      source_view_id:
+        range: integer
+        required: false
+      native_address:
+        range: string
         required: false
     unique_keys:
       primary_key:
@@ -1744,8 +1756,11 @@ classes:
         ["release_id", "observation_id"], "target": "kb.observation.release_id,id"},
         {"columns": ["rendition_id"], "target": "kb.rendition.id"}, {"columns": ["rendition_id",
         "span_id"], "target": "kb.span.rendition_id,id"}, {"columns": ["realization_id",
-        "release_id"], "target": "data.realization.realization_id,release_id"}]'
-      ph:checks: '[]'
+        "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns":
+        ["source_view_id"], "target": "kb.source_view.id"}]'
+      ph:checks: '["(rendition_id IS NOT NULL AND source_view_id IS NULL AND native_address
+        IS NULL) OR (rendition_id IS NULL AND span_id IS NULL AND source_view_id IS
+        NOT NULL AND native_address IS NOT NULL)"]'
   occurrence_establishment:
     in_subset:
     - data
@@ -2223,13 +2238,19 @@ classes:
         required: true
       rendition_id:
         range: integer
-        required: true
+        required: false
       unit_key:
         range: string
         required: true
       context:
         range: json_payload
         required: true
+      source_view_id:
+        range: integer
+        required: false
+      projection_digest:
+        range: string
+        required: false
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -2240,9 +2261,11 @@ classes:
         - unit_key
     annotations:
       ph:foreign_keys: '[{"columns": ["set_id"], "target": "eval.reference_set.id"},
-        {"columns": ["rendition_id"], "target": "kb.rendition.id"}]'
-      ph:checks: '[]'
-
+        {"columns": ["rendition_id"], "target": "kb.rendition.id"}, {"columns": ["source_view_id"],
+        "target": "kb.source_view.id"}]'
+      ph:checks: '["(rendition_id IS NOT NULL AND source_view_id IS NULL AND projection_digest
+        IS NULL) OR (rendition_id IS NULL AND source_view_id IS NOT NULL AND projection_digest
+        IS NOT NULL)"]'
   reference_pass:
     in_subset:
     - eval
@@ -2292,15 +2315,21 @@ classes:
         required: true
       rendition_id:
         range: integer
-        required: true
+        required: false
       rendition_digest:
         range: string
-        required: true
+        required: false
       frame:
         range: json_payload
         required: true
       parent_id:
         range: integer
+        required: false
+      source_view_id:
+        range: integer
+        required: false
+      projection_digest:
+        range: string
         required: false
     unique_keys:
       primary_key:
@@ -2313,9 +2342,11 @@ classes:
     annotations:
       ph:foreign_keys: '[{"columns": ["pass_id"], "target": "eval.reference_pass.id"},
         {"columns": ["rendition_id"], "target": "kb.rendition.id"}, {"columns": ["parent_id"],
-        "target": "eval.reference_frame.id"}]'
-      ph:checks: '["version > 0"]'
-
+        "target": "eval.reference_frame.id"}, {"columns": ["source_view_id"], "target":
+        "kb.source_view.id"}]'
+      ph:checks: '["version > 0", "(rendition_id IS NOT NULL AND source_view_id IS NULL
+        AND projection_digest IS NULL) OR (rendition_id IS NULL AND source_view_id IS
+        NOT NULL AND projection_digest IS NOT NULL)"]'
   reference_item:
     in_subset:
     - eval
@@ -3574,6 +3605,7 @@ classes:
     in_subset:
     - kb
     attributes:
+      native_json: {range: json_payload, required: true}
       task_id:
         range: integer
         required: true
@@ -3675,3 +3707,237 @@ classes:
         <= page_height AND bottom <= page_height", "(origin=''top_left'' AND top <=
         bottom) OR (origin=''bottom_left'' AND bottom <= top)"]'
       ph:indexes: '[["task_id", "product_key", "page_no"]]'
+
+  source_view:
+    in_subset:
+    - kb
+    attributes:
+      analysis_eligible: {range: boolean, required: true}
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      key:
+        range: string
+        required: true
+      document_id:
+        range: integer
+        required: true
+      release_id:
+        range: string
+        required: true
+      native_task_id:
+        range: integer
+        required: true
+      native_product_key:
+        range: string
+        required: true
+      native_content_digest:
+        range: string
+        required: true
+      section_pointer:
+        range: string
+        required: true
+      membership:
+        range: string
+        required: true
+      projection_digest:
+        range: string
+        required: true
+      recipe_digest:
+        range: string
+        required: true
+      projection:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - key
+        - release_id
+      unique_1:
+        unique_key_slots:
+        - id
+        - release_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["document_id"], "target": "kb.document.id"}, {"columns":
+        ["release_id"], "target": "sem.release.release_id"}, {"columns": ["native_task_id",
+        "native_product_key", "native_content_digest"], "target": "ops.native_document_product.task_id,product_key,content_digest"},
+        {"columns": ["native_task_id", "native_product_key", "section_pointer"], "target":
+        "kb.native_document_item.task_id,product_key,pointer"}, {"columns": ["recipe_digest"],
+        "target": "kb.source_artifact.artifact_digest"}]'
+      ph:checks: '["membership IN (''direct'',''descendants'')", "key <> ''''"]'
+      ph:indexes: '[["native_task_id", "native_product_key", "section_pointer"]]'
+  run_source_view:
+    in_subset:
+    - ops
+    attributes:
+      run_id:
+        range: integer
+        required: true
+      source_view_id:
+        range: integer
+        required: true
+      supersedes_source_view_id:
+        range: integer
+        required: false
+      position:
+        range: integer
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - run_id
+        - source_view_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["run_id"], "target": "ops.run.id"}, {"columns":
+        ["source_view_id"], "target": "kb.source_view.id"}, {"columns": ["supersedes_source_view_id"], "target": "kb.source_view.id"}]'
+      ph:checks: '["position >= 0"]'
+      ph:indexes: '[["run_id", "position", "source_view_id"]]'
+  native_source_frame:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      packet_hash:
+        range: string
+        required: true
+      unit_ref:
+        range: string
+        required: true
+      source_view_id:
+        range: integer
+        required: true
+      product_task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      product_digest:
+        range: string
+        required: true
+      projection_digest:
+        range: string
+        required: true
+      recipe_digest:
+        range: string
+        required: true
+      context_json:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns":
+        ["source_view_id"], "target": "kb.source_view.id"}, {"columns": ["product_task_id",
+        "product_key", "product_digest"], "target": "ops.native_document_product.task_id,product_key,content_digest"}]'
+      ph:checks: '[]'
+      ph:indexes: '[]'
+  native_source_frame_sentence:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      sentence_id:
+        range: string
+        required: true
+      locator:
+        range: string
+        required: true
+      start_offset:
+        range: integer
+        required: true
+      end_offset:
+        range: integer
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - sentence_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.native_source_frame.task_id"}]'
+      ph:checks: '["start_offset >= 0", "end_offset > start_offset"]'
+      ph:indexes: '[]'
+  native_region_artifact:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      native_task_id:
+        range: integer
+        required: true
+      native_product_key:
+        range: string
+        required: true
+      native_content_digest:
+        range: string
+        required: true
+      pointer:
+        range: string
+        required: true
+      region_index:
+        range: integer
+        required: true
+      recipe_digest:
+        range: string
+        required: true
+      artifact_digest:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns":
+        ["native_task_id", "native_product_key", "native_content_digest"], "target":
+        "ops.native_document_product.task_id,product_key,content_digest"}, {"columns":
+        ["native_task_id", "native_product_key", "pointer", "region_index"], "target":
+        "kb.native_document_region.task_id,product_key,pointer,region_index"}, {"columns":
+        ["recipe_digest"], "target": "kb.source_artifact.artifact_digest"}, {"columns":
+        ["artifact_digest"], "target": "kb.source_artifact.artifact_digest"}]'
+  task_dependency:
+    in_subset:
+    - ops
+    description: A declared source method prerequisite between real immutable source-view
+      task invocations.
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      dependency_task_id:
+        range: integer
+        required: true
+      kind:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - dependency_task_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns":
+        ["dependency_task_id"], "target": "ops.task.id"}]'
+      ph:checks: '["kind=''ancestor_source_view''", "task_id<>dependency_task_id"]'
+      ph:indexes: '[["dependency_task_id"]]'

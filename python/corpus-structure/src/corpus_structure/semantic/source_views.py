@@ -41,7 +41,7 @@ class PreparedSourceView:
 def _ref(row) -> SourceViewRef:
     return SourceViewRef(row['id'],row['key'],row['document_id'],
         ProductReference(row['native_task_id'],row['native_product_key'],row['native_content_digest']),
-        row['section_pointer'],row['membership'],row['projection_digest'],row['recipe_digest'])
+        row['section_pointer'],row['membership'],row['projection_digest'],row['recipe_digest'],row['analysis_eligible'])
 
 
 def selected_source_views(conn: Connection, run_id: int) -> tuple[SourceViewRef, ...]:
@@ -60,11 +60,10 @@ def load_source_view(conn: Connection, source_view_id: int) -> PreparedSourceVie
     product=table('ops.native_document_product')
     pointers=tuple(dict.fromkeys([*projection['items'],*projection['ancestors']]))
     # One set-shaped query transfers only selected native values, never the book JSON.
-    values=conn.execute(text('''SELECT refs.pointer, p.native_json #> string_to_array(substr(refs.pointer,3),'/') AS item
-        FROM ops.native_document_product p CROSS JOIN unnest(CAST(:pointers AS text[])) WITH ORDINALITY refs(pointer,position)
-        WHERE p.task_id=:task AND p.product_key=:key AND p.content_digest=:digest ORDER BY refs.position'''),
-        dict(pointers=list(pointers),task=reference.native_product.task_id,
-             key=reference.native_product.product_key,digest=reference.native_product.content_digest)).mappings()
+    values=conn.execute(text("""SELECT refs.pointer,i.native_json AS item
+        FROM kb.native_document_item i JOIN unnest(CAST(:pointers AS text[])) WITH ORDINALITY refs(pointer,position) ON refs.pointer=i.pointer
+        WHERE i.task_id=:task AND i.product_key=:key ORDER BY refs.position"""),
+        dict(pointers=list(pointers),task=reference.native_product.task_id,key=reference.native_product.product_key)).mappings()
     native={r['pointer']:r['item'] for r in values}
     if any(native.get(p) is None for p in pointers):
         raise ValueError('source view has lost its pinned native occurrences')
@@ -81,7 +80,7 @@ def store_source_view(conn: Connection, *, run_id: int, task_id: int, attempt: i
     run=table('ops.run')
     release=conn.execute(select(run.c.release_id).where(run.c.id==run_id)).scalar_one()
     require_database_operation(conn,release,'publish_source_view')
-    payload=dict(key=draft.key,document_id=draft.document_id,
+    payload=dict(key=draft.key,document_id=draft.document_id,analysis_eligible=draft.analysis_eligible,
         native_task_id=draft.native_product.task_id,native_product_key=draft.native_product.product_key,
         native_content_digest=draft.native_product.content_digest,section_pointer=draft.section_pointer,
         membership=draft.membership,projection_digest=draft.projection_digest,recipe_digest=draft.recipe_digest,
@@ -119,3 +118,24 @@ def request_source_view(*args,**kwargs):
 def store_region_artifact(conn,*,task_id,attempt,holder,selection,recipe_bytes,content):
     return conn.execute(text('SELECT ops.publish_pdf_region_artifact(:task,:attempt,:holder,CAST(:selection AS jsonb),:recipe,:content)'),
         dict(task=task_id,attempt=attempt,holder=holder,selection=json.dumps(selection),recipe=recipe_bytes,content=content)).scalar_one()
+
+
+def scope_source_views(conn: Connection,selected,scope):
+    """Match released organizational titles, then include declared descendants once."""
+    import re
+    def normalized(value):
+        return re.sub(r"^\s*\d+(?:\.\d+)*\s*[:.)-]?\s*", "", " ".join(value.split())).casefold()
+    wanted={normalized(title) for title in scope['sections']}
+    ids=[ref.id for ref in selected]
+    rows=conn.execute(text("""SELECT v.id,i.native_json AS section,
+       (SELECT COALESCE(jsonb_agg(a.native_json ORDER BY refs.n),'[]') FROM jsonb_array_elements_text(v.projection->'ancestors') WITH ORDINALITY refs(value,n) JOIN kb.native_document_item a ON a.task_id=v.native_task_id AND a.product_key=v.native_product_key AND a.pointer=refs.value) AS ancestors
+       FROM kb.source_view v JOIN kb.native_document_item i ON i.task_id=v.native_task_id AND i.product_key=v.native_product_key AND i.pointer=v.section_pointer
+       WHERE v.id=ANY(:ids)"""),dict(ids=ids)).mappings()
+    matched=set()
+    for row in rows:
+        section=row['section']
+        names=[section.get('name','')]
+        if scope['include_descendants']:
+            names += [parent.get('name','') for parent in row['ancestors']]
+        if any(normalized(name) in wanted for name in names): matched.add(row['id'])
+    return tuple(ref for ref in selected if ref.id in matched)

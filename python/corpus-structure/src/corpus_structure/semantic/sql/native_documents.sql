@@ -14,12 +14,15 @@ BEGIN
  -- {pdf_shape_guard}
  IF (product->>'source_scope'='page_range' AND (product->>'page_start' IS NULL OR product->>'page_end' IS NULL OR (product->>'page_start')::bigint>(product->>'page_end')::bigint)) OR (product->>'source_scope'='whole_document' AND (product ? 'page_start' OR product ? 'page_end')) THEN
   RAISE EXCEPTION 'native source scope differs' USING ERRCODE='23514'; END IF;
- artifact:=encode(sha256(p_original),'hex');
+ IF p_original IS NULL THEN
+  SELECT artifact_digest INTO STRICT artifact FROM ops.source_build WHERE task_id=p_task;
+  IF NOT EXISTS(SELECT FROM kb.source_artifact WHERE artifact_digest=artifact) THEN RAISE EXCEPTION 'retained original is unavailable' USING ERRCODE='23514'; END IF;
+ ELSE artifact:=encode(sha256(p_original),'hex'); END IF;
  IF product->>'artifact_digest' IS DISTINCT FROM artifact OR product->>'schema_digest' IS DISTINCT FROM encode(sha256(p_schema),'hex') OR product->>'recipe_digest' IS DISTINCT FROM encode(sha256(p_recipe),'hex') THEN
   RAISE EXCEPTION 'native artifact/schema/recipe identity differs' USING ERRCODE='23514'; END IF;
- IF p_contract IS DISTINCT FROM '{pdf_contract_digest}' OR NOT EXISTS(SELECT FROM sem.input WHERE release_id=run.release_id AND input_kind='dependency' AND input_name='execution/schema/pdf_products' AND encode(sha256(content),'hex')=p_contract) THEN
+ IF NOT EXISTS(SELECT FROM sem.input WHERE release_id=run.release_id AND input_kind='dependency' AND input_name='execution/schema/pdf_products' AND encode(sha256(content),'hex')=p_contract) THEN
   RAISE EXCEPTION 'native contract not archived by task release' USING ERRCODE='23514'; END IF;
- IF NOT EXISTS(SELECT FROM sem.input WHERE release_id=run.release_id AND input_kind='dependency' AND input_name='execution/implementation/pdf/docling-validation.schema.json' AND encode(sha256(content),'hex')=product->>'schema_digest') THEN
+ IF encode(sha256(p_schema),'hex') IS DISTINCT FROM '{native_schema_digest}' OR NOT EXISTS(SELECT FROM sem.input WHERE release_id=run.release_id AND input_kind='dependency' AND input_name='execution/implementation/pdf/docling-validation.schema.json' AND encode(sha256(content),'hex')=product->>'schema_digest') THEN
   RAISE EXCEPTION 'native validation schema not admitted by release' USING ERRCODE='23514'; END IF;
  SELECT * INTO previous FROM ops.native_document_product WHERE task_id=p_task AND product_key=product->>'product_key';
  IF FOUND THEN
@@ -34,16 +37,23 @@ BEGIN
   RAISE EXCEPTION 'incomplete native parent identity' USING ERRCODE='23514'; END IF;
  IF product ? 'parent_task_id' THEN
   SELECT * INTO STRICT parent FROM ops.native_document_product WHERE task_id=(product->>'parent_task_id')::bigint AND product_key=product->>'parent_product_key' AND content_digest=product->>'parent_digest';
-  IF parent.release_id<>run.release_id OR NOT EXISTS(SELECT FROM ops.source_build b JOIN ops.task t ON t.id=b.task_id JOIN ops.run r ON r.id=t.run_id WHERE b.task_id=parent.task_id AND b.artifact_digest=artifact AND r.project_id=run.project_id) THEN
+  IF NOT EXISTS(SELECT FROM ops.source_build b JOIN ops.task t ON t.id=b.task_id JOIN ops.run r ON r.id=t.run_id WHERE b.task_id=parent.task_id AND b.artifact_digest=artifact AND r.project_id=run.project_id) THEN
    RAISE EXCEPTION 'native parent outside original/release/project custody' USING ERRCODE='23514'; END IF;
  END IF;
- INSERT INTO kb.source_artifact(artifact_digest,content) SELECT encode(sha256(content),'hex'),content FROM unnest(ARRAY[p_original,p_schema,p_recipe]) content ON CONFLICT DO NOTHING;
+ IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'derivation_mappings','[]')) m WHERE
+  NOT EXISTS(SELECT FROM jsonb_array_elements(product->'items') i WHERE i->>'pointer'=m->>'pointer')
+  OR product->>'parent_task_id' IS NULL
+  OR NOT EXISTS(SELECT FROM kb.native_document_item i WHERE i.task_id=parent.task_id AND i.product_key=parent.product_key AND i.pointer=m->>'origin_pointer')
+  OR m->>'source_field' NOT IN ('text','cell_text') OR m->>'kind' NOT IN ('native_text_range','vector_region_anchor','table_cell')
+  OR (m->>'start')::bigint>(m->>'end')::bigint) THEN
+ RAISE EXCEPTION 'native derivation endpoints/range are unqualified' USING ERRCODE='23514'; END IF;
+ INSERT INTO kb.source_artifact(artifact_digest,content) SELECT encode(sha256(content),'hex'),content FROM unnest(ARRAY[p_original,p_schema,p_recipe]) content WHERE content IS NOT NULL ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM ops.source_build WHERE task_id=p_task AND release_id=run.release_id AND artifact_digest=artifact) THEN
   RAISE EXCEPTION 'source build immutable identity differs' USING ERRCODE='23514'; END IF;
  INSERT INTO ops.native_document_product(task_id,product_key,content_digest,release_id,contract_digest,schema_digest,recipe_digest,parent_task_id,parent_product_key,parent_digest,native_json,health,payload)
  VALUES(p_task,product->>'product_key',digest,run.release_id,p_contract,product->>'schema_digest',product->>'recipe_digest',(product->>'parent_task_id')::bigint,product->>'parent_product_key',product->>'parent_digest',product->'document',product->'health',p_payload);
- INSERT INTO kb.native_document_item(task_id,product_key,pointer,ordinal,label,parent_pointer,section_pointer,content_layer,text)
- SELECT p_task,product->>'product_key',i.pointer,i.ordinal,i.label,i.parent_pointer,i.section_pointer,i.content_layer,i.text FROM jsonb_populate_recordset(NULL::kb.native_document_item,product->'items') i;
+ INSERT INTO kb.native_document_item(task_id,product_key,pointer,ordinal,label,parent_pointer,section_pointer,content_layer,text,native_json)
+ SELECT p_task,product->>'product_key',i.pointer,i.ordinal,i.label,i.parent_pointer,i.section_pointer,i.content_layer,i.text,product->'document' #> string_to_array(substr(i.pointer,3),'/') FROM jsonb_populate_recordset(NULL::kb.native_document_item,product->'items') i;
  INSERT INTO kb.native_document_region(task_id,product_key,pointer,region_index,page_no,page_width,page_height,"left",top,"right",bottom,origin)
  SELECT p_task,product->>'product_key',i.pointer,i.region_index,i.page_no,i.page_width,i.page_height,i."left",i.top,i."right",i.bottom,i.origin FROM jsonb_populate_recordset(NULL::kb.native_document_region,product->'regions') i;
  -- Compare the complete access universe, not only whichever rows the caller supplied.
@@ -75,6 +85,7 @@ BEGIN
  OR e.node->>'self_ref' IS DISTINCT FROM e.pointer
  OR actual.label IS DISTINCT FROM e.node->>'label'
  OR actual.text IS DISTINCT FROM e.node->>'text'
+ OR actual.native_json IS DISTINCT FROM e.node
  OR actual.parent_pointer IS DISTINCT FROM e.node->'parent'->>'$ref'
  OR (actual.parent_pointer IS NOT NULL AND NOT EXISTS(SELECT FROM nodes p WHERE p.pointer=actual.parent_pointer))
  OR actual.section_pointer IS DISTINCT FROM e.scope
@@ -118,7 +129,7 @@ BEGIN
  PERFORM sem.require_execution_operation(run.release_id,'retain_pdf_original');
  IF substring(p_original FROM 1 FOR 5)<>convert_to('%PDF-','UTF8') THEN
   RAISE EXCEPTION 'PDF-only source requires PDF bytes' USING ERRCODE='23514'; END IF;
- IF job.unit_type='document' AND NOT EXISTS(SELECT FROM kb.document WHERE id=job.unit_id AND project_id=run.project_id AND content_hash=artifact) THEN
+ IF NOT EXISTS(SELECT FROM kb.document d WHERE d.project_id=run.project_id AND d.content_hash=artifact AND ((job.unit_type='document' AND d.id=job.unit_id) OR (job.unit_type='source_view' AND EXISTS(SELECT FROM kb.source_view v JOIN ops.run_source_view s ON s.source_view_id=v.id WHERE v.id=job.unit_id AND s.run_id=run.id AND v.document_id=d.id)))) THEN
   RAISE EXCEPTION 'PDF original differs from task document custody' USING ERRCODE='23514'; END IF;
  INSERT INTO kb.source_artifact(artifact_digest,content) SELECT encode(sha256(content),'hex'),content FROM unnest(ARRAY[p_original,p_recipe]) content ON CONFLICT DO NOTHING;
  INSERT INTO ops.source_build(task_id,release_id,artifact_digest,recipe_digest) VALUES(p_task,run.release_id,artifact,recipe) ON CONFLICT DO NOTHING;

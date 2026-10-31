@@ -131,6 +131,7 @@ class SourceViewRef:
     membership: Literal["direct", "descendants"]
     projection_digest: str
     recipe_digest: str
+    analysis_eligible: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +148,7 @@ class SourceViewDraft:
     health: Mapping[str, JsonValue]
     recipe_bytes: bytes
     replaces_source_view_id: int | None = None
+    analysis_eligible: bool = True
     _projection: bytes = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -277,6 +279,14 @@ class Reader(Protocol):
 
     def source_view(self, source_view_id: int) -> PreparedSourceView: ...
 
+    def ancestor_source_views(self,source_view_id:int) -> Sequence[SourceViewRef]: ...
+
+    def native_document(self,reference:ProductReference) -> PreparedPdfProduct: ...
+
+    def source_observations(self,source_view_id:int,method:str,kind:ObservationKind) -> Sequence[ObservationReading]: ...
+
+    def source_view_coverage(self,source_view_id:int,method:str) -> tuple[SourceCoverageReading,...]: ...
+
     def native_product_reference(self, document_id: int, product_key: str, digest: str) -> ProductReference: ...
 
     def prepare_pdf_product(self, payload: Mapping[str, Any], original: bytes, schema_bytes: bytes, recipe_bytes: bytes) -> PreparedPdfProduct: ...
@@ -392,6 +402,7 @@ class UnitView:
     document_id: int | None = None
     rendition_id: int | None = None
     source_view_id: int | None = None
+    context_only: bool = False
 
 
 # --- Drafts and results ------------------------------------------------------------------------

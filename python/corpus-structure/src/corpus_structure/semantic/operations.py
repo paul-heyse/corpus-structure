@@ -922,14 +922,42 @@ class BoundReader:
         return pdf_context_for_release(self.conn,self.prepared).boundary
 
     def source_views(self):
+        cached=getattr(self,"_native_view_refs",None)
+        if cached is not None:
+            return cached
         from .source_views import selected_source_views
-        return selected_source_views(self.conn,self.run_id)
+        selected=tuple(v for v in selected_source_views(self.conn,self.run_id) if v.analysis_eligible)
+        run=table("ops.run")
+        options=self.conn.execute(select(run.c.options).where(run.c.id==self.run_id)).scalar_one()
+        scope=options.get("scope")
+        if not isinstance(scope,dict) or scope.get("kind")!="native_sections":
+            self._native_view_refs=selected
+            return selected
+        boundary=self.pdf_contract()
+        scope=boundary.validate_json("PdfNativeSourceScope",__import__('json').dumps(scope)).model_dump(mode="json")
+        from .source_views import scope_source_views
+        self._native_view_refs=scope_source_views(self.conn,selected,scope)
+        return self._native_view_refs
 
     def source_view(self, source_view_id: int):
         from .source_views import load_source_view
-        if source_view_id not in {r.id for r in self.source_views()}:
+        from .source_views import selected_source_views
+        if source_view_id not in {r.id for r in selected_source_views(self.conn,self.run_id)}:
             raise OperationConflict("source view is outside bound run")
-        return load_source_view(self.conn,source_view_id)
+        cache=getattr(self,"_native_views",None)
+        if cache is None:
+            cache={}
+            self._native_views=cache
+        if source_view_id not in cache:
+            cache[source_view_id]=load_source_view(self.conn,source_view_id)
+        return cache[source_view_id]
+
+    def ancestor_source_views(self,source_view_id:int):
+        from .source_views import selected_source_views
+        source=self.source_view(source_view_id)
+        ancestors={a['self_ref'] for a in source.ancestors}
+        selected=selected_source_views(self.conn,self.run_id)
+        return tuple(v for v in selected if v.native_product==source.ref.native_product and v.section_pointer in ancestors)
 
     def native_document(self,reference):
         from .pdf_contracts import PreparedPdfProduct,pdf_context_for_task

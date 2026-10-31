@@ -488,6 +488,7 @@ class MeasurementScope(StrEnum):
 
     RUN = "run"
     RENDITION = "rendition"
+    SOURCE_VIEW = "source_view"
     SEGMENT = "segment"
     ENTITY = "entity"
     CLAIM = "claim"

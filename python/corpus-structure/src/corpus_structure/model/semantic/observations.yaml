@@ -143,10 +143,12 @@ classes:
 enums:
   SourceMetricSubjectKind:
     permissible_values:
+      source_view: {}
       run: {}
       segment: {}
   SourceMeasurementScope:
     permissible_values:
+      source_view: {}
       run: {}
       rendition: {}
       segment: {}

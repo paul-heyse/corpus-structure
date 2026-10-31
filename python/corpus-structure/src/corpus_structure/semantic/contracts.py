@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "12"
+EXECUTION_COMPILER_VERSION = "13"
 
 
 @lru_cache(maxsize=1)
@@ -35,7 +35,8 @@ def approved_implementations() -> Mapping[str, Any]:
 
     from corpus_structure.core.text_structure import capture_text
     from corpus_structure.evaluate import semantic as references
-    from corpus_structure.ingest import html, source_capture
+    from corpus_structure.ingest.pdf import PdfConverter
+    from corpus_structure.ingest.pdf_hierarchy import organize,project_section
     from corpus_structure.intervene.semantic import ProposalSession
     from corpus_structure.methods.math.prepared import assess_parsing_math, interpret_parsing_math
     from corpus_structure.orchestrate import project, semantic
@@ -51,6 +52,7 @@ def approved_implementations() -> Mapping[str, Any]:
         ontology,
         operations,
         parsing_products,
+        source_views,
         pdf_contracts,
         prepare,
         proposals,
@@ -95,9 +97,15 @@ def approved_implementations() -> Mapping[str, Any]:
             "prepare_parsing_product": parsing_products.prepare_parsing_product,
             "publish_parsing_product": parsing_products.store_parsing_product,
             "read_parsing_product": parsing_products.read_parsing_product,
-            "decompose_source": source_capture.lexical_partition,
-            "recognize_html": html._parse_with_capture,
-            "project_canonical": html._serialize,
+            "convert_pdf": PdfConverter.convert_bytes,
+            "organize_pdf": organize,
+            "project_pdf_source": project_section,
+            "publish_source_view": source_views.store_source_view,
+            "read_source_view": source_views.load_source_view,
+            "read_native_source": source_views.read_native_source,
+            "capture_native_source_frame": source_views.store_native_source_frame,
+            "request_native_source": source_views.request_source_view,
+            "publish_pdf_region_artifact": source_views.store_region_artifact,
             "bind_report": observations.bind_result,
             "packet": proposals.proposal_packet,
             "locate": proposals.locate_proposal,
@@ -648,6 +656,7 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
         "9",
         "10",
         "11",
+        "12",
     }:
         # Retained immutable reader ABI, without allowing historical writes/activation.
         if name not in {
@@ -720,6 +729,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "10",
         "11",
         "12",
+        "13",
     }:
         _fail(
             "unsupported_execution_abi", model_id, "execution product has no supported compiler ABI"
@@ -730,7 +740,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
     from .effect_support import SUPPORTED_EFFECT_VERSIONS
 
     effect_versions = dict(SUPPORTED_EFFECT_VERSIONS)
-    if data["inputs"]["compiler_version"] not in {"9", "10", "11", "12"}:
+    if data["inputs"]["compiler_version"] not in {"9", "10", "11", "12", "13"}:
         effect_versions["schedule_pending_or_reused_or_skipped"] = "1"
     return _normalize(
         {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}},
@@ -792,7 +802,14 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("publication/arrow.py", "semantic/arrow_publication.py"),
                 ("graph/ontology.py", "semantic/ontology.py"),
                 ("text/scope.py", "methods/math/scope.py"),
-                ("text/ingest.py", "ingest/html.py"),
+                ("pdf/source_views.py", "semantic/source_views.py"),
+                ("pdf/requests.py", "semantic/native_requests.py"),
+                ("pdf/claims.py", "semantic/claim_lifetime.py"),
+                ("pdf/assets.py", "ingest/pdf_assets.py"),
+                ("pdf/candidates.py", "ingest/pdf_candidates.py"),
+                ("pdf/methods.py", "ingest/pdf_methods.py"),
+                ("pdf/math.py", "methods/math/native.py"),
+                ("pdf/regions.py", "serve/native_regions.py"),
                 ("alignment/semantic_alignment.py", "evaluate/semantic_alignment.py"),
                 ("alignment/preparation.py", "evaluate/alignment_preparation.py"),
                 ("text/layouts.py", "semantic/text_layouts.py"),
@@ -801,7 +818,8 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("parsing/queries.py", "semantic/parsing_queries.py"),
                 ("parsing/requests.py", "semantic/parsing_requests.py"),
                 ("ingest/methods.py", "ingest/methods.py"),
-                ("ingest/source_capture.py", "ingest/source_capture.py"),
+                ("pdf/converter.py", "ingest/pdf.py"),
+                ("pdf/hierarchy.py", "ingest/pdf_hierarchy.py"),
                 ("placement/cascade.py", "methods/llm/cascade.py"),
             )
         ),
@@ -861,7 +879,13 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                         "regex",
                         "html5lib",
                         "lxml",
-                        "cssselect2",
+                        "docling",
+                        "docling-core",
+                        "torch",
+                        "rapidocr",
+                        "onnxruntime",
+                        "pypdfium2",
+                        "Pillow",
                         "pylatexenc",
                     )
                 }
@@ -1271,7 +1295,16 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "publication/arrow.py",
         "graph/ontology.py",
         "text/scope.py",
-        "text/ingest.py",
+        "pdf/source_views.py",
+        "pdf/requests.py",
+        "pdf/claims.py",
+        "pdf/assets.py",
+        "pdf/candidates.py",
+        "pdf/methods.py",
+        "pdf/math.py",
+        "pdf/regions.py",
+        "pdf/converter.py",
+        "pdf/hierarchy.py",
         "alignment/semantic_alignment.py",
         "placement/cascade.py",
         "alignment/preparation.py",
@@ -1280,7 +1313,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "parsing/contracts.py",
         "parsing/queries.py",
         "ingest/methods.py",
-        "ingest/source_capture.py",
+
         "text/model.json",
         "grammar/grammar.py",
         "grammar/extension.lark",
