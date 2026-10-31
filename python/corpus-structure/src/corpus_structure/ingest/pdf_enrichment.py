@@ -6,9 +6,9 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
-from .pdf import CellCandidate, CellEnrichment
+from .pdf import CellCandidate, CellEnrichment, PdfConversion, PdfConverter
 from .pdf_candidates import CandidatePage, InlineCandidate
-from .pdf_health import ObservedFormulaStage
+from .pdf_health import ObservedFormulaStage, FormulaOutcome
 from .pdf_hierarchy import NativeSnapshot, load_snapshot, native_nodes, snapshot
 
 
@@ -272,3 +272,84 @@ def classify_cells(document: Any, candidates: tuple[CellCandidate,...], pages: t
         if classification=='math':
             demanded.append(candidate)
     return tuple(demanded),reports
+
+
+@dataclass(frozen=True,slots=True)
+class PdfEnrichmentRequest:
+    conversion: PdfConversion
+    original: bytes
+    selected: frozenset[str]
+    cell_math_pattern: str
+    cell_prose_pattern: str
+    crop_padding_points: float
+
+
+@dataclass(frozen=True,slots=True)
+class PdfEnrichmentResult:
+    native: NativeSnapshot
+    outcomes: tuple[FormulaOutcome,...]
+    mappings: tuple[dict[str,Any],...]
+    cell_reports: tuple[dict[str,Any],...]
+    candidate_pages: tuple[CandidatePage,...]
+    packages: tuple[tuple[str,str],...]
+    runtime: tuple[tuple[str,str],...]
+    effective_options: bytes
+
+
+def compute_enrichment(request:PdfEnrichmentRequest,converter:PdfConverter)->PdfEnrichmentResult:
+    """Finite native compute boundary: no Reader, database connection or publication handle."""
+    from hashlib import sha256
+    from .pdf import apply_cells,pdf_package_versions
+    from .pdf_candidates import rediscover_candidates
+    if sha256(request.original).hexdigest()!=request.conversion.original_digest:
+        raise ValueError('enrichment original differs from its pinned native product')
+    document=load_snapshot(request.conversion.native)
+    nodes=native_nodes(document)
+    if not request.selected <= nodes.keys():
+        raise ValueError('enrichment selection names missing native occurrences')
+    all_pages={prov.page_no for pointer in request.selected for prov in getattr(nodes[pointer],'prov',())}
+    required_pages={prov.page_no for pointer in request.selected
+        if str(nodes[pointer].label) in {'text','list_item','caption','footnote'}
+        and not nodes[pointer].children and nodes[pointer].text.strip()
+        for prov in getattr(nodes[pointer],'prov',())}
+    pages={page.page_no:page for page in request.conversion.inline_candidates}
+    absent={number for number in all_pages if number not in pages or not pages[number].has_vectors}
+    if absent:
+        pages.update({page.page_no:page for page in rediscover_candidates(request.original,
+            tuple(sorted(absent)),parser_threads=converter.recipe.parser_threads)})
+    candidates=tuple(pages[number] for number in sorted(pages))
+    if any(number not in pages or not pages[number].has_words for number in required_pages):
+        raise RecognitionUnavailable('selected native pages lack attributable word candidate discovery')
+    if any(not pages[number].has_vectors for number in required_pages):
+        raise RecognitionUnavailable('selected native pages lack attributable vector discovery for native-font-token-vector-v2')
+    cells=table_candidates(document,request.selected)
+    demanded,reports=classify_cells(document,cells,candidates,
+        math_pattern=request.cell_math_pattern,prose_pattern=request.cell_prose_pattern)
+    inline=positioned_inline_candidates(document,candidates,request.selected)
+    cell_outcomes:tuple[FormulaOutcome,...]=()
+    inline_outcomes:tuple[FormulaOutcome,...]=()
+    cell_mappings:tuple[dict[str,Any],...]=()
+    inline_mappings:tuple[dict[str,Any],...]=()
+    if demanded or inline:
+        stage=converter.formula_stage()
+        with PdfRegionRenderer(request.original,padding_points=request.crop_padding_points) as renderer:
+            cell_outcomes,cell_mappings=apply_cells(document,demanded,stage=stage,render_region=renderer)
+            inline_outcomes,inline_mappings=apply_inline(document,inline,stage=stage,render_region=renderer)
+    outcomes={outcome.item_ref:outcome for outcome in request.conversion.formula_outcomes+cell_outcomes}
+    mappings={(row['origin_pointer'],row['cell_index']):row for row in cell_mappings}
+    for report in reports:
+        mapped=mappings.get((report['table_pointer'],report['cell_index']))
+        if mapped is not None:
+            report['formula_pointer']=mapped['pointer']
+        pointer=report.get('formula_pointer')
+        outcome=outcomes.get(pointer) if isinstance(pointer,str) else None
+        if outcome is not None:
+            report['outcome']=outcome.outcome
+            if outcome.error:
+                report['error']=outcome.error
+    options=converter.recipe.options()
+    if converter.assets is not None:
+        options.artifacts_path=converter.assets.root
+    return PdfEnrichmentResult(snapshot(document),cell_outcomes+inline_outcomes,cell_mappings+inline_mappings,
+        tuple(reports),candidates,pdf_package_versions(),converter.runtime_bindings(),
+        options.model_dump_json(serialize_as_any=True).encode())

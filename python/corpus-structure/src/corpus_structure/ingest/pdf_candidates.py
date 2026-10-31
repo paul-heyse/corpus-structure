@@ -162,3 +162,45 @@ def vector_boxes(backend: Any, size: Any) -> list[Any] | None:
     return [BoundingBox(l=min(boxes[i].l for i in group),t=min(boxes[i].t for i in group),
                         r=max(boxes[i].r for i in group),b=max(boxes[i].b for i in group))
             for group in nx.connected_components(graph)]
+
+
+def rediscover_candidates(original:bytes,pages:tuple[int,...],*,parser_threads:int=8)->tuple[CandidatePage,...]:
+    """Repair discovery metadata from retained PDF backends only, never layout/OCR/formula models."""
+    from io import BytesIO
+    from docling.backend.docling_parse_backend import ThreadedDoclingParseDocumentBackend
+    from docling.datamodel.backend_options import ThreadedDoclingParseBackendOptions
+    from docling.datamodel.base_models import InputFormat,Page
+    from docling.datamodel.settings import DocumentLimits
+    from docling.datamodel.document import InputDocument
+    numbers=sorted(set(pages))
+    if any(number<1 for number in numbers):
+        raise ValueError('candidate discovery uses physical positive PDF pages')
+    ranges=[]
+    for number in numbers:
+        if ranges and number==ranges[-1][1]+1:
+            ranges[-1]=(ranges[-1][0],number)
+        else:
+            ranges.append((number,number))
+    found=[]
+    for start,end in ranges:
+        source=InputDocument(BytesIO(original),InputFormat.PDF,ThreadedDoclingParseDocumentBackend,
+            backend_options=ThreadedDoclingParseBackendOptions(parser_threads=parser_threads,
+                max_concurrent_results=parser_threads,render_pages=False),
+            filename='retained.pdf',limits=DocumentLimits(page_range=(start,end)))
+        try:
+            backend=source._backend
+            if not source.valid or not isinstance(backend,ThreadedDoclingParseDocumentBackend):
+                raise ValueError('retained original cannot initialize admitted native PDF backend')
+            for native_page in backend.iter_pages():
+                try:
+                    page=Page(page_no=native_page.page_no,size=native_page.get_size())
+                    page._backend=native_page
+                    page.parsed_page=native_page.get_segmented_page()
+                    found.append(capture_candidates(page))
+                finally:
+                    native_page.unload()
+        finally:
+            source.release()
+    if {page.page_no for page in found}!=set(numbers):
+        raise ValueError('native PDF discovery did not return the selected physical pages')
+    return tuple(found)
