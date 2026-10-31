@@ -159,6 +159,7 @@ def test_the_packet_hash_is_the_same_under_another_hash_seed(agent: SimpleNamesp
     shim = Path(__file__).with_name("conftest.py")
     script = f"""
 import importlib.util, json, sys
+sys.path.insert(0, {str(shim.parents[1])!r})
 spec = importlib.util.spec_from_file_location("agent_conftest", {str(shim)!r})
 m = importlib.util.module_from_spec(spec); sys.modules["agent_conftest"] = m
 spec.loader.exec_module(m)
