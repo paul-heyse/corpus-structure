@@ -5,8 +5,10 @@ import dataclasses
 import json
 import re
 from dataclasses import dataclass
+from collections.abc import Iterable
 from hashlib import sha256
 from importlib.metadata import version
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
 
@@ -94,6 +96,8 @@ class PdfConversion:
     formula_outcomes: tuple[FormulaOutcome, ...]
     packages: tuple[tuple[str, str], ...]
     page_range: tuple[int, int] | None
+    runtime: tuple[tuple[str, str], ...] = ()
+    effective_options: bytes = b"{}"
 
 
 class PdfConverter:
@@ -102,18 +106,43 @@ class PdfConverter:
         self.recipe = recipe
         self._converter: Any = None
         self._formula: ObservedFormulaStage | None = None
+        self._pipeline: Any = None
+        self._options: Any = None
 
     def _prepare(self) -> None:
         if self._converter is not None:
             return
         from docling.datamodel.backend_options import ThreadedDoclingParseBackendOptions
-        from docling.datamodel.base_models import InputFormat
+        from docling.datamodel.base_models import InputFormat, ItemAndImageEnrichmentElement
+        from docling.datamodel.document import ConversionResult
+        from docling.models.base_model import GenericEnrichmentModel
+        from docling_core.types.doc import DoclingDocument, NodeItem
         from docling.document_converter import DocumentConverter, PdfFormatOption
         from docling.models.stages.code_formula.code_formula_vlm_model import CodeFormulaVlmModel
         from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
+        class NativeObservedStage(GenericEnrichmentModel[ItemAndImageEnrichmentElement]):
+            progress_step = CodeFormulaVlmModel.progress_step
+
+            def __init__(self, native: CodeFormulaVlmModel, observer: ObservedFormulaStage) -> None:
+                self.native = native
+                self.observer = observer
+                self.elements_batch_size = native.elements_batch_size
+
+            def is_processable(self, doc: DoclingDocument, element: NodeItem) -> bool:
+                return self.native.is_processable(doc, element)
+
+            def prepare_element(self, conv_res: ConversionResult,
+                                element: NodeItem) -> ItemAndImageEnrichmentElement | None:
+                return self.native.prepare_element(conv_res, element)
+
+            def __call__(self, doc: DoclingDocument,
+                         element_batch: Iterable[ItemAndImageEnrichmentElement]) -> Iterable[NodeItem]:
+                yield from self.observer(doc, element_batch)
+
+        self._options = self.recipe.options()
         converter = DocumentConverter(allowed_formats=[InputFormat.PDF], format_options={
             InputFormat.PDF: PdfFormatOption(
-                pipeline_cls=StandardPdfPipeline, pipeline_options=self.recipe.options(),
+                pipeline_cls=StandardPdfPipeline, pipeline_options=self._options,
                 backend_options=ThreadedDoclingParseBackendOptions(
                     parser_threads=self.recipe.parser_threads,
                     max_concurrent_results=self.recipe.parser_threads))})
@@ -122,30 +151,52 @@ class PdfConverter:
         for index, stage in enumerate(pipeline.enrichment_pipe):
             if isinstance(stage, CodeFormulaVlmModel):
                 self._formula = ObservedFormulaStage(stage)
-                pipeline.enrichment_pipe[index] = self._formula
+                pipeline.enrichment_pipe[index] = NativeObservedStage(stage, self._formula)
                 break
         if self._formula is None:
             raise RuntimeError("pinned pipeline lacks the required formula stage")
         self._converter = converter
+        self._pipeline = pipeline
+
+    def runtime_bindings(self) -> tuple[tuple[str, str], ...]:
+        """Observed execution state; uninitialized OCR stages are explicitly not executed."""
+        if self._pipeline is None or self._formula is None:
+            return ()
+        pipeline = self._pipeline
+        entries = [
+            ("layout.engine", type(pipeline.layout_model.engine).__name__),
+            ("layout.device", str(getattr(pipeline.layout_model.engine, "_device", "unknown"))),
+            ("table.device", str(pipeline.table_model.tf_predictor.get_device())),
+            ("formula.engine", type(self._formula.native.engine).__name__),
+            ("formula.device", str(getattr(self._formula.native.engine, "device", "unknown"))),
+        ]
+        reader = pipeline.ocr_model.reader
+        for name in ("det", "cls", "rec"):
+            stage = getattr(reader, "text_" + name)
+            providers = "not_executed" if stage is None else json.dumps(
+                stage.session.session.get_providers())
+            entries.append(("ocr." + name + ".providers", providers))
+        return tuple(entries)
 
     def convert(self, path: Path, *, page_range: tuple[int, int] | None = None) -> PdfConversion:
         """Return immutable products. A page range remains an explicitly partial source scope."""
         if path.suffix.lower() != ".pdf":
             raise ValueError("only PDF originals are admitted")
-        digest = sha256()
-        with path.open("rb") as source:
-            if b"%PDF-" not in source.read(1024):
-                raise ValueError("original does not have a PDF header")
-            source.seek(0)
-            for block in iter(lambda: source.read(1024 * 1024), b""):
-                digest.update(block)
+        original = path.read_bytes()
+        if b"%PDF-" not in original[:1024]:
+            raise ValueError("original does not have a PDF header")
+        digest = sha256(original)
         if page_range is not None and not 1 <= page_range[0] <= page_range[1]:
             raise ValueError("page range uses positive physical pages in order")
         self._prepare()
         assert self._formula is not None
         self._formula.outcomes.clear()
         options = {} if page_range is None else {"page_range": page_range}
-        result = self._converter.convert(path, raises_on_error=False, **options)
+        from docling.datamodel.base_models import DocumentStream
+        # The same immutable bytes determine custody and native input even if the operator
+        # changes the path while models initialize. Never reopen that path for conversion.
+        stream = DocumentStream(name=path.name, stream=BytesIO(original))
+        result = self._converter.convert(stream, raises_on_error=False, **options)
         try:
             document = result.document
             native = snapshot(document)
@@ -158,7 +209,8 @@ class PdfConverter:
                 digest.hexdigest(), self.recipe.to_bytes(), native, str(result.status.value),
                 tuple(str(error.model_dump(mode="json")) for error in result.errors), tuple(outcomes),
                 tuple((name, version(name)) for name in ("docling", "docling-core", "docling-parse")),
-                page_range)
+                page_range, self.runtime_bindings(),
+                self._options.model_dump_json(serialize_as_any=True).encode())
         finally:
             result.input.release()
 
@@ -220,13 +272,13 @@ def enrich_cells(source: NativeSnapshot, candidates: tuple[CellCandidate, ...], 
 def publication_payload(conversion: PdfConversion, *, product_key: str, schema_digest: str,
                         native: NativeSnapshot | None = None,
                         section_refs: frozenset[str] = frozenset(),
-                        parent: tuple[int, str, str] | None = None) -> dict[str, Any]:
+                        parent: tuple[int, str, str] | None = None,
+                        enrichment: CellEnrichment | None = None) -> dict[str, Any]:
     """Prepare declared native access rows for the shared semantic publication boundary.
 
     The trusted PDF contract validates this payload and its original/schema/recipe bytes.
     This adapter never assigns complete inline/cell coverage merely from detected formula items.
     """
-    from docling_core.types.doc import ContentLayer
     from .pdf_hierarchy import load_snapshot
     selected = conversion.native if native is None else native
     if native is not None and native.digest != conversion.native.digest and parent is None:
@@ -235,10 +287,34 @@ def publication_payload(conversion: PdfConversion, *, product_key: str, schema_d
     nodes = native_nodes(document)
     if not section_refs <= nodes.keys():
         raise ValueError("section membership names missing native nodes")
-    order = list(dict.fromkeys([document.body.self_ref, *[
-        item.self_ref for item, _ in document.iterate_items(
-            with_groups=True, traverse_pictures=True, included_content_layers=set(ContentLayer))],
-        *nodes]))
+    # Native SQL checks this same declared traversal, including the deprecated retained root.
+    order: list[str] = []
+    visited: set[str] = set()
+    def walk(pointer: str) -> None:
+        if pointer in visited:
+            raise ValueError("native traversal repeats an occurrence")
+        visited.add(pointer)
+        order.append(pointer)
+        for child in nodes[pointer].children:
+            walk(child.cref)
+    walk(document.body.self_ref)
+    walk("#/furniture")
+    order.extend(sorted(nodes.keys() - visited))
+    outcomes = list(conversion.formula_outcomes)
+    if enrichment is not None:
+        if enrichment.source_digest != conversion.native.digest or enrichment.native != selected:
+            raise ValueError("additional formula health is not qualified by the source/derived documents")
+        outcomes.extend(enrichment.outcomes)
+    health_by_pointer: dict[str, FormulaOutcome] = {}
+    for outcome in outcomes:
+        if outcome.item_ref not in nodes or str(nodes[outcome.item_ref].label) != "formula":
+            raise ValueError("formula health names a missing or non-formula occurrence")
+        if outcome.item_ref in health_by_pointer:
+            raise ValueError("duplicate formula health occurrence")
+        health_by_pointer[outcome.item_ref] = outcome
+    for pointer in order:
+        if str(nodes[pointer].label) == "formula" and pointer not in health_by_pointer:
+            health_by_pointer[pointer] = FormulaOutcome(pointer, "unknown", "no attributable inference outcome")
     items: list[dict[str, Any]] = []
     regions: list[dict[str, Any]] = []
     for ordinal, pointer in enumerate(order):
@@ -279,7 +355,7 @@ def publication_payload(conversion: PdfConversion, *, product_key: str, schema_d
                    "formula_outcomes": [
                        {"pointer": outcome.item_ref, "outcome": outcome.outcome,
                         **({"error": outcome.error} if outcome.error else {})}
-                       for outcome in conversion.formula_outcomes]},
+                       for outcome in health_by_pointer.values()]},
         "items": items, "regions": regions,
     }
     if parent is not None:

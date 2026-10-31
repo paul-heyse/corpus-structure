@@ -128,14 +128,93 @@ def test_publication_projection_preserves_native_occurrences_and_health():
     from corpus_structure.ingest.pdf import PdfConversion, publication_payload
     from corpus_structure.ingest.pdf_health import FormulaOutcome
     document = native_document()
+    from docling_core.types.doc import DocItemLabel
+    formula = document.add_text(label=DocItemLabel.FORMULA, text="x")
     native = snapshot(document)
     conversion = PdfConversion("c" * 64, b"{}", native, "success", (),
-        (FormulaOutcome("#/texts/0", "failed", "native stage failed"),), (), None)
+        (FormulaOutcome(formula.self_ref, "failed", "native stage failed"),), (), None)
     payload = publication_payload(conversion, product_key="raw", schema_digest="d" * 64)
     rows = payload["items"]
     assert len({r["pointer"] for r in rows}) == len(native_nodes(document))
     assert {r["pointer"] for r in rows} == set(native_nodes(document))
     assert [r["ordinal"] for r in rows] == list(range(len(rows)))
     assert payload["health"]["formula_outcomes"] == [
-        {"pointer": "#/texts/0", "outcome": "failed", "error": "native stage failed"}]
+        {"pointer": formula.self_ref, "outcome": "failed", "error": "native stage failed"}]
     assert payload["health"]["cell_coverage"] == "unknown"
+
+
+def test_cell_enrichment_retains_raw_and_creates_native_rich_reference():
+    from PIL import Image
+    from docling_core.types.doc import (
+        BoundingBox, DoclingDocument, PageItem, ProvenanceItem, Size, TableCell, TableData,
+    )
+    from corpus_structure.ingest.pdf import CellCandidate, enrich_cells
+    document = DoclingDocument(name="independent cell geometry fixture")
+    document.pages[1] = PageItem(page_no=1, size=Size(width=100, height=100))
+    box = BoundingBox(l=10, t=10, r=40, b=30)
+    cell = TableCell(text="n k", bbox=box, start_row_offset_idx=0, end_row_offset_idx=1,
+                     start_col_offset_idx=0, end_col_offset_idx=1)
+    table = document.add_table(data=TableData(num_rows=1, num_cols=1, table_cells=[cell]),
+        prov=ProvenanceItem(page_no=1, bbox=box, charspan=(0, 0)))
+    raw = snapshot(document)
+    stage = ObservedFormulaStage(CatchingStage(Engine()))
+    calls = []
+    def render(page_no, bbox):
+        calls.append((page_no, bbox))
+        return Image.new("RGB", (30, 20))
+    result = enrich_cells(raw, (CellCandidate(table.self_ref, 0, 1),),
+                          stage=stage, render_region=render)
+    assert snapshot(document) == raw
+    derived = load_snapshot(result.native)
+    rich_cell = derived.tables[0].data.table_cells[0]
+    formula = rich_cell.ref.resolve(derived)
+    assert formula.parent.cref == table.self_ref
+    assert formula.orig == "n k"
+    assert formula.prov[0].bbox == box
+    assert calls == [(1, box)]
+    assert result.outcomes[0].outcome == "succeeded"
+    from dataclasses import replace
+    from corpus_structure.ingest.pdf import PdfConversion, publication_payload
+    conversion = PdfConversion("c" * 64, b"{}", raw, "success", (), (), (), None)
+    payload = publication_payload(conversion, product_key="cells", schema_digest="d" * 64,
+        native=result.native, enrichment=result, parent=(1, "raw", "e" * 64))
+    assert payload["health"]["formula_outcomes"][0]["outcome"] == "succeeded"
+    with pytest.raises(ValueError, match="qualified"):
+        publication_payload(conversion, product_key="cells", schema_digest="d" * 64,
+            native=result.native, enrichment=replace(result, source_digest="f" * 64),
+            parent=(1, "raw", "e" * 64))
+
+
+def test_non_pdf_is_refused_without_converter_preparation(tmp_path):
+    from corpus_structure.ingest.pdf import PdfConverter
+    converter = PdfConverter(PdfRecipe("a" * 40, "b" * 40))
+    path = tmp_path / "document.html"
+    path.write_text("<html/>")
+    with pytest.raises(ValueError, match="only PDF"):
+        converter.convert(path)
+    assert converter._converter is None
+
+
+def test_converter_hashes_and_consumes_same_immutable_snapshot(tmp_path, monkeypatch):
+    from hashlib import sha256
+    from corpus_structure.ingest.pdf import PdfConverter
+    path = tmp_path / "source.pdf"
+    original = b"%PDF-1.7 immutable initial bytes"
+    path.write_bytes(original)
+    producer = PdfConverter(PdfRecipe("a" * 40, "b" * 40))
+    consumed = []
+    def convert(stream, **kwargs):
+        consumed.append(stream.stream.getvalue())
+        return SimpleNamespace(document=native_document(), errors=[],
+            status=SimpleNamespace(value="success"), input=SimpleNamespace(release=lambda: None))
+    def prepare():
+        path.write_bytes(b"%PDF-1.7 replaced during expensive initialization")
+        producer._converter = SimpleNamespace(convert=convert)
+        producer._formula = ObservedFormulaStage(CatchingStage(Engine()))
+        producer._options = SimpleNamespace(model_dump_json=lambda **kwargs: "{}")
+    monkeypatch.setattr(producer, "_prepare", prepare)
+    monkeypatch.setattr(producer, "runtime_bindings", lambda: ())
+    result = producer.convert(path)
+    assert consumed == [original]
+    assert result.original_digest == sha256(original).hexdigest()
+    assert path.read_bytes() != original
