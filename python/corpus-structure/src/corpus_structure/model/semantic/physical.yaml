@@ -1117,7 +1117,7 @@ classes:
     annotations:
       ph:foreign_keys: '[{"columns": ["document_id"], "target": "kb.document.id"}]'
       ph:indexes: '[{"name":"ix_rendition_canonical_text_search","expression":"to_tsvector(''english''::regconfig, canonical_text)","using":"gin"}]'
-      ph:checks: '[]' 
+      ph:checks: '[]'
   segment:
     in_subset:
     - kb
@@ -1250,7 +1250,7 @@ classes:
         - version
     annotations:
       ph:foreign_keys: '[]'
-      ph:checks: '["configuration_schema_digest IS NULL OR configuration_schema_digest ~ ''^[0-9a-f]{64}$''"]' 
+      ph:checks: '["configuration_schema_digest IS NULL OR configuration_schema_digest ~ ''^[0-9a-f]{64}$''"]'
   method_config:
     in_subset:
     - ops
@@ -2330,6 +2330,9 @@ classes:
         required: false
       projection_digest:
         range: string
+        required: false
+      source_frame:
+        range: json_payload
         required: false
     unique_keys:
       primary_key:
@@ -3834,6 +3837,9 @@ classes:
       context_json:
         range: json_payload
         required: true
+      source_frame:
+        range: json_payload
+        required: false
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -3844,6 +3850,58 @@ classes:
         ["source_view_id"], "target": "kb.source_view.id"}, {"columns": ["product_task_id",
         "product_key", "product_digest"], "target": "ops.native_document_product.task_id,product_key,content_digest"}]'
       ph:checks: '[]'
+      ph:indexes: '[]'
+  native_source_frame_source:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      unit_ref:
+        range: string
+        required: true
+      source_view_id:
+        range: integer
+        required: true
+      product_task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      product_digest:
+        range: string
+        required: true
+      projection_digest:
+        range: string
+        required: true
+      recipe_digest:
+        range: string
+        required: true
+      section_pointer:
+        range: string
+        required: true
+      membership:
+        range: string
+        required: true
+      role:
+        range: string
+        required: true
+      context_json:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - source_view_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.native_source_frame.task_id"}, {"columns":
+        ["source_view_id"], "target": "kb.source_view.id"}, {"columns": ["product_task_id",
+        "product_key", "product_digest"], "target": "ops.native_document_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["role IN (''primary'', ''ancestor_context'')", "membership IN (''direct'', ''descendants'')"]'
       ph:indexes: '[]'
   native_source_frame_sentence:
     in_subset:
@@ -3864,6 +3922,9 @@ classes:
       end_offset:
         range: integer
         required: true
+      source_view_id:
+        range: integer
+        required: true
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -3871,7 +3932,7 @@ classes:
         - sentence_id
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.native_source_frame.task_id"}]'
+      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.native_source_frame.task_id"}, {"columns": ["task_id", "source_view_id"], "target": "ops.native_source_frame_source.task_id,source_view_id"}]'
       ph:checks: '["start_offset >= 0", "end_offset > start_offset"]'
       ph:indexes: '[]'
   native_region_artifact:

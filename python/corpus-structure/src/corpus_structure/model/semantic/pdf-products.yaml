@@ -806,3 +806,26 @@ classes:
     attributes:
       universe: {range: string, required: true, equals_string: cell, slot_uri: 'pdf:PdfRecognitionCoverage_universe'}
       policy: {range: string, required: true, equals_string: all-nonempty-selected-cells-v1, slot_uri: 'pdf:PdfRecognitionCoverage_policy'}
+  PdfFrameSentence:
+    attributes:
+      id: {range: PdfString, required: true, slot_uri: 'pdf:PdfFrameSentence_id'}
+      locator: {range: PdfString, required: true, slot_uri: 'pdf:PdfFrameSentence_locator'}
+      start: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: 'pdf:PdfFrameSentence_start'}
+      end: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: 'pdf:PdfFrameSentence_end'}
+  PdfFrameSource:
+    description: An independently addressed immutable native projection actually supplied to an agent or independent evaluator.
+    attributes:
+      unit_ref: {range: PdfString, required: true, slot_uri: 'pdf:PdfFrameSource_unit_ref'}
+      text: {range: PdfString, required: true, slot_uri: 'pdf:PdfFrameSource_text'}
+      sentences: {range: PdfFrameSentence, required: true, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfFrameSource_sentences'}
+      source_view_id: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: 'pdf:PdfFrameSource_source_view_id'}
+      native_product: {range: PdfProductReference, required: true, inlined: true, slot_uri: 'pdf:PdfFrameSource_native_product'}
+      section_pointer: {range: PdfPointer, required: true, slot_uri: 'pdf:PdfFrameSource_section_pointer'}
+      membership: {range: PdfMembership, required: true, slot_uri: 'pdf:PdfFrameSource_membership'}
+      projection_digest: {range: PdfDigest, required: true, slot_uri: 'pdf:PdfFrameSource_projection_digest'}
+      recipe_digest: {range: PdfDigest, required: true, slot_uri: 'pdf:PdfFrameSource_recipe_digest'}
+      native_context: {range: PdfString, required: true, slot_uri: 'pdf:PdfFrameSource_native_context'}
+  PdfNativeProposalFrame:
+    is_a: PdfFrameSource
+    attributes:
+      context_sources: {range: PdfFrameSource, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfNativeProposalFrame_context_sources'}

@@ -63,34 +63,47 @@ END $native$;
 REVOKE ALL ON FUNCTION eval.add_native_reference_unit(bigint,bigint,text,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION eval.add_native_reference_unit(bigint,bigint,text,jsonb) TO corpus_sem_evaluator;
 
-CREATE OR REPLACE FUNCTION eval.record_native_reference_pass(p_unit bigint,p_kind text,p_actor text,p_authored bytea,p_frame jsonb)
+CREATE OR REPLACE FUNCTION eval.record_native_reference_pass(p_unit bigint,p_kind text,p_actor text,p_authored bytea,p_frame jsonb,p_source_frame jsonb)
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $native$
-DECLARE result bigint; unit eval.reference_unit; selected kb.source_view; payload jsonb; item jsonb;
+DECLARE result bigint; unit eval.reference_unit; selected kb.source_view; payload jsonb; item jsonb; cited kb.source_view; source_run bigint; cited_id bigint;
 BEGIN
  SELECT * INTO STRICT unit FROM eval.reference_unit WHERE id=p_unit FOR UPDATE;
  SELECT * INTO STRICT selected FROM kb.source_view WHERE id=unit.source_view_id;
+ SELECT source_run_id INTO STRICT source_run FROM eval.reference_set WHERE id=unit.set_id;
  PERFORM sem.require_execution_operation((SELECT release_id FROM eval.reference_set WHERE id=unit.set_id),'reference_pass');
+ PERFORM ops.validate_native_source_frame(source_run,p_source_frame);
  payload:=convert_from(p_authored,'UTF8')::jsonb;
  IF p_actor='' OR payload->>'unit_ref' IS DISTINCT FROM unit.unit_key OR
+  p_source_frame->>'unit_ref' IS DISTINCT FROM unit.unit_key OR (p_source_frame->>'source_view_id')::bigint IS DISTINCT FROM selected.id OR
   unit.projection_digest IS DISTINCT FROM selected.projection_digest OR jsonb_typeof(p_frame) IS DISTINCT FROM 'array' THEN
-  RAISE EXCEPTION 'native reference pass differs from bound source view' USING ERRCODE='23514'; END IF;
+  RAISE EXCEPTION 'native reference pass differs from independent bound source frame' USING ERRCODE='23514'; END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(p_frame) LOOP
+  cited_id:=(substring(item->>'locator' FROM 5)::jsonb->>'source_view_id')::bigint;
+  IF cited_id IS DISTINCT FROM selected.id AND NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE(p_source_frame->'context_sources','[]')) c WHERE (c->>'source_view_id')::bigint=cited_id) THEN
+   RAISE EXCEPTION 'native reference quote source was not independently supplied' USING ERRCODE='23514'; END IF;
+  SELECT * INTO STRICT cited FROM kb.source_view WHERE id=cited_id;
   IF NOT (item ?& ARRAY['start','end','quote','locator']) OR (item->>'start')::bigint<0 OR
-    (item->>'end')::bigint<=(item->>'start')::bigint OR (item->>'end')::bigint>length(selected.projection->>'text') OR
-    substring(selected.projection->>'text' FROM (item->>'start')::integer+1 FOR (item->>'end')::integer-(item->>'start')::integer)
-     IS DISTINCT FROM item->>'quote' OR NOT starts_with(item->>'locator','pdf:') THEN
-   RAISE EXCEPTION 'native reference citation differs from source projection' USING ERRCODE='23514'; END IF;
-  PERFORM ops.native_source_address(selected.id,item->>'locator',
-    (item->>'start')::bigint,(item->>'end')::bigint);
+    (item->>'end')::bigint<=(item->>'start')::bigint OR (item->>'end')::bigint>length(cited.projection->>'text') OR
+    substring(cited.projection->>'text' FROM (item->>'start')::integer+1 FOR (item->>'end')::integer-(item->>'start')::integer)
+     IS DISTINCT FROM item->>'quote' THEN
+   RAISE EXCEPTION 'native reference citation differs from source-local projection' USING ERRCODE='23514'; END IF;
+  PERFORM ops.native_source_address(cited.id,item->>'locator',(item->>'start')::bigint,(item->>'end')::bigint);
+  IF NOT EXISTS(SELECT FROM (SELECT p_source_frame AS f UNION ALL SELECT value FROM jsonb_array_elements(COALESCE(p_source_frame->'context_sources','[]'))) sources
+    CROSS JOIN LATERAL jsonb_array_elements(sources.f->'sentences') sent
+    WHERE (sources.f->>'source_view_id')::bigint=cited.id
+    AND (CASE WHEN cited.id=selected.id THEN sent->>'id' ELSE 'native_context:'||cited.id::text||':'||(sent->>'id') END)=item->>'sentence'
+    AND (sent->>'start')::bigint<=(item->>'start')::bigint AND (sent->>'end')::bigint>=(item->>'end')::bigint AND sent->>'locator'=item->>'locator') THEN
+   RAISE EXCEPTION 'native reference citation is outside supplied independent sentences' USING ERRCODE='23514'; END IF;
  END LOOP;
  INSERT INTO eval.reference_pass(unit_id,pass_kind,actor,authored,content_digest)
  VALUES(p_unit,p_kind,p_actor,p_authored,encode(sha256(p_authored),'hex')) RETURNING id INTO result;
- INSERT INTO eval.reference_frame(pass_id,version,source_view_id,projection_digest,frame)
- VALUES(result,1,selected.id,selected.projection_digest,p_frame);
+ INSERT INTO eval.reference_frame(pass_id,version,source_view_id,projection_digest,frame,source_frame)
+ VALUES(result,1,selected.id,selected.projection_digest,p_frame,p_source_frame);
  RETURN result;
 END $native$;
-REVOKE ALL ON FUNCTION eval.record_native_reference_pass(bigint,text,text,bytea,jsonb) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION eval.record_native_reference_pass(bigint,text,text,bytea,jsonb) TO corpus_sem_evaluator;
+REVOKE ALL ON FUNCTION eval.record_native_reference_pass(bigint,text,text,bytea,jsonb) FROM corpus_sem_evaluator;
+REVOKE ALL ON FUNCTION eval.record_native_reference_pass(bigint,text,text,bytea,jsonb,jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION eval.record_native_reference_pass(bigint,text,text,bytea,jsonb,jsonb) TO corpus_sem_evaluator;
 
 CREATE OR REPLACE FUNCTION eval.native_reference_snapshot(p_set bigint) RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $native$
@@ -138,22 +151,45 @@ REVOKE ALL ON FUNCTION eval.record_native_reference_evaluation(text,bigint,bigin
 GRANT EXECUTE ON FUNCTION eval.record_native_reference_evaluation(text,bigint,bigint,jsonb,jsonb) TO corpus_sem_evaluator;
 
 
+CREATE OR REPLACE FUNCTION ops.native_source_statement_source(p_task bigint,p_anchor text)
+RETURNS bigint LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $native$
+DECLARE result bigint; source ops.native_source_frame_source;
+BEGIN
+ PERFORM 1 FROM ops.native_source_frame f JOIN ops.task t ON t.id=f.task_id AND t.packet_hash=f.packet_hash AND t.unit_key=f.unit_ref WHERE f.task_id=p_task;
+ IF NOT FOUND THEN RAISE EXCEPTION 'native statement has no bound frame' USING ERRCODE='23514'; END IF;
+ SELECT source_view_id INTO result FROM ops.native_source_frame_source WHERE task_id=p_task AND unit_ref=p_anchor;
+ IF FOUND THEN RETURN result; END IF;
+ SELECT source_view_id INTO result FROM ops.native_source_frame_sentence WHERE task_id=p_task AND (sentence_id=p_anchor OR locator=p_anchor) ORDER BY source_view_id LIMIT 1;
+ IF FOUND THEN RETURN result; END IF;
+ IF NOT starts_with(p_anchor,'pdf:') THEN RAISE EXCEPTION 'native statement anchor is outside supplied sources' USING ERRCODE='23514'; END IF;
+ FOR source IN SELECT * FROM ops.native_source_frame_source WHERE task_id=p_task ORDER BY CASE role WHEN 'primary' THEN 0 ELSE 1 END,source_view_id LOOP
+  IF substring(p_anchor FROM 5)::jsonb ? 'pointer' AND EXISTS(SELECT FROM kb.source_view v WHERE v.id=source.source_view_id AND (v.section_pointer=substring(p_anchor FROM 5)::jsonb->>'pointer' OR v.projection->'items' ? (substring(p_anchor FROM 5)::jsonb->>'pointer')))
+   OR substring(p_anchor FROM 5)::jsonb->>'source_view_id'=source.source_view_id::text THEN
+   PERFORM ops.native_source_address(source.source_view_id,p_anchor);
+   IF NOT(substring(p_anchor FROM 5)::jsonb ? 'pointer') THEN RAISE EXCEPTION 'native statement range is outside supplied frame sentences' USING ERRCODE='23514'; END IF;
+   RETURN source.source_view_id;
+  END IF;
+ END LOOP;
+ RAISE EXCEPTION 'native statement anchor is outside supplied sources' USING ERRCODE='23514';
+END $native$;
+REVOKE ALL ON FUNCTION ops.native_source_statement_source(bigint,text) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.native_source_statement_source_key(p_task bigint,p_anchor text)
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $native$
+ SELECT unit_ref FROM ops.native_source_frame_source WHERE task_id=p_task AND source_view_id=ops.native_source_statement_source(p_task,p_anchor)
+$native$;
+REVOKE ALL ON FUNCTION ops.native_source_statement_source_key(bigint,text) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.native_source_statement_locator(p_task bigint,p_anchor text)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $native$
-DECLARE frame ops.native_source_frame; selected kb.source_view; result text;
+DECLARE source_id bigint; source ops.native_source_frame_source; selected kb.source_view; result text;
 BEGIN
- SELECT f.* INTO STRICT frame FROM ops.native_source_frame f JOIN ops.task t ON t.id=f.task_id
-  AND t.packet_hash=f.packet_hash AND t.unit_key=f.unit_ref WHERE f.task_id=p_task;
- SELECT * INTO STRICT selected FROM kb.source_view WHERE id=frame.source_view_id;
- IF p_anchor=frame.unit_ref THEN
-  RETURN ops.native_source_address(selected.id,'pdf:'||data.canonical_json(jsonb_build_object(
-   'product_digest',frame.product_digest,'pointer',selected.section_pointer))); END IF;
- SELECT locator INTO result FROM ops.native_source_frame_sentence
- WHERE task_id=p_task AND (sentence_id=p_anchor OR locator=p_anchor);
- IF FOUND THEN RETURN ops.native_source_address(selected.id,result); END IF;
- result:=ops.native_source_address(selected.id,p_anchor);
- IF NOT(substring(result FROM 5)::jsonb ? 'pointer') THEN
-  RAISE EXCEPTION 'native statement range is outside supplied frame sentences' USING ERRCODE='23514'; END IF;
- RETURN result;
+ source_id:=ops.native_source_statement_source(p_task,p_anchor);
+ SELECT * INTO STRICT source FROM ops.native_source_frame_source WHERE task_id=p_task AND source_view_id=source_id;
+ SELECT * INTO STRICT selected FROM kb.source_view WHERE id=source_id;
+ IF p_anchor=source.unit_ref THEN RETURN ops.native_source_address(source_id,'pdf:'||data.canonical_json(jsonb_build_object('product_digest',source.product_digest,'pointer',selected.section_pointer))); END IF;
+ SELECT locator INTO result FROM ops.native_source_frame_sentence WHERE task_id=p_task AND source_view_id=source_id AND (sentence_id=p_anchor OR locator=p_anchor) LIMIT 1;
+ IF FOUND THEN RETURN ops.native_source_address(source_id,result); END IF;
+ RETURN ops.native_source_address(source_id,p_anchor);
 END $native$;
 REVOKE ALL ON FUNCTION ops.native_source_statement_locator(bigint,text) FROM PUBLIC;

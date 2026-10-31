@@ -122,8 +122,32 @@ def select_reused_source_views(conn: Connection, *, run_id: int, task_id: int) -
 
 def store_native_source_frame(conn: Connection, *, task_id: int, packet_hash: str,
                               frame: dict[str,Any]) -> None:
+    from .pdf_contracts import pdf_context_for_task
+    context=pdf_context_for_task(conn,task_id)
+    context.boundary.validate_json("PdfNativeProposalFrame",json.dumps(frame))
     conn.execute(text('SELECT ops.capture_native_source_frame(:task,:hash,CAST(:frame AS jsonb))'),
                  dict(task=task_id,hash=packet_hash,frame=json.dumps(frame)))
+
+
+def load_native_source_frames(conn: Connection,task_ids):
+    """Decode the exact captured native sources; historical primaries stay primary-only."""
+    from .proposals import NativeProposalFrame,ProposalSentence,native_frame_from_dict
+    rows=conn.execute(text("SELECT * FROM ops.native_source_frame WHERE task_id=ANY(:ids)"),dict(ids=list(task_ids))).mappings()
+    result={}
+    views={}
+    for row in rows:
+        if row['source_frame'] is not None:
+            result[row['task_id']]=native_frame_from_dict(row['source_frame'])
+            continue
+        view_id=row['source_view_id']
+        if view_id not in views:views[view_id]=load_source_view(conn,view_id)
+        view=views[view_id]
+        sentences=conn.execute(text("SELECT sentence_id,locator,start_offset,end_offset FROM ops.native_source_frame_sentence WHERE task_id=:task ORDER BY start_offset,end_offset,sentence_id"),dict(task=row['task_id'])).mappings()
+        result[row['task_id']]=NativeProposalFrame(row['unit_ref'],view.text,
+            tuple(ProposalSentence(r['sentence_id'],r['locator'],r['start_offset'],r['end_offset']) for r in sentences),
+            view_id,view.ref.native_product,view.ref.section_pointer,view.ref.membership,
+            row['projection_digest'],row['recipe_digest'],canonical_bytes(row['context_json']).decode())
+    return result
 
 
 def read_native_source(conn,request):

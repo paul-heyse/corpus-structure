@@ -97,6 +97,23 @@ def test_native_source_view_is_real_unit_with_exact_context(semantic_db_engine,s
         with pytest.raises(DBAPIError),conn.begin_nested():
             store_native_source_frame(conn,task_id=agent_task,packet_hash=packet_hash,frame=invalid)
         assert conn.execute(text('SELECT count(*) FROM ops.rendition_build WHERE task_id=:task'),{'task':task}).scalar_one()==0
+        from corpus_structure.semantic.proposals import native_frame_source
+        from corpus_structure.semantic.source_views import load_native_source_frames
+        child_loaded=load_source_view(conn,child_identity)
+        child_frame=replace(native_source_frame(child_loaded,[('s1',0,4)]),context_sources=(native_frame_source(frame),))
+        child_agent=create_task(conn,run_id=run,config_id=agent_config,stage='agent',unit_type='source_view',unit_id=child_identity,unit_key=child_draft.key,input_hash='child-packet',packet_hash=packet_hash,agent=True)
+        store_native_source_frame(conn,task_id=child_agent,packet_hash=packet_hash,frame=asdict(child_frame))
+        handle=f'native_context:{identity}:native_evidence:2'
+        saved=conn.execute(text('SELECT source_view_id,start_offset,end_offset FROM ops.native_source_frame_sentence WHERE task_id=:task AND sentence_id=:handle'),dict(task=child_agent,handle=handle)).one()
+        assert tuple(saved)==(identity,20,26)  # Parent offsets exceed the entire child projection.
+        assert load_native_source_frames(conn,[agent_task,child_agent])[child_agent]==child_frame
+        wrong=asdict(frame);wrong['context_sources']=(asdict(native_frame_source(native_source_frame(child_loaded,[('s1',0,4)]))),)
+        with pytest.raises(DBAPIError,match='direct ancestor'),conn.begin_nested():
+            store_native_source_frame(conn,task_id=agent_task,packet_hash=packet_hash,frame=wrong)
+
+    with semantic_db_engine.begin() as conn:
+        conn.exec_driver_sql('SET LOCAL ROLE corpus_sem_publisher')
+        assert conn.execute(text('SELECT ops.native_source_statement_source_key(:task,:handle)'),dict(task=child_agent,handle=handle)).scalar_one()==draft.key
 
     from corpus_structure.semantic.operations import BoundReader,OperationConflict
     # An archived native product is adopted only by an exact declared, claimed input.

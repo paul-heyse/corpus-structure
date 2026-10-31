@@ -88,6 +88,18 @@ def native_admission_sql(sql,model=None,*,extra_relations=(),base_admission=None
     literal=cast.arg.val.sval
     if literal is None:raise ValueError("descriptor string is absent")
     descriptor=json.loads(literal)
+    if base_admission is not None:
+        # Retain the frozen native inventory, while refreshing model-owned deployment
+        # identity and CHECK receipt inputs for the forward physical model.
+        current_body=function_bodies(consolidation_products(model)[-1].content.decode())['data.execution_contract_descriptor']
+        current_stmt=parse_sql(current_body)[0].stmt
+        if not isinstance(current_stmt,ast.SelectStmt) or not current_stmt.targetList:raise ValueError('current descriptor must be literal SELECT')
+        current_cast=current_stmt.targetList[0].val
+        if not isinstance(current_cast,ast.TypeCast) or not isinstance(current_cast.arg,ast.A_Const) or not isinstance(current_cast.arg.val,ast.String):raise ValueError('current descriptor must be JSONB string')
+        current_literal=current_cast.arg.val.sval
+        if current_literal is None:raise ValueError("current descriptor string is absent")
+        current=json.loads(current_literal)
+        descriptor.update({key:value for key,value in current.items() if key not in {'functions','tables','triggers'}})
     from copy import copy
     functions={item['signature']:item for item in descriptor['functions']}
     for raw in parse_sql(sql.replace('__MIGRATION_OWNER__','corpus_migration_owner')):

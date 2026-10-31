@@ -141,22 +141,19 @@ END $reuse$;
 REVOKE ALL ON FUNCTION ops.select_reused_source_views(bigint,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.select_reused_source_views(bigint,bigint) TO corpus_sem_writer;
 
-CREATE OR REPLACE FUNCTION ops.capture_native_source_frame(p_task bigint,p_hash text,p_frame jsonb) RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $frame$
-DECLARE job ops.task; view kb.source_view; context jsonb; expected jsonb; previous ops.native_source_frame; sentence jsonb; piece jsonb;
+CREATE OR REPLACE FUNCTION ops.validate_native_frame_source(p_frame jsonb) RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $source$
+DECLARE view kb.source_view; context jsonb; expected jsonb; sentence jsonb; piece jsonb;
 BEGIN
- SELECT * INTO STRICT job FROM ops.task WHERE id=p_task FOR UPDATE;
- PERFORM sem.require_execution_operation(job.release_id,'capture_native_source_frame');
+ -- {frame_source_shape_guard}
  SELECT * INTO STRICT view FROM kb.source_view WHERE id=(p_frame->>'source_view_id')::bigint;
- IF job.unit_type<>'source_view' OR job.unit_id<>view.id OR job.packet_hash IS DISTINCT FROM p_hash OR job.unit_key IS DISTINCT FROM p_frame->>'unit_ref'
- OR NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=job.run_id AND source_view_id=view.id)
- OR p_frame->>'section_pointer' IS DISTINCT FROM view.section_pointer OR p_frame->>'membership' IS DISTINCT FROM view.membership
- OR p_frame->>'text' IS DISTINCT FROM view.projection->>'text'
+ IF p_frame->>'unit_ref' IS DISTINCT FROM view.key OR p_frame->>'section_pointer' IS DISTINCT FROM view.section_pointer
+ OR p_frame->>'membership' IS DISTINCT FROM view.membership OR p_frame->>'text' IS DISTINCT FROM view.projection->>'text'
  OR p_frame->>'projection_digest' IS DISTINCT FROM view.projection_digest OR p_frame->>'recipe_digest' IS DISTINCT FROM view.recipe_digest
- OR (p_frame->'native_product'->>'task_id')::bigint IS DISTINCT FROM view.native_task_id
- OR p_frame->'native_product'->>'product_key' IS DISTINCT FROM view.native_product_key
- OR p_frame->'native_product'->>'content_digest' IS DISTINCT FROM view.native_content_digest THEN
- RAISE EXCEPTION 'native packet frame differs from selected source view/task' USING ERRCODE='23514'; END IF;
+ OR p_frame->'native_product' IS DISTINCT FROM jsonb_build_object('task_id',view.native_task_id,'product_key',view.native_product_key,'content_digest',view.native_content_digest) THEN
+ RAISE EXCEPTION 'native frame source differs from immutable view' USING ERRCODE='23514'; END IF;
+ IF (SELECT count(*) FROM jsonb_array_elements(p_frame->'sentences'))<>(SELECT count(DISTINCT item->>'id') FROM jsonb_array_elements(p_frame->'sentences') item) THEN
+ RAISE EXCEPTION 'native frame source sentence identifiers are not unique' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(view.projection->'pieces') WITH ORDINALITY piece(value,n)
   WHERE piece.value->>'kind'='native_text' AND piece.value->>'item_ref' IS NOT NULL AND (piece.value->>'end')::bigint>(piece.value->>'start')::bigint
   AND NOT EXISTS(SELECT FROM jsonb_array_elements(p_frame->'sentences') supplied WHERE supplied->>'id'='native_evidence:'||(piece.n-1)::text)) THEN
@@ -174,21 +171,66 @@ BEGIN
  'ancestors',(SELECT COALESCE(jsonb_agg(i.native_json ORDER BY ptr.n),'[]') FROM jsonb_array_elements_text(COALESCE(view.projection->'ancestors','[]')) WITH ORDINALITY ptr(value,n) JOIN kb.native_document_item i ON i.task_id=view.native_task_id AND i.product_key=view.native_product_key AND i.pointer=ptr.value)) INTO expected
  FROM ops.native_document_product p WHERE p.task_id=view.native_task_id AND p.product_key=view.native_product_key;
  IF context IS DISTINCT FROM expected THEN RAISE EXCEPTION 'native packet omitted or changed supplied source context' USING ERRCODE='23514'; END IF;
- SELECT * INTO previous FROM ops.native_source_frame WHERE task_id=p_task;
+ FOR sentence IN SELECT value FROM jsonb_array_elements(p_frame->'sentences') LOOP
+  IF starts_with(sentence->>'id','native_context:') OR sentence->>'id'='' OR (sentence->>'start')::bigint<0
+   OR (sentence->>'end')::bigint<=(sentence->>'start')::bigint OR (sentence->>'end')::bigint>char_length(view.projection->>'text') THEN
+   RAISE EXCEPTION 'native frame sentence lies outside source-local text' USING ERRCODE='23514'; END IF;
+  PERFORM ops.native_source_address(view.id,sentence->>'locator',(sentence->>'start')::bigint,(sentence->>'end')::bigint);
+ END LOOP;
+END $source$;
+REVOKE ALL ON FUNCTION ops.validate_native_frame_source(jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.validate_native_source_frame(p_run bigint,p_frame jsonb) RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $sources$
+DECLARE primary_view kb.source_view; source jsonb; ancestor kb.source_view;
+BEGIN
+ -- {native_frame_shape_guard}
+ PERFORM ops.validate_native_frame_source(p_frame-'context_sources');
+ SELECT * INTO STRICT primary_view FROM kb.source_view WHERE id=(p_frame->>'source_view_id')::bigint;
+ IF NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=p_run AND source_view_id=primary_view.id) THEN
+ RAISE EXCEPTION 'native frame primary view is not selected' USING ERRCODE='23514'; END IF;
+ IF (SELECT count(*) FROM jsonb_array_elements(COALESCE(p_frame->'context_sources','[]')))<>
+ (SELECT count(DISTINCT item->>'source_view_id') FROM jsonb_array_elements(COALESCE(p_frame->'context_sources','[]')) item) THEN
+ RAISE EXCEPTION 'native frame repeats a context source' USING ERRCODE='23514'; END IF;
+ FOR source IN SELECT value FROM jsonb_array_elements(COALESCE(p_frame->'context_sources','[]')) LOOP
+  PERFORM ops.validate_native_frame_source(source);
+  SELECT * INTO STRICT ancestor FROM kb.source_view WHERE id=(source->>'source_view_id')::bigint;
+  IF ancestor.id=primary_view.id OR ancestor.membership<>'direct' OR ancestor.native_task_id<>primary_view.native_task_id
+   OR ancestor.native_product_key<>primary_view.native_product_key OR ancestor.native_content_digest<>primary_view.native_content_digest
+   OR NOT(primary_view.projection->'ancestors' ? ancestor.section_pointer)
+   OR NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=p_run AND source_view_id=ancestor.id) THEN
+   RAISE EXCEPTION 'native frame context is not a selected same-product direct ancestor' USING ERRCODE='23514'; END IF;
+ END LOOP;
+END $sources$;
+REVOKE ALL ON FUNCTION ops.validate_native_source_frame(bigint,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.capture_native_source_frame(p_task bigint,p_hash text,p_frame jsonb) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $frame$
+DECLARE job ops.task; view kb.source_view; source jsonb; sentence jsonb; source_id bigint; handle text; ordinal integer:=0; previous jsonb;
+BEGIN
+ SELECT * INTO STRICT job FROM ops.task WHERE id=p_task FOR UPDATE;
+ PERFORM sem.require_execution_operation(job.release_id,'capture_native_source_frame');
+ PERFORM ops.validate_native_source_frame(job.run_id,p_frame);
+ SELECT * INTO STRICT view FROM kb.source_view WHERE id=(p_frame->>'source_view_id')::bigint;
+ IF job.unit_type<>'source_view' OR job.unit_id<>view.id OR job.packet_hash IS DISTINCT FROM p_hash OR job.unit_key IS DISTINCT FROM p_frame->>'unit_ref' THEN
+ RAISE EXCEPTION 'native packet frame differs from selected task' USING ERRCODE='23514'; END IF;
+ SELECT source_frame INTO previous FROM ops.native_source_frame WHERE task_id=p_task;
  IF FOUND THEN
-  IF previous.packet_hash<>p_hash OR previous.context_json IS DISTINCT FROM context
-   OR (SELECT count(*) FROM ops.native_source_frame_sentence WHERE task_id=p_task)<>jsonb_array_length(p_frame->'sentences')
-   OR EXISTS(SELECT FROM jsonb_array_elements(p_frame->'sentences') item LEFT JOIN ops.native_source_frame_sentence saved ON saved.task_id=p_task AND saved.sentence_id=item->>'id'
-    WHERE saved.task_id IS NULL OR saved.locator IS DISTINCT FROM item->>'locator' OR saved.start_offset IS DISTINCT FROM (item->>'start')::bigint OR saved.end_offset IS DISTINCT FROM (item->>'end')::bigint)
-  THEN RAISE EXCEPTION 'immutable native frame replay differs' USING ERRCODE='23514'; END IF;
+  IF previous IS DISTINCT FROM p_frame OR NOT EXISTS(SELECT FROM ops.native_source_frame WHERE task_id=p_task AND packet_hash=p_hash) THEN
+   RAISE EXCEPTION 'immutable native frame replay differs' USING ERRCODE='23514'; END IF;
   RETURN;
  END IF;
- INSERT INTO ops.native_source_frame VALUES(p_task,p_hash,p_frame->>'unit_ref',view.id,view.native_task_id,view.native_product_key,view.native_content_digest,view.projection_digest,view.recipe_digest,context);
- FOR sentence IN SELECT value FROM jsonb_array_elements(p_frame->'sentences') LOOP
-  IF (sentence->>'start')::bigint<0 OR (sentence->>'end')::bigint<=(sentence->>'start')::bigint OR (sentence->>'end')::bigint>char_length(view.projection->>'text') THEN
-   RAISE EXCEPTION 'native frame sentence lies outside projected text' USING ERRCODE='23514'; END IF;
-  PERFORM ops.native_source_address(view.id,sentence->>'locator',(sentence->>'start')::bigint,(sentence->>'end')::bigint);
-  INSERT INTO ops.native_source_frame_sentence VALUES(p_task,sentence->>'id',sentence->>'locator',(sentence->>'start')::bigint,(sentence->>'end')::bigint);
+ INSERT INTO ops.native_source_frame(task_id,packet_hash,unit_ref,source_view_id,product_task_id,product_key,product_digest,projection_digest,recipe_digest,context_json,source_frame)
+ VALUES(p_task,p_hash,view.key,view.id,view.native_task_id,view.native_product_key,view.native_content_digest,view.projection_digest,view.recipe_digest,(p_frame->>'native_context')::jsonb,p_frame);
+ FOR source IN SELECT p_frame-'context_sources' UNION ALL SELECT value FROM jsonb_array_elements(COALESCE(p_frame->'context_sources','[]')) LOOP
+  source_id:=(source->>'source_view_id')::bigint;
+  INSERT INTO ops.native_source_frame_source(task_id,unit_ref,source_view_id,product_task_id,product_key,product_digest,projection_digest,recipe_digest,section_pointer,membership,role,context_json)
+  VALUES(p_task,source->>'unit_ref',source_id,(source->'native_product'->>'task_id')::bigint,source->'native_product'->>'product_key',source->'native_product'->>'content_digest',source->>'projection_digest',source->>'recipe_digest',source->>'section_pointer',source->>'membership',CASE WHEN source_id=view.id THEN 'primary' ELSE 'ancestor_context' END,(source->>'native_context')::jsonb);
+  FOR sentence IN SELECT value FROM jsonb_array_elements(source->'sentences') LOOP
+   handle:=CASE WHEN source_id=view.id THEN sentence->>'id' ELSE 'native_context:'||source_id::text||':'||(sentence->>'id') END;
+   INSERT INTO ops.native_source_frame_sentence(task_id,sentence_id,locator,start_offset,end_offset,source_view_id)
+   VALUES(p_task,handle,sentence->>'locator',(sentence->>'start')::bigint,(sentence->>'end')::bigint,source_id);
+  END LOOP;
  END LOOP;
 END $frame$;
 REVOKE ALL ON FUNCTION ops.capture_native_source_frame(bigint,text,jsonb) FROM PUBLIC;
