@@ -86,8 +86,9 @@ def native_source_task(admin, writer, tmp_path):
         view=store_source_view(conn,run_id=run,task_id=source,attempt=claim.attempt,holder='native-fixture',draft=draft,position=0)
         complete_task(conn,task_id=source,attempt=claim.attempt,holder='native-fixture',prepared=prepared,observations=[],outcome='empty')
         from corpus_structure.methods.llm.agent_opus import AgentOpus
+        from corpus_structure.ingest.methods import SegmentSentences
         from corpus_structure.orchestrate.registry import MethodRegistry,MethodsFile
-        registry=MethodRegistry((AgentOpus(),),MethodsFile(configs={'agent.opus':{'extract':configuration}}))
+        registry=MethodRegistry((AgentOpus(),SegmentSentences()),MethodsFile(configs={'agent.opus':{'extract':configuration}}))
         queued=propose_agents(conn,run,prepared,registry,"""version: '0.2'
 chains:
   propose:
