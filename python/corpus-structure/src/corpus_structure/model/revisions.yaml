@@ -121,3 +121,46 @@
     judgment_carry_over: null
     compiled_artifacts: []
     source_profiles: []
+- label: 0.6.0
+  content_hash: 92d2df3faac6e6ce7e4b5eac89984b86447807c4e5c5063c479061beaf3840ca
+  key_scheme: 1
+  compilers:
+    corpus_structure.schema.generate: '1'
+    corpus_structure.schema.interchange: '1'
+    corpus_structure.schema.relational: '2'
+    linkml-runtime: 1.12.1
+  parent: 10c8462e734f6c89d33f3898a6fd242c825dc5cac79b1eb66552bd142886c8b1
+  change_record:
+    from_revision: 10c8462e734f6c89d33f3898a6fd242c825dc5cac79b1eb66552bd142886c8b1
+    to_revision: 92d2df3faac6e6ce7e4b5eac89984b86447807c4e5c5063c479061beaf3840ca
+    changes:
+    - element: core
+      change: changed
+      aspect: version
+      compatibility_class: descriptive
+      reason: Model native PDF SourceView task units and measurement subjects at their generator authority.
+      authorized_by: Operator-approved remaining PDF/Docling pipeline execution, 2026-10-31
+      decision: null
+      upcaster: null
+    - element: sys:MeasurementScope#source_view
+      change: added
+      aspect: null
+      compatibility_class: relational-additive
+      reason: Model native PDF SourceView task units and measurement subjects at their generator authority.
+      authorized_by: Operator-approved remaining PDF/Docling pipeline execution, 2026-10-31
+      decision: null
+      upcaster: null
+    - element: sys:TaskUnitType#source_view
+      change: added
+      aspect: null
+      compatibility_class: relational-additive
+      reason: Model native PDF SourceView task units and measurement subjects at their generator authority.
+      authorized_by: Operator-approved remaining PDF/Docling pipeline execution, 2026-10-31
+      decision: null
+      upcaster: null
+    name_map: {}
+    alembic_revision: semantic_0048
+    key_consequences: null
+    judgment_carry_over: null
+    compiled_artifacts: []
+    source_profiles: []

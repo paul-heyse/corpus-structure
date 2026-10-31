@@ -8,7 +8,7 @@ description: >-
   agent_reuse by_unit. System classes are tables unless ci:store says otherwise; their table is the
   snake case of the class name (or the native local_names sql entry) in the schema their subset
   names; a single-valued class-ranged attribute is a foreign key column named <attribute>_id.
-version: 0.5.0
+version: 0.6.0
 license: https://creativecommons.org/publicdomain/zero/1.0/
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -2974,6 +2974,7 @@ enums:
     permissible_values:
       document: {}
       rendition: {}
+      source_view: {description: "A pinned native PDF section projection; never a rendition alias."}
       segment: {}
       span: {description: "M12's unit: a `kb.span` row (D4 §1)"}
       observation: {}
@@ -3053,6 +3054,7 @@ enums:
     permissible_values:
       run: {}
       rendition: {}
+      source_view: {description: "A pinned native PDF section projection; never a rendition alias."}
       segment: {}
       entity: {}
       claim: {}
