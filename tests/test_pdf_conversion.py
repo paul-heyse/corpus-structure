@@ -276,6 +276,7 @@ def test_converter_hashes_and_consumes_same_immutable_snapshot(tmp_path, monkeyp
             errors=[],
             status=SimpleNamespace(value="success"),
             input=SimpleNamespace(release=lambda: None),
+            confidence=SimpleNamespace(model_dump_json=lambda:'{"layout_score":0.75}'),
         )
 
     def prepare():

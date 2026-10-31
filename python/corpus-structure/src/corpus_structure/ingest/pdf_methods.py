@@ -20,7 +20,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.parsing_products import ProductReference
 from corpus_structure.semantic.metadata import table
 
-from .pdf import PdfConversion, PdfConverter, PdfRecipe, publication_payload
+from .pdf import PdfConversion, PdfConverter, PdfRecipe, publication_payload, pdf_package_versions
 from .pdf_health import FormulaOutcome
 from .pdf_candidates import CandidatePage, InlineCandidate
 from .pdf_assets import PreparedPdfAssets, prepare_pdf_assets
@@ -259,7 +259,8 @@ def _conversion_from_product(product,recipe_bytes:bytes) -> PdfConversion:
         (values['page_start'],values['page_end']) if values.get('source_scope')=='page_range' else None,
         runtime=tuple((r['name'],r['value']) for r in values.get('runtime_report',{}).get('bindings',[])),
         effective_options=values.get('runtime_report',{}).get('effective_options','{}').encode(),
-        inline_candidates=candidates)
+        inline_candidates=candidates,
+        confidence=values.get('runtime_report',{}).get('confidence','{}').encode())
 
 class PdfEnrichConfig(PdfIngestConfig):
     # Released classification rules: a cell's nonempty recognition never establishes math.
@@ -370,9 +371,8 @@ class EnrichPdfMath:
                         report.update(formula_pointer=mapped['pointer'],outcome=outcome.outcome)
                         if outcome.error:
                             report['error']=outcome.error
-                from importlib.metadata import version
                 conversion=dataclasses.replace(conversion,
-                    packages=tuple((name,version(name)) for name in ('docling','docling-core','docling-parse')),
+                    packages=pdf_package_versions(),
                     runtime=converter.runtime_bindings(),effective_options=recipe.options().model_dump_json(serialize_as_any=True).encode())
                 derived=snapshot(document)
                 enriched=CellEnrichment(conversion.native.digest,derived,cell_outcomes+inline_outcomes,

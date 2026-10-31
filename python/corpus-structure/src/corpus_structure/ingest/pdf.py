@@ -19,6 +19,15 @@ from .pdf_candidates import CandidatePage, capture_candidates
 from .pdf_hierarchy import NativeSnapshot, native_nodes, snapshot
 
 
+PDF_PACKAGE_FAMILY=("docling","docling-core","docling-parse","torch","rapidocr","onnxruntime",
+                    "pypdfium2","Pillow","transformers","huggingface-hub","safetensors")
+
+
+def pdf_package_versions() -> tuple[tuple[str,str],...]:
+    """Distribution metadata only; no imports, model initialization or asset loading."""
+    return tuple((name,version(name)) for name in PDF_PACKAGE_FAMILY)
+
+
 @dataclass(frozen=True, slots=True)
 class PdfRecipe:
     layout_revision: str
@@ -140,6 +149,7 @@ class PdfConversion:
     runtime: tuple[tuple[str, str], ...] = ()
     effective_options: bytes = b"{}"
     inline_candidates: tuple[CandidatePage, ...] = ()
+    confidence: bytes = b"{}"
 
 
 class PdfConverter:
@@ -270,7 +280,10 @@ class PdfConverter:
         if self._formula is None:
             return ()
         if self._pipeline is None:
-            return (("formula.engine",type(self._formula.native.engine).__name__),
+            return (("layout.engine","not_executed"),("layout.device","not_executed"),
+                    ("table.device","not_executed"),("ocr.det.providers","not_executed"),
+                    ("ocr.cls.providers","not_executed"),("ocr.rec.providers","not_executed"),
+                    ("formula.engine",type(self._formula.native.engine).__name__),
                     ("formula.device",str(getattr(self._formula.native.engine,"device","unknown"))))
         pipeline = self._pipeline
         entries = [
@@ -335,13 +348,12 @@ class PdfConverter:
                 str(result.status.value),
                 tuple(str(error.model_dump(mode="json")) for error in result.errors),
                 tuple(outcomes),
-                tuple(
-                    (name, version(name)) for name in ("docling", "docling-core", "docling-parse")
-                ),
+                pdf_package_versions(),
                 page_range,
                 self.runtime_bindings(),
                 self._options.model_dump_json(serialize_as_any=True).encode(),
                 tuple(sorted(self._candidate_pages, key=lambda page: page.page_no)),
+                result.confidence.model_dump_json().encode(),
             )
         finally:
             result.input.release()
@@ -582,6 +594,8 @@ def publication_payload(
             'packages':[dict(name=name,version=version) for name,version in conversion.packages],
             'bindings':[dict(name=name,value=value) for name,value in conversion.runtime],
             'effective_options':conversion.effective_options.decode('utf-8')}
+        if conversion.confidence!=b'{}':
+            result['runtime_report']['confidence']=conversion.confidence.decode('utf-8')
     if parent is not None:
         result.update(
             parent_task_id=parent[0], parent_product_key=parent[1], parent_digest=parent[2]
