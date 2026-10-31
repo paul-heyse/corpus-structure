@@ -284,6 +284,8 @@ def run_source_methods(
                                     from corpus_structure.semantic.operations import read_original
 
                                     read_original(conn, ref.unit_id, prepared=prepared)
+                                    from corpus_structure.semantic.source_views import select_reused_source_views
+                                    select_reused_source_views(conn,run_id=rid,task_id=task_id)
                     scheduled.append((method, config, cid))
                 while True:
                     work = []
@@ -300,6 +302,25 @@ def run_source_methods(
                             work.append((method, config, claimed))
                     if not work:
                         break
+                    # The original/recipe commit precedes native inference. Read-only method
+                    # connections are rolled back and cannot own this durable custody boundary.
+                    for method,config,claimed in work:
+                        original_recipe=getattr(method,"original_recipe",None)
+                        if original_recipe is not None:
+                            from corpus_structure.semantic.pdf_contracts import store_pdf_original
+                            from corpus_structure.semantic.operations import read_original
+                            recipe=original_recipe(config.config)
+                            with engine.begin() as original_conn:
+                                for claimed_task in claimed:
+                                    document_id=claimed_task.unit_id
+                                    if claimed_task.unit_type=="source_view":
+                                        view_table=table("kb.source_view")
+                                        document_id=original_conn.execute(select(view_table.c.document_id).where(view_table.c.id==claimed_task.unit_id)).scalar_one()
+                                    if document_id is None or claimed_task.unit_type not in {"document","source_view"}:
+                                        raise OperationConflict("original preparation requires an original-bound task")
+                                    original=read_original(original_conn,document_id,prepared=prepared)
+                                    store_pdf_original(original_conn,task_id=claimed_task.task_id,
+                                        attempt=claimed_task.attempt,holder=holder,original=original,recipe_bytes=recipe)
                     completed = []
                     with engine.connect() as conn:
                         view = run_view(conn, rid, prepared)
@@ -310,9 +331,9 @@ def run_source_methods(
                         for method, config, claimed in work:
                             view.reader.bind_source_tasks(
                                 {
-                                    int(task.unit_id): task.task_id
+                                    int(task.unit_id if task.unit_type=="document" else conn.execute(select(table("kb.source_view").c.document_id).where(table("kb.source_view").c.id==task.unit_id)).scalar_one()): task.task_id
                                     for task in claimed
-                                    if task.unit_type == "document" and task.unit_id is not None
+                                    if task.unit_type in {"document","source_view"} and task.unit_id is not None
                                 }
                             )
                             units = [
@@ -323,16 +344,18 @@ def run_source_methods(
                                 )
                                 for t in claimed
                             ]
-                            results = method.run(
-                                units,
-                                config.config,
-                                MethodContext(
-                                    view,
-                                    view.reader,
-                                    method_settings,
-                                    logging.getLogger(method.name),
-                                ),
-                            )
+                            from corpus_structure.semantic.claim_lifetime import maintained_claims
+                            with maintained_claims(engine,claimed,holder):
+                                results = method.run(
+                                    units,
+                                    config.config,
+                                    MethodContext(
+                                        view,
+                                        view.reader,
+                                        method_settings,
+                                        logging.getLogger(method.name),
+                                    ),
+                                )
                             completed.append((method, config, claimed, results))
                         conn.rollback()
                     for method, config, claimed, results in completed:
@@ -390,6 +413,9 @@ def run_source_methods(
 def _unit(conn: Any, view: Any, ref: Any) -> UnitView:
     if ref.unit_type == TaskUnitType.DOCUMENT:
         return UnitView(ref, view, document_id=ref.unit_id)
+    if ref.unit_type == TaskUnitType.SOURCE_VIEW:
+        source=view.reader.source_view(ref.unit_id)
+        return UnitView(ref,view,document_id=source.ref.document_id,source_view_id=source.ref.id)
     if ref.unit_type == TaskUnitType.RENDITION:
         r = table("kb.rendition")
         doc = conn.execute(select(r.c.document_id).where(r.c.id == ref.unit_id)).scalar_one()
@@ -440,6 +466,10 @@ def _packet_for_unit(
     if ref not in units:
         units[ref] = _unit(conn, view, ref)
     unit = units[ref]
+    if unit.source_view_id is not None:
+        from corpus_structure.methods.math.native import native_proposal_packet
+        known=document_references(conn,view,unit.document_id,limit=MAX_KNOWN)
+        return native_proposal_packet(view.reader,unit.source_view_id,prepared,configuration,known=known)
     if unit.rendition_id is None or unit.document_id is None or ref.unit_key is None:
         raise OperationConflict("an agent proposal requires a located source unit")
     raw_math = configuration.get("math", {})
@@ -550,7 +580,7 @@ def queue_agent(
         SEMANTIC_AGENT_VERSION,
         "agent",
         "agent",
-        TaskUnitType.SEGMENT,
+        TaskUnitType.SOURCE_VIEW,
         AgentOpusConfig,
         "agent",
     )

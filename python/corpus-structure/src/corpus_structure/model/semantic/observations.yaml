@@ -66,6 +66,12 @@ classes:
       confidence_source: {}
       payload: {range: SourceObject, inlined: true, required: true}
       inputs: {range: SourceObservationReference, inlined: true, multivalued: true}
+      source_view_id: {range: integer, minimum_value: 1}
+      native_pointer: {}
+      projected_start: {range: integer, minimum_value: 0}
+      projected_end: {range: integer, minimum_value: 0}
+      recognized_start: {range: integer, minimum_value: 0}
+      recognized_end: {range: integer, minimum_value: 0}
       rendition_id: {range: integer}
       segment_id: {range: integer}
       span_start: {range: integer, minimum_value: 0}

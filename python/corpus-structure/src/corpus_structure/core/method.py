@@ -146,6 +146,7 @@ class SourceViewDraft:
     ancestors: tuple[str, ...]
     health: Mapping[str, JsonValue]
     recipe_bytes: bytes
+    replaces_source_view_id: int | None = None
     _projection: bytes = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -153,7 +154,8 @@ class SourceViewDraft:
             raise ValueError("source view requires original custody and explicit section membership")
         value = {"text": self.text, "pieces": self.pieces, "items": self.items,
                  "ancestors": self.ancestors, "health": self.health}
-        object.__setattr__(self, "_projection", canonical_json(value))
+        import json
+        object.__setattr__(self, "_projection", json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False,allow_nan=False).encode())
         if len(set(self.items)) != len(self.items):
             raise ValueError("source view items must retain distinct native occurrence identity")
         position = 0
@@ -423,6 +425,7 @@ class ObservationDraft[P: BaseModel]:
     source_view_id: int | None = None
     native_pointer: str | None = None
     projected_span: tuple[int, int] | None = None
+    recognized_span: tuple[int, int] | None = None
 
     def __post_init__(self) -> None:
         if type(self.payload) is not self.payload_class:

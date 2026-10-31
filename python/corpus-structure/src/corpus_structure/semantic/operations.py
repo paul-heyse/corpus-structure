@@ -799,6 +799,15 @@ def complete_unit_result(
         store_layered_products(
             conn, task_id=task_id, attempt=attempt, holder=holder, products=result.parsing_products
         )
+    if result.native_products:
+        from .pdf_contracts import store_pdf_product
+        for product in result.native_products:
+            store_pdf_product(conn,task_id=task_id,attempt=attempt,holder=holder,product=product)
+    if result.source_views:
+        from .source_views import store_source_view
+        for position,draft in enumerate(result.source_views):
+            store_source_view(conn,run_id=task["run_id"],task_id=task_id,attempt=attempt,
+                              holder=holder,draft=draft,position=position)
     rows = []
     for item in items:
         rid = item.get("rendition_id", rendition_id)
@@ -827,6 +836,7 @@ def complete_unit_result(
                 payload=item,
                 kind=item["family"],
                 rendition_id=rid,
+                source_view_id=item.get("source_view_id"),
                 segment_id=item.get("segment_id"),
                 span_id=span_id,
                 score=source_python(item["score"]) if item.get("score") is not None else None,
@@ -877,6 +887,10 @@ class SourceObservationView:
     observation_key: str
     release_id: str
     input_refs: tuple[SourceObservationReference, ...] = ()
+    source_view_id: int | None = None
+    native_pointer: str | None = None
+    projected_span: tuple[int,int] | None = None
+    recognized_span: tuple[int,int] | None = None
 
 
 class BoundReader:
@@ -902,6 +916,49 @@ class BoundReader:
             from .analysis_contracts import bind_analysis_family
 
             self._source_contract = bind_analysis_family(prepared, "source")
+
+    def pdf_contract(self):
+        from .pdf_contracts import pdf_context_for_release
+        return pdf_context_for_release(self.conn,self.prepared).boundary
+
+    def source_views(self):
+        from .source_views import selected_source_views
+        return selected_source_views(self.conn,self.run_id)
+
+    def source_view(self, source_view_id: int):
+        from .source_views import load_source_view
+        if source_view_id not in {r.id for r in self.source_views()}:
+            raise OperationConflict("source view is outside bound run")
+        return load_source_view(self.conn,source_view_id)
+
+    def native_document(self,reference):
+        from .pdf_contracts import PreparedPdfProduct,pdf_context_for_task
+        product,build,artifact=table("ops.native_document_product"),table("ops.source_build"),table("kb.source_artifact")
+        row=self.conn.execute(select(product,build.c.artifact_digest.label("original_digest")).join(build,build.c.task_id==product.c.task_id).where(product.c.task_id==reference.task_id,product.c.product_key==reference.product_key,product.c.content_digest==reference.content_digest)).mappings().one()
+        permitted=any(v.native_product==reference for v in self.source_views())
+        if not permitted:
+            raise OperationConflict("whole-native derivation requires explicitly selected source view")
+        context=pdf_context_for_task(self.conn,reference.task_id)
+        if row["contract_digest"]!=context.contract_digest:
+            raise OperationConflict("native product archived contract differs")
+        contents=dict(self.conn.execute(select(artifact.c.artifact_digest,artifact.c.content).where(artifact.c.artifact_digest.in_([row["original_digest"],row["schema_digest"],row["recipe_digest"]]))).all())
+        return PreparedPdfProduct(bytes(row["payload"]),bytes(contents[row["original_digest"]]),bytes(contents[row["schema_digest"]]),bytes(contents[row["recipe_digest"]]),row["contract_digest"])
+
+    def native_product_reference(self, document_id: int, product_key: str, digest: str):
+        from .parsing_products import ProductReference
+        if document_id not in self.source_tasks:
+            raise OperationConflict("native product requires real claimed source task")
+        return ProductReference(self.source_tasks[document_id],product_key,digest)
+
+    def prepare_pdf_product(self,payload,original,schema_bytes,recipe_bytes):
+        from .pdf_contracts import pdf_context_for_task,prepare_pdf_product
+        if not self.source_tasks:
+            raise OperationConflict("native preparation requires bound source task")
+        context=getattr(self,"_pdf_context",None)
+        if context is None:
+            context=pdf_context_for_task(self.conn,next(iter(self.source_tasks.values())))
+            self._pdf_context=context
+        return prepare_pdf_product(payload,original,schema_bytes,recipe_bytes,context=context)
 
     def renditions(self) -> Sequence[RunRendition]:
         from corpus_structure.core.method import RunRendition
@@ -1103,9 +1160,16 @@ class BoundReader:
             )
         }
 
+    def source_observations(self,source_view_id: int,method: str,kind: ObservationKind):
+        self.source_view(source_view_id)
+        return self._observations(source_view_id,method,kind,native=True)
+
     def observations(
         self, rendition_id: int, method: str, kind: ObservationKind
     ) -> Sequence[ObservationReading]:
+        return self._observations(rendition_id,method,kind,native=False)
+
+    def _observations(self,source_id: int,method: str,kind: ObservationKind,*,native: bool):
         from corpus_structure.core.method import payload_hash
         from corpus_structure.core.vocab import ObservationKind, ObservationOutcome
 
@@ -1125,7 +1189,7 @@ class BoundReader:
             .join(m, c.c.method_id == m.c.id)
             .where(
                 t.c.run_id == self.run_id,
-                o.c.rendition_id == rendition_id,
+                (o.c.source_view_id == source_id if native else o.c.rendition_id == source_id),
                 m.c.name == method,
                 o.c.kind == str(kind),
             )
@@ -1161,9 +1225,24 @@ class BoundReader:
                         SourceObservationReference(ref["observation_key"], ref["role"])
                         for ref in row["payload"].get("inputs", ())
                     ),
+                    row["source_view_id"],
+                    row["payload"].get("native_pointer"),
+                    ((row["payload"]["projected_start"],row["payload"]["projected_end"]) if row["payload"].get("projected_start") is not None else None),
+                    ((row["payload"]["recognized_start"],row["payload"]["recognized_end"]) if row["payload"].get("recognized_start") is not None else None),
                 )
             )
         return out
+
+    def source_view_coverage(self,source_view_id: int,method: str):
+        from corpus_structure.core.method import CoverageDraft,SourceCoverageReading
+        source=self.source_view(source_view_id)
+        task,result,config,producer=map(table,("ops.task","ops.task_result","ops.method_config","ops.method"))
+        query=select(result).select_from(task).join(result,result.c.task_id==func.coalesce(task.c.reused_task_id,task.c.id)).join(config,task.c.method_config_id==config.c.id).join(producer,producer.c.id==config.c.method_id).where(task.c.run_id==self.run_id,task.c.unit_type=="source_view",task.c.unit_id==source_view_id,producer.c.name==method)
+        if self.cut_id is not None:
+            cut=table("ops.cut_task")
+            query=query.join(cut,cut.c.origin_task_id==result.c.task_id).where(cut.c.cut_id==self.cut_id)
+        return tuple(SourceCoverageReading(CoverageDraft(**item),row["task_id"],row["release_id"],position,0,len(source.text))
+            for row in self.conn.execute(query).mappings() for position,item in enumerate(row["body"].get("coverage",())) if item["family"]==method)
 
     def source_coverage(self, rendition_id: int, method: str):
         """Read immutable source coverage through this run's effective task origins."""

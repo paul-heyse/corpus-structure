@@ -101,6 +101,13 @@ def pdf_context_for_task(conn: Connection, task_id: int) -> PreparedPdfContext:
         .where(tasks.c.id == task_id)
     ).scalar_one()
     prepared = open_release(conn, release_id)
+    return pdf_context_for_release(conn,prepared)
+
+
+def pdf_context_for_release(conn: Connection,prepared: PreparedRelease) -> PreparedPdfContext:
+    from .contracts import execution_payload
+    inputs=table("sem.input")
+    release_id=prepared.release_id
     payload = execution_payload(prepared)
     if payload is None:
         raise ValueError("producing task has no archived execution binding")
@@ -124,6 +131,13 @@ def pdf_context_for_task(conn: Connection, task_id: int) -> PreparedPdfContext:
         ),
     )
     return prepare_pdf_context(prepared, bundle)
+
+
+def pdf_context_for_run(conn: Connection,run_id: int) -> PreparedPdfContext:
+    from .releases import open_release
+    runs=table("ops.run")
+    release=conn.execute(select(runs.c.release_id).where(runs.c.id==run_id)).scalar_one()
+    return pdf_context_for_release(conn,open_release(conn,release))
 
 
 def table(name: str):
