@@ -72,8 +72,8 @@ confirmations do not authorize changing grading policy, audit premises or histor
 
 | Package | Supporting owner / result | Required inputs | State |
 |---|---|---|---|
-| <a id="PDF-00"></a>PDF-00 | [Foundations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-00): architectural decisions and enduring owners | Confirmed RC01–05, current clauses | Planned |
-| <a id="PDF-01"></a>PDF-01 | [Investigations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-01): qualified library/runtime choices | Source PDF, review; early PDF-02 agreement where needed | Planned; I01–I08 open |
+| <a id="PDF-00"></a>PDF-00 | [Foundations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-00): architectural decisions and enduring owners | Confirmed RC01–05, current clauses | Delivered: ADR-0038 and architectural owners |
+| <a id="PDF-01"></a>PDF-01 | [Investigations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-01): qualified library/runtime choices | Source PDF, review; early PDF-02 agreement where needed | Partial: bounded native probes; remaining integration open |
 | <a id="PDF-02"></a>PDF-02 | [Model](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-02): connected contracts and prepared ports | PDF-00; I03/04/06 before final producer contracts | Planned |
 | <a id="PDF-03"></a>PDF-03 | [Storage](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-03): native JSON, derived access rows and integrity | Agreed PDF-02; I06 | Planned |
 | <a id="PDF-04"></a>PDF-04 | [Conversion](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-04): PDF producer with explicit health | I01/02/03; relevant PDF-02 support | Planned |
@@ -117,14 +117,14 @@ repository records when a probe produces an accepted result. No new permanent ca
 
 | ID | Question and necessary output | State / constrains |
 |---|---|---|
-| I01 | Exact PDF-only extras, Python 3.14/runtime/model compatibility and actual per-stage providers | Open · PDF-04/09 |
-| I02 | Heron versus Egret Large region detection; crop/repetition settings and chosen recipe | Open · PDF-04 |
-| I03 | Attributable formula health; inline and table-cell coverage; supported rich-cell enrichment route if necessary | Open · PDF-02/04/06/07 |
-| I04 | Heading levels versus actual section groups; ordered intact hierarchy and descendant-selection semantics | Open · PDF-02/05/07 |
-| I05 | Native SymPy compatibility on real recognized formulas; smallest required grammar/occurrence gap | Open · PDF-06 |
-| I06 | JSON/schema roundtrip, validation mutation, image custody and native/region address precision | Open · PDF-02/03/08 |
-| I07 | Full-book conversion live state, cleanup, cancellation and stage capacity | Open · PDF-09/10/11 |
-| I08 | Source inventory/defaults, independent PDF reference anchoring and concrete acceptance journey selection | Open · PDF-10/11 |
+| I01 | Exact PDF-only extras, Python 3.14/runtime/model compatibility and actual per-stage providers | Partial: full installation/native runs; actual OCR CUDA and offline replay open · PDF-04/09 |
+| I02 | Heron versus Egret Large region detection; crop/repetition settings and chosen recipe | Bounded comparison delivered: retain Heron; no measured quality improvement · PDF-04 |
+| I03 | Attributable formula health; inline and table-cell coverage; supported rich-cell enrichment route if necessary | Partial: fallback/table gap confirmed; native cell extension prototype; production health/coverage open · PDF-02/04/06/07 |
+| I04 | Heading levels versus actual section groups; ordered intact hierarchy and descendant-selection semantics | Mechanism delivered: derived groups preserve refs/order; semantic heading fidelity remains PDF-05/07 · PDF-02/05/07 |
+| I05 | Native SymPy compatibility on real recognized formulas; smallest required grammar/occurrence gap | Compatibility gap identified: native default grammar insufficient; PDF-06 remedy/qualification open · PDF-06 |
+| I06 | JSON/schema roundtrip, validation mutation, image custody and native/region address precision | Bounded native/schema/JSONB probe passed; protected application publication remains PDF-03 · PDF-02/03/08 |
+| I07 | Full-book conversion live state, cleanup, cancellation and stage capacity | Partial: representative lifecycle only; full-book/cancellation qualification with PDF-09 · PDF-09/10/11 |
+| I08 | Source inventory/defaults, independent PDF reference anchoring and concrete acceptance journey selection | Migration/split decisions delivered; actual anchors/provider/evaluation remain PDF-10/11 · PDF-10/11 |
 
 A known table-cell formula gap cannot disappear into a generic "unsupported" label while claiming
 supported table-math completion. Implement the selected supported enrichment route if required;
@@ -158,8 +158,10 @@ independent fidelity assessment separate from pipeline correctness. Resolve subs
 issues at coherent endpoints. Applicable lint-only maintenance does not invalidate prior tests.
 No grading-policy change, human grading or automatic historical re-anchoring is included.
 
-**Current checkpoint (2026-10-31):** plan documents authored; every product package and investigation
-remains planned/open. No Docling dependency installation, corpus conversion, inference, database
-migration or product test was performed during authoring. The next execution scope is PDF-00 plus
-PDF-01's early questions and PDF-02's agreed-contract slice, with the governing decision changes
-completed before dependent production effects. Prior PP completion and audit premises are unchanged.
+**Current checkpoint (2026-10-31):** PDF-00 decision work is delivered via ADR-0038. PDF-01
+[foundation evidence](../design_review/evidence/2026-10-31_pdf-docling-foundations/README.md)
+contains full installation and native sampled conversions, schema/JSONB/hierarchy probes,
+formula health/compatibility gaps and reference-migration decisions. I01/I03/I05/I07 and
+operational I08 obligations remain open as stated above. No PDF product deployment or adoption
+is claimed. Next: PDF-02 detailed contracts using these results, then PDF-03/04; PDF-09 owns
+remaining integrated lifecycle proof. Historical PP completion and audit premises are unchanged.

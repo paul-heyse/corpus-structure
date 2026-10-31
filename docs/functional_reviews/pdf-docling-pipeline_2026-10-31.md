@@ -310,13 +310,13 @@ review actual long-book lifecycle before claiming feasibility. Page-range conver
 products with their own coverage; concatenation cannot be assumed equivalent to full-book heading
 inference or cross-page structure. No arbitrary page-sharding architecture is selected here.
 
-**Dependency recommendation:** evaluate an exact-pinned PDF-only `docling-slim` extra set
-(`format-pdf`, `models-local`, `models-vlm-inline`, selected OCR extra), plus the matching core
-schema. The `docling==2.145.0` umbrella selects `standard`, which includes Office/web and an
-Office `pylatexenc<3` requirement alongside the project's current 3.0b2. That is an avoidable
-packaging interaction, not proof that Docling itself is incompatible. Confirm selected extras,
-Python 3.14 wheels and native/CUDA execution during implementation preparation. No dependencies
-were added or resolved in this review.
+**Dependency selection (operator, 2026-10-31):** use full
+`docling[asr,easyocr,htmlrender,ocrmac,onnxruntime,rapidocr,remote-serving,tesserocr,vlm,xbrl]`,
+superseding the initial narrow-extra recommendation. Install breadth does not automatically
+activate additional source formats or models. The foundation evidence environment resolved this
+full distribution independently of the application's held pylatexenc 3.0b2. Application dependency
+migration, actual provider selection and lifecycle qualification remain explicit plan obligations.
+The [PDF coordinator](../plans/pdf-docling-pipeline_2026-10-31.md) owns current execution status.
 
 Delete active HTML producer/repair hooks, CSS-based profiles, HTML macro acquisition and browser
 insertion rules. Update admitted operations, archived implementation manifests, defaults,

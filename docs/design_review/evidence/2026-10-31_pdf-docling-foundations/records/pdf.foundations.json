@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "id": "pdf.foundations",
+  "title": "PDF-native Docling foundation investigations",
+  "group": null,
+  "package": "PDF-01",
+  "finalized": "2026-10-31",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which native capabilities and limits constrain the PDF-only domain-model pivot?",
+  "answers": [
+    "PDF-00",
+    "PDF-01",
+    "I01",
+    "I02",
+    "I03",
+    "I04",
+    "I05",
+    "I06",
+    "I07",
+    "I08"
+  ],
+  "method": "Full isolated Docling installation; actual native page conversions, layout comparison, formula/cell enrichment, native hierarchy/schema/SQLAlchemy JSONB probes and source consumer inspection.",
+  "commands": [
+    "uv add \"docling[asr,easyocr,htmlrender,ocrmac,onnxruntime,rapidocr,remote-serving,tesserocr,vlm,xbrl]\" --project docs/design_review/evidence/2026-10-31_pdf-docling-foundations",
+    "uv run --project docs/design_review/evidence/2026-10-31_pdf-docling-foundations python docs/design_review/evidence/2026-10-31_pdf-docling-foundations/probe.py --pages 20:45",
+    "uv run --project docs/design_review/evidence/2026-10-31_pdf-docling-foundations python docs/design_review/evidence/2026-10-31_pdf-docling-foundations/cell_probe.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "native probes and retained failures",
+      "sha256": "59ce1778107dcef837671ffb2fa4c2ebb88e60402c16e5bbc0f73387f615afbb"
+    },
+    {
+      "path": "math_probe.py",
+      "role": "reproduction source/environment",
+      "sha256": "77ad3d8522258140aedd91c36c11d65fe1e72c255d6364767da63df28a5ccde6"
+    },
+    {
+      "path": "hierarchy_probe.py",
+      "role": "reproduction source/environment",
+      "sha256": "386270d235cc61c38b7bc0f9bfc3a4a5fc4f37d57ad66c480d9dbdb31a11b361"
+    },
+    {
+      "path": "uv.lock",
+      "role": "reproduction source/environment",
+      "sha256": "a154fb4d78b4378d783a8324b1574aae8372338257a2e23910594a7efa218dbf"
+    },
+    {
+      "path": "schema_probe.py",
+      "role": "reproduction source/environment",
+      "sha256": "b9250ce98271f40c7fa734f63af3f21840fc3a22db444c411e097b4a5ff63f50"
+    },
+    {
+      "path": "health_probe.py",
+      "role": "reproduction source/environment",
+      "sha256": "241b1494bc0f47c7ddb87f5a1cd26f69644e6a1a3d09b31635b403596c404a66"
+    },
+    {
+      "path": "probe.py",
+      "role": "reproduction source/environment",
+      "sha256": "b2bcc11988045899cc326d722de9e9edb0176ff0eb4a86af5878ca1c94db1466"
+    },
+    {
+      "path": "cell_probe.py",
+      "role": "reproduction source/environment",
+      "sha256": "e5ef0dfdcb4a78f2316eef81564afcaff18c2205d2e04df1c042707dc1b6bf15"
+    },
+    {
+      "path": "pyproject.toml",
+      "role": "reproduction source/environment",
+      "sha256": "09e97d054673fc24b3add064944d0d51953cf93b429bb5c28904b240e9a0a2c2"
+    },
+    {
+      "path": "inventory.py",
+      "role": "reproduction source/environment",
+      "sha256": "790bcfe92866791a937fd0927c1128712bfc1165646efe31ee3fc4d7d3e26bce"
+    },
+    {
+      "path": "I04.md",
+      "role": "bounded investigation conclusions",
+      "sha256": "471e6233fbf1001b84371cf303f55032bcc1bfbece9f0f8e92f0bd7038165852"
+    },
+    {
+      "path": "I06.md",
+      "role": "bounded investigation conclusions",
+      "sha256": "32c08a28457fc12fb9776ccd716bd5f769ddbb2d231cae235462b09166e392e6"
+    },
+    {
+      "path": "I08.md",
+      "role": "bounded investigation conclusions",
+      "sha256": "66a08a2d590ed24b46412f39ca3b222da241fee6d07ea1b247edfcb877b662aa"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Full install and bounded native conversion, schema/JSONB, hierarchy and one rich-cell enrichment succeeded. Recognition-health, native grammar, per-stage OCR CUDA, hermetic replay, full-book lifecycle and actual product integration remain open. Original failed attempts retained; no production qualification claimed.",
+  "consumed_by": [
+    "PDF-00",
+    "PDF-01",
+    "PDF-02",
+    "PDF-04",
+    "PDF-06",
+    "PDF-09",
+    "ADR-0038"
+  ]
+}

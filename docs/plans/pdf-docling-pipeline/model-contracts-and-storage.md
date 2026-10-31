@@ -6,6 +6,22 @@ dispositions. Consumes the [review](../../functional_reviews/pdf-docling-pipelin
 at `2c33372`, its [target](../../functional_reviews/pdf-docling-pipeline_2026-10-31_target-model.md),
 PDF-00 decisions and relevant [PDF-01](foundations-and-investigations.md#PDF-01) results.
 
+## Early contract agreement — 2026-10-31
+
+**Accepted design agreement, not model/runtime implementation.** Source references bind original,
+conversion product/configuration/schema and native pointer; pointer equality alone is not cross-build
+identity. Physical pages, printed labels, original bytes, native/recognized/projected text offsets
+and page-region geometry are distinct variants. Ordered section selections declare direct versus
+descendant membership; declaration evidence additionally carries source position and forward extent.
+Packets/frames bind actual source ancestry/item/cell/formula/region context and health into identity.
+Conversion status, recognition health, interpretation and fidelity coverage remain independent.
+No chunking is admitted. Native validation schema plus qualified tree validation govern incoming
+Docling exports; serialization schema alone did not reject an invalid native label in I06. Normalize
+before identity, and map known malformed-reference exceptions without treating every runtime exception
+as invalid source. Native options JSON is not replay-safe by itself; use explicit finite typed recipes.
+[Foundation evidence](../../design_review/evidence/2026-10-31_pdf-docling-foundations/README.md)
+provides bounded source/API/native results; complete contracts/deployment remain PDF-02/03.
+
 ## Foundation assessment and physical reasoning
 
 `semantic/metadata.py` compiles `model/semantic/physical.yaml` through LinkML `SchemaView` and

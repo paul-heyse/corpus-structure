@@ -1,6 +1,6 @@
 # PDF foundations and capability investigations
 
-**Status:** Planned; implementation and investigations have not run. **Created:** 2026-10-31.
+**Status:** PDF-00 decision work delivered; PDF-01 investigated with partial integration obligations. **Created:** 2026-10-31.
 The [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns package state, review O01–O08
 and investigation I01–I08 disposition. This document explains PDF-00/01, not a second queue.
 Consumes the [functional review](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md)
@@ -74,7 +74,7 @@ benchmark campaign. Preserve failed/partial attempts and their precise input/mod
 
 | Investigation | Evidence and decision to supply | Consumers constrained |
 |---|---|---|
-| I01 — Runtime and exact pins | Resolve PDF-only `docling-slim` extras, matching core, Python 3.14 wheels, native dependencies and model revisions. Confirm actual ONNX provider and per-stage device. | PDF-04/09 dependency and execution binding. |
+| I01 — Runtime and exact pins | Resolve full `docling` distribution with all operator-requested extras, matching core, Python 3.14 wheels, native dependencies and model revisions. Confirm actual ONNX provider and per-stage device. | PDF-04/09 dependency and execution binding. |
 | I02 — Layout/formula composition | Compare `layout_heron_default` with `layout_egret_large` on dense equations, headings and formula-bearing tables; distinguish detection misses from transcription errors. | PDF-04 selected layout and recognition scope. |
 | I03 — Formula health and coverage | Expose enrichment success versus caught failure/fallback; cover inline, display and ordinary table-cell math separately. Investigate supported cell-aware enrichment only for an actual gap. | PDF-04/06/07 health semantics and frontend retirement. |
 | I04 — Hierarchy | Verify heading-level output versus actual section containers, reading order and section/subsection membership across pages. | PDF-05 grouping recipe and PDF-07 unit policy. |
@@ -89,7 +89,7 @@ is not a corpus-tested configuration; sampled pages are not full-book completion
 
 ### Mechanisms to preserve in the investigation result
 
-For I01, compare the narrow PDF-only extras with the umbrella `docling` standard bundle. The
+For I01, use the full `docling` distribution with all ten requested extras, superseding the review’s minimal-package recommendation. The
 review identifies unrelated Office/web dependencies and a `pylatexenc<3` interaction with the
 current 3.0b2. Exact pins/lock changes belong to execution and move only the selected family.
 Record model repository revisions/checkpoint identities, not an unqualified mutable `main`.
@@ -132,3 +132,22 @@ OCR voting, mandatory whole-book second pass, preview table model or chart extra
 limits, with input/source references and an actionable route for unresolved outcomes. Native
 roundtrip and real consumer evidence remain separate from source inspection. Integration and
 assembled qualification belong to PDF-03–11 and their owners, not to a probe's success label.
+
+## Execution checkpoint — 2026-10-31
+
+ADR-0038 supersedes0036/0037 and updates D1–D8/§B4/§B5 as accepted targets; the installed HTML
+route remains explicitly retained until later migration. Early PDF-02 agreement is recorded in
+the model/storage owner. [Foundation evidence](../../design_review/evidence/2026-10-31_pdf-docling-foundations/README.md)
+owns actual native probe outcomes and failures. Coordinator I01–I08 rows retain remaining obligations.
+
+Operator-selected installation (supersedes the minimal-package recommendation):
+
+```sh
+uv add "docling[asr,easyocr,htmlrender,ocrmac,onnxruntime,rapidocr,remote-serving,tesserocr,vlm,xbrl]"
+```
+
+Executed with an explicitly selected separately locked evidence project; application manifests and
+locks are unchanged. Full model breadth is installed, not automatically selected for execution.
+No application migration, default cutover, actual agent/evaluator run or full-book qualification
+is established. Most sampled recognized strings require more than the default SymPy grammar;
+retirement of the existing mathematical frontend remains conditional on PDF-06 qualification.
