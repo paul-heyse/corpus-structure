@@ -1,5 +1,9 @@
-version: 0.1.0
+version: 0.2.0
+default_scope: toy
 slices:
-  toy: [ownership.html, registers.html]
-  one_owner: [ownership.html]
-  transfer: [inspection.html]
+  toy:
+    - native_sections: [Ownership register, Registry identities]
+  one_owner:
+    - native_sections: [Ownership register]
+  transfer:
+    - native_sections: [Qualified ownership and inspection]

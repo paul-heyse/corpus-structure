@@ -10,7 +10,7 @@ configs:
   evaluate.score:
     default: {}
   ingest.pdf:
-    default: {originals: [toy.pdf]}
+    default: {originals: [toy.pdf], membership: descendants}
   segment.sentences:
     default: {model: en_core_web_sm, variant: math_as_word, exclude: [ner, lemmatizer]}
   agent.opus:
