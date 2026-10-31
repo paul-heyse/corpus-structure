@@ -1,7 +1,8 @@
 # PDF-only Docling pipeline
 
-**Status:** Active implementation; PDF-00 delivered, PDF-01–06 and PDF-08/09 partial;
-PDF-07/10/11 remain planned. No PDF-only adoption or complete qualification claimed. **Created:** 2026-10-31.
+**Status:** Active implementation and integration; PDF-00 delivered, native producer and
+consumer contracts integrated through 0050. Book publication, assembled consumer qualification
+and operational adoption remain open. **Created:** 2026-10-31.
 **Basis:** [functional review](../functional_reviews/pdf-docling-pipeline_2026-10-31.md) at
 `2c333722fe9b3ad03c8004d14c5f50a1605c3f4b` and its [target model](../functional_reviews/pdf-docling-pipeline_2026-10-31_target-model.md).
 This coordinator owns package state, scheduled O01–O08 dispositions and investigations I01–I08.
@@ -74,16 +75,16 @@ confirmations do not authorize changing grading policy, audit premises or histor
 |---|---|---|---|
 | <a id="PDF-00"></a>PDF-00 | [Foundations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-00): architectural decisions and enduring owners | Confirmed RC01–05, current clauses | Delivered: ADR-0038 and architectural owners |
 | <a id="PDF-01"></a>PDF-01 | [Investigations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-01): qualified library/runtime choices | Source PDF, review; early PDF-02 agreement where needed | Partial: bounded native probes; remaining integration open |
-| <a id="PDF-02"></a>PDF-02 | [Model](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-02): connected contracts and prepared ports | PDF-00; I03/04/06 before final producer contracts | Partial: compiled/archive-qualified PDF boundaries and operation bindings; consumer/frame migration open |
-| <a id="PDF-03"></a>PDF-03 | [Storage](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-03): native JSON, derived access rows and integrity | Agreed PDF-02; I06 | Partial: forward 0047 custody, protected publication and bounded item/region reads tested; cells/consumer integration open |
-| <a id="PDF-04"></a>PDF-04 | [Conversion](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-04): PDF producer with explicit health | I01/02/03; relevant PDF-02 support | Partial: production adapter and native page85 run; complete asset/inline/cell discovery open |
-| <a id="PDF-05"></a>PDF-05 | [Hierarchy](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-05): intact sections and qualified views | PDF-04, PDF-02, I04; PDF-03 for persistence | Partial: intact native grouping and text views; book-wide semantic hierarchy integration open |
-| <a id="PDF-06"></a>PDF-06 | [Math](pdf-docling-pipeline/interpretation-and-domain-consumers.md#PDF-06): direct formula input and lazy M09/M11 | PDF-04/05, I03/05 | Partial: qualified native formula bridge and positioned Lark structure; M09/M11 source routing open |
-| <a id="PDF-07"></a>PDF-07 | [Consumers](pdf-docling-pipeline/interpretation-and-domain-consumers.md#PDF-07): M13/domain recognition and rich packets | PDF-05, agreed PDF-06 states and PDF-02 frame contract | Planned |
-| <a id="PDF-08"></a>PDF-08 | [Interfaces](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-08): typed CLI/MCP, placement and exports | PDF-03/05; PDF-06/07 for their views | Partial: pinned item/region query primitives; CLI/MCP/export integration open |
-| <a id="PDF-09"></a>PDF-09 | [Runtime](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-09): owned conversion lifecycle and publication | PDF-02/03/04; I07 before adoption | Partial: original retention/publication fences and replay; converter/request lifecycle/full-book open |
-| <a id="PDF-10"></a>PDF-10 | [Adoption](pdf-docling-pipeline/adoption-and-retirement.md#PDF-10): PDF defaults, consumer cutover, HTML removal | Integrated PDF-03–09; I08 | Planned |
-| <a id="PDF-11"></a>PDF-11 | [Acceptance](pdf-docling-pipeline/adoption-and-retirement.md#PDF-11): actual journeys and required-union evidence | Complete selected functional scope, PDF-10 | Planned |
+| <a id="PDF-02"></a>PDF-02 | [Model](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-02): connected contracts and prepared ports | PDF-00; I03/04/06 before final producer contracts | Integrated: SourceView, native frames/addresses, runtime/cell/coverage contracts and explicit request demands; assembled finalization open |
+| <a id="PDF-03"></a>PDF-03 | [Storage](pdf-docling-pipeline/model-contracts-and-storage.md#PDF-03): native JSON, derived access rows and integrity | Agreed PDF-02; I06 | Integrated through 0050: protected native publication, indexed items/regions/derivations/cells/coverage/runtime; bounded controls passed |
+| <a id="PDF-04"></a>PDF-04 | [Conversion](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-04): PDF producer with explicit health | I01/02/03; relevant PDF-02 support | Integrated: offline pinned assets, native vector/font candidates and demanded cell/inline enrichment; whole-book envelope repair and qualification open |
+| <a id="PDF-05"></a>PDF-05 | [Hierarchy](pdf-docling-pipeline/conversion-and-document-hierarchy.md#PDF-05): intact sections and qualified views | PDF-04, PDF-02, I04; PDF-03 for persistence | Integrated: intact grouping, direct/descendant SourceViews and per-view coverage; actual whole-book hierarchy qualification open |
+| <a id="PDF-06"></a>PDF-06 | [Math](pdf-docling-pipeline/interpretation-and-domain-consumers.md#PDF-06): direct formula input and lazy M09/M11 | PDF-04/05, I03/05 | Integrated: M09 retained interpretation, M11 hydration without reparsing, demand-specific scientific questions; native controls passed |
+| <a id="PDF-07"></a>PDF-07 | [Consumers](pdf-docling-pipeline/interpretation-and-domain-consumers.md#PDF-07): M13/domain recognition and rich packets | PDF-05, agreed PDF-06 states and PDF-02 frame contract | Integrated: M13 ancestry dependencies, native packets/frames, policy queue and exact piece aliases; finalization/reference journey open |
+| <a id="PDF-08"></a>PDF-08 | [Interfaces](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-08): typed CLI/MCP, placement and exports | PDF-03/05; PDF-06/07 for their views | Integrated: typed CLI/MCP selectors, render demands and streaming exports; actual adopted-source external journeys open |
+| <a id="PDF-09"></a>PDF-09 | [Runtime](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-09): owned conversion lifecycle and publication | PDF-02/03/04; I07 before adoption | Integrated: retained originals, exact adoption pins, cleanup and source-ready requests; first book publication failed, repair/retry open |
+| <a id="PDF-10"></a>PDF-10 | [Adoption](pdf-docling-pipeline/adoption-and-retirement.md#PDF-10): PDF defaults, consumer cutover, HTML removal | Integrated PDF-03–09; I08 | Partial: active HTML producer removed and archived inputs retained; completed PDF selection/defaults open |
+| <a id="PDF-11"></a>PDF-11 | [Acceptance](pdf-docling-pipeline/adoption-and-retirement.md#PDF-11): actual journeys and required-union evidence | Complete selected functional scope, PDF-10 | In progress: bounded controls passed; full-book publication, actual extraction/evaluation and complete required union open |
 
 Begin with PDF-00 and PDF-01's environment/corpus questions. PDF-02 can agree identity, geometry,
 health and dependency slices while PDF-01 resolves native details. Final contract enforcement

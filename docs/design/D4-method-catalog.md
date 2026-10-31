@@ -30,10 +30,22 @@ Version method/payload/input promises together with actual producers, requests, 
 frames, consolidation and query/evaluator consumers. Weak demands do not perform stronger work.
 Generic algorithms remain library implementations under finite admitted operation contracts.
 
+**Implemented; bounded controls Tested, 2026-10-31.** `ingest.pdf` owns conversion and a shared
+document-level `enrich.pdf_math` operation. Pinned assets and observed per-stage providers remain
+distinct. Native font/vector candidate discovery precedes backend cleanup; cell recognition
+preserves prose and records classification, attribution and health rather than treating every
+nonempty transcription as mathematics. M09 version 6 retains source interpretation records;
+M11 version 6 hydrates those exact records instead of reparsing. M13 version 5 consumes native
+containment and declared ancestor context dependencies. Named scientific questions select their
+required work; weak requests perform no hidden symbolic assessment. Native sentence preparation
+and agent version 4 packets share explicitly resolved sentence configuration. Actual full-book
+publication and assembled consumer/provider acceptance remain in the PDF coordinator.
+
 ### Retained HTML realization
 
 The following clauses describe the retained HTML route only; they do not constrain the new PDF
-contract. Its runtime remains installed until the scheduled migration replaces it.
+contract. The active HTML producer is removed. These clauses and archived helpers describe
+historical products under their original contracts, without re-running HTML ingestion.
 
 **Existing HTML contract and implementation boundary (2026-10-30).** Discrete model-owned operations cover
 source decomposition, HTML structure recognition, canonical projection, text preparation,

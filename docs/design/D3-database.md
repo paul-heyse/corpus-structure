@@ -63,7 +63,8 @@ revisions or reinterpret old records. PDF-03/09 own persistence and publication,
 ### Retained HTML realization
 
 The following clauses describe the retained HTML route only; they do not constrain the new PDF
-contract. Its runtime remains installed until the scheduled migration replaces it.
+contract. The active HTML producer is removed. These clauses and archived helpers describe
+historical products under their original contracts, without re-running HTML ingestion.
 
 **Existing HTML contract and implementation boundary (2026-10-30).** PostgreSQL `bytea` retains immutable
 original bytes once per source content identity, separately linked to document/acquisition identity.
@@ -1871,3 +1872,11 @@ Publication verifies source membership/order, ancestry, projection pieces and sc
 under the existing attempt and source fences. Compatible cross-release adoption requires the
 explicit archived product input and qualified producer/schema custody; it never relabels the
 old producer as a new task result.
+
+**Implemented; bounded native controls Tested, 2026-10-31.** Forward 0049 retains qualified
+derivation endpoints and native reference/evaluation coordinates; 0050 adds immutable indexed
+runtime reports, per-section/membership recognition coverage and table-cell reports. Whole-book
+coverage and selected-view coverage remain different claims. Native evidence aliases are exact
+retained projection pieces; SQL checks their complete inventory and source custody. SourceView
+observations carry their actual unit ID through the shared completion boundary. The owned PDF
+database is migrated through 0050; book publication and complete consumer acceptance remain open.

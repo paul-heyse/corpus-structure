@@ -44,7 +44,8 @@ scope, actual journeys and adoption evidence; no such qualification is establish
 ### Retained HTML realization
 
 The following clauses describe the retained HTML route only; they do not constrain the new PDF
-contract. Its runtime remains installed until the scheduled migration replaces it.
+contract. The active HTML producer is removed. These clauses and archived helpers describe
+historical products under their original contracts, without re-running HTML ingestion.
 
 **Existing HTML contract and implementation boundary (2026-10-30).** Parsing-contract migration preserves
 independent reference inputs, preparation scope and decisions. Source interpretation cannot use

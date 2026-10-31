@@ -104,6 +104,9 @@ through the existing task/source-ready lifecycle, with a retained image artifact
 
 Separate native proposal frames hash the actual section context, native objects and coverage.
 Their projection ranges and direct native item addresses remain distinct from PDF geometry.
+Deterministic `native_evidence:<piece index>` handles identify an exact retained item, formula
+or table-cell text piece; placement never searches outside that piece. Selected immutable parent
+products remain reachable through their explicit derivation chain, without a latest-build lookup.
 Indexed item JSON supplies bounded reads; JSONL/Parquet exports retain native lexical spelling,
 ordered regions and qualified derivation endpoints. In-process registration and region-kernel
 controls are bounded evidence; external transport, protected integrated consumer journeys and
@@ -112,7 +115,8 @@ operational adoption remain owned by PDF-08–11 until exercised.
 ### Retained HTML realization
 
 The following clauses describe the retained HTML route only; they do not constrain the new PDF
-contract. Its runtime remains installed until the scheduled migration replaces it.
+contract. The active HTML producer is removed. These clauses and archived helpers describe
+historical products under their original contracts, without re-running HTML ingestion.
 
 **Existing HTML contract and implementation boundary (2026-10-30).** Source inspection and explanation
 select pinned run/build products alongside the shared rendition. Reuse follows existing

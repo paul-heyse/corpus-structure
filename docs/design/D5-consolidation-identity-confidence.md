@@ -34,7 +34,8 @@ PDF-06/07 own producer/consumer migration without changing confidence or grading
 ### Retained HTML realization
 
 The following clauses describe the retained HTML route only; they do not constrain the new PDF
-contract. Its runtime remains installed until the scheduled migration replaces it.
+contract. The active HTML producer is removed. These clauses and archived helpers describe
+historical products under their original contracts, without re-running HTML ingestion.
 
 **Existing HTML contract and implementation boundary (2026-10-30).** Binding and consolidation consume
 pinned occurrence, scope and interpretation products under the versioned M09/M11/M13 contracts

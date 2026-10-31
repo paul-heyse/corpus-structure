@@ -47,10 +47,22 @@ PDF-01/09 qualify actual runtime/providers and full-book feasibility. No arbitra
 concatenation or section chunking is selected. Installed optional capabilities remain dormant until
 an operation explicitly selects them.
 
+**Implemented; bounded controls Tested, 2026-10-31.** SourceView is an authoritative model unit
+kind, used by native analysis tasks and policy dispatch. Ancestor-context and retained-interpretation
+dependencies defer child task identity until the required outputs exist. A document-level
+enrichment operation shares one native product and candidate union across its selected views.
+The statistics scope selects maximal descendant views for five intact sections; direct ancestor
+views supply context without adding ancestor extraction tasks. Exact archived product adoption
+reuses native conversion across compatible consumer releases. The original and recipe commit
+before inference; a validated minimal native capture can accompany a later failed application
+result. Full-book publication, cancellation limits and assembled adoption remain separately
+qualified through PDF-09–11.
+
 ### Retained HTML realization
 
 The following clauses describe the retained HTML route only; they do not constrain the new PDF
-contract. Its runtime remains installed until the scheduled migration replaces it.
+contract. The active HTML producer is removed. These clauses and archived helpers describe
+historical products under their original contracts, without re-running HTML ingestion.
 
 **Existing HTML contract and implementation boundary (2026-10-30).** Bind discrete parsing demands to the
 existing prepared operation/dependency and protected effect machinery. Source inspection may
