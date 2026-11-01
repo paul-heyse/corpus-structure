@@ -85,6 +85,7 @@ def start_bound_run(
     registry_for: Any = None,
     graph: Any = None,
     native_product: ProductReference | None = None,
+    integrated_product: ProductReference | None = None,
 ):
     """Explicit semantic source execution through the current command entry point."""
     from sqlalchemy import select
@@ -155,7 +156,9 @@ def start_bound_run(
             raise CommandError("phase 0 full run requires a scope or named slice")
     selected_graph = graph or PHASE0
     selected_registry = (registry_for or registry)((domains or DOMAINS) / domain)
-    if native_product is not None:
+    if native_product is not None and integrated_product is not None:
+        raise CommandError("select one exact native or integrated PDF input role")
+    if native_product is not None or integrated_product is not None:
         from corpus_structure.orchestrate.phase0 import bind_pdf_source
 
         native_configs = {
@@ -169,8 +172,15 @@ def start_bound_run(
                 "native source binding requires exactly one PDF ingestion configuration"
             )
         method_name, configuration = next(iter(native_configs))
+        input_product = native_product if native_product is not None else integrated_product
+        if input_product is None:
+            raise CommandError("PDF input product is missing")
         selected_registry = bind_pdf_source(
-            selected_registry, native_product, configuration=configuration, method_name=method_name
+            selected_registry,
+            input_product,
+            configuration=configuration,
+            method_name=method_name,
+            input_role="native" if native_product is not None else "integrated",
         )
     return run_source_methods(
         engine,

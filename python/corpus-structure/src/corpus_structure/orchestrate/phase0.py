@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Connection
@@ -117,6 +117,7 @@ def bind_pdf_source(
     *,
     configuration: str = "default",
     method_name: str = "ingest.pdf_integrated",
+    input_role: Literal["native", "integrated"] = "native",
 ) -> MethodRegistry:
     """Bind one explicit retained input without editing the domain's configuration definitions."""
     from dataclasses import replace
@@ -129,7 +130,24 @@ def bind_pdf_source(
         raise ValueError("selected ingestion configuration does not support native PDF adoption")
     configs = dict(registry.file.configs)
     named = dict(configs.get(method_name, {}))
-    named[configuration] = {**named.get(configuration, {}), "native_product": product.values()}
+    if input_role not in {"native", "integrated"}:
+        raise ValueError("PDF input role must be native or integrated")
+    if (
+        input_role == "integrated"
+        and "integrated_product" not in registry.method(method_name).Config.model_fields
+    ):
+        raise ValueError("selected producer does not admit an integrated input role")
+    fields: dict[str, Any] = (
+        {"native_product": product.values()}
+        if input_role == "native"
+        else {"native_product": None, "integrated_product": product.values()}
+    )
+    if (
+        input_role == "native"
+        and "integrated_product" in registry.method(method_name).Config.model_fields
+    ):
+        fields["integrated_product"] = None
+    named[configuration] = {**named.get(configuration, {}), **fields}
     configs[method_name] = named
     return MethodRegistry(
         registry.methods(),

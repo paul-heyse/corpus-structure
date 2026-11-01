@@ -985,6 +985,7 @@ class BoundReader:
 
         from .pdf_contracts import PreparedPdfProduct, pdf_context_for_task
 
+        identity = table("ops.pdf_product")
         product, build, artifact = (
             table("ops.pdf_selected_product"),
             table("ops.source_build"),
@@ -992,7 +993,16 @@ class BoundReader:
         )
         row = (
             self.conn.execute(
-                select(product, build.c.artifact_digest.label("original_digest"))
+                select(
+                    product,
+                    identity.c.kind.label("product_kind"),
+                    build.c.artifact_digest.label("original_digest"),
+                )
+                .join(
+                    identity,
+                    (identity.c.task_id == product.c.task_id)
+                    & (identity.c.product_key == product.c.product_key),
+                )
                 .join(build, build.c.task_id == product.c.task_id)
                 .where(
                     product.c.task_id == reference.task_id,
@@ -1010,7 +1020,7 @@ class BoundReader:
             view.native_product == reference
             for view in selected_source_views(self.conn, self.run_id)
         )
-        if not permitted and self.source_tasks:
+        if self.source_tasks:
             task, config, run, document = (
                 table("ops.task"),
                 table("ops.method_config"),
@@ -1036,11 +1046,28 @@ class BoundReader:
                 .join(task, task.c.run_id == run.c.id)
                 .where(task.c.id == reference.task_id)
             ).scalar_one()
-            permitted = any(
-                item["params"].get("native_product") == reference.values()
+            claims = list(declared)
+            for item in claims:
+                if (
+                    item["params"].get("integrated_product") == reference.values()
+                    and row["product_kind"] != "integrated"
+                ):
+                    raise OperationConflict(
+                        "integrated input role requires an integrated PDF product"
+                    )
+                if (
+                    item["params"].get("native_product") == reference.values()
+                    and row["product_kind"] != "native"
+                ):
+                    raise OperationConflict("native input role requires a native PDF product")
+            permitted = permitted or any(
+                (
+                    item["params"].get("native_product") == reference.values()
+                    or item["params"].get("integrated_product") == reference.values()
+                )
                 and item["content_hash"] == row["original_digest"]
                 and item["project_id"] == project == producer_project
-                for item in declared
+                for item in claims
             )
         if not permitted:
             raise OperationConflict(

@@ -552,11 +552,11 @@ def run_source_methods(
                                         claimed_tasks=tuple(claimed),
                                         active=check_active,
                                     ):
-                                        from corpus_structure.semantic.parsing_products import (
-                                            ProductReference,
-                                        )
                                         from corpus_structure.semantic.pdf_integrated import (
                                             store_integrated_pdf_product,
+                                        )
+                                        from corpus_structure.semantic.product_reference import (
+                                            ProductReference,
                                         )
 
                                         active()

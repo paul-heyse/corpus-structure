@@ -39,7 +39,7 @@ def _provider_environment():
     return {
         key: value
         for key, value in os.environ.items()
-        if not key.upper().startswith(("CORPUS_", "PG", "DATABASE", "UV_"))
+        if not key.upper().startswith(("CORPUS_", "PG", "DATABASE", "UV"))
         and key.upper() not in {"BASH_ENV", "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "PWD", "OLDPWD"}
     }
 
@@ -252,7 +252,7 @@ def extract_run(
                         run_id=run_id,
                         model=model,
                         returncode=process.returncode,
-                        outcome="interrupted"
+                        process_outcome="interrupted"
                         if failure is not None
                         else "completed"
                         if process.returncode == 0
@@ -295,6 +295,10 @@ def extract_run(
         raise OperationConflict(
             f"automated provider returned invalid JSON; raw receipts: {receipt}"
         ) from error
+    if not isinstance(response, dict):
+        raise OperationConflict(
+            f"automated provider JSON must be an object; raw receipts: {receipt}"
+        )
     if response.get("is_error"):
         raise OperationConflict(
             f"automated provider refused run {run_id}: {response.get('result')}; "

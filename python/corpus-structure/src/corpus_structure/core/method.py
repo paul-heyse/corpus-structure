@@ -51,18 +51,12 @@ from corpus_structure.core.vocab import (
 
 if typing.TYPE_CHECKING:
     from corpus_structure.ingest.sentences import TextLayout
-    from corpus_structure.semantic.parsing_products import (
-        PreparedLayeredParsingProduct,
-        PreparedParsingProduct,
-        PreparedParsingProductSet,
-        ProductReference,
-        SelectedParsingProduct,
-    )
     from corpus_structure.semantic.pdf_contracts import PreparedPdfContext, PreparedPdfProduct
     from corpus_structure.semantic.pdf_integrated import (
         PreparedIntegratedPdfProduct,
         PreparedPdfOriginal,
     )
+    from corpus_structure.semantic.product_reference import ProductReference
     from corpus_structure.semantic.source_views import PreparedSourceView
     from corpus_structure.semantic.types import PreparedRelease
 
@@ -299,10 +293,6 @@ class Reader(Protocol):
         """The run's archived release: schema and vocabulary authority for source consumers."""
         ...
 
-    def require_parsing_operations(self, names: Sequence[str]) -> None:
-        """Refuse unsupported parsing operations against this run's archived contract."""
-        ...
-
     def source_views(self) -> Sequence[SourceViewRef]: ...
 
     def source_view(self, source_view_id: int) -> PreparedSourceView: ...
@@ -371,30 +361,6 @@ class Reader(Protocol):
 
     def guideline(self) -> str:
         """The run's guideline body."""
-        ...
-
-    def prepare_parsing_product(
-        self, payload: Mapping[str, Any], original: bytes
-    ) -> PreparedParsingProduct:
-        """Validate source products with the producing run's archived parsing contract."""
-        ...
-
-    def layered_products(
-        self, rendition_id: int, **selection: Any
-    ) -> tuple[SelectedParsingProduct, ...]:
-        """Immutable products selected through this run's effective producing tasks."""
-        ...
-
-    def parsing_fallback_macros(self) -> tuple[str, Mapping[str, Any]]:
-        """Effective fallback definitions with an exact archived-release source reference."""
-        ...
-
-    def source_product_reference(self, document_id: int, content_digest: str) -> ProductReference:
-        """The claimed source task identity, bound by the runner before pure work."""
-        ...
-
-    def prepare_layered_product(self, payload: Mapping[str, Any]) -> PreparedLayeredParsingProduct:
-        """Prepare derived products using this run's archived common contract."""
         ...
 
     def original(self, document_id: int) -> bytes:
@@ -579,8 +545,6 @@ class UnitResult:
     rendition: RenditionContent | None = None
     parse_detail: Mapping[str, JsonValue] | None = None
     text_layouts: tuple[TextLayout, ...] = ()
-    parsing_product: PreparedParsingProduct | None = None
-    parsing_products: PreparedParsingProductSet | None = None
     coverage: tuple[CoverageDraft, ...] = ()
     native_products: tuple[PreparedPdfProduct, ...] = ()
     integrated_products: tuple[PreparedIntegratedPdfProduct, ...] = ()
@@ -589,8 +553,6 @@ class UnitResult:
     def __post_init__(self) -> None:
         if self.text_layouts and self.rendition is None:
             raise ValueError("token layouts require their rendition content")
-        if self.parsing_product is not None and self.rendition is None:
-            raise ValueError("parsing products require their rendition build")
         match self.outcome:
             case ObservationOutcome.PRODUCED:
                 ok = bool(self.observations) and self.error is None
