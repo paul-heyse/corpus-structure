@@ -220,3 +220,12 @@ These are reported to the operator. Their repair is not an assessment output.
 - Remove an applicability section when its opportunity retires, carrying justified lessons into the
   type.
 - The pivot coordinator and later plans own scheduling. Comparative reviews own preference.
+
+## Unified-model focused refresh — 2026-11-01
+
+The [semantic applicability](unified-model-semantics_2026-11-01.md) and
+[typed/analytical applicability](unified-model-boundaries_2026-11-01.md) accounts cover all eleven
+selected libraries at source `1cb8e620`. They supersede only the explicitly reexamined premises,
+including current field adapters, shared reference traversal and metadata-derived Arrow. Other
+October 29 accounts retain their dates. Comparative selection belongs to the
+[principal target review](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md).

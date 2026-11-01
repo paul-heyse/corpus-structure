@@ -1,5 +1,9 @@
 # Native integrity
 
+**Freshness:** findings retain their stated older evidence except where explicitly refreshed.
+The [November 1 engagement refresh](README.md#unified-model-refresh)
+narrows current reliance; inherited prose is not a newly verified current defect.
+
 These findings concern what the PostgreSQL layer itself guarantees, at the
 [audited baseline](README.md#baseline):
 - which writes it refuses;

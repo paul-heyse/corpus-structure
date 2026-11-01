@@ -6,6 +6,8 @@ This is the living diagnostic account of design principle misalignment, maintain
 owns its place before a design-review engagement. Ordinary implementation reads its plan and
 architectural owners; this collection is not default production-editing context.
 
+<a id="unified-model-refresh"></a>
+
 ## Current engagement refresh — unified domain model, 2026-11-01
 
 **Source-inspected; revision UM-20261101-r2.** Source `1cb8e620`, core 3.3 with

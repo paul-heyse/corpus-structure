@@ -315,3 +315,11 @@ None of these settles the question beyond its stated paths.
 - The [pivot coordinator](../../plans/semantic-model-pivot_2026-10-29.md) and later plans own
   scheduling and closure evidence; link to them without copying their status.
 - Additional patterns live only in [assessment-patterns.md](../assessment-patterns.md).
+
+## Focused unified-model engagement — 2026-11-01
+
+The [current diagnostic refresh](../../design_review/audit/README.md) and
+[target review](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md)
+reconcile selected current premises for CBO-001/004/013/016/018 and related model opportunities.
+Current compiled adapters, shared reference traversal and metadata-derived analytical shapes
+materially change earlier premises. This link does not refresh all 25 CBOs or copy plan disposition.

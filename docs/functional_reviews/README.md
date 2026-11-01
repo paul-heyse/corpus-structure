@@ -46,3 +46,12 @@ accepted implementation scope or plan progress.
 Retain reviews and companions while they have current consumers. Follow the repository's
 document lifecycle: carry surviving obligations and enduring knowledge to their owners before
 retirement; Git preserves earlier accounts. Creating this scaffold performs no review or audit.
+
+## Unified-model opportunities — 2026-11-01
+
+The combined [unified-model target review](../design_review/reviews/design_review_unified-domain-model_2026-11-01.md)
+owns [O01 operation applicability](../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#O01),
+[O02 semantic impact](../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#O02) and
+[O03 actionable validation](../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#O03).
+This engagement uses one principal report rather than duplicate opportunity text. These are
+Proposed model-centered extensions; selection and implementation planning remain separate.

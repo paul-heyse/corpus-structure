@@ -1,5 +1,9 @@
 # Structure and invariants
 
+**Freshness:** findings retain their stated older evidence except where explicitly refreshed.
+The [November 1 engagement refresh](README.md#unified-model-refresh)
+narrows current reliance; inherited prose is not a newly verified current defect.
+
 These findings concern distinctions, state, lifecycle, outcomes and enforcement: FP-05, DP-02,
 DP-03, DP-05, DP-09, DP-12 and DP-19–DP-21. Baseline, scope and scenarios are in the
 [README](README.md).
@@ -311,74 +315,14 @@ behind the STATUS blocker is the native member of this class).
 
 <a id="da-041"></a>
 
-## DA-041 — The run lifecycle has no recorded outcome, partial state or orphan state
+## DA-041 — Earlier missing lifecycle manifestation corrected
 
-**Principles:** FP-05, FP-04, DP-19, DP-20, DP-21; §B3; heuristics H24, H25. **Subject:**
-implemented, judged against §B3 ("runs wait at a barrier or finish with those items unresolved")
-and SP-10's "honest partial outcomes".
-
-### Diagnosis
-
-- **A consolidation failure is unrecorded.**
-  - `finalize_bound_run` commits the final cut first: the run becomes sealed and `consolidating`
-    (`orchestrate/commands.py:262-281`).
-  - It then runs `backfill_source_frames` and `consolidate_cut` *outside* that transaction
-    (`:282-286`).
-  - A refusal or failure there is neither caught nor recorded. The run stays `consolidating` with
-    `result_realization_id` NULL.
-  - This is the state STATUS reports for run 3, refused by the native `SourceStatement` guard
-    ([DA-026](semantic-model-and-authority.md#da-026)).
-- **The run row has nowhere to record a failure.**
-  - `ops.run` has no diagnostic column and no timestamps (`rev/semantic_0006_*.sql:65-80`).
-  - `end_source_run` writes a failure only into tasks still open (`rev/semantic_0023_execution.sql:442-447`).
-    So a failure raised after every task is terminal records no reason anywhere: propose, policy
-    compilation, sealing.
-  - `RunProgress.started_at`, `cut_at` and `finished_at` are always None
-    (`orchestrate/commands.py:333-336`).
-- **An interrupted source phase is undetectable.**
-  - `run_source_methods` always creates a new run, and `--resume-run` skips the source graph
-    (`cli/regenerate.py:108-116`).
-  - A killed `ci run` leaves a run that looks `running` indefinitely.
-  - Finalize refuses while tasks are open. `extract_run` counts deterministic `pending` tasks as
-    open work and would launch the provider (`intervene/automated.py:47`).
-  - Orphan detection was not carried over: `StatusReport.orphaned` is always `[]`.
-- **Outcomes are all or nothing.**
-  - The wait barrier is refused (`orchestrate/semantic.py:69-73`).
-  - One failed unit fails the whole source phase (`:298-299`).
-  - The native guard forbids terminal run states while tasks are open (`rev/semantic_0023_execution.sql:249-250`).
-  - An agent task can end only as accepted, or refused after a held first submission.
-  - When a packet cannot be rebuilt, the lease transaction rolls back
-    (`intervene/semantic_server.py:122-145`). `claim_tasks` then re-selects the same task first,
-    ordering by priority and id (`semantic/operations.py:298-306`). No path marks the task failed.
-    It therefore blocks the whole queue for that configuration (head-of-line), not only
-    finalization, and `extract_run` eventually raises "left tasks open"
-    (`orchestrate/semantic.py:435-440`; `intervene/automated.py:205-208`).
-  - No operation fails or skips an agent task with a reason.
-- **Progress lives in diagnostics.**
-  - The held-submission lifecycle dimension is derived from a key inside the task's `error` JSON
-    (`rev/semantic_0023_execution.sql:176-178`).
-  - `end_source_run` needs special-case merging to preserve it (`:443-446`), and readers parse the
-    error JSON for progress (`semantic/operations.py:335-339`).
-
-### Consequence
-
-- In the database, a run that failed to consolidate cannot be told apart from one consolidating
-  now.
-- Nothing records the reason, the stage, or whether a retry is meaningful. Recovery paths exist
-  (finalize is idempotent and resumable, cancel, twin reuse), but nothing in the run's state makes
-  them discoverable.
-- One defective unit makes a run unfinishable except by cancellation, which yields no result.
-- Coverage cannot report "partial: N unresolved".
-
-### Counterevidence
-
-- Leaving the run `consolidating` keeps it retryable after a native fix.
-- Attempts are fenced and claims check run status, so correctness holds.
-- Complete-only mode is an explicit, coded refusal.
-- The operator is single.
-
-**Evidence:** diagnosed from source. The run 3 manifestation is observed through STATUS
-(2026-10-29).
+**Implemented, source-inspected 2026-11-01 at `1cb8e620`.**
+`semantic/sql/execution_guards.sql:1–96` consumes release-projected task/run transitions,
+checks attempts/holders and terminal receipts, requires structured failure diagnostics and guards
+run sealing/terminalization. The earlier missing-outcome/lifecycle diagnosis no longer describes
+these inspected paths. Package completion and actual qualification remain plan-owned. Unexamined
+failure/recovery paths receive no new acceptance credit from this source inspection.
 
 <a id="da-044"></a>
 

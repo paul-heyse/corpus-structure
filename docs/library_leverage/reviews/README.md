@@ -353,3 +353,12 @@ Refresh in place. Reopen a choice when its decisive premise changes. The likelie
 
 Inherited judgments keep their 2026-10-29 evidence date until reconsidered. When a CBO retires,
 carry any surviving mechanism rationale to its owner before removing its entry here.
+
+## Unified-model comparison — 2026-11-01
+
+The [integrated target review](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#4-corrections-and-complete-option-comparison)
+compares deeper compiled-release governance with isolated consumer patches, universal graph
+execution, broad Map/Datalog replacement and a general interpreter. It consumes the focused
+[semantic](../libraries/unified-model-semantics_2026-11-01.md) and
+[boundary](../libraries/unified-model-boundaries_2026-11-01.md) assessments. It is the primary
+comparison owner for this engagement; the preceding CBO account retains its October 29 baseline.
