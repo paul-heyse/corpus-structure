@@ -309,8 +309,13 @@ class IngestPdfIntegrated:
                     )
 
                 def observations(
-                    worker=worker, source=source, recipe=recipe, requested=requested,
-                    unit=unit, prepared_original=prepared_original, recovery=recovery,
+                    worker=worker,
+                    source=source,
+                    recipe=recipe,
+                    requested=requested,
+                    unit=unit,
+                    prepared_original=prepared_original,
+                    recovery=recovery,
                     failures=failures,
                 ):
                     for page in worker.recognize_pages(
@@ -321,7 +326,9 @@ class IngestPdfIntegrated:
                         concurrency=4,
                         reuse_failures=True,
                     ):
-                        yield from _retain_page(page, unit.ref, source, recipe, prepared_original, ctx)
+                        yield from _retain_page(
+                            page, unit.ref, source, recipe, prepared_original, ctx
+                        )
                         if (
                             not page.succeeded
                             and recovery is not None
@@ -343,55 +350,90 @@ class IngestPdfIntegrated:
                                     reuse_failures=True,
                                 )
                             )
-                            yield from _retain_page(page, unit.ref, source, alternate, prepared_original, ctx)
+                            yield from _retain_page(
+                                page, unit.ref, source, alternate, prepared_original, ctx
+                            )
                         if not page.succeeded:
                             failures.append(page.page_no)
                     if failures:
                         raise RuntimeError(f"unresolved triple-pass physical pages: {failures}")
+
                 ctx.check_active()
-                from pathlib import Path
                 from contextlib import nullcontext
+                from pathlib import Path
                 from uuid import uuid4
+
                 from .pdf_hierarchy import NativeSnapshot
 
                 document = load_snapshot(_snapshot_from_values(values))
                 owner = Path("build/pdf-reconciliation") / uuid4().hex
                 owner.mkdir(parents=True)
-                with nullcontext(owner) as root:
-                    with reconcile_pdf_stream(
-                        document, native_reference.values(), observations(), source.digest,
-                        directory=Path(root), policy=cfg.integration_policy,
+                with (
+                    nullcontext(owner) as root,
+                    reconcile_pdf_stream(
+                        document,
+                        native_reference.values(),
+                        observations(),
+                        source.digest,
+                        directory=Path(root),
+                        policy=cfg.integration_policy,
                         context=ctx.reader.pdf_context(),
-                    ) as selected:
-                        draft = PdfRecordPublicationDraft(
-                            document=selected.document, product_key="integrated",
-                            original=native.original, schema_bytes=native.schema_bytes,
-                            recipe_bytes=self.original_recipe(cfg), health=values["health"],
-                            companions={
-                                **{family: selected.journal.collection(family) for family in (
-                                    "input", "occurrence", "relation", "mapping_report", "coverage",
-                                )},
-                                "health": ({
-                                    "health": values["health"], "source_scope": "whole_document",
-                                    "integration_health": selected.health,
-                                },),
+                    ) as selected,
+                ):
+                    draft = PdfRecordPublicationDraft(
+                        document=selected.document,
+                        product_key="integrated",
+                        kind="integrated",
+                        original=native.original,
+                        schema_bytes=native.schema_bytes,
+                        recipe_bytes=self.original_recipe(cfg),
+                        health=values["health"],
+                        companions={
+                            **{
+                                family: selected.journal.collection(family)
+                                for family in (
+                                    "input",
+                                    "occurrence",
+                                    "relation",
+                                    "mapping_report",
+                                    "coverage",
+                                )
                             },
-                            metadata={"recognition_coverage": values.get("recognition_coverage", ())},
+                            "health": (
+                                {
+                                    "health": values["health"],
+                                    "source_scope": "whole_document",
+                                    "integration_health": selected.health,
+                                },
+                            ),
+                        },
+                        metadata={"recognition_coverage": values.get("recognition_coverage", ())},
+                    )
+                    reference = ctx.retain_pdf_records(unit.ref, draft)
+                    nodes = native_nodes(selected.document)
+                    # No native serialization is required by a projection of this owned graph.
+                    snapshot = NativeSnapshot(
+                        b"", reference.content_digest, str(selected.document.version)
+                    )
+                    drafts = _drafts(
+                        unit.ref.unit_id,
+                        reference,
+                        snapshot,
+                        values["health"],
+                        _select_sections(nodes, cfg, scope=ctx.run.options.get("scope")),
+                        cfg.membership,
+                        consumer_release,
+                        recognition_coverage=values.get("recognition_coverage", ()),
+                        document=selected.document,
+                        node_index=nodes,
+                    )
+                    outputs.append(
+                        UnitResult(
+                            ref=unit.ref,
+                            outcome=ObservationOutcome.EMPTY,
+                            source_views=drafts,
                         )
-                        reference = ctx.retain_pdf_records(unit.ref, draft)
-                        nodes = native_nodes(selected.document)
-                        # No native serialization is required by a projection of this owned graph.
-                        snapshot = NativeSnapshot(b"", reference.content_digest, str(selected.document.version))
-                        drafts = _drafts(
-                            unit.ref.unit_id, reference, snapshot, values["health"],
-                            _select_sections(nodes, cfg, scope=ctx.run.options.get("scope")),
-                            cfg.membership, consumer_release,
-                            recognition_coverage=values.get("recognition_coverage", ()),
-                            document=selected.document, node_index=nodes,
-                        )
-                        outputs.append(UnitResult(
-                            ref=unit.ref, outcome=ObservationOutcome.EMPTY, source_views=drafts,
-                        ))
+                    )
             except Exception as error:
                 summary = error_summary(error)
                 notes = getattr(error, "__notes__", ())

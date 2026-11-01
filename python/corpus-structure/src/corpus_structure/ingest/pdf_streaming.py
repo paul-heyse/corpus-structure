@@ -86,7 +86,10 @@ class PdfStreamSpool:
         temporary.replace(image_path)
         raster = _ref(image_path, "native-raster")
         page.parsed_page = hierarchy.retain_parsed_lines(page)
+        from .pdf_assembly import assembly_types
+
         value = {
+            "assembly_types": assembly_types(page.assembled),
             "page": json.loads(page.model_dump_json()),
             "shape_lines": [box.model_dump(mode="json") for box in page._shape_lines or ()],
             "shape_boxes": [
@@ -137,7 +140,10 @@ class PdfStreamSpool:
                     assert self.size is not None
                     scale = min(scale, max_size / max(self.size.as_tuple()))
                 if scale != self._scale:
-                    raise ValueError("unrecorded native raster scale requested")
+                    raise ValueError(
+                        f"unrecorded native raster scale requested: page={self.page_no}, "
+                        f"requested={scale}, retained={self._scale}"
+                    )
                 with Image.open(self._raster.path) as original:
                     if cropbox is None:
                         return original.copy()
@@ -157,7 +163,11 @@ class PdfStreamSpool:
                 continue
             replay.verify()
             data = json.loads(replay.path.read_bytes())
-            page = ReplayPage.model_validate(data["page"])
+            from .pdf_assembly import restore_assembly
+
+            raw_page = dict(data["page"])
+            raw_page["assembled"] = restore_assembly(raw_page["assembled"], data["assembly_types"])
+            page = ReplayPage.model_validate(raw_page)
             page._shape_lines = [BoundingBox.model_validate(box) for box in data["shape_lines"]]
             page._shape_bounding_boxes = [
                 BoundingBox.model_validate(box) for box in data["shape_boxes"]
@@ -475,6 +485,75 @@ class StreamingPdfResult:
             append("header" if row.kind == "document" else row.kind, dict(row.values))
         for family in list(pending):
             flush(family)
+        return tuple(files)
+
+    def write_native_occurrence_batches(
+        self,
+        root: Path,
+        *,
+        build_id: str,
+        on_batch: Callable[[PdfReplayRef], None] | None = None,
+    ) -> tuple[PdfReplayRef, ...]:
+        """Emit the native occurrence index while the child still owns its graph."""
+        import pyarrow as pa
+
+        from corpus_structure.semantic.pdf_record_model import record_arrow_schema
+        from corpus_structure.semantic.pdf_staging import MAX_BATCH_BYTES, MAX_BATCH_ROWS
+
+        from .pdf_record_product import native_occurrence_rows
+
+        schema = record_arrow_schema("ops.pdf_stage_companion")
+        root.mkdir(parents=True, exist_ok=False)
+        files: list[PdfReplayRef] = []
+        rows: list[dict[str, Any]] = []
+        size = 0
+
+        def flush() -> None:
+            nonlocal size
+            if not rows:
+                return
+            batch = pa.RecordBatch.from_pylist(rows, schema=schema)
+            if batch.nbytes > MAX_BATCH_BYTES:
+                raise ValueError("native occurrence batch exceeds its model profile")
+            path = root / f"{len(files):08d}-occurrence.arrow"
+            temporary = path.with_suffix(".tmp")
+            with (
+                pa.OSFile(str(temporary), "wb") as sink,
+                pa.ipc.new_file(sink, schema) as writer,
+            ):
+                writer.write_batch(batch)
+            with temporary.open("rb") as source:
+                os.fsync(source.fileno())
+            temporary.replace(path)
+            replay = _ref(path, "companion:occurrence", len(rows))
+            if on_batch is not None:
+                on_batch(replay)
+            files.append(replay)
+            rows.clear()
+            size = 0
+
+        for ordinal, occurrence in enumerate(native_occurrence_rows(self.document)):
+            self.spool.active()
+            body = json.dumps(
+                occurrence, ensure_ascii=False, allow_nan=False, separators=(",", ":")
+            )
+            if rows and (
+                size + len(body.encode()) + 256 > MAX_BATCH_BYTES // 2
+                or len(rows) >= MAX_BATCH_ROWS
+            ):
+                flush()
+            rows.append(
+                {
+                    "product_id": build_id,
+                    "revision_id": build_id,
+                    "family": "occurrence",
+                    "local_id": occurrence["occurrence_id"],
+                    "ordinal": ordinal,
+                    "body": body,
+                }
+            )
+            size += len(body.encode()) + 256
+        flush()
         return tuple(files)
 
 

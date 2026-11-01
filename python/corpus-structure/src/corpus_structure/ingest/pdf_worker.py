@@ -107,6 +107,14 @@ def _native_child(
                             )
                         finally:
                             reconciled.close()
+                    if request.observation_replay is None:
+                        companions = streamed.write_native_occurrence_batches(
+                            request.record_root.with_name(
+                                request.record_root.name + "-occurrences"
+                            ),
+                            build_id=request.build_id,
+                            on_batch=acknowledged,
+                        )
                     records = (
                         streamed.write_record_batches(
                             request.record_root,

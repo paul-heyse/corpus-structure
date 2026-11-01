@@ -21,6 +21,7 @@ from corpus_structure.core.method import (
     MeasurementView,
     Method,
     ObservationReading,
+    Reader,
     RunRendition,
     SourceObservationReference,
     UnitResult,
@@ -862,7 +863,7 @@ class BoundRunView:
     binding: OperationBinding
     prepared: PreparedRelease
     options: Mapping[str, JsonValue]
-    reader: BoundReader
+    reader: Reader
 
 
 @dataclass(frozen=True)
@@ -1099,10 +1100,13 @@ class BoundReader:
         )
         if row["payload"] is None:
             from .pdf_record_reader import PublishedPdfReader
+
             values = PublishedPdfReader(self.conn, reference).native_product_values()
             return PreparedPdfProduct(
-                canonical_bytes(values), bytes(contents[row["original_digest"]]),
-                bytes(contents[row["schema_digest"]]), bytes(contents[row["recipe_digest"]]),
+                canonical_bytes(values),
+                bytes(contents[row["original_digest"]]),
+                bytes(contents[row["schema_digest"]]),
+                bytes(contents[row["recipe_digest"]]),
                 row["contract_digest"],
             )
         payload = bytes(row["payload"])

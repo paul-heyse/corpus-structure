@@ -654,6 +654,7 @@ class PdfRecordPublicationDraft:
     metadata: Mapping[str, Any] = field(default_factory=dict)
     retained_serialization: RetainedPdfSerialization | None = None
     source_scope: Literal["whole_document"] = "whole_document"
+    kind: Literal["native", "integrated"] = "native"
 
 
 def _unowned_record_publication(
@@ -662,9 +663,7 @@ def _unowned_record_publication(
     raise RuntimeError("record publication requires an owned task fence")
 
 
-def _unowned_record_production(
-    ref: UnitRef, request: PdfRecordProducerRequest
-) -> ProductReference:
+def _unowned_record_production(ref: UnitRef, request: PdfRecordProducerRequest) -> ProductReference:
     raise RuntimeError("record production requires an owned task fence")
 
 

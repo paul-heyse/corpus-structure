@@ -50,8 +50,8 @@ from .pdf_hierarchy import (
     organize,
     project_section,
 )
-from .pdf_worker import PdfWorker
 from .pdf_record_product import native_publication_draft
+from .pdf_worker import PdfWorker
 
 
 class PdfRuntimeConfig(BaseModel):
@@ -212,7 +212,7 @@ class IngestPdf:
                 if cfg.native_product is not None:
                     # Explicit sanctioned adoption is not conversion or a new native producer.
                     archived = ctx.reader.native_document(cfg.native_product)
-                    values = archived.values()
+                    values: dict[str, Any] = archived.values()
                     if (
                         values.get("source_scope") != "whole_document"
                         or values["health"]["conversion"] != "success"
@@ -231,13 +231,19 @@ class IngestPdf:
                         adopted_recipe = self.original_recipe(cfg)
                         conversion = _conversion_from_product(archived, adopted_recipe)
                         current = native_publication_draft(
-                            conversion, product_key="organized", original=archived.original,
-                            schema_bytes=archived.schema_bytes, native=organization.document,
+                            conversion,
+                            product_key="organized",
+                            original=archived.original,
+                            schema_bytes=archived.schema_bytes,
+                            native=organization.document,
                             recipe_bytes=adopted_recipe,
                         )
-                        current = dataclasses.replace(current, companions={"input": (
-                            {**cfg.native_product.values(), "role": "structural"},
-                        )})
+                        current = dataclasses.replace(
+                            current,
+                            companions={
+                                "input": ({**cfg.native_product.values(), "role": "structural"},)
+                            },
+                        )
                         selected_product = ctx.retain_pdf_records(unit.ref, current)
                         native = organization.document
                         values = {"health": current.health}
@@ -269,19 +275,28 @@ class IngestPdf:
                     .read_bytes()
                 )
                 original = ctx.reader.original(unit.ref.unit_id)
-                raw_ref = ctx.produce_pdf_records(unit.ref, PdfRecordProducerRequest(
-                    recipe=recipe, assets=assets, original=original, schema_bytes=schema_bytes,
-                ))
+                raw_ref = ctx.produce_pdf_records(
+                    unit.ref,
+                    PdfRecordProducerRequest(
+                        recipe=recipe,
+                        assets=assets,
+                        original=original,
+                        schema_bytes=schema_bytes,
+                    ),
+                )
                 raw = ctx.reader.native_document(raw_ref)
                 conversion = _conversion_from_product(raw, recipe.to_bytes())
                 organization = organize(conversion.native, cfg.section_policy())
                 organized = native_publication_draft(
-                    conversion, product_key="organized", original=original, schema_bytes=schema_bytes,
+                    conversion,
+                    product_key="organized",
+                    original=original,
+                    schema_bytes=schema_bytes,
                     native=organization.document,
                 )
-                organized = dataclasses.replace(organized, companions={"input": (
-                    {**raw_ref.values(), "role": "structural"},
-                )})
+                organized = dataclasses.replace(
+                    organized, companions={"input": ({**raw_ref.values(), "role": "structural"},)}
+                )
                 organized_ref = ctx.retain_pdf_records(unit.ref, organized)
                 doc = load_snapshot(organization.document)
                 drafts = _drafts(
@@ -423,6 +438,14 @@ def _drafts(
             "organization_owner": native_product.values(),
         }
     )
+    from corpus_structure.semantic.source_views import formula_health_summary
+
+    health = {
+        **health,
+        "formula_outcomes": formula_health_summary(
+            health.get("formula_outcomes", ()), native_product
+        ),
+    }
     drafts = []
     for section in sections:
         projection = project_section(
@@ -809,11 +832,15 @@ class EnrichPdfMath:
                     conversion.native.digest, derived, computed.outcomes, computed.mappings
                 )
                 draft = native_publication_draft(
-                    conversion, product_key="math-enriched", original=product.original,
-                    schema_bytes=product.schema_bytes, native=derived,
-                    recipe_bytes=recipe_bytes, extra_outcomes=enriched.outcomes,
+                    conversion,
+                    product_key="math-enriched",
+                    original=product.original,
+                    schema_bytes=product.schema_bytes,
+                    native=derived,
+                    recipe_bytes=recipe_bytes,
+                    extra_outcomes=enriched.outcomes,
                 )
-                payload = {"health": dict(draft.health)}
+                payload: dict[str, Any] = {"health": dict(draft.health)}
                 payload["cell_reports"] = reports
                 payload["inline_alignment_reports"] = [
                     row.to_wire() for row in computed.alignment_reports
@@ -892,8 +919,10 @@ class EnrichPdfMath:
                     )
                 payload["recognition_coverage"] = coverage
                 draft = dataclasses.replace(
-                    draft, health=payload["health"],
-                    metadata={**draft.metadata,
+                    draft,
+                    health=payload["health"],
+                    metadata={
+                        **draft.metadata,
                         "recognition_coverage": coverage,
                         "derivation_mappings": enriched.mappings,
                         "cell_reports": reports,

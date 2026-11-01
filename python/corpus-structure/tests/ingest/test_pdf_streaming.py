@@ -16,6 +16,7 @@ from docling_core.types.doc import (
     TableCell,
     TableData,
 )
+from pdf_process_support import fake_stream_child, partial_stream_child
 from PIL import Image
 
 from corpus_structure.ingest.pdf_stream_types import OwnedPdfSource
@@ -207,26 +208,6 @@ def test_logical_fields_do_not_depend_on_operational_build(tmp_path):
     assert fields("build-one") == fields("build-two")
 
 
-def fake_stream_child(connection, recipe, assets):
-    from corpus_structure.ingest.pdf_stream_types import (
-        PdfReplayReady,
-        PdfReplayRef,
-        PdfStreamReply,
-    )
-    from corpus_structure.ingest.pdf_worker import NativeReply
-
-    request = connection.recv()
-    reference = PdfReplayRef(
-        request.source.path, request.source.digest, request.source.byte_length, "page"
-    )
-    connection.send(PdfReplayReady(reference))
-    if connection.recv() is True:
-        connection.send(
-            NativeReply(PdfStreamReply("success", (), recipe.to_bytes(), (reference,), ()))
-        )
-    connection.close()
-
-
 def test_worker_adopts_replay_before_terminal_result(tmp_path):
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_worker import PdfWorker
@@ -277,20 +258,6 @@ def test_lazy_view_preserves_native_origin_picture_and_typed_metadata(tmp_path):
     )
     assert any(ref.family == "artifact_part" for ref in refs)
     image.close()
-
-
-def partial_stream_child(connection, recipe, assets):
-    from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
-    from corpus_structure.ingest.pdf_worker import NativeReply
-
-    connection.recv()
-    connection.send(
-        NativeReply(
-            PdfStreamReply("partial_success", ("native timeout",), recipe.to_bytes(), (), ())
-        )
-    )
-    # Controller must kill/drain, rather than reuse this containing process.
-    connection.recv()
 
 
 def test_partial_stream_disposes_containing_worker(tmp_path):

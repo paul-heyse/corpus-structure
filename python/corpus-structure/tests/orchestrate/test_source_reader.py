@@ -1,4 +1,5 @@
 """Connection ownership ends at the source read, before computation consumes it."""
+
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -12,6 +13,7 @@ from corpus_structure.orchestrate.source_reader import ScopedSourceReader
 def test_reader_returns_owned_values_and_releases_between_reads_and_on_failure():
     live = []
     owner: Any = SimpleNamespace(conn="closed setup", prepared="release")
+
     @contextmanager
     def connect():
         token = object()
@@ -20,12 +22,16 @@ def test_reader_returns_owned_values_and_releases_between_reads_and_on_failure()
             yield token
         finally:
             live.remove(token)
+
     engine: Any = SimpleNamespace(connect=connect)
+
     def original(document_id):
         assert owner.conn in live
         return b"owned source"
+
     def bad(document_id):
         raise ValueError("read failed")
+
     owner.original = original
     reader = ScopedSourceReader(engine, owner)
     assert reader.prepared == "release"
@@ -44,9 +50,11 @@ def test_reader_returns_owned_values_and_releases_between_reads_and_on_failure()
 
 def test_parallel_read_calls_never_cross_owner_connections():
     import time
+
     live = []
     seen = []
     owner: Any = SimpleNamespace(conn=None, prepared="release")
+
     @contextmanager
     def connect():
         assert not live
@@ -56,12 +64,14 @@ def test_parallel_read_calls_never_cross_owner_connections():
             yield token
         finally:
             live.remove(token)
+
     def original(number):
         token = owner.conn
         time.sleep(0.001)
         assert token is owner.conn
         seen.append(number)
         return bytes([number])
+
     owner.original = original
     engine: Any = SimpleNamespace(connect=connect)
     reader = ScopedSourceReader(engine, owner)

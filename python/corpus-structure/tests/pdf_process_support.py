@@ -47,3 +47,39 @@ def _partial_child(connection: Connection, recipe: PdfRecipe, assets: PreparedPd
 
 class PartialOwner(PdfWorker):
     _child_target = staticmethod(_partial_child)
+
+
+def fake_stream_child(connection: Connection, recipe: PdfRecipe, assets: PreparedPdfAssets | None):
+    from corpus_structure.ingest.pdf_stream_types import (
+        PdfReplayReady,
+        PdfReplayRef,
+        PdfStreamReply,
+    )
+    from corpus_structure.ingest.pdf_worker import NativeReply
+
+    request = connection.recv()
+    reference = PdfReplayRef(
+        request.source.path, request.source.digest, request.source.byte_length, "page"
+    )
+    connection.send(PdfReplayReady(reference))
+    if connection.recv() is True:
+        connection.send(
+            NativeReply(PdfStreamReply("success", (), recipe.to_bytes(), (reference,), ()))
+        )
+    connection.close()
+
+
+def partial_stream_child(
+    connection: Connection, recipe: PdfRecipe, assets: PreparedPdfAssets | None
+):
+    from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
+    from corpus_structure.ingest.pdf_worker import NativeReply
+
+    connection.recv()
+    connection.send(
+        NativeReply(
+            PdfStreamReply("partial_success", ("native timeout",), recipe.to_bytes(), (), ())
+        )
+    )
+    # Controller must kill/drain, rather than reuse this containing process.
+    connection.recv()

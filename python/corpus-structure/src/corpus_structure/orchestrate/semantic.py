@@ -14,6 +14,7 @@ from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import (
+    BoundReader,
     OperationBinding,
     OperationConflict,
     claim_tasks,
@@ -510,14 +511,19 @@ def run_source_methods(
                         completed = []
                         with engine.connect() as conn:
                             view = run_view(conn, rid, prepared)
+                            bound_reader = view.reader
+                            if not isinstance(bound_reader, BoundReader):
+                                raise TypeError(
+                                    "source execution requires the bound database adapter"
+                                )
                             if len(group) > 1:
                                 from corpus_structure.methods.math.methods import MathReadingsBatch
 
-                                view.reader.math_readings_batch = MathReadingsBatch()
+                                bound_reader.math_readings_batch = MathReadingsBatch()
                         for method, config, claimed in work:
                             with engine.connect() as conn:
-                                view.reader.conn = conn
-                                view.reader.bind_source_tasks(
+                                bound_reader.conn = conn
+                                bound_reader.bind_source_tasks(
                                     {
                                         int(
                                             task.unit_id
@@ -542,9 +548,10 @@ def run_source_methods(
                                     for t in claimed
                                 ]
                             from dataclasses import replace
+
                             from .source_reader import ScopedSourceReader
 
-                            scoped_reader = ScopedSourceReader(engine, view.reader)
+                            scoped_reader = ScopedSourceReader(engine, bound_reader)
                             method_view = replace(view, reader=scoped_reader)
                             units = [replace(unit, run=method_view) for unit in units]
                             from corpus_structure.semantic.claim_lifetime import (
@@ -608,10 +615,14 @@ def run_source_methods(
                                     )
 
                                 def retain_pdf_records(
-                                    ref, product, *, claimed_tasks=tuple(claimed),
+                                    ref,
+                                    product,
+                                    *,
+                                    claimed_tasks=tuple(claimed),
                                     active=check_active,
                                 ):
                                     from pathlib import Path
+
                                     from corpus_structure.orchestrate.pdf_streaming import (
                                         publish_pdf_record_draft,
                                     )
@@ -621,29 +632,49 @@ def run_source_methods(
 
                                     task = _retained_claim(ref, claimed_tasks, active)
                                     published = publish_pdf_record_draft(
-                                        engine, task, holder, product,
+                                        engine,
+                                        task,
+                                        holder,
+                                        product,
                                         directory=Path("build/pdf-publication"),
                                         check_active=active,
                                     )
                                     return ProductReference(
-                                        published.task_id, published.product_key,
+                                        published.task_id,
+                                        published.product_key,
                                         published.logical_digest,
                                     )
 
                                 def produce_pdf_records(
-                                    ref, request, *, claimed_tasks=tuple(claimed),
+                                    ref,
+                                    request,
+                                    *,
+                                    claimed_tasks=tuple(claimed),
                                     active=check_active,
                                 ):
                                     from pathlib import Path
-                                    from corpus_structure.orchestrate.pdf_streaming import produce_published_pdf_records
-                                    from corpus_structure.semantic.product_reference import ProductReference
+
+                                    from corpus_structure.orchestrate.pdf_streaming import (
+                                        produce_published_pdf_records,
+                                    )
+                                    from corpus_structure.semantic.product_reference import (
+                                        ProductReference,
+                                    )
+
                                     task = _retained_claim(ref, claimed_tasks, active)
                                     published = produce_published_pdf_records(
-                                        engine, task, holder, request,
-                                        directory=Path("build/pdf-production"), check_active=active,
+                                        engine,
+                                        task,
+                                        holder,
+                                        request,
+                                        directory=Path("build/pdf-production"),
+                                        check_active=active,
                                     )
-                                    return ProductReference(published.task_id, published.product_key,
-                                                            published.logical_digest)
+                                    return ProductReference(
+                                        published.task_id,
+                                        published.product_key,
+                                        published.logical_digest,
+                                    )
 
                                 results = method.run(
                                     units,

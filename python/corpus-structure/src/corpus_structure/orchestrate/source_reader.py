@@ -4,11 +4,12 @@ The existing BoundReader remains the semantic and cache owner. Its public Reader
 operations return owned values, so connection checkout can end before native or
 scientific computation. Explicit connection consumers own their context instead.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypeVar
 from threading import RLock
+from typing import TypeVar
 
 from sqlalchemy import Engine
 
@@ -65,19 +66,33 @@ class ScopedSourceReader:
     def native_document(self, reference):
         return self._read(lambda reader: reader.native_document(reference))
 
-    def prepare_integrated_pdf_product(self, payload, original, recipe_bytes, *,
-                                       artifacts=(), native_schema=None):
-        return self._read(lambda reader: reader.prepare_integrated_pdf_product(
-            payload, original, recipe_bytes, artifacts=artifacts, native_schema=native_schema,
-        ))
+    def prepare_integrated_pdf_product(
+        self, payload, original, recipe_bytes, *, artifacts=(), native_schema=None
+    ):
+        return self._read(
+            lambda reader: reader.prepare_integrated_pdf_product(
+                payload,
+                original,
+                recipe_bytes,
+                artifacts=artifacts,
+                native_schema=native_schema,
+            )
+        )
 
     def prepare_pdf_product(self, payload, original, schema_bytes, recipe_bytes):
-        return self._read(lambda reader: reader.prepare_pdf_product(
-            payload, original, schema_bytes, recipe_bytes,
-        ))
+        return self._read(
+            lambda reader: reader.prepare_pdf_product(
+                payload,
+                original,
+                schema_bytes,
+                recipe_bytes,
+            )
+        )
 
     def native_product_reference(self, document_id, product_key, digest):
-        return self._read(lambda reader: reader.native_product_reference(document_id, product_key, digest))
+        return self._read(
+            lambda reader: reader.native_product_reference(document_id, product_key, digest)
+        )
 
     def source_observations(self, source_view_id, method, kind):
         return self._read(lambda reader: reader.source_observations(source_view_id, method, kind))

@@ -285,6 +285,7 @@ class PdfConverter:
         if self.stream_spool is not None:
             spool = self.stream_spool
             base_pipeline_type: Any = pipeline_type
+            producer_owner = self
 
             class StreamedPipeline(base_pipeline_type):
                 def _release_page_resources(self, item: Any) -> None:
@@ -292,7 +293,7 @@ class PdfConverter:
                         spool.capture_page(
                             item.payload,
                             self.heading_hierarchy_model,
-                            self.pipeline_options.code_formula_options.scale,
+                            producer_owner.formula_stage().native.images_scale,
                         )
 
                 def _assemble_document(self, conv_res: Any) -> Any:
