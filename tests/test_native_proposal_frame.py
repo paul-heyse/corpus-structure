@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.parsing_products import ProductReference
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.proposals import (
     NativeProposalFrame,
     ProposalFrame,

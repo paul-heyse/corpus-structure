@@ -28,7 +28,7 @@ from corpus_structure.ingest.pdf_methods import (
     _drafts,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.parsing_products import ProductReference
+from corpus_structure.semantic.product_reference import ProductReference
 
 
 def test_projection_role_is_in_identity_before_construction():

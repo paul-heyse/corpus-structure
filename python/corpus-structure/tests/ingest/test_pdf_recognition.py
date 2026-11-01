@@ -139,7 +139,7 @@ def endpoint():
             with suppress(BrokenPipeError):
                 self.wfile.write(json.dumps(response).encode())
 
-        def log_message(self, *args):
+        def log_message(self, format: str, *args: object) -> None:
             pass
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)

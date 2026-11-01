@@ -31,7 +31,7 @@ from corpus_structure.methods.math.methods import (
 )
 from corpus_structure.methods.math.native import NativeDomainRule, domain_blocks
 from corpus_structure.methods.math.scope import Binders
-from corpus_structure.semantic.parsing_products import ProductReference
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_views import PreparedSourceView
 from corpus_structure.semantic.types import PreparedRelease
 

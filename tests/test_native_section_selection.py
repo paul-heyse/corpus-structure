@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from corpus_structure.semantic.operations import SourceReadRefused
-from corpus_structure.semantic.parsing_products import ProductReference
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_views import (
     normalized_native_section_title,
     resolve_native_sections,

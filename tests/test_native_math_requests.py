@@ -5,7 +5,7 @@ import pytest
 from corpus_structure.core.method import SourceViewRef
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.native import native_request_analysis
-from corpus_structure.semantic.parsing_products import ProductReference
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_views import PreparedSourceView
 
 

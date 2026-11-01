@@ -28,7 +28,7 @@ def test_active_registry_selects_pdf_not_html():
 
 def test_retained_native_input_binding_preserves_domain_definition():
     from corpus_structure.orchestrate.phase0 import bind_pdf_source, registry
-    from corpus_structure.semantic.parsing_products import ProductReference
+    from corpus_structure.semantic.product_reference import ProductReference
 
     base = registry(Path(__file__).resolve().parents[1] / "domains/statistics")
     original = base.resolve("ingest.pdf", "default")
@@ -205,7 +205,7 @@ def test_inline_decomposition_keeps_prose_and_qualified_formula_in_same_native_h
 
 def test_pinned_adoption_recipe_does_not_initialize_models(tmp_path):
     from corpus_structure.ingest.pdf_methods import IngestPdf
-    from corpus_structure.semantic.parsing_products import ProductReference
+    from corpus_structure.semantic.product_reference import ProductReference
 
     cfg = PdfIngestConfig(
         native_product=ProductReference(1, "organized", "a" * 64), model_cache=tmp_path / "missing"
@@ -222,7 +222,7 @@ def test_source_view_key_qualifies_consumer_release_and_full_native_pin():
 
     from corpus_structure.ingest.pdf_hierarchy import organize, snapshot
     from corpus_structure.ingest.pdf_methods import _drafts
-    from corpus_structure.semantic.parsing_products import ProductReference
+    from corpus_structure.semantic.product_reference import ProductReference
 
     document = DoclingDocument(name="independent adoption fixture")
     document.add_heading(text="1.1: Sets", level=1)
@@ -378,7 +378,7 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     from corpus_structure.ingest.pdf_health import ObservedFormulaStage
     from corpus_structure.ingest.pdf_hierarchy import organize, snapshot
     from corpus_structure.ingest.pdf_methods import EnrichPdfMath, IngestPdf, PdfEnrichConfig
-    from corpus_structure.semantic.parsing_products import ProductReference
+    from corpus_structure.semantic.product_reference import ProductReference
 
     document = DoclingDocument(name="independent document-operation fixture")
     if with_ancestor:
@@ -591,7 +591,7 @@ def test_source_view_drafts_derive_local_display_and_refuse_outside_scoped_inlin
 
     from corpus_structure.ingest.pdf_hierarchy import organize, snapshot
     from corpus_structure.ingest.pdf_methods import _drafts
-    from corpus_structure.semantic.parsing_products import ProductReference
+    from corpus_structure.semantic.product_reference import ProductReference
 
     document = DoclingDocument(name="independent scoped health projection")
     document.add_heading(text="1.1: Sets", level=1)

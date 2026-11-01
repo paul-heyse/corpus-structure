@@ -2,6 +2,7 @@
 
 import json
 import logging
+from typing import Any
 from types import SimpleNamespace
 
 import pytest
@@ -53,8 +54,8 @@ def test_retained_integrated_projection_keeps_pin_without_inference_or_reconcili
     monkeypatch.setattr(methods, "RecognitionWorker", refuse)
     monkeypatch.setattr(methods, "_consumer_release", lambda ctx: "d" * 64)
     cfg = methods.PdfIntegratedIngestConfig(integrated_product=reference, membership="descendants")
-    unit = SimpleNamespace(ref=UnitRef(TaskUnitType.DOCUMENT, 1, "retained"))
-    ctx = SimpleNamespace(
+    unit: Any = SimpleNamespace(ref=UnitRef(TaskUnitType.DOCUMENT, 1, "retained"))
+    ctx: Any = SimpleNamespace(
         reader=SimpleNamespace(native_document=retained),
         run=SimpleNamespace(options={}),
         logger=logging.getLogger(__name__),
@@ -93,4 +94,4 @@ def test_recovery_policy_rejects_unbounded_or_undeclared_recipes():
         {"eligible_finish_reason": "stop"},
     ):
         with pytest.raises(ValidationError):
-            methods.PdfRecognitionRecoveryPolicy(**changed)
+            methods.PdfRecognitionRecoveryPolicy.model_validate(changed)
