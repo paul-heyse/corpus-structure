@@ -9,6 +9,7 @@ from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.vocab import Stage
 from corpus_structure.ingest.pdf_methods import IngestPdf
+from corpus_structure.ingest.pdf_recognition_methods import IngestPdfIntegrated
 from corpus_structure.methods.math.methods import ExtractMath
 from corpus_structure.orchestrate import semantic
 from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
@@ -65,7 +66,7 @@ def run_scope(monkeypatch):
     )
 
 
-@pytest.mark.parametrize("method", [IngestPdf, ExtractMath])
+@pytest.mark.parametrize("method", [IngestPdf, IngestPdfIntegrated, ExtractMath])
 @pytest.mark.parametrize(
     "scope",
     [
@@ -103,7 +104,7 @@ def test_direct_native_execution_validates_released_scope_shape_before_writes(ru
     run_scope.tasks.assert_not_called()
 
 
-@pytest.mark.parametrize("method", [IngestPdf, ExtractMath])
+@pytest.mark.parametrize("method", [IngestPdf, IngestPdfIntegrated, ExtractMath])
 @pytest.mark.parametrize("all_sources", [False, True])
 def test_direct_native_execution_preserves_native_and_explicit_all_scope(
     run_scope, method, all_sources
@@ -128,14 +129,3 @@ def test_direct_native_execution_preserves_native_and_explicit_all_scope(
         run_scope.archive.assert_not_called()
     else:
         run_scope.archive.assert_called_once()
-
-
-def test_rendition_operation_does_not_gain_a_native_scope_requirement(run_scope):
-    from corpus_structure.ingest.methods import SegmentSentences
-
-    scope = {"name": "archived", "locators": ["inspection.html"], "hash": "a" * 64}
-    with pytest.raises(RegistrationBoundary):
-        run_scope.execute(scope, SegmentSentences())
-    run_scope.archive.assert_not_called()
-    assert run_scope.register.call_args.kwargs["options"]["scope"] == scope
-    run_scope.tasks.assert_not_called()

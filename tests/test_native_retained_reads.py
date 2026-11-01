@@ -81,12 +81,21 @@ def test_retained_view_hydrates_pins_but_refuses_layout_and_outside_run(
 
     conn.execute.side_effect = execute
     monkeypatch.setattr(releases, "open_release", lambda *args: retained_release)
+
+    def native_identity(conn, task, key, digest):
+        assert (task, key, digest) == (23, "organized", "a" * 64)
+        return {"kind": "native"}
+
+    monkeypatch.setattr(
+        "corpus_structure.semantic.pdf_storage._pdf_product_identity", native_identity
+    )
     with pytest.raises(PreparationError, match="admitted implementation bytes"):
         source_views.load_source_view(conn, 31)
 
     retained = source_views.load_source_view(conn, 31, analysis=False)
     assert retained.text == "x"
     assert retained.items == (item,)
+    assert retained.integrated_context is None
     assert retained.ref.native_product.content_digest == "a" * 64
     assert retained.ref.projection_digest == "b" * 64
     with pytest.raises(ValueError, match="cannot prepare analytical layout"):
