@@ -58,8 +58,8 @@ class NativeRows(PublishedPdfReader):
 
     def iter_companion_export_events(self, family):
         for body in self.iter_companions(family):
-            yield {"kind":"row","body":dict(body)}
-            yield {"kind":"close"}
+            yield {"kind": "row", "body": dict(body)}
+            yield {"kind": "close"}
 
     def iter_native_json(self) -> Iterator[bytes]:
         from corpus_structure.semantic.pdf_records import _decode_scalar, _parse_inline
@@ -204,8 +204,8 @@ def native() -> dict[str, Any]:
                 "children": [],
                 "label": "text",
                 "prov": [],
-                "orig": "A α and A",
-                "text": "A α and A",
+                "orig": ("A \u03b1 and A"),
+                "text": ("A \u03b1 and A"),
                 "content_layer": "body",
             }
         ],
@@ -223,16 +223,16 @@ def test_streamed_native_json_preserves_values_presence_and_order():
     actual = json.loads(sink.getvalue())
     assert actual == value
     assert actual["body"]["children"] == [{"$ref": "#/texts/0"}]
-    assert actual["texts"][0]["orig"] == "A α and A"
+    assert actual["texts"][0]["orig"] == ("A \u03b1 and A")
     assert actual["pages"] == {}
     assert receipt.byte_length == len(sink.getvalue())
     assert receipt.serialization_sha256 == sha256(sink.getvalue()).hexdigest()
-    assert reader.native_items(["#/texts/0"])["#/texts/0"]["text"] == "A α and A"
+    assert reader.native_items(["#/texts/0"])["#/texts/0"]["text"] == ("A \u03b1 and A")
 
 
 def test_large_unicode_scalar_is_serialized_in_bounded_chunks():
     value = native()
-    value["texts"][0]["text"] = 'α\\"\n' * 100_000
+    value["texts"][0]["text"] = ('\u03b1\\"\n') * 100_000
     reader = NativeRows(value)
     chunks = list(reader.iter_native_json())
     assert max(map(len, chunks)) < 1024 * 1024
@@ -311,7 +311,7 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
     value = native()
     value["pages"] = {"1": {"size": {"width": -0.0, "height": 100.0}, "page_no": 1}}
     if large:
-        value["texts"][0]["text"] = 'α\\"\n' * 100_000
+        value["texts"][0]["text"] = ('\u03b1\\"\n') * 100_000
         value["body"]["meta"] = {"vendor": {"empty": [], "large": "Ω" * 100_000}}
     lowered = NativeRows(value)
     with semantic_bare_engine.begin() as conn:
@@ -319,9 +319,23 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
             "CREATE SCHEMA ops",
             "CREATE SCHEMA kb",
             "CREATE TABLE ops.pdf_record_document(product_id text,revision_id text,root_id text)",
-            "CREATE TABLE kb.pdf_record_native(product_id text,revision_id text,record_id text,native_type text,scalars_json jsonb,structure_json jsonb)",
-            "CREATE TABLE kb.pdf_record_membership(product_id text,revision_id text,parent_id text,field_name text,ordinal bigint,value_kind text,record_id text,scalar_json jsonb,stream_id text,member_key text,member_key_stream_id text)",
-            "CREATE FUNCTION ops.read_pdf_published_revision(p_task bigint,p_product text,p_digest text) RETURNS TABLE(build_id text) LANGUAGE sql AS $$SELECT 'b'::text WHERE p_task=42 AND p_product='integrated' AND p_digest=repeat('f',64)$$",
+            (
+                "CREATE TABLE kb.pdf_record_native(product_id text,revision_id "
+                "text,record_id text,native_type text,scalars_json "
+                "jsonb,structure_json jsonb)"
+            ),
+            (
+                "CREATE TABLE kb.pdf_record_membership(product_id "
+                "text,revision_id text,parent_id text,field_name text,ordinal "
+                "bigint,value_kind text,record_id text,scalar_json "
+                "jsonb,stream_id text,member_key text,member_key_stream_id text)"
+            ),
+            (
+                "CREATE FUNCTION ops.read_pdf_published_revision(p_task "
+                "bigint,p_product text,p_digest text) RETURNS TABLE(build_id "
+                "text) LANGUAGE sql AS $$SELECT 'b'::text WHERE p_task=42 AND "
+                "p_product='integrated' AND p_digest=repeat('f',64)$$"
+            ),
         ):
             conn.exec_driver_sql(ddl)
         for row in lowered.rows:
@@ -399,7 +413,8 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
         assert (
             conn.execute(
                 text(
-                    "SELECT count(*) FROM ops.read_pdf_native_events(42,'integrated',repeat('e',64))"
+                    "SELECT count(*) FROM "
+                    "ops.read_pdf_native_events(42,'integrated',repeat('e',64))"
                 )
             ).scalar_one()
             == 0

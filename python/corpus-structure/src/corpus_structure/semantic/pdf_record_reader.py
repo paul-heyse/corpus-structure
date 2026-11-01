@@ -49,7 +49,8 @@ def published_record_reader(conn: Connection, reference: ProductReference):
     """Return the published port, or None for an explicitly archived PDF product."""
     available = conn.execute(
         text(
-            "SELECT to_regprocedure('ops.read_pdf_published_revision(bigint,text,text)') IS NOT NULL"
+            "SELECT to_regprocedure('ops.read_pdf_published_revision(bigint,te"
+            "xt,text)') IS NOT NULL"
         )
     ).scalar_one()
     if not available:
@@ -293,7 +294,7 @@ class PublishedPdfReader:
         body = dict(row["body"])
         if row.get("family") == "native_metadata":
             for projection in ("pointer", "outcome", "has_diagnostic"):
-                body.pop(projection,None)
+                body.pop(projection, None)
         for field in row.get("_fields", ()):
             name, kind = field["field_name"], field["scalar_kind"]
             if name in body:
@@ -311,68 +312,95 @@ class PublishedPdfReader:
         for row in self.iter_rows("companion", {"family": family}):
             yield self.decode_companion_row(row)
 
-    def iter_companion_export_events(self, family) -> Generator[dict[str, Any], None, None]:
-        with self.conn.execute(text(
-            "SELECT * FROM ops.read_pdf_companion_export_events(:task,:product,:digest,:family)"
-        ).execution_options(yield_per=32), dict(task=self.reference.task_id,
-                 product=self.reference.product_key,digest=self.reference.content_digest,family=family)) as result:
+    def iter_companion_export_events(self, family) -> Generator[dict[str, Any]]:
+        with self.conn.execute(
+            text(
+                "SELECT * FROM ops.read_pdf_companion_export_events(:task,:product,:digest,:family)"
+            ).execution_options(yield_per=32),
+            dict(
+                task=self.reference.task_id,
+                product=self.reference.product_key,
+                digest=self.reference.content_digest,
+                family=family,
+            ),
+        ) as result:
             for row in result:
                 yield row[0]
 
-    def iter_companion_json(self, family) -> Iterator[bytes]:
+    def iter_companion_json(self, family) -> Generator[bytes]:
         """One joined cursor streams exact fields without per-field SQL or JSONB coercion."""
         from .pdf_record_identity import ArtifactPart, ArtifactPin, replay_artifact
+
         def encode(value):
-            return json.dumps(value,ensure_ascii=False,allow_nan=False,separators=(",",":")).encode()
-        events=self.iter_companion_export_events(family)
-        pending=None
-        first_row=True
-        first_field=True
+            return json.dumps(
+                value, ensure_ascii=False, allow_nan=False, separators=(",", ":")
+            ).encode()
+
+        events = self.iter_companion_export_events(family)
+        pending = None
+        first_row = True
+        first_field = True
         try:
             while True:
-                event=pending if pending is not None else next(events,None)
-                pending=None
+                event = pending if pending is not None else next(events, None)
+                pending = None
                 if event is None:
                     return
-                kind=event["kind"]
+                kind = event["kind"]
                 if kind == "row":
                     if not first_row:
                         yield b","
-                    first_row=False
-                    body=dict(event["body"])
+                    first_row = False
+                    body = dict(event["body"])
                     if family == "native_metadata":
                         for projection in ("pointer", "outcome", "has_diagnostic"):
-                            body.pop(projection,None)
-                    encoded=encode(body)
+                            body.pop(projection, None)
+                    encoded = encode(body)
                     yield b"{" + encoded[1:-1]
-                    first_field=not bool(body)
+                    first_field = not bool(body)
                 elif kind == "field":
-                    field=event["field"]
+                    field = event["field"]
                     yield (b"" if first_field else b",") + encode(field["field_name"]) + b":"
-                    first_field=False
-                    pin=ArtifactPin(field["stream_id"],self.revision["release_id"],
-                        self.revision["source_digest"],field["byte_length"],field["serialization_sha256"],
-                        bytes.fromhex(field["byte_root"]))
+                    first_field = False
+                    pin = ArtifactPin(
+                        field["stream_id"],
+                        self.revision["release_id"],
+                        self.revision["source_digest"],
+                        field["byte_length"],
+                        field["serialization_sha256"],
+                        bytes.fromhex(field["byte_root"]),
+                    )
+
                     def parts():
                         nonlocal pending
                         for following in events:
                             if following["kind"] != "part":
-                                pending=following
+                                pending = following
                                 return
-                            part=following["part"]
-                            yield ArtifactPart(part["stream_id"],part["ordinal"],part["byte_offset"],
-                                part["byte_length"],bytes.fromhex(part["body"].removeprefix("\\x")),
-                                part["sha256_digest"])
-                    chunks=replay_artifact(parts(),pin,release_id=self.revision["release_id"],
-                                           source_digest=self.revision["source_digest"])
+                            part = following["part"]
+                            yield ArtifactPart(
+                                part["stream_id"],
+                                part["ordinal"],
+                                part["byte_offset"],
+                                part["byte_length"],
+                                bytes.fromhex(part["body"].removeprefix("\\x")),
+                                part["sha256_digest"],
+                            )
+
+                    chunks = replay_artifact(
+                        parts(),
+                        pin,
+                        release_id=self.revision["release_id"],
+                        source_digest=self.revision["source_digest"],
+                    )
                     if field["scalar_kind"] == "y":
                         yield from chunks
                     elif field["scalar_kind"] == "s":
                         yield b'"'
-                        decoder=codecs.getincrementaldecoder("utf-8")()
+                        decoder = codecs.getincrementaldecoder("utf-8")()
                         for chunk in chunks:
                             yield encode(decoder.decode(chunk))[1:-1]
-                        yield encode(decoder.decode(b"",final=True))[1:-1]
+                        yield encode(decoder.decode(b"", final=True))[1:-1]
                         yield b'"'
                     else:
                         raise ValueError("unsupported companion scalar kind")
@@ -409,15 +437,30 @@ class PublishedPdfReader:
             if len(rows) < 100:
                 return
 
-    def source_context(self, pointers, section_pointer, *, row_budget: int | None = None,
-                       membership: str = "direct") -> dict[str, Any]:
+    def source_context(
+        self,
+        pointers,
+        section_pointer,
+        *,
+        row_budget: int | None = None,
+        membership: str = "direct",
+    ) -> dict[str, Any]:
         """Use the same published relational context constructor as native frame guards."""
-        value = self.conn.execute(text(
-            "SELECT ops.record_integrated_source_context(:task,:product,:digest,"
-            "CAST(:pointers AS text[]),:section,:membership,:budget)"
-        ), dict(task=self.reference.task_id,product=self.reference.product_key,
-                digest=self.reference.content_digest,pointers=list(pointers),
-                section=section_pointer,membership=membership,budget=row_budget)).scalar_one()
+        value = self.conn.execute(
+            text(
+                "SELECT ops.record_integrated_source_context(:task,:product,:digest,"
+                "CAST(:pointers AS text[]),:section,:membership,:budget)"
+            ),
+            dict(
+                task=self.reference.task_id,
+                product=self.reference.product_key,
+                digest=self.reference.content_digest,
+                pointers=list(pointers),
+                section=section_pointer,
+                membership=membership,
+                budget=row_budget,
+            ),
+        ).scalar_one()
         if value is None:
             raise ValueError("published integrated source context is unavailable")
         return value
