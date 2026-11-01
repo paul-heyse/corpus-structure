@@ -176,6 +176,8 @@ enums:
       not_requested: {}
   PdfManifestCollection:
     permissible_values: {inputs: {}, coverage: {}, relations: {}, mapping_reports: {}}
+  PdfSelectionComparisonDemand:
+    permissible_values: {lexical: {}}
   PdfIntegrationAction:
     permissible_values: {keep: {}, add: {}, replace: {}, unresolved: {}}
   PdfProjectionSourceField:
@@ -1508,6 +1510,7 @@ classes:
   PdfIntegrationPolicy:
     description: Versioned application selection rules; confidence alone never licenses replacement.
     attributes:
+      comparison_demand: {range: PdfSelectionComparisonDemand, required: true, description: "Omitted authored values normalize to lexical before admission; version 1 selection does not request positioned syntax or symbolic comparison.", slot_uri: pdf:PdfIntegrationPolicy_comparison_demand}
       policy_id: {range: string, required: true, equals_string: pdf-integration-v1, slot_uri: 'pdf:PdfIntegrationPolicy_policy_id'}
       conflict_action: {range: PdfIntegrationAction, required: true, slot_uri: 'pdf:PdfIntegrationPolicy_conflict_action'}
       unmatched_action: {range: PdfIntegrationAction, required: true, slot_uri: 'pdf:PdfIntegrationPolicy_unmatched_action'}

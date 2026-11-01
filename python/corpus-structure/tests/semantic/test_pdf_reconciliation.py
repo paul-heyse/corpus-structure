@@ -520,3 +520,42 @@ def test_plain_recognition_preserves_unresolved_native_list_membership(native_so
         for e in unresolved["endpoints"]
     )
     assert "native_list_membership_requires_qualified_mapping" in unresolved["evidence"]
+
+
+def test_lexical_selection_does_not_request_math_but_explicit_comparison_does(native_source,monkeypatch):
+    import json
+    from docling_core.types.doc import BoundingBox,DoclingDocument,ProvenanceItem
+    from corpus_structure.ingest.pdf import PdfConversion,publication_payload
+    from corpus_structure.ingest.pdf_hierarchy import snapshot
+    from corpus_structure.methods.math import grammar
+    doc=DoclingDocument.model_validate(native_source.payload['document'])
+    doc.add_formula(text='z',orig='z',prov=ProvenanceItem(page_no=1,bbox=BoundingBox(l=10,t=150,r=60,b=160,coord_origin='TOPLEFT'),charspan=(0,1)))
+    native_source.payload=publication_payload(PdfConversion(sha256(native_source.original).hexdigest(),native_source.recipe,snapshot(doc),'success',(),(),(),None),product_key='native',schema_digest=sha256(native_source.schema).hexdigest(),include_application_metadata=False)
+    def forbidden(*args,**kwargs):
+        raise AssertionError('positioned syntax was requested')
+    monkeypatch.setattr(grammar,'syntax',forbidden)
+    raw=b'<x_0.05><y_0.5>x+1<x_0.3><y_0.533333><class_Formula>'
+    result=integrate(native_source,raw)
+    decision=next(r for r in result['relations'] if r['outcome']=='replaced')
+    evidence=json.loads(decision['evidence'])
+    assert evidence['policy']['comparison_demand']=='lexical'
+    assert evidence['comparison_requests']=={'lexical':'requested','positioned_syntax':'not_requested','symbolic':'not_requested'}
+    with pytest.raises(AssertionError,match='positioned syntax'):
+        compare_pdf_occurrences('z','x+1',mathematical=True)
+
+
+def test_policy_demand_defaults_into_recipe_and_unsupported_demand_refuses(native_source):
+    import json
+    from corpus_structure.semantic.product_reference import ProductReference
+    from corpus_structure.ingest.pdf_recognition_methods import IngestPdfIntegrated,PdfIntegratedIngestConfig
+    from corpus_structure.semantic.pdf_integrated import normalize_pdf_integration_policy
+    legacy={'policy_id':'pdf-integration-v1','conflict_action':'replace','unmatched_action':'add','specialized_crop_precedence':True}
+    cfg=PdfIntegratedIngestConfig(native_product=ProductReference(1,"native","a"*64), integration_policy=legacy)
+    recipe=json.loads(IngestPdfIntegrated().original_recipe(cfg))
+    assert cfg.integration_policy['comparison_demand']=='lexical'
+    assert normalize_pdf_integration_policy({})==normalize_pdf_integration_policy()
+    assert recipe['integration_policy']==normalize_pdf_integration_policy(legacy)
+    with pytest.raises(ValueError,match='only lexical'):
+        PdfIntegratedIngestConfig(integration_policy={**legacy,'comparison_demand':'symbolic'})
+    with pytest.raises(ValueError,match='only lexical'):
+        normalize_pdf_integration_policy({**legacy,'comparison_demand':'syntax'})

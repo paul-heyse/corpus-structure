@@ -544,20 +544,12 @@ def select_pdf_integration(
     from docling.utils.vlm_utils import normalize_section_header_levels
     from docling_core.types.doc import DoclingDocument
 
-    from corpus_structure.semantic.pdf_integrated import prepare_integrated_pdf_product
+    from corpus_structure.semantic.pdf_integrated import normalize_pdf_integration_policy, prepare_integrated_pdf_product
 
     from .pdf import PdfConversion, publication_payload
     from .pdf_hierarchy import native_nodes, snapshot
 
-    policy = dict(
-        policy
-        or {
-            "policy_id": "pdf-integration-v1",
-            "conflict_action": "replace",
-            "unmatched_action": "add",
-            "specialized_crop_precedence": True,
-        }
-    )
+    policy = normalize_pdf_integration_policy(policy)
     policy = context.boundary.validate_json("PdfIntegrationPolicy", json.dumps(policy)).model_dump(
         mode="json"
     )
@@ -714,9 +706,10 @@ def select_pdf_integration(
                 comparison = compare_pdf_occurrences(
                     _text(chosen, doc),
                     _text(incoming, mapped.document),
-                    mathematical=_family(incoming) == "formula",
+                    mathematical=False,
                     context=context,
                 )
+                evidence["comparison_requests"] = {"lexical": "requested", "positioned_syntax": "not_requested", "symbolic": "not_requested"}
                 evidence["comparison"] = comparison
                 if _family(incoming) in {"table", "chart"}:
                     evidence["comparison"] = {k: v for k, v in comparison.items() if k != "opcodes"}

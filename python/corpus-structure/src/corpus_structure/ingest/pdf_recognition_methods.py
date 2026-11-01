@@ -6,7 +6,7 @@ from collections.abc import Iterable, Sequence
 from hashlib import sha256
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from corpus_structure.core.method import (
     Digest,
@@ -25,6 +25,7 @@ from corpus_structure.core.vocab import (
     TaskUnitType,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.pdf_integrated import normalize_pdf_integration_policy
 from corpus_structure.semantic.product_reference import ProductReference
 
 from .pdf_capacity import native_before_nemotron
@@ -83,14 +84,14 @@ class PdfIntegratedIngestConfig(PdfIngestConfig):
     recovery_policy: PdfRecognitionRecoveryPolicy | None = Field(
         default_factory=PdfRecognitionRecoveryPolicy
     )
-    integration_policy: dict[str, Any] = Field(
-        default_factory=lambda: {
-            "policy_id": "pdf-integration-v1",
-            "conflict_action": "replace",
-            "unmatched_action": "add",
-            "specialized_crop_precedence": True,
-        }
-    )
+    integration_policy: dict[str, Any] = Field(default_factory=normalize_pdf_integration_policy)
+
+    @field_validator("integration_policy", mode="before")
+    @classmethod
+    def normalize_policy(cls, value: Any) -> Any:
+        if isinstance(value, Mapping):
+            return normalize_pdf_integration_policy(value)
+        return value
 
     def recognition_recipe(self) -> NemotronRecipe:
         return NemotronRecipe(
@@ -175,7 +176,7 @@ class IngestPdfIntegrated:
                     else None
                 ),
                 "gpu_phase_policy": cfg.gpu_phase_policy,
-                "integration_policy": cfg.integration_policy,
+                "integration_policy": normalize_pdf_integration_policy(cfg.integration_policy),
                 "recognition_pages": cfg.recognition_pages,
                 "recovery_policy": (
                     cfg.recovery_policy.model_dump(mode="json") if cfg.recovery_policy else None
