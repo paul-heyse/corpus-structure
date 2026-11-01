@@ -148,6 +148,13 @@ PDF-24/25 own shared consumer/export migration and operational handoff. The coor
 
 > Decision: [ADR-0042](../adr/0042-relational-pdf-document-records.md)
 
+**Accepted target (2026-11-01):** New segmented streams use independently verified actual parts,
+lengths and canonical byte folds. Conventional serialization SHA-256 is optional, separately
+scoped export metadata; original/raw/historical digest custody is unchanged. Explicit native
+exports are generated from admitted records rather than required as publication envelopes.
+
+> Decision: [ADR-0043](../adr/0043-segmented-artifact-byte-identity.md)
+
 ## Current task authority and historical storage
 
 **Implemented, 2026-10-30; actual regeneration/qualification remains in SP-09/SP-10.**

@@ -336,3 +336,31 @@ def test_native_record_frame_rejects_fabricated_scalar_lengths(semantic_db_engin
                     ),
                     {"bad": bad},
                 )
+
+
+def test_segmented_pin_without_export_sha_still_verifies_actual_bytes():
+    raw = b"segmented\x00payload" * 7000
+    parts = _parts(raw, 8192)
+    pin = replace(_pin(raw), serialization_sha256=None)
+    assert (
+        b"".join(replay_artifact(parts, pin, release_id="release", source_digest="1" * 64)) == raw
+    )
+    changed = replace(parts[0], body=b"x" * parts[0].byte_length)
+    changed = replace(changed, sha256_digest=sha256(changed.body).hexdigest())
+    with pytest.raises(ValueError, match="byte root"):
+        tuple(
+            replay_artifact(
+                [changed, *parts[1:]], pin, release_id="release", source_digest="1" * 64
+            )
+        )
+    with pytest.raises(ValueError, match="SHA-256"):
+        tuple(
+            replay_artifact(
+                parts,
+                replace(pin, serialization_sha256="0" * 64),
+                release_id="release",
+                source_digest="1" * 64,
+            )
+        )
+    with pytest.raises(ValueError, match="invalid"):
+        replace(pin, serialization_sha256="")

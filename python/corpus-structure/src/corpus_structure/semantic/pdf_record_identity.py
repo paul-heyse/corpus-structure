@@ -302,15 +302,17 @@ class ArtifactPin:
     release_id: str
     source_digest: str
     byte_length: int
-    serialization_sha256: str
+    serialization_sha256: str | None
     byte_root: bytes
 
     def __post_init__(self) -> None:
         if not self.stream_id or not self.release_id:
             raise ValueError("artifact pin requires stream and release")
         _length(self.byte_length)
-        if not _HEX.fullmatch(self.source_digest) or not _HEX.fullmatch(self.serialization_sha256):
-            raise ValueError("artifact pin requires source and exact serialization SHA-256")
+        if not _HEX.fullmatch(self.source_digest):
+            raise ValueError("artifact pin requires a source SHA-256")
+        if self.serialization_sha256 is not None and not _HEX.fullmatch(self.serialization_sha256):
+            raise ValueError("supplied export serialization SHA-256 is invalid")
         if len(self.byte_root) != 32:
             raise ValueError("artifact pin requires byte fold root")
 
@@ -328,6 +330,8 @@ def replay_artifact(
 ) -> Iterator[bytes]:
     """Verify actual contiguous bytes while replaying; exhaust to establish success.
 
+    New segmented pins use the independently verified byte fold and length. A supplied
+    serialization SHA-256 is additionally checked; it is never inferred from a fold.
     ``already_admitted`` compares every actual part directly with retained bytes.
     Its stream starts at the admitted artifact's beginning. A digest alone is not
     correspondence evidence. Duplicate rows, including equal duplicates, refuse;
@@ -335,7 +339,7 @@ def replay_artifact(
     """
     if (pin.release_id, pin.source_digest) != (release_id, source_digest):
         raise ValueError("artifact release/source pin differs")
-    standard = sha256()
+    standard = sha256() if pin.serialization_sha256 is not None else None
     ordinal = 0
     offset = 0
 
@@ -359,7 +363,8 @@ def replay_artifact(
                 and read_exact(already_admitted, part.byte_length) != part.body
             ):
                 raise ValueError("artifact bytes differ from already-admitted retained bytes")
-            standard.update(part.body)
+            if standard is not None:
+                standard.update(part.body)
             ordinal += 1
             offset += part.byte_length
             yield part.body
@@ -372,7 +377,7 @@ def replay_artifact(
         raise ValueError("already-admitted retained bytes have a trailing suffix")
     if (
         offset != pin.byte_length
-        or standard.hexdigest() != pin.serialization_sha256
+        or (standard is not None and standard.hexdigest() != pin.serialization_sha256)
         or folded.digest() != pin.byte_root
     ):
         raise ValueError("artifact inventory, exact SHA-256 or byte root differs")
