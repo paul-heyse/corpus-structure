@@ -696,7 +696,9 @@ def _recorded_interpretations(conn: Connection, request: NativeSourceRequest) ->
     )
 
 
-NativeExportFormat = Literal["jsonl", "parquet", "docling-json", "integrated-json"]
+NativeExportFormat = Literal[
+    "jsonl", "parquet", "docling-json", "integrated-json", "selected-source-v1"
+]
 
 
 def export_native_source(
@@ -705,6 +707,7 @@ def export_native_source(
     destination,
     *,
     format: NativeExportFormat = "parquet",
+    settings=None,
 ) -> None:
     """Export a pinned projection or explicitly requested complete native document."""
     import os
@@ -714,6 +717,13 @@ def export_native_source(
     from sqlalchemy import Text
 
     destination = Path(destination)
+    if format == "selected-source-v1":
+        from .selected_source import export_selected_native_source
+
+        if settings is None:
+            raise ValueError("selected-source-v1 requires the owned runtime settings")
+        export_selected_native_source(request, destination, settings)
+        return
     if destination.exists():
         raise FileExistsError(destination)
     binding = dict(

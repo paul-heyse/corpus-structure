@@ -1,0 +1,87 @@
+id: https://corpus-structure.dev/semantic/selected-source
+name: selected_source
+prefixes:
+  ss: https://corpus-structure.dev/selected-source/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: ss
+default_range: SourceString
+types:
+  SourceString: {base: str, uri: 'xsd:string'}
+  SourceInteger: {base: int, uri: 'xsd:integer'}
+  SourceBoolean: {base: bool, uri: 'xsd:boolean'}
+  SourceDigest: {base: str, uri: 'xsd:string', pattern: '^[0-9a-f]{64}$'}
+  SourcePointer: {base: str, uri: 'xsd:string', pattern: '^#(/[^/]+)+$'}
+enums:
+  SourceFormat: {permissible_values: {selected-source-v1: {}}}
+  SourceMembership: {permissible_values: {descendants: {}}}
+  SourceContextPolicy: {permissible_values: {section-source-context-v1: {}}}
+  SourceEventKind:
+    permissible_values:
+      header: {}
+      record_start: {}
+      scalar_part: {}
+      record_end: {}
+      context: {}
+      companion_start: {}
+      companion_end: {}
+      outside_reference: {}
+      trailer: {}
+  SourceRecordRole: {permissible_values: {selected: {}}}
+  SourcePartEncoding: {permissible_values: {base64: {}}}
+classes:
+  SelectedSourcePin:
+    attributes:
+      project_id: {required: true}
+      run_id: {range: SourceInteger, required: true, minimum_value: 1}
+      release_id: {required: true}
+      task_id: {range: SourceInteger, required: true, minimum_value: 1}
+      product_key: {required: true}
+      content_digest: {range: SourceDigest, required: true}
+  SelectedSourceSelection:
+    attributes:
+      root: {range: SourcePointer, required: true}
+      membership: {range: SourceMembership, required: true}
+  SelectedSourceExportRequest:
+    attributes:
+      pin: {range: SelectedSourcePin, required: true, inlined: true}
+      selection: {range: SelectedSourceSelection, required: true, inlined: true}
+      destination: {required: true}
+      context_policy: {range: SourceContextPolicy, required: true}
+  SelectedSourceRecordDescriptor:
+    attributes:
+      pointer: {range: SourcePointer, required: true}
+      record_id: {required: true, pattern: '^.+$'}
+      ordinal: {range: SourceInteger, required: true, minimum_value: 0}
+      parent_pointer: {range: SourcePointer, required: false}
+      section_pointer: {range: SourcePointer, required: false}
+      label: {required: true}
+      role: {range: SourceRecordRole, required: true}
+  SelectedSourceCompanionDescriptor:
+    attributes:
+      family: {required: true, pattern: '^(occurrence|relation|endpoint|input|coverage|mapping_report|health|native_metadata)$'}
+      local_id: {required: true, pattern: '^.+$'}
+      ordinal: {range: SourceInteger, required: true, minimum_value: 0}
+  SelectedSourcePayloadEnd:
+    attributes:
+      pointer: {range: SourcePointer, required: false}
+      byte_length: {range: SourceInteger, required: true, minimum_value: 0}
+      sha256: {range: SourceDigest, required: true}
+  SelectedSourceEvent:
+    description: >-
+      Ordered bounded event envelope. data carries the exact JSON descriptor text;
+      scalar_part value carries base64 bytes of the current record/companion JSON.
+      The protocol state machine validates nesting, contiguous part ordinals,
+      per-payload byte length/digest, complete membership and final receipt.
+    attributes:
+      event: {range: SourceEventKind, required: true}
+      data: {required: false}
+      part: {range: SourceInteger, minimum_value: 0, required: false}
+      encoding: {range: SourcePartEncoding, required: false}
+      value: {required: false}
+      final: {range: SourceBoolean, required: false}
+annotations:
+  selected-source: >-
+    {"format":"selected-source-v1","context_policy":"section-source-context-v1",
+    "max_event_bytes":131072,"part_bytes":32768,
+    "included_families":["native","ancestor","frame","occurrence","relation","endpoint","input","coverage","mapping_report","health","recognition","outside_reference"],
+    "omissions":["outside_subtree_bodies","original_artifact_bodies","unselected_observations","complete_docling_envelope"]}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json as jsonlib
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import typer
 from pydantic import BaseModel, JsonValue, RootModel
@@ -98,11 +98,11 @@ def register(root: typer.Typer):
 @app.command("native-export")
 def native_export(
     ctx: typer.Context,
-    run: int,
-    producing_task: int,
-    product: str,
-    digest: str,
-    output: Path,
+    run: Annotated[int, typer.Option()],
+    producing_task: Annotated[int, typer.Option()],
+    product: Annotated[str, typer.Option()],
+    digest: Annotated[str, typer.Option()],
+    output: Annotated[Path, typer.Option()],
     section: str | None = None,
     membership: Literal["direct", "descendants"] | None = None,
     format: NativeExportFormat = "parquet",
@@ -113,6 +113,24 @@ def native_export(
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.native_source import NativeSourceRequest, export_native_source
 
+    if format == "selected-source-v1":
+        from corpus_structure.serve.selected_source import export_selected_native_source
+
+        with failure_boundary(True, expected=(ValueError, FileExistsError)):
+            receipt = export_selected_native_source(
+                NativeSourceRequest(
+                    run_id=run,
+                    task_id=producing_task,
+                    product_key=product,
+                    content_digest=digest,
+                    section_pointer=section,
+                    membership=membership,
+                ),
+                output,
+                state(ctx).settings(),
+            )
+            emit(receipt, json=True)
+        return
     with (
         failure_boundary(True, expected=(ValueError, FileExistsError)),
         open_runtime_engine(
@@ -300,3 +318,62 @@ def native_views(ctx: typer.Context, run: int, json: JsonOpt = False):
         context.execution.require_operation("read_source_view")
         context.boundary.validate_json("PdfNativeRunRequest", jsonlib.dumps(dict(run_id=run)))
         emit(RootModel(selected_source_views(conn, run)), json=json)
+
+
+@app.command("companion-export")
+def companion_export(
+    ctx: typer.Context,
+    run: Annotated[int, typer.Option()],
+    producing_task: Annotated[int, typer.Option()],
+    product: Annotated[str, typer.Option()],
+    digest: Annotated[str, typer.Option()],
+    project: Annotated[str, typer.Option()],
+    release: Annotated[str, typer.Option()],
+    output: Annotated[Path, typer.Option()],
+    family: Annotated[list[str] | None, typer.Option("--family")] = None,
+    json: JsonOpt = False,
+):
+    """Export detached typed companion families from one exact published pin."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.serve.companion_export import (
+        CompanionExportRequest,
+        PublishedSourcePin,
+        export_companion_parquet,
+    )
+
+    with failure_boundary(json, expected=(ValueError, FileExistsError)):
+        values: dict = dict(
+            pin=PublishedSourcePin(
+                project_id=project,
+                release_id=release,
+                run_id=run,
+                task_id=producing_task,
+                product_key=product,
+                content_digest=digest,
+            ),
+            destination=output,
+        )
+        if family:
+            values["families"] = tuple(family)
+        request = CompanionExportRequest.model_validate(values)
+        emit(export_companion_parquet(request, state(ctx).settings()), json=json)
+
+
+@app.command("companion-inventory")
+def companion_inventory(manifest: Path, json: JsonOpt = False):
+    """Inventory only verified manifest-listed files, without a database session."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.serve.companion_export import inventory_companion_export
+
+    with failure_boundary(json, expected=(ValueError, OSError)):
+        emit(RootModel(inventory_companion_export(manifest)), json=json)
+
+
+@app.command("companion-compare")
+def companion_compare(left: Path, right: Path, json: JsonOpt = False):
+    """Compare compatible detached projections while preserving duplicates."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.serve.companion_export import compare_companion_exports
+
+    with failure_boundary(json, expected=(ValueError, OSError)):
+        emit(RootModel(compare_companion_exports(left, right)), json=json)
