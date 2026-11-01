@@ -15,6 +15,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from hashlib import sha256
 from io import BytesIO
+from itertools import groupby
 from pathlib import Path
 from threading import Event, Lock
 from typing import Any
@@ -266,6 +267,27 @@ class RecognitionPage:
                 artifacts.append((self.directory / row["http_response"]).read_bytes())
             if row.get("crop", {}).get("jpeg_path") if row.get("crop") else False:
                 artifacts.append((self.directory / row["crop"]["jpeg_path"]).read_bytes())
+            # The request metadata contains the upstream crop witness even on later failure.
+            # The first observation also protects page selection/omission and final status.
+            names = [path.name]
+            if row["ordinal"] == 0:
+                names.extend(
+                    (
+                        "input.json",
+                        "decisions.json",
+                        "result.json",
+                        "provider-document.json",
+                        "interrupted.json",
+                    )
+                )
+            context = {}
+            for name in names:
+                retained = self.directory / name
+                if retained.exists():
+                    payload = retained.read_bytes()
+                    context[name] = sha256(payload).hexdigest()
+                    artifacts.append(payload)
+            row["receipt_digests"] = context
             yield row, raw, tuple(artifacts)
 
 
@@ -301,6 +323,7 @@ class RecognitionWorker:
         concurrency: int,
         check_active: Callable[[], None] | None,
         reuse: bool,
+        reuse_failures: bool,
     ) -> Iterator[RecognitionPage]:
         cancelled = Event()
         pages = iter(page_numbers)
@@ -319,7 +342,14 @@ class RecognitionWorker:
             )
             worker._physical_page_concurrency = concurrency
             return next(
-                worker.recognize_pages(source, recipe, [page_no], check_active=active, reuse=reuse)
+                worker.recognize_pages(
+                    source,
+                    recipe,
+                    [page_no],
+                    check_active=active,
+                    reuse=reuse,
+                    reuse_failures=reuse_failures,
+                )
             )
 
         pending: deque[Future[RecognitionPage]] = deque()
@@ -378,6 +408,7 @@ class RecognitionWorker:
         check_active: Callable[[], None] | None = None,
         reuse: bool = True,
         concurrency: int = 1,
+        reuse_failures: bool = False,
     ) -> Iterator[RecognitionPage]:
         import pypdfium2
 
@@ -395,6 +426,7 @@ class RecognitionWorker:
                 concurrency=concurrency,
                 check_active=check_active,
                 reuse=reuse,
+                reuse_failures=reuse_failures,
             )
             return
         with _PDFIUM_LOCK:
@@ -417,6 +449,8 @@ class RecognitionWorker:
                     ),
                     None,
                 )
+                if reused is None and reuse_failures and previous:
+                    reused = previous[0]
                 if reuse and reused is not None:
                     self.last_page = RecognitionPage(
                         page_no,
@@ -498,6 +532,26 @@ class RecognitionWorker:
                 document.close()
 
 
+def repetitive_capped_page(page: RecognitionPage, *, minimum_run: int) -> bool:
+    """Observed cap plus a declared repeated-character run, never an inferred success."""
+    if page.succeeded:
+        return False
+    for row, raw, _ in page.requests():
+        if row.get("finish_reason") != "length":
+            continue
+        if any(sum(1 for _ in run) >= minimum_run for _, run in groupby(raw.decode("utf-8"))):
+            return True
+    return False
+
+
+def repetition_recovery_recipe(recipe: NemotronRecipe) -> NemotronRecipe:
+    return dataclasses.replace(
+        recipe,
+        repetition_penalty=1.3,
+        recipe_id="nemotron-public-triple-union-repetition-recovery-v1",
+    )
+
+
 def recognition_observation_values(
     page: RecognitionPage,
     row: Mapping[str, Any],
@@ -541,6 +595,8 @@ def recognition_observation_values(
                     "mtp": recipe.mtp,
                     "attention_backend": recipe.attention_backend,
                     "attention_version": recipe.attention_version,
+                    "recipe_id": recipe.recipe_id,
+                    "receipt_digests": row.get("receipt_digests", {}),
                 }
             ).decode(),
             seed=str(recipe.seed),

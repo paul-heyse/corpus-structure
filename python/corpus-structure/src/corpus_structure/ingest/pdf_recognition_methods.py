@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from hashlib import sha256
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.core.method import (
     Digest,
@@ -39,9 +39,25 @@ from .pdf_methods import (
 from .pdf_recognition import (
     NemotronRecipe,
     PreparedRecognitionSource,
+    RecognitionPage,
     RecognitionWorker,
     recognition_observation_values,
+    repetition_recovery_recipe,
+    repetitive_capped_page,
 )
+
+
+class PdfRecognitionRecoveryPolicy(BaseModel):
+    """One release-bound, narrowly eligible recovery; never an unbounded generic retry."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    policy_id: Literal["length-repetition-recovery-v1"] = "length-repetition-recovery-v1"
+    eligible_finish_reason: Literal["length"] = "length"
+    min_identical_character_run: int = Field(default=64, ge=64)
+    max_attempts: Literal[1] = 1
+    permitted_recipe_id: Literal["nemotron-public-triple-union-repetition-recovery-v1"] = (
+        "nemotron-public-triple-union-repetition-recovery-v1"
+    )
 
 
 class PdfIntegratedIngestConfig(PdfIngestConfig):
@@ -58,6 +74,9 @@ class PdfIntegratedIngestConfig(PdfIngestConfig):
     render_scale: float = Field(default=2.0, gt=0)
     max_regions: int = Field(default=80, ge=1)
     recognition_pages: tuple[int, ...] = ()
+    recovery_policy: PdfRecognitionRecoveryPolicy | None = Field(
+        default_factory=PdfRecognitionRecoveryPolicy
+    )
     integration_policy: dict[str, Any] = Field(
         default_factory=lambda: {
             "policy_id": "pdf-integration-v1",
@@ -74,6 +93,25 @@ class PdfIntegratedIngestConfig(PdfIngestConfig):
             render_scale=self.render_scale,
             max_regions=self.max_regions,
         )
+
+
+def _retain_page(
+    page: RecognitionPage,
+    unit: UnitRef,
+    source: PreparedRecognitionSource,
+    recipe: NemotronRecipe,
+    prepared_original: Any,
+    ctx: MethodContext,
+) -> list[tuple[dict[str, Any], dict[str, Any], bytes]]:
+    observations = []
+    for row, raw, artifacts in page.requests():
+        observation = recognition_observation_values(page, row, raw, source=source, recipe=recipe)
+        product = ctx.reader.prepare_integrated_pdf_product(
+            observation, prepared_original, recipe.to_bytes(), artifacts=artifacts
+        )
+        pin = ctx.retain_integrated_pdf(unit, product)
+        observations.append((pin.values(), product.values(), raw))
+    return observations
 
 
 class IngestPdfIntegrated:
@@ -108,6 +146,9 @@ class IngestPdfIntegrated:
                 "native_product": cfg.native_product.values() if cfg.native_product else None,
                 "integration_policy": cfg.integration_policy,
                 "recognition_pages": cfg.recognition_pages,
+                "recovery_policy": (
+                    cfg.recovery_policy.model_dump(mode="json") if cfg.recovery_policy else None
+                ),
                 "section_policy": {
                     "rule_id": cfg.section_rule,
                     "numbered_pattern": cfg.section_pattern,
@@ -174,21 +215,52 @@ class IngestPdfIntegrated:
                     timeout_seconds=ctx.settings.nemotron_timeout_seconds,
                 )
                 observations = []
+                failures = []
+                recovery = cfg.recovery_policy
+                if recovery is not None:
+                    ctx.reader.pdf_context().boundary.validate_json(
+                        "PdfRecognitionRecoveryPolicy", recovery.model_dump_json()
+                    )
 
                 for page in worker.recognize_pages(
-                    source, recipe, requested, check_active=ctx.check_active
+                    source,
+                    recipe,
+                    requested,
+                    check_active=ctx.check_active,
+                    concurrency=4,
+                    reuse_failures=True,
                 ):
-                    for row, raw, artifacts in page.requests():
-                        observation = recognition_observation_values(
-                            page, row, raw, source=source, recipe=recipe
+                    observations.extend(
+                        _retain_page(page, unit.ref, source, recipe, prepared_original, ctx)
+                    )
+                    if (
+                        not page.succeeded
+                        and recovery is not None
+                        and repetitive_capped_page(
+                            page, minimum_run=recovery.min_identical_character_run
                         )
-                        product = ctx.reader.prepare_integrated_pdf_product(
-                            observation, prepared_original, recipe.to_bytes(), artifacts=artifacts
+                    ):
+                        alternate = repetition_recovery_recipe(recipe)
+                        if alternate.recipe_id != recovery.permitted_recipe_id:
+                            raise ValueError("recovery recipe differs from admitted policy")
+                        # One named recipe is attempted at most once. Failed primary/variant
+                        # receipts are reusable as failures; no deterministic blind rerun.
+                        page = next(
+                            worker.recognize_pages(
+                                source,
+                                alternate,
+                                [page.page_no],
+                                check_active=ctx.check_active,
+                                reuse_failures=True,
+                            )
                         )
-                        pin = ctx.retain_integrated_pdf(unit.ref, product)
-                        observations.append((pin.values(), product.values(), raw))
+                        observations.extend(
+                            _retain_page(page, unit.ref, source, alternate, prepared_original, ctx)
+                        )
                     if not page.succeeded:
-                        raise RuntimeError(str(page.result.get("diagnostic", "triple pass failed")))
+                        failures.append(page.page_no)
+                if failures:
+                    raise RuntimeError(f"unresolved triple-pass physical pages: {failures}")
                 ctx.check_active()
                 selected = select_pdf_integration(
                     values,

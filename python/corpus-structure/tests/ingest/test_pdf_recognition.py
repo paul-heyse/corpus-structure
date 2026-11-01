@@ -27,6 +27,8 @@ from corpus_structure.ingest.pdf_recognition import (
     crop_transform,
     recognition_observation_values,
     render_recognition_page,
+    repetition_recovery_recipe,
+    repetitive_capped_page,
     transform_point,
 )
 from corpus_structure.semantic.pdf_integrated import prepare_integrated_pdf_product
@@ -124,6 +126,13 @@ def endpoint():
                 "usage": {"completion_tokens": 12},
                 "choices": [{"finish_reason": "stop", "message": {"content": reply}}],
             }
+            if isinstance(reply, dict):
+                response["choices"] = [
+                    {
+                        "finish_reason": reply["finish_reason"],
+                        "message": {"content": reply["raw"]},
+                    }
+                ]
             self.send_response(200)
             self.end_headers()
             # The cancellation control deliberately closes a live request.
@@ -185,6 +194,18 @@ def test_public_triple_exact_images_raw_crops_and_replay(tmp_path, endpoint):
             json.loads(values["observation"]["binding"]["decoding_json"])["response_model"]
             == "actual-model-revision"
         )
+        receipt_digests = json.loads(values["observation"]["binding"]["decoding_json"])[
+            "receipt_digests"
+        ]
+        assert set(receipt_digests.values()) <= {
+            sha256(payload).hexdigest() for payload in artifacts
+        }
+        if row["ordinal"] == 0:
+            assert {
+                "decisions.json",
+                "result.json",
+                "provider-document.json",
+            } <= receipt_digests.keys()
     crop_row = rows[2][0]
     with Image.open(page.directory / "page.png") as full:
         crop = full.crop(crop_row["crop"]["pixels"])
@@ -296,3 +317,36 @@ def test_bounded_parallel_pages_keep_order_independent_handles_and_parent_cancel
     admitted = list(tmp_path.glob("**/attempt-00002/input.json"))
     assert len(admitted) <= 4
     assert len(list(tmp_path.glob("**/attempt-00002/interrupted.json"))) == len(admitted)
+
+
+def test_capped_repetition_recovery_is_explicit_bounded_and_failed_receipts_replay(
+    tmp_path, endpoint
+):
+    url, requests, replies = endpoint
+    replies.append({"finish_reason": "length", "raw": "∫" * 64})
+    source = PreparedRecognitionSource.prepare(landmark_pdf())
+    recipe = NemotronRecipe("1" * 64, "2" * 64, render_scale=1)
+    worker = owner(tmp_path, url)
+    page = next(worker.recognize_pages(source, recipe, [1]))
+    assert not page.succeeded
+    assert repetitive_capped_page(page, minimum_run=64)
+    assert not repetitive_capped_page(page, minimum_run=65)
+    row, raw, artifacts = next(page.requests())
+    assert row["outcome"] == "partial" and raw == ("∫" * 64).encode()
+    values = recognition_observation_values(page, row, raw, source=source, recipe=recipe)
+    product = prepare_integrated_pdf_product(
+        values, source.original, recipe.to_bytes(), artifacts=artifacts
+    )
+    assert product.values()["coverage"][0]["outcome"] == "capped"
+    replay = next(worker.recognize_pages(source, recipe, [1], reuse_failures=True))
+    assert replay.reused and not replay.succeeded and len(requests) == 1
+    alternate = repetition_recovery_recipe(recipe)
+    assert alternate.digest != recipe.digest and alternate.repetition_penalty == 1.3
+    assert alternate.temperature == recipe.temperature == 0
+    assert alternate.mtp == recipe.mtp
+    text = "<x_0.1><y_0.2>completed<x_0.8><y_0.3><class_Text>"
+    replies.extend([text, text])
+    recovered = next(worker.recognize_pages(source, alternate, [1]))
+    assert recovered.succeeded and len(requests) == 3
+    assert not repetitive_capped_page(recovered, minimum_run=64)
+    assert (page.directory / "request-000.raw.txt").read_bytes() == raw
