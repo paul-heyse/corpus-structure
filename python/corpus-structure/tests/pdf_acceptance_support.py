@@ -64,6 +64,7 @@ class NoInferenceWorker(PdfWorker):
 
 def install_no_inference_boundary(monkeypatch, directory: Path) -> None:
     """Only acquisition is doubled; child compute, original backend and custody stay real."""
+
     def forbidden_recognition(*args, **kwargs):
         raise AssertionError("controlled retained-input acceptance forbids recognition inference")
 

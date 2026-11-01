@@ -651,11 +651,9 @@ def integrated_source_context(
 
     result = conn.execute(
         text(
-            (
-                'SELECT ops.integrated_source_context(:task,:key,:d'
-                'igest,CAST(:pointers AS text[]),:section,:membersh'
-                'ip)'
-            )
+            "SELECT ops.integrated_source_context(:task,:key,:d"
+            "igest,CAST(:pointers AS text[]),:section,:membersh"
+            "ip)"
         ),
         dict(
             task=task_id,

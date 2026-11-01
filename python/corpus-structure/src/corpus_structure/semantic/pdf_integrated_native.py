@@ -169,7 +169,8 @@ def reconciled_pdf_products(model=None):
     for name in changed:
         sql += (
             "DO $foreign$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint "
-            f"WHERE conrelid='{name}'::regclass AND contype='f' AND confrelid='ops.native_document_product'::regclass LOOP "
+            f"WHERE conrelid='{name}'::regclass AND contype='f' "
+            "AND confrelid='ops.native_document_product'::regclass LOOP "
             f"EXECUTE format('ALTER TABLE {name} DROP CONSTRAINT %I',n); END LOOP; END $foreign$;\n"
         )
         for constraint in sorted(
@@ -185,7 +186,7 @@ def reconciled_pdf_products(model=None):
                     + ";\n"
                 )
     sql += (
-        'DO $checks$ DECLARE n text; BEGIN FOR n IN SELECT '
+        "DO $checks$ DECLARE n text; BEGIN FOR n IN SELECT "
         "conname FROM pg_constraint WHERE conrelid='ops.pdf"
         "_product_body'::regclass AND contype='c' LOOP EXEC"
         "UTE format('ALTER TABLE ops.pdf_product_body DROP "
@@ -193,7 +194,7 @@ def reconciled_pdf_products(model=None):
     )
     sql += "ALTER TABLE ops.pdf_product_body DISABLE TRIGGER semantic_immutable;\n"
     sql += (
-        'UPDATE ops.pdf_product_body SET descriptor=(conver'
+        "UPDATE ops.pdf_product_body SET descriptor=(conver"
         "t_from(payload,'UTF8')::jsonb - ARRAY['content','o"
         "ccurrences','relations','coverage','inputs','mappi"
         "ng_reports']) || CASE WHEN convert_from(payload,'U"
@@ -217,11 +218,11 @@ def reconciled_pdf_products(model=None):
                 + ";\n"
             )
     sql += (
-        'ALTER TABLE kb.pdf_occurrence ADD COLUMN pointer t'
-        'ext;\nALTER TABLE kb.pdf_occurrence DISABLE TRIGGER'
-        ' semantic_immutable;\nUPDATE kb.pdf_occurrence SET '
+        "ALTER TABLE kb.pdf_occurrence ADD COLUMN pointer t"
+        "ext;\nALTER TABLE kb.pdf_occurrence DISABLE TRIGGER"
+        " semantic_immutable;\nUPDATE kb.pdf_occurrence SET "
         "pointer=body->>'pointer';\nALTER TABLE kb.pdf_occur"
-        'rence ENABLE TRIGGER semantic_immutable;\n'
+        "rence ENABLE TRIGGER semantic_immutable;\n"
     )
     for constraint in sorted(
         metadata.tables["kb.pdf_occurrence"].constraints, key=lambda c: str(c.name)
@@ -241,9 +242,9 @@ def reconciled_pdf_products(model=None):
         sql += str(CreateIndex(index).compile(dialect=dialect())) + ";\n"
     new_relation = "kb.pdf_mapping_report"
     sql += (
-        'GRANT REFERENCES ON ops.pdf_product_input TO __MIG'
-        'RATION_OWNER__;\nSET LOCAL ROLE __MIGRATION_OWNER__'
-        ';\n'
+        "GRANT REFERENCES ON ops.pdf_product_input TO __MIG"
+        "RATION_OWNER__;\nSET LOCAL ROLE __MIGRATION_OWNER__"
+        ";\n"
     )
     for product in physical_products():
         if (
@@ -253,21 +254,21 @@ def reconciled_pdf_products(model=None):
         ):
             sql += product.content.decode() + "\n"
     sql += (
-        'ALTER TABLE kb.pdf_mapping_report OWNER TO corpus_'
-        'sem_publisher;\nSET LOCAL ROLE corpus_sem_publisher'
-        ';\nREVOKE REFERENCES ON ops.pdf_product_input FROM '
-        '__MIGRATION_OWNER__;\n'
+        "ALTER TABLE kb.pdf_mapping_report OWNER TO corpus_"
+        "sem_publisher;\nSET LOCAL ROLE corpus_sem_publisher"
+        ";\nREVOKE REFERENCES ON ops.pdf_product_input FROM "
+        "__MIGRATION_OWNER__;\n"
     )
     sql += (
-        'CREATE TRIGGER semantic_immutable BEFORE UPDATE OR'
-        ' DELETE OR TRUNCATE ON kb.pdf_mapping_report FOR E'
-        'ACH STATEMENT EXECUTE FUNCTION sem.refuse_immutabl'
-        'e_mutation();\n'
+        "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR"
+        " DELETE OR TRUNCATE ON kb.pdf_mapping_report FOR E"
+        "ACH STATEMENT EXECUTE FUNCTION sem.refuse_immutabl"
+        "e_mutation();\n"
     )
     sql += (
-        'GRANT SELECT ON kb.pdf_mapping_report TO corpus_se'
-        'm_writer,corpus_sem_reader,corpus_sem_admitter,cor'
-        'pus_sem_evaluator;\n'
+        "GRANT SELECT ON kb.pdf_mapping_report TO corpus_se"
+        "m_writer,corpus_sem_reader,corpus_sem_admitter,cor"
+        "pus_sem_evaluator;\n"
     )
     source = Path(__file__).with_name("sql")
     sql += (source / "pdf_selected.sql").read_text() + "\n"

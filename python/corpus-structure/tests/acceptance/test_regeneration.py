@@ -347,9 +347,7 @@ def test_retained_integrated_cli_lifecycle(
 def test_source_input_roles_are_mutually_exclusive(tmp_path, options, message):
     pin = tmp_path / "pin.json"
     pin.write_text("{}")
-    args = [
-        "regenerate", "--domain", "toy", "--corpus", str(tmp_path), "--prepare-only", "--json"
-    ]
+    args = ["regenerate", "--domain", "toy", "--corpus", str(tmp_path), "--prepare-only", "--json"]
     result = CliRunner().invoke(
         app,
         [*args, *(str(pin) if value == "PIN" else value for value in options)],
@@ -366,8 +364,15 @@ def test_source_pin_requires_the_typed_contract(tmp_path, option):
     result = CliRunner().invoke(
         app,
         [
-            "regenerate", "--domain", "toy", "--corpus", str(tmp_path), option,
-            str(pin), "--prepare-only", "--json",
+            "regenerate",
+            "--domain",
+            "toy",
+            "--corpus",
+            str(tmp_path),
+            option,
+            str(pin),
+            "--prepare-only",
+            "--json",
         ],
         obj=CliState(settings_factory=Settings),
     )

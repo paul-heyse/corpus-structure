@@ -138,9 +138,11 @@ def regenerate(
             if path is None:
                 return None
             try:
-                pin = trusted_pdf_context().boundary.validate_json(
-                    "PdfProductReference", path.read_bytes()
-                ).model_dump(mode="python")
+                pin = (
+                    trusted_pdf_context()
+                    .boundary.validate_json("PdfProductReference", path.read_bytes())
+                    .model_dump(mode="python")
+                )
                 return ProductReference(**pin)
             except (ValueError, OSError) as error:
                 raise SemanticRefusal(f"invalid {role} source product pin: {error}") from error

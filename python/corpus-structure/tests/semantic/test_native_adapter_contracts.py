@@ -33,7 +33,7 @@ def test_current_native_adapters_and_kernels_are_bound():
 
 def test_unsupported_native_adapter_revision_refuses():
     model = compile_execution_model(trusted_execution_inputs())
-    with pytest.raises(PreparationError, match="qualify.*producer profile"):
+    with pytest.raises(PreparationError, match=r"qualify.*producer profile"):
         validate_native_adapters(
             replace(
                 model,
