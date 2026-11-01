@@ -140,6 +140,7 @@ def derive_(
             NATIVE_PREDECESSOR,
             NATIVE_REVISION,
             consolidation_products,
+            current_authoring_provenance,
             forward_products,
             physical_products,
         )
@@ -153,7 +154,9 @@ def derive_(
         )
         model = bound_execution_model(prepared)
         bootstrap_products = physical_products()
-        forward = forward_products(model)
+        forward = forward_products(
+            model, authoring_provenance=current_authoring_provenance(model)
+        )
         review = consolidation_products(model)
         # Finish derivation before creating the requested output or reporting success.
         out.mkdir(parents=True)

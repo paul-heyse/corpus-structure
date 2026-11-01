@@ -332,6 +332,105 @@ def test_model_products_match_frozen_forward_revision():
     }
 
 
+def _forward_descriptor(product):
+    import json
+
+    from pglast import ast, parse_sql
+
+    from corpus_structure.semantic.native_products import function_bodies
+
+    body = function_bodies(product.content.decode())["data.execution_contract_descriptor"]
+    statement = parse_sql(body)[0].stmt
+    assert isinstance(statement, ast.SelectStmt) and statement.targetList
+    cast = statement.targetList[0].val
+    assert isinstance(cast, ast.TypeCast) and isinstance(cast.arg, ast.A_Const)
+    assert isinstance(cast.arg.val, ast.String) and cast.arg.val.sval is not None
+    return json.loads(cast.arg.val.sval)
+
+
+def test_forward_reproduction_uses_head_witness_and_candidate_uses_explicit_current():
+    from hashlib import sha256
+    from pathlib import Path
+
+    from corpus_structure.semantic.execution_admission import _DESCRIPTOR_SHA256
+    from corpus_structure.semantic.native_products import (
+        NativeProduct, current_authoring_provenance, forward_products, function_bodies,
+    )
+
+    versions = Path(__file__).resolve().parents[2] / "semantic_alembic/versions"
+    head = NativeProduct("head", versions.joinpath("semantic_0058_admission.sql").read_bytes())
+    predecessor = NativeProduct("previous", versions.joinpath("semantic_0057_admission.sql").read_bytes())
+    reproduced = forward_products()[-1]
+    assert reproduced.content == head.content
+    recorded = _forward_descriptor(head)
+    old = _forward_descriptor(predecessor)
+    # These were separate authoring events; 0057 is not a witness for 0058.
+    assert (recorded["model_id"], recorded["inputs"]) != (old["model_id"], old["inputs"])
+    assert sha256(function_bodies(reproduced.content.decode())["data.execution_contract_descriptor"].encode()).hexdigest() == _DESCRIPTOR_SHA256
+
+    current = current_authoring_provenance()
+    candidate = _forward_descriptor(forward_products(authoring_provenance=current)[-1])
+    assert candidate["model_id"] == current.model_id
+    assert candidate["inputs"] == [{"name": name, "sha256": digest} for name, digest in current.inputs]
+    assert candidate["model_id"] != recorded["model_id"]
+    expected = dict(recorded)
+    expected["model_id"] = current.model_id
+    expected["inputs"] = [{"name": name, "sha256": digest} for name, digest in current.inputs]
+    assert candidate == expected
+
+
+def test_forward_reproduction_still_detects_current_function_change(monkeypatch):
+    from hashlib import sha256
+    from pathlib import Path
+
+    from corpus_structure.semantic.native_products import forward_products, function_bodies
+
+    original = Path.read_text
+    def changed_template(path, *args, **kwargs):
+        content = original(path, *args, **kwargs)
+        if path.name == "pdf_selected.sql":
+            assert "'descriptor',b.descriptor" in content
+            return content.replace("'descriptor',b.descriptor", "'changed_descriptor',b.descriptor")
+        return content
+
+    before = forward_products()
+    monkeypatch.setattr(Path, "read_text", changed_template)
+    after = forward_products()
+    assert before[0].content != after[0].content and before[-1].content != after[-1].content
+    body = function_bodies(after[0].content.decode())["ops.integrated_source_context"]
+    assert "'changed_descriptor'" in body
+    function = next(f for f in _forward_descriptor(after[-1])["functions"] if f["signature"] == "ops.integrated_source_context(bigint,text,text,text[],text,text)")
+    assert function["body_sha256"] == sha256(body.encode()).hexdigest()
+
+
+def test_forward_reproduction_refuses_unsupported_current_effect(monkeypatch):
+    from corpus_structure.semantic.effect_support import SUPPORTED_EFFECTS
+    from corpus_structure.semantic.native_products import forward_products
+    from corpus_structure.semantic.types import PreparationError
+
+    monkeypatch.setitem(SUPPORTED_EFFECTS["read_pdf_product"], "effects", ("atomic_native_publication",))
+    with pytest.raises(PreparationError, match="effect"):
+        forward_products()
+
+
+def test_forward_reproduction_still_detects_current_constraint_change():
+    from sqlalchemy import CheckConstraint
+
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.native_products import forward_products
+
+    before = forward_products()
+    relation = metadata.tables["kb.native_document_item"]
+    constraint = CheckConstraint("ordinal >= 2", name="counterfactual_reproduction")
+    relation.append_constraint(constraint)
+    try:
+        after = forward_products()
+    finally:
+        relation.constraints.remove(constraint)
+    assert before[-1].content != after[-1].content
+    assert _forward_descriptor(before[-1])["physical_checks_source_digest"] != _forward_descriptor(after[-1])["physical_checks_source_digest"]
+
+
 @pytest.fixture
 def revision_database(semantic_database_at):
     with semantic_database_at("semantic_0030") as engine:

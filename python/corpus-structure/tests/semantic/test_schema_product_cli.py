@@ -4,7 +4,10 @@ import json
 
 
 def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
-    from corpus_structure.semantic.native_products import NATIVE_PREDECESSOR, NATIVE_REVISION
+    from corpus_structure.semantic.native_products import (
+        NATIVE_PREDECESSOR, NATIVE_REVISION, current_authoring_provenance,
+    )
+    from corpus_structure.semantic.source_view_native import recorded_authoring_provenance
 
     checked = cli("schema", "check", "--json")
     assert checked.exit_code == 0, checked.output
@@ -12,12 +15,18 @@ def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
     target = tmp_path / "candidate"
     derived = cli("schema", "derive", "--out", str(target), "--json")
     assert derived.exit_code == 0, derived.output
-    assert (target / f"native/{NATIVE_REVISION}_pdf_products.sql").is_file()
+    assert (target / f"native/{NATIVE_REVISION}_reconciliation.sql").is_file()
     assert (target / f"native/review/{NATIVE_REVISION}_kernels.sql").is_file()
     assert (target / "native/bootstrap/data.fact.sql").is_file()
     authoring = json.loads((target / "native/authoring.json").read_bytes())
     assert authoring["predecessor"] == NATIVE_PREDECESSOR
     assert authoring["revision"] == NATIVE_REVISION
+    provenance = recorded_authoring_provenance(
+        (target / f"native/{NATIVE_REVISION}_admission.sql").read_text()
+    )
+    assert provenance.model_id == authoring["execution_model_id"]
+    assert provenance.model_id == json.loads(checked.stdout)["execution_model_id"]
+    assert provenance.inputs == current_authoring_provenance().inputs
     assert any(p["name"].endswith("_physical.sql") for p in authoring["review_products"])
     before = (target / "manifest.json").read_bytes()
     refused = cli("schema", "derive", "--out", str(target))

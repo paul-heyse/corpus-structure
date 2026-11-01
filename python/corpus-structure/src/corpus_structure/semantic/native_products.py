@@ -52,6 +52,37 @@ class NativeProduct:
         return sha256(self.content).hexdigest()
 
 
+@dataclass(frozen=True)
+class NativeAuthoringProvenance:
+    """The exact release inputs used when a native revision was authored.
+
+    These describe that authoring event. SQL bodies, effects, physical checks,
+    privileges and inventories are derived independently by the current generator.
+    """
+
+    model_id: str
+    inputs: tuple[tuple[str, str], ...]
+
+    def descriptor_fields(self) -> dict:
+        return {
+            "model_id": self.model_id,
+            "inputs": [{"name": name, "sha256": digest} for name, digest in self.inputs],
+        }
+
+
+def current_authoring_provenance(model=None) -> NativeAuthoringProvenance:
+    """Explicitly acquire live release provenance for a new candidate revision."""
+    from .composed import composed_dependencies
+    from .contracts import compile_execution_model, trusted_execution_inputs
+    from .types import ResolvedDependencies
+
+    model = compile_execution_model(trusted_execution_inputs()) if model is None else model
+    return NativeAuthoringProvenance(
+        model.model_id,
+        tuple((item.name, item.digest) for item in composed_dependencies(ResolvedDependencies()).artifacts),
+    )
+
+
 def physical_products() -> tuple[NativeProduct, ...]:
     """Render fixed DDL from the single physical model, in dependency order."""
     pg = dialect()
@@ -151,11 +182,9 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     from pglast.stream import RawStream
     from sqlalchemy.sql.ddl import CreateView, sort_tables
 
-    from .composed import composed_dependencies
     from .contracts import compile_execution_model, trusted_execution_inputs
     from .identity import canonical_bytes
     from .metadata import PHYSICAL_MODEL, PHYSICAL_MODEL_ID
-    from .types import ResolvedDependencies
 
     source = Path(__file__).with_name("sql")
     declarations = yaml.safe_load(PHYSICAL_MODEL.read_bytes())["classes"]
@@ -531,12 +560,8 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
 
     descriptor["analytical_abi"] = analytical_compiler
     descriptor["execution_abi"] = EXECUTION_COMPILER_VERSION
-    descriptor["model_id"] = model.model_id
     descriptor["physical_id"] = PHYSICAL_MODEL_ID
-    descriptor["inputs"] = [
-        {"name": item.name, "sha256": item.digest}
-        for item in composed_dependencies(ResolvedDependencies()).artifacts
-    ]
+    descriptor.update(current_authoring_provenance(model).descriptor_fields())
     functions = {item["signature"]: item for item in descriptor["functions"]}
 
     def stream(node: Any) -> str:
@@ -822,8 +847,21 @@ def consolidation_products(model=None) -> tuple[NativeProduct, ...]:
     )
 
 
-def forward_products(model=None) -> tuple[NativeProduct, ...]:
-    """Author the native PDF custody extension; historical revisions stay frozen."""
-    from .pdf_integrated_native import final_reconciliation_products
+def forward_products(
+    model=None, *, authoring_provenance: NativeAuthoringProvenance | None = None
+) -> tuple[NativeProduct, ...]:
+    """Reproduce the head using its authoring witness and current enforcement.
 
-    return final_reconciliation_products(model)
+    A new candidate explicitly supplies ``current_authoring_provenance(model)``.
+    Reproduction never substitutes today's Python source hashes for the recorded
+    authoring event; all enforcing SQL and deployment metadata still derive live.
+    """
+    from .migrations import ALEMBIC_DIR
+    from .pdf_integrated_native import final_reconciliation_products
+    from .source_view_native import recorded_authoring_provenance
+
+    if authoring_provenance is None:
+        authoring_provenance = recorded_authoring_provenance(
+            ALEMBIC_DIR.joinpath(f"versions/{NATIVE_REVISION}_admission.sql").read_text()
+        )
+    return final_reconciliation_products(model, authoring_provenance=authoring_provenance)

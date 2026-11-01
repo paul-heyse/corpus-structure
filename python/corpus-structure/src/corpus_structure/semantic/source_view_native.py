@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.schema import AddConstraint, CheckConstraint, ForeignKeyConstraint
 
 from .metadata import metadata
-from .native_products import NativeProduct, physical_products
+from .native_products import NativeAuthoringProvenance, NativeProduct, physical_products
 
 RELATIONS = frozenset(
     {
@@ -156,21 +156,10 @@ def source_view_products(model=None):
     )
 
 
-def native_admission_sql(sql, model=None, *, extra_relations=(), base_admission=None):
+def _admission_descriptor(admission):
     import json
-    from hashlib import sha256
-
     from pglast import ast, parse_sql
-    from pglast.stream import RawStream
-
-    from .identity import canonical_bytes
-    from .native_products import consolidation_products, function_bodies
-
-    admission = (
-        consolidation_products(model)[-1].content.decode()
-        if base_admission is None
-        else base_admission
-    )
+    from .native_products import function_bodies
     descriptor_body = function_bodies(admission)["data.execution_contract_descriptor"]
     statement = parse_sql(descriptor_body)[0].stmt
     if not isinstance(statement, ast.SelectStmt) or not statement.targetList:
@@ -185,27 +174,44 @@ def native_admission_sql(sql, model=None, *, extra_relations=(), base_admission=
     literal = cast.arg.val.sval
     if literal is None:
         raise ValueError("descriptor string is absent")
-    descriptor = json.loads(literal)
+    return json.loads(literal)
+
+
+def recorded_authoring_provenance(admission: str) -> NativeAuthoringProvenance:
+    """Read only the two authoring fields from an explicit immutable revision witness."""
+    descriptor = _admission_descriptor(admission)
+    model_id, inputs = descriptor["model_id"], descriptor["inputs"]
+    if not isinstance(model_id, str) or not isinstance(inputs, list):
+        raise ValueError("native authoring witness has malformed provenance")
+    if any(
+        not isinstance(item, dict) or set(item) != {"name", "sha256"}
+        or not isinstance(item["name"], str) or not isinstance(item["sha256"], str)
+        for item in inputs
+    ):
+        raise ValueError("native authoring witness has malformed input provenance")
+    return NativeAuthoringProvenance(model_id, tuple((item["name"], item["sha256"]) for item in inputs))
+
+
+def native_admission_sql(
+    sql, model=None, *, extra_relations=(), base_admission=None,
+    authoring_provenance: NativeAuthoringProvenance | None = None,
+):
+    from hashlib import sha256
+    from pglast import ast, parse_sql
+    from pglast.stream import RawStream
+    from .identity import canonical_bytes
+    from .native_products import consolidation_products
+
+    admission = (
+        consolidation_products(model)[-1].content.decode()
+        if base_admission is None
+        else base_admission
+    )
+    descriptor = _admission_descriptor(admission)
     if base_admission is not None:
         # Retain the frozen native inventory, while refreshing model-owned deployment
         # identity and CHECK receipt inputs for the forward physical model.
-        current_body = function_bodies(consolidation_products(model)[-1].content.decode())[
-            "data.execution_contract_descriptor"
-        ]
-        current_stmt = parse_sql(current_body)[0].stmt
-        if not isinstance(current_stmt, ast.SelectStmt) or not current_stmt.targetList:
-            raise ValueError("current descriptor must be literal SELECT")
-        current_cast = current_stmt.targetList[0].val
-        if (
-            not isinstance(current_cast, ast.TypeCast)
-            or not isinstance(current_cast.arg, ast.A_Const)
-            or not isinstance(current_cast.arg.val, ast.String)
-        ):
-            raise ValueError("current descriptor must be JSONB string")
-        current_literal = current_cast.arg.val.sval
-        if current_literal is None:
-            raise ValueError("current descriptor string is absent")
-        current = json.loads(current_literal)
+        current = _admission_descriptor(consolidation_products(model)[-1].content.decode())
         descriptor.update(
             {
                 key: value
@@ -213,6 +219,10 @@ def native_admission_sql(sql, model=None, *, extra_relations=(), base_admission=
                 if key not in {"functions", "tables", "triggers"}
             }
         )
+    if authoring_provenance is not None:
+        # This explicit authoring witness affects no enforcement field. In
+        # particular, do not inherit predecessor provenance as head provenance.
+        descriptor.update(authoring_provenance.descriptor_fields())
     from copy import copy
 
     functions = {item["signature"]: item for item in descriptor["functions"]}

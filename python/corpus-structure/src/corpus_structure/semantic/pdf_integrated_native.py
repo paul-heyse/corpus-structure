@@ -318,7 +318,7 @@ def reconciled_pdf_products(model=None):
     )
 
 
-def final_reconciliation_products(model=None):
+def final_reconciliation_products(model=None, *, authoring_provenance=None):
     """0058 updates current functions after the deployed 0057 physical extension."""
     from pglast import ast, parse_sql
     from pglast.stream import RawStream
@@ -334,8 +334,8 @@ def final_reconciliation_products(model=None):
         ):
             sql += RawStream()(stmt) + ";\n"
     previous = ALEMBIC_DIR.joinpath("versions/semantic_0057_admission.sql").read_text()
-    admission = native_admission_sql(sql, model, base_admission=previous)
-    return (
-        NativeProduct("semantic_0058_reconciliation.sql", sql.encode()),
-        NativeProduct("semantic_0058_admission.sql", admission.encode()),
+    admission = native_admission_sql(
+        sql, model, base_admission=previous, authoring_provenance=authoring_provenance
     )
+    return (NativeProduct("semantic_0058_reconciliation.sql", sql.encode()),
+            NativeProduct("semantic_0058_admission.sql", admission.encode()))
