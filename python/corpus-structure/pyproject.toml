@@ -41,6 +41,7 @@ dependencies = [
     "docling[asr,easyocr,htmlrender,ocrmac,onnxruntime,rapidocr,remote-serving,tesserocr,vlm,xbrl]==2.145.0",
     "docling-core==2.105.0",
     "pypdfium2==5.14.0",
+    "ijson==3.6.0",
 ]
 
 [project.scripts]
