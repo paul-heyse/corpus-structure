@@ -143,3 +143,43 @@ env -u BASH_ENV PYTHONPATH=python/corpus-structure/src .venv/bin/python -m pytes
 [Closure output](raw/forward-provenance-controls.log), [CLI output](raw/forward-provenance-cli.log)
 and [scoped Pyrefly output](raw/forward-provenance-types.log) all passed. The coordinator owns
 final-source formatting, assembled qualification, migration receipts and whole-book publication.
+
+## Native identity-exclusion custody — forward 0059
+
+**Tested — 2026-10-31 (America/New_York); archived 2026-11-01T03:31Z.**
+Worker baseline `a417be0`, with the consumer's native fixture migration `25b18fa` and coordinator's
+native custody/coverage correction `d13c0d2`, admits located native identity-exclusion evidence.
+Two former checks joined only `kb.span`, omitting legitimate native SourceView evidence: primary
+custody and exact citation multiplicity. Both now obtain projected coordinates through the existing
+canonical `ops.native_source_address` authority and preserve observation, role, locator and count
+matching. No synthetic spans or new address meanings are introduced.
+
+The forward `semantic_0059` migration redeploys current PDF functions/views and the corrected
+exclusion function with an exact trusted admission descriptor. Frozen 0057 and 0058 bytes remain
+unchanged. The coordinator owns deployment; the worker deployed only isolated pytest databases.
+
+**passed:** 39 controls covering actual primary/supporting native exclusion finalization, independently
+expected quote coordinates and source pins with no `kb.span` rows, known-input reuse, restricted
+tampering refusals, snapshot/columnar reads, native deployment/drift checks, frozen head reproduction,
+function/effect/constraint counterfactuals and actual candidate CLI generation. The negative controls
+preserve missing-primary, missing-supporting, extra-citation, forged-locator and endpoint/policy attacks.
+
+```sh
+env -u BASH_ENV PYTHONPATH=python/corpus-structure/src .venv/bin/python -m pytest \
+  python/corpus-structure/tests/semantic/test_native_identity_custody.py \
+  python/corpus-structure/tests/semantic/test_identity_exclusions.py \
+  python/corpus-structure/tests/semantic/test_identity_exclusions_native.py \
+  python/corpus-structure/tests/semantic/test_identity_exclusion_reads.py \
+  python/corpus-structure/tests/semantic/test_native_closure.py \
+  python/corpus-structure/tests/semantic/test_schema_product_cli.py \
+  -o addopts='' -q --disable-warnings --tb=short
+```
+
+[Final passing output](raw/native-exclusions-0059-confirmed.log) and
+[scoped Pyrefly output](raw/native-exclusions-0059-types.log). The earlier
+[19-passed/1-failed output](raw/native-exclusions-0059-controls.log) remains intact: native SQL
+publication and tamper controls passed, but that checkout's old `SourceCustody.rendition_id: int`
+rejected native `None` during reading. The coordinator's existing `d13c0d2` correction supplied
+the current native custody DTO/read route before the final combined pass. No SQL guarantee was
+relaxed to resolve that reader mismatch. Whole-book integrated publication and full qualification
+remain coordinator-owned and are not established by these bounded controls.
