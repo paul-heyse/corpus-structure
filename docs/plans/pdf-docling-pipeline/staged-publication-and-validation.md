@@ -1,6 +1,6 @@
 # Bounded staging, native validation and atomic document publication
 
-**Status:** Planned, 2026-11-01. [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-20/21 and I17/I18 state. Consumes [review O02/O04/O05](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O02) and [target §§2–4/6](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`; schema/identity owners are [PDF-18/19](relational-document-model-and-identity.md).
+**Status:** Minimum PDF-20 private staging/replay implemented, 2026-11-01; PDF-21 and complete publication remain planned. [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-20/21 and I17/I18 state. Consumes [review O02/O04/O05](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O02) and [target §§2–4/6](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`; schema/identity owners are [PDF-18/19](relational-document-model-and-identity.md).
 
 ## Improvement integration — review I05/I06/I09
 
@@ -58,6 +58,36 @@ Keep one SQLAlchemy transaction owner and a checked Psycopg driver for COPY; no 
 ADBC writer is introduced merely for streaming.
 
 **Completion:** typed COPY controls check exact wire profiles and independent expected rows, including empty/reordered batches and large individual values. Exercise duplicate/conflicting retry, failed scratch adoption, cross-project artifacts, stale holder, disconnect and bounded replay. Verify no staging read path bypasses visibility. Product output is private progress, not published document or completed knowledge.
+
+### Implemented PDF-20 prerequisite slice — 2026-11-01
+
+`semantic/pdf_staging.py` supplies typed build/receipt references, generated family schemas and
+protected begin/adopt/progress/resume/abandon adapters. `model/semantic/pdf-staging.yaml` owns the
+fixed stage families, artifact/companion profiles and byte/row limits. Raw private tables deny
+ordinary reads. Immediate final-record endpoint FKs are not weakened: distinct private stage
+families enforce build scope and local constraints while retaining unresolved cross-batch references.
+Final resolution and complete frozen-union conformance remain PDF-21.
+
+The same-session scratch COPY/adoption transaction verifies actual values, exact duplicate/replay
+content, source/release/schema/recipe custody and current task/attempt/holder. SQL also enforces the
+modeled batch limits. Build state is mutable only through protected modeled operations; receipts
+and adopted rows are immutable. Native descriptor generation consumes model immutability, rather
+than applying an immutable trigger to every new relation. Protected scratch setup authenticates
+its actual shape/ownership before reuse; NULL ownership arguments refuse rather than taking an
+unknown comparison branch. These checks preserve existing lifecycle and native type obligations.
+
+Execution ABI16 and forward0064 bind this slice. All committed earlier migrations remain frozen;
+new candidate authoring uses current provenance while historical reproduction uses its retained
+witness. No live migration was run. `PdfStageReceipt.content_digest` identifies an upload's actual
+rows, not the historical document content digest or a sealed logical product pin.
+
+The private parent executor adopts page replay/raster/candidate artifacts before acknowledging
+backend release and adopts native/companion IPC later. Successful partial progress survives later
+failure; explicit resume changes ownership under the existing task fence and replays exact retained
+files. There is no source-ready/publication shortcut or terminal UnitResult for a private build.
+[Runtime evidence](../../design_review/evidence/2026-11-01_pdf-streaming-runtime/README.md) owns
+scoped native/fence/replay controls; PDF-20's later complete publication integration and PDF-21
+freeze/seal are not credited by these receipts.
 
 <a id="PDF-21"></a>
 ## PDF-21 — Freeze, complete native validation and atomic seal

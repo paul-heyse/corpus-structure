@@ -278,7 +278,7 @@ def test_cancellation_terminates_owned_process_retains_admitted_request(tmp_path
     assert len(list(tmp_path.glob("**/input.json"))) == 1
 
 
-def test_bounded_parallel_pages_keep_order_independent_handles_and_parent_cancellation(
+def test_bounded_parallel_pages_keep_identity_independent_handles_and_parent_cancellation(
     tmp_path, endpoint
 ):
     url, requests, replies = endpoint
@@ -295,7 +295,7 @@ def test_bounded_parallel_pages_keep_order_independent_handles_and_parent_cancel
     results = list(
         worker.recognize_pages(source, recipe, [4, 3, 2, 1], concurrency=4, check_active=check)
     )
-    assert [page.page_no for page in results] == [4, 3, 2, 1]
+    assert {page.page_no for page in results} == {4, 3, 2, 1}
     assert all(page.succeeded for page in results)
     assert len(requests) == 8
     assert all(
@@ -352,3 +352,53 @@ def test_capped_repetition_recovery_is_explicit_bounded_and_failed_receipts_repl
     assert recovered.succeeded and len(requests) == 3
     assert not repetitive_capped_page(recovered, minimum_run=64)
     assert (page.directory / "request-000.raw.txt").read_bytes() == raw
+
+
+def test_completion_driven_refill_does_not_wait_for_slow_first_page(tmp_path, monkeypatch):
+    from corpus_structure.ingest.pdf_recognition import RecognitionPage
+
+    first_release = threading.Event()
+    third_started = threading.Event()
+    original = RecognitionWorker.recognize_pages
+
+    def recognize(self, source, recipe, numbers, **kwargs):
+        if kwargs.get("concurrency", 1) > 1:
+            yield from original(self, source, recipe, numbers, **kwargs)
+            return
+        number = numbers[0]
+        if number == 1:
+            assert first_release.wait(5)
+        if number == 3:
+            third_started.set()
+        yield RecognitionPage(number, tmp_path, {"outcome": "succeeded"}, {})
+
+    monkeypatch.setattr(RecognitionWorker, "recognize_pages", recognize)
+    worker = owner(tmp_path, "http://unused")
+    pages = worker.recognize_pages(
+        PreparedRecognitionSource.prepare(landmark_pdf()),
+        NemotronRecipe("1" * 64, "2" * 64),
+        [1, 2, 3, 4],
+        concurrency=2,
+    )
+    try:
+        assert next(pages).page_no == 2
+        # Replenishment occurs only when the consumer asks for another item.
+        assert not third_started.is_set()
+        assert next(pages).page_no == 3
+        assert third_started.is_set()
+        first_release.set()
+        assert {p.page_no for p in pages} == {1, 4}
+    finally:
+        first_release.set()
+        pages.close()
+
+
+def test_owned_file_source_is_verified_without_retaining_pdf_bytes(tmp_path):
+    path = tmp_path / "original.pdf"
+    body = landmark_pdf()
+    path.write_bytes(body)
+    source = PreparedRecognitionSource.from_path(path, sha256(body).hexdigest())
+    assert source.original == path.resolve()
+    assert isinstance(source.original, Path)
+    with pytest.raises(ValueError, match="digest"):
+        PreparedRecognitionSource.from_path(path, "0" * 64)

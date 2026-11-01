@@ -6,6 +6,36 @@ They are compatibility requirements, never evidence that hashing code proves its
 """
 
 SUPPORTED_EFFECTS = {
+    "begin_pdf_build": {
+        "effects": ("atomic_private_pdf_stage",),
+        "implementation": "begin_pdf_build",
+        "transitions": {},
+        "version": "1",
+    },
+    "adopt_pdf_batch": {
+        "effects": ("atomic_private_pdf_stage",),
+        "implementation": "adopt_pdf_batch",
+        "transitions": {},
+        "version": "1",
+    },
+    "inspect_pdf_progress": {
+        "effects": (),
+        "implementation": "inspect_pdf_progress",
+        "transitions": {},
+        "version": "1",
+    },
+    "resume_pdf_build": {
+        "effects": ("atomic_private_pdf_stage",),
+        "implementation": "resume_pdf_build",
+        "transitions": {},
+        "version": "1",
+    },
+    "abandon_pdf_build": {
+        "effects": ("atomic_private_pdf_stage",),
+        "implementation": "abandon_pdf_build",
+        "transitions": {"pdf_private_abandon": ("atomic_private_pdf_stage",)},
+        "version": "1",
+    },
     "enrich_pdf_math": {
         "effects": (),
         "implementation": "enrich_pdf_math",
@@ -501,3 +531,25 @@ SUPPORTED_EFFECTS["recognize_pdf_observation"] = {
     "version": "1",
 }
 SUPPORTED_EFFECT_VERSIONS.update(external_model_requests="1", retain_recognition_artifacts="1")
+
+SUPPORTED_EFFECT_VERSIONS["atomic_private_pdf_stage"] = "1"
+
+SUPPORTED_EFFECTS["stream_pdf_native"] = {
+    "effects": ("owned_private_pdf_compute",),
+    "implementation": "stream_pdf_native",
+    "transitions": {},
+    "version": "1",
+}
+SUPPORTED_EFFECTS["reconcile_pdf_stream"] = {
+    "effects": ("owned_private_pdf_replay",),
+    "implementation": "reconcile_pdf_stream",
+    "transitions": {},
+    "version": "1",
+}
+SUPPORTED_EFFECTS["stage_pdf_producer"] = {
+    "effects": ("atomic_private_pdf_stage",),
+    "implementation": "stage_pdf_producer",
+    "transitions": {},
+    "version": "1",
+}
+SUPPORTED_EFFECT_VERSIONS.update(owned_private_pdf_compute="1", owned_private_pdf_replay="1")

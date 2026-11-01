@@ -2610,6 +2610,28 @@ concepts:
   attributes:
   - {name: content_digest, range: text, required: true, multivalued: false}
   relationships: []
+- id: PdfPrivateBuild
+  family: execution
+  scope: run
+  meaning: Private producer state and ownership; not an admitted document
+  identity: Task-qualified immutable build identifier and source/release/recipe bindings
+  attributes:
+  - name: build_id
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
+- id: PdfStageReceipt
+  family: execution
+  scope: run
+  meaning: Exact private adopted batch inventory; not native global validity
+  identity: Task-qualified immutable build identifier and source/release/recipe bindings
+  attributes:
+  - name: build_id
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
 relationships:
 - id: bundle_contains
   kind: ownership
@@ -7015,6 +7037,222 @@ operations:
   transitions: []
   projections: []
   implementation: select_pdf_integration
+- id: begin_pdf_build
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfPrivateBuild
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects:
+  - atomic_private_pdf_stage
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact values and immutable private bytes; no published/native completeness
+    claim
+  implementation: begin_pdf_build
+  transitions: []
+  projections: []
+- id: adopt_pdf_batch
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfStageReceipt
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects:
+  - atomic_private_pdf_stage
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact values and immutable private bytes; no published/native completeness
+    claim
+  implementation: adopt_pdf_batch
+  transitions: []
+  projections: []
+- id: inspect_pdf_progress
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfStageReceipt
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects: []
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact values and immutable private bytes; no published/native completeness
+    claim
+  implementation: inspect_pdf_progress
+  transitions: []
+  projections: []
+- id: resume_pdf_build
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfPrivateBuild
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects:
+  - atomic_private_pdf_stage
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact values and immutable private bytes; no published/native completeness
+    claim
+  implementation: resume_pdf_build
+  transitions: []
+  projections: []
+- id: abandon_pdf_build
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfPrivateBuild
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects:
+  - atomic_private_pdf_stage
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact values and immutable private bytes; no published/native completeness
+    claim
+  implementation: abandon_pdf_build
+  transitions:
+  - pdf_private_abandon
+  projections: []
+- id: stream_pdf_native
+  inputs:
+  - SourceArtifact
+  - PdfPrivateBuild
+  results:
+  - PdfNativeEnvelope
+  applicability:
+  - attempt_fence
+  universe: Owned private native graph, source/crop custody and bounded replay; no
+    published product
+  effects:
+  - owned_private_pdf_compute
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact retained predictions and native semantics; no implicit source fidelity
+    or publication claim
+  implementation: stream_pdf_native
+  transitions: []
+  projections: []
+- id: reconcile_pdf_stream
+  inputs:
+  - SourceArtifact
+  - PdfPrivateBuild
+  results:
+  - PdfNativeEnvelope
+  applicability:
+  - attempt_fence
+  universe: Owned private native graph, source/crop custody and bounded replay; no
+    published product
+  effects:
+  - owned_private_pdf_replay
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact retained predictions and native semantics; no implicit source fidelity
+    or publication claim
+  implementation: reconcile_pdf_stream
+  transitions: []
+  projections: []
+- id: stage_pdf_producer
+  inputs:
+  - SourceArtifact
+  - PdfPrivateBuild
+  results:
+  - PdfStageReceipt
+  applicability:
+  - attempt_fence
+  universe: Owned private native graph, source/crop custody and bounded replay; no
+    published product
+  effects:
+  - atomic_private_pdf_stage
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact retained predictions and native semantics; no implicit source fidelity
+    or publication claim
+  implementation: stage_pdf_producer
+  transitions: []
+  projections: []
 implementations:
 - id: convert_pdf
   owner: ingest.pdf
@@ -8051,6 +8289,133 @@ implementations:
   - external_model_requests
   - retain_recognition_artifacts
   required_capabilities: []
+- id: begin_pdf_build
+  owner: semantic.pdf_staging
+  symbol: begin_pdf_build
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfPrivateBuild
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_private_pdf_stage
+  required_capabilities: []
+- id: adopt_pdf_batch
+  owner: semantic.pdf_staging
+  symbol: adopt_pdf_batch
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfStageReceipt
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_private_pdf_stage
+  required_capabilities: []
+- id: inspect_pdf_progress
+  owner: semantic.pdf_staging
+  symbol: inspect_pdf_progress
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfStageReceipt
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: resume_pdf_build
+  owner: semantic.pdf_staging
+  symbol: resume_pdf_build
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfPrivateBuild
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_private_pdf_stage
+  required_capabilities: []
+- id: abandon_pdf_build
+  owner: semantic.pdf_staging
+  symbol: abandon_pdf_build
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfPrivateBuild
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_private_pdf_stage
+  required_capabilities: []
+- id: stream_pdf_native
+  owner: ingest.pdf_streaming
+  symbol: StreamingPdfProducer.run
+  version: '1'
+  placement: core
+  input_concepts:
+  - SourceArtifact
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfNativeEnvelope
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - owned_private_pdf_compute
+  required_capabilities: []
+- id: reconcile_pdf_stream
+  owner: ingest.pdf_stream_reconciliation
+  symbol: reconcile_pdf_stream
+  version: '1'
+  placement: core
+  input_concepts:
+  - SourceArtifact
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfNativeEnvelope
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - owned_private_pdf_replay
+  required_capabilities: []
+- id: stage_pdf_producer
+  owner: orchestrate.pdf_streaming
+  symbol: run_private_pdf_build
+  version: '1'
+  placement: core
+  input_concepts:
+  - SourceArtifact
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfStageReceipt
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_private_pdf_stage
+  required_capabilities: []
 projections:
 - id: occurrence
   sources:
@@ -8956,6 +9321,28 @@ lifecycles:
   - reference_grade_record_commit
   invariants:
   - reference_binding
+- id: pdf_private_build
+  subject: PdfPrivateBuild
+  dimensions:
+  - id: status
+    values:
+    - open
+    - abandoned
+  states:
+  - id: open
+    values:
+    - dimension: status
+      value: open
+    terminal: false
+  - id: abandoned
+    values:
+    - dimension: status
+      value: abandoned
+    terminal: true
+  initial_states: [open]
+  invariants: [attempt_fence]
+  transitions: [pdf_private_abandon]
+
 transitions:
 - id: run_start_source
   lifecycle: run
@@ -9453,6 +9840,25 @@ transitions:
   - applied
   - replay
   - conflict
+- id: pdf_private_abandon
+  lifecycle: pdf_private_build
+  operation: abandon_pdf_build
+  from_states:
+  - open
+  to_states:
+  - abandoned
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  effects:
+  - atomic_private_pdf_stage
+  outcomes:
+  - applied
+  - conflict
 outcome_domains:
 - id: source_request
   authority: code
@@ -9812,6 +10218,18 @@ effect_definitions:
   version: "1"
   meaning: source execution
 
+- id: atomic_private_pdf_stage
+  version: '1'
+  meaning: Fenced short-transaction private adoption and explicit abandonment; no
+    publication
+- id: owned_private_pdf_compute
+  version: '1'
+  meaning: Owned finite native inference and spool lifecycle with retained failure
+    evidence
+- id: owned_private_pdf_replay
+  version: '1'
+  meaning: Owned immutable replay files and incremental private reconciliation; no
+    publication
 analysis_profiles:
 - id: mathematical-interpretation
   version: '6'

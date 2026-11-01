@@ -1,0 +1,60 @@
+id: https://corpus-structure.dev/semantic/pdf-staging
+name: pdf_staging
+prefixes:
+  pds: https://corpus-structure.dev/pdf-staging/
+default_prefix: pds
+default_range: PdfRecordString
+annotations:
+  pds:artifact_profiles: '{"assembly":"docling-page-assembly-v1","raster":"docling-native-raster-png-v1","candidates":"docling-inline-candidates-v1","native_completion":"pdf-native-completion-jsonl-v1","native_recipe":"pdf-native-recipe-json-v1"}'
+  pds:companion_profile: '{"prefix":"pdf-selected-companions-jsonl-v1:","families":["input","occurrence","relation","mapping_report","coverage","health"]}'
+  pds:upload_profile: '{"max_rows":65536,"max_bytes":8388608,"max_replay_key_bytes":1024}'
+enums:
+  PdfStageState:
+    permissible_values:
+      open: {}
+      abandoned: {}
+classes:
+  PdfStageBuild:
+    description: Private mutable producer build, fenced by the existing task attempt;
+      never a published product.
+    attributes:
+      build_id:
+        required: true
+      task_id:
+        range: PdfRecordInteger
+        required: true
+      run_id:
+        range: PdfRecordInteger
+        required: true
+      release_id:
+        required: true
+      source_digest:
+        required: true
+      recipe_digest:
+        required: true
+      schema_digest:
+        required: true
+      replay_key:
+        required: true
+      attempt:
+        range: PdfRecordInteger
+        required: true
+      holder:
+        required: true
+      state:
+        range: PdfStageState
+        required: true
+  PdfStageReceipt:
+    description: Immutable receipt over one actual uploaded bounded batch, distinct
+      from publication.
+    attributes:
+      build_id:
+        required: true
+      replay_key:
+        required: true
+      content_digest:
+        required: true
+      row_count:
+        range: PdfRecordInteger
+        required: true
+        minimum_value: 0

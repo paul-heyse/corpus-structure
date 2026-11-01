@@ -11,12 +11,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Final
 
-LABEL: Final = "0.6.3"
-CONTENT_HASH: Final = "7ea9c4171581faef5eaa39c71dff048917bc69244d77cc4a725bd3b06e99da2d"
+LABEL: Final = "0.6.4"
+CONTENT_HASH: Final = "68de8f9a1d3dbccdf4c9417bbc37123f557f1efa5ba09519f71e4709b98c53b8"
 KEY_SCHEME: Final = 1
 COMPILERS: Final[Mapping[str, str]] = {
     "corpus_structure.schema.generate": "1",
     "corpus_structure.schema.interchange": "1",
-    "corpus_structure.schema.relational": "3",
+    "corpus_structure.schema.relational": "4",
     "linkml-runtime": "1.12.1",
 }

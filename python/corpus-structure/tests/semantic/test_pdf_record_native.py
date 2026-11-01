@@ -79,6 +79,9 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
 
     copied = tmp_path / "physical.yaml"
     copied.write_bytes(PHYSICAL_MODEL.read_bytes())
+    (tmp_path / "pdf-staging.yaml").write_bytes(
+        PHYSICAL_MODEL.with_name("pdf-staging.yaml").read_bytes()
+    )
     record_path = tmp_path / "pdf-records.yaml"
     declarations = yaml.safe_load(PHYSICAL_MODEL.with_name("pdf-records.yaml").read_bytes())
     declarations["classes"]["PdfRecordMembership"]["attributes"]["ordinal"]["minimum_value"] = 2
@@ -150,7 +153,7 @@ def test_private_native_foundations_and_constraints(semantic_db_engine):
         _verify_deployment_functions(conn)
         assert (
             conn.execute(text("SELECT version_num FROM semantic_alembic_version")).scalar_one()
-            == "semantic_0063"
+            == "semantic_0064"
         )
         assert (
             conn.execute(

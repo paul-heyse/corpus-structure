@@ -10,12 +10,15 @@ import json
 import math
 import re
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from hashlib import sha256
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from corpus_structure.semantic.identity import canonical_bytes
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.pdf_integrated import PreparedIntegratedPdfProduct
 
 _CLASS = re.compile(r"<class_([^>]+)>")
 _COORD = re.compile(r"<x_(\d+(?:\.\d+)?)><y_(\d+(?:\.\d+)?)>")
@@ -452,11 +455,10 @@ class _Origin:
     evidence: dict[str, Any] = field(default_factory=dict)
 
 
-def _selected_occurrences(document, origins):
+def _iter_selected_occurrences(document, origins):
     from .pdf_hierarchy import native_nodes
 
     nodes = native_nodes(document)
-    rows: list[dict[str, Any]] = []
     for pointer, node in nodes.items():
         label = str(node.label)
         row: dict[str, Any] = {
@@ -499,10 +501,8 @@ def _selected_occurrences(document, origins):
                     "origin": "top_left" if box.coord_origin.value == "TOPLEFT" else "bottom_left",
                 },
             )
-        rows.append(row)
-        from corpus_structure.semantic.pdf_integrated import native_cells
-
-        cell_path, cells = native_cells(node.model_dump(mode="json", by_alias=True))
+        yield row
+        cell_path, cells = _native_cell_values(node)
         if cells:
             for i, cell in enumerate(cells):
                 entry: dict[str, Any] = {
@@ -512,7 +512,7 @@ def _selected_occurrences(document, origins):
                     "kind": "cell",
                     "address_space": "native_cell",
                     "precision": "coarse" if origins[id(node)].input_index else "cell",
-                    "text": cell["text"],
+                    "text": cell.text,
                 }
                 if row.get("region"):
                     entry.update(
@@ -525,14 +525,35 @@ def _selected_occurrences(document, origins):
                         },
                         precision="inherited",
                     )
-                rows.append(entry)
-    return rows
+                yield entry
 
 
-def select_pdf_integration(
+def _native_cell_values(node):
+    if str(node.label) == "table":
+        return "/data/table_cells", node.data.table_cells
+    if str(node.label) == "picture":
+        chart = getattr(getattr(node, "meta", None), "tabular_chart", None)
+        return (
+            "/meta/tabular_chart/chart_data/table_cells",
+            chart.chart_data.table_cells if chart else (),
+        )
+    return "", ()
+
+
+def _selected_occurrences(document, origins):
+    return list(_iter_selected_occurrences(document, origins))
+
+
+@dataclass(frozen=True, slots=True)
+class _PrivateSelection:
+    document: Any
+    health: dict[str, str]
+
+
+def _select_pdf_integration(
     native_product: Mapping[str, Any],
     structural_pin: Mapping[str, Any],
-    observations: Sequence[tuple[Mapping[str, Any], Mapping[str, Any], bytes]],
+    observations: Iterable[tuple[Mapping[str, Any], Mapping[str, Any], bytes]],
     original: bytes,
     recipe_bytes: bytes,
     native_schema: bytes,
@@ -540,7 +561,9 @@ def select_pdf_integration(
     policy: Mapping[str, Any] | None = None,
     context=None,
     product_key="integrated",
-):
+    native_document=None,
+    journal=None,
+) -> PreparedIntegratedPdfProduct | _PrivateSelection:
     """Select one graph with preserved alternatives and policy-governed keep/add/replace.
 
     Selection is local to qualified page/geometry candidates. Multiple overlapping readings
@@ -566,21 +589,30 @@ def select_pdf_integration(
         "unmatched_action"
     ] not in {"add", "unresolved"}:
         raise ValueError("policy action is inapplicable to its governed situation")
-    doc = DoclingDocument.model_validate(native_product["document"])
+    doc = (
+        DoclingDocument.model_validate(native_product["document"])
+        if native_document is None
+        else native_document
+    )
     nodes = native_nodes(doc)
     origins = {id(n): _Origin(0, p) for p, n in nodes.items()}
-    inputs = [{**structural_pin, "role": "structural"}]
-    coverage = []
-    rejected = []
+
+    def collection(name):
+        return [] if journal is None else journal.collection(name)
+
+    inputs = collection("input")
+    inputs.append({**structural_pin, "role": "structural"})
+    coverage = collection("coverage")
+    rejected = collection("rejected")
     removed = []
     mapping_partial = False
-    mapping_reports = []
-    correspondences = []
+    mapping_reports = collection("mapping_report")
+    correspondences = collection("correspondences")
     imported_nodes = {}
     deferred_references = []
     # Grid buckets bound correspondence to intersecting page regions, not an all-item matrix.
     # Rebuild a page index only for each affected page, preserving native document lifetime.
-    mapped_inputs = []
+    mapped_inputs = collection("mapped_inputs")
     for pin, observation, raw in observations:
         if observation["artifact_digest"] != native_product["artifact_digest"]:
             raise ValueError("recognition and structural original differ")
@@ -916,29 +948,34 @@ def select_pdf_integration(
             refs.append(target.get_ref())
     normalize_section_header_levels(doc)
     _validate_native(doc)
-    selected = snapshot(doc)
-    conversion = PdfConversion(
-        native_product["artifact_digest"], recipe_bytes, selected, "success", (), (), (), None
-    )
-    section_refs = frozenset(p for p, n in native_nodes(doc).items() if str(n.label) == "section")
-    content = publication_payload(
-        conversion,
-        product_key=product_key,
-        schema_digest=sha256(native_schema).hexdigest(),
-        section_refs=section_refs,
-        include_application_metadata=False,
-    )
-    occurrences = _selected_occurrences(doc, origins)
-    relations = []
+    content = None
+    if journal is None:
+        selected = snapshot(doc)
+        conversion = PdfConversion(
+            native_product["artifact_digest"], recipe_bytes, selected, "success", (), (), (), None
+        )
+        section_refs = frozenset(
+            p for p, n in native_nodes(doc).items() if str(n.label) == "section"
+        )
+        content = publication_payload(
+            conversion,
+            product_key=product_key,
+            schema_digest=sha256(native_schema).hexdigest(),
+            section_refs=section_refs,
+            include_application_metadata=False,
+        )
+        occurrences = _selected_occurrences(doc, origins)
+    else:
+        occurrences = collection("occurrence")
+        occurrences.extend(_iter_selected_occurrences(doc, origins))
+    relations = collection("relation")
     final_nodes = native_nodes(doc)
     for occurrence in occurrences:
         node = final_nodes[occurrence["pointer"]]
         origin = origins[id(node)]
         source_id = origin.occurrence_id
         if occurrence["kind"] == "cell" and origin.input_index == 0:
-            from corpus_structure.semantic.pdf_integrated import native_cells
-
-            path, _ = native_cells(node.model_dump(mode="json", by_alias=True))
+            path, _ = _native_cell_values(node)
             source_id += f"{path}/{occurrence['cell_index']}"
         endpoints = [
             {"role": "input", "input_index": origin.input_index, "occurrence_id": source_id},
@@ -1028,7 +1065,7 @@ def select_pdf_integration(
                 }
             )
     if not coverage:
-        coverage = [
+        coverage.append(
             {
                 "coverage_id": "selection",
                 "scope": "whole_document",
@@ -1037,7 +1074,18 @@ def select_pdf_integration(
                 "outcome": "unknown",
                 "detail": "No qualified recognition coverage",
             }
-        ]
+        )
+    if journal is not None:
+        health = {
+            "execution_outcome": "partial" if rejected else "succeeded",
+            "mapping_outcome": "partial" if rejected or mapping_partial else "coarse",
+            "source_fidelity": "conflict" if rejected else "unassessed",
+            "validation_report": (
+                "Native document/tree validated; private companion replay does not "
+                "establish frozen-union closure or source completeness"
+            ),
+        }
+        return _PrivateSelection(doc, health)
     payload = {
         "version": 1,
         "kind": "integrated",
@@ -1064,3 +1112,31 @@ def select_pdf_integration(
     return prepare_integrated_pdf_product(
         payload, original, recipe_bytes, native_schema=native_schema, context=context
     )
+
+
+def select_pdf_integration(
+    native_product: Mapping[str, Any],
+    structural_pin: Mapping[str, Any],
+    observations: Sequence[tuple[Mapping[str, Any], Mapping[str, Any], bytes]],
+    original: bytes,
+    recipe_bytes: bytes,
+    native_schema: bytes,
+    *,
+    policy: Mapping[str, Any] | None = None,
+    context=None,
+    product_key="integrated",
+):
+    """Prepare the existing materialized product through the shared selection kernel."""
+    result = _select_pdf_integration(
+        native_product,
+        structural_pin,
+        observations,
+        original,
+        recipe_bytes,
+        native_schema,
+        policy=policy,
+        context=context,
+        product_key=product_key,
+    )
+    assert not isinstance(result, _PrivateSelection)
+    return result

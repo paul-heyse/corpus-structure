@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "15"
+EXECUTION_COMPILER_VERSION = "16"
 
 
 @lru_cache(maxsize=1)
@@ -40,9 +40,12 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.ingest.pdf_hierarchy import organize, project_section
     from corpus_structure.ingest.pdf_methods import EnrichPdfMath
     from corpus_structure.ingest.pdf_recognition import RecognitionWorker
+    from corpus_structure.ingest.pdf_stream_reconciliation import reconcile_pdf_stream
+    from corpus_structure.ingest.pdf_streaming import StreamingPdfProducer
     from corpus_structure.intervene.semantic import ProposalSession
     from corpus_structure.methods.math.prepared import assess_parsing_math, interpret_parsing_math
     from corpus_structure.orchestrate import project, semantic
+    from corpus_structure.orchestrate.pdf_streaming import run_private_pdf_build
 
     from . import (
         analytics,
@@ -56,6 +59,7 @@ def approved_implementations() -> Mapping[str, Any]:
         operations,
         pdf_contracts,
         pdf_integrated,
+        pdf_staging,
         pdf_storage,
         prepare,
         proposals,
@@ -96,6 +100,14 @@ def approved_implementations() -> Mapping[str, Any]:
             "interpret_parsing_math": interpret_parsing_math,
             "assess_parsing_math": assess_parsing_math,
             "retain_pdf_original": pdf_contracts.store_pdf_original,
+            "stream_pdf_native": StreamingPdfProducer.run,
+            "reconcile_pdf_stream": reconcile_pdf_stream,
+            "stage_pdf_producer": run_private_pdf_build,
+            "begin_pdf_build": pdf_staging.begin_pdf_build,
+            "adopt_pdf_batch": pdf_staging.adopt_pdf_batch,
+            "inspect_pdf_progress": pdf_staging.inspect_pdf_progress,
+            "resume_pdf_build": pdf_staging.resume_pdf_build,
+            "abandon_pdf_build": pdf_staging.abandon_pdf_build,
             "prepare_native_document": pdf_contracts.prepare_pdf_product,
             "publish_native_document": pdf_contracts.store_pdf_product,
             "recognize_pdf_observation": RecognitionWorker.recognize_pages,
@@ -675,6 +687,7 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
         "11",
         "12",
         "14",
+        "15",
     }:
         # Retained immutable reader ABI, without allowing historical writes/activation.
         if name not in {
@@ -750,6 +763,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "12",
         "13",
         "14",
+        "15",
         EXECUTION_COMPILER_VERSION,
     }:
         _fail(
@@ -768,6 +782,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "12",
         "13",
         "14",
+        "15",
         EXECUTION_COMPILER_VERSION,
     }:
         effect_versions["schedule_pending_or_reused_or_skipped"] = "1"
@@ -877,6 +892,12 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("pdf/record-boundaries.py", "semantic/pdf_record_model.py"),
                 ("pdf/records.py", "semantic/pdf_records.py"),
                 ("pdf/record-identity.py", "semantic/pdf_record_identity.py"),
+                ("pdf/staging.py", "semantic/pdf_staging.py"),
+                ("pdf/staging-model.yaml", "model/semantic/pdf-staging.yaml"),
+                ("pdf/streaming.py", "ingest/pdf_streaming.py"),
+                ("pdf/stream-types.py", "ingest/pdf_stream_types.py"),
+                ("pdf/stream-reconciliation.py", "ingest/pdf_stream_reconciliation.py"),
+                ("pdf/stream-orchestration.py", "orchestrate/pdf_streaming.py"),
             )
         ),
         SourceArtifact(
@@ -1403,6 +1424,12 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "pdf/record-boundaries.py",
         "pdf/records.py",
         "pdf/record-identity.py",
+        "pdf/staging.py",
+        "pdf/staging-model.yaml",
+        "pdf/streaming.py",
+        "pdf/stream-types.py",
+        "pdf/stream-reconciliation.py",
+        "pdf/stream-orchestration.py",
     }
     if any(profile.get("version") == "6" for profile in data["analysis_profiles"]):
         required_implementations.update(

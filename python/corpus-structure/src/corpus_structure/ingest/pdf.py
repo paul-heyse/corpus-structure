@@ -55,6 +55,7 @@ class PdfRecipe:
     def __post_init__(self) -> None:
         if self.recipe_id not in {
             "docling-standard-pdf-v1",
+            "docling-standard-pdf-stream-v1",
             "docling-standard-pdf-v2",
             "docling-standard-pdf-v3",
         }:
@@ -180,7 +181,16 @@ class PdfConversion:
 class PdfConverter:
     """One serial worker's native converter/model lifetime; publication is a separate owner."""
 
-    def __init__(self, recipe: PdfRecipe, *, assets: PreparedPdfAssets | None = None) -> None:
+    def __init__(
+        self,
+        recipe: PdfRecipe,
+        *,
+        assets: PreparedPdfAssets | None = None,
+        stream_spool: Any = None,
+    ) -> None:
+        if stream_spool is not None and recipe.recipe_id != "docling-standard-pdf-stream-v1":
+            raise ValueError("streaming spool requires its explicit crop recipe")
+        self.stream_spool = stream_spool
         self.recipe = recipe
         self.assets = assets
         self._candidate_pages: list[CandidatePage] = []
@@ -253,7 +263,11 @@ class PdfConverter:
             self._options.artifacts_path = self.assets.root
         ocr_observations: dict[int, dict[str, Any]] = {}
         pipeline_type = StandardPdfPipeline
-        if self.recipe.recipe_id in {"docling-standard-pdf-v2", "docling-standard-pdf-v3"}:
+        if self.recipe.recipe_id in {
+            "docling-standard-pdf-v2",
+            "docling-standard-pdf-v3",
+            "docling-standard-pdf-stream-v1",
+        }:
             from .pdf_ocr import observed_rapid_ocr_type
 
             ocr_type = observed_rapid_ocr_type(ocr_observations)
@@ -268,6 +282,24 @@ class PdfConverter:
                     )
 
             pipeline_type = WordObservedPipeline
+        if self.stream_spool is not None:
+            spool = self.stream_spool
+            base_pipeline_type: Any = pipeline_type
+
+            class StreamedPipeline(base_pipeline_type):
+                def _release_page_resources(self, item: Any) -> None:
+                    if item.payload is not None:
+                        spool.capture_page(
+                            item.payload,
+                            self.heading_hierarchy_model,
+                            self.pipeline_options.code_formula_options.scale,
+                        )
+
+                def _assemble_document(self, conv_res: Any) -> Any:
+                    spool.restore_pages(conv_res)
+                    return super()._assemble_document(conv_res)
+
+            pipeline_type = StreamedPipeline
         converter = DocumentConverter(
             allowed_formats=[InputFormat.PDF],
             format_options={
@@ -294,7 +326,11 @@ class PdfConverter:
             raise RuntimeError("pinned pipeline lacks the required formula stage")
         native_assembler = pipeline.assemble_model
         capture = self._candidate_pages
-        centroid_order = self.recipe.recipe_id == "docling-standard-pdf-v3"
+        stream_spool = self.stream_spool
+        centroid_order = self.recipe.recipe_id in {
+            "docling-standard-pdf-v3",
+            "docling-standard-pdf-stream-v1",
+        }
 
         class CandidatePageAssembler(PageAssembleModel):
             def __init__(self) -> None:
@@ -304,13 +340,15 @@ class PdfConverter:
                 self, conv_res: ConversionResult, page_batch: Iterable[Page]
             ) -> Iterable[Page]:
                 for page in native_assembler(conv_res, page_batch):
-                    capture.append(
-                        capture_candidates(
-                            page,
-                            ocr_observations.pop(page.page_no, None),
-                            centroid_order=centroid_order,
-                        )
+                    candidate = capture_candidates(
+                        page,
+                        ocr_observations.pop(page.page_no, None),
+                        centroid_order=centroid_order,
                     )
+                    if stream_spool is None:
+                        capture.append(candidate)
+                    else:
+                        stream_spool.capture_candidates(candidate)
                     yield page
 
         pipeline.assemble_model = CandidatePageAssembler()

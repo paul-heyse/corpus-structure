@@ -1,0 +1,75 @@
+{
+  "outcome": "passed",
+  "date": "2026-11-01",
+  "scope": "actual retained whole-book native graph hydration and PDF22 record/IPC lowering only",
+  "not_exercised": [
+    "fresh inference",
+    "page assembly/raster streaming",
+    "PostgreSQL adoption",
+    "global reading-order construction",
+    "integrated companion graph"
+  ],
+  "source": {
+    "database": "corpus_pdf_20261031",
+    "task_id": 2,
+    "product_key": "native",
+    "content_digest": "ca05561954ebf2318e2f020590d74cd87ecac6917e2e992a7b24b679cb6ce504",
+    "source_digest": "e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9",
+    "native_json_text_bytes": 28420729,
+    "native_json_text_sha256": "73766f6ffb5bd2bae3097ee38b6d4455b3db72ce49196aa39442dd7d992a7cd1",
+    "schema_digest": "3123788cfea7ddd282a4ec8fdeafee98d106ec2863d6722bbde4fc2f3f2e1bc1",
+    "recipe_digest": "fcea5b6ed390cc510feca777bb568a8948194b152caaf691e983dffaf4377b68",
+    "release_id": "release:6891b93e28faaddcfefea60be38ddb5bddb5f12c5ab52b44c5aad7cb0c5d390d",
+    "retained_health_ready": null
+  },
+  "native_collections": {
+    "pages": 1589,
+    "texts": 44636,
+    "tables": 101,
+    "pictures": 4829,
+    "groups": 3419,
+    "key_value_items": 0,
+    "form_items": 0
+  },
+  "native_record_types": {
+    "BoundingBox": 52321,
+    "CodeItem": 88,
+    "DoclingDocument": 1,
+    "DocumentOrigin": 1,
+    "FormulaItem": 6342,
+    "GroupItem": 47,
+    "ListGroup": 3374,
+    "ListItem": 8859,
+    "PageItem": 1589,
+    "PictureItem": 4829,
+    "ProvenanceItem": 49756,
+    "RefItem": 106142,
+    "SectionHeaderItem": 3849,
+    "Size": 1589,
+    "TableCell": 2565,
+    "TableData": 101,
+    "TableItem": 101,
+    "TextItem": 25498
+  },
+  "rows_by_family": {
+    "artifact_part": 1355,
+    "artifact_stream": 1355,
+    "header": 1,
+    "membership": 259564,
+    "native": 267052,
+    "reference": 106142
+  },
+  "ipc_files": 83,
+  "ipc_bytes": 191199382,
+  "largest_batch_bytes": 2885993,
+  "profile_max_batch_bytes": 8388608,
+  "elapsed_seconds": {
+    "read_only_fetch": 0.12190264998935163,
+    "hydrate_and_gc": 2.863423333008541,
+    "lower_and_verify_ipc": 81.19137181100086,
+    "total": 84.17669779399876
+  },
+  "max_rss_kib_after_hydration": 874080,
+  "max_rss_kib_total": 874080,
+  "residual_global_graph": "materialized; this does not establish bounded book-size graph memory"
+}

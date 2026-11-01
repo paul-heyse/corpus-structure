@@ -45,7 +45,7 @@ def _types(column):
 
 
 def record_arrow_schema(name: str, *, model: MetaData | None = None) -> pa.Schema:
-    table = record_tables(model)[name]
+    table = (metadata if model is None else model).tables[name]
     return pa.schema(
         [
             pa.field(
@@ -64,7 +64,7 @@ def record_arrow_schema(name: str, *, model: MetaData | None = None) -> pa.Schem
 
 
 def record_boundary_adapter(name: str, *, model: MetaData | None = None) -> TypeAdapter[Any]:
-    table = record_tables(model)[name]
+    table = (metadata if model is None else model).tables[name]
     fields: dict[str, Any] = {}
     literal_factory: Any = Literal
     for column in table.columns:

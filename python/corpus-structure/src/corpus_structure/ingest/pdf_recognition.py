@@ -9,11 +9,11 @@ import os
 import re
 import signal
 import subprocess
-from collections import deque
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from concurrent.futures import Future, ThreadPoolExecutor
+from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from contextlib import closing
 from dataclasses import dataclass
-from hashlib import sha256
+from hashlib import file_digest, sha256
 from io import BytesIO
 from itertools import groupby
 from pathlib import Path
@@ -130,10 +130,30 @@ class PreparedRecognitionSource:
     digest: str
 
     @classmethod
+    def from_path(cls, path: Path, digest: str) -> PreparedRecognitionFile:
+        """Verify an owned seekable original once; page workers borrow its file, not bytes."""
+        path = path.resolve(strict=True)
+        with path.open("rb") as source:
+            if source.read(5) != b"%PDF-":
+                raise ValueError("recognition source must be retained PDF bytes")
+            source.seek(0)
+            if file_digest(source, "sha256").hexdigest() != digest:
+                raise ValueError("recognition source digest differs from owned file")
+        return PreparedRecognitionFile(path, digest)
+
+    @classmethod
     def prepare(cls, original: bytes) -> PreparedRecognitionSource:
         if not original.startswith(b"%PDF-"):
             raise ValueError("recognition source must be retained PDF bytes")
         return cls(original, sha256(original).hexdigest())
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedRecognitionFile:
+    """Verified owned file borrowed for recognition; no full original byte envelope."""
+
+    original: Path
+    digest: str
 
 
 def render_affine(
@@ -316,7 +336,7 @@ class RecognitionWorker:
 
     def _parallel_pages(
         self,
-        source: PreparedRecognitionSource,
+        source: PreparedRecognitionSource | PreparedRecognitionFile,
         recipe: NemotronRecipe,
         page_numbers: Sequence[int],
         *,
@@ -324,7 +344,7 @@ class RecognitionWorker:
         check_active: Callable[[], None] | None,
         reuse: bool,
         reuse_failures: bool,
-    ) -> Iterator[RecognitionPage]:
+    ) -> Generator[RecognitionPage]:
         cancelled = Event()
         pages = iter(page_numbers)
 
@@ -341,7 +361,7 @@ class RecognitionWorker:
                 timeout_seconds=self.timeout_seconds,
             )
             worker._physical_page_concurrency = concurrency
-            return next(
+            with closing(
                 worker.recognize_pages(
                     source,
                     recipe,
@@ -350,9 +370,10 @@ class RecognitionWorker:
                     reuse=reuse,
                     reuse_failures=reuse_failures,
                 )
-            )
+            ) as results:
+                return next(results)
 
-        pending: deque[Future[RecognitionPage]] = deque()
+        pending: set[Future[RecognitionPage]] = set()
         if check_active is not None:
             check_active()
         with ThreadPoolExecutor(
@@ -363,22 +384,25 @@ class RecognitionWorker:
                     page_no = next(pages, None)
                     if page_no is None:
                         break
-                    pending.append(pool.submit(recognize, page_no))
+                    pending.add(pool.submit(recognize, page_no))
                 while pending:
                     if check_active is not None:
                         check_active()
-                    try:
-                        page = pending[0].result(timeout=0.2)
-                    except TimeoutError:
+                    ready, _ = wait(pending, timeout=0.2, return_when=FIRST_COMPLETED)
+                    # Consume one completion before refilling: a paused consumer never
+                    # permits more than this fixed window of live page results.
+                    if not ready:
                         continue
-                    pending.popleft()
+                    completed = next(iter(ready))
+                    pending.remove(completed)
+                    page = completed.result()
                     self.last_page = page
                     yield page
                     if check_active is not None:
                         check_active()
                     page_no = next(pages, None)
                     if page_no is not None:
-                        pending.append(pool.submit(recognize, page_no))
+                        pending.add(pool.submit(recognize, page_no))
             finally:
                 cancelled.set()
                 # Settlement is bounded by each worker's existing terminate/kill lifetime.
@@ -401,7 +425,7 @@ class RecognitionWorker:
 
     def recognize_pages(
         self,
-        source: PreparedRecognitionSource,
+        source: PreparedRecognitionSource | PreparedRecognitionFile,
         recipe: NemotronRecipe,
         page_numbers: Sequence[int],
         *,
@@ -409,7 +433,7 @@ class RecognitionWorker:
         reuse: bool = True,
         concurrency: int = 1,
         reuse_failures: bool = False,
-    ) -> Iterator[RecognitionPage]:
+    ) -> Generator[RecognitionPage]:
         import pypdfium2
 
         if not 1 <= concurrency <= 4:
@@ -430,7 +454,9 @@ class RecognitionWorker:
             )
             return
         with _PDFIUM_LOCK:
-            document = pypdfium2.PdfDocument(source.original)
+            document = pypdfium2.PdfDocument(
+                str(source.original) if isinstance(source.original, Path) else source.original
+            )
             page_count = len(document)
         try:
             for page_no in page_numbers:
@@ -557,7 +583,7 @@ def recognition_observation_values(
     row: Mapping[str, Any],
     raw: bytes,
     *,
-    source: PreparedRecognitionSource,
+    source: PreparedRecognitionSource | PreparedRecognitionFile,
     recipe: NemotronRecipe,
 ) -> dict[str, Any]:
     """Build PDF-13 primitives; parent admits/publishes with its archived task context."""

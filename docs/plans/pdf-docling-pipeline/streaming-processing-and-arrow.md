@@ -1,6 +1,6 @@
 # Streaming PDF processing and Arrow execution
 
-**Status:** Planned, 2026-11-01. [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-22/23 and I14/I18/I20. Basis: [review O03/O04](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O03), [target §§5–6](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`. [PDF-18–21](relational-document-model-and-identity.md) own record/identity and [publication contracts](staged-publication-and-validation.md).
+**Status:** Private PDF-22/23 producer mechanisms implemented, 2026-11-01; scoped verification below. Native global finalization remains materialized by operator selection; strict end-to-end streaming I14 remains open. [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-22/23 and I14/I18/I20. Basis: [review O03/O04](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O03), [target §§5–6](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`. [PDF-18–21](relational-document-model-and-identity.md) own record/identity and [publication contracts](staged-publication-and-validation.md).
 
 ## Library improvement basis and readiness
 
@@ -179,6 +179,49 @@ spool exhaustion, source replacement and abandoned readers. Compare native behav
 expected semantics separately. I14/I20 report actual limits and decisions; no source-only result
 closes strict streaming or changes optional PDF-26. Quantitative claims require representative
 measurement after structural integration, not arbitrary performance gates.
+
+## Implemented private execution — 2026-11-01
+
+The operator selected the minimum PDF-20 staging prerequisite and preserved native materialized
+finalization for this execution. `ingest/pdf_stream_types.py` owns immutable source/replay capabilities;
+`pdf_streaming.py` owns page/candidate/native-raster custody, lazy native lowering and exact-schema
+IPC batches. `PdfWorker.stream` sends only descriptors and waits for parent adoption acknowledgements;
+its result never transports the native graph. Native heading/reading-order behavior remains inside
+one owned finalization boundary. Required raster/candidate/assembly bytes and completion/recipe
+artifacts have model-owned profiles. Table/crop/source distinctions survive; extra models stay off.
+
+`orchestrate/pdf_streaming.py` supplies `run_private_native_pdf_build`, the generic
+`run_private_pdf_build`, verified IPC iteration and explicit `replay_private_pdf_build`. Existing
+original/recipe custody precedes begin. The parent maintains existing claims through child/source
+settlement and uses short Core/Psycopg transactions only for protected adoption. Exact replay does
+not invoke inference. Progress is private and does not complete a source run, publish a product or
+change defaults. Root temporary source cleanup follows native borrower settlement; durable spools
+remain for explicit resume/owned cleanup.
+
+I20 selects completion-driven finite page workers: inspected public batch orchestration lacks the
+concurrent request/crop observation seam required by current custody. Native public parse/union/
+alternatives kernels remain delegated. Pending pages replenish on completion with downstream bounds;
+no stage-specific competing request pools were added. File-backed recognition avoids repeated PDF
+byte transport. Future public scheduler adoption needs that named seam and affected qualification.
+
+`pdf_stream_reconciliation.py` reuses the selection kernel on the owned native graph. Canonical
+qualified input order is externally sorted with existing DuckDB/Arrow; stable A/B-before-C phases
+and companion rows use incremental Arrow journals. This removes whole companion envelopes without
+introducing SQLite or another storage authority. Native/companion output feeds the same private
+stage contract. Scalar/record logical identities exclude build allocation; upload retry keys remain
+physical. The new recipe is `docling-standard-pdf-stream-v1`; it binds the detached native-raster
+crop profile and cannot silently reuse an older recipe's inference claims.
+
+Source is ABI16, relational compiler4/core0.6.4.0064 supplies private staging;0060 remains deployed
+and0061–0064 remain undeployed. No PDF-21 seal/public native closure, PDF-24 public cutover,
+PDF-25 data migration, new recognizer/cache or completed knowledge claim follows. I14 remains
+partial because native finalization still needs a document graph. The coordinator owns current
+package/investigation state and the runtime evidence below owns exact check outcomes.
+
+[Runtime receipts](../../design_review/evidence/2026-11-01_pdf-streaming-runtime/README.md)
+separate actual native inference, controlled provider IPC/real PostgreSQL custody, native differential
+preservation, retained-book lowering and functional regression. Full-plan/provider grading and
+quantitative improvement claims remain separate from this private producer delivery.
 
 ## Sources and handoff
 

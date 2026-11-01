@@ -98,7 +98,7 @@ from corpus_structure.schema.model import (
 )
 
 # Bump on any change to what the compiler or the renderer writes for the same model.
-COMPILER_VERSION = "3"  # 3: physical inherited types, field constraints and read-role declarations
+COMPILER_VERSION = "4"  # 3: physical inherited types, field constraints and read-role declarations
 COMPILER = "corpus_structure.schema.relational"
 
 PG_SCHEMAS = ("meta", "ops", "kb", "eval")
@@ -659,7 +659,10 @@ def _compile_physical(view: View) -> MetaData:
                     },
                 )
             )
-        table_info: dict[str, Any] = {"model_class": str(name)}
+        table_info: dict[str, Any] = {
+            "model_class": str(name),
+            "immutability": ci_annotations(cls).get("ph:immutability"),
+        }
         read_roles = ci_annotations(cls).get("ph:read_roles")
         if read_roles is not None:
             table_info["read_roles"] = json.loads(read_roles)

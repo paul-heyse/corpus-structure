@@ -702,3 +702,31 @@
     judgment_carry_over: null
     compiled_artifacts: []
     source_profiles: []
+- label: 0.6.4
+  content_hash: 68de8f9a1d3dbccdf4c9417bbc37123f557f1efa5ba09519f71e4709b98c53b8
+  key_scheme: 1
+  compilers:
+    corpus_structure.schema.generate: '1'
+    corpus_structure.schema.interchange: '1'
+    corpus_structure.schema.relational: '4'
+    linkml-runtime: 1.12.1
+  parent: 7ea9c4171581faef5eaa39c71dff048917bc69244d77cc4a725bd3b06e99da2d
+  change_record:
+    from_revision: 7ea9c4171581faef5eaa39c71dff048917bc69244d77cc4a725bd3b06e99da2d
+    to_revision: 68de8f9a1d3dbccdf4c9417bbc37123f557f1efa5ba09519f71e4709b98c53b8
+    changes:
+    - element: core
+      change: changed
+      aspect: version
+      compatibility_class: descriptive
+      reason: Record relational compiler 4 model-owned immutability projection for private PDF20 staging;
+        semantic keys unchanged.
+      authorized_by: Operator-approved PDF20/22/23 execution, 2026-11-01
+      decision: null
+      upcaster: null
+    name_map: {}
+    alembic_revision: '0064'
+    key_consequences: null
+    judgment_carry_over: null
+    compiled_artifacts: []
+    source_profiles: []

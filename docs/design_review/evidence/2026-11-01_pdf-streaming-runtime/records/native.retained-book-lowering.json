@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "id": "native.retained-book-lowering",
+  "title": "Retained actual native book record and Arrow lowering",
+  "group": "pdf-docling-pipeline",
+  "package": "PDF-22",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the retained actual whole-book native graph be lowered into the private model-bound record/IPC route, and what global working set remains?",
+  "answers": [
+    "PDF-22",
+    "I14"
+  ],
+  "method": "Read retained task2 native JSON in a read-only PostgreSQL transaction, hydrate DoclingDocument, release original JSON text, lower all native fields into model-bound stage batches, mmap every IPC replay and verify schema, checksum and batch byte maximum.",
+  "commands": [
+    "/usr/bin/time -v uv run python docs/design_review/evidence/2026-11-01_pdf-streaming-runtime/replay_retained_native.py build/pdf22-retained-book-replay"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "replay_retained_native.py",
+      "role": "probe-source",
+      "sha256": "db8f0b66295917b13f1cc1213c7fb01f19cd048bafa387a4f36d89b98f35ffa2"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "retained-book-replay.json",
+      "role": null,
+      "sha256": "5ccc22c78500f523422085652838e75ca2dafdd2339c907dbd72f88542cdc439"
+    },
+    {
+      "path": "raw/retained-book-replay-time.txt",
+      "role": null,
+      "sha256": "dba9b55c158f2fabc8a280521690bb690c9514affc3dfaae77db47f8fed0e3ae"
+    },
+    {
+      "path": "raw/retained-book-replay.log",
+      "role": null,
+      "sha256": "5ccc22c78500f523422085652838e75ca2dafdd2339c907dbd72f88542cdc439"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "pages",
+      "value": 1589,
+      "of": null,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "IPC files",
+      "value": 83,
+      "of": null,
+      "unit": "files",
+      "note": null
+    },
+    {
+      "name": "rows",
+      "value": 635469,
+      "of": null,
+      "unit": "rows",
+      "note": null
+    },
+    {
+      "name": "maximum batch",
+      "value": 2885993,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "lower and verify",
+      "value": 81.19137181100086,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "maximum RSS",
+      "value": 874080,
+      "of": null,
+      "unit": "KiB",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Actual retained native graph hydration, lossless record walking and schema/checksum/batch-limit verification passed for all1589pages. Native global graph stays materialized by the selected execution boundary. No fresh inference, page/raster stream, DB adoption, reading-order construction or integrated companion graph was exercised; strict end-to-end memory bound and comparative speed remain unestablished.",
+  "consumed_by": [
+    "PDF-22",
+    "I14",
+    "pdf-docling-pipeline coordinator"
+  ]
+}

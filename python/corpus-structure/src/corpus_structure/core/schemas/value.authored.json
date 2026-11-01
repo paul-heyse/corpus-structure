@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/7ea9c4171581/value.authored.json",
+  "$id": "https://corpus-structure.dev/schemas/68de8f9a1d3d/value.authored.json",
   "$defs": {
     "AuthoredEnumValue": {
       "additionalProperties": false,

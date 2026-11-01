@@ -8,12 +8,20 @@ from contextlib import suppress
 from dataclasses import dataclass
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
+from pathlib import Path
 from threading import Lock
 
 from .pdf import PdfConversion, PdfConverter, PdfRecipe
 from .pdf_assets import PreparedPdfAssets
 from .pdf_enrichment import PdfEnrichmentRequest, PdfEnrichmentResult, compute_enrichment
 from .pdf_health import error_summary
+from .pdf_stream_types import (
+    PdfReplayReady,
+    PdfReplayRef,
+    PdfSourceRef,
+    PdfStreamReply,
+    PdfStreamRequest,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,8 +31,8 @@ class ConvertRequest:
     page_range: tuple[int, int] | None
 
 
-type Request = ConvertRequest | PdfEnrichmentRequest
-type Result = PdfConversion | PdfEnrichmentResult
+type Request = ConvertRequest | PdfEnrichmentRequest | PdfStreamRequest
+type Result = PdfConversion | PdfEnrichmentResult | PdfStreamReply
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +59,72 @@ def _native_child(
                     result = converter.convert_bytes(
                         request.original, name=request.name, page_range=request.page_range
                     )
+                elif isinstance(request, PdfStreamRequest):
+                    from .pdf_streaming import PdfStreamSpool, StreamingPdfProducer
+
+                    def acknowledged(replay: PdfReplayRef) -> None:
+                        connection.send(PdfReplayReady(replay))
+                        if connection.recv() is not True:
+                            raise PdfWorkerError("PDF replay custody was not acknowledged")
+
+                    spool = PdfStreamSpool(request.spool_root, on_page=acknowledged)
+                    streamed = StreamingPdfProducer(recipe, assets=assets).run(
+                        request.source, spool, page_range=request.page_range
+                    )
+                    companions = ()
+                    if request.observation_replay is not None:
+                        from .pdf_stream_reconciliation import (
+                            read_observation_replay,
+                            reconcile_pdf_stream,
+                            write_companion_artifacts,
+                        )
+
+                        if (
+                            request.structural_pin is None
+                            or request.integration_policy is None
+                            or request.reconciliation_root is None
+                        ):
+                            raise PdfWorkerError(
+                                "integrated streaming requires structural/policy/replay bindings"
+                            )
+                        reconciled = reconcile_pdf_stream(
+                            streamed.document,
+                            request.structural_pin,
+                            read_observation_replay(request.observation_replay),
+                            request.source.digest,
+                            policy=request.integration_policy,
+                            directory=request.reconciliation_root,
+                        )
+                        try:
+                            streamed.document = reconciled.document
+                            companions = write_companion_artifacts(
+                                reconciled,
+                                request.record_root.with_name(
+                                    request.record_root.name + "-companions"
+                                ),
+                                build_id=request.build_id,
+                                on_batch=acknowledged,
+                            )
+                        finally:
+                            reconciled.close()
+                    records = (
+                        streamed.write_record_batches(
+                            request.record_root,
+                            build_id=request.build_id,
+                            release_id=request.release_id,
+                            source_digest=request.source.digest,
+                            on_batch=acknowledged,
+                        )
+                        + companions
+                    )
+                    result = PdfStreamReply(
+                        streamed.conversion_status,
+                        streamed.errors,
+                        streamed.recipe,
+                        tuple(spool.pages[n] for n in sorted(spool.pages)),
+                        records,
+                    )
+                    del streamed
                 elif isinstance(request, PdfEnrichmentRequest):
                     result = compute_enrichment(request, converter)
                 else:
@@ -110,7 +184,12 @@ class PdfWorker:
         finally:
             child.close()
 
-    def _exchange(self, request: Request, check_active: Callable[[], None] | None = None) -> Result:
+    def _exchange(
+        self,
+        request: Request,
+        check_active: Callable[[], None] | None = None,
+        on_replay: Callable[[PdfReplayRef], None] | None = None,
+    ) -> Result:
         with self._lock:
             try:
                 self._start()
@@ -121,16 +200,24 @@ class PdfWorker:
                 if check_active is not None:
                     check_active()
                 connection.send(request)
-                while not connection.poll(0.2):
+                while True:
+                    while not connection.poll(0.2):
+                        if check_active is not None:
+                            check_active()
+                        if not process.is_alive():
+                            raise PdfWorkerError(
+                                f"native PDF child exited with code {process.exitcode}"
+                            )
                     if check_active is not None:
                         check_active()
-                    if not process.is_alive():
-                        raise PdfWorkerError(
-                            f"native PDF child exited with code {process.exitcode}"
-                        )
-                if check_active is not None:
-                    check_active()
-                reply = connection.recv()
+                    reply = connection.recv()
+                    if not isinstance(reply, PdfReplayReady):
+                        break
+                    if on_replay is None:
+                        raise PdfWorkerError("PDF streaming requires a replay custody consumer")
+                    reply.replay.verify()
+                    on_replay(reply.replay)
+                    connection.send(True)
                 if check_active is not None:
                     check_active()
                 if not isinstance(reply, NativeReply):
@@ -142,7 +229,7 @@ class PdfWorker:
                 # A timed/non-success native pipeline may have abandoned a worker thread.
                 # Drain the containing process before exposing even its partial result.
                 if (
-                    isinstance(reply.value, PdfConversion)
+                    isinstance(reply.value, (PdfConversion, PdfStreamReply))
                     and reply.value.conversion_status != "success"
                 ):
                     self._stop(graceful=False)
@@ -166,6 +253,45 @@ class PdfWorker:
         if not isinstance(value, PdfConversion):
             self.close()
             raise PdfWorkerError("native PDF child returned an enrichment for conversion")
+        return value
+
+    def stream(
+        self,
+        source: PdfSourceRef,
+        *,
+        spool_root: Path,
+        record_root: Path,
+        build_id: str,
+        release_id: str,
+        on_replay: Callable[[PdfReplayRef], None],
+        page_range: tuple[int, int] | None = None,
+        check_active: Callable[[], None] | None = None,
+        observation_replay: PdfReplayRef | None = None,
+        structural_pin: dict | None = None,
+        integration_policy: dict | None = None,
+        reconciliation_root: Path | None = None,
+    ) -> PdfStreamReply:
+        value = self._exchange(
+            PdfStreamRequest(
+                source,
+                spool_root,
+                record_root,
+                build_id,
+                release_id,
+                page_range,
+                observation_replay,
+                structural_pin,
+                integration_policy,
+                reconciliation_root,
+            ),
+            check_active,
+            on_replay,
+        )
+        if not isinstance(value, PdfStreamReply):
+            self.close()
+            raise PdfWorkerError("native child returned a non-streaming result")
+        if value.conversion_status != "success":
+            self.close()
         return value
 
     def enrich(

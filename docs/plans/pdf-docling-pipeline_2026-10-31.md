@@ -1,6 +1,6 @@
 # Integrated PDF/Docling and Nemotron pipeline
 
-**Status:** Active;0060 deployed/0061–0063 undeployed; baseline integrated mechanisms implemented; PDF-17–19 structural foundation implemented; PDF-20 onward planned.
+**Status:** Active;0060 deployed/0061–0064 undeployed; PDF-17–19 foundation and private PDF-22/23 producers implemented with the minimum PDF-20 staging prerequisite. Native global finalization remains materialized; PDF-21/24/25 remain planned.
 Whole-book recognition passed; integrated publication, actual consumer adoption and complete qualification remain open.
 **Created:** 2026-10-31. **Revised:** 2026-11-01.
 **Basis:** Original [PDF review](../functional_reviews/pdf-docling-pipeline_2026-10-31.md)
@@ -76,14 +76,14 @@ sealed scopes need their own immutable pins and closure evidence. The model owns
 operations, states, relations and invariants. A single logical document does not require a
 single JSONB or bytea value; bounded extension JSON remains available where useful.
 
-PDF-17–19 implement the record/identity foundation; PDF-20–25 develop its live integration; PDF-26 is conditional. Existing0060/0061 and PDF-00–16 receipts
+PDF-17–19 implement the record/identity foundation; private PDF-22/23 and the minimum PDF-20 staging slice are implemented; PDF-21/24/25 develop publication and consumer integration; PDF-26 is conditional. Existing0060/0061 and PDF-00–16 receipts
 remain baseline evidence. Docling global reading-order/heading/enrichment behavior must survive;
 no strict bounded-memory claim follows until I14 establishes the exact producer route.
 
 ## 2. Baseline and foundation assessment
 
 The deployed execution baseline remains native0060/compiler14/core0.6.2; source now contains
-ABI15, relational compiler3/core0.6.3 and undeployed0062/0063 private foundations. Full
+ABI16, relational compiler4/core0.6.4 and undeployed0062–0064 private foundations/staging. Full
 Docling2.145.0/core2.105.0 and native schema1.10.0. Integrated producers, governed selection,
 scoped readers and forward-only consumers are implemented. Actual all-page Nemotron recognition
 and fresh composed toy publication passed; whole-book integrated publication and assembled
@@ -170,24 +170,26 @@ physical streaming does not authorize semantic section chunking or provisional k
 | <a id="PDF-17"></a>PDF-17 | [Relational foundations](pdf-docling-pipeline/relational-document-model-and-identity.md#PDF-17): successor decision and investigation outcomes | Confirmed RC08/09, review/current source | Delivered ADR-0042 and foundation outcomes; I14 producer and downstream activation remain scoped open |
 | <a id="PDF-18"></a>PDF-18 | [Lossless model](pdf-docling-pipeline/relational-document-model-and-identity.md#PDF-18): native records, memberships, generated lowerings | PDF-17 decision slice; I15; early I14 | Implemented codec/generated metadata/private0062+0063; targeted controls, no live deployment |
 | <a id="PDF-19"></a>PDF-19 | [Identity/custody](pdf-docling-pipeline/relational-document-model-and-identity.md#PDF-19): logical identity, native addresses, exact artifact parts | I16, PDF-18 model, PDF-17 decision | Implemented versioned fold/part primitives and SQL parity; complete staged correspondence remains PDF-20/21 |
-| <a id="PDF-20"></a>PDF-20 | [Private staging](pdf-docling-pipeline/staged-publication-and-validation.md#PDF-20): typed COPY, durable records/parts and replay | PDF-18/19 contracts, I17 append slice, I18, PDF-17 decision | Planned |
+| <a id="PDF-20"></a>PDF-20 | [Private staging](pdf-docling-pipeline/staged-publication-and-validation.md#PDF-20): typed COPY, durable records/parts and replay | PDF-18/19 contracts, I17 append slice, I18, PDF-17 decision | Implemented minimum prerequisite: modeled private builds, typed COPY/adoption, exact replay/progress/resume/abandon and parent integration; final frozen-union/publication integration remains PDF-21 |
 | <a id="PDF-21"></a>PDF-21 | [Freeze/seal](pdf-docling-pipeline/staged-publication-and-validation.md#PDF-21): full native closure and atomic publication | Working PDF-20, PDF-18/19 invariants, I17 | Planned |
-| <a id="PDF-22"></a>PDF-22 | [Standard streaming](pdf-docling-pipeline/streaming-processing-and-arrow.md#PDF-22): native-equivalent assembly/enrichment adaptation | Early I14; PDF-18/19 contracts; PDF-20 for actual persistence | Planned; no assumed public per-page document sink |
-| <a id="PDF-23"></a>PDF-23 | [Arrow/reconciliation](pdf-docling-pipeline/streaming-processing-and-arrow.md#PDF-23): incremental recognition/selection and resource ownership | PDF-18/19, I18, working PDF-20; PDF-22 for assembled acceptance | Planned |
+| <a id="PDF-22"></a>PDF-22 | [Standard streaming](pdf-docling-pipeline/streaming-processing-and-arrow.md#PDF-22): native-equivalent assembly/enrichment adaptation | Early I14; PDF-18/19 contracts; PDF-20 for actual persistence | Implemented private producer; actual bounded native inference/differential and retained-book lowering passed. Native global finalization stays materialized by operator selection; strict I14 remains open |
+| <a id="PDF-23"></a>PDF-23 | [Arrow/reconciliation](pdf-docling-pipeline/streaming-processing-and-arrow.md#PDF-23): incremental recognition/selection and resource ownership | PDF-18/19, I18, working PDF-20; PDF-22 for assembled acceptance | Implemented completion-driven recognition, file-backed source and Arrow/DuckDB reconciliation/companions with private IPC/adoption; scoped controls passed, public cutover remains PDF-21/24/25 |
 | <a id="PDF-24"></a>PDF-24 | [Streaming consumers](pdf-docling-pipeline/integrated-document-consumers.md#PDF-24): shared pinned readers and complete exports | PDF-18/19 early contract; working PDF-21/23 for acceptance | Planned |
 | <a id="PDF-25"></a>PDF-25 | [Structural cutover](pdf-docling-pipeline/adoption-and-retirement.md#PDF-25): retained-data migration and deployed contract handoff | Working PDF-18–24 | Planned; PDF-10/11 retain operational adoption and final union |
 | <a id="PDF-26"></a>PDF-26 | [Progressive scopes](pdf-docling-pipeline/integrated-document-consumers.md#PDF-26): immutable dependency-closed sections | I19 outcome and explicit selection; working PDF-18–24 primitives | Conditional; not a blocker for initial atomic-document completion |
 
 **Current sequence:** PDF-17 successor ADR and PDF-18/19 record/identity contracts are implemented.
-Start PDF-20 against their working foundation and continue I14's producer integration under PDF-22. PDF-22's upstream assembly work proceeds early,
-not after database construction. PDF-20 stages actual records; PDF-21 closes/publishes immutable
-unions. PDF-23 and PDF-24 integrate production and consumers incrementally, followed by PDF-25
+Private PDF-22/23 and the minimum PDF-20 staging path are implemented and scoped-tested.
+Continue PDF-21 to freeze/validate/publish immutable staged unions, then PDF-24 selected consumers.
+Native global finalization remains materialized under the selected execution boundary; strict I14
+requires a further upstream/adapter remedy. Follow these with PDF-25
 migration and PDF-10/11 actual adoption/qualification. Interface readiness is not native/provider
 acceptance. Independent investigation/design slices may proceed together; shared model/compiler
 surfaces retain one integrated editing owner. PDF-26 remains conditional on I19.
 
-Resolve I14's native finalization boundary and I20's scheduler/custody choice early, while PDF-20
-can implement agreed source/replay and wire contracts. Working producers, frozen validation and
+I14 preserves native global finalization; I20 selected completion-driven finite page workers because
+public batch orchestration lacks the required concurrent observation seam. PDF-20 implements the agreed
+private source/replay and wire contracts. Working producers, frozen validation and
 actual readers must converge before PDF-25/10/11 assembled acceptance. No optional recognizer,
 serving-cache experiment or progressive scope blocks the initial required union. Record actual
 limits where native global objects remain; a page iterator or protective refusal is insufficient.
@@ -237,29 +239,31 @@ Plan authoring closes none of these capabilities.
 | Source item | Responsible packages / value | Disposition and closure |
 |---|---|---|
 | [O01](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O01) | PDF-17–19/25 lossless records, native mappings and identity | Foundation implemented; native reconstruction and exact-byte primitives tested; PDF-25 retained-data cutover remains open |
-| [O02](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O02) | PDF-20/21 private staging/freeze/native seal | Planned; concurrency, independent closure, visibility and replay evidence |
-| [O03](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O03) | PDF-17/22/23 bounded local work with global finalization | Partial foundation: I14 source boundary identified; actual producer adapter remains PDF-22/23 |
-| [O04](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O04) | PDF-19/20/23/24 common Arrow transport/compute/read lifetime | Planned; remove mandatory table/envelope reconstruction, preserve types/identity and last-borrower ownership |
-| [O05](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O05) | PDF-20/21/23/25 systematic transactions/validation | Planned; exact wire profiles, native helpers/constraints, forward migrations and protected reads |
+| [O02](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O02) | PDF-20/21 private staging/freeze/native seal | Minimum private staging implemented/tested; freeze, independent union/native closure, seal and publication remain PDF-21 |
+| [O03](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O03) | PDF-17/22/23 bounded local work with global finalization | Private producer implemented/tested; heavy pages/artifacts and IPC streamed, native global graph remains materialized; strict I14 open |
+| [O04](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O04) | PDF-19/20/23/24 common Arrow transport/compute/read lifetime | Private Arrow IPC/COPY/reconciliation and borrower lifetime implemented/tested; public read/export integration remains PDF-24 |
+| [O05](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O05) | PDF-20/21/23/25 systematic transactions/validation | Private typed transaction/replay/fence enforcement implemented/tested through0064; final seal/forward deployment remain PDF-21/25 |
 | [O06](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O06) | PDF-24 pinned selective consumers/full exports | Planned; actual consumers and lossless native/integrated streaming exports |
 | [O07](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O07) | I19/PDF-26 early section consumption | Conditional; explicit closure/value outcome before activation; not required for atomic completion |
 
 ### Library improvement recommendations — at `5d7a72c4`
 
 References here name the improvement review, not similarly numbered coordinator investigations.
-All scheduled work remains **Planned**; PDF-17–19 implementation receipts are unchanged.
+Private producer/staging outcomes below are implemented and scoped-tested on2026-11-01;
+[streaming runtime receipts](../design_review/evidence/2026-11-01_pdf-streaming-runtime/README.md)
+retain their limits. PDF-17–19 receipts keep their original scope.
 
 | Source recommendation | Owning packages / investigation | Current disposition and closure |
 |---|---|---|
-| [I01](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I01) parser/queue/consumer capacity | PDF-22/23; PDF-20/24 consumers; I18 | Planned: separate effective controls under one recipe; downstream capacity and last-borrower lifetime; no new arbitrary numeric limits |
-| [I02](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I02) compact native finalization | PDF-22; I14 | Planned: retained heading/list lines, bookmarks and native assembly semantics; differential and independent controls plus retained-book working-set assessment |
-| [I03](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I03) public scheduling and custody | PDF-23; I20; PDF-20 receipt contract | Investigate public bounded-group pipeline first; select only with receipt/image/concurrency/cancellation contract, otherwise completion-driven finite pages |
+| [I01](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I01) parser/queue/consumer capacity | PDF-22/23; PDF-20/24 consumers; I18 | Implemented effective recipe controls, page-spool ACK backpressure and bounded IPC adoption; public consumer/resource composition remains PDF-24 |
+| [I02](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I02) compact native finalization | PDF-22; I14 | Implemented retained heading/list/assembly inputs and exact bounded native differential; retained-book lowering measured. Full native global graph remains materialized; strict I14 open |
+| [I03](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I03) public scheduling and custody | PDF-23; I20; PDF-20 receipt contract | Selected completion-driven finite page replenishment; public prepared/pipelined API lacks current concurrent crop/request observation seam. True parse/union/alternatives and exact receipts preserved |
 | [I04](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I04) native Docling multipass | Conditional choices; PDF-23 | Substitution deferred: current guarded merge/failure/sampling/evidence contract differs; revisit on suitable hooks or separately selected narrower semantics |
-| [I05](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I05) owned source/replay capabilities | PDF-20/22/23/25 | Planned: immutable digest-bound seekable source, bounded IPC descriptors, verified replay and consumer-coordinated retirement |
-| [I06](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I06) model-bound batches/selective readers | PDF-20/21/23/24 | Planned: generated wire profile, same-session COPY/adoption and snapshot-bound reads, no mandatory whole-table/envelope reconstruction |
-| [I07](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I07) enrichment lifetime/richer content | PDF-22/23; PDF-24 consumers | Shared lifetime/type foundation planned; extra recognizers conditional on selected consumer/precision gap, never eager baseline work |
-| [I08](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I08) transformations/complete views | PDF-23/24 | Planned: qualify native APIs against current bulk/pointer-preserving operations; preserve nested content, identity, precision and no read repair |
-| [I09](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I09) completion/diagnostics | PDF-20/21/23/24 | Planned: modeled raw/partial/failure/usage states, bounded page metadata and demanded diagnostics; progress is not admission/confidence |
+| [I05](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I05) owned source/replay capabilities | PDF-20/22/23/25 | Implemented immutable digest-bound seekable source, verified bounded replay descriptors and claim-owned child/source settlement; operational retirement remains PDF-25 |
+| [I06](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I06) model-bound batches/selective readers | PDF-20/21/23/24 | Implemented model-bound private wire profiles and same-session COPY/adoption; frozen-union/snapshot readers remain PDF-21/24 |
+| [I07](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I07) enrichment lifetime/richer content | PDF-22/23; PDF-24 consumers | Shared source/raster/crop/type lifetime implemented/tested; extra recognizers remain conditional, no new eager stages |
+| [I08](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I08) transformations/complete views | PDF-23/24 | Private reconciliation uses native graph and shared selection kernel with Arrow companion journals; complete selected reader/export migration remains PDF-24 |
+| [I09](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I09) completion/diagnostics | PDF-20/21/23/24 | Private native completion/errors/recipe artifacts and existing recognition failure/partial/zero-C custody retained; frozen validation and demanded public diagnostics remain PDF-21/24 |
 | [I10](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I10) image/serving cache reuse | PDF-23; conditional runtime choices | Conditional: actual plugin/API support and avoided-work comparison; stable content/frame/processor keys and retained-byte fallback |
 | [I11](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I11) table-matching source correction | PDF-22/23 comparison premises; I15/I18 | Corrected planning premise: disabled matching uses backend text, not independent visual transcription; retain matching baseline pending actual deficiency |
 
@@ -284,13 +288,13 @@ repository records when a probe produces an accepted result. No new permanent ca
 | I11 | Mapping/merge losses, table/chart/inline structure and selection policy over real responses | Mapping/selection mechanisms and real-response/bounded structure controls passed; cross-page continuity is explicitly not inferred, universal fidelity unqualified · PDF-13/15 |
 | I12 | Bounded preparation, combined GPU lifetime, partial receipts/cancellation and replay | Partial: finite workers, raw replay and GPU phase controls passed;0060 passes the oversized aggregate cast, but attempt7 cancelled during correlated child validation.0061 shared set join has bounded controls only; deployment/whole-book publication remain PDF-10/11 obligations |
 | I13 | Concrete integrated source/section/consumer/reference scope and independent benefit challenges | Scope fixed before provider execution: whole-book source, five intact analysis roots, two independent full-section A/B/C references and six frozen original-PDF challenges; actual journeys remain PDF-10/11 |
-| I14 | Streaming review I01: exact native assembly/enrichment and remaining global state | Partial · PDF-17 source inspection identified global assembly/enrichment; PDF-22 exact adapter/runtime outcome remains open; use retain_parsed_lines/assign_heading_levels with bookmark/list promotion and retained assembly inputs; no strict streaming claim |
+| I14 | Streaming review I01: exact native assembly/enrichment and remaining global state | Partial · exact pinned adapter, actual bounded native differential and retained1589-page record/IPC replay passed; operator selected materialized native global finalization. Strict end-to-end streaming remains open; no book-size graph-memory bound |
 | I15 | Streaming review I02: total native schema lowering/reconstruction and oversized leaves | Foundation resolved · PDF-18 schema/codec and callback placement tested; frozen-union enforcement remains PDF-21 |
 | I16 | Streaming review I03: independent native byte/record correspondence and batch-independent logical identity | Foundation resolved · PDF-19 bounded protocol/SQL parity/part replay tested; actual staged/native export correspondence remains PDF-20/21/24 |
-| I17 | Streaming review I04: immutable freeze/validate/seal under cancellation, concurrency and lease change | Contract slice resolved · PDF-17; actual private append/freeze/seal remains PDF-20/21 |
-| I18 | Streaming review I05: Arrow/pgpq/PostgreSQL/ADBC type and resource/operator profiles | Foundation type/constraint slice tested · PDF-18/19; live COPY/reader/spill/resource composition remains PDF-20/23/24; include prefetch/queue/scan readahead, exact JSON/overflow profiles and source/crop/buffer lifetimes |
+| I17 | Streaming review I04: immutable freeze/validate/seal under cancellation, concurrency and lease change | Private append/replay/progress/resume/abandon implemented/tested with real PostgreSQL and attempt fences; freeze/seal/atomic visibility remain PDF-21 |
+| I18 | Streaming review I05: Arrow/pgpq/PostgreSQL/ADBC type and resource/operator profiles | Private type/constraint/COPY/IPC/DuckDB journal and borrower composition implemented/tested; public ADBC/read/spill/resource integration remains PDF-24 |
 | I19 | Streaming review I06: progressive section dependency closure and useful early consumer | Open investigation · PDF-17/26; optional capability, not a blocker for atomic-document acceptance |
-| I20 | Improvement review I03: public pipelined scheduler versus completion-driven pages under exact receipt/crop/cancellation contracts | Planned · PDF-23; investigate bounded prepared groups first, select a concurrency-safe observation seam or completion-driven finite page route; bind image recipe and preserve strict failed/partial/zero-C evidence |
+| I20 | Improvement review I03: public pipelined scheduler versus completion-driven pages under exact receipt/crop/cancellation contracts | Resolved selected route · completion-driven finite page workers, versioned image/source recipe and exact existing raw/partial/zero-C custody. Public bounded-group orchestration lacks concurrency-safe observation hooks; future adoption requires that seam |
 
 A known table-cell formula gap cannot disappear into a generic "unsupported" label while claiming
 supported table-math completion. Implement the selected supported enrichment route if required;
@@ -340,7 +344,9 @@ issues at coherent endpoints. Applicable lint-only maintenance does not invalida
 No grading-policy change, human grading or automatic historical re-anchoring is included.
 
 **Current checkpoint (2026-11-01):** Native contracts/migrations through0060 are integrated
-and deployed to owned `corpus_pdf_20261031`, with compiler14/core0.6.2. Committed0061 is undeployed.
+and deployed to owned `corpus_pdf_20261031`, with compiler14/core0.6.2. Source now has
+ABI16/relational compiler4/core0.6.4;0061–0064 are undeployed. Private producers and the minimum
+PDF-20 staging path are implemented; PDF-21/24/25 are not delivered by this slice.
 Actual recognition covers every original page; attempt7 passed0060's JSON-text admission cast
 but was cancelled during native child validation. No integrated book product committed or result
 was selected.0061's shared child-edge set join has focused verification, not book-scale acceptance.

@@ -353,19 +353,20 @@ def native_admission_sql(
             for t in descriptor["triggers"]
             if not (t["relation"] == name and t["name"] == "semantic_immutable")
         ]
-        descriptor["triggers"].append(
-            dict(
-                relation=name,
-                name="semantic_immutable",
-                function="sem.refuse_immutable_mutation()",
-                type=58,
-                columns=[],
-                when=None,
-                args="",
-                deferrable=False,
-                deferred=False,
+        if relation.info.get("immutability", "immutable") == "immutable":
+            descriptor["triggers"].append(
+                dict(
+                    relation=name,
+                    name="semantic_immutable",
+                    function="sem.refuse_immutable_mutation()",
+                    type=58,
+                    columns=[],
+                    when=None,
+                    args="",
+                    deferrable=False,
+                    deferred=False,
+                )
             )
-        )
     descriptor["tables"] = sorted(tables.values(), key=lambda item: item["relation"])
     encoded = canonical_bytes(descriptor).decode().replace("'", "''")
     _, separator, required = current_admission.partition("$descriptor$;")
