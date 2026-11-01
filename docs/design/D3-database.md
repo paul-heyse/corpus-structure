@@ -345,7 +345,7 @@ does not create an extension: the overlay's extension assertion checks that each
 extension is present at its expected version, read from the one record of expected extension
 versions (DA-018), and fails naming `just db-provision` (design authority, 2026-10-28;
 [store note](../design_review/evidence/2026-10-28_library-store/README.md) §0, L-S5;
-[overview](../libraries/postgresql-18-pg-textsearch.md) §11.2).
+[overview](../libraries/postgresql/postgresql-18-pg-textsearch.md) §11.2).
 > Status: **Tested** (S6, 2026-10-28, PostgreSQL 18.6 on the interim project-local cluster): as a
 > non-superuser in a database cloned from the template, `CREATE EXTENSION` of either extension
 > fails with `42501`, the assertion fails with `P0001` and its instruction in a database without
@@ -813,7 +813,7 @@ segment column, so the two CHECK lists differ by design and no CHECK is generate
 candidate lookup for linking. A query always names the index and repeats its predicate in the
 same form, `'english'::regconfig` cast included, because the implicit string form skips partial
 BM25 indexes, and a bound parameter defeats it in any case
-([overview](../libraries/postgresql-18-pg-textsearch.md) §3.3; store note §6):
+([overview](../libraries/postgresql/postgresql-18-pg-textsearch.md) §3.3; store note §6):
 
 ```sql
 SELECT s.id, s.key, s.text <@> to_bm25query(:q, 'kb.segment_bm25') AS score
@@ -1802,7 +1802,7 @@ a rebuild reproduces it. It holds the project database `corpus`, the template `c
 databases.
 > Status: **Proposed** (2026-10-28; operator direction: set up PostgreSQL with the installed
 > tooling, at low overhead while the data can be regenerated;
-> [overview](../libraries/PostgreSQL_System_Tooling_for_Ubuntu.md))
+> [overview](../libraries/postgresql/PostgreSQL_System_Tooling_for_Ubuntu.md))
 
 **Configuration** (`ops/postgresql/corpus.conf`, one `conf.d` file; nothing set with `ALTER
 SYSTEM`), for this host (32 cores, 188 GB RAM shared with GPU work and another cluster, NVMe)
