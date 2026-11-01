@@ -3,6 +3,7 @@
 from dataclasses import replace
 
 import pytest
+from pdf_acceptance_support import native_evidence_sources
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -35,7 +36,7 @@ def test_native_source_locator_is_checked_against_stored_citation(
     import json
 
     from corpus_structure.semantic.domain_operations import _cut_input
-    from corpus_structure.semantic.publication import EvidenceSourceRow, publish_on_connection
+    from corpus_structure.semantic.publication import publish_on_connection
 
     _prepared, _run, cut = fixture(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
@@ -45,23 +46,10 @@ def test_native_source_locator_is_checked_against_stored_citation(
         replace(e, locator=json.dumps({**json.loads(e.locator), "locator": "invented#not-source"}))
         for e in inputs.batch.evidence
     )
-    with semantic_writer_engine.begin() as conn:
-        links = []
-        from sqlalchemy.dialects.postgresql import insert as pg_insert
-
-        span = table("kb.span")
-        for eid, source_link in inputs.source_links.items():
-            assert isinstance(source_link, tuple), "this control uses archived rendition evidence"
-            oid, rid, start, end = source_link
-            sid = conn.execute(
-                pg_insert(span)
-                .values(rendition_id=rid, start_offset=start, end_offset=end)
-                .returning(span.c.id)
-            ).scalar_one()
-            links.append(EvidenceSourceRow(eid, oid, rid, sid))
+    links = native_evidence_sources(inputs)
     batch = replace(inputs.batch, evidence=evidence, evidence_source=tuple(links))
     with (
-        pytest.raises(DBAPIError, match="evidence span is not a located citation"),
+        pytest.raises(DBAPIError, match="native evidence differs from a located supplied citation"),
         semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
@@ -75,11 +63,10 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
     from sqlalchemy import select
-    from sqlalchemy.dialects.postgresql import insert as pg_insert
 
     from corpus_structure.semantic.domain_operations import _cut_input
     from corpus_structure.semantic.identity import occurrence_key
-    from corpus_structure.semantic.publication import EvidenceSourceRow, publish_on_connection
+    from corpus_structure.semantic.publication import publish_on_connection
 
     prepared, run, cut = fixture(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
@@ -87,18 +74,7 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(
     inputs = _cut_input(semantic_writer_engine, cut, "hostile")
     target = next(row for row in inputs.batch.occurrence if row.item == "claims/0")
     forged = occurrence_key(prepared.release_id, "hostile", "unknown-source", target.item)
-    with semantic_writer_engine.begin() as conn:
-        links = []
-        span = table("kb.span")
-        for evidence_id, source_link in inputs.source_links.items():
-            assert isinstance(source_link, tuple), "this control uses archived rendition evidence"
-            observation, rendition, start, end = source_link
-            span_id = conn.execute(
-                pg_insert(span)
-                .values(rendition_id=rendition, start_offset=start, end_offset=end)
-                .returning(span.c.id)
-            ).scalar_one()
-            links.append(EvidenceSourceRow(evidence_id, observation, rendition, span_id))
+    links = native_evidence_sources(inputs)
     original = inputs.batch
     batch = replace(
         original,
@@ -162,13 +138,11 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(
 def test_finished_result_cannot_contain_an_unbacked_selected_fact(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
-    from sqlalchemy.dialects.postgresql import insert as pg_insert
 
     from corpus_structure.semantic.consolidation import SourceItem, assemble
     from corpus_structure.semantic.domain_operations import _cut_input
     from corpus_structure.semantic.publication import (
         EvidenceRow,
-        EvidenceSourceRow,
         SelectionRow,
         publish_on_connection,
     )
@@ -190,18 +164,7 @@ def test_finished_result_cannot_contain_an_unbacked_selected_fact(
         (EvidenceRow("unused", "unused", "unused", "unused", "1"),),
     )
     extra = assemble(prepared, "hostile", "extra", (draft,))
-    with semantic_writer_engine.begin() as conn:
-        links = []
-        span = table("kb.span")
-        for evidence_id, source_link in inputs.source_links.items():
-            assert isinstance(source_link, tuple), "this control uses archived rendition evidence"
-            observation, rendition, start, end = source_link
-            span_id = conn.execute(
-                pg_insert(span)
-                .values(rendition_id=rendition, start_offset=start, end_offset=end)
-                .returning(span.c.id)
-            ).scalar_one()
-            links.append(EvidenceSourceRow(evidence_id, observation, rendition, span_id))
+    links = native_evidence_sources(inputs)
     batch = replace(
         inputs.batch,
         typed_value=tuple(

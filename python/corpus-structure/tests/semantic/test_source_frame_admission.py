@@ -12,7 +12,7 @@ from .test_agent_resubmission import source_task
     [
         ("acl", "native source frame projection differs"),
         ("foreign_key", "native source frame projection differs"),
-        ("helper", "native execution kernel differs: ops.source_statement_locator"),
+        ("helper", "native execution kernel differs: ops.native_source_statement_locator"),
     ],
 )
 def test_source_frame_deployment_drift_refuses_composed_admission(
@@ -24,7 +24,8 @@ def test_source_frame_deployment_drift_refuses_composed_admission(
     with semantic_writer_engine.begin() as conn:
         assert (
             conn.scalar(
-                text("SELECT count(*) FROM ops.source_frame WHERE task_id=:task"), {"task": task}
+                text("SELECT count(*) FROM ops.native_source_frame WHERE task_id=:task"),
+                {"task": task},
             )
             == 1
         )
@@ -35,15 +36,15 @@ def test_source_frame_deployment_drift_refuses_composed_admission(
     with semantic_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         if change == "acl":
-            conn.exec_driver_sql("GRANT INSERT ON ops.source_frame TO corpus_sem_writer")
+            conn.exec_driver_sql("GRANT INSERT ON ops.native_source_frame TO corpus_sem_writer")
         elif change == "foreign_key":
             conn.exec_driver_sql(
-                "ALTER TABLE ops.source_frame DROP CONSTRAINT fk_source_frame_task_id"
+                "ALTER TABLE ops.native_source_frame DROP CONSTRAINT fk_native_source_frame_task_id"
             )
         else:
             conn.exec_driver_sql(
                 "CREATE OR REPLACE FUNCTION "
-                "ops.source_statement_locator(p_task bigint,p_anchor text) RETURNS text "
+                "ops.native_source_statement_locator(p_task bigint,p_anchor text) RETURNS text "
                 "LANGUAGE plpgsql STABLE SECURITY DEFINER "
                 "SET search_path=pg_catalog,pg_temp "
                 "AS $body$ BEGIN RETURN 'tampered'; END $body$"

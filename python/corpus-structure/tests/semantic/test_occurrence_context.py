@@ -52,6 +52,12 @@ def test_occurrences_keep_statement_and_citation_roles_in_query_explain(
     _prepared, run, cut = _source(
         semantic_db_engine, semantic_writer_engine, tmp_path / "source.html", monkeypatch
     )
+    from pdf_acceptance_support import independent_pdf_address
+
+    with semantic_reader_engine.connect() as conn:
+        expected_quote = independent_pdf_address(conn, run, "page#one", start=0, end=14)
+        first_anchor = independent_pdf_address(conn, run, "page#one", pointer="#/groups/0")
+        second_anchor = independent_pdf_address(conn, run, "page#one", start=15, end=29)
     consolidate_cut(semantic_writer_engine, cut, "evaluated")
     with read_session(semantic_reader_engine, "evaluated") as session:
         cls = session.class_handle("Person")
@@ -90,11 +96,13 @@ def test_occurrences_keep_statement_and_citation_roles_in_query_explain(
             assert evidence.source.run_id == run
             assert evidence.source.payload_definition == "AgentStoredBatch"
             assert evidence.source.observation_key == claims[0].source
-            assert evidence.source.span_id is not None
+            assert evidence.source.span_id is None
+            assert evidence.source.source_view_id is not None
+            assert evidence.source.native_address == expected_quote
         assert len(explanation.source_observations) == 1
         report = explanation.source_observations[0]
         assert report.observation_key == claims[0].source
-        assert report.payload["statements"][0]["anchor"] == "page#one"
+        assert report.payload["statements"][0]["anchor"] == first_anchor
         assert report.payload["claims"][1]["statement_role"] == "premise"
         # The statement entity links retain their independently declared anchors/kinds.
         statement_class = session.class_handle("SourceStatement")
@@ -102,8 +110,8 @@ def test_occurrences_keep_statement_and_citation_roles_in_query_explain(
             QuerySpec(statement_class, session.property_handle(statement_class, "locator"), "fact")
         )
         assert {row.subject.entity_id: row.object for row in statements.rows} == {
-            first_context.statement_entity_id: "page#one",
-            second_context.statement_entity_id: "page#two",
+            first_context.statement_entity_id: first_anchor,
+            second_context.statement_entity_id: second_anchor,
         }
 
 

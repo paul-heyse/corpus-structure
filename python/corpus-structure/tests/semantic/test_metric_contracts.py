@@ -47,6 +47,10 @@ def test_packaged_metrics_are_explicit_and_source_value_is_preserved():
         "segment.math_share",
         "segment.inline_math",
         "segment.display_math",
+        "source_view.chars",
+        "source_view.math_share",
+        "source_view.inline_math",
+        "source_view.display_math",
     }
     report = measured(prepared, value=-0.0).model_dump(mode="python")
     metric = report["measurements"][0]

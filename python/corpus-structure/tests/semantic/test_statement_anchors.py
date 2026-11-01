@@ -63,6 +63,13 @@ def test_recorded_local_handles_are_resolved_at_sealed_cut_without_mutation(
         two_reports=True,
         statement_packets=packets,
     )
+    from pdf_acceptance_support import independent_pdf_address
+
+    with semantic_reader_engine.connect() as conn:
+        expected_locations = {
+            independent_pdf_address(conn, run, key, start=0, end=14)
+            for key in (("page#one", "page#two") if packets == "different" else ("page#one",))
+        }
     observations = table("kb.observation")
     with semantic_reader_engine.connect() as conn:
         before = conn.execute(
@@ -83,9 +90,7 @@ def test_recorded_local_handles_are_resolved_at_sealed_cut_without_mutation(
         cls = reader.class_handle("SourceStatement")
         locations = reader.query(QuerySpec(cls, reader.property_handle(cls, "locator"), "fact"))
         assert len({row.subject.entity_id for row in locations.rows}) == expected
-        assert {row.object for row in locations.rows} == (
-            {"page#sentence", "page#two"} if packets == "different" else {"page#sentence"}
-        )
+        assert {row.object for row in locations.rows} == expected_locations
     with semantic_reader_engine.connect() as conn:
         after = conn.execute(
             select(observations.c.observation_key, observations.c.payload)
@@ -175,7 +180,9 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
     with semantic_writer_engine.connect() as conn:
         captured = (
             conn.execute(
-                select(table("ops.source_frame")).where(table("ops.source_frame").c.task_id == task)
+                select(table("ops.native_source_frame")).where(
+                    table("ops.native_source_frame").c.task_id == task
+                )
             )
             .mappings()
             .one()
@@ -217,4 +224,4 @@ def test_bulk_frames_deduplicate_origins_and_preserve_exact_coordinates(
             event.remove(conn, "before_cursor_execute", record)
     assert list(frames) == [task]
     assert frames[task] == packet.frame
-    assert len(statements) == 3
+    assert len(statements) == 1

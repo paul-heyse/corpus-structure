@@ -2,7 +2,6 @@
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import anyio
@@ -11,10 +10,8 @@ import yaml
 from fastmcp import Client
 from sqlalchemy import insert, select
 
-from corpus_structure.core.evidence import RenditionContent, Segment
-from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import SegmentKind, TaskUnitType
+from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.semantic import queue_agent
 from corpus_structure.semantic import (
@@ -30,15 +27,10 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import (
     OperationBinding,
     OperationConflict,
-    claim_tasks,
-    complete_task,
     create_run,
-    create_task,
     hold_agent_result,
-    record_method,
     register_document,
     release_claim,
-    store_rendition,
 )
 from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.releases import persist_release
@@ -105,24 +97,18 @@ def source_task(
                 project_id="resubmit", realization_id="input", release_id=prepared.release_id
             )
         )
-    text_value = "Alice is here."
-    path.write_text("<p>" + text_value + "</p>")
-    sentence = Segment(kind=SegmentKind.SENTENCE, start=0, end=len(text_value))
-    paragraph = Segment(
-        kind=SegmentKind.PARAGRAPH, start=0, end=len(text_value), children=(sentence,)
-    )
-    content = RenditionContent(
-        canonical_text=text_value,
-        document=Segment(
-            kind=SegmentKind.DOCUMENT, start=0, end=len(text_value), children=(paragraph,)
-        ),
-    )
-    locator = str(LocatorIndex(content, "source.html").generate(paragraph))
+    from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
+
+    paragraphs = ("Alice is here.",)
+    original = write_controlled_pdf(path, paragraphs)
+    from corpus_structure.ingest.sentences import SentenceConfig
+
     config = {
         "model": "automated-resubmission",
         "mode": "extract",
         "max_units": 1,
         "packet_cap_chars": 18000,
+        "sentences": SentenceConfig().model_dump(mode="json"),
     }
     with engine.begin() as conn:
         run = create_run(
@@ -141,63 +127,21 @@ def source_task(
             project_id="resubmit",
             source_uri="source.html",
             original_path=str(path),
-            original=path.read_bytes(),
+            original=original,
             metadata={"page": "source.html"},
-            mime="text/html",
+            mime="application/pdf",
         )
-        from pydantic import BaseModel
-
-        class SourceConfig(BaseModel):
-            pass
-
-        cid = record_method(
-            conn,
-            SimpleNamespace(
-                name="read",
-                version="1",
-                family="ingest",
-                tier="deterministic",
-                confidence_source=None,
-                unit_type=TaskUnitType.RUN,
-                Config=SourceConfig,
-            ),
-            "default",
-            {},
-            "read-config",
+        (view,) = publish_controlled_pdf_views(
+            conn, prepared=prepared, run_id=run, document_id=document, original=original,
+            paragraphs=paragraphs, keys=("source.html#people",),
         )
-        source = create_task(
-            conn, run_id=run, config_id=cid, stage="ingest", unit_type="run", input_hash="source"
-        )
-        claim = claim_tasks(conn, run_id=run, config_id=cid, holder="source")[0]
-        rid = store_rendition(
-            conn,
-            run_id=run,
-            document_id=document,
-            content=content,
-            task_id=source,
-            config_id=cid,
-            parse_detail={},
-        )
-        complete_task(
-            conn,
-            task_id=source,
-            attempt=claim.attempt,
-            holder="source",
-            prepared=prepared,
-            observations=[],
-            outcome="empty",
-        )
-        segment = conn.execute(
-            select(table("kb.segment").c.id).where(
-                table("kb.segment").c.rendition_id == rid, table("kb.segment").c.kind == "paragraph"
-            )
-        ).scalar_one()
+        locator = view.ref.key
         (task,) = queue_agent(
             conn,
             run_id=run,
             prepared=prepared,
             configuration=config,
-            units=(UnitRef(TaskUnitType.SEGMENT, segment, locator),),
+            units=(UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, locator),),
         )
     return prepared, run, task, locator
 

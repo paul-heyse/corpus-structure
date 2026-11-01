@@ -159,11 +159,9 @@ def test_native_cut_family_universe_and_document_lifting(
             observations=[],
             outcome="empty",
         )
-        segment, rendition = table("kb.segment"), table("kb.rendition")
+        views = table("kb.source_view")
         document = conn.execute(
-            select(rendition.c.document_id)
-            .join(segment, segment.c.rendition_id == rendition.c.id)
-            .where(segment.c.id == source["unit_id"])
+            select(views.c.document_id).where(views.c.id == source["unit_id"])
         ).scalar_one()
     finalize_bound_run(semantic_writer_engine, run, "coverage-output")
     family = "https://example.org/name"

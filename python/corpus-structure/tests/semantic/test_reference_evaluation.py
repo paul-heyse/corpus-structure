@@ -23,9 +23,22 @@ from corpus_structure.evaluate.semantic import (
 from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.proposals import ProposalFrame, ProposalSentence
+from corpus_structure.semantic.proposals import native_source_frame
+from corpus_structure.semantic.source_views import load_source_view
 
 from .test_agent_resubmission import lease_and_read, source_task
+
+
+def independent_native_frame(conn, run, unit_key, sentence_id):
+    """Bind independently authored offsets to current source custody, not a producer frame."""
+    views, selected = table("kb.source_view"), table("ops.run_source_view")
+    view_id = conn.scalar(
+        select(views.c.id).join(selected, selected.c.source_view_id == views.c.id)
+        .where(selected.c.run_id == run, views.c.key == unit_key)
+    )
+    view = load_source_view(conn, view_id)
+    assert view.text == "Alice is here."
+    return native_source_frame(view, ((sentence_id, 0, 14),))
 
 
 def test_independent_reference_grade_retains_exact_pass_and_qualification(
@@ -97,11 +110,9 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
             }
         ],
     }
-    frame = ProposalFrame(
-        locator, "Alice is here.", (ProposalSentence("reference_sentence", locator, 0, 14),)
-    )
     evaluator = semantic_evaluator_engine
     with evaluator.begin() as conn:
+        frame = independent_native_frame(conn, run, locator, "reference_sentence")
         split_documents(conn, "resubmit")
         made = create_reference_set(
             conn,
@@ -111,7 +122,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
             split="dev",
             size=1,
         )
-        assert set(made["sampling"]["allocation"]) == {"paragraph/unknown"}
+        assert set(made["sampling"]["allocation"]) == {"section/unknown"}
         uid = next(iter(made["units"].values()))
         raw = ("  " + json.dumps(authored) + "\n").encode()
         record_pass(
@@ -188,7 +199,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
         def record_native(result):
             return conn.scalar(
                 text(
-                    "SELECT eval.record_reference_evaluation(:p,:run,:set,"
+                    "SELECT eval.record_native_reference_evaluation(:p,:run,:set,"
                     "CAST(:snapshot AS jsonb),CAST(:result AS jsonb))"
                 ),
                 {
@@ -317,7 +328,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
         with pytest.raises(DBAPIError, match="incomplete or stale"), conn.begin_nested():
             conn.execute(
                 text(
-                    "SELECT eval.record_reference_evaluation(:p,:r,:s,"
+                    "SELECT eval.record_native_reference_evaluation(:p,:r,:s,"
                     "CAST(:snap AS jsonb),'{}'::jsonb)"
                 ),
                 {
@@ -329,37 +340,14 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
             )
     with semantic_writer_engine.connect() as conn, pytest.raises(DBAPIError):
         conn.execute(select(table("eval.reference_pass")))
-    # Source-frame movement is versioned; a different target cut cannot silently reuse it.
-    with semantic_db_engine.begin() as conn:
-        original = conn.execute(select(table("kb.rendition"))).mappings().one()
-        relocated = conn.scalar(
-            insert(table("kb.rendition"))
-            .values(
-                document_id=original["document_id"],
-                key="reference-relocated",
-                content_digest="relocated-digest",
-                canonical_text="Intro. Alice is here.",
-                content=original["content"],
-                parse_status="ok",
-            )
-            .returning(table("kb.rendition").c.id)
-        )
+    # A native reference keeps its exact source-view pin and cannot acquire scalar
+    # rendition coordinates through the old relocation form.
     with evaluator.begin() as conn:
         before = ensure_items(conn, new_c)
-        moved = relocate_frame(conn, new_c, rendition_id=relocated)
+        with pytest.raises(ReferenceError, match="native PDF reference anchors"):
+            relocate_frame(conn, new_c, rendition_id=999999)
         after = ensure_items(conn, new_c)
-        assert after.frame_id == moved and after.authored == before.authored
-        assert before.frame[0]["start"] == 0 and after.frame[0]["start"] == 7
-        assert (
-            conn.scalar(
-                select(table("eval.reference_frame").c.parent_id).where(
-                    table("eval.reference_frame").c.id == moved
-                )
-            )
-            == before.frame_id
-        )
-        with pytest.raises(ReferenceError, match="target source cut"):
-            reference_evaluate(conn, project_id="resubmit", run_id=run, set_id=made["set_id"])
+        assert after == before and after.authored == before.authored
     # Actual Typer dispatch uses the evaluator credential purpose and persistent native APIs.
     from dataclasses import asdict
 
@@ -624,11 +612,7 @@ def test_duplicate_premise_fact_preserves_later_local_claim_references(
             pass_kind="C",
             actor="independent-reference",
             authored=json.dumps(reference).encode(),
-            frame=ProposalFrame(
-                locator,
-                "Alice is here.",
-                (ProposalSentence("independent_sentence", locator, 0, 14),),
-            ),
+            frame=independent_native_frame(conn, run, locator, "independent_sentence"),
         )
         grade = reference_evaluate(conn, project_id="resubmit", run_id=run, set_id=made["set_id"])
         assert grade.result["tiers"]["full"] == {
@@ -734,11 +718,7 @@ def test_empty_producer_keeps_frozen_source_in_reference_pool(
             pass_kind="C",
             actor="independent-source-only-reference",
             authored=json.dumps(authored).encode(),
-            frame=ProposalFrame(
-                locator,
-                "Alice is here.",
-                (ProposalSentence("expected_sentence", locator, 0, 14),),
-            ),
+            frame=independent_native_frame(conn, run, locator, "expected_sentence"),
         )
         grade = reference_evaluate(conn, project_id="resubmit", run_id=run, set_id=made["set_id"])
         for tier in ("core", "full", "evidence"):
@@ -849,17 +829,23 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
                         )
                         == original_task["id"]
                     )
+                    if original_task["unit_type"] == "document":
+                        from corpus_structure.semantic.source_views import (
+                            select_reused_source_views,
+                        )
+
+                        select_reused_source_views(conn, run_id=run, task_id=reused)
             finalize_bound_run(semantic_writer_engine, run, "missing-source-frame-reused")
 
     from corpus_structure.semantic.operations import OperationConflict
 
     with (
         semantic_writer_engine.connect() as conn,
-        pytest.raises(OperationConflict, match="backfill"),
+        pytest.raises(OperationConflict, match="lack their immutable PDF packet frames"),
     ):
         source_frames.load_source_frames(conn, [task])
     with (
-        pytest.raises(ReferenceError, match="backfill_source_frames"),
+        pytest.raises(OperationConflict, match="lack their immutable PDF packet frames"),
         semantic_evaluator_engine.begin() as conn,
     ):
         create_reference_set(
@@ -870,7 +856,9 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
     with semantic_writer_engine.connect() as conn:
         frame = (
             conn.execute(
-                select(table("ops.source_frame")).where(table("ops.source_frame").c.task_id == task)
+                select(table("ops.native_source_frame")).where(
+                    table("ops.native_source_frame").c.task_id == task
+                )
             )
             .mappings()
             .one()
@@ -916,11 +904,7 @@ def test_missing_empty_source_frame_refuses_until_hash_verified_backfill(
             pass_kind="C",
             actor="independent-source-reference",
             authored=json.dumps(expected).encode(),
-            frame=ProposalFrame(
-                locator,
-                "Alice is here.",
-                (ProposalSentence("expected_sentence", locator, 0, 14),),
-            ),
+            frame=independent_native_frame(conn, run, locator, "expected_sentence"),
         )
         grade = reference_evaluate(conn, project_id="resubmit", run_id=run, set_id=made["set_id"])
         assert grade.result["tiers"]["full"]["reference"] == 1

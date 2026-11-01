@@ -320,3 +320,130 @@ def seed_retained_integrated_product(
         "product_key": "controlled-integrated",
         "content_digest": selected.digest,
     }
+
+
+def write_controlled_pdf(path: Path, paragraphs: tuple[str, ...]) -> bytes:
+    """Use the existing authored PDF builder; no converter or recognizer is involved."""
+    import runpy
+
+    builder = runpy.run_path(str(Path(__file__).resolve().parents[3] / "fixtures/toy/build_pdf.py"))
+    builder["write_pdf"](path, ((paragraphs[0], paragraphs[1:]),))
+    return path.read_bytes()
+
+
+def publish_controlled_pdf_views(
+    conn, *, prepared, run_id, document_id, original, paragraphs, keys
+):
+    """Retain independently authored section text through the real native publication ports."""
+    from dataclasses import replace
+
+    from corpus_structure.ingest.pdf_methods import _drafts
+    from corpus_structure.semantic.product_reference import ProductReference
+    from corpus_structure.semantic.source_views import load_source_view, store_source_view
+
+    document = DoclingDocument(name="Controlled source reports; no inference")
+    root = document.add_group(label=GroupLabel.SECTION, name="People")
+    sections = [root]
+    if len(paragraphs) > 1:
+        sections.append(document.add_group(label=GroupLabel.SECTION, name="Other", parent=root))
+    for index, paragraph in enumerate(paragraphs):
+        document.add_text(
+            label=DocItemLabel.TEXT, text=paragraph, orig=paragraph,
+            parent=sections[min(index, len(sections) - 1)],
+        )
+    conversion = PdfConversion(
+        sha256(original).hexdigest(), b'{"fixture":"controlled-native-report-v1"}',
+        snapshot(document), "success", (), (), (), None,
+    )
+    schema = files("corpus_structure").joinpath(
+        "model/semantic/docling-validation.schema.json"
+    ).read_bytes()
+    config = record_method(
+        conn,
+        SimpleNamespace(
+            name="pdf.controlled-source", version="1", family="ingest", tier="deterministic",
+            confidence_source=None, unit_type="document", Config=create_model("ControlledSource"),
+        ),
+        "default", {}, "controlled-source-config",
+    )
+    task = create_task(
+        conn, run_id=run_id, config_id=config, stage="ingest", unit_type="document",
+        unit_id=document_id, unit_key="controlled-source", input_hash=conversion.original_digest,
+    )
+    claim = claim_tasks(conn, run_id=run_id, config_id=config, holder="controlled-source")[0]
+    store_pdf_original(
+        conn, task_id=task, attempt=claim.attempt, holder=claim.holder,
+        original=original, recipe_bytes=conversion.recipe,
+    )
+    payload = publication_payload(
+        conversion, product_key="native", schema_digest=sha256(schema).hexdigest(),
+        section_refs=frozenset(section.self_ref for section in sections),
+    )
+    product = prepare_pdf_product(
+        payload, original, schema, conversion.recipe, context=pdf_context_for_task(conn, task)
+    )
+    store_pdf_product(
+        conn, task_id=task, attempt=claim.attempt, holder=claim.holder, product=product
+    )
+    views = []
+    for index, (key, section) in enumerate(zip(keys, sections, strict=True)):
+        membership = "descendants" if index == 0 and len(sections) > 1 else "direct"
+        (draft,) = _drafts(
+            document_id, ProductReference(task, "native", product.digest),
+            conversion.native, payload["health"], (section.self_ref,), membership,
+            prepared.release_id, document=document,
+        )
+        draft = replace(draft, key=key)
+        view_id = store_source_view(
+            conn, run_id=run_id, task_id=task, attempt=claim.attempt,
+            holder=claim.holder, draft=draft, position=index,
+        )
+        views.append(load_source_view(conn, view_id))
+    complete_task(
+        conn, task_id=task, attempt=claim.attempt, holder=claim.holder,
+        prepared=prepared, observations=[], outcome="empty",
+    )
+    return tuple(views)
+
+
+def independent_pdf_address(conn, run_id, key, *, start=None, end=None, pointer=None):
+    """Author expected transport fields from immutable pins and explicit test coordinates.
+
+    No producer frame, stored locator, citation or source-address implementation is read.
+    """
+    import json
+
+    from sqlalchemy import select
+
+    from corpus_structure.semantic.metadata import table
+
+    views, selected = table("kb.source_view"), table("ops.run_source_view")
+    row = conn.execute(
+        select(views.c.id, views.c.native_content_digest, views.c.projection_digest)
+        .join(selected, selected.c.source_view_id == views.c.id)
+        .where(selected.c.run_id == run_id, views.c.key == key)
+    ).one()
+    address = {"product_digest": row.native_content_digest}
+    address.update(
+        {"pointer": pointer}
+        if pointer is not None
+        else {
+            "source_view_id": row.id, "projection_digest": row.projection_digest,
+            "start": start, "end": end,
+        }
+    )
+    return "pdf:" + json.dumps(address, sort_keys=True, separators=(",", ":"))
+
+
+def native_evidence_sources(inputs):
+    from corpus_structure.semantic.domain_operations import NativeEvidenceLink
+    from corpus_structure.semantic.publication import EvidenceSourceRow
+
+    result = []
+    for evidence_id, link in inputs.source_links.items():
+        assert isinstance(link, NativeEvidenceLink)
+        result.append(EvidenceSourceRow(
+            evidence_id, link.observation_id, None,
+            source_view_id=link.source_view_id, native_address=link.native_address,
+        ))
+    return tuple(result)

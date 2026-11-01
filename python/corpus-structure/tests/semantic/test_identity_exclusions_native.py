@@ -4,6 +4,7 @@ from dataclasses import replace
 from typing import Any
 
 import pytest
+from pdf_acceptance_support import native_evidence_sources
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -21,6 +22,7 @@ from .test_identity_exclusions import exclusion_result
         "raw_reference",
         "reason",
         "missing_citation",
+        "missing_primary",
         "extra_citation",
         "identity",
         "locator",
@@ -48,9 +50,10 @@ def test_native_exclusion_publication_refuses_tampering(
         "raw_reference": "source declaration differs",
         "reason": "source declaration differs",
         "missing_citation": "evidence differs from source citations",
+        "missing_primary": "identity exclusion lacks located primary custody",
         "extra_citation": "evidence differs from source citations",
         "identity": "identity differs",
-        "locator": "evidence span is not a located citation",
+        "locator": "native evidence differs from a located supplied citation",
         "attribute_source": "occurrence citation is outside bound source claim",
         "policy_version": "operation version differs from release model",
     }[attack]
@@ -122,6 +125,19 @@ def test_native_exclusion_publication_refuses_tampering(
                 e for e in batch.identity_exclusion_evidence if e.evidence_id in primary
             ),
         )
+    elif attack == "missing_primary":
+        import json
+
+        supporting = {
+            e.evidence_id for e in batch.evidence if json.loads(e.locator)["role"] == "supporting"
+        }
+        assert supporting
+        batch = replace(
+            batch,
+            identity_exclusion_evidence=tuple(
+                e for e in batch.identity_exclusion_evidence if e.evidence_id in supporting
+            ),
+        )
     elif attack == "extra_citation":
         e = batch.evidence[0]
         batch = replace(
@@ -132,34 +148,8 @@ def test_native_exclusion_publication_refuses_tampering(
                 replace(batch.identity_exclusion_evidence[0], evidence_id="extra"),
             ),
         )
-    # Resolve original source spans exactly as the production publisher does, before staging.
-    from sqlalchemy.dialects.postgresql import insert
-
-    from corpus_structure.semantic.metadata import table
-
-    with semantic_writer_engine.begin() as conn:
-        sources = []
-        for eid, source_link in inputs.source_links.items():
-            assert isinstance(source_link, tuple), "this control uses archived rendition evidence"
-            oid, rid, start, end = source_link
-            span = table("kb.span")
-            conn.execute(
-                insert(span)
-                .values(rendition_id=rid, start_offset=start, end_offset=end)
-                .on_conflict_do_nothing()
-            )
-            sid = conn.scalar(
-                span.select()
-                .with_only_columns(span.c.id)
-                .where(
-                    span.c.rendition_id == rid,
-                    span.c.start_offset == start,
-                    span.c.end_offset == end,
-                )
-            )
-            from corpus_structure.semantic.publication import EvidenceSourceRow
-
-            sources.append(EvidenceSourceRow(eid, oid, rid, sid))
+    # Stage exact native SourceView custody through the current typed transport.
+    sources = list(native_evidence_sources(inputs))
     if attack == "extra_citation":
         sources.append(
             replace(

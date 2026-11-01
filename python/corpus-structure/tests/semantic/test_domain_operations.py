@@ -11,8 +11,6 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import insert, select, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.core.evidence import RenditionContent, Segment
-from corpus_structure.core.vocab import SegmentKind
 from corpus_structure.semantic import (
     PreparationProfile,
     ResolvedDependencies,
@@ -37,12 +35,11 @@ from corpus_structure.semantic.operations import (
     record_method,
     register_document,
     seal_cut,
-    store_rendition,
 )
 from corpus_structure.semantic.proposals import (
-    ProposalFrame,
-    ProposalSentence,
+    SEMANTIC_AGENT_VERSION,
     locate_proposal,
+    native_source_frame,
     proposal_inputs,
 )
 from corpus_structure.semantic.releases import persist_release
@@ -76,7 +73,6 @@ def fixture(
     integer_alias=False,
     math=None,
     second_math=None,
-    source_macros=None,
     statement_packets=None,
 ):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
@@ -203,10 +199,10 @@ def fixture(
             ).bind_preparation(prepared),
         )
     double_source = duplicate or statement_packets == "different"
-    original = b'<p id="one">Alice is here.</p>'
-    if double_source:
-        original += b'<p id="block2">Alice is here.</p>'
-    path.write_bytes(original)
+    from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
+
+    paragraphs = ("Alice is here.",) * (2 if double_source else 1)
+    original = write_controlled_pdf(path, paragraphs)
     with writer.begin() as conn:
         document = register_document(
             conn,
@@ -215,7 +211,7 @@ def fixture(
             original_path=str(path),
             original=original,
             metadata={"page": "page"},
-            mime="text/html",
+            mime="application/pdf",
         )
         document_key = conn.execute(
             select(table("kb.document").c.key).where(table("kb.document").c.id == document)
@@ -228,60 +224,29 @@ def fixture(
             options={"corpus": {"documents": [document_key]}},
             code_commit="test",
         )
+        views = publish_controlled_pdf_views(
+            conn, prepared=prepared, run_id=run, document_id=document, original=original,
+            paragraphs=paragraphs,
+            keys=("page#one", "page#two") if double_source else ("page#one",),
+        )
+        view = views[0]
         cid = record_method(
             conn,
             SimpleNamespace(
                 name="agent.opus",
-                version="1",
+                version=SEMANTIC_AGENT_VERSION,
                 family="agent",
                 tier="agent",
                 confidence_source="agent",
-                unit_type="document",
+                unit_type="source_view",
                 Config=DomainFixtureConfig,
             ),
             "extract",
             {"math": math} if math is not None else {},
             "config",
         )
-        paragraphs = [
-            Segment(
-                kind=SegmentKind.PARAGRAPH,
-                start=0,
-                end=14,
-                attrs={"id": "one"},
-                children=(
-                    Segment(kind=SegmentKind.SENTENCE, start=0, end=14, attrs={"id": "sentence"}),
-                ),
-            )
-        ]
-        if double_source:
-            paragraphs.append(
-                Segment(
-                    kind=SegmentKind.PARAGRAPH,
-                    start=14,
-                    end=28,
-                    attrs={"id": "block2"},
-                    children=(
-                        Segment(kind=SegmentKind.SENTENCE, start=14, end=28, attrs={"id": "two"}),
-                    ),
-                )
-            )
-        content = RenditionContent(
-            canonical_text="Alice is here." * (2 if double_source else 1),
-            document=Segment(
-                kind=SegmentKind.DOCUMENT,
-                start=0,
-                end=28 if double_source else 14,
-                children=tuple(paragraphs),
-            ),
-            macros=source_macros or {},
-        )
-        frame = ProposalFrame(
-            "page#one",
-            content.canonical_text,
-            (ProposalSentence("s1", "page#sentence", 0, 14),)
-            + ((ProposalSentence("s2", "page#two", 14, 28),) if duplicate else ()),
-        )
+        sentence_offsets = (("s1", 0, 14),) + ((("s2", 15, 29),) if duplicate else ())
+        frame = native_source_frame(view, sentence_offsets)
         from corpus_structure.semantic.proposals import proposal_packet
 
         packet = proposal_packet(prepared, frame, guideline="", configuration={})
@@ -290,23 +255,14 @@ def fixture(
             run_id=run,
             config_id=cid,
             stage="propose",
-            unit_type="document",
-            unit_id=document,
-            unit_key="page#one",
+            unit_type="source_view",
+            unit_id=view.ref.id,
+            unit_key=view.ref.key,
             input_hash="input",
             packet_hash=packet.hash,
             agent=True,
         )
         lease = claim_tasks(conn, run_id=run, config_id=cid, holder="worker", agent=True)[0]
-        rid = store_rendition(
-            conn,
-            run_id=run,
-            document_id=document,
-            content=content,
-            task_id=task,
-            config_id=cid,
-            parse_detail={},
-        )
         from corpus_structure.semantic.source_frames import capture_source_frame
 
         capture_source_frame(conn, task, packet)
@@ -364,7 +320,7 @@ def fixture(
             }
         )
     if duplicate:
-        raw["statements"].append({"id": "s2", "kind": "theorem", "anchor": "page#two"})
+        raw["statements"].append({"id": "s2", "kind": "theorem", "anchor": "s2"})
         raw["claims"].append({**raw["claims"][0], "id": "duplicate", "statement": "s2"})
     if formulas:
         base = raw["claims"][0]
@@ -451,12 +407,6 @@ def fixture(
     if condition is not None:
         for claim in raw["claims"]:
             claim["qualification"] = {**claim["qualification"], "condition": condition}
-    frame = ProposalFrame(
-        "page#one",
-        content.canonical_text,
-        (ProposalSentence("s1", "page#sentence", 0, 14),)
-        + ((ProposalSentence("s2", "page#two", 14, 28),) if duplicate else ()),
-    )
     located = (
         locate_proposal(
             prepared, raw, frame, known_classes={"known:alice": ("https://example.org/Person",)}
@@ -481,7 +431,7 @@ def fixture(
                     "item_key": "proposal",
                     "kind": "claim_proposal",
                     "payload": stored,
-                    "rendition_id": rid,
+                    "source_view_id": view.ref.id,
                 }
             ],
         )
@@ -495,24 +445,19 @@ def fixture(
             second["unit_ref"] = second_unit
             if statement_packets == "different":
                 second["statements"][0]["kind"] = "theorem"
-            second_frame = ProposalFrame(
-                second_unit,
-                content.canonical_text,
-                (ProposalSentence("s1", "page#two", 14, 28),)
-                if statement_packets == "different"
-                else (ProposalSentence("s1", "page#sentence", 0, 14),),
-            )
+            second_view = views[1] if statement_packets == "different" else view
+            second_frame = native_source_frame(second_view, (("s1", 0, 14),))
             second_packet = proposal_packet(prepared, second_frame, guideline="", configuration={})
             second_located = locate_proposal(prepared, second, second_frame)
             second_config = record_method(
                 conn,
                 SimpleNamespace(
                     name="agent.opus",
-                    version="1",
+                    version=SEMANTIC_AGENT_VERSION,
                     family="agent",
                     tier="agent",
                     confidence_source="agent",
-                    unit_type="document",
+                    unit_type="source_view",
                     Config=DomainFixtureConfig,
                 ),
                 "extract",
@@ -531,8 +476,8 @@ def fixture(
                 run_id=run,
                 config_id=second_config,
                 stage="propose",
-                unit_type="document",
-                unit_id=document,
+                unit_type="source_view",
+                unit_id=second_view.ref.id,
                 unit_key=second_unit,
                 input_hash="input-second",
                 packet_hash=second_packet.hash,
@@ -557,7 +502,7 @@ def fixture(
                         "item_key": "proposal",
                         "kind": "claim_proposal",
                         "payload": second_stored,
-                        "rendition_id": rid,
+                        "source_view_id": second_view.ref.id,
                     }
                 ],
             )
@@ -1160,18 +1105,14 @@ def test_primitive_alias_rule_view_keeps_source_value_kind(
         assert statuses == ["accepted"]
 
 
-@pytest.mark.parametrize(
-    ("operand", "source_override"), [("fallback", False), ("fallback", True), ("constant", False)]
-)
-def test_recorded_math_fallbacks_constants_and_source_override_drive_science(
+@pytest.mark.parametrize("operand", ["fallback", "constant"])
+def test_recorded_math_fallbacks_and_constants_drive_native_science(
     semantic_db_engine,
     semantic_writer_engine,
     semantic_reader_engine,
     tmp_path,
     operand,
-    source_override,
 ):
-    from corpus_structure.core.evidence import MacroDef
     from corpus_structure.semantic.query import QuerySpec, read_session
 
     _prepared, _run, cut = fixture(
@@ -1181,10 +1122,9 @@ def test_recorded_math_fallbacks_constants_and_source_override_drive_science(
         # The declared Euler constant discharges the denominator's nonzero premise.
         formulas=(r"\A", "x") if operand == "fallback" else (r"\frac{1}{e}", "e^{-1}"),
         math={
-            "macros": {r"\A": "100" if source_override else "x", "unused": "z"},
+            "macros": {r"\A": "x", "unused": "z"},
             "constants": ["e", r"\pi"],
         },
-        source_macros={r"\A": MacroDef(body="x")} if source_override else None,
     )
     consolidate_cut(semantic_writer_engine, cut, "evaluated")
     with read_session(semantic_reader_engine, "evaluated") as session:

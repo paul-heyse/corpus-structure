@@ -190,83 +190,32 @@ def test_known_input_exclusions_follow_participating_endpoints(
             options={"agent_configs": {"extract": config}},
             code_commit="test",
         )
-        segment = (
-            conn.execute(
-                select(table("kb.segment")).where(table("kb.segment").c.kind == "paragraph")
-            )
-            .mappings()
-            .one()
-        )
-        from corpus_structure.core.evidence import RenditionContent
-        from corpus_structure.core.locators import LocatorIndex
+        from pathlib import Path
 
-        rendition = (
-            conn.execute(
-                select(table("kb.rendition")).where(
-                    table("kb.rendition").c.id == segment["rendition_id"]
-                )
-            )
-            .mappings()
-            .one()
-        )
-        content = RenditionContent.model_validate(rendition["content"])
-        locator = str(LocatorIndex(content, "source.html").generate(content.document.children[0]))
-        from corpus_structure.semantic.operations import (
-            claim_tasks,
-            complete_task,
-            create_task,
-            store_rendition,
-        )
+        from pdf_acceptance_support import publish_controlled_pdf_views
 
-        source_config = conn.scalar(
-            select(table("ops.task").c.method_config_id).where(
-                table("ops.task").c.run_id == old_run, table("ops.task").c.stage == "ingest"
+        views, selected = table("kb.source_view"), table("ops.run_source_view")
+        old_view = conn.execute(
+            select(views).join(selected, selected.c.source_view_id == views.c.id)
+            .where(selected.c.run_id == old_run)
+        ).mappings().one()
+        document = conn.execute(
+            select(table("kb.document")).where(
+                table("kb.document").c.id == old_view["document_id"]
             )
+        ).mappings().one()
+        (view,) = publish_controlled_pdf_views(
+            conn, prepared=prepared, run_id=run, document_id=old_view["document_id"],
+            original=Path(document["original_path"]).read_bytes(),
+            paragraphs=("Alice is here.",), keys=("source.html#known-people",),
         )
-        assert source_config is not None
-        source_task_id = create_task(
-            conn,
-            run_id=run,
-            config_id=source_config,
-            stage="ingest",
-            unit_type="run",
-            input_hash="same-source-new-input",
-        )
-        claim = claim_tasks(conn, run_id=run, config_id=source_config, holder="source")[0]
-        rid = store_rendition(
-            conn,
-            run_id=run,
-            document_id=rendition["document_id"],
-            content=content,
-            task_id=source_task_id,
-            config_id=source_config,
-            parse_detail={},
-        )
-        complete_task(
-            conn,
-            task_id=source_task_id,
-            attempt=claim.attempt,
-            holder="source",
-            prepared=prepared,
-            observations=[],
-            outcome="empty",
-        )
-        segment = (
-            conn.execute(
-                select(table("kb.segment")).where(
-                    table("kb.segment").c.rendition_id == rid,
-                    table("kb.segment").c.kind == "paragraph",
-                )
-            )
-            .mappings()
-            .one()
-        )
+        locator = view.ref.key
         (task,) = queue_agent(
             conn,
             run_id=run,
             prepared=prepared,
             configuration=config,
-            units=(UnitRef(TaskUnitType.SEGMENT, segment["id"], locator),),
+            units=(UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, locator),),
         )
         inherited = (
             conn.execute(
