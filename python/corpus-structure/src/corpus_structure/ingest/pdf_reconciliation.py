@@ -91,8 +91,25 @@ def _box(node, document):
 
 def _text(node, document):
     if hasattr(node, 'data') and hasattr(node.data, 'table_cells'):
-        return '\n'.join(c.text for c in node.data.table_cells)
+        return '\n'.join(_text(c.ref.resolve(document),document) if getattr(c,'ref',None) is not None else c.text for c in node.data.table_cells)
     return ' '.join(n.text for n in _walk(node, document) if getattr(n, 'text', ''))
+
+
+def _grid_comparison(left, right):
+    def data(node):
+        if str(node.label)=='table':return node.data
+        meta=getattr(node,'meta',None)
+        chart=getattr(meta,'tabular_chart',None)
+        return chart.chart_data if chart is not None else None
+    first,second=data(left),data(right)
+    if first is None or second is None:
+        return {'outcome':'unknown','method':'native-grid-spans-headers','reason':'one reading has no native tabular data'}
+    def shape(value):
+        return (value.num_rows,value.num_cols,tuple((c.start_row_offset_idx,c.end_row_offset_idx,c.start_col_offset_idx,c.end_col_offset_idx,c.row_span,c.col_span,c.column_header,c.row_header,c.row_section) for c in value.table_cells))
+    a,b=shape(first),shape(second)
+    return {'outcome':'equal' if a==b else 'different','method':'native-grid-spans-headers',
+            'left_dimensions':[first.num_rows,first.num_cols],'right_dimensions':[second.num_rows,second.num_cols],
+            'spans_headers_equal':a[2]==b[2]}
 
 
 def _family(node):
@@ -342,6 +359,7 @@ def select_pdf_integration(native_product: Mapping[str,Any], structural_pin: Map
                 chosen=same[0][0]; previous=origins[id(chosen)]
                 comparison=compare_pdf_occurrences(_text(chosen,doc),_text(incoming,mapped.document),mathematical=_family(incoming)=='formula',context=context)
                 evidence['comparison']=comparison
+                if _family(incoming) in {'table','chart'}:evidence['grid_comparison']=_grid_comparison(chosen,incoming)
                 if comparison['text_equal'] and _family(incoming) not in {'table','chart'}:
                     previous.alternatives.append((index,source));previous.evidence.update(evidence);continue
                 if str(chosen.label)=='section_header':
@@ -447,7 +465,7 @@ def select_pdf_integration(native_product: Mapping[str,Any], structural_pin: Map
             source_id+=f'{path}/{occurrence["cell_index"]}'
         endpoints=[{'role':'input','input_index':origin.input_index,'occurrence_id':source_id},{'role':'output','occurrence_id':occurrence['occurrence_id']}]
         endpoints.extend({'role':'alternative','input_index':i,'occurrence_id':s} for i,s in origin.alternatives)
-        relations.append({'relation_id':'decision:'+occurrence['occurrence_id'],'kind':'decision','outcome':origin.disposition,'comparison':'geometry','policy':policy['policy_id'],'evidence':canonical_bytes(origin.evidence or {'reason':'retained_structural_content','policy':policy}).decode(),'endpoints':endpoints})
+        relations.append({'relation_id':'decision:'+occurrence['occurrence_id'],'kind':'decision','outcome':origin.disposition,'comparison':'grid' if 'grid_comparison' in origin.evidence else 'mathematical' if 'syntax' in origin.evidence.get('comparison',{}) else 'text' if 'comparison' in origin.evidence else 'geometry','policy':policy['policy_id'],'evidence':canonical_bytes(origin.evidence or {'reason':'retained_structural_content','policy':policy}).decode(),'endpoints':endpoints})
     outputs_by_source=defaultdict(list)
     for o in occurrences:
         origin=origins[id(final_nodes[o['pointer']])]

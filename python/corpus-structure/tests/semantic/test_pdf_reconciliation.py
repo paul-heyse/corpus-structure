@@ -1,5 +1,4 @@
 """Independent retained coordinate/token examples; no model inference or fixtures as oracle."""
-from copy import deepcopy
 from hashlib import sha256
 
 import pytest
@@ -7,7 +6,11 @@ import pytest
 from corpus_structure.ingest.pdf_reconciliation import (
     map_pdf_observation, compare_pdf_occurrences, select_pdf_integration,
 )
-from .test_pdf_integrated import native_source, observation, pin
+from . import test_pdf_integrated as integration_fixtures
+from .test_pdf_integrated import observation, pin
+
+native_source = integration_fixtures.native_source
+pdf13_db = integration_fixtures.pdf13_db
 
 
 def recognized(source, raw, *, role='A', page=1):
@@ -183,3 +186,43 @@ def test_failed_observation_without_raw_bytes_is_evidence_only(native_source):
     assert result.dispositions[0]['outcome']=='evidence_only'
     assert result.dispositions[0]['reason']=='failed'
     assert result.document.body.children==[]
+
+
+def test_mapped_rich_document_publishes_with_typed_chart_and_inline_lineage(pdf13_db,semantic_reader_engine):
+    from corpus_structure.semantic.pdf_integrated import prepare_integrated_pdf_product
+    from corpus_structure.semantic.pdf_storage import read_pdf_product,trace_pdf_occurrence
+    db=pdf13_db
+    raw=(rb'<x_0.05><y_0.333333>\begin{tabular}{cc}$x+1$ & 2\end{tabular}<x_0.55><y_0.4><class_Table>'
+         b'<x_0.6><y_0.55><chart type="line">\n| Time | Speed (m/s) |\n|---|---|\n|1|2|<x_0.95><y_0.9><class_Chart>'
+         rb'<x_0.6><y_0.2>Value $y+2$ follows<x_0.95><y_0.25><class_Text>')
+    obs=recognized(db.source,raw)
+    obs['product_key']='mapped-rich-a'
+    obs['observation']['image'].update(width=4,height=6)
+    obs['observation']['image']['transform']['affine']=[.02,0.,0.,.02,0.,0.]
+    retained=prepare_integrated_pdf_product(obs,db.source.original,db.source.recipe,artifacts=(integration_fixtures.IMAGE,raw))
+    integration_fixtures.publish(db,retained)
+    selected=select_pdf_integration(db.native.values(),pin(db.job.task,'native',db.native.digest,'structural'),[(pin(db.job.task,'mapped-rich-a',retained.digest,'recognition'),retained.values(),raw)],db.source.original,db.source.recipe,db.source.schema,product_key='mapped-rich-selected')
+    integration_fixtures.publish(db,selected)
+    values=selected.values()
+    chart_cell=next(o for o in values['occurrences'] if '/meta/tabular_chart/' in o['occurrence_id'])
+    formula=next(o for o in values['occurrences'] if o['kind']=='formula' and o['text']=='y+2')
+    with semantic_reader_engine.connect() as conn:
+        for occurrence in (chart_cell,formula):
+            read=read_pdf_product(conn,task_id=db.job.task,product_key='mapped-rich-selected',content_digest=selected.digest,occurrence_id=occurrence['occurrence_id'])
+            assert read['occurrences'][0]['precision']=='inherited'
+            assert read['mapping_reports']
+            trace=trace_pdf_occurrence(conn,task_id=db.job.task,product_key='mapped-rich-selected',content_digest=selected.digest,occurrence_id=occurrence['occurrence_id'])
+            assert any(n['product_key']=='mapped-rich-a' for n in trace['nodes'])
+
+
+def test_equal_table_text_does_not_imply_equal_grid(native_source):
+    import json
+    raw=rb'<x_0.05><y_0.333333>\begin{tabular}{c}equal \\ equal\end{tabular}<x_0.55><y_0.4><class_Table>'
+    result=integrate(native_source,raw)
+    decision=next(r for r in result['relations'] if r['outcome']=='replaced')
+    evidence=json.loads(decision['evidence'])
+    assert evidence['comparison']['text_equal'] is True
+    assert evidence['grid_comparison']['outcome']=='different'
+    assert evidence['grid_comparison']['left_dimensions']==[1,2]
+    assert evidence['grid_comparison']['right_dimensions']==[2,1]
+    assert decision['comparison']=='grid'

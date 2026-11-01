@@ -225,8 +225,10 @@ def _pdf_product_identity(conn: Connection, task_id: int, product_key: str, cont
         # new declared binding and an explicitly qualified reader.
         if type(descriptor.get("version")) is not int or descriptor["version"] != 1 or descriptor.get("kind") != identity["kind"]:
             raise NativeDocumentUnavailable("PDF body version/kind requires a qualified archived reader")
-        if identity["kind"] == "integrated" and descriptor.get("content_metadata", {}).get("schema_digest") != _reader_schema_digest():
-            raise NativeDocumentUnavailable("selected Docling schema requires a qualified archived reader")
+        if identity["kind"] == "integrated":
+            schema_digest = descriptor.get("content_metadata", {}).get("schema_digest")
+            if schema_digest != context.native_schema_digest or schema_digest != _reader_schema_digest():
+                raise NativeDocumentUnavailable("selected Docling schema requires a qualified archived reader")
     return dict(identity)
 
 
