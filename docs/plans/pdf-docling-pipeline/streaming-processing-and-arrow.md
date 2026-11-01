@@ -1,5 +1,32 @@
 # Streaming PDF processing and Arrow execution
 
+## Structured-data amendment — PDF-22/23 integration
+
+**Accepted planning target,2026-11-01; new implementation not_run.** Consume [PDF-27/28](structured-payload-model-and-validation.md)
+contracts for selected nested OCR/candidate page payloads and validation placement. The earlier
+SQL-shaped `record_arrow_schema` stays useful for relational COPY, not the authority for every
+nested interior. Keep page-local data typed through useful reconciliation/discovery work; do not
+add Arrow only to immediately convert the complete book back into Python dictionaries.
+
+I25 generalizes actual1.67 formula-scale capture: record requested and effective prepared-stage
+options, native variant and serialization profiles once at preparation. Nested validated Settings
+resolve resource/transport inputs with explicit `settings_customise_sources` precedence before
+resources start; interpretation-affecting effective choices bind producing recipes, while semantic
+policies stay release-owned. Coordinate Arrow/native pools with existing admission, not new workers.
+
+Compare retained full-page rasters with required crops or exact demand rendering under owned
+original/backend/frame/scale/padding recipes. Preserve exact submitted recognizer bytes, raw outcomes
+and later native enrichment needs through cancellation/recovery; page completion alone does not end
+all image borrowers. Reuse the existing renderer/source lifetime rather than invent image custody.
+
+Replace page `model_dump_json`→`json.loads`→wrapper JSON with one model-owned envelope serialization
+that delegates native serializers and preserves explicit assembly classes. This change may proceed
+before broad native Arrow replacement. Native reading-order/heading operations still require their
+materialized graph under I14; page payloads or concatenation do not establish equivalent independent
+page inference or bounded global memory. Check reconstruction/class/presence and actual crop recipes;
+measure complete operations via I24 before claiming quantitative improvement.
+
+
 **Status:** Private PDF-22/23 producer mechanisms implemented, 2026-11-01; scoped verification below. Native global finalization remains materialized by operator selection; strict end-to-end streaming I14 remains open. [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-22/23 and I14/I18/I20. Basis: [review O03/O04](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O03), [target §§5–6](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`. [PDF-18–21](relational-document-model-and-identity.md) own record/identity and [publication contracts](staged-publication-and-validation.md).
 
 ## Library improvement basis and readiness
@@ -27,8 +54,9 @@ I14/I18 and new I20. Source-inspected library seams are not delivered producer b
 Early I14 native finalization and I20 scheduler/custody decisions shape the producer interfaces
 before substantial implementation. PDF-20 may proceed against agreed source/replay/record contracts;
 actual publication acceptance still requires working producers and consumers. These are prerequisite
-slices, not a requirement to finish all experiments before useful storage work. No new rule change
-is selected: retain ADR-0042, full document semantics, alternatives and phase-sequential GPU ownership.
+slices, not a requirement to finish all experiments before useful storage work. The earlier streaming amendment selected no rule change; the subsequent structured-data
+amendment now qualifies ADR-0042 under RC10/11. Retain full document semantics, alternatives
+and phase-sequential GPU ownership.
 
 ## Outcome and physical assessment
 
