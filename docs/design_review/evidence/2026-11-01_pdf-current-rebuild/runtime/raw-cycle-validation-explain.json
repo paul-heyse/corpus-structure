@@ -1,0 +1,240 @@
+{
+  "sql": "SELECT EXISTS(WITH RECURSIVE edges AS (SELECT n.record_id parent_id,(f.value->>'target') child_id FROM kb.pdf_record_native n CROSS JOIN LATERAL jsonb_each(n.structure_json->'fields') f WHERE n.product_id=:b AND f.value->>'kind'='object' UNION ALL SELECT parent_id,record_id FROM kb.pdf_record_membership WHERE product_id=:b AND value_kind='record'), paths AS (SELECT parent_id,child_id,ARRAY[parent_id,child_id] path,parent_id=child_id cyclic FROM edges UNION ALL SELECT p.parent_id,e.child_id,p.path||e.child_id,e.child_id=ANY(p.path) FROM paths p JOIN edges e ON e.parent_id=p.child_id WHERE NOT p.cyclic) SELECT FROM paths WHERE cyclic)",
+  "binding": "169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943",
+  "mode": "EXPLAIN only; no ANALYZE",
+  "plan": [
+    {
+      "Plan": {
+        "Node Type": "Result",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Startup Cost": 1826154426.26,
+        "Total Cost": 1826154426.27,
+        "Plan Rows": 1,
+        "Plan Width": 1,
+        "Disabled": false,
+        "Plans": [
+          {
+            "Node Type": "CTE Scan",
+            "Parent Relationship": "InitPlan",
+            "Subplan Name": "InitPlan 3",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "CTE Name": "paths",
+            "Alias": "paths",
+            "Startup Cost": 1826154426.22,
+            "Total Cost": 2737048061.06,
+            "Plan Rows": 22772340871,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Filter": "cyclic",
+            "Plans": [
+              {
+                "Node Type": "Append",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "CTE edges",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 0.01,
+                "Total Cost": 73131.18,
+                "Plan Rows": 426822,
+                "Plan Width": 109,
+                "Disabled": false,
+                "Subplans Removed": 0,
+                "Plans": [
+                  {
+                    "Node Type": "Nested Loop",
+                    "Parent Relationship": "Member",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Inner",
+                    "Startup Cost": 0.01,
+                    "Total Cost": 57294.61,
+                    "Plan Rows": 267052,
+                    "Plan Width": 97,
+                    "Disabled": false,
+                    "Inner Unique": false,
+                    "Plans": [
+                      {
+                        "Node Type": "Seq Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Relation Name": "pdf_record_native",
+                        "Alias": "n",
+                        "Startup Cost": 0.0,
+                        "Total Cost": 21464.15,
+                        "Plan Rows": 267052,
+                        "Plan Width": 214,
+                        "Disabled": false,
+                        "Filter": "(product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text)"
+                      },
+                      {
+                        "Node Type": "Memoize",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Startup Cost": 0.01,
+                        "Total Cost": 1.51,
+                        "Plan Rows": 1,
+                        "Plan Width": 32,
+                        "Disabled": false,
+                        "Cache Key": "n.structure_json",
+                        "Cache Mode": "binary",
+                        "Plans": [
+                          {
+                            "Node Type": "Function Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Function Name": "jsonb_each",
+                            "Alias": "f",
+                            "Startup Cost": 0.01,
+                            "Total Cost": 1.5,
+                            "Plan Rows": 1,
+                            "Plan Width": 32,
+                            "Disabled": false,
+                            "Filter": "((value ->> 'kind'::text) = 'object'::text)"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "Node Type": "Seq Scan",
+                    "Parent Relationship": "Member",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Relation Name": "pdf_record_membership",
+                    "Alias": "pdf_record_membership",
+                    "Startup Cost": 0.0,
+                    "Total Cost": 13702.46,
+                    "Plan Rows": 159770,
+                    "Plan Width": 130,
+                    "Disabled": false,
+                    "Filter": "((product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text) AND (value_kind = 'record'::text))"
+                  }
+                ]
+              },
+              {
+                "Node Type": "Recursive Union",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "CTE paths",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 0.0,
+                "Total Cost": 1826081295.04,
+                "Plan Rows": 45544681742,
+                "Plan Width": 97,
+                "Disabled": false,
+                "Plans": [
+                  {
+                    "Node Type": "CTE Scan",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "CTE Name": "edges",
+                    "Alias": "edges",
+                    "Startup Cost": 0.0,
+                    "Total Cost": 9603.5,
+                    "Plan Rows": 426822,
+                    "Plan Width": 97,
+                    "Disabled": false
+                  },
+                  {
+                    "Node Type": "Merge Join",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Inner",
+                    "Startup Cost": 422253.27,
+                    "Total Cost": 137062487.41,
+                    "Plan Rows": 4554425492,
+                    "Plan Width": 97,
+                    "Disabled": false,
+                    "Inner Unique": false,
+                    "Merge Cond": "(e.parent_id = p.child_id)",
+                    "Plans": [
+                      {
+                        "Node Type": "Sort",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Startup Cost": 48451.29,
+                        "Total Cost": 49518.34,
+                        "Plan Rows": 426822,
+                        "Plan Width": 64,
+                        "Disabled": false,
+                        "Sort Key": [
+                          "e.parent_id"
+                        ],
+                        "Plans": [
+                          {
+                            "Node Type": "CTE Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "CTE Name": "edges",
+                            "Alias": "e",
+                            "Startup Cost": 0.0,
+                            "Total Cost": 8536.44,
+                            "Plan Rows": 426822,
+                            "Plan Width": 64,
+                            "Disabled": false
+                          }
+                        ]
+                      },
+                      {
+                        "Node Type": "Materialize",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Startup Cost": 373801.98,
+                        "Total Cost": 384472.53,
+                        "Plan Rows": 2134110,
+                        "Plan Width": 96,
+                        "Disabled": false,
+                        "Plans": [
+                          {
+                            "Node Type": "Sort",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Startup Cost": 373801.98,
+                            "Total Cost": 379137.26,
+                            "Plan Rows": 2134110,
+                            "Plan Width": 96,
+                            "Disabled": false,
+                            "Sort Key": [
+                              "p.child_id"
+                            ],
+                            "Plans": [
+                              {
+                                "Node Type": "WorkTable Scan",
+                                "Parent Relationship": "Outer",
+                                "Parallel Aware": false,
+                                "Async Capable": false,
+                                "CTE Name": "paths",
+                                "Alias": "p",
+                                "Startup Cost": 0.0,
+                                "Total Cost": 85364.4,
+                                "Plan Rows": 2134110,
+                                "Plan Width": 96,
+                                "Disabled": false,
+                                "Filter": "(NOT cyclic)"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

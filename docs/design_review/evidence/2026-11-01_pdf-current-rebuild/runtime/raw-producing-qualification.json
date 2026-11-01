@@ -1,0 +1,16 @@
+{
+  "outcome": "passed",
+  "scope": "original-native-graph-access-and-provenance-only",
+  "producing_release_id": "release:7b15b6b25957107d9caeb8eed1e417188a78a24138032858c6c1320ac172fb8f",
+  "build_id": "169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943",
+  "frozen_digest": "285a247e2e274673f85dfc701412f98ea8104fc2d6b5fe7c6a6d1b79efd91e34",
+  "pin": {
+    "task_id": 4,
+    "product_key": "native",
+    "content_digest": "7326ebf1aa74f611a4b152a68fe37ca1f9c5f76286484e566e5811c96b1faa6d"
+  },
+  "occurrence_derivative": "not populated by retained71 adapter; unused by raw intermediate",
+  "selected_consumer_source": false,
+  "remaining_chain": "not_run",
+  "failed_process_receipt": "settled-attempt-007.json"
+}

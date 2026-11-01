@@ -1,0 +1,201 @@
+{
+  "observed_at": "2026-11-01T21:21:09.664917+00:00",
+  "outcome": "failed",
+  "exit_code": 1,
+  "run": {
+    "id": 7,
+    "status": "failed",
+    "release_id": "release:e2dfc42214d60a008cdd428a29242f5df4d2397d4457483809b858642b713657",
+    "options": {
+      "fresh": [],
+      "scope": {
+        "hash": "611c3f27e8887d090661f5bd272b58d6d6e5a19042ff18662651834b25e10257",
+        "kind": "native_sections",
+        "name": "pdf-qualification",
+        "sections": [
+          "1.1: Sets",
+          "1.2: Functions",
+          "1.3: Relations",
+          "1.8: Combinatorial Structures",
+          "5.6: The Normal Distribution"
+        ],
+        "include_descendants": true
+      },
+      "corpus": {
+        "hash": "915b5935ad9e651959a216367545b6ac840f3c8f9d452f872a7e5416dd17d75a",
+        "name": "pdf-originals",
+        "locators": [],
+        "documents": [
+          "doc:746ba9a4c1a888a44d6a35864fc96a61"
+        ]
+      },
+      "domain": "statistics",
+      "policy": "# The statistics pack's phase 0 policy (D6 \u00a77.1, \u00a77.5; orchestration \u00a73.10): only the propose\n# chain, with its phase 0 entry. The run's scope bounds it (D6 \u00a77.4, \u00a78), not a split. Budgets,\n# thresholds and the confidence block (keyed by ConfidenceSource members) join with the methods\n# that read them (phase 1).\nversion: 0.2.0\nchains:\n  propose:\n    - key: propose.phase0.agent_all\n      unit_type: source_view\n      when: \"phase == 0 and (unit.claim_bearing == null or unit.claim_bearing)\"\n      do: {method: agent.opus/extract, then: stop}\n",
+      "configs": {
+        "extract.math": "cfg:cb46b847ec18532880b7b290127b3b0b",
+        "profile.segments": "cfg:908ec6632340c17fd7ce49b2f29010c4",
+        "normalize.formula": "cfg:8db60f506a1f0ee44575f7b6f12cdd79",
+        "resolve.symbol_scope": "cfg:bcd9b61c2d64fd26f49e35a395b1deeb",
+        "ingest.pdf_integrated": "cfg:1331ec5e9f21c6af7e54041addcc40b9"
+      },
+      "agent_mode": "complete",
+      "agent_reuse": "full",
+      "agent_configs": {
+        "extract": {
+          "math": {
+            "macros": {
+              "\\E": "\\mathbb{E}",
+              "\\N": "\\mathbb{N}",
+              "\\P": "\\mathbb{P}",
+              "\\Q": "\\mathbb{Q}",
+              "\\R": "\\mathbb{R}",
+              "\\Z": "\\mathbb{Z}",
+              "\\bs": "\\boldsymbol",
+              "\\ms": "\\mathscr",
+              "\\sd": "\\text{sd}",
+              "\\cor": "\\text{cor}",
+              "\\cov": "\\text{cov}",
+              "\\kur": "\\text{kurt}",
+              "\\mse": "\\text{mse}",
+              "\\sgn": "\\text{sgn}",
+              "\\skw": "\\text{skew}",
+              "\\var": "\\text{var}"
+            },
+            "constants": [
+              "e",
+              "\\pi"
+            ]
+          },
+          "mode": "extract",
+          "role": "live",
+          "hints": "none",
+          "model": "claude-opus-5-5",
+          "examples": "reference",
+          "max_units": 1,
+          "sentences": {
+            "model": "en_core_web_sm",
+            "exclude": [
+              "ner",
+              "lemmatizer"
+            ],
+            "variant": "math_as_word",
+            "batch_size": 64,
+            "model_version": "3.8.0",
+            "spacy_version": "3.8.18"
+          },
+          "max_alternatives": null,
+          "packet_cap_chars": 18000
+        },
+        "adjudicate": {
+          "math": {
+            "macros": {
+              "\\E": "\\mathbb{E}",
+              "\\N": "\\mathbb{N}",
+              "\\P": "\\mathbb{P}",
+              "\\Q": "\\mathbb{Q}",
+              "\\R": "\\mathbb{R}",
+              "\\Z": "\\mathbb{Z}",
+              "\\bs": "\\boldsymbol",
+              "\\ms": "\\mathscr",
+              "\\sd": "\\text{sd}",
+              "\\cor": "\\text{cor}",
+              "\\cov": "\\text{cov}",
+              "\\kur": "\\text{kurt}",
+              "\\mse": "\\text{mse}",
+              "\\sgn": "\\text{sgn}",
+              "\\skw": "\\text{skew}",
+              "\\var": "\\text{var}"
+            },
+            "constants": [
+              "e",
+              "\\pi"
+            ]
+          },
+          "mode": "adjudicate",
+          "role": "live",
+          "hints": "none",
+          "model": "claude-opus-5-5",
+          "examples": "reference",
+          "max_units": 1,
+          "sentences": {
+            "model": "en_core_web_sm",
+            "exclude": [
+              "ner",
+              "lemmatizer"
+            ],
+            "variant": "math_as_word",
+            "batch_size": 64,
+            "model_version": "3.8.0",
+            "spacy_version": "3.8.18"
+          },
+          "max_alternatives": 6,
+          "packet_cap_chars": 9000
+        },
+        "expectation": {
+          "math": {
+            "macros": {
+              "\\E": "\\mathbb{E}",
+              "\\N": "\\mathbb{N}",
+              "\\P": "\\mathbb{P}",
+              "\\Q": "\\mathbb{Q}",
+              "\\R": "\\mathbb{R}",
+              "\\Z": "\\mathbb{Z}",
+              "\\bs": "\\boldsymbol",
+              "\\ms": "\\mathscr",
+              "\\sd": "\\text{sd}",
+              "\\cor": "\\text{cor}",
+              "\\cov": "\\text{cov}",
+              "\\kur": "\\text{kurt}",
+              "\\mse": "\\text{mse}",
+              "\\sgn": "\\text{sgn}",
+              "\\skw": "\\text{skew}",
+              "\\var": "\\text{var}"
+            },
+            "constants": [
+              "e",
+              "\\pi"
+            ]
+          },
+          "mode": "extract",
+          "role": "expectation",
+          "hints": "none",
+          "model": "claude-opus-5-5",
+          "examples": "reference",
+          "max_units": 1,
+          "sentences": {
+            "model": "en_core_web_sm",
+            "exclude": [
+              "ner",
+              "lemmatizer"
+            ],
+            "variant": "math_as_word",
+            "batch_size": 64,
+            "model_version": "3.8.0",
+            "spacy_version": "3.8.18"
+          },
+          "max_alternatives": null,
+          "packet_cap_chars": 18000
+        }
+      },
+      "operation_versions": {
+        "agent.opus": "semantic-6",
+        "extract.math": "9",
+        "profile.segments": "2",
+        "normalize.formula": "9",
+        "resolve.symbol_scope": "7",
+        "ingest.pdf_integrated": "1"
+      }
+    }
+  },
+  "tasks": [
+    {
+      "id": 7,
+      "status": "failed",
+      "attempt": 1,
+      "lease_until": null,
+      "error": {
+        "message": "ValueError: retained native document was not normalized before identity"
+      }
+    }
+  ]
+}

@@ -275,7 +275,10 @@ class PreparedPayloadFamily:
             _error("#", "payload schema binding differs")
         source = pa.BufferReader(payload)
         try:
-            with pa.ipc.open_stream(source) as reader:
+            # Page-local reads share existing admission; do not add Arrow decompression workers.
+            with pa.ipc.open_stream(
+                source, options=pa.ipc.IpcReadOptions(use_threads=False)
+            ) as reader:
                 if not reader.schema.equals(self.arrow_schema, check_metadata=True):
                     _error("#", "IPC schema/profile differs")
                 page_batch = None
@@ -382,9 +385,13 @@ def prepare_payload_schema(schema: Mapping[str, Any]) -> PreparedPayloadFamily:
 
 def prepare_payload_family(context=None) -> PreparedPayloadFamily:
     if context is None:
-        from .pdf_contracts import trusted_pdf_context
+        from .contracts import trusted_execution_inputs
+        from .pdf_contracts import _boundary
 
-        context = trusted_pdf_context()
+        # The codec consumes the logical boundary only. Unrelated execution grammar/
+        # transformer compilation is neither its input nor a prerequisite for IPC work.
+        boundary = _boundary(trusted_execution_inputs().schema)
+        return prepare_payload_schema(boundary.json_schema(CLASS_NAME))
     return prepare_payload_schema(context.boundary.json_schema(CLASS_NAME))
 
 

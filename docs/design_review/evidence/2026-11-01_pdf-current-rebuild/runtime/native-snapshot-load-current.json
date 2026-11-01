@@ -1,0 +1,15 @@
+{
+  "outcome": "passed",
+  "observed_at": "2026-11-01T21:36:57.896382+00:00",
+  "scope": "actual sealed enriched native record snapshot through repaired strict loader; read-only, no artifact changes",
+  "pin": {
+    "task_id": 6,
+    "product_key": "math-enriched",
+    "content_digest": "e1ffcf06fe12df156cf893d6b80554257228133bced93549b4cbba3a5016cd65"
+  },
+  "snapshot_sha256": "b8d270af5bd38e55de6568299aed3af578bb3e738d3b0b30017e4ba80637311b",
+  "physical_pages": 1589,
+  "tables": 101,
+  "schema_version": "1.10.0",
+  "native_schema_class": "DoclingDocument"
+}

@@ -10,6 +10,7 @@ import typer
 from pydantic import BaseModel, JsonValue, RootModel
 
 from corpus_structure.cli.output import JsonOpt, emit, state
+from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.serve.native_source import NativeExportFormat
 
 app = typer.Typer(help="Inspect pinned PDF sources and integration custody.", no_args_is_help=True)
@@ -60,12 +61,13 @@ def inspect(
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
 
+    cancellation = BorrowerCancellation()
     with (
         failure_boundary(json, expected=(ValueError,)),
         open_runtime_engine(
             state(ctx).settings(), application_name="ci-source", purpose="read"
         ) as engine,
-        read_snapshot(engine) as conn,
+        read_snapshot(engine, cancellation=cancellation) as conn,
     ):
         emit(
             inspect_native_source(
@@ -86,6 +88,7 @@ def inspect(
                     cursor=cursor,
                     limit=limit,
                 ),
+                cancellation=cancellation,
             ),
             json=json,
         )
@@ -113,6 +116,7 @@ def native_export(
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.native_source import NativeSourceRequest, export_native_source
 
+    cancellation = BorrowerCancellation()
     if format == "selected-source-v1":
         from corpus_structure.serve.selected_source import export_selected_native_source
 
@@ -128,30 +132,42 @@ def native_export(
                 ),
                 output,
                 state(ctx).settings(),
+                cancellation=cancellation,
             )
             emit(receipt, json=True)
         return
-    with (
-        failure_boundary(True, expected=(ValueError, FileExistsError)),
-        open_runtime_engine(
-            state(ctx).settings(), application_name="ci-native-export", purpose="read"
-        ) as engine,
-        read_snapshot(engine) as conn,
-    ):
-        export_native_source(
-            conn,
-            NativeSourceRequest(
-                run_id=run,
-                task_id=producing_task,
-                product_key=product,
-                content_digest=digest,
-                section_pointer=section,
-                membership=membership,
-                limit=1000,
-            ),
-            output,
-            format=format,
-        )
+    from tempfile import TemporaryDirectory
+
+    from corpus_structure.serve.native_source import _publish_native_export
+
+    with failure_boundary(True, expected=(ValueError, FileExistsError)):
+        if output.exists():
+            raise FileExistsError(output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(prefix=".pdf-export-snapshot-", dir=output.parent) as directory:
+            staged = Path(directory) / output.name
+            with (
+                open_runtime_engine(
+                    state(ctx).settings(), application_name="ci-native-export", purpose="read"
+                ) as engine,
+                read_snapshot(engine, cancellation=cancellation) as conn,
+            ):
+                export_native_source(
+                    conn,
+                    NativeSourceRequest(
+                        run_id=run,
+                        task_id=producing_task,
+                        product_key=product,
+                        content_digest=digest,
+                        section_pointer=section,
+                        membership=membership,
+                        limit=1000,
+                    ),
+                    staged,
+                    format=format,
+                    cancellation=cancellation,
+                )
+            _publish_native_export(staged, output, cancellation=cancellation)
 
 
 @app.command("native-products")

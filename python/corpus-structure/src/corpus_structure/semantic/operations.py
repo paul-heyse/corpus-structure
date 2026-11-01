@@ -981,17 +981,12 @@ class BoundReader:
             if v.native_product == source.ref.native_product and v.section_pointer in ancestors
         )
 
-    def native_document(self, reference):
-        import json
-
-        from .pdf_contracts import PreparedPdfProduct, pdf_context_for_task
+    def _native_product_input(self, reference):
+        """Shared selected-or-claimed custody and archived contract admission."""
+        from .pdf_contracts import pdf_context_for_task
 
         identity = table("ops.pdf_product")
-        product, build, artifact = (
-            table("ops.pdf_selected_product"),
-            table("ops.source_build"),
-            table("kb.source_artifact"),
-        )
+        product, build = table("ops.pdf_selected_product"), table("ops.source_build")
         row = (
             self.conn.execute(
                 select(
@@ -1089,6 +1084,15 @@ class BoundReader:
         ):
             raise OperationConflict("native adoption consumer does not admit producer schema")
         context.execution.require_operation("publish_native_document")
+        return row, context
+
+    def native_document(self, reference, *, include_candidate_pages: bool = True):
+        import json
+
+        from .pdf_contracts import PreparedPdfProduct
+
+        row, _ = self._native_product_input(reference)
+        artifact = table("kb.source_artifact")
         contents = dict(
             self.conn.execute(
                 select(artifact.c.artifact_digest, artifact.c.content).where(
@@ -1101,7 +1105,9 @@ class BoundReader:
         if row["payload"] is None:
             from .pdf_record_reader import PublishedPdfReader
 
-            values = PublishedPdfReader(self.conn, reference).native_product_values()
+            values = PublishedPdfReader(self.conn, reference).native_product_values(
+                include_candidate_pages=include_candidate_pages
+            )
             return PreparedPdfProduct(
                 canonical_bytes(values),
                 bytes(contents[row["original_digest"]]),
@@ -1113,6 +1119,10 @@ class BoundReader:
         values = json.loads(payload)
         if values.get("kind") == "integrated":
             payload = canonical_bytes(values["content"])
+        if not include_candidate_pages:
+            values = json.loads(payload)
+            values.pop("inline_candidate_pages", None)
+            payload = canonical_bytes(values)
         return PreparedPdfProduct(
             payload,
             bytes(contents[row["original_digest"]]),
@@ -1120,6 +1130,42 @@ class BoundReader:
             bytes(contents[row["recipe_digest"]]),
             row["contract_digest"],
         )
+
+    def capture_pdf_candidates(self, reference, directory):
+        """Detach selected-product IPC custody before releasing the database borrower."""
+        from dataclasses import replace
+        from pathlib import Path
+
+        from corpus_structure.ingest.pdf_candidate_source import ReplayCandidatePageSource
+        from corpus_structure.ingest.pdf_streaming import _atomic_bytes
+
+        from .pdf_payloads import prepare_payload_family
+        from .pdf_record_reader import published_record_reader
+
+        _, context = self._native_product_input(reference)
+        reader = published_record_reader(self.conn, reference)
+        if reader is None:
+            raise OperationConflict("selected product has no released Arrow candidate realization")
+        family = prepare_payload_family(context)
+        root = Path(directory)
+        root.mkdir(parents=True, exist_ok=False)
+        replays = {}
+        for payload in reader.iter_candidate_payloads(context=context):
+            if payload.page_no in replays:
+                raise ValueError("duplicate published candidate page")
+            replay = _atomic_bytes(
+                root / f"candidate-{payload.page_no:06}.arrow",
+                payload.content,
+                "candidate_payload",
+            )
+            replays[payload.page_no] = replace(
+                replay,
+                rows=1,
+                page_no=payload.page_no,
+                schema_digest=payload.schema_digest,
+                logical_digest=payload.logical_digest,
+            )
+        return ReplayCandidatePageSource(replays, family)
 
     def native_product_reference(self, document_id: int, product_key: str, digest: str):
         from .product_reference import ProductReference

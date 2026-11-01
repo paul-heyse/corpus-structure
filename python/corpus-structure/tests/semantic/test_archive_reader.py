@@ -117,15 +117,34 @@ def test_current_boundary_recipe_opens_without_full_preparation():
     )
 
 
-def test_compiler10_public_snapshot_reads_survive_unavailable_current_compiler(
+def test_historical_analysis_capture_refuses_without_rewriting_evidence():
+    from corpus_structure.semantic.analysis_contracts import prepare_capture_policy
+    from corpus_structure.semantic.types import PreparationError
+
+    fixture = _FIXTURE.with_name("reader-v10-analytics.json")
+    original = fixture.read_bytes()
+    data, bundle, artifacts = archived(fixture)
+    profile = PreparationProfile(**data["profile"])
+    historical = reconstruct_release(
+        data["products"], bytes.fromhex(data["manifest"]), bundle, profile, artifacts
+    )
+    with pytest.raises(PreparationError, match="only live semantic-1/compiler-13 pure preparation"):
+        prepare_capture_policy(historical)
+    assert fixture.read_bytes() == original
+    assert historical.release_id == data["products"]["release_id"]
+
+
+def test_current_snapshot_reads_without_compiler_then_explicit_analytical_capture(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, monkeypatch, tmp_path
 ):
+    """Admitted reads need no producer; explicit capture prepares its own runtime manifest."""
     from decimal import Decimal
 
     from sqlalchemy import insert
 
     from corpus_structure.semantic.identity import fact_key
     from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.publication import (
         EntityRow,
         EvidenceRow,
@@ -141,24 +160,24 @@ def test_compiler10_public_snapshot_reads_survive_unavailable_current_compiler(
     from corpus_structure.semantic.releases import persist_release
     from corpus_structure.semantic.types import ResolvedDependencies
 
-    data, bundle, artifacts = archived(_FIXTURE.with_name("reader-v10-analytics.json"))
-    profile = PreparationProfile(**data["profile"])
-    prepared = reconstruct_release(
-        data["products"], bytes.fromhex(data["manifest"]), bundle, profile, artifacts
-    )
-    r, z = prepared.release_id, "realization:v10-reader"
+    data, bundle, _ = archived(_FIXTURE.with_name("reader-v10-analytics.json"))
+    profile = PreparationProfile()
     dependencies = ResolvedDependencies(
         tuple(
             SourceArtifact(item["name"], bytes.fromhex(item["content"]))
             for item in data["dependencies"]
         )
     )
+    # Rebuild current products from compatible retained schema inputs. Existing
+    # historical reconstruction vectors above remain independently unchanged.
+    prepared = prepare_release(bundle, dependencies, profile)
+    r, z = prepared.release_id, "realization:current-reader"
     with semantic_db_engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
-        conn.execute(insert(table("data.project")).values(project_id="v10-reader"))
+        conn.execute(insert(table("data.project")).values(project_id="current-reader"))
         conn.execute(
             insert(table("data.realization")).values(
-                realization_id=z, release_id=r, project_id="v10-reader"
+                realization_id=z, release_id=r, project_id="current-reader"
             )
         )
     facts = tuple(
@@ -179,7 +198,7 @@ def test_compiler10_public_snapshot_reads_survive_unavailable_current_compiler(
         PublicationBatch(
             r,
             z,
-            "old-answer",
+            "current-answer",
             entity=(EntityRow("circle"),),
             membership=(MembershipRow("circle", "https://example.org/Circle", "stated"),),
             typed_value=(
@@ -198,17 +217,21 @@ def test_compiler10_public_snapshot_reads_survive_unavailable_current_compiler(
     import corpus_structure.semantic.prepare as compiler
 
     def unavailable(*args, **kwargs):
-        raise AssertionError("historical public reads must not compile")
+        raise AssertionError("admitted public reads must not compile")
 
-    monkeypatch.setattr(compiler, "prepare_release", unavailable)
     with read_session(semantic_reader_engine, z) as session:
-        circle = session.class_handle("Circle")
-        result = session.query(
-            QuerySpec(circle, session.property_handle(circle, "amount"), "accepted")
-        )
-        assert result.binding.release_id == r
-        assert len(result.values) == 1
-        assert session.explain(facts[2].fact_id).fact_id == facts[2].fact_id
+        with monkeypatch.context() as read_only_boundary:
+            read_only_boundary.setattr(compiler, "prepare_release", unavailable)
+            circle = session.class_handle("Circle")
+            result = session.query(
+                QuerySpec(circle, session.property_handle(circle, "amount"), "accepted")
+            )
+            assert result.binding.release_id == r
+            assert len(result.values) == 1
+            assert session.explain(facts[2].fact_id).fact_id == facts[2].fact_id
+
+        # Capture is a distinct analytical operation: its declared runtime manifest
+        # boundary may prepare cold. The producing release and snapshot stay pinned.
         from corpus_structure.semantic.analytics import load_packet
 
         uri = semantic_reader_engine.url.render_as_string(hide_password=False).replace(
@@ -225,7 +248,7 @@ def test_compiler10_public_snapshot_reads_survive_unavailable_current_compiler(
         )
     from corpus_structure.serve.export import export_packet
 
-    exported = export_packet(packet, tmp_path / "old-answer")
+    exported = export_packet(packet, tmp_path / "current-answer")
     assert exported["binding"]["release_id"] == r
 
 

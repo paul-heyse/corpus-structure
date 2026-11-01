@@ -84,6 +84,20 @@ def test_freeze_prepare_validate_seal_and_replay(
             published_pdf_revision(conn, build.task_id, "native", published.logical_digest)
             == published
         )
+        from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+
+        # The shared product view exposes the semantic PDF schema identity;
+        # validation/projection identities remain separate publication bindings.
+        assert (
+            conn.execute(
+                text(
+                    "SELECT contract_digest FROM ops.pdf_selected_product "
+                    "WHERE task_id=:task AND product_key='native'"
+                ),
+                {"task": build.task_id},
+            ).scalar_one()
+            == trusted_pdf_context().contract_digest
+        )
         assert conn.execute(
             text(
                 "SELECT text FROM ops.pdf_published_item WHERE task_id=:task AND text IS NOT NULL"
@@ -217,3 +231,51 @@ def test_preparation_does_not_hold_task_lease_lock(private_build, semantic_write
             renew_claim(
                 heartbeat, task_id=build.task_id, attempt=build.attempt, holder=build.holder
             )
+
+
+def test_encoded_page_adoption_retains_original_ipc_bytes(
+    private_build, semantic_writer_engine, semantic_db_engine, tmp_path, monkeypatch
+):
+    from corpus_structure.semantic.pdf_payloads import (
+        EncodedPagePayload,
+        PreparedPayloadFamily,
+        prepare_payload_family,
+    )
+
+    build = private_build
+    stage_complete_native(semantic_writer_engine, build, tmp_path)
+    codec = prepare_payload_family()
+    value = dict(page_no=1, has_words=False, has_chars=False)
+    payload = codec.encode(value, compression="zstd")
+    encoded = EncodedPagePayload(payload, codec.schema_digest, codec.logical_digest(value), 1)
+
+    def no_reencoding(*args, **kwargs):
+        raise AssertionError("already encoded payload must retain its original bytes")
+
+    monkeypatch.setattr(PreparedPayloadFamily, "encode", no_reencoding)
+    with semantic_writer_engine.begin() as conn:
+        adopt_pdf_companion_batch(
+            conn,
+            build,
+            "native_metadata",
+            [dict(kind="inline_candidate_pages", ordinal=0, value=encoded)],
+            "direct-ipc",
+        )
+        frozen = freeze_pdf_build(conn, build, kind="native")
+        prepare_pdf_build(conn, frozen)
+    with semantic_db_engine.connect() as conn:
+        actual = (
+            conn.execute(
+                text("""
+            SELECT p.body FROM ops.pdf_artifact_stream s
+            JOIN ops.pdf_artifact_part p USING(product_id,revision_id,stream_id)
+            WHERE s.product_id=:build
+            AND s.encoding_profile='pdf-ocr-candidate-ipc-v1'
+            ORDER BY p.ordinal
+        """),
+                dict(build=build.build_id),
+            )
+            .scalars()
+            .all()
+        )
+    assert b"".join(actual) == payload

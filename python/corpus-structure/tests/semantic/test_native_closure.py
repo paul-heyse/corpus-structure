@@ -396,7 +396,7 @@ def test_current_frozen_head_witness_records_current_authoring_provenance():
     )
 
     current = current_authoring_provenance()
-    assert recorded["execution_abi"] == EXECUTION_COMPILER_VERSION == "19"
+    assert recorded["execution_abi"] == EXECUTION_COMPILER_VERSION == "20"
     assert recorded["model_id"] == current.model_id
     assert recorded["inputs"] == [
         {"name": name, "sha256": digest} for name, digest in current.inputs

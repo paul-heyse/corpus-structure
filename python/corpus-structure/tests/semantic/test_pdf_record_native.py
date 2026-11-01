@@ -11,6 +11,7 @@ from sqlalchemy.schema import CreateTable
 
 from corpus_structure.schema.relational import compile_metadata
 from corpus_structure.semantic.metadata import PHYSICAL_MODEL, PHYSICAL_MODEL_ID, physical_model_id
+from corpus_structure.semantic.migrations import head_revision
 from corpus_structure.semantic.pdf_record_model import (
     derived_record_tables,
     record_arrow_schema,
@@ -160,7 +161,7 @@ def test_private_native_foundations_and_constraints(semantic_db_engine):
         _verify_deployment_functions(conn)
         assert (
             conn.execute(text("SELECT version_num FROM semantic_alembic_version")).scalar_one()
-            == "semantic_pdf_20261101"
+            == head_revision()
         )
         assert (
             conn.execute(

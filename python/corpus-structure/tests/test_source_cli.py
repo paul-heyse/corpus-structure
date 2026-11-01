@@ -35,7 +35,7 @@ def source_runtime(monkeypatch):
         yield controlled.engine
 
     @contextmanager
-    def read_snapshot(engine):
+    def read_snapshot(engine, *, cancellation=None):
         assert engine is controlled.engine
         yield controlled.connection
 

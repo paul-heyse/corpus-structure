@@ -231,7 +231,7 @@ def test_selected_compiler10_answer_survives_new_activation(
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.query import QuerySpec, bind_completed_result, read_snapshot
     from corpus_structure.semantic.releases import activate_release, persist_release
-    from corpus_structure.serve.export import export_packet
+    from corpus_structure.semantic.types import PreparationError
     from corpus_structure.serve.journey import select_run
 
     old, bundle, deps, project, run, fact = _restore_old_selected_result(
@@ -256,18 +256,11 @@ def test_selected_compiler10_answer_survives_new_activation(
             assert len(result.rows) == 1
             assert result.rows[0].object == Decimal("1.2300")
             assert session.explain(fact).fact_id == fact
-            packet = load_packet(session, uri)
-            assert (
-                next(
-                    row
-                    for row in packet.to_table("typed_value").to_pylist()
-                    if row["value_id"] == "amount"
-                )["decimal_lexical"]
-                == "1.2300"
-            )
-        manifest = export_packet(packet, tmp_path / label)
-        assert manifest["binding"]["release_id"] == old.release_id
-        return result.rows[0].model_dump(), manifest["binding"]["realization_id"]
+            # An archived query answer remains readable; initiating current
+            # analytical preparation is a distinct, unsupported historical effect.
+            with pytest.raises(PreparationError, match="only live semantic-1/compiler-13"):
+                load_packet(session, uri)
+            return result.rows[0].model_dump(), session.binding.realization_id
 
     before = answer("before")
     with semantic_db_engine.begin() as conn:

@@ -6,8 +6,6 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Literal, cast
 
-import adbc_driver_manager
-import adbc_driver_postgresql.dbapi as adbc
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
@@ -88,6 +86,9 @@ def describe_database(
     request: DatabaseDescriptionRequest, settings: Settings
 ) -> DatabaseDescription:
     """Describe only selected visible objects; never execute a submitted data query."""
+    import adbc_driver_manager
+    import adbc_driver_postgresql.dbapi as adbc
+
     from corpus_structure.semantic.authored_sql import admit_sql
     from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID, metadata
     from corpus_structure.semantic.releases import open_release

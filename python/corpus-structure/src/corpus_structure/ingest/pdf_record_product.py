@@ -7,6 +7,7 @@ from typing import Any
 
 from corpus_structure.core.method import PdfRecordPublicationDraft
 
+from .pdf_candidate_source import as_candidate_source
 from .pdf_hierarchy import load_snapshot, native_nodes
 
 
@@ -63,9 +64,11 @@ def native_publication_draft(
             ],
         }
     captured = dict(metadata or {})
-    captured.setdefault(
-        "inline_candidate_pages", (p.to_wire() for p in conversion.inline_candidates)
-    )
+    if "inline_candidate_pages" not in captured:
+        candidates = as_candidate_source(conversion.inline_candidates)
+        captured["inline_candidate_pages"] = (
+            candidates.encoded(number) for number in candidates.page_nos
+        )
     if conversion.packages or conversion.runtime or conversion.effective_options != b"{}":
         captured.setdefault(
             "runtime_report",

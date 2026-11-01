@@ -1,0 +1,19 @@
+{
+  "target": "corpus_pdf_20261101",
+  "source": "corpus_pdf_20261031",
+  "release_id": "release:600be97df4661879a45ec9acf13107eca4bf1a5699ad6b39657286044c9be092",
+  "steps": {
+    "2/native": {
+      "run_id": 3,
+      "task_id": 3,
+      "config_id": 1,
+      "old_pin": {
+        "task_id": 2,
+        "product_key": "native",
+        "content_digest": "ca05561954ebf2318e2f020590d74cd87ecac6917e2e992a7b24b679cb6ce504"
+      },
+      "structural_parent": null
+    }
+  },
+  "supersedes_checkpoint": "checkpoint-superseded-002.json"
+}

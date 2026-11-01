@@ -217,3 +217,37 @@ cross-reference cycles.
 ## Sources and adoption boundary
 
 See [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md), [Psycopg](../../libraries/postgresql/psycopg.md), [pgpq](../../libraries/postgresql/pgpq.md), [pool](../../libraries/postgresql/psycopg-pool.md), [ADBC](../../libraries/postgresql/adbc-driver-postgresql.md), [pglast](../../libraries/postgresql/pglast.md), [Alembic](../../libraries/postgresql/alembic.md) and the review's primary-source map. Exact pinned interfaces/types must be verified under I18 before implementation; no dependency change is premised merely by naming a capability. PDF-25 owns current-realization rebuild/adoption.0060 remains deployed and0061 undeployed at plan creation.
+
+## Book-scale execution corrections — 2026-11-01
+
+Implemented: outer companion transactions use the existing64-row/4-MiB bounds, matching the
+inner uploader and allowing the independent task heartbeat to renew between batches. The model
+now distinguishes Arrow transfer-buffer bytes from typed native logical extents. PostgreSQL
+measures byte fields as bytes, rather than the doubled hex text of a whole-row JSON rendering;
+both declared byte limits remain8MiB. Replay hashing and semantic validation remain unchanged.
+
+Native preparation resolves ordinary inline references through the existing product/revision/
+address index. A disjoint streamed-address fallback preserves representation-independent byte
+identity; streamed pointers retain their full comparison route. The scalar subquery still refuses
+ambiguous targets, and GraphCell resolution retains source-graph scope. This removes repeated
+whole-native scans for ordinary pointers without introducing another projection or index.
+
+Frozen ownership resumption preserves the state, inventory, recipe/source/release bindings and
+frozen digest while binding a legitimately reclaimed invocation. It does not reopen append or
+permit published/abandoned rebinding. The existing attempt/holder/live-lease fence remains the
+authority. Targeted native checks and actual book outcomes are recorded by PDF-25/11; source
+implementation alone does not establish publication or complete qualification.
+
+The projection-write policy is a typed operational contract: the existing prepared LinkML/Pydantic
+boundary validates its model instance, and native admission checks READ COMMITTED before taking
+the build lock. That closes stale-snapshot insertion after validation. The v3 native-validation
+identity binds the meaning-bearing policy and archived dependencies. A shared receipt lookup
+refuses stale unfinished witnesses with current-rebuild guidance; current validation and seal
+consume the same finalized immutable witness. Published replay stays ahead of that new-private-
+validation requirement. No projection rehash occurs under the task fence, and no timeout was raised.
+
+Reference preparation also materializes only streamed-address byte keys once per insert. This
+avoids a planner-selected native-table scan per ordinary reference while a newly inserted product
+is absent from table statistics. Exact inline lookup, mixed inline/streamed byte identity,
+GraphCell scope and ambiguity refusal remain. This removes the observed repeated native scan;
+it is not a universal linear-complexity or measured-speed claim for arbitrary overflow inventories.

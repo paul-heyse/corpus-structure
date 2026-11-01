@@ -1,0 +1,23 @@
+{
+  "observed_at": "2026-11-01T20:33:25.484547+00:00",
+  "outcome": "passed",
+  "scope": "native-authoring-and-affected-functional-cases-only",
+  "revision": "semantic_pdf_address_20261101",
+  "predecessor": "semantic_pdf_receipt_20261101",
+  "desired_objects": 27,
+  "native_operations": 2,
+  "ordinary_operations": 0,
+  "state_sha256": "f11b6baaf0809429b5f17ec930c556497276c6b34c364c27f55bf2c84f79b103",
+  "admission_sha256": "b847b8f2be8a3f3774373b19860b1391a5149d576b6a0dace354a20c48198866",
+  "descriptor_sha256": "5187265312fa40c4bc87798f5fefb841a1af9d3832ad2da40f5eee9cbff7e29b",
+  "physical_id_unchanged": "physical:a421ce2f95e22be09db50bd3ac68d374d9a56c22cc9963da4f798d7a02611e4e",
+  "targeted_tests": 11,
+  "targeted_test_log": "build/pdf76-targeted.log",
+  "current_empty_candidate_native_operations": 0,
+  "current_empty_candidate_ordinary_operations": 0,
+  "current_empty_candidate_log": "build/pdf76-empty-current.log",
+  "target_migration_log": "target-migrate-0076.log",
+  "same_frozen_resume_log": "storage-attempt-009-organized-resume.log",
+  "organized_task_id": 5,
+  "organized_producing_release_id": "release:d97e7deac34f3061b58b0b5f4d989b1db5088d67ea5da6104f821ed34022682f"
+}

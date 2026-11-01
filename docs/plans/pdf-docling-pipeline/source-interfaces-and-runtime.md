@@ -213,10 +213,10 @@ Mechanisms come from review O06–O08 and tagged
 [standard pipeline](https://github.com/docling-project/docling/blob/v2.145.0/docling/pipeline/standard_pdf_pipeline.py),
 [backend options](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/backend_options.py),
 [pipeline options](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py),
-and local [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md), [PyArrow](../../libraries/pyarrow.md),
-[DuckDB](../../libraries/duckdb_2.md), [FastMCP](../../libraries/fastmcp.md),
-[Typer](../../libraries/typer.md), [RapidFuzz](../../libraries/rapidfuzz.md) and
-[concurrency guidance](../../libraries/Python_Concurrency_Multithreading_Multiprocessing_and_Worker_Management.md).
+and local [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md), [PyArrow](../../libraries/analytical_infrastructure/pyarrow.md),
+[DuckDB](../../libraries/analytical_infrastructure/duckdb_2.md), [FastMCP](../../libraries/python_introspection/fastmcp.md),
+[Typer](../../libraries/python_introspection/typer.md), [RapidFuzz](../../libraries/parsing/rapidfuzz.md) and
+[concurrency guidance](../../libraries/analytical_infrastructure/Python_Concurrency_Multithreading_Multiprocessing_and_Worker_Management.md).
 I01/I06/I07 qualify unresolved runtime/API details. These packages promise no measured speedup,
 universal recognition coverage or full-plan qualification. No production tests, model downloads,
 conversion, database changes or dependency changes were performed during plan authoring.

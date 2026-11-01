@@ -56,6 +56,9 @@ def _context_definition(connection, sql, *, source):
 # starts owning their semantics. Their predecessor is always the frozen0065 source.
 _PDF_PAYLOAD_FUNCTIONS = frozenset(
     {
+        "adopt_pdf_batch",
+        "prepare_pdf_build",
+        "resume_pdf_build",
         "adopt_pdf_companion",
         "read_pdf_frozen_rows",
         "adopt_pdf_access",
@@ -101,6 +104,38 @@ def _pdf_payload_definitions(connection, sql, *, source):
     return tuple(definitions.values())
 
 
+def _selected_product_definition(connection, sql, *, source):
+    """Own the existing selected-product view with its frozen declaration and grants."""
+    prepared = prepare_sql(sql, source=source)
+    definition = None
+    for index, raw in enumerate(prepared.statements):
+        statement = raw.stmt
+        if (
+            isinstance(statement, ast.ViewStmt)
+            and statement.view is not None
+            and statement.view.schemaname == "ops"
+            and statement.view.relname == "pdf_selected_product"
+        ):
+            definition = definition_from_sql(
+                connection,
+                prepared.excerpt(index),
+                source=source,
+                owner="corpus_sem_publisher",
+                grants=tuple(
+                    (role, "SELECT", False)
+                    for role in (
+                        "corpus_sem_writer",
+                        "corpus_sem_reader",
+                        "corpus_sem_evaluator",
+                        "corpus_sem_admitter",
+                    )
+                ),
+            )
+    if definition is None:
+        raise NativeAuthoringError(f"{source}: selected PDF product view declaration is absent")
+    return definition
+
+
 def series_predecessor_definitions(connection):
     """Bounded predecessor source; never infer desired meaning from a deployed catalog."""
     from .migrations import ALEMBIC_DIR
@@ -111,6 +146,7 @@ def series_predecessor_definitions(connection):
         _shape_definition(connection, sql, source=path.name),
         _context_definition(connection, sql, source=path.name),
         *_pdf_payload_definitions(connection, sql, source=path.name),
+        _selected_product_definition(connection, sql, source=path.name),
     )
 
 
@@ -120,8 +156,11 @@ def series_native_definitions(connection, *, include_selected=True):
         pdf_record_logical_identity_sql,
         publication_sql,
     )
+    from .pdf_staging_native import stage_native_sql
 
-    payload_sql = publication_sql() + "\n" + pdf_record_logical_identity_sql()
+    payload_sql = (
+        stage_native_sql() + "\n" + publication_sql() + "\n" + pdf_record_logical_identity_sql()
+    )
     definitions = [
         _shape_definition(connection, _native_shape_guard(), source="native-record-shape:forward"),
         _context_definition(
@@ -131,6 +170,9 @@ def series_native_definitions(connection, *, include_selected=True):
         ),
         *companion_projection_definitions(connection),
         *_pdf_payload_definitions(connection, payload_sql, source="pdf-payloads:forward"),
+        _selected_product_definition(
+            connection, payload_sql, source="pdf-selected-product:forward"
+        ),
     ]
     if include_selected:
         from .pdf_selected_source_native import selected_source_reader_sql

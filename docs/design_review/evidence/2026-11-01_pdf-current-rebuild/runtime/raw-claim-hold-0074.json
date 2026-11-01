@@ -1,0 +1,8 @@
+{
+  "started_at": "2026-11-01T19:20:08.443856+00:00",
+  "task_id": 4,
+  "attempt": 2,
+  "holder": "current-book-storage:4",
+  "scope": "maintain exact settled raw claim; no data/publication effects",
+  "proof": "interrupt-attempt-006.json"
+}

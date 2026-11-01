@@ -11,12 +11,15 @@ from hashlib import sha256
 from importlib.metadata import version
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from .pdf_assets import PreparedPdfAssets
 from .pdf_candidates import CandidatePage, capture_candidates
 from .pdf_health import FormulaOutcome, FormulaPageLifetime, ObservedFormulaStage
 from .pdf_hierarchy import NativeSnapshot, native_nodes, snapshot
+
+if TYPE_CHECKING:
+    from .pdf_candidate_source import CandidatePageSource
 
 PDF_PACKAGE_FAMILY = (
     "docling",
@@ -174,7 +177,7 @@ class PdfConversion:
     page_range: tuple[int, int] | None
     runtime: tuple[tuple[str, str], ...] = ()
     effective_options: bytes = b"{}"
-    inline_candidates: tuple[CandidatePage, ...] = ()
+    inline_candidates: tuple[CandidatePage, ...] | CandidatePageSource = ()
     confidence: bytes = b"{}"
 
 
@@ -198,6 +201,7 @@ class PdfConverter:
         self._formula: ObservedFormulaStage | None = None
         self._pipeline: Any = None
         self._options: Any = None
+        self._prepared_options_report = b"{}"
         self._page_lifetime = FormulaPageLifetime()
 
     def _prepare(self) -> None:
@@ -261,6 +265,11 @@ class PdfConverter:
             )
         if self.assets is not None:
             self._options.artifacts_path = self.assets.root
+        requested_options = self._options.model_dump(mode="json", serialize_as_any=True)
+        backend_options = ThreadedDoclingParseBackendOptions(
+            parser_threads=self.recipe.parser_threads,
+            max_concurrent_results=self.recipe.parser_threads,
+        )
         ocr_observations: dict[int, dict[str, Any]] = {}
         pipeline_type = StandardPdfPipeline
         if self.recipe.recipe_id in {
@@ -307,10 +316,7 @@ class PdfConverter:
                 InputFormat.PDF: PdfFormatOption(
                     pipeline_cls=pipeline_type,
                     pipeline_options=self._options,
-                    backend_options=ThreadedDoclingParseBackendOptions(
-                        parser_threads=self.recipe.parser_threads,
-                        max_concurrent_results=self.recipe.parser_threads,
-                    ),
+                    backend_options=backend_options,
                 )
             },
         )
@@ -355,6 +361,81 @@ class PdfConverter:
         pipeline.assemble_model = CandidatePageAssembler()
         self._converter = converter
         self._pipeline = pipeline
+        self._capture_prepared_profile(requested_options, backend_options)
+
+    def _capture_prepared_profile(self, requested_options: Any, backend_options: Any) -> None:
+        """Freeze actual prepared variants and resource/image policy once per native owner."""
+        import pyarrow as pa
+
+        assert self._formula is not None
+        effective = self._options.model_dump(mode="json", serialize_as_any=True)
+        option_variants = {
+            name: type(getattr(self._options, name)).__name__
+            for name in (
+                "ocr_options",
+                "layout_options",
+                "table_structure_options",
+                "code_formula_options",
+            )
+        }
+        option_variants.update(
+            pipeline=type(self._pipeline).__name__,
+            backend=type(backend_options).__name__,
+            formula_stage=type(self._formula.native).__name__,
+            formula_engine=type(getattr(self._formula.native, "engine", None)).__name__,
+        )
+        report = {
+            **effective,
+            "_preparation": {
+                "profile": "pdf-prepared-native-runtime-v1",
+                "requested_options": requested_options,
+                "effective_options": effective,
+                "backend_options": (
+                    backend_options.model_dump(mode="json", serialize_as_any=True)
+                    if backend_options is not None
+                    else None
+                ),
+                "stage_scope": "native-pipeline" if self._pipeline is not None else "formula-only",
+                "native_variants": option_variants,
+                "packages": dict(pdf_package_versions()),
+                "image_ownership": {
+                    "profile": "docling-native-full-raster-crop-v1"
+                    if self.stream_spool is not None
+                    else "docling-native-page-cache-v1"
+                    if self._pipeline is not None
+                    else "external-renderer-detached-demand-crop-v1",
+                    "requested_formula_scale": self._options.code_formula_options.scale,
+                    "effective_formula_scale": (
+                        self._formula.native.images_scale
+                        if self._pipeline is not None or self.stream_spool is not None
+                        else None
+                    ),
+                    "native_preparation_formula_scale": self._formula.native.images_scale,
+                    "formula_expansion_factor": self._options.code_formula_options.expansion_factor,
+                    "last_borrower": (
+                        "native-formula-preparation-after-global-assembly"
+                        if self._pipeline is not None or self.stream_spool is not None
+                        else "formula-inference-after-demand-crop-detachment"
+                    ),
+                    "global_graph": "materialized-native-reading-order-and-heading",
+                    "page_serialization": "pydantic-native-page-envelope-v1",
+                },
+                "arrow_resources": {
+                    "cpu_pool_capacity": pa.cpu_count(),
+                    "io_pool_capacity": pa.io_thread_count(),
+                    "ipc_use_threads": False,
+                    "readahead": 0,
+                    "batch_owner": "immutable-page-ipc-buffers",
+                },
+            },
+        }
+        self._prepared_options_report = json.dumps(
+            report, ensure_ascii=False, allow_nan=False, separators=(",", ":")
+        ).encode()
+
+    @property
+    def prepared_options_report(self) -> bytes:
+        return self._prepared_options_report
 
     def formula_stage(self) -> ObservedFormulaStage:
         """Reuse the native formula engine without initializing unused layout/table/OCR stages."""
@@ -380,6 +461,11 @@ class PdfConverter:
             )
             native.elements_batch_size = self.recipe.stage_batch_size
             self._formula = ObservedFormulaStage(native)
+            if self._options is None:
+                self._options = options
+            self._capture_prepared_profile(
+                options.model_dump(mode="json", serialize_as_any=True), None
+            )
         return self._formula
 
     def runtime_bindings(self) -> tuple[tuple[str, str], ...]:
@@ -472,7 +558,7 @@ class PdfConverter:
                 pdf_package_versions(),
                 page_range,
                 self.runtime_bindings(),
-                self._options.model_dump_json(serialize_as_any=True).encode(),
+                self.prepared_options_report,
                 tuple(sorted(self._candidate_pages, key=lambda page: page.page_no)),
                 result.confidence.model_dump_json().encode(),
             )
@@ -732,7 +818,12 @@ def publication_payload(
         "regions": regions,
     }
     if include_application_metadata:
-        result["inline_candidate_pages"] = [page.to_wire() for page in conversion.inline_candidates]
+        from .pdf_candidate_source import as_candidate_source
+
+        result["inline_candidate_pages"] = [
+            page.to_wire()
+            for page in as_candidate_source(conversion.inline_candidates).iter_pages()
+        ]
     if include_application_metadata and (
         conversion.packages or conversion.runtime or conversion.effective_options != b"{}"
     ):

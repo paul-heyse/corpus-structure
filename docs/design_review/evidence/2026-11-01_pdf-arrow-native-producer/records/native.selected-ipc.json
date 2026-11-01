@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "id": "native.selected-ipc",
+  "title": "Fresh native page IPC and exact native replay qualification",
+  "group": "pdf-docling-pipeline",
+  "package": "PDF-22",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the current actual finite Standard/RapidOCR native producer preserve source-qualified candidate IPC, native assembly classes, effective raster recipes and post-child image borrowers on pages20/1211?",
+  "answers": [
+    "PDF-22",
+    "PDF-23",
+    "I25"
+  ],
+  "method": "Read-only GPU inventory, then separate finite actual native workers on original pages20/1211 with exact offline model assets and captured logical schema bytes. Authenticate candidate IPC/schema/logical descriptors; restore actual native assemblies and compare their original class inventories; verify full raster equality and independently index crop pixels after child settlement, reject an uncaptured scale, and retain actual OCR/formula/native record outputs. No mocked native provider or database operation.",
+  "commands": [
+    "nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv",
+    "uv run python docs/design_review/evidence/2026-11-01_pdf-arrow-native-producer/native_cases.py docs/design_review/evidence/2026-11-01_pdf-arrow-native-producer/raw/run-1 > docs/design_review/evidence/2026-11-01_pdf-arrow-native-producer/raw/native-run-1.log 2>&1"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "native_cases.py",
+      "role": "actual-provider-qualification-runner",
+      "sha256": "ddaf23f988b0983dce9ec8c57bbc6027e0edf387499010c854dc20a6a6fa6121"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/gpu-observation.json",
+      "role": "read-only-pre-and-post-gpu-inventory",
+      "sha256": "d9dcb422ba149b19a3944acdcbc313f343c3581ae0851c78773052d985ea5a3c"
+    },
+    {
+      "path": "raw/run-1",
+      "role": "actual-native-records-rasters-candidate-ipc-and-receipts",
+      "sha256": "0af6625e7ea28ad01e370602d306c23ffffcb894bae9b065fe369544da8e4b21"
+    },
+    {
+      "path": "raw/native-run-1.log",
+      "role": "unmodified-actual-provider-output",
+      "sha256": "eceb13c216c595ce1aa8449b19975e46240c540df05a94169a57c72c5f3dcf1f"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "fresh native selected pages",
+      "value": 2,
+      "of": 2,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "source-qualified candidates",
+      "value": 50,
+      "of": null,
+      "unit": "candidates",
+      "note": null
+    },
+    {
+      "name": "complete actual OCR regions",
+      "value": 7,
+      "of": 7,
+      "unit": "regions",
+      "note": null
+    },
+    {
+      "name": "retained recognized OCR words",
+      "value": 226,
+      "of": null,
+      "unit": "words",
+      "note": null
+    },
+    {
+      "name": "actual formula outcomes succeeded",
+      "value": 2,
+      "of": 2,
+      "unit": "outcomes",
+      "note": null
+    },
+    {
+      "name": "effective native formula raster scale",
+      "value": 1.67,
+      "of": null,
+      "unit": "pixels per PDF point",
+      "note": null
+    },
+    {
+      "name": "requested formula option scale",
+      "value": 2.0,
+      "of": null,
+      "unit": "pixels per PDF point",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Both fresh actual native pages completed the current finite producer, schema-captured candidate IPC, native class preservation and exact raster/crop replay after child settlement. Page1211 preserved form/container/table types and lowered TableItem; page20 recorded two successful native formula outcomes. Scope is selected native provider execution only: no independent OCR fidelity, whole-book equivalence, bounded global graph, database publication, current public consumers, Nemotron or full-plan qualification follows.",
+  "consumed_by": [
+    "PDF-22",
+    "PDF-23",
+    "I25",
+    "pdf-docling-pipeline coordinator"
+  ]
+}

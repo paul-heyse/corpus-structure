@@ -63,8 +63,15 @@ class ScopedSourceReader:
     def ancestor_source_views(self, source_view_id):
         return self._read(lambda reader: reader.ancestor_source_views(source_view_id))
 
-    def native_document(self, reference):
-        return self._read(lambda reader: reader.native_document(reference))
+    def native_document(self, reference, *, include_candidate_pages: bool = True):
+        return self._read(
+            lambda reader: reader.native_document(
+                reference, include_candidate_pages=include_candidate_pages
+            )
+        )
+
+    def capture_pdf_candidates(self, reference, directory):
+        return self._read(lambda reader: reader.capture_pdf_candidates(reference, directory))
 
     def prepare_integrated_pdf_product(
         self, payload, original, recipe_bytes, *, artifacts=(), native_schema=None

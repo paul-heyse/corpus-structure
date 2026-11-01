@@ -429,23 +429,54 @@ BEGIN b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
         source = stage[family]
         columns = ",".join(metadata.tables[target].columns.keys())
         selects = columns
+        preparation = ""
         if family == "reference":
+            # A new product is not yet represented in planner statistics. Prepare
+            # overflow keys once so an empty fallback cannot rescan all native
+            # rows for every inline reference under an estimated one-row plan.
+            preparation = """WITH streamed_targets AS MATERIALIZED (
+ SELECT n.record_id,a.byte_length,a.byte_root
+ FROM kb.pdf_record_native n JOIN ops.pdf_artifact_stream a
+ ON a.product_id=n.product_id AND a.revision_id=n.revision_id
+ AND a.stream_id=n.native_address_stream_id
+ WHERE n.product_id=p_build AND n.revision_id=p_build AND n.native_address IS NULL
+ ) """
+            # The ordinary pointer is an indexed address. Only streamed addresses
+            # need byte-root comparison; keep the enclosing scalar subquery so
+            # ambiguous inline/streamed targets still raise a cardinality error.
+            reference_target = """COALESCE(s.target_id,CASE
+ WHEN s.field_name IN ('source_cell_id','target_cell_id') THEN
+ (SELECT n.record_id FROM kb.pdf_record_native n
+ WHERE n.product_id=p_build AND n.revision_id=p_build AND n.native_type='GraphCell'
+ AND n.scalars_json->>'cell_id'=s.native_pointer
+ AND regexp_replace(n.native_address,'/cells/[0-9]+$','')=regexp_replace(
+ (SELECT source.native_address FROM kb.pdf_record_native source
+ WHERE source.product_id=p_build AND source.revision_id=p_build
+ AND source.record_id=s.source_id),'/links/[0-9]+$',''))
+ WHEN s.native_pointer_stream_id IS NULL THEN
+ (SELECT target.record_id FROM (
+ SELECT n.record_id FROM kb.pdf_record_native n
+ WHERE n.product_id=p_build AND n.revision_id=p_build AND n.native_address=s.native_pointer
+ UNION ALL
+ SELECT n.record_id FROM streamed_targets n
+ WHERE n.byte_length=octet_length(convert_to(s.native_pointer,'UTF8'))
+ AND n.byte_root=encode(ops.pdf_identity_byte_root(convert_to(s.native_pointer,'UTF8')),'hex')
+ ) target)
+ ELSE
+ (SELECT n.record_id FROM kb.pdf_record_native n
+ WHERE n.product_id=p_build AND n.revision_id=p_build
+ AND ops.pdf_reference_bytes_equal(p_build,p_build,n.native_address,n.native_address_stream_id,
+ s.native_pointer,s.native_pointer_stream_id)) END)"""
             selects = ",".join(
-                """COALESCE(s.target_id,(SELECT n.record_id FROM kb.pdf_record_native n WHERE \
-n.product_id=p_build AND ((s.field_name NOT IN ('source_cell_id','target_cell_id') AND \
-ops.pdf_reference_bytes_equal(p_build,p_build,n.native_address,n.native_address_stream_id,s.nativ\
-e_pointer,s.native_pointer_stream_id)) OR (s.field_name IN ('source_cell_id','target_cell_id') \
-AND n.native_type='GraphCell' AND n.scalars_json->>'cell_id'=s.native_pointer AND \
-regexp_replace(n.native_address,'/cells/[0-9]+$','')=regexp_replace((SELECT \
-source.native_address FROM kb.pdf_record_native source WHERE source.product_id=p_build AND \
-source.record_id=s.source_id),'/links/[0-9]+$','')))))"""
-                if c == "target_id"
-                else "s." + c
+                reference_target if c == "target_id" else "s." + c
                 for c in (column.key for column in metadata.tables[target].columns)
             )
-        sql += f"INSERT INTO\
+        sql += (
+            preparation
+            + f"INSERT INTO\
  {target}({columns}) SELECT\
  {selects} FROM {source} s WHERE s.product_id=p_build ON CONFLICT DO NOTHING;\n"
+        )
     sql += """ PERFORM ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen); END $$;
 CREATE OR REPLACE FUNCTION ops.read_pdf_published_revision(p_task bigint,p_key text,p_digest text)
 RETURNS SETOF ops.pdf_published_revision LANGUAGE sql STABLE SECURITY DEFINER SET \
@@ -484,7 +515,7 @@ igest);",
     sql += """
 CREATE OR REPLACE FUNCTION ops.pdf_validation_contract(p_release text)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE item_ record; state_ bytea:=ops.pdf_identity_fold_start('pdf-validation-contract-v2');
+DECLARE item_ record; state_ bytea:=ops.pdf_identity_fold_start('pdf-validation-contract-v3');
  count_ bigint:=0; length_ bigint:=0; frame_ bytea;
 BEGIN
  FOR item_ IN SELECT input_name,content FROM sem.input WHERE release_id=p_release
@@ -495,6 +526,10 @@ BEGIN
  count_:=count_+1; length_:=length_+octet_length(frame_);
  END LOOP;
  IF count_=0 THEN RAISE EXCEPTION 'PDF validation release dependencies missing'; END IF;
+ frame_:=convert_to('pdf-projection-write-profile-v1','UTF8')
+ ||decode('{pdf_projection_profile_digest}','hex');
+ state_:=ops.pdf_identity_fold_step(state_,count_,frame_);
+ count_:=count_+1; length_:=length_+octet_length(frame_);
  RETURN encode(ops.pdf_identity_fold_finish(state_,count_,length_),'hex');
 END $$;
 CREATE OR REPLACE FUNCTION ops.pdf_projection_contract(p_build text,p_release text)
@@ -522,30 +557,36 @@ CREATE OR REPLACE FUNCTION ops.adopt_pdf_access(p_build text,p_task bigint,p_att
 bigint,p_holder text,p_frozen text,p_family text,p_body jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE b ops.pdf_stage_build;
-BEGIN PERFORM 1 FROM ops.pdf_stage_build WHERE build_id=p_build FOR NO KEY UPDATE;
+BEGIN
+ IF NOT (current_setting('transaction_isolation')=ANY({pdf_projection_isolation_array})) THEN
+ RAISE EXCEPTION '{pdf_projection_isolation_message}' USING ERRCODE='25000'; END IF;
+ PERFORM 1 FROM ops.pdf_stage_build WHERE build_id=p_build FOR NO KEY UPDATE;
  b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
  IF b.state<>'frozen' THEN RAISE EXCEPTION 'published PDF projection immutable'; END IF;
  IF EXISTS(SELECT FROM ops.pdf_build_validation WHERE build_id=p_build) THEN
  IF (p_family='access' AND EXISTS(SELECT FROM kb.pdf_record_access r WHERE
- r.product_id=p_build AND r.revision_id=p_build AND
+ r.product_id=p_build AND r.revision_id=p_build AND r.pointer=p_body->>'pointer' AND
  to_jsonb(r)-'product_id'-'revision_id'=p_body)) OR
  (p_family='region' AND EXISTS(SELECT FROM kb.pdf_record_region r WHERE
- r.product_id=p_build AND r.revision_id=p_build AND
- to_jsonb(r)-'product_id'-'revision_id'=p_body)) THEN RETURN; END IF;
+ r.product_id=p_build AND r.revision_id=p_build AND r.pointer=p_body->>'pointer'
+ AND r.region_index=(jsonb_populate_record(NULL::kb.pdf_record_region,p_body)).region_index
+ AND to_jsonb(r)-'product_id'-'revision_id'=p_body)) THEN RETURN; END IF;
  RAISE EXCEPTION 'validated PDF projection membership is immutable' USING ERRCODE='23514';
  END IF;
  IF p_family='access' THEN
  INSERT INTO kb.pdf_record_access SELECT (jsonb_populate_record(NULL::kb.pdf_record_access,p_body\
 ||jsonb_build_object('product_id',p_build,'revision_id',p_build))).* ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM kb.pdf_record_access r WHERE product_id=p_build AND \
-r.pointer=p_body->>'pointer'
+r.revision_id=p_build AND r.pointer=p_body->>'pointer'
  AND to_jsonb(r)-'product_id'-'revision_id'=p_body) THEN RAISE EXCEPTION 'changed access \
 projection'; END IF;
  ELSIF p_family='region' THEN
  INSERT INTO kb.pdf_record_region SELECT (jsonb_populate_record(NULL::kb.pdf_record_region,p_body\
 ||jsonb_build_object('product_id',p_build,'revision_id',p_build))).* ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM kb.pdf_record_region r WHERE product_id=p_build AND
- revision_id=p_build AND to_jsonb(r)-'product_id'-'revision_id'=p_body) THEN
+ revision_id=p_build AND r.pointer=p_body->>'pointer'
+ AND r.region_index=(jsonb_populate_record(NULL::kb.pdf_record_region,p_body)).region_index
+ AND to_jsonb(r)-'product_id'-'revision_id'=p_body) THEN
  RAISE EXCEPTION 'changed region projection'; END IF;
  ELSE RAISE EXCEPTION 'invalid projection family'; END IF;
 END $$;
@@ -581,10 +622,14 @@ bigint,p_holder text,p_frozen text)
 RETURNS SETOF ops.pdf_build_validation LANGUAGE plpgsql SECURITY DEFINER SET \
 search_path=pg_catalog,pg_temp AS $$
 DECLARE b ops.pdf_stage_build; stream_ record; logical_ text; contract_ text;
+ prior_validation ops.pdf_build_validation;
 BEGIN
  PERFORM 1 FROM ops.pdf_stage_build WHERE build_id=p_build FOR NO KEY UPDATE;
  b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
  PERFORM sem.require_execution_operation(b.release_id,'validate_pdf_build');
+ SELECT * INTO prior_validation FROM ops.lookup_pdf_validation(
+ p_build,p_task,p_attempt,p_holder,p_frozen);
+ IF FOUND THEN RETURN NEXT prior_validation; RETURN; END IF;
  IF NOT EXISTS(SELECT FROM ops.pdf_native_validation v WHERE v.build_id=p_build AND
  v.frozen_digest=p_frozen AND v.contract_digest=ops.pdf_validation_contract(b.release_id)
  AND v.passed) THEN RAISE EXCEPTION 'native callback conformance outcome missing or stale'
@@ -630,15 +675,19 @@ JOIN edges e ON e.parent_id=p.child_id WHERE NOT p.cyclic
  ) SELECT FROM paths WHERE cyclic) THEN RAISE EXCEPTION 'native containment cycle' USING \
 ERRCODE='23514'; END IF;
  IF EXISTS(WITH owner_edges AS (
- SELECT n.record_id parent_id,f.value->>'target' child_id FROM kb.pdf_record_native n CROSS JOIN \
-LATERAL jsonb_each(n.structure_json->'fields') f
- WHERE n.product_id=p_build AND f.value->>'kind'='object'
- UNION ALL SELECT parent_id,record_id FROM kb.pdf_record_membership WHERE product_id=p_build AND \
-value_kind='record'
- ) SELECT FROM kb.pdf_record_native n LEFT JOIN owner_edges e ON e.child_id=n.record_id
- WHERE n.product_id=p_build GROUP BY n.record_id HAVING count(e.parent_id)<>CASE WHEN \
-n.record_id=(SELECT root_id FROM ops.pdf_record_document WHERE product_id=p_build) THEN 0 ELSE 1 \
-END) THEN
+ SELECT n.record_id parent_id,f.value->>'target' child_id FROM kb.pdf_record_native n
+ CROSS JOIN LATERAL jsonb_each(n.structure_json->'fields') f
+ WHERE n.product_id=p_build AND n.revision_id=p_build AND f.value->>'kind'='object'
+ UNION ALL SELECT parent_id,record_id FROM kb.pdf_record_membership
+ WHERE product_id=p_build AND revision_id=p_build AND value_kind='record'
+ ), owner_counts AS (
+ SELECT child_id,count(parent_id) owners FROM owner_edges GROUP BY child_id
+ ) SELECT FROM kb.pdf_record_native n LEFT JOIN owner_counts owners
+ ON owners.child_id=n.record_id
+ WHERE n.product_id=p_build AND n.revision_id=p_build
+ AND COALESCE(owners.owners,0)<>CASE WHEN n.record_id=(
+ SELECT root_id FROM ops.pdf_record_document
+ WHERE product_id=p_build AND revision_id=p_build) THEN 0 ELSE 1 END) THEN
  RAISE EXCEPTION 'native orphan or repeated containment owner' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_access parent JOIN kb.pdf_record_access child ON
  child.product_id=parent.product_id AND child.parent_pointer=parent.pointer
@@ -661,7 +710,8 @@ target.record_id=f.value->>'target'
 jsonb_each(n.structure_json->'fields') f
  LEFT JOIN LATERAL (SELECT count(*) count_,min(ordinal) min_,max(ordinal) max_ FROM \
 kb.pdf_record_membership m
- WHERE m.product_id=p_build AND m.parent_id=n.record_id AND m.field_name=f.key) members ON true
+ WHERE m.product_id=p_build AND m.revision_id=p_build
+ AND m.parent_id=n.record_id AND m.field_name=f.key) members ON true
  WHERE n.product_id=p_build AND f.value->>'kind' IN ('array','map') AND
  (members.count_<>(f.value->>'length')::bigint OR (members.count_>0 AND (members.min_<>0 OR \
 members.max_<>members.count_-1)))) THEN
@@ -780,10 +830,10 @@ BEGIN
  IF FOUND THEN IF prior.product_key IS DISTINCT FROM p_key THEN RAISE EXCEPTION 'published key \
 replay differs'; END IF; RETURN NEXT prior; RETURN; END IF;
  PERFORM sem.require_execution_operation(b.release_id,'seal_pdf_build');
- SELECT * INTO STRICT v FROM ops.pdf_build_validation WHERE build_id=p_build AND \
-frozen_digest=p_frozen AND native_callbacks AND
- native_contract_digest=ops.pdf_validation_contract(b.release_id) AND
- contract_digest=ops.pdf_projection_contract(p_build,b.release_id);
+ -- Finalized projection membership is immutable under the model-owned write
+ -- isolation guard. Consume its qualified receipt inside the short task fence.
+ SELECT * INTO STRICT v FROM ops.lookup_pdf_validation(
+ p_build,p_task,p_attempt,p_holder,p_frozen);
  IF p_key IS NULL OR p_key='' THEN RAISE EXCEPTION 'empty PDF product key'; END IF;
  SELECT kind INTO STRICT kind_ FROM ops.pdf_frozen_build WHERE build_id=p_build;
  IF kind_='integrated' AND (NOT EXISTS(SELECT FROM kb.pdf_record_companion WHERE \
@@ -820,6 +870,30 @@ END $$;
     from .pdf_contracts import trusted_pdf_context
 
     context = trusted_pdf_context()
+    from hashlib import sha256
+    from importlib.resources import files
+
+    import yaml
+
+    from .identity import canonical_bytes
+
+    policy_source = yaml.safe_load(
+        files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml").read_bytes()
+    )["annotations"]["pds:projection_write_profile"]
+    policy = context.boundary.validate_json("PdfProjectionWriteProfile", policy_source)
+    levels = sorted(set(policy.model_dump(mode="json")["allowed_isolation"]))
+    policy_digest = sha256(canonical_bytes({"allowed_isolation": levels})).hexdigest()
+    sql = (
+        sql.replace(
+            "{pdf_projection_isolation_array}",
+            "ARRAY[" + ",".join(_quote(level) for level in levels) + "]::text[]",
+        )
+        .replace(
+            "'{pdf_projection_isolation_message}'",
+            _quote("PDF projection admission requires " + ", ".join(levels).upper()),
+        )
+        .replace("{pdf_projection_profile_digest}", policy_digest)
+    )
     companion_guards = []
     for family, cls in [
         ("input", "PdfProductInput"),
@@ -937,13 +1011,16 @@ ipe_digest',NULL::bigint,NULL::text,NULL::text,
 ops.pdf_product p JOIN ops.pdf_product_body body USING(task_id,product_key)
  CROSS JOIN LATERAL (SELECT (convert_from(body.payload,'UTF8')::json->'content')::jsonb content) \
 b WHERE p.kind='integrated'
- UNION ALL SELECT p.task_id,p.product_key,p.logical_digest,p.release_id,v.contract_digest,p.schem\
-a_digest,p.recipe_digest,
+ UNION ALL SELECT p.task_id,p.product_key,p.logical_digest,p.release_id,
+ contract_input.content_digest,p.schema_digest,p.recipe_digest,
  NULL::bigint,NULL::text,NULL::text,NULL::jsonb,(SELECT \
 c.body-ARRAY['source_scope','page_start','page_end'] FROM kb.pdf_record_companion c WHERE \
 c.product_id=p.build_id AND c.family='health' AND c.body ? 'source_scope' ORDER BY \
 c.ordinal,c.local_id LIMIT 1),NULL::bytea
- FROM ops.pdf_published_revision p JOIN ops.pdf_build_validation v ON v.build_id=p.build_id;
+ FROM ops.pdf_published_revision p JOIN ops.pdf_build_validation v ON v.build_id=p.build_id
+ JOIN sem.input contract_input ON contract_input.release_id=p.release_id
+ AND contract_input.input_kind='dependency'
+ AND contract_input.input_name='execution/schema/pdf_products';
 ALTER VIEW ops.pdf_selected_product OWNER TO corpus_sem_publisher;
 GRANT SELECT ON ops.pdf_selected_product TO corpus_sem_writer,corpus_sem_reader,corpus_sem_evalua\
 tor,corpus_sem_admitter;
@@ -986,13 +1063,17 @@ CREATE OR REPLACE FUNCTION ops.lookup_pdf_validation(p_build text,p_task bigint,
 bigint,p_holder text,p_frozen text)
 RETURNS SETOF ops.pdf_build_validation LANGUAGE plpgsql SECURITY DEFINER SET \
 search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build;
+DECLARE b ops.pdf_stage_build; native_contract_ text;
 BEGIN
  b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
+ native_contract_:=ops.pdf_validation_contract(b.release_id);
+ IF EXISTS(SELECT FROM ops.pdf_build_validation v WHERE v.build_id=p_build
+ AND v.frozen_digest=p_frozen AND v.native_contract_digest IS DISTINCT FROM native_contract_) THEN
+ RAISE EXCEPTION USING ERRCODE='23514',
+ MESSAGE='PDF validation profile differs; rebuild from retained evidence '
+ ||'in a fresh current storage build; do not alter stored pins'; END IF;
  RETURN QUERY SELECT v.* FROM ops.pdf_build_validation v WHERE v.build_id=p_build AND
- v.frozen_digest=p_frozen AND v.native_callbacks AND
- v.native_contract_digest=ops.pdf_validation_contract(b.release_id) AND
- v.contract_digest=ops.pdf_projection_contract(p_build,b.release_id);
+ v.frozen_digest=p_frozen AND v.native_callbacks AND v.native_contract_digest=native_contract_;
 END $$;
 CREATE OR REPLACE FUNCTION ops.lookup_pdf_published_build(p_build text,p_task bigint,p_attempt \
 bigint,p_holder text)
@@ -1064,8 +1145,10 @@ corpus_sem_writer,corpus_sem_reader;
             sql += f"GRANT EXECUTE ON FUNCTION ops.{signature} TO corpus_sem_writer;\n"
     sql += "GRANT EXECUTE ON FUNCTION ops.read_pdf_published_revision(bigint,text,text) TO \
 corpus_sem_reader,corpus_sem_evaluator;\n"
-    return sql.replace("'{pdf_payload_profile}'", _quote(PROFILE)).replace(
-        "'{pdf_payload_family}'", _quote(FAMILY)
+    return (
+        sql.replace("'{pdf_payload_profile}'", _quote(PROFILE))
+        .replace("'{pdf_payload_family}'", _quote(FAMILY))
+        .replace("{pdf_projection_profile_digest}", policy_digest)
     )
 
 

@@ -19,6 +19,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
+from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
 from corpus_structure.semantic.prepare import prepare_release
@@ -142,7 +143,10 @@ def _write_selected_package(
     *,
     interpretation_model_id,
     implementation_digests,
+    cancellation: BorrowerCancellation | None = None,
 ):
+    cancellation = cancellation or BorrowerCancellation()
+    cancellation.check_active()
     spec, _, schema = _protocol()
     events = iter(native_events)
     metadata = next(events, None)
@@ -180,10 +184,12 @@ def _write_selected_package(
 
         def emit(value):
             nonlocal length
+            cancellation.check_active()
             body = canonical_bytes(value) + b"\n"
             if len(body) > spec["max_event_bytes"]:
                 raise SelectedSourceUnavailable("selected source event exceeds bounded protocol")
             sink.write(body)
+            cancellation.check_active()
             digest.update(body)
             length += len(body)
             counts[value["event"]] += 1
@@ -311,7 +317,12 @@ def _write_selected_package(
     return receipt
 
 
-def export_selected_source(request: SelectedSourceExportRequest, settings):
+def export_selected_source(
+    request: SelectedSourceExportRequest,
+    settings,
+    *,
+    cancellation: BorrowerCancellation | None = None,
+):
     """Close readers and settle the snapshot before atomic no-replace publication."""
     from corpus_structure.semantic.contracts import bound_execution_model
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
@@ -320,6 +331,8 @@ def export_selected_source(request: SelectedSourceExportRequest, settings):
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
+    cancellation = cancellation or BorrowerCancellation()
+    cancellation.check_active()
     spec, boundary, _ = _protocol()
     boundary.validate_json("SelectedSourceExportRequest", request.model_dump_json())
     destination = request.destination
@@ -332,7 +345,7 @@ def export_selected_source(request: SelectedSourceExportRequest, settings):
             open_runtime_engine(
                 settings, application_name="ci-selected-source", purpose="read"
             ) as engine,
-            read_snapshot(engine) as connection,
+            read_snapshot(engine, cancellation=cancellation) as connection,
         ):
             release = open_release(connection, request.pin.release_id)
             if release.execution_model_id is None:
@@ -345,6 +358,7 @@ def export_selected_source(request: SelectedSourceExportRequest, settings):
                 ProductReference(
                     request.pin.task_id, request.pin.product_key, request.pin.content_digest
                 ),
+                cancellation=cancellation,
             )
             if reader is None:
                 raise SelectedSourceUnavailable(
@@ -375,7 +389,9 @@ def export_selected_source(request: SelectedSourceExportRequest, settings):
                     temporary,
                     interpretation_model_id=model.model_id,
                     implementation_digests=model.implementation_digests,
+                    cancellation=cancellation,
                 )
+        cancellation.check_active()
         _publish_directory(temporary, destination)
         return receipt
 
@@ -824,7 +840,9 @@ class SelectedSourceReader:
         )
 
 
-def export_selected_native_source(request, destination: Path, settings):
+def export_selected_native_source(
+    request, destination: Path, settings, *, cancellation: BorrowerCancellation | None = None
+):
     """Resolve the CLI's run qualification, then execute the owned package service."""
     from sqlalchemy import select
 
@@ -832,6 +850,8 @@ def export_selected_native_source(request, destination: Path, settings):
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
 
+    cancellation = cancellation or BorrowerCancellation()
+    cancellation.check_active()
     if (
         request.section_pointer is None
         or request.membership != "descendants"
@@ -852,7 +872,7 @@ def export_selected_native_source(request, destination: Path, settings):
         open_runtime_engine(
             settings, application_name="ci-selected-source-pin", purpose="read"
         ) as engine,
-        read_snapshot(engine) as connection,
+        read_snapshot(engine, cancellation=cancellation) as connection,
     ):
         runs = table("ops.run")
         row = connection.execute(
@@ -870,4 +890,4 @@ def export_selected_native_source(request, destination: Path, settings):
         selection=SelectedSourceSelection(root=request.section_pointer),
         destination=destination,
     )
-    return export_selected_source(selected, settings)
+    return export_selected_source(selected, settings, cancellation=cancellation)

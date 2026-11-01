@@ -19,6 +19,7 @@ from sqlalchemy import Connection, Engine
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.claim_lifetime import maintained_claims
 from corpus_structure.semantic.operation_results import ClaimedTask
+from corpus_structure.semantic.product_reference import ProductReference
 
 if TYPE_CHECKING:
     from corpus_structure.core.method import PdfRecordProducerRequest, PdfRecordPublicationDraft
@@ -203,15 +204,51 @@ def run_private_native_pdf_build(
                     from corpus_structure.semantic.contracts import require_database_operation
 
                     require_database_operation(connection, build.release_id, "stage_pdf_producer")
+                    from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
+                    from corpus_structure.semantic.pdf_payloads import (
+                        prepare_payload_family,
+                        schema_dump,
+                    )
+
+                    payload_family = prepare_payload_family(
+                        pdf_context_for_task(connection, claim.task_id)
+                    )
+                    payload_schema = schema_dump(payload_family.json_schema)
                 replay_root = directory / build.build_id
                 replay_root.mkdir(exist_ok=True)
 
                 def adopt_replay(replay: PdfReplayRef) -> None:
                     check_active()
                     replay.verify()
+                    if replay.family == "candidate_payload":
+                        from corpus_structure.ingest.pdf_candidate_source import encoded_replay
+                        from corpus_structure.semantic.pdf_publication import (
+                            adopt_pdf_companion_batch,
+                        )
+
+                        if not replay.path.resolve().is_relative_to(
+                            (replay_root / "pages").resolve()
+                        ):
+                            raise ValueError("candidate payload escaped owned replay directory")
+                        encoded = encoded_replay(replay, payload_family)
+                        with _pdf_transaction(engine, cancellation) as connection:
+                            adopt_pdf_companion_batch(
+                                connection,
+                                build,
+                                "native_metadata",
+                                (
+                                    {
+                                        "kind": "inline_candidate_pages",
+                                        "ordinal": encoded.page_no,
+                                        "value": encoded,
+                                    },
+                                ),
+                                replay_key=f"page:{encoded.page_no}:candidate-metadata",
+                                cancellation=cancellation,
+                            )
+                        return
                     if replay.family == "page":
                         import json
-                        from hashlib import file_digest
 
                         from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
                         from corpus_structure.ingest.pdf_streaming import (
@@ -240,19 +277,6 @@ def run_private_native_pdf_build(
                                 artifact_profile("raster"),
                             ),
                         ]
-                        candidates = replay.path.with_name(f"candidate-{number:06}.json")
-                        if candidates.exists():
-                            with candidates.open("rb") as source:
-                                digest = file_digest(source, "sha256").hexdigest()
-                            retained.append(
-                                (
-                                    "candidates",
-                                    PdfReplayRef(
-                                        candidates, digest, candidates.stat().st_size, "candidates"
-                                    ),
-                                    artifact_profile("candidates"),
-                                )
-                            )
                         for suffix, artifact, profile in retained:
                             for index, (family, batch) in enumerate(
                                 iter_replay_artifact_batches(
@@ -273,28 +297,6 @@ def run_private_native_pdf_build(
                                     )
                                 if on_adopted is not None:
                                     on_adopted(receipt)
-                        if candidates.exists():
-                            from corpus_structure.semantic.pdf_publication import (
-                                adopt_pdf_companion_batch,
-                            )
-
-                            with candidates.open() as candidate_file:
-                                candidate_value = json.load(candidate_file)
-                            with _pdf_transaction(engine, cancellation) as connection:
-                                adopt_pdf_companion_batch(
-                                    connection,
-                                    build,
-                                    "native_metadata",
-                                    (
-                                        {
-                                            "kind": "inline_candidate_pages",
-                                            "ordinal": number,
-                                            "value": candidate_value,
-                                        },
-                                    ),
-                                    replay_key=f"page:{number}:candidate-metadata",
-                                    cancellation=cancellation,
-                                )
                         return
                     if replay.family == "companion:occurrence":
                         import json
@@ -353,6 +355,7 @@ def run_private_native_pdf_build(
                     record_root=replay_root / "records",
                     build_id=build.build_id,
                     release_id=build.release_id,
+                    payload_schema=payload_schema,
                     on_replay=adopt_replay,
                     check_active=check_active,
                     observation_replay=observation_replay,
@@ -369,6 +372,20 @@ def run_private_native_pdf_build(
                 from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
 
                 with _pdf_transaction(engine, cancellation) as connection:
+                    adopt_pdf_companion_batch(
+                        connection,
+                        build,
+                        "native_metadata",
+                        (
+                            {
+                                "kind": "runtime_report",
+                                "ordinal": 0,
+                                "value": {"effective_options": reply.effective_options.decode()},
+                            },
+                        ),
+                        replay_key="native:runtime-report",
+                        cancellation=cancellation,
+                    )
                     adopt_pdf_companion_batch(
                         connection,
                         build,
@@ -494,6 +511,8 @@ def publish_pdf_record_draft(
 
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
     from corpus_structure.semantic.pdf_publication import (
+        COMPANION_BATCH_BYTES,
+        COMPANION_BATCH_ROWS,
         adopt_pdf_companion_batch,
         freeze_pdf_build,
         inspect_pdf_build,
@@ -503,7 +522,6 @@ def publish_pdf_record_draft(
         validate_pdf_build,
     )
     from corpus_structure.semantic.pdf_staging import (
-        MAX_BATCH_BYTES,
         adopt_pdf_batch,
         begin_pdf_build,
         resume_pdf_build,
@@ -668,8 +686,16 @@ def publish_pdf_record_draft(
             size = 0
 
         for row in records:
-            row_size = len(json.dumps(row, ensure_ascii=False, allow_nan=False).encode())
-            if pending and size + row_size > MAX_BATCH_BYTES // 2:
+            from corpus_structure.semantic.pdf_payloads import EncodedPagePayload
+
+            row_size = (
+                len(row["value"].content) + 256
+                if isinstance(row.get("value"), EncodedPagePayload)
+                else len(json.dumps(row, ensure_ascii=False, allow_nan=False).encode())
+            )
+            if pending and (
+                len(pending) >= COMPANION_BATCH_ROWS or size + row_size > COMPANION_BATCH_BYTES
+            ):
                 flush()
             pending.append(row)
             size += row_size
@@ -801,6 +827,7 @@ def migrate_retained_pdf_envelope(
     kind: Literal["native", "integrated"],
     product_key: str = "integrated",
     cancellation: BorrowerCancellation | None = None,
+    structural_parent: ProductReference | None = None,
 ) -> PublishedPdfDocumentRef:
     """Explicit qualified storage derivation; never repeats source inference.
 
@@ -809,11 +836,16 @@ def migrate_retained_pdf_envelope(
     This writes only private/admitted products for that task, not defaults or a
     completed knowledge result. Original historical products remain unchanged.
     """
+    from hashlib import sha256
     from uuid import uuid4
 
     from corpus_structure.ingest.pdf_retained_stream import retained_pdf_draft
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
+    from corpus_structure.semantic.pdf_payloads import prepare_payload_family
 
     cancellation = cancellation or BorrowerCancellation()
+    with _pdf_transaction(engine, cancellation) as connection:
+        payload_family = prepare_payload_family(pdf_context_for_task(connection, claim.task_id))
     owner = directory / uuid4().hex
     owner.mkdir(parents=True)
     with (
@@ -827,6 +859,8 @@ def migrate_retained_pdf_envelope(
             recipe_bytes=recipe_bytes,
             directory=owner / "companions",
             kind=kind,
+            structural_parent=structural_parent,
+            payload_family=payload_family,
         ) as draft,
     ):
 
@@ -834,6 +868,31 @@ def migrate_retained_pdf_envelope(
             cancellation.check_active()
             check_claim_active()
 
+        if structural_parent is not None:
+            import json
+
+            from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
+
+            retained_parent = json.loads(draft.recipe_bytes)["retained_parent"]
+            expected = ProductReference(
+                retained_parent["parent_task_id"],
+                retained_parent["parent_product_key"],
+                retained_parent["parent_digest"],
+            )
+            # A same-source pin alone does not prove preservation of the old parent.
+            # Resolve the admitted current parent and verify its retained original envelope.
+            with _pdf_transaction(engine, cancellation) as connection:
+                parent_reader = PublishedPdfReader(
+                    connection, structural_parent, cancellation=cancellation
+                )
+                digest = sha256()
+                for block in parent_reader.scalar("retained/envelope"):
+                    check_active()
+                    digest.update(block)
+                if digest.hexdigest() != expected.content_digest:
+                    raise ValueError(
+                        "current structural parent does not derive from retained parent"
+                    )
         return publish_pdf_record_draft(
             engine,
             claim,

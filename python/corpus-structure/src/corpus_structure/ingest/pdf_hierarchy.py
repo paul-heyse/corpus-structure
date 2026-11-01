@@ -7,7 +7,10 @@ import re
 import warnings
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from docling_core.types.doc import DoclingDocument
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,16 +33,22 @@ def snapshot(document: Any) -> NativeSnapshot:
     return NativeSnapshot(payload, sha256(payload).hexdigest(), str(document.version))
 
 
-def load_snapshot(value: NativeSnapshot) -> Any:
-    """A read checks integrity and native shape without mutating retained meaning."""
-    from docling_core.types.doc import DoclingDocument
+def load_snapshot(value: NativeSnapshot) -> DoclingDocument:
+    """Check exact bytes and declared native state without serializer normalization."""
+    from corpus_structure.semantic.pdf_records import validate_native_callbacks
+
+    from .pdf_retained_stream import derive_retained_native_projection
 
     if sha256(value.payload).hexdigest() != value.digest:
         raise ValueError("native document integrity mismatch")
-    document = DoclingDocument.model_validate_json(value.payload)
-    # validate_document can clamp geometry. A retained product must already be normalized.
-    if snapshot(document).payload != value.payload:
-        raise ValueError("retained native document was not normalized before identity")
+    # Native exports include model-owned computed grids; record values omit them.
+    # Verify that serialization view, then use the same strict supplied-state
+    # callback boundary as publication. Export serializers are not native state.
+    supplied = json.loads(value.payload)
+    if not isinstance(supplied, dict):
+        raise ValueError("native document must be a JSON object")
+    native, _ = derive_retained_native_projection(supplied)
+    document = validate_native_callbacks(native)
     if document.version != value.schema_version:
         raise ValueError("native schema version differs from binding")
     return document

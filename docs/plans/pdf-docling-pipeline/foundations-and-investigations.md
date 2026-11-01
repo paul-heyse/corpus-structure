@@ -95,7 +95,7 @@ review mechanisms and the early identity/health contract agreement from PDF-02. 
 qualified mechanisms, actual limits and decisions consumed by later packages. This early agreement
 is not deployed storage; do not require PDF-03 DDL merely to investigate a library capability.
 
-Start from the [Docling reference](../../libraries/docling.md), [OCR technical-PDF guidance](../../libraries/docling_ocr.md),
+Start from the [Docling reference](../../libraries/primary_intake/docling.md), [OCR technical-PDF guidance](../../libraries/primary_intake/docling_ocr.md),
 Context7 and version-tagged upstream sources. Use representative actual pages/sections to resolve
 real uncertainties. Probe artifacts belong under `docs/design_review/evidence/<date>_<topic>/`
 with the existing evidence conventions. Do not add a new permanent probe framework or a general

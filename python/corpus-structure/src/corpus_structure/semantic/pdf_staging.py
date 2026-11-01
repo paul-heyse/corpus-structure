@@ -191,7 +191,7 @@ def adopt_pdf_batch(
         count += batch.num_rows
         size += batch.nbytes
         if count > MAX_BATCH_ROWS or size > MAX_BATCH_BYTES:
-            raise ValueError("private PDF batch exceeds bounded upload profile")
+            raise ValueError("private PDF Arrow batch exceeds bounded transfer profile")
 
     for name, batches in relations.items():
         target = stage_relation(name)

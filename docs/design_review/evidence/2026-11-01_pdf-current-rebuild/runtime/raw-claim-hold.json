@@ -1,0 +1,8 @@
+{
+  "pid": 3522135,
+  "task_id": 4,
+  "attempt": 2,
+  "holder": "current-book-storage:4",
+  "release_id": "release:7b15b6b25957107d9caeb8eed1e417188a78a24138032858c6c1320ac172fb8f",
+  "phase": "maintaining_paused_frozen_claim"
+}

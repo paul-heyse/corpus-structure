@@ -7350,8 +7350,8 @@ operations:
   - PdfPrivateBuild
   applicability:
   - attempt_fence
-  universe: Actual task/source/release/recipe-bound private records and exact replay
-    bytes
+  universe: Open or frozen task/source/release/recipe-bound private records and exact
+    replay bytes under a live owning invocation
   effects:
   - atomic_private_pdf_stage
   outcomes:
@@ -7364,8 +7364,9 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Exact values and immutable private bytes; no published/native completeness
-    claim
+  precision: Only the owning attempt and holder are rebound. State, exact private values,
+    frozen inventory and frozen digest remain unchanged; no append, reopening or publication
+    capability follows from rebinding.
   implementation: resume_pdf_build
   transitions: []
   projections: []

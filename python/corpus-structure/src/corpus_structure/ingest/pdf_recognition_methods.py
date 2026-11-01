@@ -219,7 +219,9 @@ class IngestPdfIntegrated:
                 if cfg.integrated_product is not None:
                     # The reader checks the integrated role and exact original/project custody
                     # before returning the selected content body under the producing archive.
-                    retained = ctx.reader.native_document(cfg.integrated_product)
+                    retained = ctx.reader.native_document(
+                        cfg.integrated_product, include_candidate_pages=False
+                    )
                     content = retained.values()
                     if (
                         content.get("source_scope") != "whole_document"
@@ -269,13 +271,17 @@ class IngestPdfIntegrated:
                                 native, native_reference = captured, reference
                         if native is None and standard.source_views:
                             native_reference = standard.source_views[0].native_product
-                            native = ctx.reader.native_document(native_reference)
+                            native = ctx.reader.native_document(
+                                native_reference, include_candidate_pages=False
+                            )
                         if standard.outcome == ObservationOutcome.FAILED:
                             raise RuntimeError(standard.error or "Standard PDF phase failed")
                         if native is None or native_reference is None:
                             raise RuntimeError("Standard PDF phase returned no organized source")
                 else:
-                    native = ctx.reader.native_document(native_reference)
+                    native = ctx.reader.native_document(
+                        native_reference, include_candidate_pages=False
+                    )
                 values = native.values()
                 if (
                     values.get("source_scope") != "whole_document"
@@ -368,6 +374,9 @@ class IngestPdfIntegrated:
                 document = load_snapshot(_snapshot_from_values(values))
                 owner = Path("build/pdf-reconciliation") / uuid4().hex
                 owner.mkdir(parents=True)
+                candidate_source = ctx.reader.capture_pdf_candidates(
+                    native_reference, owner / "candidates"
+                )
                 with (
                     nullcontext(owner) as root,
                     reconcile_pdf_stream(
@@ -403,11 +412,17 @@ class IngestPdfIntegrated:
                                 {
                                     "health": values["health"],
                                     "source_scope": "whole_document",
-                                    "integration_health": selected.health,
                                 },
+                                selected.health,
                             ),
                         },
-                        metadata={"recognition_coverage": values.get("recognition_coverage", ())},
+                        metadata={
+                            "recognition_coverage": values.get("recognition_coverage", ()),
+                            "inline_candidate_pages": (
+                                candidate_source.encoded(number)
+                                for number in candidate_source.page_nos
+                            ),
+                        },
                     )
                     reference = ctx.retain_pdf_records(unit.ref, draft)
                     nodes = native_nodes(selected.document)

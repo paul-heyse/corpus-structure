@@ -5,16 +5,14 @@ from __future__ import annotations
 import base64
 import json
 from hashlib import sha256
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from pydantic_core import to_jsonable_python
 from sqlalchemy import Connection, select, text
 
-from corpus_structure.semantic.pdf_record_reader import (
-    published_native_table,
-    published_record_reader,
-)
+from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.product_reference import ProductReference
 
 
@@ -146,8 +144,28 @@ def _inline_alignment_reports(conn: Connection, *, task_id: int, product_key: st
     return [dict(row) for row in rows]
 
 
-def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> NativeSourceResponse:
+def inspect_native_source(
+    conn: Connection,
+    request: NativeSourceRequest,
+    *,
+    cancellation: BorrowerCancellation | None = None,
+) -> NativeSourceResponse:
+    """Finish a selected read before releasing its cancellation registration."""
+    cancellation = cancellation or BorrowerCancellation()
+    with cancellation.borrow(conn):
+        response = _inspect_native_source(conn, request, cancellation=cancellation)
+        cancellation.check_active()
+        return response
+
+
+def _inspect_native_source(
+    conn: Connection, request: NativeSourceRequest, *, cancellation: BorrowerCancellation
+) -> NativeSourceResponse:
     from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.pdf_record_reader import (
+        published_native_table,
+        published_record_reader,
+    )
     from corpus_structure.semantic.pdf_storage import read_native_items, read_native_regions
 
     runs, tasks, products, builds, runtime = map(
@@ -177,7 +195,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
     if request.view in {"companion", "manifest", "artifact"} or (
         request.view == "trace" and request.occurrence_id is not None
     ):
-        return _inspect_companion(conn, request, run.project_id)
+        return _inspect_companion(conn, request, run.project_id, cancellation=cancellation)
     origin = runs.alias("native_origin_run")
     header = conn.execute(
         select(
@@ -408,6 +426,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                 record_reader = published_record_reader(
                     conn,
                     ProductReference(request.task_id, request.product_key, request.content_digest),
+                    cancellation=cancellation,
                 )
                 if record_reader is not None:
                     outcomes = list(
@@ -464,6 +483,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
         else [pointer for row in rows if isinstance(pointer := row.get("pointer"), str)],
         section_pointer=request.section_pointer or "#/body",
         membership=request.membership or "direct",
+        cancellation=cancellation,
     )
     return NativeSourceResponse(
         selection=request,
@@ -476,10 +496,15 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
 
 
 def _inspect_companion(
-    conn: Connection, request: NativeSourceRequest, project_id: int
+    conn: Connection,
+    request: NativeSourceRequest,
+    project_id: int,
+    *,
+    cancellation: BorrowerCancellation,
 ) -> NativeSourceResponse:
     """Authorize the exact selected graph before reading retained companion/observation data."""
     from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.pdf_record_reader import published_native_table
     from corpus_structure.semantic.pdf_storage import (
         read_pdf_manifest,
         read_pdf_product,
@@ -538,7 +563,11 @@ def _inspect_companion(
         except ValueError as error:
             raise ValueError("invalid artifact continuation offset") from error
         result = read_pdf_artifact(
-            conn, **pin, artifact_digest=request.artifact_digest, offset=offset
+            conn,
+            **pin,
+            artifact_digest=request.artifact_digest,
+            offset=offset,
+            cancellation=cancellation,
         )
         following = result.pop("next_offset")
         content = result.pop("content")
@@ -568,13 +597,22 @@ def _inspect_companion(
         if request.occurrence_id is None or request.cursor is not None:
             raise ValueError("companion trace requires one occurrence and no continuation")
         result = trace_pdf_occurrence(
-            conn, **pin, occurrence_id=request.occurrence_id, limit=request.limit
+            conn,
+            **pin,
+            occurrence_id=request.occurrence_id,
+            limit=request.limit,
+            cancellation=cancellation,
         )
     elif request.view == "manifest":
         if request.collection is None:
             raise ValueError("manifest inspection requires a named collection")
         result = read_pdf_manifest(
-            conn, **pin, collection=request.collection, after=after, limit=request.limit
+            conn,
+            **pin,
+            collection=request.collection,
+            after=after,
+            limit=request.limit,
+            cancellation=cancellation,
         )
     else:
         pointers = None
@@ -610,6 +648,7 @@ def _inspect_companion(
             section_pointer=request.section_pointer,
             after=after,
             limit=request.limit,
+            cancellation=cancellation,
         )
     continuation = result.get("cursor")
     next_cursor = (
@@ -701,13 +740,14 @@ NativeExportFormat = Literal[
 ]
 
 
-def export_native_source(
+def _export_native_source(
     conn: Connection,
     request: NativeSourceRequest,
     destination,
     *,
     format: NativeExportFormat = "parquet",
     settings=None,
+    cancellation: BorrowerCancellation,
 ) -> None:
     """Export a pinned projection or explicitly requested complete native document."""
     import os
@@ -715,6 +755,11 @@ def export_native_source(
     from pathlib import Path
 
     from sqlalchemy import Text
+
+    from corpus_structure.semantic.pdf_record_reader import (
+        published_native_table,
+        published_record_reader,
+    )
 
     destination = Path(destination)
     if format == "selected-source-v1":
@@ -746,11 +791,17 @@ def export_native_source(
             raise ValueError("complete Docling JSON export cannot carry a partial source selector")
         # Resolve authorization and the archived contract through the same pinned reader.
         # Casting the whole JSONB column transfers native JSON without a Python float roundtrip.
-        inspect_native_source(conn, request.model_copy(update={"view": "products", "limit": 1}))
+        inspect_native_source(
+            conn,
+            request.model_copy(update={"view": "products", "limit": 1}),
+            cancellation=cancellation,
+        )
         from corpus_structure.semantic.metadata import table
 
         record_reader = published_record_reader(
-            conn, ProductReference(request.task_id, request.product_key, request.content_digest)
+            conn,
+            ProductReference(request.task_id, request.product_key, request.content_digest),
+            cancellation=cancellation,
         )
         if record_reader is not None:
             temporary = destination.with_name(destination.name + ".partial")
@@ -779,6 +830,7 @@ def export_native_source(
                         stream,
                     )
                     stream.write("\n")
+                cancellation.check_active()
                 os.link(temporary, destination)
             finally:
                 temporary.unlink(missing_ok=True)
@@ -801,6 +853,7 @@ def export_native_source(
                 content_digest=request.content_digest,
                 limit=1,
                 include_body=True,
+                cancellation=cancellation,
             )
             if bundle["identity"]["kind"] != "integrated":
                 raise ValueError("integrated JSON export requires an integrated product")
@@ -840,7 +893,7 @@ def export_native_source(
 
     if request.view not in {"items", "sections"}:
         raise ValueError("streaming native export requires items or sections")
-    response = inspect_native_source(conn, request)
+    response = inspect_native_source(conn, request, cancellation=cancellation)
     # Existing typed SQL projection determines Arrow types, retaining the original text.
     from corpus_structure.schema.interchange import _sql_arrow
     from corpus_structure.semantic.metadata import table
@@ -943,6 +996,7 @@ def export_native_source(
         try:
             selected = request
             while True:
+                cancellation.check_active()
                 pointers = [row["pointer"] for row in response.rows]
                 region = published_native_table(conn, "region")
                 by_pointer = defaultdict(list)
@@ -1015,15 +1069,79 @@ def export_native_source(
                     writer.write_batch(pa.RecordBatch.from_pylist(rows, schema=schema))
                 else:
                     for row in rows:
+                        cancellation.check_active()
                         stream.write(
                             (json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n").encode()
                         )
                 if response.next_cursor is None:
                     break
                 selected = selected.model_copy(update={"cursor": response.next_cursor})
-                response = inspect_native_source(conn, selected)
+                response = inspect_native_source(conn, selected, cancellation=cancellation)
         finally:
             if writer is not None:
                 writer.close()
     os.link(temporary, destination)
     temporary.unlink()
+
+
+def export_native_source(
+    conn: Connection,
+    request: NativeSourceRequest,
+    destination,
+    *,
+    format: NativeExportFormat = "parquet",
+    settings=None,
+    cancellation: BorrowerCancellation | None = None,
+) -> None:
+    """Publish a complete selected export after sink closure and cancellation checks.
+
+    The caller owns snapshot settlement; pass this same token to read_snapshot to
+    keep native cancellation registered through transaction exit.
+    """
+    from tempfile import TemporaryDirectory
+
+    cancellation = cancellation or BorrowerCancellation()
+    cancellation.check_active()
+    destination = Path(destination)
+    if destination.exists():
+        raise FileExistsError(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if format == "selected-source-v1":
+        from .selected_source import export_selected_native_source
+
+        if settings is None:
+            raise ValueError("selected-source-v1 requires the owned runtime settings")
+        export_selected_native_source(request, destination, settings, cancellation=cancellation)
+        return
+    with (
+        cancellation.borrow(conn),
+        TemporaryDirectory(prefix=".pdf-export-", dir=destination.parent) as directory,
+    ):
+        staged = Path(directory) / destination.name
+        _export_native_source(
+            conn, request, staged, format=format, settings=settings, cancellation=cancellation
+        )
+        cancellation.check_active()
+        _publish_native_export(staged, destination, cancellation=cancellation)
+
+
+def _publish_native_export(
+    staged: Path, destination: Path, *, cancellation: BorrowerCancellation
+) -> None:
+    """No-replace publication after the caller's required resource settlement."""
+    import os
+
+    cancellation.check_active()
+    staged_manifest = staged.with_name(staged.name + ".manifest.json")
+    manifest = destination.with_name(destination.name + ".manifest.json")
+    linked_manifest = False
+    try:
+        if staged_manifest.exists():
+            os.link(staged_manifest, manifest)
+            linked_manifest = True
+        cancellation.check_active()
+        os.link(staged, destination)
+    except BaseException:
+        if linked_manifest:
+            manifest.unlink()
+        raise

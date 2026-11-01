@@ -164,11 +164,13 @@ def test_ipc_replay_uses_physical_retry_keys_and_preserves_batch_order(tmp_path)
 
 def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypatch, tmp_path):
     from corpus_structure.ingest import pdf_stream_types, pdf_worker
-    from corpus_structure.semantic import contracts
+    from corpus_structure.semantic import contracts, pdf_contracts
+    from corpus_structure.semantic.pdf_payloads import prepare_payload_family, schema_load
 
     engine = Transactions()
     events = []
     active = [False]
+    payload_family = prepare_payload_family()
     build = pdf_staging.PdfBuildRef("b", 1, 1, "owner", "r", "a" * 64, "b" * 64, "c" * 64)
 
     @contextmanager
@@ -193,7 +195,10 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypat
 
         def stream(self, *args, **kwargs):
             assert active[0] and engine.active == 0
-            return SimpleNamespace(conversion_status="success", errors=())
+            assert schema_load(kwargs["payload_schema"]) == payload_family.json_schema
+            return pdf_stream_types.PdfStreamReply(
+                "success", (), b"{}", (), (), effective_options=b'{"fixture":"prepared-native"}'
+            )
 
         def close(self):
             assert active[0]
@@ -204,12 +209,37 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypat
     monkeypatch.setattr(pdf_worker, "PdfWorker", Worker)
     monkeypatch.setattr(pdf_staging, "begin_pdf_build", lambda *args, **kwargs: build)
     monkeypatch.setattr(contracts, "require_database_operation", lambda *args: None)
+
+    def task_context(connection, task_id):
+        assert connection is engine and engine.active == 1 and active[0]
+        assert task_id == 1
+
+        def json_schema(name):
+            assert name == "PdfInlineCandidatePage"
+            return payload_family.json_schema
+
+        return SimpleNamespace(boundary=SimpleNamespace(json_schema=json_schema))
+
+    monkeypatch.setattr(pdf_contracts, "pdf_context_for_task", task_context)
     from corpus_structure.semantic import pdf_publication
 
+    adoptions = []
+
     def adopt_health(connection, actual, family, records, *, replay_key, cancellation):
-        assert engine.active == 1 and family == "health" and actual is build
+        assert engine.active == 1 and actual is build
         assert cancellation._driver is engine.driver
-        assert next(iter(records))["conversion"] == "success"
+        row = next(iter(records))
+        if family == "native_metadata":
+            assert replay_key == "native:runtime-report"
+            assert row == {
+                "kind": "runtime_report",
+                "ordinal": 0,
+                "value": {"effective_options": '{"fixture":"prepared-native"}'},
+            }
+        else:
+            assert family == "health" and replay_key == "native:health"
+            assert row["conversion"] == "success" and row["source_scope"] == "whole_document"
+        adoptions.append(family)
 
     monkeypatch.setattr(pdf_publication, "adopt_pdf_companion_batch", adopt_health)
     from corpus_structure.ingest.pdf import PdfRecipe
@@ -231,6 +261,7 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypat
         is build
     )
     assert events == ["worker_closed", "source_closed", "claim_closed"]
+    assert adoptions == ["native_metadata", "health"]
 
 
 def test_pdf_transaction_owns_handle_until_commit_and_returns_it_afterward():

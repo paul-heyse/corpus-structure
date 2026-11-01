@@ -37,6 +37,63 @@ def test_phase_partition_is_stable_and_retains_exact_binary(tmp_path):
         ReconciliationJournal(tmp_path / "journal")
 
 
+def test_candidate_journal_preserves_exact_ipc_without_json_interior_or_codec_roundtrip(
+    tmp_path, monkeypatch
+):
+    import pyarrow as pa
+
+    from corpus_structure.semantic.pdf_payloads import (
+        EncodedPagePayload,
+        PreparedPayloadFamily,
+        prepare_payload_family,
+    )
+
+    family = prepare_payload_family()
+    page = {
+        "page_no": 7,
+        "has_words": True,
+        "has_chars": False,
+        "candidates": [
+            dict(
+                page_no=7,
+                text="opaque-candidate",
+                left=1,
+                top=-0.0,
+                right=3.5,
+                bottom=4,
+                origin="TOPLEFT",
+                basis="source",
+                ocr_region_index=2,
+            )
+        ],
+    }
+    encoded = EncodedPagePayload(
+        family.encode(page), family.schema_digest, family.logical_digest(page), 7
+    )
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("journal must not encode/decode the candidate interior")
+
+    monkeypatch.setattr(PreparedPayloadFamily, "encode", refuse)
+    monkeypatch.setattr(PreparedPayloadFamily, "decode", refuse)
+    journal = ReconciliationJournal(tmp_path / "journal")
+    rows = journal.collection("native_metadata")
+    rows.append({"kind": "inline_candidate_pages", "ordinal": 3, "value": encoded})
+    expected = [{"kind": "inline_candidate_pages", "ordinal": 3, "value": encoded}]
+    assert list(rows) == list(rows) == expected
+    with pa.memory_map(str(rows.paths[0]), "r") as source:
+        batch = pa.ipc.open_file(source).get_batch(0)
+        assert batch.column("raw")[0].as_py() == encoded.content
+        body = batch.column("body")[0].as_py()
+        assert "opaque-candidate" not in body and "candidates" not in body
+        assert json.loads(body)["value"]["logical_digest"] == encoded.logical_digest
+    journal.close()
+    with pytest.raises(TypeError, match="encoded Arrow payload"):
+        ReconciliationJournal(tmp_path / "invalid").collection("native_metadata").append(
+            {"kind": "inline_candidate_pages", "ordinal": 0, "value": page}
+        )
+
+
 def test_native_stream_never_uses_legacy_publication_envelope(native_source, tmp_path, monkeypatch):
     from corpus_structure.ingest import pdf, pdf_hierarchy
 

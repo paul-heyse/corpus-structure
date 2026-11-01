@@ -1,0 +1,89 @@
+{
+  "target": "corpus_pdf_20261101",
+  "source": "corpus_pdf_20261031",
+  "release_id": "release:04d071213a20681590ca31cc5a5af8f7fc4071af8389d89d4d7d4b7f51927a4a",
+  "steps": {
+    "2/native": {
+      "run_id": 4,
+      "task_id": 4,
+      "config_id": 1,
+      "old_pin": {
+        "task_id": 2,
+        "product_key": "native",
+        "content_digest": "ca05561954ebf2318e2f020590d74cd87ecac6917e2e992a7b24b679cb6ce504"
+      },
+      "structural_parent": null,
+      "published": {
+        "build_id": "169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943",
+        "task_id": 4,
+        "product_key": "native",
+        "logical_digest": "7326ebf1aa74f611a4b152a68fe37ca1f9c5f76286484e566e5811c96b1faa6d",
+        "release_id": "release:7b15b6b25957107d9caeb8eed1e417188a78a24138032858c6c1320ac172fb8f",
+        "source_digest": "e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9",
+        "schema_digest": "3123788cfea7ddd282a4ec8fdeafee98d106ec2863d6722bbde4fc2f3f2e1bc1",
+        "recipe_digest": "86af5c2cf46cd987f178b712f95bc45d9b6b7d68661d8e3a5126273cdc67cf80",
+        "frozen_digest": "285a247e2e274673f85dfc701412f98ea8104fc2d6b5fe7c6a6d1b79efd91e34",
+        "kind": "native"
+      },
+      "completed": true
+    },
+    "2/organized": {
+      "run_id": 5,
+      "task_id": 5,
+      "config_id": 5,
+      "old_pin": {
+        "task_id": 2,
+        "product_key": "organized",
+        "content_digest": "f89813cf6ce20c9dd3105838674766862211742629ec6d3a44f706064efe7cba"
+      },
+      "structural_parent": {
+        "task_id": 4,
+        "product_key": "native",
+        "content_digest": "7326ebf1aa74f611a4b152a68fe37ca1f9c5f76286484e566e5811c96b1faa6d"
+      },
+      "published": {
+        "build_id": "49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2",
+        "task_id": 5,
+        "product_key": "organized",
+        "logical_digest": "792b6c863f13abedefcb9ea1b1a0dbf6fac1e9e0291963525fe27c9edcfec782",
+        "release_id": "release:d97e7deac34f3061b58b0b5f4d989b1db5088d67ea5da6104f821ed34022682f",
+        "source_digest": "e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9",
+        "schema_digest": "3123788cfea7ddd282a4ec8fdeafee98d106ec2863d6722bbde4fc2f3f2e1bc1",
+        "recipe_digest": "95e74ea1986540d14ba8782fd59814fb0ffe9452b915d8c144b51ed8f880307a",
+        "frozen_digest": "d223994e85236d2fbe6e5b6932954ab3e6a50b4d42368ab355a092c888ad990e",
+        "kind": "native"
+      },
+      "completed": true
+    },
+    "7/math-enriched": {
+      "run_id": 6,
+      "task_id": 6,
+      "config_id": 6,
+      "old_pin": {
+        "task_id": 7,
+        "product_key": "math-enriched",
+        "content_digest": "8468df6fb3af853b1d0757b18facc7ecd2ff25fa301e8f4b8e05aa2930b6948d"
+      },
+      "structural_parent": {
+        "task_id": 5,
+        "product_key": "organized",
+        "content_digest": "792b6c863f13abedefcb9ea1b1a0dbf6fac1e9e0291963525fe27c9edcfec782"
+      },
+      "published": {
+        "build_id": "64f00615e174025744f21c0edcc865b44075713f346026ff1158bb914079a253",
+        "task_id": 6,
+        "product_key": "math-enriched",
+        "logical_digest": "e1ffcf06fe12df156cf893d6b80554257228133bced93549b4cbba3a5016cd65",
+        "release_id": "release:04d071213a20681590ca31cc5a5af8f7fc4071af8389d89d4d7d4b7f51927a4a",
+        "source_digest": "e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9",
+        "schema_digest": "3123788cfea7ddd282a4ec8fdeafee98d106ec2863d6722bbde4fc2f3f2e1bc1",
+        "recipe_digest": "0919236aec77cb1078501e0f925a65353de1f2694eabf91a03e421f90870435d",
+        "frozen_digest": "c30e4200d7111d8484e775ec94347c8b9b2357c288d72d61a77888d21832c2f8",
+        "kind": "native"
+      },
+      "completed": true
+    }
+  },
+  "reused_published_prefix_from": "release:d97e7deac34f3061b58b0b5f4d989b1db5088d67ea5da6104f821ed34022682f",
+  "prior_checkpoint": "checkpoint-published-prefix-d97e7deac34f-ba3fa7a25aa6.json"
+}

@@ -140,9 +140,25 @@ Native closure still covers inventories, tree/backpointers/order, frames, occurr
 inputs/artifacts, independent relation endpoints, decisions and coverage. Acyclicity applies to
 containment/product dependencies, not every cross-reference. Hash claims alone are insufficient.
 
-0060 JSON-text decomposition remains the deployed baseline.0061's set-shaped child guard is
-committed/undeployed and remains frozen; its semantics carry forward in new native guards.
-No live migration, whole-book publication or completed consumer adoption follows from this target.
+**Implemented; scoped native controls Tested (2026-11-01).** The model declares the projection
+write isolation policy. Admission requires READ COMMITTED before acquiring the build fence, so
+a stale repeatable-read snapshot cannot append after another transaction finalizes validation.
+The native validation identity binds that policy and the archived semantic validator dependencies.
+Final seal consumes the same qualified immutable receipt as validation lookup; it does not rehash
+all projections while holding the task fence. Stale unfinished receipts refuse with an explicit
+fresh-current-rebuild action. Published replay retains its original producing release and identity.
+Semantic PDF schema identity, projection identity and validation identity remain separate fields.
+
+Typed outer COPY profiles distinguish Arrow transfer bytes from PostgreSQL native value extents.
+Reference preparation uses existing native-address keys and a materialized streamed-address
+candidate set; ambiguity and source-graph scope remain enforced. Ownership counts are aggregated
+once over containment edges, preserving duplicate-edge and orphan refusal. These are execution
+choices within the existing modeled operations, not new data authorities or completion states.
+
+Historical0060 JSON-text decomposition and the frozen0061 successor remain unchanged. The
+current-realization rebuild deploys forward artifacts into a separately owned database; it does
+not upgrade the historical book. Source/storage readiness and native publication do not establish
+completed knowledge or operational adoption.
 [PDF-20/21](../plans/pdf-docling-pipeline/staged-publication-and-validation.md) own durable staging/seal;
 PDF-24/25 own shared consumer/export migration and operational handoff. The coordinator owns evidence.
 
@@ -164,6 +180,13 @@ against actual bytes at that boundary. Other exact JSON metadata retains applica
 The existing validation-derived projection phase and result/seal premises govern completeness.
 RC12 rebuilds current products from compatible retained evidence without mandatory old readers.
 The following paragraph records the earlier scoped JSON mechanism, which remains for JSON families.
+
+**Implemented; scoped native controls Tested (2026-11-01).** Native reads verify the model-bound
+serialization projection before strict callback validation. Supplied computed table/chart grids
+must match Docling's declared computed value; field-only records need not manufacture them.
+The shared boundary checks finite JSON, native tree/clamp behavior and exact supplied state,
+including empty/null presence, and returns the privately validated model. Exact payload SHA and
+schema-version checks remain separate. Export serialization is not a second state authority.
 
 
 **Implemented; scoped native controls Tested (2026-11-01).** Exact metadata JSON remains in verified

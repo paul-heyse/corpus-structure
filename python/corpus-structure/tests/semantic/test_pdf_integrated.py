@@ -916,7 +916,7 @@ def test_forward_migration_backfills_structural_edges_without_rewriting_native(
     native_source,
     tmp_path,
 ):
-    """Produce a real pre-PDF13 archive with historical source, then migrate it."""
+    """Preserve a real historical archive/backfill without reviving its runtime ABI."""
     import base64
     import json
     import os
@@ -924,6 +924,8 @@ def test_forward_migration_backfills_structural_edges_without_rewriting_native(
     import sys
     import tarfile
     from pathlib import Path
+
+    import yaml
 
     from corpus_structure.semantic.migrations import upgrade
     from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
@@ -1113,35 +1115,97 @@ admin.dispose()
                     ).scalar_one()
                     == 4
                 )
-                context = pdf_context_for_task(conn, receipt["task"])
-                assert "PdfIntegratedProduct" not in {d.name for d in context.boundary.definitions}
-                old = read_pdf_product(
-                    conn,
-                    task_id=receipt["task"],
-                    product_key="native",
-                    content_digest=receipt["native_digest"],
-                    include_body=True,
-                )
-                assert old["body"]["document"] == native_source.payload["document"]
-                with pytest.raises(PreparationError):
-                    prepare(observation(native_source), native_source, context=context)
-            with writer.begin() as conn:
-                archived_native = prepare_pdf_product(
-                    old["body"],
-                    native_source.original,
-                    native_source.schema,
-                    native_source.recipe,
-                    context=context,
+                # Frozen migration preserves historical meaning as exact retained
+                # evidence. RC12 does not revive that release's execution ABI.
+                native_row = next(row for row in after if row.product_key == "native")
+                old_payload = bytes(native_row.payload)
+                assert sha256(old_payload).hexdigest() == receipt["native_digest"]
+                old_body = json.loads(old_payload)
+                assert old_body["document"] == native_source.payload["document"]
+                archived_contract = conn.execute(
+                    text(
+                        "SELECT i.content,i.content_digest FROM sem.input i "
+                        "JOIN ops.run r ON r.release_id=i.release_id "
+                        "JOIN ops.task t ON t.run_id=r.id WHERE t.id=:task "
+                        "AND i.input_kind='dependency' "
+                        "AND i.input_name='execution/schema/pdf_products'"
+                    ),
+                    {"task": receipt["task"]},
+                ).one()
+                assert (
+                    sha256(bytes(archived_contract.content)).hexdigest()
+                    == archived_contract.content_digest
+                    == native_row.contract_digest
                 )
                 assert (
+                    "PdfIntegratedProduct"
+                    not in yaml.safe_load(archived_contract.content)["classes"]
+                )
+                artifact = table("kb.source_artifact")
+                retained = dict(
+                    conn.execute(
+                        select(artifact.c.artifact_digest, artifact.c.content).where(
+                            artifact.c.artifact_digest.in_(
+                                old_body[name]
+                                for name in ("artifact_digest", "schema_digest", "recipe_digest")
+                            )
+                        )
+                    ).all()
+                )
+                for name, expected in (
+                    ("artifact_digest", native_source.original),
+                    ("schema_digest", native_source.schema),
+                    ("recipe_digest", native_source.recipe),
+                ):
+                    assert bytes(retained[old_body[name]]) == expected
+                    assert sha256(expected).hexdigest() == old_body[name]
+                with pytest.raises(PreparationError) as refused_context:
+                    pdf_context_for_task(conn, receipt["task"])
+                assert {d.code for d in refused_context.value.diagnostics} == {
+                    "unsupported_execution_abi"
+                }
+            # A newly prepared current product cannot authorize publication under
+            # the historical task. Its archived compiler identity remains untouched.
+            current_product = prepare_pdf_product(
+                old_body,
+                native_source.original,
+                native_source.schema,
+                native_source.recipe,
+            )
+            with writer.begin() as conn:
+                with pytest.raises(PreparationError) as refused_read:
+                    read_pdf_product(
+                        conn,
+                        task_id=receipt["task"],
+                        product_key="native",
+                        content_digest=receipt["native_digest"],
+                        include_body=True,
+                    )
+                assert {d.code for d in refused_read.value.diagnostics} == {
+                    "unsupported_execution_abi"
+                }
+                with pytest.raises(PreparationError) as refused_write:
                     store_pdf_product(
                         conn,
                         task_id=receipt["task"],
                         attempt=receipt["attempt"],
                         holder="old-pdf-fixture",
-                        product=archived_native,
+                        product=current_product,
                     )
-                    == receipt["native_digest"]
+                assert {d.code for d in refused_write.value.diagnostics} == {
+                    "unsupported_execution_abi"
+                }
+            with engine.connect() as conn:
+                assert (
+                    conn.execute(
+                        text(
+                            "SELECT product_key,content_digest,contract_digest,payload "
+                            "FROM ops.native_document_product "
+                            "WHERE task_id=:task ORDER BY product_key"
+                        ),
+                        {"task": receipt["task"]},
+                    ).all()
+                    == before
                 )
         finally:
             writer.dispose()

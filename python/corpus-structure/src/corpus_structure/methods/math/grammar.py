@@ -55,6 +55,7 @@ from __future__ import annotations
 import codecs
 import dataclasses
 import functools
+import gc
 import hashlib
 import json
 import re
@@ -448,6 +449,7 @@ def _deadline(seconds: float) -> Generator[None]:
     started = time.monotonic()
     outer_first = remaining > 0 and remaining <= seconds
     budget = min(seconds, remaining) if remaining > 0 else seconds
+    automatic_gc = gc.isenabled()
 
     def expire(signum: int, frame: FrameType | None) -> None:
         if outer_first and callable(previous):
@@ -455,6 +457,10 @@ def _deadline(seconds: float) -> Generator[None]:
         raise _Expired
 
     try:
+        # A raising process alarm must not interrupt unrelated automatic cycle
+        # finalizers: Python reports those exceptions through the unraisable hook.
+        # Nested stages borrow the disabled state; collection resumes after cleanup.
+        gc.disable()
         # Enter the cleanup guard before changing or arming process signal state.
         # A valid tiny budget can expire during setitimer itself.
         signal.signal(signal.SIGALRM, expire)
@@ -465,12 +471,15 @@ def _deadline(seconds: float) -> Generator[None]:
         if time.monotonic() - started >= budget:
             expire(signal.SIGALRM, None)
     finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, previous)
-        if remaining > 0:
-            # Do not refund elapsed work or accidentally disarm an enclosing timer.
-            left = remaining - (time.monotonic() - started)
-            signal.setitimer(signal.ITIMER_REAL, max(left, 1e-6), interval)
+        try:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, previous)
+            if remaining > 0:
+                # Do not refund elapsed work or accidentally disarm an enclosing timer.
+                left = remaining - (time.monotonic() - started)
+                signal.setitimer(signal.ITIMER_REAL, max(left, 1e-6), interval)
+        finally:
+            (gc.enable if automatic_gc else gc.disable)()
 
 
 def deadline(seconds: float) -> AbstractContextManager[None]:

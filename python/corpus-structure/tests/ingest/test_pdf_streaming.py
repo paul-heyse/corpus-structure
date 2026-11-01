@@ -116,6 +116,63 @@ def test_page_replay_refuses_corrupt_bytes(tmp_path):
     image.close()
 
 
+def test_page_envelope_delegates_native_serializer_and_preserves_assembly_classes(
+    tmp_path, monkeypatch
+):
+    from docling.datamodel.base_models import ContainerElement, Table
+    from ingest.test_pdf_assembly import assembly
+
+    page, image = page_with_image()
+    page.assembled = assembly()
+    expected = page.model_dump(mode="json")
+
+    def refuse_intermediate_json(*args, **kwargs):
+        raise AssertionError("native page was separately serialized to JSON")
+
+    monkeypatch.setattr(Page, "model_dump_json", refuse_intermediate_json)
+    spool = PdfStreamSpool(tmp_path / "spool")
+    spool.capture_page(page, SimpleNamespace(retain_parsed_lines=lambda page: None), 2.0)
+    replay = json.loads(spool.pages[1].path.read_bytes())
+    assert replay["page"] == expected
+    assert replay["serialization_profile"] == "pydantic-native-page-envelope-v1"
+    result = SimpleNamespace(pages=[page])
+    spool.restore_pages(result)
+    assert type(result.pages[0].assembled.elements[0]) is ContainerElement
+    assert type(result.pages[0].assembled.elements[1]) is Table
+    image.close()
+
+
+def test_prepared_profile_records_requested_effective_scale_and_image_borrower():
+    from docling.datamodel.backend_options import ThreadedDoclingParseBackendOptions
+
+    from corpus_structure.ingest.pdf import PdfConverter, PdfRecipe
+    from corpus_structure.ingest.pdf_health import ObservedFormulaStage
+
+    converter = PdfConverter(
+        PdfRecipe("a" * 40, "b" * 40, recipe_id="docling-standard-pdf-stream-v1"),
+        stream_spool=object(),
+    )
+    converter._options = converter.recipe.options()
+    converter._formula = ObservedFormulaStage(SimpleNamespace(images_scale=1.67))
+    requested = converter._options.model_dump(mode="json", serialize_as_any=True)
+    converter._capture_prepared_profile(requested, ThreadedDoclingParseBackendOptions())
+    profile = json.loads(converter.prepared_options_report)["_preparation"]
+    assert profile["image_ownership"]["requested_formula_scale"] == 2.0
+    assert profile["image_ownership"]["effective_formula_scale"] == 1.67
+    assert (
+        profile["image_ownership"]["last_borrower"]
+        == "native-formula-preparation-after-global-assembly"
+    )
+    assert (
+        profile["image_ownership"]["global_graph"]
+        == "materialized-native-reading-order-and-heading"
+    )
+    assert profile["arrow_resources"]["ipc_use_threads"] is False
+    assert profile["native_variants"]["ocr_options"] == "RapidOcrOptions"
+    converter._options.code_formula_options.scale = 4.0
+    assert json.loads(converter.prepared_options_report)["_preparation"] == profile
+
+
 def native_document():
     doc = DoclingDocument(name="native")
     doc.add_text(label=DocItemLabel.TEXT, text="Recognized Ω with repeated words words")

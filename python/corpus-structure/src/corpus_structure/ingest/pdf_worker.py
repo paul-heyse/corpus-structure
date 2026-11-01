@@ -60,6 +60,11 @@ def _native_child(
                         request.original, name=request.name, page_range=request.page_range
                     )
                 elif isinstance(request, PdfStreamRequest):
+                    from corpus_structure.semantic.pdf_payloads import (
+                        prepare_payload_schema,
+                        schema_load,
+                    )
+
                     from .pdf_streaming import PdfStreamSpool, StreamingPdfProducer
 
                     def acknowledged(replay: PdfReplayRef) -> None:
@@ -67,7 +72,16 @@ def _native_child(
                         if connection.recv() is not True:
                             raise PdfWorkerError("PDF replay custody was not acknowledged")
 
-                    spool = PdfStreamSpool(request.spool_root, on_page=acknowledged)
+                    payload_family = (
+                        prepare_payload_schema(schema_load(request.payload_schema))
+                        if request.payload_schema is not None
+                        else None
+                    )
+                    spool = PdfStreamSpool(
+                        request.spool_root,
+                        on_page=acknowledged,
+                        payload_family=payload_family,
+                    )
                     streamed = StreamingPdfProducer(recipe, assets=assets).run(
                         request.source, spool, page_range=request.page_range
                     )
@@ -131,6 +145,7 @@ def _native_child(
                         streamed.recipe,
                         tuple(spool.pages[n] for n in sorted(spool.pages)),
                         records,
+                        streamed.effective_options,
                     )
                     del streamed
                 elif isinstance(request, PdfEnrichmentRequest):
@@ -278,6 +293,7 @@ class PdfWorker:
         structural_pin: dict | None = None,
         integration_policy: dict | None = None,
         reconciliation_root: Path | None = None,
+        payload_schema: bytes | None = None,
     ) -> PdfStreamReply:
         value = self._exchange(
             PdfStreamRequest(
@@ -291,6 +307,7 @@ class PdfWorker:
                 structural_pin,
                 integration_policy,
                 reconciliation_root,
+                payload_schema,
             ),
             check_active,
             on_replay,

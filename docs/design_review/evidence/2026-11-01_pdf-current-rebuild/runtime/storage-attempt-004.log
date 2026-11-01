@@ -1,0 +1,92 @@
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Traceback (most recent call last):
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-01_pdf-current-rebuild/rebuild_current_book.py", line 389, in <module>
+    main()
+    ~~~~^^
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-01_pdf-current-rebuild/rebuild_current_book.py", line 379, in main
+    execute(args)
+    ~~~~~~~^^^^^^
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-01_pdf-current-rebuild/rebuild_current_book.py", line 341, in execute
+    published = migrate_retained_pdf_envelope(engine, claim, holder, path=kept,
+        expected_sha256=old["content_digest"], original=original, schema_bytes=schema,
+        recipe_bytes=recipe, directory=output / "private" / old["product_key"],
+        kind="native", product_key=old["product_key"], structural_parent=parent)
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/orchestrate/pdf_streaming.py", line 896, in migrate_retained_pdf_envelope
+    return publish_pdf_record_draft(
+        engine,
+    ...<5 lines>...
+        cancellation=cancellation,
+    )
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/orchestrate/pdf_streaming.py", line 607, in publish_pdf_record_draft
+    streamed.write_record_batches(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        owner / "records",
+        ^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        on_batch=adopt,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/ingest/pdf_streaming.py", line 529, in write_record_batches
+    for row in self.iter_records(
+               ~~~~~~~~~~~~~~~~~^
+        product_id=build_id,
+        ^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        write_scalar=scalar,
+        ^^^^^^^^^^^^^^^^^^^^
+    ):
+    ^
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/ingest/pdf_streaming.py", line 359, in iter_records
+    yield from iter_native_records(
+    ...<9 lines>...
+    )
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/pdf_records.py", line 515, in iter_native_records
+    yield from object_rows(document, root_schema, native_address, root)
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/pdf_records.py", line 459, in object_rows
+    yield from memberships(record_id, field, member, member_schema, member_path)
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/pdf_records.py", line 414, in memberships
+    yield from object_rows(member, member_schema, member_path, child)
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/pdf_records.py", line 432, in object_rows
+    selected, schema_path = mapping.resolve(schema, value, path)
+                            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/pdf_records.py", line 108, in resolve
+    matches = [s for s in choices if self.validator.evolve(schema=s).is_valid(value)]
+                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/jsonschema/validators.py", line 499, in is_valid
+    error = next(self.iter_errors(instance), None)
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/jsonschema/validators.py", line 383, in iter_errors
+    for error in errors:
+                 ^^^^^^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/jsonschema/_keywords.py", line 275, in ref
+    yield from validator._validate_reference(ref=ref, instance=instance)
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/jsonschema/validators.py", line 431, in descend
+    for error in errors:
+                 ^^^^^^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/jsonschema/_keywords.py", line 296, in properties
+    yield from validator.descend(
+    ...<4 lines>...
+    )
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/jsonschema/validators.py", line 396, in descend
+    def descend(
+    
+KeyboardInterrupt

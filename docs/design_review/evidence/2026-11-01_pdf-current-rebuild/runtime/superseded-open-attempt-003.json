@@ -1,0 +1,37 @@
+{
+  "stages": [
+    {
+      "build_id": "dba3858a09f024041f771e23862064b8eea955b057014ad8e00fceeab6c2cef4",
+      "state": "open",
+      "task_id": 3,
+      "attempt": 1
+    }
+  ],
+  "published_count": 0,
+  "frozen_count": 0,
+  "known_failure": {
+    "at": "2026-11-01T18:00:05.600357+00:00",
+    "outcome": "failed",
+    "error_type": "IntegrityError",
+    "message": "(psycopg.errors.CheckViolation) private PDF upload profile exceeded\nCONTEXT:  PL/pgSQL function ops.adopt_pdf_batch(text,bigint,bigint,text,text) line 14 at RAISE\n[SQL: SELECT * FROM ops.adopt_pdf_batch(%(build)s,%(task)s,%(attempt)s,%(holder)s,%(key)s)]\n[parameters: {'build': 'dba3858a09f024041f771e23862064b8eea955b057014ad8e00fceeab6c2cef4', 'task': 3, 'attempt': 1, 'holder': 'current-book-storage:3', 'key': 'retained:parts:0'}]\n(Background on this error at: https://sqlalche.me/e/21/gkpj)"
+  },
+  "checkpoint": {
+    "target": "corpus_pdf_20261101",
+    "source": "corpus_pdf_20261031",
+    "release_id": "release:600be97df4661879a45ec9acf13107eca4bf1a5699ad6b39657286044c9be092",
+    "steps": {
+      "2/native": {
+        "run_id": 3,
+        "task_id": 3,
+        "config_id": 1,
+        "old_pin": {
+          "task_id": 2,
+          "product_key": "native",
+          "content_digest": "ca05561954ebf2318e2f020590d74cd87ecac6917e2e992a7b24b679cb6ce504"
+        },
+        "structural_parent": null
+      }
+    },
+    "supersedes_checkpoint": "checkpoint-superseded-002.json"
+  }
+}

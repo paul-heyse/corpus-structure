@@ -1,0 +1,615 @@
+{
+  "binding": "169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943",
+  "mode": "EXPLAIN only; no ANALYZE",
+  "queries": {
+    "ordered_membership": {
+      "sql": "SELECT EXISTS(SELECT FROM kb.pdf_record_native n CROSS JOIN LATERAL jsonb_each(n.structure_json->'fields') f LEFT JOIN LATERAL (SELECT count(*) count_,min(ordinal) min_,max(ordinal) max_ FROM kb.pdf_record_membership m WHERE m.product_id=:b AND m.parent_id=n.record_id AND m.field_name=f.key) members ON true WHERE n.product_id=:b AND f.value->>'kind' IN ('array','map') AND (members.count_<>(f.value->>'length')::bigint OR (members.count_>0 AND (members.min_<>0 OR members.max_<>members.count_-1))))",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 6.85,
+            "Total Cost": 6.86,
+            "Plan Rows": 1,
+            "Plan Width": 1,
+            "Disabled": false,
+            "Plans": [
+              {
+                "Node Type": "Nested Loop",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 1",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Join Type": "Inner",
+                "Startup Cost": 3.35,
+                "Total Cost": 1866571.91,
+                "Plan Rows": 532319,
+                "Plan Width": 0,
+                "Disabled": false,
+                "Inner Unique": true,
+                "Plans": [
+                  {
+                    "Node Type": "Nested Loop",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Inner",
+                    "Startup Cost": 0.01,
+                    "Total Cost": 59965.13,
+                    "Plan Rows": 534104,
+                    "Plan Width": 129,
+                    "Disabled": false,
+                    "Inner Unique": false,
+                    "Plans": [
+                      {
+                        "Node Type": "Seq Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Relation Name": "pdf_record_native",
+                        "Alias": "n",
+                        "Startup Cost": 0.0,
+                        "Total Cost": 21464.15,
+                        "Plan Rows": 267052,
+                        "Plan Width": 214,
+                        "Disabled": false,
+                        "Filter": "(product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text)"
+                      },
+                      {
+                        "Node Type": "Memoize",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Startup Cost": 0.01,
+                        "Total Cost": 1.51,
+                        "Plan Rows": 2,
+                        "Plan Width": 64,
+                        "Disabled": false,
+                        "Cache Key": "n.structure_json",
+                        "Cache Mode": "binary",
+                        "Plans": [
+                          {
+                            "Node Type": "Function Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Function Name": "jsonb_each",
+                            "Alias": "f",
+                            "Startup Cost": 0.01,
+                            "Total Cost": 1.5,
+                            "Plan Rows": 2,
+                            "Plan Width": 64,
+                            "Disabled": false,
+                            "Filter": "((value ->> 'kind'::text) = ANY ('{array,map}'::text[]))"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "Node Type": "Subquery Scan",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Alias": "members",
+                    "Startup Cost": 3.33,
+                    "Total Cost": 3.37,
+                    "Plan Rows": 1,
+                    "Plan Width": 24,
+                    "Disabled": false,
+                    "Filter": "((members.count_ <> ((f.value ->> 'length'::text))::bigint) OR ((members.count_ > 0) AND ((members.min_ <> 0) OR (members.max_ <> (members.count_ - 1)))))",
+                    "Plans": [
+                      {
+                        "Node Type": "Aggregate",
+                        "Strategy": "Plain",
+                        "Partial Mode": "Simple",
+                        "Parent Relationship": "Subquery",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Startup Cost": 3.33,
+                        "Total Cost": 3.34,
+                        "Plan Rows": 1,
+                        "Plan Width": 24,
+                        "Disabled": false,
+                        "Plans": [
+                          {
+                            "Node Type": "Index Only Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Scan Direction": "Forward",
+                            "Index Name": "pk_pdf_record_membership",
+                            "Relation Name": "pdf_record_membership",
+                            "Alias": "m",
+                            "Startup Cost": 0.55,
+                            "Total Cost": 3.32,
+                            "Plan Rows": 1,
+                            "Plan Width": 8,
+                            "Disabled": false,
+                            "Index Cond": "((product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text) AND (parent_id = n.record_id) AND (field_name = f.key))"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "missing_object_target": {
+      "sql": "SELECT EXISTS(SELECT FROM kb.pdf_record_native n CROSS JOIN LATERAL jsonb_each(n.structure_json->'fields') f LEFT JOIN kb.pdf_record_native target ON target.product_id=:b AND target.record_id=f.value->>'target' WHERE n.product_id=:b AND f.value->>'kind'='object' AND target.record_id IS NULL)",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 71553.25,
+            "Total Cost": 71553.26,
+            "Plan Rows": 1,
+            "Plan Width": 1,
+            "Disabled": false,
+            "Plans": [
+              {
+                "Node Type": "Gather",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 1",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 21279.66,
+                "Total Cost": 71553.25,
+                "Plan Rows": 1,
+                "Plan Width": 0,
+                "Disabled": false,
+                "Workers Planned": 3,
+                "Single Copy": false,
+                "Plans": [
+                  {
+                    "Node Type": "Hash Join",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": true,
+                    "Async Capable": false,
+                    "Join Type": "Anti",
+                    "Startup Cost": 20279.66,
+                    "Total Cost": 70553.15,
+                    "Plan Rows": 1,
+                    "Plan Width": 0,
+                    "Disabled": false,
+                    "Inner Unique": false,
+                    "Hash Cond": "((f.value ->> 'target'::text) = target.record_id)",
+                    "Plans": [
+                      {
+                        "Node Type": "Nested Loop",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Join Type": "Inner",
+                        "Startup Cost": 0.01,
+                        "Total Cost": 49842.78,
+                        "Plan Rows": 86146,
+                        "Plan Width": 32,
+                        "Disabled": false,
+                        "Inner Unique": false,
+                        "Plans": [
+                          {
+                            "Node Type": "Seq Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": true,
+                            "Async Capable": false,
+                            "Relation Name": "pdf_record_native",
+                            "Alias": "n",
+                            "Startup Cost": 0.0,
+                            "Total Cost": 19202.82,
+                            "Plan Rows": 86146,
+                            "Plan Width": 149,
+                            "Disabled": false,
+                            "Filter": "(product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text)"
+                          },
+                          {
+                            "Node Type": "Memoize",
+                            "Parent Relationship": "Inner",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Startup Cost": 0.01,
+                            "Total Cost": 1.51,
+                            "Plan Rows": 1,
+                            "Plan Width": 32,
+                            "Disabled": false,
+                            "Cache Key": "n.structure_json",
+                            "Cache Mode": "binary",
+                            "Plans": [
+                              {
+                                "Node Type": "Function Scan",
+                                "Parent Relationship": "Outer",
+                                "Parallel Aware": false,
+                                "Async Capable": false,
+                                "Function Name": "jsonb_each",
+                                "Alias": "f",
+                                "Startup Cost": 0.01,
+                                "Total Cost": 1.5,
+                                "Plan Rows": 1,
+                                "Plan Width": 32,
+                                "Disabled": false,
+                                "Filter": "((value ->> 'kind'::text) = 'object'::text)"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "Node Type": "Hash",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": true,
+                        "Async Capable": false,
+                        "Startup Cost": 19202.82,
+                        "Total Cost": 19202.82,
+                        "Plan Rows": 86146,
+                        "Plan Width": 65,
+                        "Disabled": false,
+                        "Plans": [
+                          {
+                            "Node Type": "Seq Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": true,
+                            "Async Capable": false,
+                            "Relation Name": "pdf_record_native",
+                            "Alias": "target",
+                            "Startup Cost": 0.0,
+                            "Total Cost": 19202.82,
+                            "Plan Rows": 86146,
+                            "Plan Width": 65,
+                            "Disabled": false,
+                            "Filter": "(product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text)"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "parent_child_forward": {
+      "sql": "SELECT EXISTS(SELECT FROM kb.pdf_record_access parent JOIN kb.pdf_record_access child ON child.product_id=parent.product_id AND child.parent_pointer=parent.pointer WHERE parent.product_id=:b AND NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE(parent.native_json->'children','[]')) c WHERE c->>'$ref'=child.pointer))",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 6.35,
+            "Total Cost": 6.36,
+            "Plan Rows": 1,
+            "Plan Width": 1,
+            "Disabled": false,
+            "Plans": [
+              {
+                "Node Type": "Nested Loop",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 2",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Join Type": "Inner",
+                "Startup Cost": 0.54,
+                "Total Cost": 153811.31,
+                "Plan Rows": 26492,
+                "Plan Width": 0,
+                "Disabled": false,
+                "Inner Unique": false,
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Relation Name": "pdf_record_access",
+                    "Alias": "child",
+                    "Startup Cost": 0.0,
+                    "Total Cost": 6304.34,
+                    "Plan Rows": 52987,
+                    "Plan Width": 87,
+                    "Disabled": false,
+                    "Filter": "(product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text)"
+                  },
+                  {
+                    "Node Type": "Index Scan",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Scan Direction": "Forward",
+                    "Index Name": "pk_pdf_record_access",
+                    "Relation Name": "pdf_record_access",
+                    "Alias": "parent",
+                    "Startup Cost": 0.54,
+                    "Total Cost": 2.77,
+                    "Plan Rows": 1,
+                    "Plan Width": 623,
+                    "Disabled": false,
+                    "Index Cond": "((product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text) AND (pointer = child.parent_pointer))",
+                    "Filter": "(NOT EXISTS(SubPlan 1))",
+                    "Plans": [
+                      {
+                        "Node Type": "Function Scan",
+                        "Parent Relationship": "SubPlan",
+                        "Subplan Name": "SubPlan 1",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Function Name": "jsonb_array_elements",
+                        "Alias": "c",
+                        "Startup Cost": 0.01,
+                        "Total Cost": 1.5,
+                        "Plan Rows": 1,
+                        "Plan Width": 0,
+                        "Disabled": false,
+                        "Filter": "((value ->> '$ref'::text) = child.pointer)"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "parent_child_reverse": {
+      "sql": "SELECT EXISTS(SELECT FROM kb.pdf_record_access parent CROSS JOIN LATERAL jsonb_array_elements(COALESCE(parent.native_json->'children','[]')) c LEFT JOIN kb.pdf_record_access child ON child.product_id=:b AND child.pointer=c->>'$ref' WHERE parent.product_id=:b AND (child.pointer IS NULL OR child.parent_pointer IS DISTINCT FROM parent.pointer))",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 0.61,
+            "Total Cost": 0.62,
+            "Plan Rows": 1,
+            "Plan Width": 1,
+            "Disabled": false,
+            "Plans": [
+              {
+                "Node Type": "Nested Loop",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 1",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Join Type": "Left",
+                "Startup Cost": 0.56,
+                "Total Cost": 258428.25,
+                "Plan Rows": 5298600,
+                "Plan Width": 0,
+                "Disabled": false,
+                "Inner Unique": false,
+                "Filter": "((child.pointer IS NULL) OR (child.parent_pointer IS DISTINCT FROM parent.pointer))",
+                "Plans": [
+                  {
+                    "Node Type": "Nested Loop",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Inner",
+                    "Startup Cost": 0.01,
+                    "Total Cost": 112278.34,
+                    "Plan Rows": 5298700,
+                    "Plan Width": 45,
+                    "Disabled": false,
+                    "Inner Unique": false,
+                    "Plans": [
+                      {
+                        "Node Type": "Seq Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Relation Name": "pdf_record_access",
+                        "Alias": "parent",
+                        "Startup Cost": 0.0,
+                        "Total Cost": 6304.34,
+                        "Plan Rows": 52987,
+                        "Plan Width": 558,
+                        "Disabled": false,
+                        "Filter": "(product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text)"
+                      },
+                      {
+                        "Node Type": "Function Scan",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Function Name": "jsonb_array_elements",
+                        "Alias": "c",
+                        "Startup Cost": 0.01,
+                        "Total Cost": 1.0,
+                        "Plan Rows": 100,
+                        "Plan Width": 32,
+                        "Disabled": false
+                      }
+                    ]
+                  },
+                  {
+                    "Node Type": "Memoize",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Startup Cost": 0.55,
+                    "Total Cost": 4.32,
+                    "Plan Rows": 1,
+                    "Plan Width": 22,
+                    "Disabled": false,
+                    "Cache Key": "(c.value ->> '$ref'::text)",
+                    "Cache Mode": "logical",
+                    "Plans": [
+                      {
+                        "Node Type": "Index Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Scan Direction": "Forward",
+                        "Index Name": "pk_pdf_record_access",
+                        "Relation Name": "pdf_record_access",
+                        "Alias": "child",
+                        "Startup Cost": 0.54,
+                        "Total Cost": 4.31,
+                        "Plan Rows": 1,
+                        "Plan Width": 22,
+                        "Disabled": false,
+                        "Index Cond": "((product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text) AND (pointer = (c.value ->> '$ref'::text)))"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "ordered_membership_revision": {
+      "sql": "SELECT EXISTS(SELECT FROM kb.pdf_record_native n CROSS JOIN LATERAL jsonb_each(n.structure_json->'fields') f LEFT JOIN LATERAL (SELECT count(*) count_,min(ordinal) min_,max(ordinal) max_ FROM kb.pdf_record_membership m WHERE m.product_id=:b AND m.revision_id=:b AND m.parent_id=n.record_id AND m.field_name=f.key) members ON true WHERE n.product_id=:b AND n.revision_id=:b AND f.value->>'kind' IN ('array','map') AND (members.count_<>(f.value->>'length')::bigint OR (members.count_>0 AND (members.min_<>0 OR members.max_<>members.count_-1))))",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 3.54,
+            "Total Cost": 3.55,
+            "Plan Rows": 1,
+            "Plan Width": 1,
+            "Disabled": false,
+            "Plans": [
+              {
+                "Node Type": "Nested Loop",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 1",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Join Type": "Inner",
+                "Startup Cost": 1.69,
+                "Total Cost": 983297.42,
+                "Plan Rows": 532319,
+                "Plan Width": 0,
+                "Disabled": false,
+                "Inner Unique": true,
+                "Plans": [
+                  {
+                    "Node Type": "Nested Loop",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Inner",
+                    "Startup Cost": 0.01,
+                    "Total Cost": 60632.76,
+                    "Plan Rows": 534104,
+                    "Plan Width": 129,
+                    "Disabled": false,
+                    "Inner Unique": false,
+                    "Plans": [
+                      {
+                        "Node Type": "Seq Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Relation Name": "pdf_record_native",
+                        "Alias": "n",
+                        "Startup Cost": 0.0,
+                        "Total Cost": 22131.78,
+                        "Plan Rows": 267052,
+                        "Plan Width": 214,
+                        "Disabled": false,
+                        "Filter": "((product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text) AND (revision_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text))"
+                      },
+                      {
+                        "Node Type": "Memoize",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Startup Cost": 0.01,
+                        "Total Cost": 1.51,
+                        "Plan Rows": 2,
+                        "Plan Width": 64,
+                        "Disabled": false,
+                        "Cache Key": "n.structure_json",
+                        "Cache Mode": "binary",
+                        "Plans": [
+                          {
+                            "Node Type": "Function Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Function Name": "jsonb_each",
+                            "Alias": "f",
+                            "Startup Cost": 0.01,
+                            "Total Cost": 1.5,
+                            "Plan Rows": 2,
+                            "Plan Width": 64,
+                            "Disabled": false,
+                            "Filter": "((value ->> 'kind'::text) = ANY ('{array,map}'::text[]))"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "Node Type": "Subquery Scan",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Alias": "members",
+                    "Startup Cost": 1.68,
+                    "Total Cost": 1.72,
+                    "Plan Rows": 1,
+                    "Plan Width": 24,
+                    "Disabled": false,
+                    "Filter": "((members.count_ <> ((f.value ->> 'length'::text))::bigint) OR ((members.count_ > 0) AND ((members.min_ <> 0) OR (members.max_ <> (members.count_ - 1)))))",
+                    "Plans": [
+                      {
+                        "Node Type": "Aggregate",
+                        "Strategy": "Plain",
+                        "Partial Mode": "Simple",
+                        "Parent Relationship": "Subquery",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Startup Cost": 1.68,
+                        "Total Cost": 1.69,
+                        "Plan Rows": 1,
+                        "Plan Width": 24,
+                        "Disabled": false,
+                        "Plans": [
+                          {
+                            "Node Type": "Index Only Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Scan Direction": "Forward",
+                            "Index Name": "pk_pdf_record_membership",
+                            "Relation Name": "pdf_record_membership",
+                            "Alias": "m",
+                            "Startup Cost": 0.55,
+                            "Total Cost": 1.67,
+                            "Plan Rows": 1,
+                            "Plan Width": 8,
+                            "Disabled": false,
+                            "Index Cond": "((product_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text) AND (revision_id = '169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943'::text) AND (parent_id = n.record_id) AND (field_name = f.key))"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "unavailable": {
+    "native_reference_target": "maintenance role refused EXECUTE pdf_reference_bytes_equal; original failed diagnostic retained in tool output; no privilege changes"
+  }
+}

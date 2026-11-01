@@ -1,4 +1,4 @@
-"""Fresh ABI 18 realization and frozen forward-operation admission, without data retention."""
+"""Frozen PG boundary and current forward admission, without retained-data compatibility."""
 
 from __future__ import annotations
 
@@ -61,7 +61,11 @@ def sql_bodies(sql):
 
 def test_single_current_head_and_frozen_source_hashes():
     revision = revision_module()
-    assert head_revision() == REVISION
+    scripts = ScriptDirectory.from_config(alembic_config())
+    head = head_revision()
+    assert head is not None
+    assert scripts.get_heads() == [head]
+    assert REVISION in {r.revision for r in scripts.iterate_revisions(head, "base")}
     assert revision.down_revision == "semantic_0065"
     assert len(REVISION) <= 32
     state = frozen_state()
@@ -88,7 +92,13 @@ def test_single_current_head_and_frozen_source_hashes():
     bodies = sql_bodies(admission.decode())
     assert (
         sha256(bodies["data.execution_contract_descriptor"].encode()).hexdigest()
-        == execution_admission._DESCRIPTOR_SHA256
+        == sha256(
+            next(
+                item["catalog"]["body"]
+                for item in state["desired"]
+                if item["identity"]["name"] == "execution_contract_descriptor"
+            ).encode()
+        ).hexdigest()
     )
     assert (
         sha256(bodies["data.require_execution_release"].encode()).hexdigest()
@@ -135,15 +145,18 @@ def test_frozen_bytes_refuse_before_database_effects(tmp_path, monkeypatch):
 
 
 def test_fresh_head_admits_exact_native_properties(semantic_db_engine, semantic_admitter_engine):
-    state = frozen_state()
+    from corpus_structure.semantic.contracts import EXECUTION_COMPILER_VERSION
+    from corpus_structure.semantic.native_candidate import current_native_state
+
     with semantic_db_engine.connect() as conn:
-        assert current_revision(conn) == REVISION
-        desired = tuple(NativeObject.from_payload(item) for item in state["desired"])
+        assert current_revision(conn) == head_revision()
+        desired = current_native_state(conn)
+        assert desired is not None
         admit_native(conn, desired)
         execution_admission._verify_deployment_functions(conn)
         with semantic_admitter_engine.connect() as admitted:
             descriptor = admitted.scalar(text("SELECT data.execution_contract_descriptor()"))
-        assert descriptor["execution_abi"] == "18"
+        assert descriptor["execution_abi"] == EXECUTION_COMPILER_VERSION
         for signature in PROJECTIONS:
             row = conn.execute(
                 text("""SELECT p.prosecdef, l.lanname,
@@ -185,7 +198,7 @@ def test_forward_objects_and_revision_share_caller_rollback(semantic_bare_engine
         )
     with semantic_bare_engine.connect() as conn:
         transaction = conn.begin()
-        upgrade(conn)
+        upgrade(conn, REVISION)
         assert current_revision(conn) == REVISION
         assert conn.scalar(
             text("SELECT to_regprocedure(:signature) IS NOT NULL"), {"signature": PROJECTIONS[0]}
@@ -207,7 +220,7 @@ def test_forward_objects_and_revision_share_caller_rollback(semantic_bare_engine
             == before
         )
         assert conn.scalar(text("SELECT public.pg_capability_unowned()")) == 41
-        upgrade(conn)
+        upgrade(conn, REVISION)
         admit_native(
             conn, tuple(NativeObject.from_payload(item) for item in frozen_state()["desired"])
         )
@@ -222,7 +235,7 @@ def test_wrong_native_predecessor_refuses_fresh_forward_construction(semantic_ba
                 "ALTER FUNCTION ops.pdf_native_record_shape(text,jsonb,jsonb) STRICT"
             )
         with pytest.raises(NativeAuthoringError, match="stale native before-state"):
-            upgrade(conn)
+            upgrade(conn, REVISION)
         conn.rollback()
     with semantic_bare_engine.connect() as conn:
         assert current_revision(conn) == "semantic_0065"
@@ -231,10 +244,14 @@ def test_wrong_native_predecessor_refuses_fresh_forward_construction(semantic_ba
         )
 
 
-def test_regenerated_abi18_release_activates_and_writes(
+def test_regenerated_current_release_activates_and_writes(
     semantic_db_engine, semantic_writer_engine, semantic_admitter_engine
 ):
-    from corpus_structure.semantic.contracts import bound_execution_model, execution_payload
+    from corpus_structure.semantic.contracts import (
+        EXECUTION_COMPILER_VERSION,
+        bound_execution_model,
+        execution_payload,
+    )
     from corpus_structure.semantic.publication import publish_batch
     from corpus_structure.semantic.releases import activate_release
 
@@ -244,7 +261,7 @@ def test_regenerated_abi18_release_activates_and_writes(
     model = bound_execution_model(prepared)
     payload = execution_payload(prepared)
     assert payload is not None
-    assert json.loads(payload)["inputs"]["compiler_version"] == "18"
+    assert json.loads(payload)["inputs"]["compiler_version"] == EXECUTION_COMPILER_VERSION
     model.require_operation("publish_arrow")
     with semantic_admitter_engine.begin() as conn:
         token = activate_release(

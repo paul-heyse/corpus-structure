@@ -1,0 +1,13 @@
+{
+  "observed_at": "2026-11-01T18:23:00.676382+00:00",
+  "pid": 3483821,
+  "exit_code": 130,
+  "signal": "SIGINT",
+  "checkpoint_sha256": "ffd3b53c753d107f7a0279d37c1594f14051f105819a008e06663c2761e75b15",
+  "task_id": 4,
+  "build_id": "169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943",
+  "release_id": "release:7b15b6b25957107d9caeb8eed1e417188a78a24138032858c6c1320ac172fb8f",
+  "outcome": "interrupted",
+  "publication_count": 0,
+  "frozen_count": 0
+}

@@ -1,0 +1,11 @@
+{
+  "outcome": "passed",
+  "task": {
+    "id": 4,
+    "status": "empty",
+    "attempt": 2,
+    "claimed_by": "current-book-storage:4",
+    "lease_until": null,
+    "release_id": "release:7b15b6b25957107d9caeb8eed1e417188a78a24138032858c6c1320ac172fb8f"
+  }
+}

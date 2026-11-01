@@ -1,0 +1,5 @@
+{
+  "observed_at": "2026-11-01T20:45:18.217484+00:00",
+  "mode": "read-only existing native_owner matching publication execution role; existing pg_stat_statements.track=all, no instrumentation settings changes",
+  "rows": []
+}

@@ -1,0 +1,48 @@
+{
+  "verified_at": "2026-11-01T18:31:41.130929+00:00",
+  "outcome": "passed",
+  "scope": "helper syntax/help and lexical diagnostic boundary only; no database/provider/semanticgrade",
+  "lexical_controls": {
+    "exact_lexical_keeps_semantic_not_run": true,
+    "different_lexical_keeps_semantic_not_run": true,
+    "frozen_inputs_unmodified": true
+  },
+  "configured_provider_model": "claude-opus-5-5",
+  "provider_authentication": "not_run",
+  "provider_model_availability": "not_run",
+  "cli_readiness": {
+    "ci regenerate --help": "passed",
+    "ci eval run --help": "passed",
+    "installed claude version": "2.1.316",
+    "existing provider isolation flags --help": "passed",
+    "nested uv project MCP command --help": "passed"
+  },
+  "helper_sha256": {
+    "author_source_references.py": "3302a6a6f4edc32c336a78e442e622d94d35e174fef77fbb6ddd8b6aaa8defce",
+    "qualify_native_cli.py": "4da514f5bc05c552c1f5c3e1c7a2fe0af6c412d79b3bfa270a6648a1a24fc245",
+    "qualify_native_exports.py": "c27918538c08284cc95bc9105dec4ce11b13b39fa8a51a278758959eb6f29e57",
+    "qualify_native_mcp.py": "37f1ad103a1c81b63fce34816f21ea6f5d28db1364e19f42f5ce56a12ba06631",
+    "register_source_references.py": "35b4bc6614cf8552c87d31d31ece7e1774fbd2f4e41d2bab5a91998e40d956fe",
+    "select_current_source.py": "af0a7c9dbd3cb4e040494dbe5261b4fbb5d74ae253a70d027e5beb6b9d6a6488"
+  },
+  "frozen_inputs": {
+    "sampling": {
+      "name": "source-only-reference-cases.json",
+      "sha256": "890dc0a7e87c55347960eb6192518e1b0f96a35de1ea63d2b0daa2327094665f"
+    },
+    "normal": {
+      "name": "source-only-normal-reference.json",
+      "sha256": "e865e4da17ad0140e70805ec5e81e0c5dd9df395fe5ffbbbc85dc69c6e783a57"
+    }
+  },
+  "not_run": [
+    "owned database attachment",
+    "current source/run selection",
+    "external CLI/MCP/render/export journey",
+    "reference preparation against current run",
+    "provider A/B/C authoring",
+    "five-section extraction",
+    "evaluator registration/grade",
+    "persistent default cutover"
+  ]
+}

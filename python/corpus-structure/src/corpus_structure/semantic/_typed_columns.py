@@ -9,7 +9,7 @@ from sqlalchemy import Column, Named, TypedColumns
 
 from .metadata import table
 
-PHYSICAL_MODEL_ID = "physical:d29b0f9ea98c65469396cd96d0eeb2e74a8e9f21ca1451b72f131af6d26e3bc5"
+PHYSICAL_MODEL_ID = "physical:a421ce2f95e22be09db50bd3ac68d374d9a56c22cc9963da4f798d7a02611e4e"
 
 
 class DataOccurrenceColumns(TypedColumns):

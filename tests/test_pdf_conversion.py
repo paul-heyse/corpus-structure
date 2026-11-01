@@ -188,6 +188,7 @@ def test_cell_enrichment_retains_raw_and_creates_native_rich_reference():
         DoclingDocument,
         PageItem,
         ProvenanceItem,
+        RichTableCell,
         Size,
         TableCell,
         TableData,
@@ -225,6 +226,7 @@ def test_cell_enrichment_retains_raw_and_creates_native_rich_reference():
     assert snapshot(document) == raw
     derived = load_snapshot(result.native)
     rich_cell = derived.tables[0].data.table_cells[0]
+    assert isinstance(rich_cell, RichTableCell)
     formula = rich_cell.ref.resolve(derived)
     assert formula.parent.cref == table.self_ref
     assert formula.orig == "n k"

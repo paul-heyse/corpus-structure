@@ -10,6 +10,7 @@ import json
 import os
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from hashlib import file_digest, sha256
 from pathlib import Path
 from typing import Any
@@ -23,13 +24,10 @@ def _ref(path: Path, family: str, rows: int = 0) -> PdfReplayRef:
     return PdfReplayRef(path, digest, path.stat().st_size, family, rows)
 
 
-def _atomic_json(path: Path, value: Any) -> PdfReplayRef:
+def _atomic_bytes(path: Path, value: bytes, family: str) -> PdfReplayRef:
     temporary = path.with_suffix(path.suffix + ".tmp")
-    with temporary.open("x", encoding="utf8") as sink:
-        for chunk in json.JSONEncoder(
-            ensure_ascii=True, allow_nan=False, separators=(",", ":")
-        ).iterencode(value):
-            sink.write(chunk)
+    with temporary.open("xb") as sink:
+        sink.write(value)
         sink.flush()
         os.fsync(sink.fileno())
     temporary.replace(path)
@@ -38,7 +36,28 @@ def _atomic_json(path: Path, value: Any) -> PdfReplayRef:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
-    return _ref(path, "page")
+    return _ref(path, family)
+
+
+@lru_cache(maxsize=1)
+def _page_envelope_model():
+    """Prepare once; nested Page/BoundingBox serializers remain their native owners."""
+    from docling.datamodel.base_models import Page
+    from docling_core.types.doc import BoundingBox
+    from pydantic import ConfigDict, create_model
+
+    return create_model(
+        "NativePageReplayEnvelope",
+        __config__=ConfigDict(extra="forbid"),
+        assembly_types=(dict[str, list[str]], ...),
+        page=(Page, ...),
+        shape_lines=(list[BoundingBox], ...),
+        shape_boxes=(list[BoundingBox], ...),
+        raster=(dict[str, Any], ...),
+        scale=(float, ...),
+        crop_profile=(str, ...),
+        serialization_profile=(str, ...),
+    )
 
 
 class PdfStreamSpool:
@@ -50,12 +69,28 @@ class PdfStreamSpool:
         *,
         on_page: Callable[[PdfReplayRef], None] | None = None,
         check_active: Callable[[], None] | None = None,
+        payload_family: Any = None,
     ):
         root.mkdir(parents=True, exist_ok=False)
         self.root = root
         self.on_page, self.check_active = on_page, check_active
         self.pages: dict[int, PdfReplayRef] = {}
         self.candidates: dict[int, PdfReplayRef] = {}
+        self._payload_family = payload_family
+
+    @property
+    def payload_family(self):
+        if self._payload_family is None:
+            from corpus_structure.semantic.pdf_payloads import prepare_payload_family
+
+            self._payload_family = prepare_payload_family()
+        return self._payload_family
+
+    @property
+    def candidate_source(self):
+        from .pdf_candidate_source import ReplayCandidatePageSource
+
+        return ReplayCandidatePageSource(self.candidates, self.payload_family)
 
     def active(self) -> None:
         if self.check_active:
@@ -63,9 +98,27 @@ class PdfStreamSpool:
 
     def capture_candidates(self, value: Any) -> None:
         self.active()
-        self.candidates[value.page_no] = _atomic_json(
-            self.root / f"candidate-{value.page_no:06}.json", value.to_wire()
+        if value.page_no in self.candidates:
+            raise ValueError("candidate page was spooled twice")
+        from dataclasses import replace
+
+        family = self.payload_family
+        logical = value.to_wire()
+        content = family.encode(logical)
+        replay = _atomic_bytes(
+            self.root / f"candidate-{value.page_no:06}.arrow", content, "candidate_payload"
         )
+        replay = replace(
+            replay,
+            rows=1,
+            schema_digest=family.schema_digest,
+            logical_digest=family.logical_digest(logical),
+            page_no=value.page_no,
+        )
+        # The same encoded bytes and source-qualified locator cross the ACK boundary.
+        if self.on_page:
+            self.on_page(replay)
+        self.candidates[value.page_no] = replay
 
     def capture_page(self, page: Any, hierarchy: Any, scale: float) -> None:
         self.active()
@@ -88,22 +141,25 @@ class PdfStreamSpool:
         page.parsed_page = hierarchy.retain_parsed_lines(page)
         from .pdf_assembly import assembly_types
 
-        value = {
-            "assembly_types": assembly_types(page.assembled),
-            "page": json.loads(page.model_dump_json()),
-            "shape_lines": [box.model_dump(mode="json") for box in page._shape_lines or ()],
-            "shape_boxes": [
-                box.model_dump(mode="json") for box in page._shape_bounding_boxes or ()
-            ],
-            "raster": {
+        envelope = _page_envelope_model().model_construct(
+            assembly_types=assembly_types(page.assembled),
+            page=page,
+            shape_lines=list(page._shape_lines or ()),
+            shape_boxes=list(page._shape_bounding_boxes or ()),
+            raster={
                 "path": str(raster.path),
                 "digest": raster.digest,
                 "byte_length": raster.byte_length,
             },
-            "scale": scale,
-            "crop_profile": "docling-native-full-raster-crop-v1",
-        }
-        replay = _atomic_json(self.root / f"page-{page.page_no:06}.json", value)
+            scale=scale,
+            crop_profile="docling-native-full-raster-crop-v1",
+            serialization_profile="pydantic-native-page-envelope-v1",
+        )
+        replay = _atomic_bytes(
+            self.root / f"page-{page.page_no:06}.json",
+            envelope.model_dump_json().encode(),
+            "page",
+        )
         if self.on_page:
             self.on_page(replay)  # Failure must prevent successful release/admission.
         self.pages[page.page_no] = replay
@@ -182,18 +238,7 @@ class PdfStreamSpool:
         conv_res.pages = restored  # Native finalization explicitly consumes global state.
 
     def iter_candidates(self):
-        from .pdf_candidates import CandidatePage, InlineCandidate
-
-        for number in sorted(self.candidates):
-            replay = self.candidates[number]
-            replay.verify()
-            value = json.loads(replay.path.read_bytes())
-            value["candidates"] = tuple(
-                InlineCandidate.from_wire(item) for item in value["candidates"]
-            )
-            if "ocr_regions" in value:
-                value["ocr_regions"] = tuple(value["ocr_regions"])
-            yield CandidatePage(**value)
+        yield from self.candidate_source.iter_pages()
 
 
 class _JsonList(list):
@@ -298,6 +343,7 @@ class StreamingPdfResult:
     errors: tuple[str, ...]
     recipe: bytes
     formula_outcomes: tuple[Any, ...]
+    effective_options: bytes = b"{}"
 
     def iter_records(
         self,
@@ -450,6 +496,11 @@ class StreamingPdfResult:
             os.fsync(output.fileno())
         scalar("native/completion", artifact_profile("native_completion"), file_chunks(health))
         scalar("native/recipe", artifact_profile("native_recipe"), iter((self.recipe,)))
+        scalar(
+            "native/prepared-runtime",
+            artifact_profile("native_recipe"),
+            iter((self.effective_options,)),
+        )
 
         for number, replay in sorted(self.spool.pages.items()):
             replay.verify()
@@ -591,6 +642,7 @@ class StreamingPdfProducer:
                 tuple(str(error) for error in result.errors),
                 self.recipe.to_bytes(),
                 tuple(converter._formula.outcomes),
+                converter.prepared_options_report,
             )
         finally:
             if result is not None:

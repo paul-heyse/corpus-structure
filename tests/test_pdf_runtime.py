@@ -446,19 +446,34 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     view = SourceViewRef(10, "selected-view", 1, pin, section, membership, "d" * 64, "e" * 64)
     reads = []
     prepared = []
+    captured_directories = []
 
     class Reader:
         def source_views(self):
             return (view,)
 
-        def native_document(self, reference):
+        def native_document(self, reference, *, include_candidate_pages=True):
             reads.append(reference)
+            assert include_candidate_pages is False
             return SimpleNamespace(
-                values=lambda: payload,
+                values=lambda: {
+                    key: value for key, value in payload.items() if key != "inline_candidate_pages"
+                },
                 original=b"%PDF-fixture",
                 schema_bytes=b"{}",
                 recipe_bytes=b"original-native-fixture",
             )
+
+        def capture_pdf_candidates(self, reference, directory):
+            from corpus_structure.ingest.pdf_candidate_source import as_candidate_source
+            from corpus_structure.ingest.pdf_streaming import PdfStreamSpool
+
+            assert reference == pin
+            captured_directories.append(directory)
+            spool = PdfStreamSpool(directory)
+            for page in as_candidate_source(conversion.inline_candidates).iter_pages():
+                spool.capture_candidates(page)
+            return spool.candidate_source
 
         def prepare_pdf_product(self, value, original, schema, recipe):
             prepared.append(value)
@@ -495,6 +510,9 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     producer = IngestPdf()
     recipe = cfg.recipe()
     converter = PdfConverter(recipe)
+    converter._prepared_options_report = (
+        recipe.options().model_dump_json(serialize_as_any=True).encode()
+    )
     monkeypatch.setattr(converter, "formula_stage", lambda: stage)
     monkeypatch.setattr(converter, "runtime_bindings", lambda: ())
     from corpus_structure.ingest.pdf_enrichment import compute_enrichment
@@ -538,6 +556,7 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     reader_port = SimpleNamespace(
         source_views=reader.source_views,
         native_document=reader.native_document,
+        capture_pdf_candidates=reader.capture_pdf_candidates,
         prepare_pdf_product=reader.prepare_pdf_product,
         native_product_reference=reader.native_product_reference,
     )
@@ -546,13 +565,29 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
         reader_port,
         MethodSettings(data_dir=Path("."), model_cache=Path(".")),
         logging.getLogger(__name__),
+        retain_pdf_records=lambda unit, draft: retain(draft),
     )
+
+    def retain(draft):
+        # This pure control consumes the record draft synchronously, as its production
+        # custody owner does; it does not claim database/provider qualification.
+        prepared.append(
+            {
+                "health": dict(draft.health),
+                **draft.metadata,
+                "derivation_mappings": list(draft.metadata["derivation_mappings"]),
+            }
+        )
+        return ProductReference(2, "math-enriched", "f" * 64)
+
     unit = UnitView(UnitRef(TaskUnitType.DOCUMENT, 1, "actual-original-key"), run)
     (result,) = EnrichPdfMath(producer).run((unit,), cfg, ctx)
     assert result.outcome is ObservationOutcome.EMPTY
     assert guarded == ["release1"]
     assert reads == [pin]
-    assert len(result.native_products) == len(prepared) == 1
+    assert len(result.native_products) == 0
+    assert len(prepared) == 1
+    assert captured_directories and all(not path.exists() for path in captured_directories)
     assert result.source_views[0].replaces_source_view_id == 10
     assert result.source_views[0].native_product == ProductReference(2, "math-enriched", "f" * 64)
     assert result.source_views[0].text == "1.1: Sets\nLet x be real."

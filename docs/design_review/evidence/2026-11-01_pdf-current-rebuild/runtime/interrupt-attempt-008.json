@@ -1,0 +1,35 @@
+{
+  "outcome": "partial",
+  "observed_at": "2026-11-01T20:23:14.943908+00:00",
+  "pid": 3882560,
+  "exit_code": 130,
+  "task_id": 5,
+  "product_key": "organized",
+  "checkpoint_sha256": "e9b6d827bca42ca97242cf3f9ea24617d6ffe8395eb47c4fd19b1d576c4f810b",
+  "build": {
+    "build_id": "49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2",
+    "state": "frozen",
+    "release_id": "release:d97e7deac34f3061b58b0b5f4d989b1db5088d67ea5da6104f821ed34022682f",
+    "attempt": 1,
+    "holder": "current-book-storage:5",
+    "source_digest": "e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9",
+    "schema_digest": "3123788cfea7ddd282a4ec8fdeafee98d106ec2863d6722bbde4fc2f3f2e1bc1",
+    "recipe_digest": "95e74ea1986540d14ba8782fd59814fb0ffe9452b915d8c144b51ed8f880307a",
+    "frozen_digest": "d223994e85236d2fbe6e5b6932954ab3e6a50b4d42368ab355a092c888ad990e"
+  },
+  "counts": {
+    "stage_native": 274189,
+    "stage_occurrence": 107687,
+    "final_native": 0,
+    "published": 0,
+    "validation": 0
+  },
+  "task": {
+    "id": 5,
+    "status": "running",
+    "attempt": 1,
+    "claimed_by": "current-book-storage:5",
+    "lease_until": "2026-11-01 15:27:19.676182-05:00"
+  },
+  "reason": "root-authorized graceful interruption of per-reference empty overflow candidate rescans; exact frozen organized snapshot retained for compatible76 resume"
+}

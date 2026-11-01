@@ -2,7 +2,7 @@
 
 ## Structured-data amendment — PDF-22/23 integration
 
-**Accepted planning target,2026-11-01; new implementation not_run.** Consume [PDF-27/28](structured-payload-model-and-validation.md)
+**Implemented and scoped Tested2026-11-01; operational whole-book adoption remains open.** Consume [PDF-27/28](structured-payload-model-and-validation.md)
 contracts for selected nested OCR/candidate page payloads and validation placement. The earlier
 SQL-shaped `record_arrow_schema` stays useful for relational COPY, not the authority for every
 nested interior. Reuse PG-04 prepared outer-envelope/part profiles and fresh encoders rather
@@ -280,4 +280,33 @@ quantitative improvement claims remain separate from this private producer deliv
 
 ## Sources and handoff
 
-[PyArrow](../../libraries/pyarrow.md) §§2/4–9/14, [DuckDB](../../libraries/duckdb_2.md), [Docling](../../libraries/primary_intake/docling.md), [OCR](../../libraries/primary_intake/docling_ocr.md), [triple-pass reference](../../libraries/primary_intake/docling_nemotron_triple_pass_reference.md) §§7/9/12/14 and the review's pinned/primary-source map provide the concrete mechanisms. Follow Context7 then exact installed/primary source for implementation uncertainties. PDF-24 consumes the same reader/record contract; PDF-25 and PDF-10/11 own current-book rebuild from compatible retained evidence, actual journeys and final qualification. Package-local checks are targeted, not recurring integrated campaigns.
+[PyArrow](../../libraries/analytical_infrastructure/pyarrow.md) §§2/4–9/14, [DuckDB](../../libraries/analytical_infrastructure/duckdb_2.md), [Docling](../../libraries/primary_intake/docling.md), [OCR](../../libraries/primary_intake/docling_ocr.md), [triple-pass reference](../../libraries/primary_intake/docling_nemotron_triple_pass_reference.md) §§7/9/12/14 and the review's pinned/primary-source map provide the concrete mechanisms. Follow Context7 then exact installed/primary source for implementation uncertainties. PDF-24 consumes the same reader/record contract; PDF-25 and PDF-10/11 own current-book rebuild from compatible retained evidence, actual journeys and final qualification. Package-local checks are targeted, not recurring integrated campaigns.
+
+## Arrow producer/analysis integration — 2026-11-01
+
+The current producer writes candidate pages once as released-schema IPC and carries schema/logical/
+byte bindings through verified replay descriptors. `CandidatePageSource.iter_batches(page_nos,columns)`
+is shared by spool, overlay and detached published sources; process transfer carries schema bytes
+and owned locators, never a database handle or live validator. Publication accepts the same encoded
+bytes and frozen validation still establishes complete semantic admission. Native page envelopes
+use one prepared Pydantic serializer with explicit native assembly classes.
+
+Selected enrichment captures page IPC into operation-owned files, retains them through worker
+settlement and synchronous publication, and closes them afterwards. Arrow/DuckDB geometry prepares
+native boxes/candidate centers once, preserves original ordinals, deduplicates geometric matches,
+and retains all relevant pages for each native item's text anchoring. Cell overlap remains strict;
+inline center inclusion remains inclusive. Regex context, ambiguity, reading order, multi-region
+occurrences and classifier precedence remain unchanged.
+
+Requested/effective native options, actual formula scale, resource settings and full-raster borrower
+policy are captured at preparation. Native graph finalization remains materialized; full native
+rasters remain available to their late borrowers. One redundant validation comparison copy was
+removed while retaining the private validation candidate and normalization refusal.
+
+**passed:** selected123-case DB-free union `pdf-remaining-local-20261101` (exact command/selection in
+its invocation.json), including producer/source/process transfer, cross-page geometry, native math,
+retained parent mapping, frozen semantics and cancellation controls. Individual worker repeats
+retain their own scope and are not added to123. **passed:** actual fresh CUDA Standard/RapidOCR pages20
+and1211, native assembly classes, exact1.67 crop pixels and post-child IPC custody; see
+[actual native evidence](../../design_review/evidence/2026-11-01_pdf-arrow-native-producer/README.md).
+These are selected provider checks, not complete-book fidelity, adopted source or measured speed.

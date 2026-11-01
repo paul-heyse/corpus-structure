@@ -1,0 +1,28 @@
+{
+  "environment": {
+    "CORPUS_DATABASE__URL": "postgresql://corpus_sem_writer@/corpus_pdf_20261101?host=%2Fvar%2Frun%2Fpostgresql&port=5434",
+    "CORPUS_NEMOTRON__RECEIPTS": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/pages"
+  },
+  "argv": [
+    "uv",
+    "run",
+    "ci",
+    "regenerate",
+    "--domain",
+    "statistics",
+    "--corpus",
+    "/home/paul/corpus-structure/docs/statistics_corpus/corpus",
+    "--project",
+    "pdf-docling-adoption",
+    "--native-source",
+    "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-01_pdf-current-rebuild/runtime/math-enriched.pin.json",
+    "--scope",
+    "pdf-qualification",
+    "--prepare-only",
+    "--leave-unselected",
+    "--json"
+  ],
+  "outcome": "not_run",
+  "prerequisite": "root fixed-grammar source freeze and current native admission readiness",
+  "scope": "whole-book integrated source and five intact source views; no knowledge LLM extraction/default selection"
+}

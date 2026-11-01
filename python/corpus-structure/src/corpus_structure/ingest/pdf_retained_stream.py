@@ -11,10 +11,15 @@ import gzip
 from collections.abc import Iterable, Iterator, Mapping
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Literal, Protocol, cast
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 
 from ijson import get_backend
 from ijson.common import ObjectBuilder
+
+from corpus_structure.semantic.product_reference import ProductReference
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.pdf_payloads import PreparedPayloadFamily
 
 
 class ReadableBytes(Protocol):
@@ -62,6 +67,9 @@ _VALUES = {
     "content.document": "document",
     "health": "health",
     "content.health": "native_health",
+    "parent_task_id": "parent_task_id",
+    "parent_product_key": "parent_product_key",
+    "parent_digest": "parent_digest",
     "artifact_digest": "artifact_digest",
     "content.artifact_digest": "artifact_digest",
     "source_scope": "source_scope",
@@ -232,6 +240,8 @@ def retained_pdf_draft(
     recipe_bytes: bytes,
     directory: Path,
     kind: Literal["native", "integrated"],
+    structural_parent: ProductReference | None = None,
+    payload_family: PreparedPayloadFamily | None = None,
 ):
     """Own the companion journal while the caller stages and seals this draft."""
     from contextlib import contextmanager
@@ -247,6 +257,8 @@ def retained_pdf_draft(
         health: Mapping[str, Any] | None = None
         integration_health: Mapping[str, Any] | None = None
         metadata_ordinals: dict[str, int] = {}
+        retained_parent: dict[str, Any] = {}
+        candidate_codec = payload_family
         opener = gzip.open if path.suffix == ".gz" else Path.open
         try:
             with opener(path, "rb") as source:
@@ -254,7 +266,9 @@ def retained_pdf_draft(
                     source,
                     expected_sha256=expected_sha256,
                 ):
-                    if family == "document":
+                    if family in {"parent_task_id", "parent_product_key", "parent_digest"}:
+                        retained_parent[family] = value
+                    elif family == "document":
                         document = value
                     elif family == "artifact_digest":
                         if value != sha256(original).hexdigest():
@@ -270,6 +284,20 @@ def retained_pdf_draft(
                         integration_health = value
                     elif family.startswith("native_metadata:"):
                         metadata_kind = family.split(":", 1)[1]
+                        if metadata_kind == "inline_candidate_pages":
+                            from corpus_structure.semantic.pdf_payloads import (
+                                EncodedPagePayload,
+                                prepare_payload_family,
+                            )
+
+                            if candidate_codec is None:
+                                candidate_codec = prepare_payload_family()
+                            value = EncodedPagePayload(
+                                candidate_codec.encode(value),
+                                candidate_codec.schema_digest,
+                                candidate_codec.logical_digest(value),
+                                value["page_no"],
+                            )
                         ordinal = metadata_ordinals.get(metadata_kind, 0)
                         journal.collection("native_metadata").append(
                             {
@@ -287,6 +315,20 @@ def retained_pdf_draft(
                 integration_health = None
             if document is None or health is None:
                 raise ValueError("retained PDF requires native content and qualified health")
+            if retained_parent and (
+                len(retained_parent) != 3 or any(v is None for v in retained_parent.values())
+            ):
+                raise ValueError("retained native parent identity is incomplete")
+            if bool(retained_parent) != (structural_parent is not None):
+                raise ValueError(
+                    "retained native parent requires explicit current structural mapping"
+                )
+            if retained_parent:
+                ProductReference(
+                    retained_parent["parent_task_id"],
+                    retained_parent["parent_product_key"],
+                    retained_parent["parent_digest"],
+                )
             document, projected_grid_count = derive_retained_native_projection(document)
             from corpus_structure.semantic.identity import canonical_bytes
             from corpus_structure.semantic.pdf_records import native_validation_contract
@@ -298,6 +340,15 @@ def retained_pdf_draft(
                     "source_recipe_sha256": sha256(recipe_bytes).hexdigest(),
                     "source_envelope_sha256": expected_sha256,
                     "native_projection_profile": profile,
+                    "computed_grid_count": projected_grid_count,
+                    **(
+                        {
+                            "retained_parent": retained_parent,
+                            "structural_parent": structural_parent.values(),
+                        }
+                        if structural_parent
+                        else {}
+                    ),
                 }
             )
             companions: dict[str, Iterable[Mapping[str, Any]]] = {
@@ -311,23 +362,20 @@ def retained_pdf_draft(
                     "native_metadata",
                 )
             }
+            # Legacy native envelopes have no occurrence index. Leave it absent
+            # so publication derives the shared native projection; an explicit
+            # nonempty or integrated index remains authoritative.
+            if kind == "native" and not len(journal.collection("occurrence")):
+                companions.pop("occurrence")
+            if structural_parent is not None:
+                if kind != "native":
+                    raise ValueError("structural parent remapping is only a native derivation")
+                companions["input"] = ({"role": "structural", **structural_parent.values()},)
+            # Conversion health, integration health and storage derivation have
+            # distinct contracts. Provenance belongs to the bound recipe above.
             companions["health"] = (
-                {
-                    "health": dict(health),
-                    "source_scope": "whole_document",
-                    **(
-                        {"integration_health": dict(integration_health)}
-                        if integration_health is not None
-                        else {}
-                    ),
-                    "derivation": {
-                        "kind": "retained-exact-envelope-v1",
-                        "serialization_sha256": expected_sha256,
-                        "native_projection_profile": profile,
-                        "computed_grid_count": projected_grid_count,
-                        "source_recipe_sha256": sha256(recipe_bytes).hexdigest(),
-                    },
-                },
+                {"health": dict(health), "source_scope": "whole_document"},
+                *((dict(integration_health),) if integration_health is not None else ()),
             )
             yield PdfRecordPublicationDraft(
                 document,

@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "19"
+EXECUTION_COMPILER_VERSION = "20"
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
@@ -808,6 +808,8 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("pdf/claims.py", "semantic/claim_lifetime.py"),
                 ("pdf/assets.py", "ingest/pdf_assets.py"),
                 ("pdf/candidates.py", "ingest/pdf_candidates.py"),
+                ("pdf/candidate-source.py", "ingest/pdf_candidate_source.py"),
+                ("pdf/candidate-geometry.py", "ingest/pdf_candidate_geometry.py"),
                 ("pdf/methods.py", "ingest/pdf_methods.py"),
                 ("pdf/math.py", "methods/math/native.py"),
                 ("pdf/analysis.py", "semantic/native_analysis.py"),
@@ -1355,6 +1357,8 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "pdf/regions.py",
         "pdf/converter.py",
         "pdf/worker.py",
+        "pdf/candidate-source.py",
+        "pdf/candidate-geometry.py",
         "pdf/health.py",
         "pdf/ocr.py",
         "pdf/ocr_contracts.py",

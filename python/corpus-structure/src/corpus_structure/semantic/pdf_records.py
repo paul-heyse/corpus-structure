@@ -18,13 +18,16 @@ from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from jsonschema.validators import validator_for
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
 from .pdf_record_identity import ScalarDescriptor, canonical_scalar, scalar_payload
+
+if TYPE_CHECKING:
+    from docling_core.types.doc import DoclingDocument
 
 
 @lru_cache(maxsize=1)
@@ -661,10 +664,11 @@ def reconstruct_native_document(
     return result
 
 
-def validate_native_callbacks(document: Mapping[str, Any]) -> None:
-    """Bounded compatibility oracle: reject upstream normalization before identity.
+def validate_native_callbacks(document: Mapping[str, Any]) -> DoclingDocument:
+    """Bounded native validation: reject upstream normalization before identity.
 
-    All pinned Docling validators execute on a private copy, including version compatibility,
+    Finite JSON values are checked before native model construction. All pinned Docling
+    validators execute on a private copy, including version compatibility,
     unique refs, native tree/global constraints, table limits, field keys and list repair.
     Mutation or value/presence changes are refused; this is never a normalizing reader.
     Whole-native hydration is explicit here and is not the frozen-union implementation.
@@ -675,7 +679,9 @@ def validate_native_callbacks(document: Mapping[str, Any]) -> None:
 
     if version("docling-core") != native_validation_contract()["docling_core_version"]:
         raise ValueError("native callbacks require exactly docling-core 2.105.0")
-    original = copy.deepcopy(document)
+    _finite_json(document, "#")
+    # The input is borrowed immutably; only the validation candidate can be mutated.
+    original = document
     private = copy.deepcopy(document)
     validated = DoclingDocument.model_validate(private)
 
@@ -716,6 +722,7 @@ def validate_native_callbacks(document: Mapping[str, Any]) -> None:
         raise NativeMappingError(
             changed, "native callbacks changed identified data; normalize before lowering"
         )
+    return validated
 
 
 def native_record_identity_fields(

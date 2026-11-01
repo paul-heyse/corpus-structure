@@ -21,6 +21,21 @@ realization** subsection directly; anything that changes a contract goes in a
 
 **Accepted relational target (2026-11-01); implementation/qualification remains package-scoped.** Page-local extraction and typed record preparation are separated from required global reading-order/heading/enrichment. Normalization is explicit before identity; retained reads do not mutate geometry or lists. PDF-22 still owns the actual bounded producer adapter.
 
+**Implemented; scoped Tested (2026-11-01).** Released-schema candidate IPC crosses worker,
+journal, detached enrichment and publication boundaries without rebuilding page mappings.
+Columnar candidate geometry uses Arrow/DuckDB while preserving original ordinals, cross-page
+anchors and classifier precedence. Explicit page hydration remains available where an algorithm
+needs it. Native page envelopes use prepared Pydantic serialization. Requested/effective native
+options, actual formula raster scale and raster borrower lifetime enter the captured recipe.
+Native global assembly, heading and enrichment still require a materialized graph; page/IPC
+bounds do not establish a whole-document memory bound.
+
+Bounded main-thread math deadlines borrow automatic cyclic-GC state as well as process timer
+state. They defer unrelated cycle callbacks until timer cleanup and restore nested/prior state;
+the duration, repeated-expiry and late-return rules remain. This does not prevent explicit
+collection or reference-count finalizers, or preempt opaque native work; owned worker termination
+retains its separate containment responsibility.
+
 > Decision: ADR-0045
 
 

@@ -252,3 +252,19 @@ If justified and explicitly selected after I19, publish an immutable scope snaps
 Late corrections create a successor scope/product and invalidate affected dependent work through existing modeled dependencies. Never mutate cited content. External interfaces, SourceView selection and evaluator frames must share that scope authority rather than invent local partial-result interpretations. Changes beyond confirmed RC08/09 follow the existing explicit rule-decision route before activation.
 
 **Conditional completion:** a closed section can be consumed while an unrelated section fails, a necessary late target prevents sealing, no partial book appears complete, and successors leave prior citations immutable. If I19 does not establish value/closure, record the deferral and trigger in the coordinator; do not leave this as a blocker to PDF-10/11 atomic-document acceptance.
+
+## Current Arrow reader and export integration — 2026-11-01
+
+Implemented/scoped Tested: selected published page IPC detaches into verified operation-owned replay
+before DB-free enrichment; whole-native values remain explicit for native graph work. Native and
+selected exports propagate the operation cancellation token across cursors/decoding/sinks. Public
+CLI native export stages under its snapshot and publishes only after successful snapshot settlement;
+failed settlement leaves no final destination. Direct-connection APIs retain explicit caller-owned
+transaction semantics. Codec/schema failures name the observed/released bindings and existing
+rebuild/admission remediation. No new registry or second pool is introduced.
+
+Fresh qualification helpers live in
+[current consumer evidence](../../design_review/evidence/2026-11-01_pdf-current-consumers/README.md).
+Their readiness checks preserve the six frozen source expectations; actual external CLI/MCP/render,
+reference-author/provider/evaluator journeys remain open until recorded there. The coordinator
+continues to own operational completion and all failed/interrupted receipt applicability.

@@ -58,6 +58,23 @@ class _Rows:
             index, observation, raw = value
             phase = int(observation["observation"]["pass_role"] == "C")
             value = [index, observation]
+        elif self.name == "native_metadata" and value["kind"] == "inline_candidate_pages":
+            from corpus_structure.semantic.pdf_payloads import PROFILE, EncodedPagePayload
+
+            payload = value["value"]
+            if not isinstance(payload, EncodedPagePayload):
+                raise TypeError("candidate journal rows require an encoded Arrow payload")
+            raw = payload.content
+            value = {
+                "kind": value["kind"],
+                "ordinal": value["ordinal"],
+                "value": {
+                    "page_no": payload.page_no,
+                    "schema_digest": payload.schema_digest,
+                    "logical_digest": payload.logical_digest,
+                    "codec": PROFILE,
+                },
+            }
         body = json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
         if phase not in self.writers:
             path = self.journal.directory / f"{self.name}-{phase}.arrow"
@@ -126,6 +143,27 @@ class _Rows:
                         value = json.loads(batch.column(1)[index].as_py())
                         if self.name == "mapped_inputs":
                             value = (value[0], value[1], batch.column(2)[index].as_py())
+                        elif (
+                            self.name == "native_metadata"
+                            and value["kind"] == "inline_candidate_pages"
+                        ):
+                            from corpus_structure.semantic.pdf_payloads import (
+                                PROFILE,
+                                EncodedPagePayload,
+                            )
+
+                            locator = value["value"]
+                            raw = batch.column(2)[index].as_py()
+                            if raw is None or locator["codec"] != PROFILE:
+                                raise ValueError(
+                                    "candidate journal lacks its encoded Arrow payload"
+                                )
+                            value["value"] = EncodedPagePayload(
+                                raw,
+                                locator["schema_digest"],
+                                locator["logical_digest"],
+                                locator["page_no"],
+                            )
                         yield value
 
     def __len__(self) -> int:

@@ -1,0 +1,37 @@
+{
+  "observed_at": "2026-11-01T20:41:45.796462+00:00",
+  "mode": "read-only existing maintenance principal; no checkpoint/service or retention changes",
+  "target_database_bytes": 5315663551,
+  "author_database_bytes": 41998015,
+  "wal_settings": [
+    {
+      "name": "archive_mode",
+      "setting": "off",
+      "unit": null
+    },
+    {
+      "name": "max_slot_wal_keep_size",
+      "setting": "-1",
+      "unit": "MB"
+    },
+    {
+      "name": "max_wal_size",
+      "setting": "8192",
+      "unit": "MB"
+    },
+    {
+      "name": "min_wal_size",
+      "setting": "1024",
+      "unit": "MB"
+    },
+    {
+      "name": "wal_keep_size",
+      "setting": "0",
+      "unit": "MB"
+    }
+  ],
+  "replication_slots": [],
+  "can_list_wal": false,
+  "wal_inventory": "not available to existing maintenance principal; no privilege changes",
+  "native_validation_queries": []
+}

@@ -18,6 +18,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection, select
 from sqlalchemy.sql.elements import ColumnElement
 
+from corpus_structure.core.db.lifetime import BorrowerCancellation
+
 from .metadata import table
 
 
@@ -196,7 +198,14 @@ def read_native_items(
         or actual.schema_digest != _reader_schema_digest()
     ):
         raise NativeDocumentUnavailable(
-            "native contract/schema requires a qualified archived reader"
+            "native contract/schema requires a qualified archived reader: "
+            f"stored_contract={actual.contract_digest}, "
+            f"released_contract={context.contract_digest}, "
+            f"stored_schema={actual.schema_digest}, "
+            f"released_schema={context.native_schema_digest}, "
+            f"installed_schema={_reader_schema_digest()}, release={actual.release_id}; "
+            "inspect ci db describe --schema ops and the native-candidate/admission output; "
+            "rebuild from compatible retained evidence instead of changing stored pins"
         )
     from .pdf_record_reader import published_native_table
 
@@ -309,12 +318,19 @@ def read_native_regions(
     ]
 
 
-def _pdf_product_identity(conn: Connection, task_id: int, product_key: str, content_digest: str):
+def _pdf_product_identity(
+    conn: Connection,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    *,
+    cancellation: BorrowerCancellation | None = None,
+):
     from .pdf_record_reader import published_record_reader
     from .product_reference import ProductReference
 
     record_reader = published_record_reader(
-        conn, ProductReference(task_id, product_key, content_digest)
+        conn, ProductReference(task_id, product_key, content_digest), cancellation=cancellation
     )
     if record_reader is not None:
         product = table("ops.pdf_product")
@@ -387,9 +403,9 @@ def _pdf_product_identity(conn: Connection, task_id: int, product_key: str, cont
             raise NativeDocumentUnavailable(
                 "companion contract requires a qualified archived reader"
             )
-        descriptor = _pdf_descriptors(conn, [(task_id, product_key, content_digest)])[0][
-            "descriptor"
-        ]
+        descriptor = _pdf_descriptors(
+            conn, [(task_id, product_key, content_digest)], cancellation=cancellation
+        )[0]["descriptor"]
         # Version 1 is the qualified immutable body/relational read ABI. Changes to helper
         # implementation bytes do not change stored meaning; a new body ABI requires a
         # new declared binding and an explicitly qualified reader.
@@ -413,7 +429,12 @@ def _pdf_product_identity(conn: Connection, task_id: int, product_key: str, cont
     return dict(identity)
 
 
-def _pdf_descriptors(conn: Connection, pins: list[tuple[int, str, str]]) -> list[dict[str, Any]]:
+def _pdf_descriptors(
+    conn: Connection,
+    pins: list[tuple[int, str, str]],
+    *,
+    cancellation: BorrowerCancellation | None = None,
+) -> list[dict[str, Any]]:
     """Compact per-product context; payload and native document columns are never selected."""
     from .pdf_record_reader import published_record_reader
     from .product_reference import ProductReference
@@ -421,11 +442,13 @@ def _pdf_descriptors(conn: Connection, pins: list[tuple[int, str, str]]) -> list
     current: list[dict[str, Any]] = []
     archived = []
     for task, key, digest in pins:
-        reader = published_record_reader(conn, ProductReference(task, key, digest))
+        reader = published_record_reader(
+            conn, ProductReference(task, key, digest), cancellation=cancellation
+        )
         if reader is None:
             archived.append((task, key, digest))
         else:
-            identity = _pdf_product_identity(conn, task, key, digest)
+            identity = _pdf_product_identity(conn, task, key, digest, cancellation=cancellation)
             current.append(
                 dict(
                     identity,
@@ -491,6 +514,7 @@ def read_pdf_product(
     limit: int = 100,
     row_budget: int = 1000,
     include_body: bool = False,
+    cancellation: BorrowerCancellation | None = None,
 ) -> dict[str, Any]:
     """Read a bounded complete companion for the selected occurrence page.
 
@@ -504,10 +528,12 @@ def read_pdf_product(
     from .product_reference import ProductReference
 
     record_reader = published_record_reader(
-        conn, ProductReference(task_id, product_key, content_digest)
+        conn, ProductReference(task_id, product_key, content_digest), cancellation=cancellation
     )
     if record_reader is not None:
-        identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
+        identity = _pdf_product_identity(
+            conn, task_id, product_key, content_digest, cancellation=cancellation
+        )
         selected = []
         if occurrence_id is not None:
             selected = list(
@@ -568,8 +594,12 @@ def read_pdf_product(
                 record_reader.write_integrated_json(sink)
                 result["body"] = json.loads(sink.getvalue())["product"]
         return result
-    identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
-    descriptor = _pdf_descriptors(conn, [(task_id, product_key, content_digest)])[0]["descriptor"]
+    identity = _pdf_product_identity(
+        conn, task_id, product_key, content_digest, cancellation=cancellation
+    )
+    descriptor = _pdf_descriptors(
+        conn, [(task_id, product_key, content_digest)], cancellation=cancellation
+    )[0]["descriptor"]
     occurrences, relations, endpoints, coverage, inputs = map(
         table,
         (
@@ -752,6 +782,7 @@ def trace_pdf_occurrence(
     content_digest: str,
     occurrence_id: str,
     limit: int = 1000,
+    cancellation: BorrowerCancellation | None = None,
 ) -> dict[str, Any]:
     """Follow the selected occurrence's attributed inputs, with bounded node materialization."""
     if not 1 <= limit <= 10000:
@@ -760,7 +791,7 @@ def trace_pdf_occurrence(
     from .product_reference import ProductReference
 
     record_reader = published_record_reader(
-        conn, ProductReference(task_id, product_key, content_digest)
+        conn, ProductReference(task_id, product_key, content_digest), cancellation=cancellation
     )
     if record_reader is not None:
         pending = [(task_id, product_key, content_digest, occurrence_id)]
@@ -772,7 +803,9 @@ def trace_pdf_occurrence(
             if pin in visited:
                 continue
             visited.add(pin)
-            reader = published_record_reader(conn, ProductReference(task, key, digest))
+            reader = published_record_reader(
+                conn, ProductReference(task, key, digest), cancellation=cancellation
+            )
             if reader is None:
                 branch = trace_pdf_occurrence(
                     conn,
@@ -781,6 +814,7 @@ def trace_pdf_occurrence(
                     content_digest=digest,
                     occurrence_id=occurrence,
                     limit=limit - len(nodes),
+                    cancellation=cancellation,
                 )
                 for node in branch["nodes"]:
                     identity = (
@@ -796,7 +830,7 @@ def trace_pdf_occurrence(
                         nodes.append(node)
             else:
                 row = reader._one("companion", {"family": "occurrence", "local_id": occurrence})
-                identity = _pdf_product_identity(conn, task, key, digest)
+                identity = _pdf_product_identity(conn, task, key, digest, cancellation=cancellation)
                 nodes.append(
                     dict(
                         task_id=task,
@@ -830,8 +864,12 @@ def trace_pdf_occurrence(
             if len(nodes) > limit:
                 raise ValueError("PDF trace exceeds requested node limit")
         pins = sorted({(n["task_id"], n["product_key"], n["content_digest"]) for n in nodes})
-        return dict(nodes=nodes, products=_pdf_descriptors(conn, pins), complete=True)
-    _pdf_product_identity(conn, task_id, product_key, content_digest)
+        return dict(
+            nodes=nodes,
+            products=_pdf_descriptors(conn, pins, cancellation=cancellation),
+            complete=True,
+        )
+    _pdf_product_identity(conn, task_id, product_key, content_digest, cancellation=cancellation)
     occurrences, endpoints, products = map(
         table, ("kb.pdf_occurrence", "kb.pdf_relation_endpoint", "ops.pdf_product")
     )
@@ -903,7 +941,11 @@ def trace_pdf_occurrence(
     pins = sorted(
         {(node["task_id"], node["product_key"], node["content_digest"]) for node in nodes}
     )
-    return {"nodes": nodes, "products": _pdf_descriptors(conn, pins), "complete": True}
+    return {
+        "nodes": nodes,
+        "products": _pdf_descriptors(conn, pins, cancellation=cancellation),
+        "complete": True,
+    }
 
 
 def read_pdf_manifest(
@@ -915,6 +957,7 @@ def read_pdf_manifest(
     collection: str = "inputs",
     after: str = "",
     limit: int = 100,
+    cancellation: BorrowerCancellation | None = None,
 ) -> dict[str, Any]:
     """Page the global companion without raising budgets or loading the content body."""
     if not 1 <= limit <= 1000:
@@ -923,7 +966,7 @@ def read_pdf_manifest(
     from .product_reference import ProductReference
 
     record_reader = published_record_reader(
-        conn, ProductReference(task_id, product_key, content_digest)
+        conn, ProductReference(task_id, product_key, content_digest), cancellation=cancellation
     )
     if record_reader is not None:
         from itertools import islice
@@ -955,12 +998,16 @@ def read_pdf_manifest(
         more = len(rows) > limit
         rows = rows[:limit]
         return dict(
-            identity=_pdf_product_identity(conn, task_id, product_key, content_digest),
+            identity=_pdf_product_identity(
+                conn, task_id, product_key, content_digest, cancellation=cancellation
+            ),
             collection=collection,
             rows=[r["body"] for r in rows],
             cursor=rows[-1]["local_id"] if more else None,
         )
-    identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
+    identity = _pdf_product_identity(
+        conn, task_id, product_key, content_digest, cancellation=cancellation
+    )
     choices = {
         "inputs": ("ops.pdf_product_input", "input_index"),
         "coverage": ("kb.pdf_product_coverage", "coverage_id"),
@@ -1000,22 +1047,27 @@ def integrated_source_context(
     pointers: Sequence[str],
     section_pointer: str,
     membership: str,
+    cancellation: BorrowerCancellation | None = None,
 ) -> dict[str, Any] | None:
     """Selected source's mandatory companion, assembled from bounded occurrence pages."""
     from .pdf_record_reader import published_record_reader
     from .product_reference import ProductReference
 
     record_reader = published_record_reader(
-        conn, ProductReference(task_id, product_key, content_digest)
+        conn, ProductReference(task_id, product_key, content_digest), cancellation=cancellation
     )
     if record_reader is not None:
         if membership not in {"direct", "descendants"}:
             raise ValueError("source membership is not qualified")
-        identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
+        identity = _pdf_product_identity(
+            conn, task_id, product_key, content_digest, cancellation=cancellation
+        )
         if identity["kind"] == "native":
             return None
         return record_reader.source_context(pointers, section_pointer, membership=membership)
-    identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
+    identity = _pdf_product_identity(
+        conn, task_id, product_key, content_digest, cancellation=cancellation
+    )
     if identity["kind"] == "native":
         return None
     if identity["kind"] != "integrated":
@@ -1052,13 +1104,14 @@ def read_pdf_artifact(
     content_digest: str,
     artifact_digest: str,
     offset: int = 0,
+    cancellation: BorrowerCancellation | None = None,
 ) -> dict[str, Any]:
     """Read a fixed byte page from the exact product's retained input custody."""
     if type(offset) is not int or offset < 0:
         raise ValueError("PDF artifact offset must be a nonnegative byte offset")
     if len(artifact_digest) != 64 or any(c not in "0123456789abcdef" for c in artifact_digest):
         raise ValueError("PDF artifact requires its SHA-256 digest")
-    _pdf_product_identity(conn, task_id, product_key, content_digest)
+    _pdf_product_identity(conn, task_id, product_key, content_digest, cancellation=cancellation)
     from sqlalchemy import func, tuple_
 
     inputs, custody, artifacts = map(

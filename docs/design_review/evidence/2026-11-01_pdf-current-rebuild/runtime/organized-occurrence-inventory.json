@@ -1,0 +1,120 @@
+{
+  "observed_at": "2026-11-01T20:13:28.165498+00:00",
+  "task_id": 5,
+  "build_id": "49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2",
+  "prior_diagnostic": "initial stage count assumed build_id; stage rows use product_id/revision_id, corrected; no writes",
+  "ops.pdf_stage_companion": {
+    "counts": [
+      {
+        "family": "health",
+        "rows": 1
+      },
+      {
+        "family": "input",
+        "rows": 1
+      },
+      {
+        "family": "native_metadata",
+        "rows": 7932
+      },
+      {
+        "family": "occurrence",
+        "rows": 107687
+      }
+    ],
+    "occurrence_samples": [
+      {
+        "family": "occurrence",
+        "local_id": "#/body",
+        "body": {
+          "kind": "item",
+          "pointer": "#/body",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/body"
+        }
+      },
+      {
+        "family": "occurrence",
+        "local_id": "#/furniture",
+        "body": {
+          "kind": "item",
+          "pointer": "#/furniture",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/furniture"
+        }
+      },
+      {
+        "family": "occurrence",
+        "local_id": "#/groups/0",
+        "body": {
+          "kind": "item",
+          "pointer": "#/groups/0",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/groups/0"
+        }
+      },
+      {
+        "family": "occurrence",
+        "local_id": "#/groups/1",
+        "body": {
+          "kind": "item",
+          "pointer": "#/groups/1",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/groups/1"
+        }
+      },
+      {
+        "family": "occurrence",
+        "local_id": "#/groups/10",
+        "body": {
+          "kind": "item",
+          "pointer": "#/groups/10",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/groups/10"
+        }
+      },
+      {
+        "family": "occurrence",
+        "local_id": "#/groups/100",
+        "body": {
+          "kind": "item",
+          "pointer": "#/groups/100",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/groups/100"
+        }
+      },
+      {
+        "family": "occurrence",
+        "local_id": "#/groups/1000",
+        "body": {
+          "kind": "item",
+          "pointer": "#/groups/1000",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/groups/1000"
+        }
+      },
+      {
+        "family": "occurrence",
+        "local_id": "#/groups/1001",
+        "body": {
+          "kind": "item",
+          "pointer": "#/groups/1001",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/groups/1001"
+        }
+      }
+    ]
+  },
+  "kb.pdf_record_companion": {
+    "counts": [],
+    "occurrence_samples": []
+  }
+}

@@ -142,6 +142,7 @@ class PublishedPdfReader:
         try:
             with scope:
                 yield
+                self._check_active()
         except Exception as error:
             record_operation_failure(
                 error,
@@ -218,6 +219,7 @@ class PublishedPdfReader:
             return first
 
     def record(self, record_id: str) -> dict[str, Any]:
+        self._check_active()
         return self._cached_record(record_id)
 
     def _record(self, record_id: str) -> dict[str, Any]:
@@ -249,12 +251,16 @@ class PublishedPdfReader:
             )
             for row in self.iter_rows("artifact_part", {"stream_id": stream_id})
         )
-        yield from replay_artifact(
-            parts,
-            pin,
-            release_id=self.revision["release_id"],
-            source_digest=self.revision["source_digest"],
-        )
+        with closing(parts) as owned_parts:
+            for chunk in replay_artifact(
+                owned_parts,
+                pin,
+                release_id=self.revision["release_id"],
+                source_digest=self.revision["source_digest"],
+            ):
+                self._check_active()
+                yield chunk
+        self._check_active()
 
     def _profile(self, stream_id):
         return self._one("artifact_stream", {"stream_id": stream_id})["encoding_profile"]
@@ -268,13 +274,19 @@ class PublishedPdfReader:
                 _[stream_id] = value
                 return value
 
-        return reconstruct_native_document(
+        self._check_active()
+        value = reconstruct_native_document(
             self, record_id, scalar_profiles=Profiles(), native_type=native_type
         )
+        self._check_active()
+        return value
 
     def hydrate_document(self):
         """Explicit whole-value demand uses one ordered native cursor, without repairs."""
-        return json.loads(b"".join(self.iter_native_json()))
+        with closing(self.iter_native_json()) as chunks:
+            value = json.loads(b"".join(chunks))
+        self._check_active()
+        return value
 
     def product_kind(self) -> str:
         with self._read_scope():
@@ -346,15 +358,23 @@ class PublishedPdfReader:
                 raise ValueError("page payload requires exactly one external value")
             field = fields[0]
             if body.get("payload_codec") != PROFILE or field["encoding_profile"] != PROFILE:
-                raise ValueError("page payload encoding profile differs from envelope")
+                raise ValueError(
+                    "page payload encoding profile differs from envelope: "
+                    f"expected={PROFILE!r}, envelope={body.get('payload_codec')!r}, "
+                    f"field={field['encoding_profile']!r}; inspect the producing release "
+                    "and rebuild from compatible retained evidence"
+                )
             payload = b"".join(self.scalar(field["stream_id"]))
-            yield from page_payload_batches(
+            self._check_active()
+            for batch in page_payload_batches(
                 payload,
                 context if context is not None else self._payload_context(),
                 schema_digest=body["payload_schema_digest"],
                 logical_digest=body["payload_logical_digest"],
                 columns=columns,
-            )
+            ):
+                self._check_active()
+                yield batch
 
     def candidate_inventory(self, *, page_nos: Sequence[int] | None = None, context=None):
         """Project page inventory through Arrow kernels without hydrating candidate/OCR objects."""
@@ -386,7 +406,34 @@ class PublishedPdfReader:
                 "ocr_word_count": len(words),
             }
 
-    def native_product_values(self):
+    def iter_candidate_payloads(self, *, context=None):
+        """Yield exact source-qualified IPC bytes without reconstructing nested values."""
+        from .pdf_payloads import PROFILE, EncodedPagePayload, prepare_payload_family
+
+        family = prepare_payload_family(context if context is not None else self._payload_context())
+        for row in self._metadata_rows("inline_candidate_pages"):
+            body = row["body"]
+            fields = row.get("_fields", ())
+            if len(fields) != 1 or fields[0]["field_name"] != "value":
+                raise ValueError("page payload requires exactly one external value")
+            field = fields[0]
+            if body.get("payload_codec") != PROFILE or field["encoding_profile"] != PROFILE:
+                raise ValueError("page payload requires its released Arrow realization")
+            payload = b"".join(self.scalar(field["stream_id"]))
+            batch = family.read_batch(
+                payload,
+                schema_digest=body["payload_schema_digest"],
+                logical_digest=body["payload_logical_digest"],
+            )
+            page_no = batch.column("page_no")[0].as_py()
+            if page_no != body["page_no"]:
+                raise ValueError("candidate payload page differs from its envelope")
+            self._check_active()
+            yield EncodedPagePayload(
+                payload, body["payload_schema_digest"], body["payload_logical_digest"], page_no
+            )
+
+    def native_product_values(self, *, include_candidate_pages: bool = True):
         """Explicit materialization for native transformations; never a small read."""
         document = self.hydrate_document()
         health_rows = list(self.iter_companions("health"))
@@ -425,6 +472,8 @@ class PublishedPdfReader:
             "inline_alignment_reports",
             "recognition_coverage",
         ):
+            if kind == "inline_candidate_pages" and not include_candidate_pages:
+                continue
             values = list(self.native_metadata(kind))
             if values:
                 value[kind] = values
@@ -446,6 +495,7 @@ class PublishedPdfReader:
 
     def decode_companion_row(self, row: Mapping[str, Any]) -> dict[str, Any]:
         """Materialize one requested field from exact bytes, retaining JSON float bits."""
+        self._check_active()
         body = dict(row["body"])
         if row.get("family") == "native_metadata":
             for projection in _METADATA_PROJECTIONS:
@@ -457,6 +507,7 @@ class PublishedPdfReader:
             payload = b"".join(self.scalar(field["stream_id"]))
             from .pdf_payloads import PROFILE, decode_page_payload
 
+            self._check_active()
             profile = field["encoding_profile"]
             if profile == PROFILE:
                 if row["body"].get("payload_codec") != PROFILE:
@@ -473,6 +524,8 @@ class PublishedPdfReader:
                 body[name] = payload.decode("utf-8")
             else:
                 raise ValueError("unsupported companion scalar kind")
+            self._check_active()
+        self._check_active()
         return body
 
     def iter_companions(self, family) -> Iterator[Mapping[str, Any]]:
@@ -504,9 +557,12 @@ class PublishedPdfReader:
         from .pdf_record_identity import ArtifactPart, ArtifactPin, replay_artifact
 
         def encode(value):
-            return json.dumps(
+            self._check_active()
+            encoded = json.dumps(
                 value, ensure_ascii=False, allow_nan=False, separators=(",", ":")
             ).encode()
+            self._check_active()
+            return encoded
 
         owns_events = events is None
         events = self.iter_companion_export_events(family) if owns_events else events
@@ -516,6 +572,7 @@ class PublishedPdfReader:
         first_field = True
         try:
             while True:
+                self._check_active()
                 event = pending if pending is not None else next(events, None)
                 pending = None
                 if event is None:
@@ -664,9 +721,12 @@ class PublishedPdfReader:
         from .pdf_records import _decode_scalar, _parse_inline
 
         def encode(value):
-            return json.dumps(
+            self._check_active()
+            encoded = json.dumps(
                 value, ensure_ascii=False, allow_nan=False, separators=(",", ":")
             ).encode()
+            self._check_active()
+            return encoded
 
         def scalar(stream_id):
             profile = self._profile(stream_id)
@@ -686,6 +746,7 @@ class PublishedPdfReader:
         scope = closing(self.iter_native_events()) if events is None else nullcontext(events)
         with scope as owned_events:
             for event in owned_events:
+                self._check_active()
                 kind, value = event["kind"], event["value"]
                 if kind == "literal":
                     yield value.encode("utf-8")
@@ -739,9 +800,12 @@ class PublishedPdfReader:
         digest, size = sha256(), 0
         with closing(self.iter_native_json()) as chunks:
             for chunk in chunks:
+                self._check_active()
                 sink.write(chunk)
+                self._check_active()
                 digest.update(chunk)
                 size += len(chunk)
+        self._check_active()
         return PdfExportReceipt(size, digest.hexdigest())
 
     def write_integrated_json(self, sink: BinaryIO, *, binding=None) -> PdfExportReceipt:
@@ -756,14 +820,19 @@ class PublishedPdfReader:
 
         def write(chunk):
             nonlocal size
+            self._check_active()
             sink.write(chunk)
+            self._check_active()
             digest.update(chunk)
             size += len(chunk)
 
         def encode(value):
-            return json.dumps(
+            self._check_active()
+            encoded = json.dumps(
                 value, ensure_ascii=False, allow_nan=False, separators=(",", ":")
             ).encode()
+            self._check_active()
+            return encoded
 
         write(
             b'{"export_profile":"pdf-integrated-record-export-v2","binding":'
@@ -795,4 +864,5 @@ class PublishedPdfReader:
                     write(chunk)
             write(b"]")
         write(b"}}")
+        self._check_active()
         return PdfExportReceipt(size, digest.hexdigest())

@@ -93,6 +93,12 @@ exact diagnostics through qualified companion references. A source reader borrow
 per operation; concurrent analysis workers do not share a checked-out connection. These component
 controls do not establish current external attachment or full-book adoption; PDF-24/25/10/11 own them.
 
+Cancellation follows the actual read borrower through cursor, decoding, sink and snapshot
+settlement. The CLI stages its export and publishes the final path only after successful snapshot
+settlement, with no-replace semantics. A direct connection caller owns its transaction boundary.
+Codec/profile refusals identify observed and released bindings and the existing rebuild/admission
+action. CLI/MCP registration defers heavy Arrow/ADBC imports until the operation needs them.
+
 > Decision: ADR-0045
 
 

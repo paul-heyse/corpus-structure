@@ -9,6 +9,39 @@ from .pdf_staging import STAGE_FAMILIES
 from .source_view_native import native_admission_sql
 
 
+def native_payload_size_sql(relation, *, alias="s") -> str:
+    """Size admitted native values from their declared types, never bytea's JSON hex.
+
+    Arrow transfer buffers and native logical extents have separate declared budgets.
+    Native extents include a row null bitmap and varlena headers, not TOAST compression.
+    Canonical replay hashing remains independent of this resource bound.
+    """
+    from sqlalchemy import BigInteger, Boolean, Float, Integer, Numeric, String
+    from sqlalchemy.dialects.postgresql import BYTEA, JSONB
+
+    quote = dialect().identifier_preparer.quote
+    sizes = [str((len(relation.columns) + 7) // 8)]
+    for column in relation.columns:
+        value = f"{alias}.{quote(column.name)}"
+        kind = column.type
+        if isinstance(kind, (BYTEA, String)):
+            size = f"4+octet_length({value})"
+        elif isinstance(kind, (JSONB, Numeric)):
+            size = f"4+octet_length(convert_to({value}::text,'UTF8'))"
+        elif isinstance(kind, Boolean):
+            size = "1"
+        elif isinstance(kind, BigInteger):
+            size = "8"
+        elif isinstance(kind, Integer):
+            size = "4"
+        elif isinstance(kind, Float):
+            size = "8"
+        else:
+            raise ValueError(f"unsupported native upload type: {column}")
+        sizes.append(f"CASE WHEN {value} IS NULL THEN 0 ELSE {size} END")
+    return "(" + "+".join(sizes) + ")"
+
+
 def stage_native_sql() -> str:
     sql = """
 CREATE OR REPLACE FUNCTION ops.require_pdf_stage_owner(p_task bigint,p_attempt bigint,p_holder
@@ -149,7 +182,7 @@ BEGIN
         columns = ",".join(pg.identifier_preparer.quote(c.name) for c in relation.columns)
         sql += f"""
  PERFORM ops.require_pdf_stage_scratch('ps_{relation.name}','{relation.fullname}'::regclass);
- SELECT count(*),COALESCE(sum(octet_length(to_jsonb(s)::text)),0) INTO n,bytes FROM {scratch} s;
+ SELECT count(*),COALESCE(sum({native_payload_size_sql(relation)}),0) INTO n,bytes FROM {scratch} s;
  total:=total+n; total_bytes:=total_bytes+bytes;
  IF total>65536 OR total_bytes>67108864 THEN RAISE EXCEPTION
  'private PDF upload profile exceeded' USING ERRCODE='23514'; END IF;
@@ -221,8 +254,9 @@ BEGIN
  USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT build FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task
  FOR UPDATE;
- IF build.release_id IS DISTINCT FROM run.release_id OR build.state<>'open'
- OR build.attempt>p_attempt THEN
+ IF build.release_id IS DISTINCT FROM run.release_id OR build.state NOT IN ('open','frozen')
+ OR build.attempt>p_attempt OR (build.state='frozen' AND NOT EXISTS(
+ SELECT FROM ops.pdf_frozen_build f WHERE f.build_id=build.build_id)) THEN
  RAISE EXCEPTION 'private PDF resume binding differs' USING ERRCODE='23514'; END IF;
  UPDATE ops.pdf_stage_build SET attempt=p_attempt,holder=p_holder WHERE build_id=p_build;
 END $stage$;
@@ -259,7 +293,7 @@ END $stage$;
     return (
         sql.replace("{native_schema_sha}", sha256(native_schema_bytes()).hexdigest())
         .replace("total>65536", "total>" + str(profile["max_rows"]))
-        .replace("total_bytes>67108864", "total_bytes>" + str(profile["max_bytes"]))
+        .replace("total_bytes>67108864", "total_bytes>" + str(profile["max_native_bytes"]))
         .replace(
             "octet_length(p_key)>1024",
             "octet_length(p_key)>" + str(profile["max_replay_key_bytes"]),

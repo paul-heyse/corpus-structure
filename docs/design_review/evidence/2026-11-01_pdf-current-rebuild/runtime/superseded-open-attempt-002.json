@@ -1,0 +1,37 @@
+{
+  "stages": [
+    {
+      "build_id": "ee82cecb198546bff67f34b2541510f166593e8cb80fb80ccef4b5f9f017b7ee",
+      "state": "open",
+      "task_id": 2,
+      "attempt": 1
+    }
+  ],
+  "published_count": 0,
+  "frozen_count": 0,
+  "known_failure": {
+    "at": "2026-11-01T17:46:26.628299+00:00",
+    "outcome": "failed",
+    "error_type": "IntegrityError",
+    "message": "(psycopg.errors.CheckViolation) parsing record shape differs: PdfRecordNativeHealth\nCONTEXT:  PL/pgSQL function ops.adopt_pdf_companion(text,bigint,bigint,text,text,text,jsonb,text,bigint,jsonb) line 118 at RAISE\n[SQL: SELECT ops.adopt_pdf_companion(%(build)s,%(task)s,%(attempt)s,%(holder)s,%(family)s,%(local)s,CAST(%(body)s AS jsonb),%(key)s,%(ordinal)s,CAST(%(fields)s AS jsonb))]\n[parameters: {'build': 'ee82cecb198546bff67f34b2541510f166593e8cb80fb80ccef4b5f9f017b7ee', 'task': 2, 'attempt': 1, 'holder': 'current-book-storage:2', 'family': 'health', 'local': '0', 'body': '{\"cell_coverage\": \"unknown\", \"conversion\": \"success\", \"display_coverage\": \"partial\", \"inline_coverage\": \"unknown\", \"issues\": [], \"source_scope\": \"who ... (246 characters truncated) ... : 101, \"retained_parent\": {}, \"structural_parent\": null, \"source_recipe_sha256\": \"fcea5b6ed390cc510feca777bb568a8948194b152caaf691e983dffaf4377b68\"}}', 'key': 'companion:health:0:0', 'ordinal': 0, 'fields': '{}'}]\n(Background on this error at: https://sqlalche.me/e/21/gkpj)"
+  },
+  "checkpoint": {
+    "target": "corpus_pdf_20261101",
+    "source": "corpus_pdf_20261031",
+    "release_id": "release:9489848b380040eb34305a56b53cb03cbf00292ab052968053e13c1669f680ea",
+    "steps": {
+      "2/native": {
+        "run_id": 2,
+        "task_id": 2,
+        "config_id": 1,
+        "old_pin": {
+          "task_id": 2,
+          "product_key": "native",
+          "content_digest": "ca05561954ebf2318e2f020590d74cd87ecac6917e2e992a7b24b679cb6ce504"
+        },
+        "structural_parent": null
+      }
+    },
+    "supersedes_checkpoint": "checkpoint-superseded-001.json"
+  }
+}

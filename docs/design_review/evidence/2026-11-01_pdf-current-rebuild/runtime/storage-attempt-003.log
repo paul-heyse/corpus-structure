@@ -1,0 +1,132 @@
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Traceback (most recent call last):
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1958, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 1192, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.CheckViolation: private PDF upload profile exceeded
+CONTEXT:  PL/pgSQL function ops.adopt_pdf_batch(text,bigint,bigint,text,text) line 14 at RAISE
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-01_pdf-current-rebuild/rebuild_current_book.py", line 389, in <module>
+    main()
+    ~~~~^^
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-01_pdf-current-rebuild/rebuild_current_book.py", line 379, in main
+    execute(args)
+    ~~~~~~~^^^^^^
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-11-01_pdf-current-rebuild/rebuild_current_book.py", line 341, in execute
+    published = migrate_retained_pdf_envelope(engine, claim, holder, path=kept,
+        expected_sha256=old["content_digest"], original=original, schema_bytes=schema,
+        recipe_bytes=recipe, directory=output / "private" / old["product_key"],
+        kind="native", product_key=old["product_key"], structural_parent=parent)
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/orchestrate/pdf_streaming.py", line 896, in migrate_retained_pdf_envelope
+    return publish_pdf_record_draft(
+        engine,
+    ...<5 lines>...
+        cancellation=cancellation,
+    )
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/orchestrate/pdf_streaming.py", line 704, in publish_pdf_record_draft
+    _adopt_retained_serialization(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        engine, build, draft.retained_serialization, check_active, cancellation=cancellation
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/orchestrate/pdf_streaming.py", line 952, in _adopt_retained_serialization
+    adopt_pdf_batch(
+    ~~~~~~~~~~~~~~~^
+        connection,
+        ^^^^^^^^^^^
+    ...<9 lines>...
+        cancellation=cancellation,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/semantic/pdf_staging.py", line 210, in adopt_pdf_batch
+    conn.execute(
+    ~~~~~~~~~~~~^
+        text("SELECT * FROM ops.adopt_pdf_batch(:build,:task,:attempt,:holder,:key)"), params
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1463, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/sql/elements.py", line 533, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1683, in _execute_clauseelement
+    ret = self._execute_context(
+        dialect,
+    ...<9 lines>...
+        param_dict=param_dict,
+    )
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1837, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1977, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 2347, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 1958, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 1192, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+sqlalchemy.exc.IntegrityError: (psycopg.errors.CheckViolation) private PDF upload profile exceeded
+CONTEXT:  PL/pgSQL function ops.adopt_pdf_batch(text,bigint,bigint,text,text) line 14 at RAISE
+[SQL: SELECT * FROM ops.adopt_pdf_batch(%(build)s,%(task)s,%(attempt)s,%(holder)s,%(key)s)]
+[parameters: {'build': 'dba3858a09f024041f771e23862064b8eea955b057014ad8e00fceeab6c2cef4', 'task': 3, 'attempt': 1, 'holder': 'current-book-storage:3', 'key': 'retained:parts:0'}]
+(Background on this error at: https://sqlalche.me/e/21/gkpj)

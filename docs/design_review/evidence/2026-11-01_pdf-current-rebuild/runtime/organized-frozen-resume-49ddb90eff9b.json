@@ -1,0 +1,15 @@
+{
+  "outcome": "passed",
+  "scope": "exact-frozen-storage-suffix-only",
+  "pin": {
+    "task_id": 5,
+    "product_key": "organized",
+    "content_digest": "792b6c863f13abedefcb9ea1b1a0dbf6fac1e9e0291963525fe27c9edcfec782"
+  },
+  "producing_release_id": "release:d97e7deac34f3061b58b0b5f4d989b1db5088d67ea5da6104f821ed34022682f",
+  "build_id": "49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2",
+  "frozen_digest": "d223994e85236d2fbe6e5b6932954ab3e6a50b4d42368ab355a092c888ad990e",
+  "proof": "docs/design_review/evidence/2026-11-01_pdf-current-rebuild/runtime/interrupt-attempt-008.json",
+  "task_completed": "empty",
+  "remaining_chain": "not_run"
+}

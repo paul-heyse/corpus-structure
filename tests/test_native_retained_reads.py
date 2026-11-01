@@ -103,8 +103,9 @@ def test_retained_view_hydrates_pins_but_refuses_layout_and_outside_run(
     conn.execute.side_effect = execute
     monkeypatch.setattr(releases, "open_release", lambda *args: retained_release)
 
-    def native_identity(conn, task, key, digest):
+    def native_identity(conn, task, key, digest, *, cancellation=None):
         assert (task, key, digest) == (23, "organized", "a" * 64)
+        assert cancellation is None
         return {"kind": "native"}
 
     monkeypatch.setattr(

@@ -1,0 +1,132 @@
+{
+  "verified_at": "2026-11-01T17:32:01.403452+00:00",
+  "outcome": "passed",
+  "scope": "syntax, helper help/imports, version3 request schema, current published reader methods, unchanged frozen source expectation hashes only",
+  "commands": [
+    {
+      "command": [
+        "uv",
+        "run",
+        "python",
+        "docs/design_review/evidence/2026-11-01_pdf-current-consumers/author_source_references.py",
+        "--help"
+      ],
+      "outcome": "passed",
+      "returncode": 0,
+      "stdout": "usage: author_source_references.py [-h] {prepare,author} ...\n\nIndependent full-section A/B/C references with six frozen original-PDF\nchallenges. Preparation reads selected source views and their archived release\nonly. Authoring runs three fresh tool-free Claude sessions; it never reads\npredictions or writes reference/production database rows. After extraction,\nroot can register each retained unit batch through\nevaluate.semantic.record_pass with its retained native frame.\n\npositional arguments:\n  {prepare,author}\n\noptions:\n  -h, --help        show this help message and exit\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "python",
+        "docs/design_review/evidence/2026-11-01_pdf-current-consumers/qualify_native_cli.py",
+        "--help"
+      ],
+      "outcome": "passed",
+      "returncode": 0,
+      "stdout": "usage: qualify_native_cli.py [-h] --selection SELECTION --database DATABASE\n                             --output OUTPUT\n\nExercise the installed CLI with the exact current source selection.\n\noptions:\n  -h, --help            show this help message and exit\n  --selection SELECTION\n  --database DATABASE\n  --output OUTPUT\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "python",
+        "docs/design_review/evidence/2026-11-01_pdf-current-consumers/qualify_native_exports.py",
+        "--help"
+      ],
+      "outcome": "passed",
+      "returncode": 0,
+      "stdout": "usage: qualify_native_exports.py [-h] --selection SELECTION\n                                 --database DATABASE --output OUTPUT\n\nActual CLI exports, detached native roundtrip, and exact integrated inventory\ncustody.\n\noptions:\n  -h, --help            show this help message and exit\n  --selection SELECTION\n  --database DATABASE\n  --output OUTPUT\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "python",
+        "docs/design_review/evidence/2026-11-01_pdf-current-consumers/qualify_native_mcp.py",
+        "--help"
+      ],
+      "outcome": "passed",
+      "returncode": 0,
+      "stdout": "usage: qualify_native_mcp.py [-h] --selection SELECTION --database DATABASE\n                             --output OUTPUT\n\nActual external stdio journey over caller-selected retained integrated PDF\nevidence.\n\noptions:\n  -h, --help            show this help message and exit\n  --selection SELECTION\n  --database DATABASE\n  --output OUTPUT\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "python",
+        "docs/design_review/evidence/2026-11-01_pdf-current-consumers/register_source_references.py",
+        "--help"
+      ],
+      "outcome": "passed",
+      "returncode": 0,
+      "stdout": "usage: register_source_references.py [-h] --input INPUT --output OUTPUT\n\nRegister retained independent source-only authors through evaluator-owned\noperations. Run only after the exact source-bound extraction is completed.\nThis script never changes the six expected source facts or reads prediction\ncontent to author a pass.\n\noptions:\n  -h, --help       show this help message and exit\n  --input INPUT\n  --output OUTPUT\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "python",
+        "docs/design_review/evidence/2026-11-01_pdf-current-consumers/select_current_source.py",
+        "--help"
+      ],
+      "outcome": "passed",
+      "returncode": 0,
+      "stdout": "usage: select_current_source.py [-h] --run-id RUN_ID\n                                --expected-pin EXPECTED_PIN --output OUTPUT\n\nSelect current run-bound PDF handles, refusing stale pins or changed five-\nsection scope.\n\noptions:\n  -h, --help            show this help message and exit\n  --run-id RUN_ID\n  --expected-pin EXPECTED_PIN\n  --output OUTPUT\n",
+      "stderr": ""
+    }
+  ],
+  "request_version": 3,
+  "published_reader_methods": {
+    "native_product_values": "(self, *, include_candidate_pages: 'bool' = True)",
+    "iter_payload_batches": "(self, kind: 'str' = 'inline_candidate_pages', *, page_nos: 'Sequence[int] | None' = None, columns: 'Sequence[str] | None' = None, context=None) -> 'Iterator[pa.RecordBatch]'",
+    "iter_rows": "(self, family: 'str', filters: 'Mapping[str, Any] | None' = None, *, after=None, batch_size: 'int' = 100) -> 'Generator[dict[str, Any]]'"
+  },
+  "frozen_inputs": {
+    "sampling": {
+      "name": "source-only-reference-cases.json",
+      "sha256": "890dc0a7e87c55347960eb6192518e1b0f96a35de1ea63d2b0daa2327094665f",
+      "assertion_count": 4
+    },
+    "normal": {
+      "name": "source-only-normal-reference.json",
+      "sha256": "e865e4da17ad0140e70805ec5e81e0c5dd9df395fe5ffbbbc85dc69c6e783a57",
+      "assertion_count": 2
+    }
+  },
+  "helper_sha256": {
+    "author_source_references.py": "8973a963717081c4d539b5844cb72aa54d1eef9e22902e26bee2eaafbc18ad2e",
+    "qualify_native_cli.py": "4da514f5bc05c552c1f5c3e1c7a2fe0af6c412d79b3bfa270a6648a1a24fc245",
+    "qualify_native_exports.py": "c27918538c08284cc95bc9105dec4ce11b13b39fa8a51a278758959eb6f29e57",
+    "qualify_native_mcp.py": "37f1ad103a1c81b63fce34816f21ea6f5d28db1364e19f42f5ce56a12ba06631",
+    "register_source_references.py": "35b4bc6614cf8552c87d31d31ece7e1774fbd2f4e41d2bab5a91998e40d956fe",
+    "select_current_source.py": "af0a7c9dbd3cb4e040494dbe5261b4fbb5d74ae253a70d027e5beb6b9d6a6488"
+  },
+  "not_run": [
+    "database attachment",
+    "actual external CLI",
+    "actual external MCP",
+    "source rendering",
+    "exports and detached roundtrip",
+    "reference preparation against current run",
+    "provider A/B/C authoring",
+    "five-section extraction",
+    "evaluator registration/agreement/grading"
+  ],
+  "frozen_original_images": {
+    "docs/design_review/evidence/2026-10-31_pdf-adoption/raw/source-page85.png": {
+      "bytes": 168130,
+      "sha256": "438ac5c20a6206ec41f8030f0e374ca9420a567bcaaee0ff5737103a941d3d70"
+    },
+    "docs/design_review/evidence/2026-10-31_pdf-adoption/raw/source-page596.png": {
+      "bytes": 187637,
+      "sha256": "8cf805fe22e0e5d22e7cb4a387cca7a5054d4df70086113694dd533f159e55e9"
+    }
+  }
+}

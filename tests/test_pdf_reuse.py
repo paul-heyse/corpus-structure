@@ -158,14 +158,28 @@ def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(mo
     def no_publication(*args, **kwargs):
         raise AssertionError("reuse cannot fabricate a new native producer")
 
-    reader = SimpleNamespace(
-        source_views=lambda: (view,),
-        native_document=lambda reference: SimpleNamespace(
+    captures = []
+
+    def native_document(reference, *, include_candidate_pages=True):
+        assert reference == pin and include_candidate_pages is False
+        return SimpleNamespace(
             values=lambda: values,
             recipe_bytes=b"different" if case == "wrong-recipe" else b"exact-native-recipe",
             original=b"retained",
             schema_bytes=b"schema",
-        ),
+        )
+
+    def capture_candidates(reference, directory):
+        from corpus_structure.ingest.pdf_candidate_source import InMemoryCandidatePageSource
+
+        assert reference == pin and directory.parent.is_dir()
+        captures.append(reference)
+        return InMemoryCandidatePageSource(())
+
+    reader = SimpleNamespace(
+        source_views=lambda: (view,),
+        native_document=native_document,
+        capture_pdf_candidates=capture_candidates,
         prepare_pdf_product=no_publication,
         native_product_reference=no_publication,
     )
@@ -180,6 +194,7 @@ def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(mo
     (result,) = method.run((unit,), PdfEnrichConfig(), ctx)
     if case == "same-key-mismatch":
         assert calls == []
+        assert captures == []
         assert result.outcome is ObservationOutcome.FAILED
         assert result.error is not None and "custody" in result.error
         assert result.native_products == () and result.source_views == ()
@@ -191,6 +206,7 @@ def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(mo
         assert "unexpected runtime" in result.error
         return
     assert calls == []
+    assert captures == []
     assert result.outcome is ObservationOutcome.EMPTY
     assert result.native_products == ()
     # Existing analysis view remains selected; only the missing ancestor context is emitted.

@@ -1,0 +1,7 @@
+{
+  "outcome": "passed",
+  "old_release_id": "release:7806e4417c89de6f51ce8e8e0a810e5416cacff59a887706113515d15b6ab217",
+  "new_release_id": "release:9489848b380040eb34305a56b53cb03cbf00292ab052968053e13c1669f680ea",
+  "checkpoint_archive": "checkpoint-superseded-001.json",
+  "authorization": "explicit --supersede-known-open; known55P03, no frozen/published effects, terminal failed task"
+}

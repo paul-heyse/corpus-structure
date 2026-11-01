@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import signal
 import threading
 import time
@@ -202,6 +203,83 @@ def test_deadline_restores_an_external_handler_and_periodic_interval():
             signal.setitimer(
                 signal.ITIMER_REAL, max(remaining - (time.monotonic() - started), 1e-6), interval
             )
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+@pytest.mark.parametrize("outcome", ["normal", "error", "expiry"])
+def test_deadline_restores_automatic_gc_state(enabled, outcome):
+    previous = gc.isenabled()
+
+    class BodyError(Exception):
+        pass
+
+    def body():
+        with grammar.deadline(0.02 if outcome == "expiry" else 1):
+            assert not gc.isenabled()
+            if outcome == "error":
+                raise BodyError
+            if outcome == "expiry":
+                time.sleep(0.1)
+
+    try:
+        (gc.enable if enabled else gc.disable)()
+        if outcome == "normal":
+            body()
+        else:
+            with pytest.raises(BodyError if outcome == "error" else grammar.Expired):
+                body()
+        assert gc.isenabled() is enabled
+        assert signal.getitimer(signal.ITIMER_REAL) == (0, 0)
+    finally:
+        (gc.enable if previous else gc.disable)()
+
+
+def test_nested_deadline_defers_gc_until_outer_scope_settles():
+    previous = gc.isenabled()
+    try:
+        gc.enable()
+        with grammar.deadline(1):
+            assert not gc.isenabled()
+            with grammar.deadline(0.5):
+                assert not gc.isenabled()
+            assert not gc.isenabled()
+        assert gc.isenabled()
+    finally:
+        (gc.enable if previous else gc.disable)()
+
+
+def test_deadline_defers_automatic_collection_callbacks_until_alarm_is_disarmed():
+    previous, thresholds = gc.isenabled(), gc.get_threshold()
+    callbacks_under_alarm = []
+
+    def observe(phase, info):
+        if phase == "start":
+            callbacks_under_alarm.append(signal.getitimer(signal.ITIMER_REAL)[0] > 0)
+
+    def make_cycles():
+        for _ in range(400):
+            cycle = []
+            cycle.append(cycle)
+
+    try:
+        gc.disable()
+        gc.set_threshold(10, 1, 1)
+        gc.callbacks.append(observe)
+        gc.enable()
+        make_cycles()
+        assert callbacks_under_alarm  # Independent control: these allocations collect.
+        callbacks_under_alarm.clear()
+        with grammar.deadline(1):
+            make_cycles()
+            assert callbacks_under_alarm == []
+        make_cycles()
+        assert callbacks_under_alarm  # Collection resumes; callbacks were not suppressed.
+        assert not any(callbacks_under_alarm)
+    finally:
+        gc.disable()
+        gc.callbacks.remove(observe)
+        gc.set_threshold(*thresholds)
+        (gc.enable if previous else gc.disable)()
 
 
 def test_explicit_scientific_calculation_can_evaluate_a_formal_equality():

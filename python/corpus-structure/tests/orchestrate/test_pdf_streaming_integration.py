@@ -43,6 +43,8 @@ class _ScriptedDocumentConverter:
         )
         formula = object.__new__(CodeFormulaVlmModel)
         formula.elements_batch_size = 1
+        formula.engine = None
+        self.native_images_scale = formula.images_scale
         self.pipeline.enrichment_pipe = [formula]
         self.pipeline.assemble_model = SimpleNamespace(options=None)
         self.initialized_pipelines = {"control": self.pipeline}
@@ -62,15 +64,18 @@ class _ScriptedDocumentConverter:
         )
         from PIL import Image
 
-        image = Image.new("RGB", (20, 20), (3, 5, 7))
-        page = Page(
-            page_no=1,
-            size=Size(width=10, height=10),
-            assembled=AssembledUnit(elements=[], headers=[], body=[]),
-        )
-        page._image_cache = {2.0: image}
-        self.pipeline._release_page_resources(SimpleNamespace(payload=page))
-        image.close()
+        # Supply the actual native formula-stage raster capability. The application
+        # captures it before release; this provider control has no rendering backend.
+        side = round(10 * self.native_images_scale)
+        with Image.new("RGB", (side, side), (3, 5, 7)) as image:
+            page = Page(
+                page_no=1,
+                size=Size(width=10, height=10),
+                assembled=AssembledUnit(elements=[], headers=[], body=[]),
+            )
+            page._image_cache = {self.native_images_scale: image}
+            self.pipeline._release_page_resources(SimpleNamespace(payload=page))
+            assert not page._image_cache and page.assembled is None
         document = DoclingDocument(name="scripted provider control")
         document.pages[1] = PageItem(page_no=1, size=Size(width=10, height=10))
         document.add_text(
@@ -200,7 +205,15 @@ def test_real_private_native_pipeline_adopts_pages_records_and_companions(
     assert not list(directory.glob("pdf-source-*")), "source ends after child settlement"
     with semantic_writer_engine.begin() as connection:
         receipts = inspect_pdf_progress(connection, build)
-    assert len(receipts) == len(adopted)
+    callback_receipts = {receipt.replay_key: receipt for receipt in adopted}
+    persisted_receipts = {receipt.replay_key: receipt for receipt in receipts}
+    assert len(callback_receipts) == len(adopted), "each producer batch acknowledged once"
+    assert {key: persisted_receipts[key] for key in callback_receipts} == callback_receipts
+    # Runtime-report field custody is committed by companion adoption, outside the
+    # producer page/record callbacks; its segmented artifact has its own receipt.
+    assert persisted_receipts.keys() - callback_receipts.keys() == {
+        "native:runtime-report:fields:0"
+    }
     assert sum(receipt.row_count for receipt in receipts) > 10
     # Page assembly and its raster were committed before the child's acknowledgement.
     assert any(receipt.replay_key.startswith("page:1:assembly:") for receipt in receipts)

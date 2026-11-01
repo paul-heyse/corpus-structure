@@ -1,0 +1,200 @@
+{
+  "observed_at": "2026-11-01T20:14:06.373948+00:00",
+  "task_id": 5,
+  "build_id": "49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2",
+  "prior_diagnostic": "initial alias precision was SQL reserved syntax; corrected to precision_kind, no writes",
+  "occurrence_counts": [
+    {
+      "occurrence_kind": "cell",
+      "address_space": "native_cell",
+      "precision_kind": "inherited",
+      "rows": 2565
+    },
+    {
+      "occurrence_kind": "formula",
+      "address_space": "native_item",
+      "precision_kind": "item",
+      "rows": 6342
+    },
+    {
+      "occurrence_kind": "item",
+      "address_space": "native_item",
+      "precision_kind": "inherited",
+      "rows": 1
+    },
+    {
+      "occurrence_kind": "item",
+      "address_space": "native_item",
+      "precision_kind": "item",
+      "rows": 49023
+    },
+    {
+      "occurrence_kind": "region",
+      "address_space": "pdf_points",
+      "precision_kind": "item",
+      "rows": 49756
+    }
+  ],
+  "samples": {
+    "cell": [
+      {
+        "local_id": "#/tables/0/data/table_cells/0",
+        "body": {
+          "kind": "cell",
+          "region": {
+            "top": 738.3821678161621,
+            "left": 243.91064453125,
+            "right": 368.64739990234375,
+            "bottom": 677.6430816650391,
+            "origin": "bottom_left",
+            "precision": "inherited",
+            "address_space": "pdf_points",
+            "normalization": "inherited"
+          },
+          "page_no": 61,
+          "pointer": "#/tables/0",
+          "precision": "inherited",
+          "cell_index": 0,
+          "address_space": "native_cell",
+          "occurrence_id": "#/tables/0/data/table_cells/0",
+          "grounding_pointer": "#/tables/0"
+        }
+      },
+      {
+        "local_id": "#/tables/0/data/table_cells/1",
+        "body": {
+          "kind": "cell",
+          "region": {
+            "top": 738.3821678161621,
+            "left": 243.91064453125,
+            "right": 368.64739990234375,
+            "bottom": 677.6430816650391,
+            "origin": "bottom_left",
+            "precision": "inherited",
+            "address_space": "pdf_points",
+            "normalization": "inherited"
+          },
+          "page_no": 61,
+          "pointer": "#/tables/0",
+          "precision": "inherited",
+          "cell_index": 1,
+          "address_space": "native_cell",
+          "occurrence_id": "#/tables/0/data/table_cells/1",
+          "grounding_pointer": "#/tables/0"
+        }
+      }
+    ],
+    "formula": [
+      {
+        "local_id": "#/texts/10001",
+        "body": {
+          "kind": "formula",
+          "region": {
+            "top": 580.0,
+            "left": 255.66666666666666,
+            "right": 551.3333333333333,
+            "bottom": 567.0,
+            "origin": "bottom_left",
+            "precision": "item",
+            "address_space": "pdf_points",
+            "normalization": "none"
+          },
+          "page_no": 341,
+          "pointer": "#/texts/10001",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/texts/10001"
+        }
+      },
+      {
+        "local_id": "#/texts/10008",
+        "body": {
+          "kind": "formula",
+          "region": {
+            "top": 392.0,
+            "left": 162.0,
+            "right": 558.6666666666667,
+            "bottom": 376.0,
+            "origin": "bottom_left",
+            "precision": "item",
+            "address_space": "pdf_points",
+            "normalization": "none"
+          },
+          "page_no": 341,
+          "pointer": "#/texts/10008",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/texts/10008"
+        }
+      }
+    ],
+    "item": [
+      {
+        "local_id": "#/body",
+        "body": {
+          "kind": "item",
+          "pointer": "#/body",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/body"
+        }
+      },
+      {
+        "local_id": "#/furniture",
+        "body": {
+          "kind": "item",
+          "pointer": "#/furniture",
+          "precision": "item",
+          "address_space": "native_item",
+          "occurrence_id": "#/furniture"
+        }
+      }
+    ],
+    "region": [
+      {
+        "local_id": "#/pictures/0/prov/0",
+        "body": {
+          "kind": "region",
+          "region": {
+            "top": 103.9285888671875,
+            "left": 46.8494873046875,
+            "right": 248.2198028564453,
+            "bottom": 48.71392822265625,
+            "origin": "bottom_left",
+            "precision": "item",
+            "address_space": "pdf_points",
+            "normalization": "none"
+          },
+          "page_no": 1,
+          "pointer": "#/pictures/0",
+          "precision": "item",
+          "region_index": 0,
+          "address_space": "pdf_points",
+          "occurrence_id": "#/pictures/0/prov/0"
+        }
+      },
+      {
+        "local_id": "#/pictures/1/prov/0",
+        "body": {
+          "kind": "region",
+          "region": {
+            "top": 443.1845397949219,
+            "left": 481.3133544921875,
+            "right": 560.7876586914062,
+            "bottom": 350.33221435546875,
+            "origin": "bottom_left",
+            "precision": "item",
+            "address_space": "pdf_points",
+            "normalization": "none"
+          },
+          "page_no": 1,
+          "pointer": "#/pictures/1",
+          "precision": "item",
+          "region_index": 0,
+          "address_space": "pdf_points",
+          "occurrence_id": "#/pictures/1/prov/0"
+        }
+      }
+    ]
+  }
+}

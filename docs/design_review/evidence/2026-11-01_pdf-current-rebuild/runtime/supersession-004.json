@@ -1,0 +1,20 @@
+{
+  "observed_at": "2026-11-01T18:06:28.885504+00:00",
+  "outcome": "passed",
+  "scope": "known-unsealed-upload-refusal-supersession-only",
+  "old_release_id": "release:600be97df4661879a45ec9acf13107eca4bf1a5699ad6b39657286044c9be092",
+  "task": {
+    "id": 3,
+    "status": "failed",
+    "attempt": 2,
+    "claimed_by": "current-book-storage:3",
+    "lease_until": null
+  },
+  "build": {
+    "build_id": "dba3858a09f024041f771e23862064b8eea955b057014ad8e00fceeab6c2cef4",
+    "state": "abandoned"
+  },
+  "published_count_before": 0,
+  "frozen_count_before": 0,
+  "checkpoint_archive": "checkpoint-superseded-003.json"
+}

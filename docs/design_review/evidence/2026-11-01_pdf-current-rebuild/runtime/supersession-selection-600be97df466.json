@@ -1,0 +1,8 @@
+{
+  "outcome": "passed",
+  "old_release_id": "release:600be97df4661879a45ec9acf13107eca4bf1a5699ad6b39657286044c9be092",
+  "new_release_id": "release:7b15b6b25957107d9caeb8eed1e417188a78a24138032858c6c1320ac172fb8f",
+  "checkpoint_archive": "checkpoint-superseded-003.json",
+  "receipt": "docs/design_review/evidence/2026-11-01_pdf-current-rebuild/runtime/supersession-004.json",
+  "authorization": "explicit --supersede-known-open and named known-failure receipt; no frozen/published effects, terminal failed task"
+}

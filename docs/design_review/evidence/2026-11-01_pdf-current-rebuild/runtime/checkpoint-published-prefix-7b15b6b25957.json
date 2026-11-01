@@ -1,0 +1,32 @@
+{
+  "target": "corpus_pdf_20261101",
+  "source": "corpus_pdf_20261031",
+  "release_id": "release:7b15b6b25957107d9caeb8eed1e417188a78a24138032858c6c1320ac172fb8f",
+  "steps": {
+    "2/native": {
+      "run_id": 4,
+      "task_id": 4,
+      "config_id": 1,
+      "old_pin": {
+        "task_id": 2,
+        "product_key": "native",
+        "content_digest": "ca05561954ebf2318e2f020590d74cd87ecac6917e2e992a7b24b679cb6ce504"
+      },
+      "structural_parent": null,
+      "published": {
+        "build_id": "169bb1d62efe975c6587066abd55c4a635bc3f5bef1349e38949484d42647943",
+        "task_id": 4,
+        "product_key": "native",
+        "logical_digest": "7326ebf1aa74f611a4b152a68fe37ca1f9c5f76286484e566e5811c96b1faa6d",
+        "release_id": "release:7b15b6b25957107d9caeb8eed1e417188a78a24138032858c6c1320ac172fb8f",
+        "source_digest": "e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9",
+        "schema_digest": "3123788cfea7ddd282a4ec8fdeafee98d106ec2863d6722bbde4fc2f3f2e1bc1",
+        "recipe_digest": "86af5c2cf46cd987f178b712f95bc45d9b6b7d68661d8e3a5126273cdc67cf80",
+        "frozen_digest": "285a247e2e274673f85dfc701412f98ea8104fc2d6b5fe7c6a6d1b79efd91e34",
+        "kind": "native"
+      },
+      "completed": true
+    }
+  },
+  "supersedes_checkpoint": "checkpoint-superseded-003.json"
+}

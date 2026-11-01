@@ -9,6 +9,12 @@ from functools import cmp_to_key
 from typing import Any, Literal
 
 from .pdf import CellCandidate, CellEnrichment, PdfConversion, PdfConverter
+from .pdf_candidate_geometry import CandidateGeometry, CandidatePageStatus, candidate_page_status
+from .pdf_candidate_source import (
+    CandidatePageSource,
+    OverlayCandidatePageSource,
+    as_candidate_source,
+)
 from .pdf_candidates import CandidatePage, InlineCandidate
 from .pdf_health import FormulaOutcome, ObservedFormulaStage
 from .pdf_hierarchy import NativeSnapshot, load_snapshot, native_nodes, snapshot
@@ -125,24 +131,11 @@ class InlineDiscovery:
     reports: tuple[InlineAlignmentReport, ...]
 
 
-def _ordered_context_candidates(document, item, candidates):
+def _ordered_context_candidates(candidates, geometry_anchors):
     """Unique reading order within ONE native prose item and its own provenance spans."""
     anchors = {}
     for index, candidate in candidates:
-        height = document.pages[candidate.page_no].size.height
-        top, bottom = candidate.top, candidate.bottom
-        if candidate.origin == "BOTTOMLEFT":
-            top, bottom = height - top, height - bottom
-        spans = set()
-        for prov in item.prov:
-            if prov.page_no != candidate.page_no:
-                continue
-            box = prov.bbox.to_top_left_origin(height)
-            if (
-                box.l <= (candidate.left + candidate.right) / 2 <= box.r
-                and box.t <= (top + bottom) / 2 <= box.b
-            ):
-                spans.add(tuple(prov.charspan))
+        spans, top, bottom = geometry_anchors[candidate.page_no, index]
         if len(spans) != 1:
             return None
         anchors[candidate.page_no, index] = (next(iter(spans)), top, bottom)
@@ -183,49 +176,49 @@ def _ordered_context_candidates(document, item, candidates):
 
 
 def positioned_inline_candidates(
-    document: Any, pages: tuple[CandidatePage, ...], selected: frozenset[str]
+    document: Any,
+    pages: tuple[CandidatePage, ...] | CandidatePageSource,
+    selected: frozenset[str],
+    *,
+    geometry: CandidateGeometry | None = None,
 ) -> InlineDiscovery:
     """Locate exact native anchors; retain unresolved source custody without guessed offsets."""
     nodes = native_nodes(document)
+    if geometry is None:
+        page_nos = {
+            prov.page_no for pointer in selected for prov in getattr(nodes[pointer], "prov", ())
+        }
+        with CandidateGeometry(document, as_candidate_source(pages), page_nos) as selected_geometry:
+            return positioned_inline_candidates(
+                document, pages, selected, geometry=selected_geometry
+            )
     grouped: dict[tuple[str, str], list[tuple[int, InlineCandidate]]] = defaultdict(list)
-    by_page: dict[int, list[Any]] = defaultdict(list)
-    for pointer in selected:
-        item = nodes[pointer]
-        if str(item.label) not in {"text", "list_item", "caption", "footnote"} or item.children:
-            continue
-        for prov in item.prov:
-            by_page[prov.page_no].append((item, prov))
+    anchors: dict[str, dict[tuple[int, int], Any]] = defaultdict(dict)
+    ambiguous: dict[tuple[int, int], list[str]] = defaultdict(list)
     reports = []
-    for page in pages:
-        for candidate_index, candidate in enumerate(page.candidates):
-            matches = []
-            for item, prov in by_page.get(page.page_no, ()):
-                box = prov.bbox.to_top_left_origin(document.pages[page.page_no].size.height)
-                top, bottom = (candidate.top, candidate.bottom)
-                if candidate.origin == "BOTTOMLEFT":
-                    height = document.pages[page.page_no].size.height
-                    top, bottom = height - candidate.top, height - candidate.bottom
-                center_x = (candidate.left + candidate.right) / 2
-                center_y = (top + bottom) / 2
-                if box.l <= center_x <= box.r and min(box.t, box.b) <= center_y <= max(
-                    box.t, box.b
-                ):
-                    matches.append(item)
-            unique = {item.self_ref: item for item in matches}
-            if len(unique) > 1:
-                reports.append(
-                    InlineAlignmentReport(
-                        page.page_no,
-                        candidate_index,
-                        tuple(sorted(unique)),
-                        "ambiguous-native-items",
-                        "candidate center belongs to multiple native prose items",
-                    )
-                )
-                continue
-            if unique:
-                item = next(iter(unique.values()))
-                grouped[(item.self_ref, candidate.text)].append((candidate_index, candidate))
+    for match in geometry.inline_matches(nodes, selected):
+        if match.match_count > 1:
+            ambiguous[match.page_no, match.candidate_index].append(match.item_ref)
+        else:
+            assert match.candidate is not None
+            grouped[(match.item_ref, match.candidate.text)].append(
+                (match.candidate_index, match.candidate)
+            )
+            anchors[match.item_ref][match.page_no, match.candidate_index] = (
+                match.spans,
+                match.top,
+                match.bottom,
+            )
+    for (page_no, candidate_index), pointers in ambiguous.items():
+        reports.append(
+            InlineAlignmentReport(
+                page_no,
+                candidate_index,
+                tuple(sorted(pointers)),
+                "ambiguous-native-items",
+                "candidate center belongs to multiple native prose items",
+            )
+        )
     positioned = []
     for (pointer, spelling), candidates in grouped.items():
         # Whole-word boundaries avoid matching a variable inside a prose identifier.
@@ -240,7 +233,7 @@ def positioned_inline_candidates(
         )
         offsets = list(re.finditer(pattern, nodes[pointer].text))
         if spelling and len(offsets) == len(candidates):
-            ordered = _ordered_context_candidates(document, nodes[pointer], candidates)
+            ordered = _ordered_context_candidates(candidates, anchors[pointer])
             if len(candidates) == 1 or ordered is not None:
                 positioned.extend(
                     PositionedCandidate(pointer, m.start(), m.end(), candidate)
@@ -268,7 +261,7 @@ def positioned_inline_candidates(
             )
             matches = list(re.finditer(qualified, nodes[pointer].text))
             ordered = (
-                _ordered_context_candidates(document, nodes[pointer], context_candidates)
+                _ordered_context_candidates(context_candidates, anchors[pointer])
                 if len(matches) == len(context_candidates)
                 else None
             )
@@ -468,34 +461,36 @@ def apply_inline(
 def classify_cells(
     document: Any,
     candidates: tuple[CellCandidate, ...],
-    pages: tuple[CandidatePage, ...],
+    pages: tuple[CandidatePage, ...] | CandidatePageSource,
     *,
     math_pattern: str,
     prose_pattern: str,
+    geometry: CandidateGeometry | None = None,
+    page_status: dict[int, CandidatePageStatus] | None = None,
 ) -> tuple[tuple[CellCandidate, ...], list[dict[str, Any]]]:
     """Account for every cell before recognition; nonempty model output is not a classifier."""
     nodes = native_nodes(document)
-    by_page = {p.page_no: p for p in pages}
+    page_nos = {candidate.page_no for candidate in candidates}
+    source = as_candidate_source(pages)
+    if geometry is None:
+        with CandidateGeometry(document, source, page_nos) as selected_geometry:
+            return classify_cells(
+                document,
+                candidates,
+                source,
+                math_pattern=math_pattern,
+                prose_pattern=prose_pattern,
+                geometry=selected_geometry,
+                page_status=page_status,
+            )
+    by_page = page_status if page_status is not None else candidate_page_status(source, page_nos)
+    intersections = geometry.intersecting_cells(nodes, candidates)
     demanded = []
     reports = []
     for candidate in candidates:
         cell = nodes[candidate.table_ref].data.table_cells[candidate.cell_index]
         page = by_page.get(candidate.page_no)
-        box = cell.bbox.to_top_left_origin(document.pages[candidate.page_no].size.height)
-        intersects = False
-        for region in page.candidates if page else ():
-            region_top, region_bottom = region.top, region.bottom
-            if region.origin == "BOTTOMLEFT":
-                height = document.pages[candidate.page_no].size.height
-                region_top, region_bottom = height - region.top, height - region.bottom
-            if (
-                box.l < region.right
-                and region.left < box.r
-                and min(box.t, box.b) < max(region_top, region_bottom)
-                and min(region_top, region_bottom) < max(box.t, box.b)
-            ):
-                intersects = True
-                break
+        intersects = candidate in intersections
         rich = getattr(cell, "ref", None)
         if rich is not None:
             reports.append(
@@ -517,7 +512,7 @@ def classify_cells(
         elif page and page.usable_words and re.fullmatch(prose_pattern, cell.text.strip()):
             classification, basis = (
                 "prose",
-                "ocr-word-text" if page.ocr_regions else "native-word-text",
+                "ocr-word-text" if page.has_ocr_regions else "native-word-text",
             )
         else:
             classification, basis = "unknown", "unresolved-native-evidence"
@@ -552,7 +547,7 @@ class PdfEnrichmentResult:
     outcomes: tuple[FormulaOutcome, ...]
     mappings: tuple[dict[str, Any], ...]
     cell_reports: tuple[dict[str, Any], ...]
-    candidate_pages: tuple[CandidatePage, ...]
+    candidate_pages: CandidatePageSource
     packages: tuple[tuple[str, str], ...]
     runtime: tuple[tuple[str, str], ...]
     effective_options: bytes
@@ -577,17 +572,32 @@ def compute_enrichment(
     all_pages = {
         prov.page_no for pointer in request.selected for prov in getattr(nodes[pointer], "prov", ())
     }
-    pages = {page.page_no: page for page in request.conversion.inline_candidates}
+    source = as_candidate_source(request.conversion.inline_candidates)
+    page_status = candidate_page_status(source, all_pages)
+    overrides: dict[int, CandidatePage] = {}
     absent = {
-        number for number in all_pages if number not in pages or not pages[number].has_vectors
+        number
+        for number in all_pages
+        if number not in page_status or not page_status[number].has_vectors
     }
     if absent:
+        # OCR words are hydrated only when rediscovery must merge recovered vectors.
+        previous_ocr = {
+            page.page_no: page
+            for page in source.iter_pages(
+                {
+                    number
+                    for number in absent
+                    if number in page_status and page_status[number].has_ocr_regions
+                }
+            )
+        }
         for discovered in rediscover_candidates(
             request.original,
             tuple(sorted(absent)),
             parser_threads=converter.recipe.parser_threads,
         ):
-            previous = pages.get(discovered.page_no)
+            previous = previous_ocr.get(discovered.page_no)
             if previous is not None and previous.ocr_regions:
                 # Rediscovery recovers native vector availability, not the OCR run's words.
                 # Preserve observed OCR custody instead of replacing it with corrupt native text.
@@ -597,27 +607,35 @@ def compute_enrichment(
                     if candidate.basis == "native-vector-gap-v1"
                     and previous.native_text_quality != "broken"
                 )
-                pages[discovered.page_no] = replace(
+                overrides[discovered.page_no] = replace(
                     previous,
                     has_vectors=discovered.has_vectors,
                     candidates=previous.candidates + vectors,
                 )
             else:
-                pages[discovered.page_no] = discovered
-    candidates = tuple(pages[number] for number in sorted(pages))
+                overrides[discovered.page_no] = discovered
+    candidates = OverlayCandidatePageSource(source, overrides)
+    if overrides:
+        page_status = candidate_page_status(candidates, all_pages)
     cells = table_candidates(document, request.selected)
-    demanded, reports = classify_cells(
-        document,
-        cells,
-        candidates,
-        math_pattern=request.cell_math_pattern,
-        prose_pattern=request.cell_prose_pattern,
-    )
-    discovery = positioned_inline_candidates(document, candidates, request.selected)
+    with CandidateGeometry(document, candidates, all_pages) as geometry:
+        demanded, reports = classify_cells(
+            document,
+            cells,
+            candidates,
+            math_pattern=request.cell_math_pattern,
+            prose_pattern=request.cell_prose_pattern,
+            geometry=geometry,
+            page_status=page_status,
+        )
+        discovery = positioned_inline_candidates(
+            document, candidates, request.selected, geometry=geometry
+        )
     repair_pages = {
         report.page_no
         for report in discovery.reports
-        if report.basis == "unmatched-native-text" and not pages[report.page_no].ocr_regions
+        if report.basis == "unmatched-native-text"
+        and not page_status[report.page_no].has_ocr_regions
     }
     if repair_pages:
         # Older captures excluded punctuation whose font metric box slightly overlapped
@@ -627,8 +645,8 @@ def compute_enrichment(
             tuple(sorted(repair_pages)),
             parser_threads=converter.recipe.parser_threads,
         ):
-            pages[page.page_no] = page
-        candidates = tuple(pages[number] for number in sorted(pages))
+            overrides[page.page_no] = page
+        candidates = OverlayCandidatePageSource(source, overrides)
         discovery = positioned_inline_candidates(document, candidates, request.selected)
     inline = discovery.candidates
     cell_outcomes: tuple[FormulaOutcome, ...] = ()
@@ -660,9 +678,29 @@ def compute_enrichment(
             report["outcome"] = outcome.outcome
             if outcome.error:
                 report["error"] = outcome.error
-    options = converter.recipe.options()
-    if converter.assets is not None:
-        options.artifacts_path = converter.assets.root
+    import json
+
+    prepared_runtime = json.loads(converter.prepared_options_report)
+    if not prepared_runtime:
+        retained_options = json.loads(request.conversion.effective_options)
+        prepared_runtime = retained_options.get("_prepared_runtime", retained_options)
+    effective = prepared_runtime.get("_preparation", {}).get("effective_options")
+    if effective is None:
+        effective = {
+            key: value for key, value in prepared_runtime.items() if not key.startswith("_")
+        }
+    effective_options = {
+        **effective,
+        "_prepared_runtime": prepared_runtime,
+        "_operation_render": {
+            "scale": 2.0,
+            "padding_points": request.crop_padding_points,
+            "coordinate_frame": "PDF-TOPLEFT-points",
+            "backend": "pypdfium2",
+            "image_ownership": "detached-demand-crop",
+            "requested": bool(demanded or inline),
+        },
+    }
     return PdfEnrichmentResult(
         snapshot(document),
         cell_outcomes + inline_outcomes,
@@ -671,6 +709,6 @@ def compute_enrichment(
         candidates,
         pdf_package_versions(),
         converter.runtime_bindings(),
-        options.model_dump_json(serialize_as_any=True).encode(),
+        json.dumps(effective_options, ensure_ascii=False, allow_nan=False).encode(),
         discovery.reports,
     )

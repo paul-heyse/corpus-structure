@@ -38,6 +38,7 @@ from corpus_structure.semantic.product_reference import ProductReference
 
 from .pdf import PdfConversion, PdfRecipe
 from .pdf_assets import PreparedPdfAssets, prepare_pdf_assets
+from .pdf_candidate_source import CandidatePageSource, InMemoryCandidatePageSource
 from .pdf_candidates import CandidatePage, InlineCandidate
 from .pdf_enrichment import PdfEnrichmentRequest
 from .pdf_health import FormulaOutcome
@@ -597,20 +598,28 @@ def _retained_enrichment_coverage(values, specs):
     return rows
 
 
-def _conversion_from_product(product, recipe_bytes: bytes) -> PdfConversion:
+def _conversion_from_product(
+    product, recipe_bytes: bytes, candidate_source: CandidatePageSource | None = None
+) -> PdfConversion:
     values = product.values()
-    candidates = tuple(
-        CandidatePage(
-            page["page_no"],
-            page["has_words"],
-            page["has_chars"],
-            tuple(InlineCandidate.from_wire(candidate) for candidate in page["candidates"]),
-            page.get("has_vectors", False),
-            page.get("native_text_quality", "unassessed"),
-            tuple(page.get("ocr_regions", ())),
+    if candidate_source is None:
+        # Explicitly materialized native-product callers already own these values.
+        # Preserve their observed metadata; the enrichment caller supplies a detached
+        # source and never reconstructs the book candidate population here.
+        candidate_source = InMemoryCandidatePageSource(
+            CandidatePage(
+                page["page_no"],
+                page["has_words"],
+                page["has_chars"],
+                tuple(
+                    InlineCandidate.from_wire(candidate) for candidate in page.get("candidates", ())
+                ),
+                page.get("has_vectors", False),
+                page.get("native_text_quality", "unassessed"),
+                tuple(page.get("ocr_regions", ())),
+            )
+            for page in values.get("inline_candidate_pages", ())
         )
-        for page in values.get("inline_candidate_pages", [])
-    )
     return PdfConversion(
         values["artifact_digest"],
         recipe_bytes,
@@ -631,7 +640,7 @@ def _conversion_from_product(product, recipe_bytes: bytes) -> PdfConversion:
             (r["name"], r["value"]) for r in values.get("runtime_report", {}).get("bindings", [])
         ),
         effective_options=values.get("runtime_report", {}).get("effective_options", "{}").encode(),
-        inline_candidates=candidates,
+        inline_candidates=candidate_source,
         confidence=values.get("runtime_report", {}).get("confidence", "{}").encode(),
     )
 
@@ -717,6 +726,9 @@ class EnrichPdfMath:
         release = _consumer_release(ctx)
         _require_enrichment_operation(ctx, release)
         for unit in units:
+            candidate_directory: Path | None = None
+            worker: PdfWorker | None = None
+            worker_pending = False
             try:
                 views = [v for v in ctx.reader.source_views() if v.document_id == unit.ref.unit_id]
                 if not views or unit.ref.unit_id is None:
@@ -740,9 +752,11 @@ class EnrichPdfMath:
                         "document enrichment requires a single pinned native source product"
                     )
                 parent = views[0].native_product
-                product = ctx.reader.native_document(parent)
+                product = ctx.reader.native_document(parent, include_candidate_pages=False)
                 recipe_bytes = self.original_recipe(cfg)
-                conversion = _conversion_from_product(product, recipe_bytes)
+                conversion = _conversion_from_product(
+                    product, recipe_bytes, InMemoryCandidatePageSource(())
+                )
                 document = load_snapshot(conversion.native)
                 nodes = native_nodes(document)
                 # Analysis units and ancestor context are separate rows over one shared product.
@@ -804,8 +818,16 @@ class EnrichPdfMath:
                         for section, membership in specs
                     )
                 )
+                from tempfile import mkdtemp
+
+                candidate_directory = Path(mkdtemp(prefix="corpus-pdf-enrichment-"))
+                candidate_source = ctx.reader.capture_pdf_candidates(
+                    parent, candidate_directory / "candidates"
+                )
+                conversion = dataclasses.replace(conversion, inline_candidates=candidate_source)
                 recipe, assets = self.producer._runtime(cfg)
                 worker = self.producer._worker(recipe, assets)
+                worker_pending = True
                 computed = worker.enrich(
                     PdfEnrichmentRequest(
                         conversion,
@@ -817,6 +839,7 @@ class EnrichPdfMath:
                     ),
                     check_active=ctx.check_active,
                 )
+                worker_pending = False
                 conversion = dataclasses.replace(
                     conversion,
                     packages=computed.packages,
@@ -856,6 +879,13 @@ class EnrichPdfMath:
                 outcomes = {
                     row["pointer"]: row["outcome"] for row in payload["health"]["formula_outcomes"]
                 }
+                from .pdf_candidate_geometry import candidate_page_status
+                from .pdf_candidate_source import as_candidate_source
+
+                candidate_pages = candidate_page_status(
+                    as_candidate_source(conversion.inline_candidates),
+                    set().union(*required_pages_by_scope.values()),
+                )
                 coverage = []
                 for section, membership in specs:
                     pointers = _member_order(nodes, section_refs, section, membership)
@@ -876,7 +906,6 @@ class EnrichPdfMath:
                         or str(nodes[nodes[pointer].parent.cref].label) not in {"inline", "table"}
                     ]
                     cell_rows = [row for row in reports if row["table_pointer"] in pointers]
-                    candidate_pages = {page.page_no: page for page in conversion.inline_candidates}
                     required_pages = required_pages_by_scope[(section, membership)]
                     discovery_complete = all(
                         number in candidate_pages
@@ -957,6 +986,15 @@ class EnrichPdfMath:
                 outputs.append(
                     UnitResult(ref=unit.ref, outcome=ObservationOutcome.FAILED, error=summary)
                 )
+            finally:
+                # Successful replies end the file borrow. A failed/cancelled exchange
+                # must settle the worker before its detached input files are removed.
+                if worker_pending and worker is not None:
+                    worker.close()
+                if candidate_directory is not None:
+                    import shutil
+
+                    shutil.rmtree(candidate_directory)
         return outputs
 
 

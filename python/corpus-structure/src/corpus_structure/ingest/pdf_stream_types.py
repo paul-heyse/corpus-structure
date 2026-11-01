@@ -95,6 +95,9 @@ class PdfReplayRef:
     byte_length: int
     family: str
     rows: int = 0
+    schema_digest: str | None = None
+    logical_digest: str | None = None
+    page_no: int | None = None
 
     def verify(self) -> None:
         if self.path.stat().st_size != self.byte_length:
@@ -116,6 +119,7 @@ class PdfStreamRequest:
     structural_pin: dict | None = None
     integration_policy: dict | None = None
     reconciliation_root: Path | None = None
+    payload_schema: bytes | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,3 +134,4 @@ class PdfStreamReply:
     recipe: bytes
     page_replays: tuple[PdfReplayRef, ...]
     record_replays: tuple[PdfReplayRef, ...]
+    effective_options: bytes = b"{}"

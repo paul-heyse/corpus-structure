@@ -31,6 +31,9 @@ from corpus_structure.core.db.store import (
 
 from .pdf_staging import PdfBuildRef, _parameters
 
+COMPANION_BATCH_ROWS = 64
+COMPANION_BATCH_BYTES = 4 * 1024 * 1024
+
 
 @dataclass(frozen=True, slots=True)
 class FrozenPdfBuildRef:
@@ -212,17 +215,33 @@ def adopt_pdf_companion_batch(
                 body["has_diagnostic"] = "error" in value
             if body["kind"] == "inline_candidate_pages":
                 from .pdf_contracts import pdf_context_for_task
-                from .pdf_payloads import PROFILE, prepare_payload_family
+                from .pdf_payloads import PROFILE, EncodedPagePayload, prepare_payload_family
 
                 if codec is None:
                     codec = prepare_payload_family(pdf_context_for_task(conn, build.task_id))
+                if isinstance(value, EncodedPagePayload):
+                    batch = codec.read_batch(
+                        value.content,
+                        schema_digest=value.schema_digest,
+                        logical_digest=value.logical_digest,
+                    )
+                    if batch.column("page_no")[0].as_py() != value.page_no:
+                        raise ValueError("encoded page locator differs from IPC")
+                    encoded = value
+                else:
+                    encoded = EncodedPagePayload(
+                        codec.encode(value),
+                        codec.schema_digest,
+                        codec.logical_digest(value),
+                        value["page_no"],
+                    )
                 body.update(
-                    page_no=value["page_no"],
-                    payload_schema_digest=codec.schema_digest,
+                    page_no=encoded.page_no,
+                    payload_schema_digest=encoded.schema_digest,
                     payload_codec=PROFILE,
-                    payload_logical_digest=codec.logical_digest(value),
+                    payload_logical_digest=encoded.logical_digest,
                 )
-                payloads.append(("value", codec.encode(value), PROFILE))
+                payloads.append(("value", encoded.content, PROFILE))
             else:
                 payloads.append(("value", canonical_bytes(value), "pdf-companion-json-field-v1"))
         if (
@@ -232,7 +251,9 @@ def adopt_pdf_companion_batch(
         ):
             payloads.append(("text", body.pop("text").encode("utf8"), "pdf-record-scalar-v1:s"))
         size = sum(len(payload) for _, payload, _ in payloads)
-        if pending and (len(pending) >= 64 or byte_count + size > 4 * 1024 * 1024):
+        if pending and (
+            len(pending) >= COMPANION_BATCH_ROWS or byte_count + size > COMPANION_BATCH_BYTES
+        ):
             flush()
         fields = {}
         for field, payload, profile in payloads:

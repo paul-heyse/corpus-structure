@@ -53,7 +53,8 @@ def deploy_selected(engine):
 def publish_selected(engine, build, directory):
     document = DoclingDocument(name="independently selected source")
     outside = document.add_text(label=DocItemLabel.TEXT, text="omitted sibling body")
-    chapter = document.add_group(label=GroupLabel.CHAPTER, name="Selected chapter")
+    ancestor = document.add_group(label=GroupLabel.CHAPTER, name="Outside ancestor chapter")
+    chapter = document.add_group(label=GroupLabel.CHAPTER, name="Selected chapter", parent=ancestor)
     section = document.add_group(
         label=GroupLabel.SECTION, name="Nested selected section", parent=chapter
     )
@@ -139,9 +140,9 @@ def publish_selected(engine, build, directory):
                 )
                 for index, (pointer, membership, outcome) in enumerate(
                     (
-                        ("#/groups/0", "descendants", "partial"),
-                        ("#/groups/1", "direct", "unknown"),
-                        ("#/body", "descendants", "unknown"),
+                        ("#/groups/1", "descendants", "partial"),
+                        ("#/groups/2", "direct", "unknown"),
+                        ("#/groups/0", "descendants", "unknown"),
                     )
                 )
             ],
@@ -207,7 +208,7 @@ def publish_selected(engine, build, directory):
                     detail="preserve original scope",
                 )
                 for identity, scope, outcome in (
-                    ("nested", "#/groups/1:direct", "unknown"),
+                    ("nested", "#/groups/2:direct", "unknown"),
                     ("ancestor", "#/body:descendants", "partial"),
                 )
             ],
@@ -268,7 +269,7 @@ def test_native_selection_context_and_offline_preparation(
             product_key="selected",
             content_digest=published.logical_digest,
         ),
-        selection=SelectedSourceSelection(root="#/groups/0"),
+        selection=SelectedSourceSelection(root="#/groups/1"),
         destination=tmp_path / "export",
     )
     receipt = export_selected_source(request, read_settings(native_settings, semantic_db_engine))
@@ -285,8 +286,8 @@ def test_native_selection_context_and_offline_preparation(
             "original B",
         ]
         assert list(reader._index.execute("SELECT pointer FROM records ORDER BY ordinal")) == [
-            ("#/groups/0",),
             ("#/groups/1",),
+            ("#/groups/2",),
             ("#/texts/1",),
             ("#/texts/2",),
             ("#/tables/0",),
@@ -299,7 +300,7 @@ def test_native_selection_context_and_offline_preparation(
         }
         assert {key: (row["scope"], row["outcome"]) for key, row in coverage.items()} == {
             "c1": ("whole_document", "partial"),
-            "nested": ("#/groups/1:direct", "unknown"),
+            "nested": ("#/groups/2:direct", "unknown"),
             "ancestor": ("#/body:descendants", "partial"),
         }
         recognition = [
@@ -312,9 +313,9 @@ def test_native_selection_context_and_offline_preparation(
         assert {
             (row["section_pointer"], row["membership"], row["outcome"]) for row in recognition
         } == {
-            ("#/groups/0", "descendants", "partial"),
-            ("#/groups/1", "direct", "unknown"),
-            ("#/body", "descendants", "unknown"),
+            ("#/groups/1", "descendants", "partial"),
+            ("#/groups/2", "direct", "unknown"),
+            ("#/groups/0", "descendants", "unknown"),
         }
         assert all(
             row["universe"] == "display" and row["policy"] == "detected-native-display-v1"
@@ -359,7 +360,7 @@ def test_native_selection_context_and_offline_preparation(
         "--output",
         str(cli_destination),
         "--section",
-        "#/groups/0",
+        "#/groups/1",
         "--membership",
         "descendants",
         "--format",
@@ -372,8 +373,8 @@ def test_native_selection_context_and_offline_preparation(
     assert cli_receipt["selected_record_count"] == 5
     with SelectedSourceReader(cli_destination, expected_pin=request.pin) as reader:
         assert list(reader._index.execute("SELECT pointer FROM records ORDER BY ordinal")) == [
-            ("#/groups/0",),
             ("#/groups/1",),
+            ("#/groups/2",),
             ("#/texts/1",),
             ("#/texts/2",),
             ("#/tables/0",),

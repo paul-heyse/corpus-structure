@@ -1,0 +1,721 @@
+{
+  "verified_at": "2026-11-01T18:45:20.153746+00:00",
+  "outcome": "passed",
+  "scope": "existing comparator pairs, exact frozen-file hashes, value-only linkage and explicit unknowns; no actual C, database, provider or extraction grade",
+  "input_probe_sha256": "c27e5f557cc4e70aef52f3942dae639910d380b725acfb32944fea9c80ec6bc6",
+  "helper_sha256": {
+    "frozen_semantic_values.py": "cba6cc24fc709e6f791d1c73ddf5a50e72f75d4619410f4128986e2501e5f92e",
+    "author_source_references.py": "a5bc6edd88692d66acdf8663d70ede1dd3895d7ec99cc7c3ac96af5086a9c333",
+    "check_frozen_semantics.py": "d4dedc474fa9442ef87cb8d3851726a4d83f59ffb62bb65996b992eb075a62f8"
+  },
+  "controls": [
+    {
+      "case": "zero_numeric_representation",
+      "expected_outcome": "equivalent",
+      "decision": {
+        "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+        "expected_latex": "0",
+        "actual_operand": {
+          "kind": "number",
+          "number": "0.0"
+        },
+        "conditions_supplied": false,
+        "bindings_compared": false,
+        "expected_projection": {
+          "kind": "number",
+          "number": "0"
+        },
+        "actual_projection": {
+          "kind": "number",
+          "number": "0.0"
+        },
+        "expected_canonical": {
+          "t": "number",
+          "v": "0"
+        },
+        "actual_canonical": {
+          "t": "number",
+          "v": "0"
+        },
+        "outcome": "equivalent",
+        "mechanism": "existing canonical_operand/token_form"
+      }
+    },
+    {
+      "case": "one_numeric_representation",
+      "expected_outcome": "equivalent",
+      "decision": {
+        "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+        "expected_latex": "1",
+        "actual_operand": {
+          "kind": "number",
+          "number": "1.00"
+        },
+        "conditions_supplied": false,
+        "bindings_compared": false,
+        "expected_projection": {
+          "kind": "number",
+          "number": "1"
+        },
+        "actual_projection": {
+          "kind": "number",
+          "number": "1.00"
+        },
+        "expected_canonical": {
+          "t": "number",
+          "v": "1"
+        },
+        "actual_canonical": {
+          "t": "number",
+          "v": "1"
+        },
+        "outcome": "equivalent",
+        "mechanism": "existing canonical_operand/token_form"
+      }
+    },
+    {
+      "case": "different_numeric",
+      "expected_outcome": "different",
+      "decision": {
+        "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+        "expected_latex": "0",
+        "actual_operand": {
+          "kind": "number",
+          "number": "1"
+        },
+        "conditions_supplied": false,
+        "bindings_compared": false,
+        "expected_projection": {
+          "kind": "number",
+          "number": "0"
+        },
+        "actual_projection": {
+          "kind": "number",
+          "number": "1"
+        },
+        "expected_canonical": {
+          "t": "number",
+          "v": "0"
+        },
+        "actual_canonical": {
+          "t": "number",
+          "v": "1"
+        },
+        "outcome": "different",
+        "mechanism": "existing semantic_alignment.equivalent",
+        "decision": {
+          "equal": false,
+          "outcome": "canonical",
+          "reason": "",
+          "comparisons": []
+        }
+      }
+    },
+    {
+      "case": "power_braces",
+      "expected_outcome": "equivalent",
+      "decision": {
+        "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+        "expected_latex": "n^k",
+        "actual_operand": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "n^{k}",
+          "bindings": [
+            {
+              "kind": "free",
+              "symbol": "n"
+            },
+            {
+              "kind": "free",
+              "symbol": "k"
+            }
+          ]
+        },
+        "conditions_supplied": false,
+        "bindings_compared": false,
+        "expected_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "n^k",
+          "bindings": []
+        },
+        "actual_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "n^{k}",
+          "bindings": []
+        },
+        "expected_canonical": {
+          "t": "formula",
+          "latex": "n^k"
+        },
+        "actual_canonical": {
+          "t": "formula",
+          "latex": "n^k"
+        },
+        "outcome": "equivalent",
+        "mechanism": "existing canonical_operand/token_form"
+      }
+    },
+    {
+      "case": "power_different",
+      "expected_outcome": "undecided",
+      "decision": {
+        "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+        "expected_latex": "n^k",
+        "actual_operand": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "n^{k+1}",
+          "bindings": [
+            {
+              "kind": "free",
+              "symbol": "n"
+            },
+            {
+              "kind": "free",
+              "symbol": "k"
+            }
+          ]
+        },
+        "conditions_supplied": false,
+        "bindings_compared": false,
+        "expected_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "n^k",
+          "bindings": []
+        },
+        "actual_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "n^{k+1}",
+          "bindings": []
+        },
+        "expected_canonical": {
+          "t": "formula",
+          "latex": "n^k"
+        },
+        "actual_canonical": {
+          "t": "formula",
+          "latex": "n^{k+1}"
+        },
+        "outcome": "undecided",
+        "mechanism": "existing semantic_alignment.equivalent",
+        "decision": {
+          "equal": false,
+          "outcome": "undecided",
+          "reason": "source definedness incomplete: unsupported source power domain: superscript at (0, 3); source definedness incomplete: unsupported source power domain: superscript at (0, 7)",
+          "comparisons": [
+            {
+              "policy_id": "reference-evidence-2",
+              "evidence_profile": "reference-evidence-2",
+              "reference_path": [],
+              "prediction_path": [],
+              "evidence_tier": "undecided",
+              "agreement": "unknown",
+              "decision_tier": "undecided",
+              "outcome": "undecided",
+              "numeric": "not_run",
+              "valid_points": 0,
+              "grammar": "source definedness incomplete: unsupported source power domain: superscript at (0, 3)/source definedness incomplete: unsupported source power domain: superscript at (0, 7)",
+              "mechanism": "inconclusive",
+              "operands": [
+                "{\"bindings\":[],\"expression\":\"n^k\",\"kind\":\"expression\",\"language\":\"latex\"}",
+                "{\"bindings\":[],\"expression\":\"n^{k+1}\",\"kind\":\"expression\",\"language\":\"latex\"}"
+              ],
+              "context": "null",
+              "detail": "source definedness incomplete: unsupported source power domain: superscript at (0, 3); source definedness incomplete: unsupported source power domain: superscript at (0, 7)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "binomial_symmetry",
+      "expected_outcome": "equivalent",
+      "decision": {
+        "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+        "expected_latex": "\\binom{n}{k}",
+        "actual_operand": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\binom{n}{n-k}",
+          "bindings": [
+            {
+              "kind": "free",
+              "symbol": "n"
+            },
+            {
+              "kind": "free",
+              "symbol": "k"
+            }
+          ]
+        },
+        "conditions_supplied": false,
+        "bindings_compared": false,
+        "expected_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\binom{n}{k}",
+          "bindings": []
+        },
+        "actual_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\binom{n}{n-k}",
+          "bindings": []
+        },
+        "expected_canonical": {
+          "t": "formula",
+          "latex": "\\binom nk"
+        },
+        "actual_canonical": {
+          "t": "formula",
+          "latex": "\\binom n{n-k}"
+        },
+        "outcome": "equivalent",
+        "mechanism": "existing semantic_alignment.equivalent",
+        "decision": {
+          "equal": true,
+          "outcome": "symbolic",
+          "reason": "",
+          "comparisons": [
+            {
+              "policy_id": "reference-evidence-2",
+              "evidence_profile": "reference-evidence-2",
+              "reference_path": [],
+              "prediction_path": [],
+              "evidence_tier": "symbolic",
+              "agreement": "agrees",
+              "decision_tier": "symbolic",
+              "outcome": "equivalent",
+              "numeric": "not_run",
+              "valid_points": 0,
+              "grammar": "ok/ok",
+              "mechanism": "sympy.simplify/structural",
+              "operands": [
+                "{\"bindings\":[],\"expression\":\"\\\\binom{n}{k}\",\"kind\":\"expression\",\"language\":\"latex\"}",
+                "{\"bindings\":[],\"expression\":\"\\\\binom{n}{n-k}\",\"kind\":\"expression\",\"language\":\"latex\"}"
+              ],
+              "context": "null",
+              "detail": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "replacement_factorials",
+      "expected_outcome": "undecided",
+      "decision": {
+        "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+        "expected_latex": "\\binom{n+k-1}{k}",
+        "actual_operand": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\frac{(n+k-1)!}{k! (n-1)!}",
+          "bindings": [
+            {
+              "kind": "free",
+              "symbol": "n"
+            },
+            {
+              "kind": "free",
+              "symbol": "k"
+            }
+          ]
+        },
+        "conditions_supplied": false,
+        "bindings_compared": false,
+        "expected_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\binom{n+k-1}{k}",
+          "bindings": []
+        },
+        "actual_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\frac{(n+k-1)!}{k! (n-1)!}",
+          "bindings": []
+        },
+        "expected_canonical": {
+          "t": "formula",
+          "latex": "\\binom{n+k-1}k"
+        },
+        "actual_canonical": {
+          "t": "formula",
+          "latex": "\\frac{(n+k-1)!}{k!(n-1)!}"
+        },
+        "outcome": "undecided",
+        "mechanism": "existing semantic_alignment.equivalent",
+        "decision": {
+          "equal": false,
+          "outcome": "undecided",
+          "reason": "ok; source definedness incomplete: unsupported source domain: factorial at (16, 18); unsupported source domain: factorial at (19, 25); unsupported source domain: factorial at (6, 14)",
+          "comparisons": [
+            {
+              "policy_id": "reference-evidence-2",
+              "evidence_profile": "reference-evidence-2",
+              "reference_path": [],
+              "prediction_path": [],
+              "evidence_tier": "undecided",
+              "agreement": "unknown",
+              "decision_tier": "undecided",
+              "outcome": "undecided",
+              "numeric": "not_run",
+              "valid_points": 0,
+              "grammar": "ok/source definedness incomplete: unsupported source domain: factorial at (16, 18); unsupported source domain: factorial at (19, 25); unsupported source domain: factorial at (6, 14)",
+              "mechanism": "inconclusive",
+              "operands": [
+                "{\"bindings\":[],\"expression\":\"\\\\binom{n+k-1}{k}\",\"kind\":\"expression\",\"language\":\"latex\"}",
+                "{\"bindings\":[],\"expression\":\"\\\\frac{(n+k-1)!}{k! (n-1)!}\",\"kind\":\"expression\",\"language\":\"latex\"}"
+              ],
+              "context": "null",
+              "detail": "ok; source definedness incomplete: unsupported source domain: factorial at (16, 18); unsupported source domain: factorial at (19, 25); unsupported source domain: factorial at (6, 14)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "multinomial_same",
+      "expected_outcome": "equivalent",
+      "decision": {
+        "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+        "expected_latex": "\\frac{n!}{n_1!\\cdots n_k!}",
+        "actual_operand": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\frac{n!}{n_1!\\cdots n_k!}",
+          "bindings": [
+            {
+              "kind": "free",
+              "symbol": "n"
+            },
+            {
+              "kind": "free",
+              "symbol": "n_1"
+            },
+            {
+              "kind": "free",
+              "symbol": "n_k"
+            },
+            {
+              "kind": "free",
+              "symbol": "k"
+            }
+          ]
+        },
+        "conditions_supplied": false,
+        "bindings_compared": false,
+        "expected_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\frac{n!}{n_1!\\cdots n_k!}",
+          "bindings": []
+        },
+        "actual_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\frac{n!}{n_1!\\cdots n_k!}",
+          "bindings": []
+        },
+        "expected_canonical": {
+          "t": "formula",
+          "latex": "\\frac{n!}{n_1!\\cdots n_k!}"
+        },
+        "actual_canonical": {
+          "t": "formula",
+          "latex": "\\frac{n!}{n_1!\\cdots n_k!}"
+        },
+        "outcome": "equivalent",
+        "mechanism": "existing canonical_operand/token_form"
+      }
+    },
+    {
+      "case": "multinomial_spacing",
+      "expected_outcome": "equivalent",
+      "decision": {
+        "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+        "expected_latex": "\\frac{n!}{n_1!\\cdots n_k!}",
+        "actual_operand": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\frac{n!}{n_1! \\cdots n_k!}",
+          "bindings": [
+            {
+              "kind": "free",
+              "symbol": "n"
+            },
+            {
+              "kind": "free",
+              "symbol": "n_1"
+            },
+            {
+              "kind": "free",
+              "symbol": "n_k"
+            },
+            {
+              "kind": "free",
+              "symbol": "k"
+            }
+          ]
+        },
+        "conditions_supplied": false,
+        "bindings_compared": false,
+        "expected_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\frac{n!}{n_1!\\cdots n_k!}",
+          "bindings": []
+        },
+        "actual_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "\\frac{n!}{n_1! \\cdots n_k!}",
+          "bindings": []
+        },
+        "expected_canonical": {
+          "t": "formula",
+          "latex": "\\frac{n!}{n_1!\\cdots n_k!}"
+        },
+        "actual_canonical": {
+          "t": "formula",
+          "latex": "\\frac{n!}{n_1!\\cdots n_k!}"
+        },
+        "outcome": "equivalent",
+        "mechanism": "existing canonical_operand/token_form"
+      }
+    },
+    {
+      "case": "unresolved_binding",
+      "expected_outcome": "equivalent",
+      "decision": {
+        "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+        "expected_latex": "n^k",
+        "actual_operand": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "n^{k}",
+          "bindings": [
+            {
+              "kind": "unresolved",
+              "symbol": "n"
+            },
+            {
+              "kind": "free",
+              "symbol": "k"
+            }
+          ]
+        },
+        "conditions_supplied": false,
+        "bindings_compared": false,
+        "expected_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "n^k",
+          "bindings": []
+        },
+        "actual_projection": {
+          "kind": "expression",
+          "language": "latex",
+          "expression": "n^{k}",
+          "bindings": []
+        },
+        "expected_canonical": {
+          "t": "formula",
+          "latex": "n^k"
+        },
+        "actual_canonical": {
+          "t": "formula",
+          "latex": "n^k"
+        },
+        "outcome": "equivalent",
+        "mechanism": "existing canonical_operand/token_form"
+      }
+    }
+  ],
+  "linked_claim_control": {
+    "outcome": "partial",
+    "evaluation": "performed",
+    "scope": "six frozen mathematical values against actual linked C claims; source meaning and conditions remain separate",
+    "cases": [
+      {
+        "id": "unordered-no-replacement",
+        "source_case": "sampling",
+        "frozen_assertion": {
+          "id": "unordered-no-replacement",
+          "meaning": "Number of unordered samples of size k without replacement from n elements",
+          "latex": "\\binom{n}{k}",
+          "source": "Sampling formulas table, without replacement / without order cell"
+        },
+        "authored_assertion": {
+          "id": "unordered-no-replacement",
+          "latex": "\\binom{n}{n-k}",
+          "conditions": [],
+          "claim_ids": [
+            "control-claim"
+          ]
+        },
+        "retained_authored_batch": "C.sampling.authored.json",
+        "authored_batch_sha256": "bdb5d373fd2925ca4bbfbee7e6836f72eb53a59ba2927f1f4b2427afe0583083",
+        "actual_linked_claims": [
+          {
+            "id": "control-claim",
+            "object": {
+              "kind": "expression",
+              "language": "latex",
+              "expression": "\\binom{n}{n-k}",
+              "bindings": [
+                {
+                  "kind": "free",
+                  "symbol": "n"
+                },
+                {
+                  "kind": "free",
+                  "symbol": "k"
+                }
+              ]
+            },
+            "qualifications": []
+          }
+        ],
+        "value_comparisons": [
+          {
+            "claim_id": "control-claim",
+            "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+            "expected_latex": "\\binom{n}{k}",
+            "actual_operand": {
+              "kind": "expression",
+              "language": "latex",
+              "expression": "\\binom{n}{n-k}",
+              "bindings": [
+                {
+                  "kind": "free",
+                  "symbol": "n"
+                },
+                {
+                  "kind": "free",
+                  "symbol": "k"
+                }
+              ]
+            },
+            "conditions_supplied": false,
+            "bindings_compared": false,
+            "expected_projection": {
+              "kind": "expression",
+              "language": "latex",
+              "expression": "\\binom{n}{k}",
+              "bindings": []
+            },
+            "actual_projection": {
+              "kind": "expression",
+              "language": "latex",
+              "expression": "\\binom{n}{n-k}",
+              "bindings": []
+            },
+            "expected_canonical": {
+              "t": "formula",
+              "latex": "\\binom nk"
+            },
+            "actual_canonical": {
+              "t": "formula",
+              "latex": "\\binom n{n-k}"
+            },
+            "outcome": "equivalent",
+            "mechanism": "existing semantic_alignment.equivalent",
+            "decision": {
+              "equal": true,
+              "outcome": "symbolic",
+              "reason": "",
+              "comparisons": [
+                {
+                  "policy_id": "reference-evidence-2",
+                  "evidence_profile": "reference-evidence-2",
+                  "reference_path": [],
+                  "prediction_path": [],
+                  "evidence_tier": "symbolic",
+                  "agreement": "agrees",
+                  "decision_tier": "symbolic",
+                  "outcome": "equivalent",
+                  "numeric": "not_run",
+                  "valid_points": 0,
+                  "grammar": "ok/ok",
+                  "mechanism": "sympy.simplify/structural",
+                  "operands": [
+                    "{\"bindings\":[],\"expression\":\"\\\\binom{n}{k}\",\"kind\":\"expression\",\"language\":\"latex\"}",
+                    "{\"bindings\":[],\"expression\":\"\\\\binom{n}{n-k}\",\"kind\":\"expression\",\"language\":\"latex\"}"
+                  ],
+                  "context": "null",
+                  "detail": ""
+                }
+              ]
+            }
+          }
+        ],
+        "source_context_and_conditions": {
+          "outcome": "undecided",
+          "reason": "frozen source facts provide prose meaning/conditions, without independently typed binding and qualification trees; C context is retained, not copied onto expected operands"
+        }
+      }
+    ],
+    "typed_reference_extraction_grade": "not_run; existing evaluator separately compares complete authored/extracted batches including typed qualifications"
+  },
+  "unsupported_cross_challenge": {
+    "scope": "mathematical value only; no binding, qualification or source-meaning grade",
+    "expected_latex": "\\binom{n}{k}",
+    "actual_operand": {
+      "kind": "expression",
+      "language": "latex",
+      "expression": "\\frac{n!}{n_1!\\cdots n_k!}",
+      "bindings": [
+        {
+          "kind": "free",
+          "symbol": "n"
+        },
+        {
+          "kind": "free",
+          "symbol": "n_1"
+        },
+        {
+          "kind": "free",
+          "symbol": "n_k"
+        },
+        {
+          "kind": "free",
+          "symbol": "k"
+        }
+      ]
+    },
+    "conditions_supplied": false,
+    "bindings_compared": false,
+    "expected_projection": {
+      "kind": "expression",
+      "language": "latex",
+      "expression": "\\binom{n}{k}",
+      "bindings": []
+    },
+    "actual_projection": {
+      "kind": "expression",
+      "language": "latex",
+      "expression": "\\frac{n!}{n_1!\\cdots n_k!}",
+      "bindings": []
+    },
+    "expected_canonical": {
+      "t": "formula",
+      "latex": "\\binom nk"
+    },
+    "actual_canonical": {
+      "t": "formula",
+      "latex": "\\frac{n!}{n_1!\\cdots n_k!}"
+    },
+    "outcome": "undecided",
+    "mechanism": "existing semantic_alignment.equivalent",
+    "error_type": "corpus_structure.methods.math.transform.NotRepresentable",
+    "error": "ellipsis"
+  },
+  "actual_journeys": "not_run; waiting for coordinator source/run notification"
+}

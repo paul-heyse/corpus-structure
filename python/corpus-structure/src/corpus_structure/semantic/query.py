@@ -10,7 +10,7 @@ import base64
 import json
 from collections import defaultdict
 from collections.abc import Generator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
@@ -34,6 +34,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.sql import CompoundSelect
 from sqlalchemy.sql.elements import ColumnElement
+
+from corpus_structure.core.db.lifetime import BorrowerCancellation
 
 from .coverage_contract import coverage_recipe
 from .identity import canonical_bytes
@@ -334,16 +336,21 @@ same_scope_clause = _same_scope
 
 
 @contextmanager
-def read_snapshot(store: Engine | _Store) -> Generator[Connection]:
+def read_snapshot(
+    store: Engine | _Store, *, cancellation: BorrowerCancellation | None = None
+) -> Generator[Connection]:
     """One read-only snapshot opener, including SQLAlchemy/psycopg reset ownership."""
     engine = store if isinstance(store, Engine) else store.engine
     with (
         engine.connect().execution_options(
             isolation_level="REPEATABLE READ", postgresql_readonly=True
         ) as conn,
+        cancellation.borrow(conn) if cancellation is not None else nullcontext(),
         conn.begin(),
     ):
         yield conn
+        if cancellation is not None:
+            cancellation.check_active()
 
 
 def _require_snapshot(conn: Connection) -> None:

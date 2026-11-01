@@ -1,0 +1,151 @@
+{
+  "observed_at": "2026-11-01T20:22:45.278808+00:00",
+  "build_id": "49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2",
+  "mode": "EXPLAIN only; no ANALYZE; read-only same native owner",
+  "stage_address_inventory": {
+    "total_native": 274189,
+    "streamed_native": 0,
+    "streamed_references": 0
+  },
+  "sql": "WITH streamed_targets AS MATERIALIZED (\nSELECT record_id,native_address,native_address_stream_id FROM kb.pdf_record_native\nWHERE product_id=:build AND revision_id=:build AND native_address IS NULL)\nSELECT s.product_id,s.revision_id,s.reference_id,s.source_id,s.field_name,s.native_pointer,s.native_pointer_stream_id,COALESCE(s.target_id,CASE\n WHEN s.field_name IN ('source_cell_id','target_cell_id') THEN\n (SELECT n.record_id FROM kb.pdf_record_native n\n WHERE n.product_id=:build AND n.revision_id=:build AND n.native_type='GraphCell'\n AND n.scalars_json->>'cell_id'=s.native_pointer\n AND regexp_replace(n.native_address,'/cells/[0-9]+$','')=regexp_replace(\n (SELECT source.native_address FROM kb.pdf_record_native source\n WHERE source.product_id=:build AND source.revision_id=:build\n AND source.record_id=s.source_id),'/links/[0-9]+$',''))\n WHEN s.native_pointer_stream_id IS NULL THEN\n (SELECT target.record_id FROM (\n SELECT n.record_id FROM kb.pdf_record_native n\n WHERE n.product_id=:build AND n.revision_id=:build AND n.native_address=s.native_pointer\n UNION ALL\n SELECT n.record_id FROM streamed_targets n\n WHERE ops.pdf_reference_bytes_equal(:build,:build,n.native_address,n.native_address_stream_id,\n s.native_pointer,s.native_pointer_stream_id)\n ) target)\n ELSE\n (SELECT n.record_id FROM kb.pdf_record_native n\n WHERE n.product_id=:build AND n.revision_id=:build\n AND ops.pdf_reference_bytes_equal(:build,:build,n.native_address,n.native_address_stream_id,\n s.native_pointer,s.native_pointer_stream_id)) END) FROM ops.pdf_stage_reference s WHERE s.product_id=:build",
+  "plan": [
+    {
+      "Plan": {
+        "Node Type": "Index Scan",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Scan Direction": "Forward",
+        "Index Name": "pk_pdf_stage_reference",
+        "Relation Name": "pdf_stage_reference",
+        "Alias": "s",
+        "Startup Cost": 2.7,
+        "Total Cost": 726004.59,
+        "Plan Rows": 76486,
+        "Plan Width": 349,
+        "Disabled": false,
+        "Index Cond": "(product_id = '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text)",
+        "Plans": [
+          {
+            "Node Type": "Index Scan",
+            "Parent Relationship": "InitPlan",
+            "Subplan Name": "CTE streamed_targets",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Scan Direction": "Forward",
+            "Index Name": "pk_pdf_record_native",
+            "Relation Name": "pdf_record_native",
+            "Alias": "pdf_record_native",
+            "Startup Cost": 0.55,
+            "Total Cost": 2.15,
+            "Plan Rows": 1,
+            "Plan Width": 118,
+            "Disabled": false,
+            "Index Cond": "((product_id = '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text) AND (revision_id = '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text))",
+            "Filter": "(native_address IS NULL)"
+          },
+          {
+            "Node Type": "Index Scan",
+            "Parent Relationship": "SubPlan",
+            "Subplan Name": "SubPlan 3",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Scan Direction": "Forward",
+            "Index Name": "uq_pdf_record_native_product_id_revision_id_native_address",
+            "Relation Name": "pdf_record_native",
+            "Alias": "n",
+            "Startup Cost": 2.7,
+            "Total Cost": 4.32,
+            "Plan Rows": 1,
+            "Plan Width": 65,
+            "Disabled": false,
+            "Index Cond": "((product_id = '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text) AND (revision_id = '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text))",
+            "Filter": "((native_type = 'GraphCell'::text) AND ((scalars_json ->> 'cell_id'::text) = s.native_pointer) AND (regexp_replace(native_address, '/cells/[0-9]+$'::text, ''::text) = regexp_replace((InitPlan 2).col1, '/links/[0-9]+$'::text, ''::text)))",
+            "Plans": [
+              {
+                "Node Type": "Index Scan",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 2",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Scan Direction": "Forward",
+                "Index Name": "uq_pdf_record_native_product_id_revision_id_native_address",
+                "Relation Name": "pdf_record_native",
+                "Alias": "source",
+                "Startup Cost": 0.55,
+                "Total Cost": 2.15,
+                "Plan Rows": 1,
+                "Plan Width": 21,
+                "Disabled": false,
+                "Index Cond": "((product_id = '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text) AND (revision_id = '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text))",
+                "Filter": "(record_id = s.source_id)"
+              }
+            ]
+          },
+          {
+            "Node Type": "Append",
+            "Parent Relationship": "SubPlan",
+            "Subplan Name": "SubPlan 4",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 0.55,
+            "Total Cost": 2.43,
+            "Plan Rows": 2,
+            "Plan Width": 48,
+            "Disabled": false,
+            "Subplans Removed": 0,
+            "Plans": [
+              {
+                "Node Type": "Index Scan",
+                "Parent Relationship": "Member",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Scan Direction": "Forward",
+                "Index Name": "uq_pdf_record_native_product_id_revision_id_native_address",
+                "Relation Name": "pdf_record_native",
+                "Alias": "n_1",
+                "Startup Cost": 0.55,
+                "Total Cost": 2.15,
+                "Plan Rows": 1,
+                "Plan Width": 65,
+                "Disabled": false,
+                "Index Cond": "((product_id = '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text) AND (revision_id = '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text) AND (native_address = s.native_pointer))"
+              },
+              {
+                "Node Type": "CTE Scan",
+                "Parent Relationship": "Member",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "CTE Name": "streamed_targets",
+                "Alias": "n_2",
+                "Startup Cost": 0.0,
+                "Total Cost": 0.27,
+                "Plan Rows": 1,
+                "Plan Width": 32,
+                "Disabled": false,
+                "Filter": "ops.pdf_reference_bytes_equal('49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text, '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text, native_address, native_address_stream_id, s.native_pointer, s.native_pointer_stream_id)"
+              }
+            ]
+          },
+          {
+            "Node Type": "Index Scan",
+            "Parent Relationship": "SubPlan",
+            "Subplan Name": "SubPlan 5",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Scan Direction": "Forward",
+            "Index Name": "uq_pdf_record_native_product_id_revision_id_native_address",
+            "Relation Name": "pdf_record_native",
+            "Alias": "n_3",
+            "Startup Cost": 0.55,
+            "Total Cost": 2.4,
+            "Plan Rows": 1,
+            "Plan Width": 65,
+            "Disabled": false,
+            "Index Cond": "((product_id = '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text) AND (revision_id = '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text))",
+            "Filter": "ops.pdf_reference_bytes_equal('49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text, '49ddb90eff9bd0254981d7ee154bb3d7b512f01cf48ca959da1c4e08e2be61a2'::text, native_address, native_address_stream_id, s.native_pointer, s.native_pointer_stream_id)"
+          }
+        ]
+      }
+    }
+  ]
+}

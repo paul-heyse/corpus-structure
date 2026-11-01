@@ -1,0 +1,9 @@
+{
+  "observed_at": "2026-11-01T17:33:47.081863+00:00",
+  "database": "corpus_pdf_20261101",
+  "revision": "semantic_pdf_stream_20261101",
+  "descriptor_sha256": "65bbc9f95b3527a87267547c450aa0cc072402f7dca9b119c12d951ae018adfc",
+  "initialization_command": "CORPUS_DATABASE__URL='postgresql://corpus_sem_writer@/corpus_pdf_20261101?host=/var/run/postgresql&port=5434' uv run ci db init --json",
+  "outcome": "passed",
+  "catalog_observation": "direct descriptor invocation refused SQLSTATE42501 for maintenance role; catalog prosrc hash observed read-only without executing descriptor"
+}

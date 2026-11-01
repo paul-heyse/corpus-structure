@@ -39,6 +39,12 @@ recovers retained progress without recomputation silently replacing it. Migratio
 does not finalize knowledge or change operational defaults. Complete integrated adoption and
 failure/concurrency qualification remain with the PDF coordinator.
 
+**Implemented; scoped Tested (2026-11-01).** Companion upload transactions use the existing
+bounded row/byte profile, releasing task fences between batches for independent renewal.
+Reclaim may bind a new legitimate attempt to the exact frozen inventory without reopening
+append. Native validation and seal share the model-bound immutable receipt; final seal keeps
+its task/build fences short. This does not increase lease timeouts or waive stale-owner checks.
+
 > Decision: ADR-0045
 
 

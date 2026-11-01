@@ -191,7 +191,7 @@ re-anchored. PDF-11 owns the assembled provider journey and required evidence un
 
 Concrete library mechanisms and version-sensitive limits are retained from review O04/O05,
 [SymPy parsing](https://docs.sympy.org/latest/modules/parsing.html), the local
-[SymPy overview](../../libraries/Sympy.md), [spaCy overview](../../libraries/spacy.md),
+[SymPy overview](../../libraries/parsing/Sympy.md), [spaCy overview](../../libraries/parsing/spacy.md),
 and [Docling OCR technical-PDF guidance](../../libraries/primary_intake/docling_ocr.md).
 I03/I05 resolve remaining native API/coverage uncertainty before dependent claims. These packages
 are planned work, not proof of parser fidelity or a measured efficiency gain. No inference,

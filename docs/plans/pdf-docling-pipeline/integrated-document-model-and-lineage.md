@@ -122,8 +122,8 @@ assembled qualification. Contract agreement or schema validation alone does not 
 
 [Review O02](../../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O02),
 [O05](../../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O05),
-[LinkML overview](../../libraries/linkml.md), [jsonschema](../../libraries/jsonschema.md),
-[Pydantic](../../libraries/pydantic.md), [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md),
+[LinkML overview](../../libraries/data_model/linkml.md), [jsonschema](../../libraries/data_model/jsonschema.md),
+[Pydantic](../../libraries/data_model/pydantic.md), [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md),
 [Alembic](../../libraries/postgresql/alembic.md). The review's primary-source links supply exact mechanisms;
 Context7 first, then pinned sources, resolves new API uncertainty during execution.
 Changing a reconciliation policy should reuse raw observations and the same contracts. A new

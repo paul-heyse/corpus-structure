@@ -163,7 +163,7 @@ not hydrate every page/item of the book.
 
 ## Sources and boundary conditions
 
-Read [Docling](../../libraries/docling.md), [OCR technical guidance](../../libraries/docling_ocr.md),
+Read [Docling](../../libraries/primary_intake/docling.md), [OCR technical guidance](../../libraries/primary_intake/docling_ocr.md),
 and the review's [source map](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#13-source-map).
 Use Context7 first for newly uncertain API details, then pinned tagged source. Important sources:
 [2.145.0 options](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py),

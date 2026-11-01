@@ -1,0 +1,479 @@
+{
+  "at": "2026-11-01T18:35:06.247246+00:00",
+  "scope": "synthetic existing-comparator API mapping only; no C author output, database, provider or source-fidelity qualification",
+  "results": [
+    {
+      "case": "zero_numeric_representation",
+      "left": {
+        "kind": "number",
+        "number": "0"
+      },
+      "right": {
+        "kind": "number",
+        "number": "0.0"
+      },
+      "conditions": null,
+      "decision": {
+        "equal": true,
+        "outcome": "canonical",
+        "reason": "",
+        "comparisons": []
+      }
+    },
+    {
+      "case": "one_numeric_representation",
+      "left": {
+        "kind": "number",
+        "number": "1"
+      },
+      "right": {
+        "kind": "number",
+        "number": "1.00"
+      },
+      "conditions": null,
+      "decision": {
+        "equal": true,
+        "outcome": "canonical",
+        "reason": "",
+        "comparisons": []
+      }
+    },
+    {
+      "case": "different_numeric",
+      "left": {
+        "kind": "number",
+        "number": "0"
+      },
+      "right": {
+        "kind": "number",
+        "number": "1"
+      },
+      "conditions": null,
+      "decision": {
+        "equal": false,
+        "outcome": "canonical",
+        "reason": "",
+        "comparisons": []
+      }
+    },
+    {
+      "case": "power_braces",
+      "left": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "n^k",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "right": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "n^{k}",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "conditions": null,
+      "decision": {
+        "equal": false,
+        "outcome": "undecided",
+        "reason": "source definedness incomplete: unsupported source power domain: superscript at (0, 3); source definedness incomplete: unsupported source power domain: superscript at (0, 5)",
+        "comparisons": [
+          {
+            "policy_id": "reference-evidence-2",
+            "evidence_profile": "reference-evidence-2",
+            "reference_path": [],
+            "prediction_path": [],
+            "evidence_tier": "undecided",
+            "agreement": "unknown",
+            "decision_tier": "undecided",
+            "outcome": "undecided",
+            "numeric": "not_run",
+            "valid_points": 0,
+            "grammar": "source definedness incomplete: unsupported source power domain: superscript at (0, 3)/source definedness incomplete: unsupported source power domain: superscript at (0, 5)",
+            "mechanism": "inconclusive",
+            "operands": [
+              "{\"bindings\":[{\"kind\":\"free\",\"symbol\":\"n\"},{\"kind\":\"free\",\"symbol\":\"k\"}],\"expression\":\"n^k\",\"kind\":\"expression\",\"language\":\"latex\"}",
+              "{\"bindings\":[{\"kind\":\"free\",\"symbol\":\"n\"},{\"kind\":\"free\",\"symbol\":\"k\"}],\"expression\":\"n^{k}\",\"kind\":\"expression\",\"language\":\"latex\"}"
+            ],
+            "context": "null",
+            "detail": "source definedness incomplete: unsupported source power domain: superscript at (0, 3); source definedness incomplete: unsupported source power domain: superscript at (0, 5)"
+          }
+        ]
+      }
+    },
+    {
+      "case": "power_different",
+      "left": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "n^k",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "right": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "n^{k+1}",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "conditions": null,
+      "decision": {
+        "equal": false,
+        "outcome": "undecided",
+        "reason": "source definedness incomplete: unsupported source power domain: superscript at (0, 3); source definedness incomplete: unsupported source power domain: superscript at (0, 7)",
+        "comparisons": [
+          {
+            "policy_id": "reference-evidence-2",
+            "evidence_profile": "reference-evidence-2",
+            "reference_path": [],
+            "prediction_path": [],
+            "evidence_tier": "undecided",
+            "agreement": "unknown",
+            "decision_tier": "undecided",
+            "outcome": "undecided",
+            "numeric": "not_run",
+            "valid_points": 0,
+            "grammar": "source definedness incomplete: unsupported source power domain: superscript at (0, 3)/source definedness incomplete: unsupported source power domain: superscript at (0, 7)",
+            "mechanism": "inconclusive",
+            "operands": [
+              "{\"bindings\":[{\"kind\":\"free\",\"symbol\":\"n\"},{\"kind\":\"free\",\"symbol\":\"k\"}],\"expression\":\"n^k\",\"kind\":\"expression\",\"language\":\"latex\"}",
+              "{\"bindings\":[{\"kind\":\"free\",\"symbol\":\"n\"},{\"kind\":\"free\",\"symbol\":\"k\"}],\"expression\":\"n^{k+1}\",\"kind\":\"expression\",\"language\":\"latex\"}"
+            ],
+            "context": "null",
+            "detail": "source definedness incomplete: unsupported source power domain: superscript at (0, 3); source definedness incomplete: unsupported source power domain: superscript at (0, 7)"
+          }
+        ]
+      }
+    },
+    {
+      "case": "binomial_symmetry",
+      "left": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "\\binom{n}{k}",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "right": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "\\binom{n}{n-k}",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "conditions": null,
+      "decision": {
+        "equal": true,
+        "outcome": "symbolic",
+        "reason": "",
+        "comparisons": [
+          {
+            "policy_id": "reference-evidence-2",
+            "evidence_profile": "reference-evidence-2",
+            "reference_path": [],
+            "prediction_path": [],
+            "evidence_tier": "symbolic",
+            "agreement": "agrees",
+            "decision_tier": "symbolic",
+            "outcome": "equivalent",
+            "numeric": "not_run",
+            "valid_points": 0,
+            "grammar": "ok/ok",
+            "mechanism": "sympy.simplify/structural",
+            "operands": [
+              "{\"bindings\":[{\"kind\":\"free\",\"symbol\":\"n\"},{\"kind\":\"free\",\"symbol\":\"k\"}],\"expression\":\"\\\\binom{n}{k}\",\"kind\":\"expression\",\"language\":\"latex\"}",
+              "{\"bindings\":[{\"kind\":\"free\",\"symbol\":\"n\"},{\"kind\":\"free\",\"symbol\":\"k\"}],\"expression\":\"\\\\binom{n}{n-k}\",\"kind\":\"expression\",\"language\":\"latex\"}"
+            ],
+            "context": "null",
+            "detail": ""
+          }
+        ]
+      }
+    },
+    {
+      "case": "replacement_factorials",
+      "left": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "\\binom{n+k-1}{k}",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "right": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "\\frac{(n+k-1)!}{k! (n-1)!}",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "conditions": null,
+      "decision": {
+        "equal": false,
+        "outcome": "undecided",
+        "reason": "ok; source definedness incomplete: unsupported source domain: factorial at (16, 18); unsupported source domain: factorial at (19, 25); unsupported source domain: factorial at (6, 14)",
+        "comparisons": [
+          {
+            "policy_id": "reference-evidence-2",
+            "evidence_profile": "reference-evidence-2",
+            "reference_path": [],
+            "prediction_path": [],
+            "evidence_tier": "undecided",
+            "agreement": "unknown",
+            "decision_tier": "undecided",
+            "outcome": "undecided",
+            "numeric": "not_run",
+            "valid_points": 0,
+            "grammar": "ok/source definedness incomplete: unsupported source domain: factorial at (16, 18); unsupported source domain: factorial at (19, 25); unsupported source domain: factorial at (6, 14)",
+            "mechanism": "inconclusive",
+            "operands": [
+              "{\"bindings\":[{\"kind\":\"free\",\"symbol\":\"n\"},{\"kind\":\"free\",\"symbol\":\"k\"}],\"expression\":\"\\\\binom{n+k-1}{k}\",\"kind\":\"expression\",\"language\":\"latex\"}",
+              "{\"bindings\":[{\"kind\":\"free\",\"symbol\":\"n\"},{\"kind\":\"free\",\"symbol\":\"k\"}],\"expression\":\"\\\\frac{(n+k-1)!}{k! (n-1)!}\",\"kind\":\"expression\",\"language\":\"latex\"}"
+            ],
+            "context": "null",
+            "detail": "ok; source definedness incomplete: unsupported source domain: factorial at (16, 18); unsupported source domain: factorial at (19, 25); unsupported source domain: factorial at (6, 14)"
+          }
+        ]
+      }
+    },
+    {
+      "case": "multinomial_same",
+      "left": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "\\frac{n!}{n_1!\\cdots n_k!}",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "n_1"
+          },
+          {
+            "kind": "free",
+            "symbol": "n_k"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "right": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "\\frac{n!}{n_1!\\cdots n_k!}",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "n_1"
+          },
+          {
+            "kind": "free",
+            "symbol": "n_k"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "conditions": [
+        "n_i are nonnegative integers",
+        "sum(n_i)=n"
+      ],
+      "decision": {
+        "equal": true,
+        "outcome": "canonical",
+        "reason": "",
+        "comparisons": [
+          {
+            "policy_id": "reference-evidence-2",
+            "evidence_profile": "reference-evidence-2",
+            "reference_path": [],
+            "prediction_path": [],
+            "evidence_tier": "canonical",
+            "agreement": "agrees",
+            "decision_tier": "canonical",
+            "outcome": "equivalent",
+            "numeric": "not_run",
+            "valid_points": 0,
+            "grammar": "",
+            "mechanism": "canonical",
+            "operands": [
+              "{\"bindings\":[{\"kind\":\"free\",\"symbol\":\"n\"},{\"kind\":\"free\",\"symbol\":\"n_1\"},{\"kind\":\"free\",\"symbol\":\"n_k\"},{\"kind\":\"free\",\"symbol\":\"k\"}],\"expression\":\"\\\\frac{n!}{n_1!\\\\cdots n_k!}\",\"kind\":\"expression\",\"language\":\"latex\"}",
+              "{\"bindings\":[{\"kind\":\"free\",\"symbol\":\"n\"},{\"kind\":\"free\",\"symbol\":\"n_1\"},{\"kind\":\"free\",\"symbol\":\"n_k\"},{\"kind\":\"free\",\"symbol\":\"k\"}],\"expression\":\"\\\\frac{n!}{n_1!\\\\cdots n_k!}\",\"kind\":\"expression\",\"language\":\"latex\"}"
+            ],
+            "context": "[\"n_i are nonnegative integers\",\"sum(n_i)=n\"]",
+            "detail": ""
+          }
+        ]
+      }
+    },
+    {
+      "case": "multinomial_spacing",
+      "left": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "\\frac{n!}{n_1!\\cdots n_k!}",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "n_1"
+          },
+          {
+            "kind": "free",
+            "symbol": "n_k"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "right": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "\\frac{n!}{n_1! \\cdots n_k!}",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "n_1"
+          },
+          {
+            "kind": "free",
+            "symbol": "n_k"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "conditions": [
+        "n_i are nonnegative integers",
+        "sum(n_i)=n"
+      ],
+      "error_type": "NotRepresentable",
+      "error": "ellipsis"
+    },
+    {
+      "case": "unresolved_binding",
+      "left": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "n^k",
+        "bindings": [
+          {
+            "kind": "free",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "right": {
+        "kind": "expression",
+        "language": "latex",
+        "expression": "n^{k}",
+        "bindings": [
+          {
+            "kind": "unresolved",
+            "symbol": "n"
+          },
+          {
+            "kind": "free",
+            "symbol": "k"
+          }
+        ]
+      },
+      "conditions": null,
+      "decision": {
+        "equal": false,
+        "outcome": "undecided",
+        "reason": "expression bindings differ or remain unresolved",
+        "comparisons": []
+      }
+    }
+  ]
+}
