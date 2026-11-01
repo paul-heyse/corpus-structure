@@ -4184,7 +4184,7 @@ classes:
         - product_key
     annotations:
       ph:immutability: immutable
-      ph:checks: "[\"descriptor = (convert_from(payload,'UTF8')::jsonb - ARRAY['content','occurrences','relations','coverage','inputs','mapping_reports']) || CASE WHEN convert_from(payload,'UTF8')::jsonb->>'kind'='integrated' THEN jsonb_build_object('content_metadata',jsonb_build_object('schema_digest',convert_from(payload,'UTF8')::jsonb->'content'->'schema_digest','recipe_digest',convert_from(payload,'UTF8')::jsonb->'content'->'recipe_digest','health',convert_from(payload,'UTF8')::jsonb->'content'->'health')) ELSE '{}'::jsonb END\"]"
+      ph:checks: '["descriptor = ops.pdf_product_descriptor(payload)"]'
       ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"},
         {"columns": ["recipe_digest"], "target": "kb.source_artifact.artifact_digest"}]'
   pdf_product_input:

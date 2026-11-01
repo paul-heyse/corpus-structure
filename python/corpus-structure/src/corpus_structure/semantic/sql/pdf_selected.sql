@@ -7,7 +7,7 @@ CREATE OR REPLACE VIEW ops.pdf_selected_product AS
  body.descriptor->'content_metadata'->>'schema_digest',body.descriptor->'content_metadata'->>'recipe_digest',NULL::bigint,NULL::text,NULL::text,
  b.content->'document',body.descriptor->'content_metadata'->'health',body.payload
  FROM ops.pdf_product p JOIN ops.pdf_product_body body USING(task_id,product_key)
- CROSS JOIN LATERAL (SELECT convert_from(body.payload,'UTF8')::jsonb->'content' content) b
+ CROSS JOIN LATERAL (SELECT (convert_from(body.payload,'UTF8')::json->'content')::jsonb content) b
  WHERE p.kind='integrated';
 ALTER VIEW ops.pdf_selected_product OWNER TO corpus_sem_publisher;
 GRANT SELECT ON ops.pdf_selected_product TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;

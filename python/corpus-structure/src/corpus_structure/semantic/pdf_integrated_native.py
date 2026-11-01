@@ -22,7 +22,7 @@ PDF_PRODUCT_RELATIONS = frozenset(
 
 
 def integrated_pdf_products(model=None):
-    from .native_shapes import record_shape_guards
+    from .native_shapes import decomposed_record_guards
     from .pdf_contracts import pdf_shape_guard_sql, trusted_pdf_context
 
     def physical_ddl(content: bytes) -> str:
@@ -87,10 +87,29 @@ def integrated_pdf_products(model=None):
         "{native_schema_digest}", context.native_schema_digest
     )
     companion = (source / "pdf_integrated.sql").read_text()
+    shapes = decomposed_record_guards(
+        context.boundary,
+        "PdfIntegratedProduct",
+        "product",
+        field_names="envelope_fields",
+        collections={
+            "inputs": ("input_rows", "input"),
+            "occurrences": ("occurrence_rows", "occurrence"),
+            "relations": ("relation_rows", "relation"),
+            "coverage": ("coverage_rows", "coverage"),
+            "mapping_reports": ("mapping_rows", "mapping_report"),
+        },
+        records={"content": "parsing_item"},
+    )
     companion = companion.replace(
         "-- {integrated_shape_guard}",
-        record_shape_guards(context.boundary, "PdfIntegratedProduct", "parsing_item"),
+        shapes.envelope,
     )
+    for name, guard in shapes.rows.items():
+        marker = "-- {" + name + "_shape_guard}"
+        if companion.count(marker) != 1:
+            raise ValueError("every decomposed PDF collection needs exactly one row guard: " + name)
+        companion = companion.replace(marker, guard)
     # Reuse native access-universe and provenance validation at the selected-content
     # boundary, substituting recordsets rather than publishing a legacy-readable body.
     guard = native[
@@ -129,6 +148,7 @@ def integrated_pdf_products(model=None):
         ),
     )
     guard = guard.replace("product->", "selected_content->")
+    guard = guard.replace("selected_content->'document'", "selected_document")
     companion = companion.replace("-- {selected_content_guard}", guard)
     sql += companion + "\n" + native + "\n"
     # Populate identities and occurrences before any historical cross-product edge.
@@ -360,4 +380,44 @@ def native_exclusion_products(model=None, *, authoring_provenance=None):
     return (
         NativeProduct("semantic_0059_reconciliation.sql", sql.encode()),
         NativeProduct("semantic_0059_admission.sql", admission.encode()),
+    )
+
+
+def json_pdf_products(model=None, *, authoring_provenance=None):
+    """0060 preserves canonical bytes while publishing individually bounded native rows."""
+    from sqlalchemy.dialects.postgresql import dialect
+    from sqlalchemy.schema import AddConstraint, CheckConstraint
+
+    source = Path(__file__).with_name("sql")
+    sql = (
+        "SET LOCAL ROLE corpus_sem_publisher;\n" + source.joinpath("pdf_descriptor.sql").read_text()
+    )
+    sql += (
+        "DO $checks$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint "
+        "WHERE conrelid='ops.pdf_product_body'::regclass AND contype='c' LOOP "
+        "EXECUTE format('ALTER TABLE ops.pdf_product_body DROP CONSTRAINT %I',n); "
+        "END LOOP; END $checks$;\n"
+    )
+    for constraint in sorted(
+        metadata.tables["ops.pdf_product_body"].constraints, key=lambda c: str(c.name)
+    ):
+        if isinstance(constraint, CheckConstraint):
+            sql += (
+                str(
+                    AddConstraint(constraint, isolate_from_table=False).compile(dialect=dialect())
+                ).strip()
+                + ";\n"
+            )
+    sql += native_exclusion_products(model, authoring_provenance=authoring_provenance)[
+        0
+    ].content.decode()
+    physical, _, _ = closure_products(model)
+    sql += "\nDO $reference$" + physical.content.decode().split("DO $reference$", 1)[1]
+    previous = ALEMBIC_DIR.joinpath("versions/semantic_0059_admission.sql").read_text()
+    admission = native_admission_sql(
+        sql, model, base_admission=previous, authoring_provenance=authoring_provenance
+    )
+    return (
+        NativeProduct("semantic_0060_reconciliation.sql", sql.encode()),
+        NativeProduct("semantic_0060_admission.sql", admission.encode()),
     )
