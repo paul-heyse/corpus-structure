@@ -1,5 +1,5 @@
 # Status
-_Updated 2026-11-01; integrated PDF mechanisms implemented, large-book admission/adoption in progress._
+_Updated 2026-11-01; integrated PDF mechanisms implemented; whole-book publication/adoption incomplete._
 
 ## Current checkpoint
 
@@ -8,9 +8,9 @@ _Updated 2026-11-01; integrated PDF mechanisms implemented, large-book admission
   selection, scoped coverage and singular downstream readers. PDF-10/11 assembled acceptance is open.
 - ADR-0040 governs full Standard+RapidOCR/Nemotron3.5 true triple pass and retirement of historical
   HTML runtime/read/replay compatibility. Frozen migrations, historical data and evidence remain inert.
-- Owned `corpus_pdf_20261031` is at0059. Compiler14/core0.6.2, full Docling2.145/core2.105 and
+- Owned `corpus_pdf_20261031` is at0060; committed0061 is undeployed. Compiler14/core0.6.2, full Docling2.145/core2.105 and
   native schema1.10.0 are bound. Isolated Python3.12/vLLM0.26 runs actual RTX5090 MTP/effectiveFA2;
-  stable model/environment remain outside temporary worktrees.
+  stable model/environment remain retained; the dedicated inference service is shut down.
 - Actual all-page recognition passed:1589 A,1589 B,261 C,1433 valid zero-C pages. Two primary
   length/repetition failures recovered under a separately bound repetition1.3 recipe; originals stay failed.
 - Fresh composed toy source publication passed in run7/task70. Whole-book integration retains all
@@ -19,8 +19,9 @@ _Updated 2026-11-01; integrated PDF mechanisms implemented, large-book admission
   fixing the independently reproduced page170 crop error while preserving both panels.
 - Book attempt6/run13/task86 reached protected publication but its270447 relations exceeded
   PostgreSQL's JSONB array limit. Exact558190320-byte prepared replay and native field-cast results
-  are retained. ADR-0041 selects JSON-text decomposition into existing normalized rows;0060 is being
-  implemented in an isolated checkout. No integrated whole-book publication or selection is claimed yet.
+  are retained. ADR-0041/0060 implements JSON-text decomposition into existing normalized rows.
+  Attempt7 passed that cast, then was cancelled during child validation; no integrated product committed.
+  Committed0061 replaces the correlated child check with one shared set join; book-scale validation is open.
 - Obsolete logs/probe installations/scratch cleanup recovered about25GB. No abandoned authenticated
   test databases existed. Current environments, models, source inputs, receipts and databases remain.
 
@@ -36,23 +37,24 @@ _Updated 2026-11-01; integrated PDF mechanisms implemented, large-book admission
 - **passed:** warning-inclusive `just types` on current main; no suppressions added. Native consumer
   affected union194; source read/reuse17; chart/reconciliation25. Exact receipts are in
   [integrated evidence](docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/README.md).
-- **passed:** `just test-all`0059 baseline2638 Python tests, complete reporting,0failed/error/skipped.
-  Receipt `build/test-receipts/qualification/20261101T033536Z-3956304`; zero listed Rust tests establish
-  no Rust functional coverage. The later read-projection/chart changes have their scoped passes above.
-- **passed:** existing native0060 controls35 in isolation; remaining shape/head/integrated checks
-  are in progress. Those controls are not actual full-book publication or assembled qualification.
+- **passed:** `just test-all`0060 baseline2643 Python tests/10warnings, complete reporting and stable source.
+  Receipt `build/test-receipts/qualification/20261101T042650Z-4190256`; zero listed Rust tests establish
+  no Rust functional coverage. This broad pass precedes0061 and is not whole-book acceptance.
+- **passed:**0060 bounded controls68 and20;0061 focused controls9 plus exact reproduction1.
+  Warning-inclusive `just types` and `uv run ruff check .` passed on merged main.
 - **failed/interrupted:** earlier broad records retain their outcomes; second stable run2527passed/
-  95failed preceded the native fixture/consumer corrections. All three broad receipts are archived.
+  95failed preceded the native fixture/consumer corrections. Earlier receipts remain archived.
 - **passed:** scoped Ruff, Clippy, agent/ADR lint, pinned dependencies, live parameter-log reload
   and `just ready`. Rules scan/tests are not_run because no rules exist. Cosmetic formatting does
   not invalidate applicable passing type/test evidence.
 - **not_run:** current external MCP/render/export journey, actual five-section extraction,
   independent full-section A/B/C authors, registration/grading and completed-result/default selection.
+- **failed:** `just docs-check` on existing parsing-profile and moved logging-library links;
+  product typing/lint results above are passed. Own plan links are checked separately.
 
 ## Next
 
-Finish/review/merge0060, deploy to the owned PDF database and run normal cached book preparation.
-Use the exact admitted integrated pin for current external interfaces, five intact-section provider
-work and independent two-section references. Grade automatically; select the completed result and
-change defaults only afterward. Complete affected final-source qualification, owning plans and
-handoff; remove the active0060 worktree after integration. Defaults still target the historical deployment.
+Review retained JSONB/child-validation evidence and the undeployed0061 correction before further
+whole-book publication. Subsequent acceptance requires the admitted integrated pin, current external
+journeys, five-section extraction, independent references and automated grading before default cutover.
+All owned tasks/processes are concluded and worktrees removed. Defaults still target the historical deployment.

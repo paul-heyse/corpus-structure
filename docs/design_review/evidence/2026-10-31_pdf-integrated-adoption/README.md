@@ -1,6 +1,6 @@
 # Integrated PDF pipeline adoption
 
-**2026-10-31 · In progress.** This folder retains actual runtime, source and consumer receipts for
+**Checkpoint 2026-11-01 · Partial acceptance.** This folder retains actual runtime, source and consumer receipts for
 PDF-12/14–16 and PDF-10/11. The coordinator owns scope/disposition; this is not a second task ledger.
 No final provider, source-fidelity or whole-plan qualification follows from initial runtime startup.
 
@@ -67,11 +67,13 @@ page and its successful selected result: 1,589 full-page parses, 1,589 layout re
 requests; 1,433 pages had valid zero-crop outcomes. These are provider outcomes, not source fidelity,
 integrated publication, extraction or grading. Provider `READY` preflight establishes availability only.
 
-The service now runs from the stable cache environment outside the temporary worktree. The
+The service ran from the stable cache environment outside the temporary worktree. The
 `service-stable*.json` and startup logs retain the successive owned launches. The dedicated local
 service enables vLLM level1 sleep/wake so fresh native Docling conversion and Nemotron inference can
 release GPU ownership between phases. `runtime/phase-api-control.json` passed actual sleep/state/wake
-requests; the fresh composed producer journey remains a separate obligation.
+requests. Fresh composed toy publication subsequently passed as described below. The dedicated
+service is now shut down, its process group drained and loopback8035 unreachable; model/environment
+remain retained (`runtime/service-closeout.json`). No unrelated service was changed.
 
 ### Integrated publication and native consumer checkpoint — 2026-10-31
 
@@ -87,13 +89,20 @@ configured math fallback, SourceView document coverage/protocol and identity-exc
 all failed development attempts. Forward0059 was deployed only to the owned PDF database;
 frozen0057/0058 were unchanged.
 
-The source-stable broad functional receipt
-`build/test-receipts/qualification/20261101T033536Z-3956304` passed2638 Python tests with complete
-reporting and no failed/error/skipped cases. No Rust tests were listed, establishing no Rust
-functional coverage. The first interrupted/failed broad receipt and second2527passed/95failed
-receipt remain unchanged. Passing warning-inclusive Pyrefly results precede cosmetic formatting;
-formatting does not invalidate applicable passing type/test evidence. The new0060 functional
-admission change still needs its own final-source verification.
+The source-stable0060 broad functional receipt
+`build/test-receipts/qualification/20261101T042650Z-4190256` passed2643 Python tests/10warnings
+with complete reporting. No Rust tests were listed, establishing no Rust functional coverage.
+The earlier2638-pass0059 baseline and original failed/interrupted broad receipts retain their
+original outcomes. The subsequent0061 correction has9 focused passing checks plus1 final exact
+reproduction check, rather than a new broad qualification claim. Warning-inclusive `just types`
+and `uv run ruff check .` passed on merged main. Cosmetic formatting does not invalidate
+applicable passing type/test evidence.
+
+`integration/raw/qualification-0060-and-closeout.tar.gz` and its adjacent SHA/member manifest
+retain the complete2643-test receipt plus merged-main typing, Ruff, full documentation failure
+and focused publisher-link results. The two existing documentation failures are the retired
+`ingest/profile.py` link in the parsing plan and the moved OpenTelemetry library link in the
+logging review. No product test/type failure is inferred from those documentation failures.
 
 Whole-book preparation retained each actual failed/interrupted invocation. List membership,
 unconsumed syntax demand, quadratic subtree deletion, nullable ordinary-picture metadata and
@@ -108,6 +117,17 @@ failure; no complete integrated book publication is claimed by this checkpoint.
 ADR-0041 selects JSON-text decomposition into existing normalized rows while retaining exact
 canonical bytea and one native Docling JSONB content value. Closed model-derived shape/cardinality,
 custody, fences, endpoint inventory, decisions and coverage remain native enforcement obligations.
+
+0060 is deployed (`runtime/migration-0060.json`). Book attempt7 passed the aggregate cast, then
+was cancelled during native child validation; run14/task87 is cancelled and retains3441 recognition
+products, with no integrated product committed (`runtime/book-attempt7-closeout.json`).
+`integration/raw/book-selected-guard-generic-plan.json` records the correlated child-check plan;
+this is generic planner evidence, not measured actual SPI loop counts. Committed0061 replaces
+that child check with a shared set join and preserves current model-derived helper/CHECK generation.
+Its controls, initial composition failure and final passing receipts are under
+`integration/native-edge-guard/`.0061 is undeployed; actual whole-book publication and all subsequent
+external/provider/reference/grading/default-adoption obligations remain open. All owned tasks and
+processes are concluded and worktrees removed; exact inputs and replay artifacts remain retained.
 No evidence is truncated and no semantic sections are split. Actual external interfaces, five-section
 extraction, independent references/grading and completed-result/default adoption remain open.
 

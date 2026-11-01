@@ -126,7 +126,7 @@ owns the exact deployed head and complete qualification boundary.
 
 ### Large integrated companion publication
 
-**Accepted target; Proposed implementation (2026-10-31).** Canonical PDF artifact bytes and
+**Implemented through0060; bounded controls Tested (2026-11-01).** Canonical PDF artifact bytes and
 one native DoclingDocument remain distinct from normalized companion rows. PostgreSQL JSON text
 allows the protected publisher to decompose large relation/occurrence arrays into independently
 validated JSONB records without constructing an oversized aggregate JSONB value. The same trusted
@@ -134,7 +134,13 @@ model generates closed shape/type/cardinality checks; fences, exact byte custody
 relations, decisions and coverage remain independently enforced by PostgreSQL. Descriptor checks
 and selected-content views narrow only bounded content/records. Cache header/content before row
 loops rather than repeatedly reparse the full wire document. The PDF coordinator owns delivery
-and exact book/consumer qualification; current failed casts are retained evidence.
+and exact book/consumer qualification; current failed casts are retained evidence. Actual book
+attempt7 passed the aggregate cast but was cancelled during native child validation, with no
+integrated product committed. The committed, undeployed0061 guard expands child edges once and
+checks targets/backpointers through a document-wide join, shared by native and integrated
+publication. Its current descriptor helper and body CHECK are derived from the same authoring
+path; frozen0057–0060 remain unchanged. Bounded guard/reproduction controls passed; no book-scale
+runtime or publication success is claimed.
 
 > Decision: [ADR-0041](../adr/0041-json-text-pdf-publication.md)
 
@@ -1903,7 +1909,7 @@ runtime reports, per-section/membership recognition coverage and table-cell repo
 coverage and selected-view coverage remain different claims. Native evidence aliases are exact
 retained projection pieces; SQL checks their complete inventory and source custody. SourceView
 observations carry their actual unit ID through the shared completion boundary. The owned PDF
-database is migrated through0059. The full original's native and organized products are retained;
+database is migrated through0060; committed0061 is undeployed. The full original's native and organized products are retained;
 complete consumer acceptance is separately owned by the PDF coordinator.
 
 **Implemented; targeted native controls Tested, 2026-10-31.** 0051 admits qualified native

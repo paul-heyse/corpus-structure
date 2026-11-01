@@ -251,12 +251,13 @@ and inert databases/frozen migration/evidence records. No destructive data clean
 
 > Decision: ADR-0040
 
-**Accepted large-companion realization; Proposed implementation (2026-10-31).** Retain exact
+**Implemented through0060; bounded controls Tested (2026-11-01).** Retain exact
 canonical artifact bytea and native Docling JSONB, while admitting wide companion arrays as
 model-validated records into their existing PostgreSQL relations. Parse wire JSON text before
 narrowing bounded records/content to JSONB; preserve independent native custody and integrity
 without materializing an oversized aggregate relation array. D3 owns the physical mechanism;
-the PDF coordinator owns delivery and qualification.
+the PDF coordinator owns delivery and qualification.0061's shared child-edge join is committed
+and focused-tested but undeployed; whole-book publication and assembled adoption remain incomplete.
 
 > Decision: ADR-0041
 

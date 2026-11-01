@@ -25,6 +25,22 @@ Coarse inherited evidence stays coarse; selected cells do not acquire invented f
 retains actual recognition and bounded mapping/publication controls, original failures and recoveries.
 Whole-book integrated publication and independent knowledge/source assessment remain distinct obligations.
 
+### Publication closeout — 2026-11-01
+
+**Implemented; bounded Tested.** ADR-0041/forward0060 replaces aggregate-envelope JSONB casts
+with JSON-text decomposition into existing model-validated records. The exact retained book
+payload is558190320 bytes, including270447 relations/355630981 bytes; its relation array exceeds
+PostgreSQL's JSONB limit while selected content fits.0060 is deployed to the owned PDF database.
+Attempt7 passed that cast but was cancelled during correlated native child validation; run14/task87
+is cancelled,3441 observation products remain, and no integrated product committed.
+
+Committed0061 lifts child integrity into one shared native/integrated set join, retaining target,
+backpointer, parent, order, scope and custody semantics. It re-derives the current descriptor helper
+and body CHECK; focused malformed-edge and authoring/reproduction controls passed.0061 is
+undeployed and whole-book publication remains open. The exact raw replay, failed attempts and
+generic query-plan evidence are retained in the integrated evidence owner; the generic plan is
+not an actual book-scale runtime measurement. No recognition needs repeating for compatible replay.
+
 ## Foundation and selected realization
 
 Use the complete public NVIDIA multipass capability, not a port of the ParseBench scheduler and

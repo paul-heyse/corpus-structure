@@ -26,6 +26,14 @@ retain the exact verification boundary. Controlled/component checks establish th
 actual external attachment/render, five-section provider extraction, independent grading and adopted
 completed-result/default selection remain PDF-10/11 obligations.
 
+**Closeout, 2026-11-01.** The selected-document header read now avoids fetching the unused full
+item JSON, with17 scoped checks passed. Shared chart provenance is inverse-transformed once per
+distinct provenance object, with25 chart/reconciliation checks passed; this corrects the reproduced
+page170 collapsed panel while retaining coarse precision. The0060 source-stable broad functional
+baseline passed2643 tests/10warnings. The subsequent0061 guard has focused verification only.
+Actual external attachment/export, five-section extraction, independent references/grading and
+completed result selection remain not_run; helper/preflight readiness establishes none of them.
+
 ## Foundation and consumer boundary
 
 Existing SourceViews, native frames, scientific M09/M11/M13, packets, query/CLI/MCP and native region

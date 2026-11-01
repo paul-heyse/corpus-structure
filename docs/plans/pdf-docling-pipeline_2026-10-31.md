@@ -47,7 +47,7 @@ new alignment lint, cost model, generic workflow engine or additional proof fram
 
 ## 2. Baseline and foundation assessment
 
-The current execution baseline deploys native0059 with compiler14/core0.6.2, full
+The current execution baseline deploys native0060 with compiler14/core0.6.2, full
 Docling2.145.0/core2.105.0 and native schema1.10.0. Integrated producers, governed selection,
 scoped readers and forward-only consumers are implemented. Actual all-page Nemotron recognition
 and fresh composed toy publication passed; whole-book integrated publication and assembled
@@ -111,11 +111,11 @@ confirmations do not authorize changing grading policy, audit premises or histor
 | <a id="PDF-08"></a>PDF-08 | [Interfaces](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-08): typed CLI/MCP, placement and exports | PDF-03/05; PDF-06/07 for their views | Implemented and targeted-tested: CLI run6 reads passed; historical external reads/export passed; current external render/MCP journey not_run |
 | <a id="PDF-09"></a>PDF-09 | [Runtime](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-09): owned conversion lifecycle and publication | PDF-02/03/04; I07 before adoption | Implemented and source-tested: retained originals, finite child lifecycle, exact conversion/enrichment reuse and scoped request authority |
 | <a id="PDF-10"></a>PDF-10 | [Adoption](pdf-docling-pipeline/adoption-and-retirement.md#PDF-10): PDF defaults, consumer cutover, HTML removal | Integrated PDF-03–09 and PDF-13–16; I08/I13 | Partial: HTML producers retired, statistics/toy inputs native PDF; completed PDF result/default selection open |
-| <a id="PDF-11"></a>PDF-11 | [Acceptance](pdf-docling-pipeline/adoption-and-retirement.md#PDF-11): actual journeys and required-union evidence | Complete selected functional scope, PDF-10 | Incomplete: current0059 functional baseline2638passed;0060 large-book admission correction, actual provider/evaluation/current external journeys and final-source union remain open |
+| <a id="PDF-11"></a>PDF-11 | [Acceptance](pdf-docling-pipeline/adoption-and-retirement.md#PDF-11): actual journeys and required-union evidence | Complete selected functional scope, PDF-10 | Incomplete:0060 functional baseline2643passed; committed0061 has focused verification only; whole-book publication, actual provider/evaluation/current external journeys and final-source union remain open |
 | <a id="PDF-12"></a>PDF-12 | [Foundations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-12): successor decision and consequential feasibility | RC06/07 and current source | ADR-0039 delivered; isolated actual runtime, transforms and bounded mapping controls passed; corpus benefit remains separately assessed |
 | <a id="PDF-13"></a>PDF-13 | [Integrated model](pdf-docling-pipeline/integrated-document-model-and-lineage.md#PDF-13): connected contract/storage, multi-input lineage | PDF-12 decision route; I10/11 for affected final constraints | Implemented foundation; targeted verification below; provider precision remains gated |
 | <a id="PDF-14"></a>PDF-14 | [Triple recognition](pdf-docling-pipeline/triple-pass-recognition-and-reconciliation.md#PDF-14): owned public parser and retained request outcomes | I09 pins/runtime; PDF-13 observation/publication slice; I10 for grounded use | Implemented; actual full-book A/B/C recognition passed with retained primary failures and two named recoveries; assembled publication remains PDF-10/11 |
-| <a id="PDF-15"></a>PDF-15 | [Integration](pdf-docling-pipeline/triple-pass-recognition-and-reconciliation.md#PDF-15): mapped rich content, correspondence and governed selection | Working PDF-13/14; I10/11 | Implemented and targeted-tested; book admission exposed the JSONB relation-array limit, corrected via ADR-0041/forward0060 before whole-book acceptance |
+| <a id="PDF-15"></a>PDF-15 | [Integration](pdf-docling-pipeline/triple-pass-recognition-and-reconciliation.md#PDF-15): mapped rich content, correspondence and governed selection | Working PDF-13/14; I10/11 | Implemented and targeted-tested; ADR-0041/0060 bypasses the relation-array JSONB limit;0061 set-join child validation is committed/undeployed; actual whole-book acceptance remains open |
 | <a id="PDF-16"></a>PDF-16 | [Consumers](pdf-docling-pipeline/integrated-document-consumers.md#PDF-16): singular reader, scientific/extraction/interface/evidence migration | Agreed PDF-13 for design; working PDF-15 for acceptance | Implemented; current external/provider/evaluator journeys remain PDF-10/11 |
 
 **Current sequence:** PDF-12 decisions/feasibility and early PDF-13 contract design can advance
@@ -178,7 +178,7 @@ repository records when a probe produces an accepted result. No new permanent ca
 | I09 | Exact public API/package/weights/tokenizer/decoding pins, isolated runtime and sm120 attention/plugin/MTP | Resolved selected runtime: pinned public source, isolated Python3.12/vLLM0.26/Torch2.11/Transformers5.14.1; actual RTX5090 MTP/FA2 and whole-book requests passed · PDF-12/14 |
 | I10 | Submitted-pixel, PDF CropBox/rotation and crop transform precision, including rotated OCR | Bounded independent CropBox/rotation/crop/normalization controls passed; mismatched frames remain unresolved, no fine glyph/cell precision claim · PDF-13/14/15 |
 | I11 | Mapping/merge losses, table/chart/inline structure and selection policy over real responses | Mapping/selection mechanisms and real-response/bounded structure controls passed; cross-page continuity is explicitly not inferred, universal fidelity unqualified · PDF-13/15 |
-| I12 | Bounded preparation, combined GPU lifetime, partial receipts/cancellation and replay | Finite workers, streaming fenced retention, exact raw replay and GPU phase control passed; actual355.6MB relation array exceeds JSONB; ADR-0041/0060 owns record admission before PDF-10/11 scale acceptance |
+| I12 | Bounded preparation, combined GPU lifetime, partial receipts/cancellation and replay | Partial: finite workers, raw replay and GPU phase controls passed;0060 passes the oversized aggregate cast, but attempt7 cancelled during correlated child validation.0061 shared set join has bounded controls only; deployment/whole-book publication remain PDF-10/11 obligations |
 | I13 | Concrete integrated source/section/consumer/reference scope and independent benefit challenges | Scope fixed before provider execution: whole-book source, five intact analysis roots, two independent full-section A/B/C references and six frozen original-PDF challenges; actual journeys remain PDF-10/11 |
 
 A known table-cell formula gap cannot disappear into a generic "unsupported" label while claiming
@@ -220,11 +220,13 @@ independent fidelity assessment separate from pipeline correctness. Resolve subs
 issues at coherent endpoints. Applicable lint-only maintenance does not invalidate prior tests.
 No grading-policy change, human grading or automatic historical re-anchoring is included.
 
-**Current checkpoint (2026-10-31):** Native contracts/migrations through 0055 are integrated
-and deployed to owned `corpus_pdf_20261031`. System/core revision 0.6.1 positively separates
-historical enum projections from the current native SourceView vocabulary; frozen legacy D3
-CHECKs/migrations remain unchanged. The public native enums and all admitted native inputs were
-verified unchanged by that projection correction.
+**Current checkpoint (2026-11-01):** Native contracts/migrations through0060 are integrated
+and deployed to owned `corpus_pdf_20261031`, with compiler14/core0.6.2. Committed0061 is undeployed.
+Actual recognition covers every original page; attempt7 passed0060's JSON-text admission cast
+but was cancelled during native child validation. No integrated book product committed or result
+was selected.0061's shared child-edge set join has focused verification, not book-scale acceptance.
+All owned processes/tasks are concluded and worktrees removed. Exact raw recognition and prepared
+replay remain retained; the dedicated inference service is down with its model/environment retained.
 
 Source-ready run2/task2 retains native and organized Docling products for all 1,589 pages.
 Run5/task7 retains the selected enrichment as `math-enriched`, digest
@@ -246,32 +248,33 @@ reference registration, grading or completed PDF result/default cutover is claim
 will annotate both selected reference sections fully; six frozen original-PDF facts separately
 challenge source fidelity. Reference bytes and evaluator privileges do not enter extraction.
 
-**Verification:** Global warning-inclusive typing and focused native/legacy/CLI/reuse controls
-passed. The original broad `just test-all` receipt is failed/incomplete: eight failures were
-repaired and all eight passed a fresh focused rerun; a grammar deadline case terminated the
-session before complete reporting. Its bounded lazy-relation/deadline correction passed all 90 grammar/stage controls after
-isolating the test-owned memo; final global types, Ruff and other closeout checks are recorded
-in the adoption evidence. Zero listed Rust tests establish no Rust
-functional coverage. Preserve original failures and bounded source/context applicability; no
-full-plan qualification follows from these targeted results.
+**Verification, 2026-11-01:** `just test-all` source-stable0060 baseline passed2643 Python tests/
+10warnings (`20261101T042650Z-4190256`). Earlier failed/interrupted records and the2638-pass0059
+baseline retain their exact outcomes.0060 bounded controls68 and20 passed; subsequent0061 focused
+controls9 and final exact reproduction1 passed. Merged-main warning-inclusive `just types` and
+`uv run ruff check .` passed. Zero listed Rust tests establish no Rust functional coverage.
+`just docs-check` failed on existing parsing-profile/moved logging-library links; existing publisher
+target resolution passed for the seven changed PDF/architecture/evidence pages. No cosmetic
+formatting invalidates applicable passing type/test evidence. Whole-plan acceptance remains open.
 
-**Remaining execution:** resolve PDF-12's runtime/geometry/mapping investigations and implement
-PDF-14–16 over the PDF-13 foundation before final integrated-source/default adoption.
-Rebind current scientific consumers and regenerate independent frames for their exact integrated
-selection; do not relabel run6. Reference-author passes A/B/C are independent full-section authoring,
+**Remaining execution:** review the JSONB publication/child-validation evidence and committed0061
+before further deployment and normal cached book preparation. PDF-14–16 mechanisms are implemented;
+whole-book integrated publication and PDF-10/11 assembled acceptance remain incomplete. Generate
+consumer views and independent frames for their exact integrated selection; do not relabel run6.
+Reference-author passes A/B/C are independent full-section authoring,
 not Nemotron parse/detect/crop roles. Complete actual external MCP/render, five-section provider
 extraction, reference registration/grading, replay and completed-result/default selection through
 PDF-10/11, then the declared qualification union. Old missing acceptance remains missing; applicable
-passed type/test evidence survives unaffected cosmetic changes. No Nemotron inference, operational default changes, grading-policy or audit-premise update is
-claimed by PDF-13 foundation delivery. Existing implementation worktrees remain integrated/removed.
+passed type/test evidence survives unaffected cosmetic changes. Operational defaults remain
+`corpus_parsing_20261030` / `parsing-pipeline`. No grading-policy or audit-premise update is included.
 
 ## PDF-13 foundation verification — 2026-10-31
 
 **Implemented and targeted-tested; not assembled/provider qualification.** Forward0056 adds the
 model-derived common PDF identity/typed companion tables, protected publication and bounded evidence
 readers. ADR-0039 delivers PDF-12's decision prerequisite; its runtime/mapping investigations remain
-open. Operational `corpus_pdf_20261031` remains at0055; tests exercised isolated databases, not a
-production/default upgrade. Actual recognition/selection producers remain unbound for PDF-14/15.
+open at that foundation checkpoint. Its tests exercised isolated databases with the operational
+deployment then at0055; later deployment and actual producer outcomes are reported above.
 
 - **passed:** `uv run pytest tests/test_pdf_contracts.py python/corpus-structure/tests/semantic/test_native_documents.py python/corpus-structure/tests/semantic/test_archive_reader.py python/corpus-structure/tests/semantic/test_execution_release.py python/corpus-structure/tests/semantic/test_schema_product_cli.py python/corpus-structure/tests/semantic/test_migrations.py --disable-warnings --maxfail=2` — final 79 contract/native/archive/execution/authoring/migration tests; this supersedes the narrower 71-test receipt, not an additional disjoint count.
 - **passed:** `uv run pytest python/corpus-structure/tests/semantic/test_pdf_integrated.py --report-log=build/test-receipts/pdf13/fifth.reportlog` — 32 tests including six real PostgreSQL cases; `build/test-receipts/pdf13/fifth.log` retains output. Earlier initial/second/third/fourth attempts remain failed receipts, not relabelled passes.
