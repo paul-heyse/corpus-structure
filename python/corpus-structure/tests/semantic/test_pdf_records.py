@@ -583,3 +583,35 @@ def test_native_validation_placements_retain_the_bounded_oracle_limit():
     assert contract["docling_core_version"] == "2.105.0"
     assert "PDF20/21" in contract["frozen_union_enforcement"]
     assert "identity-bearing" in contract["opaque_extension_profile"]
+
+
+def test_extensions_cannot_inject_declared_native_fields():
+    records = Records().lower({"name": "x", "body": {"self_ref": "#/body", "meta": {"vendor": 1}}})
+    meta = next(
+        r.values
+        for r in records.rows
+        if r.kind == "native" and r.values["native_type"] == "BaseMeta"
+    )
+    stream = json.loads(meta["structure_json"])["extensions"]["stream_id"]
+    records.streams[stream] = (b'{"summary":null}',)
+    with pytest.raises(NativeMappingError, match="overwrite declared"):
+        records.reconstruct()
+
+
+def test_coherent_wrong_root_class_is_not_a_document():
+    records = Records()
+    records.rows = [
+        NativeRow(
+            "native",
+            {
+                "record_id": "root",
+                "native_type": "GroupItem",
+                "family": "node",
+                "native_address": "#",
+                "scalars_json": '{"self_ref":"#/body","name":"x"}',
+                "structure_json": '{"schema_path":"#/$defs/GroupItem","fields":{}}',
+            },
+        )
+    ]
+    with pytest.raises(NativeMappingError, match="requested native root"):
+        reconstruct_native_document(records, "root", scalar_profiles={})

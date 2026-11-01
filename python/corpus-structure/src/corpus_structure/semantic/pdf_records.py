@@ -354,7 +354,11 @@ def iter_native_records(
         }
 
     def text_projection(owner: str, field: str, value: str):
-        if "\x00" in value or len(value.encode("utf-8")) > INLINE_SCALAR_BYTES:
+        if (
+            len(value) > INLINE_SCALAR_BYTES
+            or "\x00" in value
+            or len(value.encode("utf-8")) > INLINE_SCALAR_BYTES
+        ):
             return None, external(owner, field, value)["stream_id"]
         return value, None
 
@@ -560,6 +564,8 @@ def reconstruct_native_document(
             raise NativeMappingError(record_id, "native containment cycle")
         active.add(record_id)
         row = reader.record(record_id)
+        if record_id == root_id and row["native_type"] != native_type:
+            raise NativeMappingError(record_id, "requested native root class differs")
         result = {
             key: _parse_inline(value) for key, value in json.loads(row["scalars_json"]).items()
         }
@@ -593,7 +599,10 @@ def reconstruct_native_document(
         if "extensions" in structure and schema.get("additionalProperties") is not True:
             raise NativeMappingError(record_id, "native record class does not admit extensions")
         if "extensions" in structure:
-            result.update(scalar(structure["extensions"]["stream_id"]))
+            extensions = scalar(structure["extensions"]["stream_id"])
+            if not isinstance(extensions, dict) or extensions.keys() & known:
+                raise NativeMappingError(record_id, "native extensions overwrite declared fields")
+            result.update(extensions)
         for field, descriptor in structure["fields"].items():
             kind = descriptor["kind"]
             if kind == "object":
