@@ -67,6 +67,7 @@ def test_frame_retains_decision_coverage_and_exact_selection_without_relabeling_
         {"occurrence_id": "selected:0", "precision": "coarse", "address_space": "submitted_pixels"}
     ]
     assert entry["precision"] == "coarse"
+    assert view.integrated_context is not None
     changed = dict(
         view.integrated_context,
         selection={**view.ref.native_product.values(), "content_digest": "d" * 64},
@@ -85,6 +86,7 @@ def test_transport_pages_preserve_intact_source_and_selection_in_packet_identity
     unit = next(part for part in packet.parts() if part.name == "unit")
     assert len(unit.text) > 18000
     assert "".join(packet.part_pages(unit)) == unit.text
+    assert view.integrated_context is not None
     other = replace(
         view,
         integrated_context={**view.integrated_context, "descriptor": {"policy": "selection-2"}},
@@ -98,6 +100,6 @@ def test_current_source_request_refuses_html_and_old_request_versions():
     pin = dict(run_id=1, task_id=17, product_key="integrated", content_digest="a" * 64)
     assert NativeSourceRequest(**pin, view="manifest", collection="coverage").version == 3
     with pytest.raises(ValidationError):
-        NativeSourceRequest(**pin, rendition_id=1)
+        NativeSourceRequest.model_validate({**pin, "rendition_id": 1})
     with pytest.raises(ValidationError):
-        NativeSourceRequest(**pin, version=2)
+        NativeSourceRequest.model_validate({**pin, "version": 2})

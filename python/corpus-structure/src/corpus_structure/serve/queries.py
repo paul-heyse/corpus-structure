@@ -200,89 +200,37 @@ class Find(Query):
     version = "integrated-source-3"
 
     def rows(self, ctx, p, after=None):
-        from sqlalchemy import func, literal_column, or_
-
-        from corpus_structure.semantic.metadata import table
-        from corpus_structure.serve.native_source import NativeSourceRequest
+        from corpus_structure.serve.source_search import source_search_rows
 
         phase, score_after, key_after = (0, None, None) if after is None else after
         if phase not in (0, 1):
             raise ValueError("invalid source search cursor")
-        view, selected, document = map(
-            table, ("kb.source_view", "ops.run_source_view", "kb.document")
-        )
-        newer = selected.alias("newer_search_source")
-        config = literal_column("'english'::regconfig")
-        query = func.websearch_to_tsquery(config, p.text)
-        source_text = view.c.projection["text"].as_string()
-        vector = func.to_tsvector(config, source_text)
-        score = func.ts_rank_cd(vector, query)
-        base = (
-            select(
-                view.c.id,
-                view.c.native_task_id,
-                view.c.native_product_key,
-                view.c.native_content_digest,
-                view.c.section_pointer,
-                view.c.membership,
-                view.c.projection_digest,
-                document.c.source_uri,
-                func.ts_headline(config, source_text, query, "MaxWords=45,MinWords=15").label(
-                    "excerpt"
-                ),
-                score.label("score"),
-            )
-            .join(selected, selected.c.source_view_id == view.c.id)
-            .join(document, document.c.id == view.c.document_id)
-            .where(
-                selected.c.run_id == ctx.run_id,
-                ~select(newer.c.source_view_id)
-                .where(newer.c.run_id == ctx.run_id, newer.c.supersedes_source_view_id == view.c.id)
-                .exists(),
-                vector.op("@@")(query),
-            )
-        )
         if phase == 0:
             while True:
-                stmt = base
-                if score_after is not None and key_after is not None:
-                    stmt = stmt.where(
-                        or_(
-                            score < float(score_after),
-                            and_(score == float(score_after), view.c.id > int(key_after)),
-                        )
-                    )
-                rows = (
-                    ctx.conn.execute(stmt.order_by(score.desc(), view.c.id).limit(ctx.row_batch))
-                    .mappings()
-                    .all()
+                rows = source_search_rows(
+                    ctx.conn,
+                    run_id=ctx.run_id,
+                    text=p.text,
+                    limit=ctx.row_batch,
+                    after_score=None if score_after is None else float(score_after),
+                    after_id=None if key_after is None else int(key_after),
                 )
-                if not rows:
-                    break
                 for row in rows:
-                    selection = NativeSourceRequest(
-                        run_id=ctx.run_id,
-                        task_id=row["native_task_id"],
-                        product_key=row["native_product_key"],
-                        content_digest=row["native_content_digest"],
-                        section_pointer=row["section_pointer"],
-                        membership=row["membership"],
-                    )
                     yield Positioned(
                         FindAnswer(
-                            source_uri=row["source_uri"],
-                            source_selection=selection,
-                            source_view_id=row["id"],
-                            projection_digest=row["projection_digest"],
-                            text=row["excerpt"],
+                            source_uri=row.source_uri,
+                            source_selection=row.selection,
+                            source_view_id=row.source_view_id,
+                            projection_digest=row.projection_digest,
+                            text=row.excerpt,
                             text_is_excerpt=True,
-                            score=float(row["score"]),
+                            score=row.score,
                         ),
-                        [0, str(row["score"]), str(row["id"])],
+                        [0, str(row.score), str(row.source_view_id)],
                     )
-                score_after, key_after = rows[-1]["score"], str(rows[-1]["id"])
                 if len(rows) < ctx.row_batch:
                     break
+                score_after, key_after = rows[-1].score, str(rows[-1].source_view_id)
         for entity in ctx.reader.entity_rows(label=p.text, after=key_after if phase == 1 else None):
             yield Positioned(FindAnswer(entity=entity), [1, "0", entity.entity.entity_id])
 

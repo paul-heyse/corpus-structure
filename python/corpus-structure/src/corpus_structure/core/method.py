@@ -58,8 +58,11 @@ if typing.TYPE_CHECKING:
         ProductReference,
         SelectedParsingProduct,
     )
-    from corpus_structure.semantic.pdf_contracts import PreparedPdfProduct
-    from corpus_structure.semantic.pdf_integrated import PreparedIntegratedPdfProduct
+    from corpus_structure.semantic.pdf_contracts import PreparedPdfContext, PreparedPdfProduct
+    from corpus_structure.semantic.pdf_integrated import (
+        PreparedIntegratedPdfProduct,
+        PreparedPdfOriginal,
+    )
     from corpus_structure.semantic.source_views import PreparedSourceView
     from corpus_structure.semantic.types import PreparedRelease
 
@@ -305,6 +308,18 @@ class Reader(Protocol):
     def source_view(self, source_view_id: int) -> PreparedSourceView: ...
 
     def ancestor_source_views(self, source_view_id: int) -> Sequence[SourceViewRef]: ...
+
+    def pdf_context(self) -> PreparedPdfContext: ...
+
+    def prepare_integrated_pdf_product(
+        self,
+        payload: Mapping[str, Any],
+        original: bytes | PreparedPdfOriginal,
+        recipe_bytes: bytes,
+        *,
+        artifacts: tuple[bytes, ...] = (),
+        native_schema: bytes | None = None,
+    ) -> PreparedIntegratedPdfProduct: ...
 
     def native_document(self, reference: ProductReference) -> PreparedPdfProduct: ...
 

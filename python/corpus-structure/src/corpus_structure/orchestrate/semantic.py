@@ -965,7 +965,7 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
                 if entry.entry.do.limit is not None and counts[entry.key] >= entry.entry.do.limit
                 else None
             )
-            trigger = {
+            trigger: dict[str, Any] = {
                 "rule_key": entry.key,
                 "configuration_name": config_name,
                 "condition": entry.entry.when,

@@ -22,6 +22,7 @@ from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
 from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
+from corpus_structure.serve.source_search import SourceSearchRequest, SourceSearchResponse
 from corpus_structure.settings import Settings
 
 
@@ -321,6 +322,17 @@ def build_semantic_server(
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
+    def find(ctx: Context, request: SourceSearchRequest) -> SourceSearchResponse:
+        """Find selected PDF source sections, with exact retrievable source handles."""
+        from corpus_structure.semantic.query import read_snapshot
+        from corpus_structure.serve.source_search import search_source
+
+        active = bound_run(ctx, request.run_id)
+        with read_snapshot(active.engine) as conn:
+            return search_source(conn, request)
+
+    @server.tool(annotations={"readOnlyHint": True})
+    @tool_refusals(ProposalRefused, OperationConflict, ValueError)
     def inspect_source(ctx: Context, request: NativeSourceRequest) -> NativeSourceResponse:
         """Inspect pinned source products and qualified origins without interpretation."""
         from corpus_structure.semantic.query import read_snapshot
@@ -358,7 +370,7 @@ def build_semantic_server(
             pointer=pointer,
             region_index=region_index,
             scale=scale,
-            code_commit="native-source-mcp-v2",
+            code_commit="native-source-mcp-v3",
         )
         if result.status == "failed":
             raise ValueError(result.error or "native region render failed")
