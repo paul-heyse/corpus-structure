@@ -9,6 +9,7 @@ from typing import Any, Literal, cast
 import adbc_driver_manager
 import adbc_driver_postgresql.dbapi as adbc
 from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 
 from corpus_structure.semantic.refusals import SemanticRefusal
@@ -118,11 +119,19 @@ def describe_database(
     observations: list[dict[str, Any]] = []
     remaining = [request.max_bytes]
     object_count = column_count = 0
-    with adbc.connect(uri) as conn:
+    with (
+        open_runtime_engine(settings, "description-catalog", purpose="read") as catalog_engine,
+        catalog_engine.connect() as catalog_conn,
+        adbc.connect(uri) as conn,
+    ):
+        catalog_conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+        catalog_conn.exec_driver_sql("SET LOCAL search_path=pg_catalog")
+        catalog_inspector = inspect(catalog_conn)
         try:
             with conn.cursor() as cur:
                 cur.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
                 cur.execute("SET TRANSACTION READ ONLY")
+                cur.execute("SET LOCAL search_path=pg_catalog")
                 cur.execute("SELECT current_database(), current_user")
                 identity = cur.fetchone()
                 if identity is None:
@@ -131,8 +140,8 @@ def describe_database(
                 depth = {
                     "schemas": "db_schemas",
                     "relations": "tables",
-                    "columns": "all",
-                    "constraints": "all",
+                    "columns": "tables",
+                    "constraints": "tables",
                 }[request.depth]
                 for selected_schema in dict.fromkeys(request.schemas):
                     found = False
@@ -150,6 +159,9 @@ def describe_database(
                             if schema["db_schema_name"] != selected_schema:
                                 continue
                             found = True
+                            object_count += 1
+                            if object_count > request.max_objects:
+                                raise SemanticRefusal("database description exceeds object bound")
                             if request.depth == "schemas":
                                 observations.append(
                                     {
@@ -167,7 +179,22 @@ def describe_database(
                                     continue
                                 matched.add(name)
                                 object_count += 1
-                                columns = table.get("table_columns")
+                                columns = None
+                                if request.depth in {"columns", "constraints"}:
+                                    columns = [
+                                        {
+                                            "column_name": item["name"],
+                                            "ordinal_position": index + 1,
+                                            "physical_type": str(item["type"]),
+                                            "nullable": item["nullable"],
+                                            "default": item.get("default"),
+                                        }
+                                        for index, item in enumerate(
+                                            catalog_inspector.get_columns(
+                                                name, schema=selected_schema
+                                            )
+                                        )
+                                    ]
                                 column_count += len(columns or [])
                                 if (
                                     object_count > request.max_objects
@@ -183,22 +210,59 @@ def describe_database(
                                     "relation": name,
                                     "relation_type": table["table_type"],
                                     "columns": columns if columns is not None else "not_requested",
-                                    "constraints": table.get("table_constraints")
+                                    "constraints": {
+                                        "primary_key": catalog_inspector.get_pk_constraint(
+                                            name, schema=selected_schema
+                                        ),
+                                        "foreign_keys": catalog_inspector.get_foreign_keys(
+                                            name, schema=selected_schema
+                                        ),
+                                        "unique": catalog_inspector.get_unique_constraints(
+                                            name, schema=selected_schema
+                                        ),
+                                        "check": catalog_inspector.get_check_constraints(
+                                            name, schema=selected_schema
+                                        ),
+                                        "exclusions": "unavailable",
+                                    }
                                     if request.depth == "constraints"
                                     else "not_requested",
                                 }
                                 observations.append(item)
                                 if request.depth in {"columns", "constraints"}:
-                                    shape = conn.adbc_get_table_schema(
-                                        name, db_schema_filter=selected_schema
+                                    permitted = catalog_conn.scalar(
+                                        text(
+                                            "SELECT pg_catalog.has_table_privilege("
+                                            "pg_catalog.format('%I.%I',CAST(:schema AS text),"
+                                            "CAST(:relation AS text)),'SELECT')"
+                                        ),
+                                        dict(schema=selected_schema, relation=name),
                                     )
+                                    if permitted:
+                                        try:
+                                            shape = conn.adbc_get_table_schema(
+                                                name, db_schema_filter=selected_schema
+                                            )
+                                            shape_item = {
+                                                "status": "available",
+                                                "arrow_fields": _fields(shape),
+                                            }
+                                        except adbc_driver_manager.NotSupportedError:
+                                            shape_item = {
+                                                "status": "unsupported",
+                                                "arrow_fields": "unavailable",
+                                            }
+                                    else:
+                                        shape_item = {
+                                            "status": "refused",
+                                            "arrow_fields": "unavailable",
+                                        }
                                     observations.append(
                                         {
                                             "kind": "physical",
-                                            "status": "available",
                                             "schema": selected_schema,
                                             "relation": name,
-                                            "arrow_fields": _fields(shape),
+                                            **shape_item,
                                         }
                                     )
                                 if request.estimates:
@@ -206,6 +270,7 @@ def describe_database(
                                         stats = list(
                                             _rows(
                                                 conn.adbc_get_statistics(
+                                                    catalog_filter=database,
                                                     db_schema_filter=selected_schema,
                                                     table_name_filter=_pattern(name),
                                                     approximate=True,
@@ -213,6 +278,16 @@ def describe_database(
                                                 remaining,
                                             )
                                         )
+                                        stats = [
+                                            entry
+                                            for root in stats
+                                            if root.get("catalog_name") == database
+                                            for schema_row in root.get("catalog_db_schemas") or []
+                                            if schema_row.get("db_schema_name") == selected_schema
+                                            for entry in schema_row.get("db_schema_statistics")
+                                            or []
+                                            if entry.get("table_name") == name
+                                        ]
                                         observations.append(
                                             {
                                                 "kind": "estimate",
@@ -252,6 +327,9 @@ def describe_database(
                         )
                 if request.query is not None:
                     shape = cur.adbc_execute_schema(request.query)
+                    column_count += len(shape)
+                    if column_count > request.max_columns:
+                        raise SemanticRefusal("query schema exceeds column bound")
                     observations.append(
                         {
                             "kind": "query_output",
@@ -263,7 +341,7 @@ def describe_database(
                     )
         finally:
             conn.rollback()
-    return DatabaseDescription(
+    result = DatabaseDescription(
         database=database,
         principal=principal,
         observed_at=datetime.now(UTC),
@@ -272,3 +350,7 @@ def describe_database(
         depth=request.depth,
         observations=observations,
     )
+
+    if len(result.model_dump_json().encode("utf8")) > request.max_bytes:
+        raise SemanticRefusal("database description exceeds returned JSON byte bound")
+    return result

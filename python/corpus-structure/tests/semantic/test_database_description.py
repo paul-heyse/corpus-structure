@@ -21,6 +21,7 @@ def test_literal_scoped_description(semantic_db_engine, native_settings):
             'CREATE TABLE describe_scope."literal_%" (key bigint NOT NULL, value text)',
             execution_options={"no_parameters": True},
         )
+        conn.exec_driver_sql("CREATE TABLE describe_scope.literal_collision (other boolean)")
         conn.exec_driver_sql("GRANT USAGE ON SCHEMA describe_scope TO corpus_sem_reader")
         conn.exec_driver_sql(
             "GRANT SELECT ON ALL TABLES IN SCHEMA describe_scope TO corpus_sem_reader"
@@ -50,6 +51,29 @@ def test_literal_scoped_description(semantic_db_engine, native_settings):
     )
     assert all(x.get("relation") in {"literal_%", "missing", None} for x in result.observations)
     assert any(x["kind"] == "estimate" for x in result.observations)
+    estimate = next(x for x in result.observations if x["kind"] == "estimate")
+    assert all(x["table_name"] == "literal_%" for x in estimate.get("statistics", []))
+    assert estimate["status"] == "unavailable"
+    with semantic_db_engine.begin() as conn:
+        conn.exec_driver_sql(
+            """INSERT INTO describe_scope."literal_%" VALUES (1,'one'),(2,'two')""",
+            execution_options={"no_parameters": True},
+        )
+        conn.exec_driver_sql("INSERT INTO describe_scope.literal_collision VALUES (true)")
+        conn.exec_driver_sql(
+            'ANALYZE describe_scope."literal_%"', execution_options={"no_parameters": True}
+        )
+        conn.exec_driver_sql("ANALYZE describe_scope.literal_collision")
+    analyzed = describe_database(
+        DatabaseDescriptionRequest(
+            schemas=("describe_scope",), relations=("literal_%",), estimates=True
+        ),
+        settings,
+    )
+    statistics = next(x for x in analyzed.observations if x["kind"] == "estimate")
+    assert statistics["status"] == "available"
+    assert statistics["statistics"]
+    assert all(x["table_name"] == "literal_%" for x in statistics["statistics"])
     with pytest.raises(ValueError, match="bound"):
         describe_database(
             DatabaseDescriptionRequest(schemas=("describe_scope",), max_columns=1), settings
@@ -104,6 +128,25 @@ classes: {}
         ),
         settings,
     )
+    with pytest.raises(ValueError, match="bound"):
+        describe_database(
+            DatabaseDescriptionRequest(
+                schemas=("missing",),
+                query="SELECT 1,2",
+                release_id=prepared.release_id,
+                max_columns=1,
+            ),
+            settings,
+        )
+    with pytest.raises(ValueError, match="bound"):
+        describe_database(DatabaseDescriptionRequest(schemas=("missing",), max_bytes=1), settings)
+    with pytest.raises(ValueError, match="bound"):
+        describe_database(DatabaseDescriptionRequest(schemas=("x" * 500,), max_bytes=600), settings)
+    with pytest.raises(ValueError, match="object bound"):
+        describe_database(
+            DatabaseDescriptionRequest(schemas=("kb", "ops"), depth="schemas", max_objects=1),
+            settings,
+        )
     shape = next(x for x in result.observations if x["kind"] == "query_output")
     assert [(x["name"], x["arrow_type"]) for x in shape["fields"]] == [("answer", "int64")]
     for sql in ["SELECT $1", "SELECT pg_catalog.pg_sleep(1)", "SELECT 1; SELECT 2"]:
