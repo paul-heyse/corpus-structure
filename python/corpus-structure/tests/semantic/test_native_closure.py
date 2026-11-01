@@ -410,26 +410,35 @@ def test_forward_reproduction_still_detects_current_function_change(monkeypatch)
 
     def changed_template(path, *args, **kwargs):
         content = original(path, *args, **kwargs)
-        if path.name == "pdf_selected.sql":
-            assert "'descriptor',b.descriptor" in content
-            return content.replace("'descriptor',b.descriptor", "'changed_descriptor',b.descriptor")
+        if path.name == "pdf_record_context.sql":
+            assert "'descriptor',jsonb_build_object" in content
+            return content.replace(
+                "'descriptor',jsonb_build_object", "'changed_descriptor',jsonb_build_object"
+            )
         return content
 
     before = forward_products()
     monkeypatch.setattr(Path, "read_text", changed_template)
     after = forward_products()
     assert before[0].content != after[0].content and before[-1].content != after[-1].content
-    body = function_bodies(after[0].content.decode())["ops.integrated_source_context"]
+    body = function_bodies(after[0].content.decode())["ops.record_integrated_source_context"]
     assert "'changed_descriptor'" in body
     function = next(
         f
         for f in _forward_descriptor(after[-1])["functions"]
-        if f["signature"] == "ops.integrated_source_context(bigint,text,text,text[],text,text)"
+        if f["signature"]
+        == "ops.record_integrated_source_context(bigint,text,text,text[],text,text,bigint)"
     )
     assert function["body_sha256"] == sha256(body.encode()).hexdigest()
+    previous = next(
+        f
+        for f in _forward_descriptor(before[-1])["functions"]
+        if f["signature"] == function["signature"]
+    )
+    assert function["body_sha256"] != previous["body_sha256"]
 
 
-def test_forward_reproduction_still_detects_current_descriptor_helper_change(monkeypatch):
+def test_forward_reproduction_still_detects_current_identity_helper_change(monkeypatch):
     from hashlib import sha256
     from pathlib import Path
 
@@ -439,23 +448,29 @@ def test_forward_reproduction_still_detects_current_descriptor_helper_change(mon
 
     def changed_helper(path, *args, **kwargs):
         content = original(path, *args, **kwargs)
-        if path.name == "pdf_descriptor.sql":
-            assert "RETURN result;" in content
-            return content.replace("RETURN result;", "RETURN result || '{}'::jsonb;")
+        if path.name == "pdf_record_logical_identity.sql":
+            assert "RETURN out_||'\"';" in content
+            return content.replace("RETURN out_||'\"';", "RETURN out_||'\"'||'';")
         return content
 
     before = forward_products()
     monkeypatch.setattr(Path, "read_text", changed_helper)
     after = forward_products()
     assert before[0].content != after[0].content and before[-1].content != after[-1].content
-    body = function_bodies(after[0].content.decode())["ops.pdf_product_descriptor"]
-    assert "RETURN result || '{}'::jsonb;" in body
+    body = function_bodies(after[0].content.decode())["ops.pdf_identity_ascii_string"]
+    assert "RETURN out_||'\"'||'';" in body
     function = next(
         f
         for f in _forward_descriptor(after[-1])["functions"]
-        if f["signature"] == "ops.pdf_product_descriptor(bytea)"
+        if f["signature"] == "ops.pdf_identity_ascii_string(text)"
     )
     assert function["body_sha256"] == sha256(body.encode()).hexdigest()
+    previous = next(
+        f
+        for f in _forward_descriptor(before[-1])["functions"]
+        if f["signature"] == function["signature"]
+    )
+    assert function["body_sha256"] != previous["body_sha256"]
 
 
 def test_forward_reproduction_refuses_unsupported_current_effect(monkeypatch):
