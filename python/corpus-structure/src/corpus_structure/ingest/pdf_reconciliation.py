@@ -345,8 +345,14 @@ def map_pdf_observation(
                 page_no,
                 normalize_heading_levels=False,
             )
+            transformed_provenance: set[int] = set()
             for node in native_nodes(mapped).values():
                 for prov in getattr(node, "prov", ()):
+                    # Public chart panels can share one provenance object. Its submitted
+                    # coordinates belong to one frame, regardless of how many nodes use it.
+                    if id(prov) in transformed_provenance:
+                        continue
+                    transformed_provenance.add(id(prov))
                     box = prov.bbox
                     corners = [inverse(x, y) for x in (box.l, box.r) for y in (box.t, box.b)]
                     xs, ys = zip(*corners, strict=True)

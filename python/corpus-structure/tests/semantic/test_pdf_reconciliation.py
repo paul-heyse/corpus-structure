@@ -435,6 +435,34 @@ def test_panels_from_one_chart_block_are_a_composite_reading(native_source):
     assert not any(r["outcome"] == "unresolved" for r in result["relations"])
 
 
+def test_chart_panels_share_one_crop_transform_without_reapplying_it(native_source):
+    raw = (
+        b'<x_0.2><y_0.1><chart type="line">\npanel: a ; line ; First panel\n'
+        b"panel: b ; bar ; Second panel\ntable[a]:\n|x|y|\n|---|---|\n|1|2|\n"
+        b"table[b]:\n|x|z|\n|---|---|\n|3|4|<x_0.8><y_0.9><class_Chart>"
+    )
+    obs = recognized(native_source, raw, role="C")
+    obs["observation"]["image"].update(width=100, height=200)
+    # Submitted x=2*PDF_x-40, y=2*PDF_y-60. Both panels cover the same crop.
+    obs["observation"]["image"]["transform"].update(
+        crop_left=20.0,
+        crop_top=30.0,
+        crop_right=70.0,
+        crop_bottom=130.0,
+        affine=[2.0, 0.0, 0.0, 2.0, -40.0, -60.0],
+    )
+    result = map_pdf_observation(obs, raw)
+    assert len(result.document.pictures) == 2
+    for picture in result.document.pictures:
+        box = picture.prov[0].bbox
+        assert (box.l, box.t, box.r, box.b) == (30.0, 40.0, 60.0, 120.0)
+        assert picture.prov[0].charspan == (0, 0)
+    assert [picture.meta.tabular_chart.title for picture in result.document.pictures] == [
+        "First panel",
+        "Second panel",
+    ]
+
+
 def test_unresolved_reading_stays_attached_after_later_crop_selection(native_source):
     observations = []
     for i, (name, role, spelling) in enumerate(
