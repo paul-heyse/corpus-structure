@@ -25,7 +25,21 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "17"
+EXECUTION_COMPILER_VERSION = "18"
+
+POSTGRESQL_IMPLEMENTATION_SOURCES = (
+    ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
+    ("capture/companion-projection.py", "semantic/companion_projection.py"),
+    ("capture/companion-columns.py", "semantic/_companion_columns.py"),
+    ("capture/companion-export.py", "serve/companion_export.py"),
+    ("capture/arrow-transfer.py", "semantic/arrow_transfer.py"),
+    ("capture/adbc-lifetime.py", "core/db/adbc_lifetime.py"),
+    ("pdf/borrower-lifetime.py", "core/db/lifetime.py"),
+    ("pdf/selected-source-model.yaml", "model/semantic/selected-source.yaml"),
+    ("pdf/selected-source.py", "serve/selected_source.py"),
+    ("pdf/selected-source-native.py", "semantic/pdf_selected_source_native.py"),
+    ("pdf/published-reader.py", "semantic/pdf_record_reader.py"),
+)
 
 
 @lru_cache(maxsize=1)
@@ -681,49 +695,6 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
     data = json.loads(payload)
     if data.get("model_id") != model_id:
         _fail("execution_binding", name, "execution payload identity differs")
-    if data.get("inputs", {}).get("compiler_version") in {
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "10",
-        "11",
-        "12",
-        "14",
-        "15",
-        "16",
-    }:
-        # Retained immutable reader ABI, without allowing historical writes/activation.
-        if name not in {
-            "reload",
-            "open_read",
-            "query",
-            "explain",
-            "compile_projection",
-            "capture_analytics",
-            "open_analysis",
-            "close_analysis",
-            "graph_project",
-            "graph_validate",
-            "read_original",
-            "read_native_source",
-            "read_source_view",
-            "read_pdf_product",
-        }:
-            _fail("unsupported_execution_abi", name, "historical execution products are read-only")
-        operation = next((o for o in data["operations"] if o["id"] == name), None)
-        if operation is None:
-            _fail("missing_operation", name, "historical bound operation is absent")
-        from .effect_support import SUPPORTED_EFFECTS
-
-        if tuple(sorted(operation["effects"])) != SUPPORTED_EFFECTS[name]["effects"]:
-            _fail("unsupported_effect_profile", name, "historical reader effects are incompatible")
-        return
     _bound_execution_model(payload, model_id).require_operation(name)
 
 
@@ -757,51 +728,17 @@ def bound_execution_model(prepared) -> ExecutionModelProducts:
 @lru_cache(maxsize=16)
 def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts:
     data = json.loads(body)
-    if data.get("inputs", {}).get("compiler_version") not in {
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "10",
-        "11",
-        "12",
-        "13",
-        "14",
-        "15",
-        "16",
-        EXECUTION_COMPILER_VERSION,
-    }:
+    if data.get("inputs", {}).get("compiler_version") != EXECUTION_COMPILER_VERSION:
         _fail(
-            "unsupported_execution_abi", model_id, "execution product has no supported compiler ABI"
+            "unsupported_execution_abi",
+            model_id,
+            "execution product requires the current compiler ABI; regenerate the release",
         )
     if data.get("model_id") != model_id:
         _fail("execution_binding", model_id, "execution product identity differs")
-    # Read validation uses the recorded effect ABI; it never upgrades historical writes.
-    from .effect_support import SUPPORTED_EFFECT_VERSIONS
-
-    effect_versions = dict(SUPPORTED_EFFECT_VERSIONS)
-    if data["inputs"]["compiler_version"] not in {
-        "9",
-        "10",
-        "11",
-        "12",
-        "13",
-        "14",
-        "15",
-        "16",
-        EXECUTION_COMPILER_VERSION,
-    }:
-        effect_versions["schedule_pending_or_reused_or_skipped"] = "1"
     return _normalize(
         {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}},
         model_id,
-        effect_versions=effect_versions,
-        reader_only=data["inputs"]["compiler_version"] != EXECUTION_COMPILER_VERSION,
     )
 
 
@@ -855,6 +792,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("invocation/proposals.py", "semantic/proposals.py"),
                 ("invocation/source_search.py", "serve/source_search.py"),
                 ("pdf/native_source.py", "serve/native_source.py"),
+                *POSTGRESQL_IMPLEMENTATION_SOURCES,
                 ("invocation/server.py", "intervene/semantic_server.py"),
                 ("invocation/method.py", "core/method.py"),
                 ("invocation/operations.py", "semantic/operations.py"),
@@ -1047,9 +985,6 @@ _PRODUCT_CONVERTER = _product_converter()
 def _normalize(
     data: dict[str, Any],
     model_id: str,
-    *,
-    effect_versions: Mapping[str, str] | None = None,
-    reader_only: bool = False,
 ) -> ExecutionModelProducts:
     # Version is already checked by the admitted LinkML catalog boundary.
     fields = {key: value for key, value in data.items() if key != "version"}
@@ -1059,20 +994,16 @@ def _normalize(
         )
     except Exception as exc:
         _fail("contract_product", "ExecutionCatalog", "; ".join(transform_error(exc)))
-    _validate(products, effect_versions=effect_versions, reader_only=reader_only)
+    _validate(products)
     return products
 
 
 def _validate(
     products: ExecutionModelProducts,
-    *,
-    effect_versions: Mapping[str, str] | None = None,
-    reader_only: bool = False,
 ) -> None:
     from .analysis_contracts import validate_analysis_profiles
 
-    if not reader_only:
-        validate_analysis_profiles(products)
+    validate_analysis_profiles(products)
     c = _index(products.concepts, "concepts")
     r = _index(products.relationships, "relationships")
     lifecycles = _index(products.lifecycles, "lifecycles")
@@ -1156,9 +1087,7 @@ def _validate(
 
     effects = _index(products.effect_definitions, "effect_definitions")
     for effect in effects.values():
-        supported_version = (
-            SUPPORTED_EFFECT_VERSIONS if effect_versions is None else effect_versions
-        ).get(effect.id)
+        supported_version = SUPPORTED_EFFECT_VERSIONS.get(effect.id)
         if effect.version != supported_version or not effect.meaning.strip():
             raise PreparationError(
                 (
@@ -1179,7 +1108,7 @@ def _validate(
             )
     for item in (*products.operations, *products.transitions, *products.implementations):
         _refs(item.effects, effects, item.id)
-    owned = {} if reader_only else approved_implementations()
+    owned = approved_implementations()
     for binding in products.implementations:
         implementation = owned.get(binding.id)
         expected = (
@@ -1190,7 +1119,7 @@ def _validate(
             if implementation is not None
             else None
         )
-        if not reader_only and expected != (binding.owner, binding.symbol):
+        if expected != (binding.owner, binding.symbol):
             _fail("unapproved_implementation", binding.id, f"{binding.owner}:{binding.symbol}")
         _refs(binding.input_concepts, c, binding.id)
         _refs(binding.result_concepts, c, binding.id)
@@ -1283,12 +1212,11 @@ def _validate(
                 operation.id,
                 "operation and implementation effects differ",
             )
-        if not reader_only:
-            _validate_effect_support(products, operation)
+        _validate_effect_support(products, operation)
         for edge in operation.transitions:
             if t[edge].operation != operation.id:
                 _fail("operation_transition", operation.id, edge)
-    if not reader_only and products.parsing_adapters:
+    if products.parsing_adapters:
         from .native_adapter_contracts import validate_native_adapters
 
         validate_native_adapters(products)
@@ -1467,6 +1395,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "pdf/stream-reconciliation.py",
         "pdf/stream-orchestration.py",
     }
+    required_implementations.update(name for name, _ in POSTGRESQL_IMPLEMENTATION_SOURCES)
     if any(profile.get("version") == "6" for profile in data["analysis_profiles"]):
         required_implementations.update(
             {

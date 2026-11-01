@@ -75,6 +75,7 @@ def test_all_transitioned_families_and_measurement_context(products):
         "analysis",
         "reference_pass_record",
         "reference_grade_record",
+        "pdf_private_build",
     }
     assert products.required_capabilities == (
         "execution.lifecycle.v1",
@@ -417,3 +418,18 @@ def test_named_graph_operations_are_resolved_and_qualified(products):
     )
     assert approved_implementations()["graph_project"].__name__ == "qualified_validation_graph"
     assert approved_implementations()["graph_validate"].__name__ == "validate_projected_graph"
+
+
+@pytest.mark.parametrize(
+    "operation", ["query", "compile_projection", "read_native_source", "publish_arrow"]
+)
+def test_obsolete_execution_abi_requires_regeneration_for_reads_and_writes(products, operation):
+    from corpus_structure.semantic.contracts import require_payload_operation
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    require_payload_operation(products.content, products.model_id, "compile_projection")
+    obsolete = json.loads(products.content)
+    obsolete["inputs"]["compiler_version"] = "17"
+    with pytest.raises(PreparationError, match="regenerate the release") as error:
+        require_payload_operation(canonical_bytes(obsolete), products.model_id, operation)
+    assert error.value.diagnostics[0].code == "unsupported_execution_abi"
