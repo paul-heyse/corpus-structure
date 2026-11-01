@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0057"
-NATIVE_REVISION = "semantic_0058"
+NATIVE_PREDECESSOR = "semantic_0058"
+NATIVE_REVISION = "semantic_0059"
 
 
 def selected_fact_query():
@@ -857,11 +857,11 @@ def forward_products(
     authoring event; all enforcing SQL and deployment metadata still derive live.
     """
     from .migrations import ALEMBIC_DIR
-    from .pdf_integrated_native import final_reconciliation_products
+    from .pdf_integrated_native import native_exclusion_products
     from .source_view_native import recorded_authoring_provenance
 
     if authoring_provenance is None:
         authoring_provenance = recorded_authoring_provenance(
             ALEMBIC_DIR.joinpath(f"versions/{NATIVE_REVISION}_admission.sql").read_text()
         )
-    return final_reconciliation_products(model, authoring_provenance=authoring_provenance)
+    return native_exclusion_products(model, authoring_provenance=authoring_provenance)

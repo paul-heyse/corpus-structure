@@ -339,3 +339,20 @@ def final_reconciliation_products(model=None, *, authoring_provenance=None):
     )
     return (NativeProduct("semantic_0058_reconciliation.sql", sql.encode()),
             NativeProduct("semantic_0058_admission.sql", admission.encode()))
+
+
+def native_exclusion_products(model=None, *, authoring_provenance=None):
+    """0059 realizes native located identity-exclusion evidence without fabricated spans."""
+    # Re-derive the current forward functions/views as well: head reproduction
+    # must still expose a changed current PDF enforcing implementation.
+    sql = final_reconciliation_products(
+        model, authoring_provenance=authoring_provenance
+    )[0].content.decode() + Path(__file__).with_name("sql").joinpath("exclusions.sql").read_text()
+    previous = ALEMBIC_DIR.joinpath("versions/semantic_0058_admission.sql").read_text()
+    admission = native_admission_sql(
+        sql, model, base_admission=previous, authoring_provenance=authoring_provenance
+    )
+    return (
+        NativeProduct("semantic_0059_reconciliation.sql", sql.encode()),
+        NativeProduct("semantic_0059_admission.sql", admission.encode()),
+    )

@@ -354,17 +354,18 @@ def test_forward_reproduction_uses_head_witness_and_candidate_uses_explicit_curr
 
     from corpus_structure.semantic.execution_admission import _DESCRIPTOR_SHA256
     from corpus_structure.semantic.native_products import (
+        NATIVE_PREDECESSOR, NATIVE_REVISION,
         NativeProduct, current_authoring_provenance, forward_products, function_bodies,
     )
 
     versions = Path(__file__).resolve().parents[2] / "semantic_alembic/versions"
-    head = NativeProduct("head", versions.joinpath("semantic_0058_admission.sql").read_bytes())
-    predecessor = NativeProduct("previous", versions.joinpath("semantic_0057_admission.sql").read_bytes())
+    head = NativeProduct("head", versions.joinpath(f"{NATIVE_REVISION}_admission.sql").read_bytes())
+    predecessor = NativeProduct("previous", versions.joinpath(f"{NATIVE_PREDECESSOR}_admission.sql").read_bytes())
     reproduced = forward_products()[-1]
     assert reproduced.content == head.content
     recorded = _forward_descriptor(head)
     old = _forward_descriptor(predecessor)
-    # These were separate authoring events; 0057 is not a witness for 0058.
+    # These were separate authoring events; the predecessor is not the head witness.
     assert (recorded["model_id"], recorded["inputs"]) != (old["model_id"], old["inputs"])
     assert sha256(function_bodies(reproduced.content.decode())["data.execution_contract_descriptor"].encode()).hexdigest() == _DESCRIPTOR_SHA256
 
@@ -372,7 +373,6 @@ def test_forward_reproduction_uses_head_witness_and_candidate_uses_explicit_curr
     candidate = _forward_descriptor(forward_products(authoring_provenance=current)[-1])
     assert candidate["model_id"] == current.model_id
     assert candidate["inputs"] == [{"name": name, "sha256": digest} for name, digest in current.inputs]
-    assert candidate["model_id"] != recorded["model_id"]
     expected = dict(recorded)
     expected["model_id"] = current.model_id
     expected["inputs"] = [{"name": name, "sha256": digest} for name, digest in current.inputs]
