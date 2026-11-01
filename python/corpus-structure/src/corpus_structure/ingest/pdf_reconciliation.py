@@ -11,6 +11,7 @@ import math
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
@@ -726,187 +727,200 @@ def _select_pdf_integration(
                     for n, f in overlaps
                 ],
             }
-            correspondences.append(
-                (
-                    index,
-                    source,
-                    [
-                        (origins[id(n)].input_index, origins[id(n)].occurrence_id)
-                        for n, _ in overlaps
-                    ],
-                    "matched" if len(overlaps) == 1 else "ambiguous" if overlaps else "unmatched",
-                    evidence,
-                )
+            correspondence = (
+                index,
+                source,
+                [(origins[id(n)].input_index, origins[id(n)].occurrence_id) for n, _ in overlaps],
+                "matched" if len(overlaps) == 1 else "ambiguous" if overlaps else "unmatched",
             )
-            chosen = None
-            disposition = "added"
-            alternative = []
-            if len(same) == 1 and len(overlaps) == 1:
-                chosen = same[0][0]
-                previous = origins[id(chosen)]
-                comparison = compare_pdf_occurrences(
-                    _text(chosen, doc),
-                    _text(incoming, mapped.document),
-                    mathematical=False,
-                    context=context,
-                )
-                evidence["comparison_requests"] = {
-                    "lexical": "requested",
-                    "positioned_syntax": "not_requested",
-                    "symbolic": "not_requested",
-                }
-                evidence["comparison"] = comparison
-                if _family(incoming) in {"table", "chart"}:
-                    evidence["comparison"] = {k: v for k, v in comparison.items() if k != "opcodes"}
-                    evidence["comparison"]["alignment_scope"] = (
-                        "coarse table/chart text; exact edits remain replay"
-                        "able from retained readings"
+            try:
+                chosen = None
+                disposition = "added"
+                alternative = []
+                if len(same) == 1 and len(overlaps) == 1:
+                    chosen = same[0][0]
+                    previous = origins[id(chosen)]
+                    comparison = compare_pdf_occurrences(
+                        _text(chosen, doc),
+                        _text(incoming, mapped.document),
+                        mathematical=False,
+                        context=context,
                     )
-                    evidence["grid_comparison"] = _grid_comparison(chosen, incoming)
-                if comparison["text_equal"] and _family(incoming) not in {"table", "chart"}:
-                    previous.alternatives.append((index, source))
-                    previous.evidence.update(evidence)
-                    continue
-                if str(chosen.label) == "section_header":
-                    rejected.append((index, source, "retained_alternative", evidence))
-                    continue
-                if previous.input_index and not (
-                    mapped.observation["observation"]["pass_role"] == "C"
-                    and _family(incoming) in {"table", "chart"}
-                    and policy["specialized_crop_precedence"]
-                ):
+                    evidence["comparison_requests"] = {
+                        "lexical": "requested",
+                        "positioned_syntax": "not_requested",
+                        "symbolic": "not_requested",
+                    }
+                    evidence["comparison"] = comparison
+                    if _family(incoming) in {"table", "chart"}:
+                        evidence["comparison"] = {
+                            k: v for k, v in comparison.items() if k != "opcodes"
+                        }
+                        evidence["comparison"]["alignment_scope"] = (
+                            "coarse table/chart text; exact edits remain replay"
+                            "able from retained readings"
+                        )
+                        evidence["grid_comparison"] = _grid_comparison(chosen, incoming)
+                    if comparison["text_equal"] and _family(incoming) not in {"table", "chart"}:
+                        previous.alternatives.append((index, source))
+                        previous.evidence.update(evidence)
+                        continue
+                    if str(chosen.label) == "section_header":
+                        rejected.append((index, source, "retained_alternative", evidence))
+                        continue
+                    if previous.input_index and not (
+                        mapped.observation["observation"]["pass_role"] == "C"
+                        and _family(incoming) in {"table", "chart"}
+                        and policy["specialized_crop_precedence"]
+                    ):
+                        rejected.append((index, source, "unresolved", evidence))
+                        continue
+                    if policy["conflict_action"] != "replace":
+                        rejected.append(
+                            (
+                                index,
+                                source,
+                                "retained_alternative"
+                                if policy["conflict_action"] == "keep"
+                                else "unresolved",
+                                evidence,
+                            )
+                        )
+                        continue
+                    disposition = "replaced"
+                    alternative = [
+                        (previous.input_index, previous.occurrence_id),
+                        *previous.alternatives,
+                    ]
+                elif overlaps or policy["unmatched_action"] != "add":
                     rejected.append((index, source, "unresolved", evidence))
                     continue
-                if policy["conflict_action"] != "replace":
-                    rejected.append(
-                        (
-                            index,
-                            source,
-                            "retained_alternative"
-                            if policy["conflict_action"] == "keep"
-                            else "unresolved",
-                            evidence,
-                        )
+                if chosen is not None:
+                    native_parent = (
+                        chosen.parent.resolve(doc) if chosen.parent is not None else doc.body
                     )
-                    continue
-                disposition = "replaced"
-                alternative = [
-                    (previous.input_index, previous.occurrence_id),
-                    *previous.alternatives,
-                ]
-            elif overlaps or policy["unmatched_action"] != "add":
-                rejected.append((index, source, "unresolved", evidence))
-                continue
-            if chosen is not None:
-                native_parent = (
-                    chosen.parent.resolve(doc) if chosen.parent is not None else doc.body
-                )
-                if str(incoming.label) == "list_item" and str(native_parent.label) != "list":
+                    if str(incoming.label) == "list_item" and str(native_parent.label) != "list":
+                        incoming = incoming_root
+                        evidence["placement_kind"] = "retained_provider_list_group"
+                    elif str(native_parent.label) == "list" and str(incoming.label) != "list_item":
+                        rejected.append(
+                            (
+                                index,
+                                source,
+                                "unresolved",
+                                {
+                                    **evidence,
+                                    "reason": "native_list_membership_requires_qualified_mapping",
+                                },
+                            )
+                        )
+                        continue
+                if chosen is None and str(incoming.label) == "list_item":
                     incoming = incoming_root
-                    evidence["placement_kind"] = "retained_provider_list_group"
-                elif str(native_parent.label) == "list" and str(incoming.label) != "list_item":
-                    rejected.append(
-                        (
-                            index,
-                            source,
-                            "unresolved",
-                            {
-                                **evidence,
-                                "reason": "native_list_membership_requires_qualified_mapping",
-                            },
-                        )
+                # Add through Docling; track object identity while deletion renumbers pointers.
+                if chosen is not None:
+                    parent = chosen.parent.resolve(doc)
+                    position = parent.children.index(chosen.get_ref())
+                    doc.insert_node_items(
+                        node_items=[incoming], doc=mapped.document, sibling=chosen, after=False
                     )
-                    continue
-            if chosen is None and str(incoming.label) == "list_item":
-                incoming = incoming_root
-            # Add through Docling; track object identity while deletion renumbers pointers.
-            if chosen is not None:
-                parent = chosen.parent.resolve(doc)
-                position = parent.children.index(chosen.get_ref())
-                doc.insert_node_items(
-                    node_items=[incoming], doc=mapped.document, sibling=chosen, after=False
-                )
-            else:
-                positions = [(n, nbox) for n in candidates if (nbox := _box(n, doc)) is not None]
-                # Choose neighboring content in the same column. Its existing containment
-                # supplies section meaning; geometric proximity never creates a new section.
-                same_column = [
-                    (n, nbox) for n, nbox in positions if min(right, nbox[3]) > max(left, nbox[1])
-                ]
-                positions = same_column or positions
-                preceding = [(n, nbox) for n, nbox in positions if nbox[2] <= top]
-                following = [(n, nbox) for n, nbox in positions if nbox[2] > top]
-                if preceding:
-                    nearest = max(preceding, key=lambda pair: (pair[1][2], pair[1][1]))[0]
-                elif following:
-                    nearest = min(following, key=lambda pair: (pair[1][2], pair[1][1]))[0]
                 else:
-                    rejected.append(
-                        (
-                            index,
-                            source,
-                            "unresolved",
-                            {**evidence, "reason": "no_qualified_native_page_placement"},
+                    positions = [
+                        (n, nbox) for n in candidates if (nbox := _box(n, doc)) is not None
+                    ]
+                    # Choose neighboring content in the same column. Its existing containment
+                    # supplies section meaning; geometric proximity never creates a new section.
+                    same_column = [
+                        (n, nbox)
+                        for n, nbox in positions
+                        if min(right, nbox[3]) > max(left, nbox[1])
+                    ]
+                    positions = same_column or positions
+                    preceding = [(n, nbox) for n, nbox in positions if nbox[2] <= top]
+                    following = [(n, nbox) for n, nbox in positions if nbox[2] > top]
+                    if preceding:
+                        nearest = max(preceding, key=lambda pair: (pair[1][2], pair[1][1]))[0]
+                    elif following:
+                        nearest = min(following, key=lambda pair: (pair[1][2], pair[1][1]))[0]
+                    else:
+                        rejected.append(
+                            (
+                                index,
+                                source,
+                                "unresolved",
+                                {**evidence, "reason": "no_qualified_native_page_placement"},
+                            )
                         )
-                    )
-                    continue
-                anchor = nearest
-                parent = anchor.parent.resolve(doc) if anchor.parent is not None else doc.body
-                while str(parent.label) not in {"section", "chapter"} and parent is not doc.body:
-                    anchor = parent
+                        continue
+                    anchor = nearest
                     parent = anchor.parent.resolve(doc) if anchor.parent is not None else doc.body
-                anchor_box = _box(anchor, doc)
-                if (
-                    anchor_box is not None
-                    and str(anchor.label) == "list"
-                    and anchor_box[2] < top < anchor_box[4]
-                ):
-                    rejected.append(
-                        (
-                            index,
-                            source,
-                            "unresolved",
-                            {**evidence, "reason": "list_internal_containment_unqualified"},
+                    while (
+                        str(parent.label) not in {"section", "chapter"} and parent is not doc.body
+                    ):
+                        anchor = parent
+                        parent = (
+                            anchor.parent.resolve(doc) if anchor.parent is not None else doc.body
                         )
+                    anchor_box = _box(anchor, doc)
+                    if (
+                        anchor_box is not None
+                        and str(anchor.label) == "list"
+                        and anchor_box[2] < top < anchor_box[4]
+                    ):
+                        rejected.append(
+                            (
+                                index,
+                                source,
+                                "unresolved",
+                                {**evidence, "reason": "list_internal_containment_unqualified"},
+                            )
+                        )
+                        continue
+                    after = anchor_box is None or (anchor_box[2], anchor_box[1]) <= (top, left)
+                    position = parent.children.index(anchor.get_ref()) + (1 if after else 0)
+                    doc.insert_node_items(
+                        node_items=[incoming], doc=mapped.document, sibling=anchor, after=after
                     )
-                    continue
-                after = anchor_box is None or (anchor_box[2], anchor_box[1]) <= (top, left)
-                position = parent.children.index(anchor.get_ref()) + (1 if after else 0)
-                doc.insert_node_items(
-                    node_items=[incoming], doc=mapped.document, sibling=anchor, after=after
-                )
-                evidence["placement"] = {
-                    "parent": parent.self_ref,
-                    "neighbor": anchor.self_ref,
-                    "after": after,
-                    "basis": "native_section_and_same_page_reading_geometry",
-                }
-            copied_root = parent.children[position].resolve(doc)
-            pairs = _repair_copied_references(incoming, copied_root, mapped.document, doc)
-            copied = [new for old, new in pairs]
-            for old, new in pairs:
-                imported_nodes[(index, old.self_ref)] = new
-                for name in ("captions", "references", "footnotes"):
-                    for ref in getattr(old, name, ()):
-                        deferred_references.append(
-                            (new, name, index, ref.cref, mapped.origins.get(ref.cref))
-                        )
-            for n in copied:
-                origins[id(n)] = _Origin(index, source, disposition, list(alternative), evidence)
-            if chosen is not None:
-                removed.append(chosen)
-            # Maintain sparse local index after replacing; old references are removed.
-            if chosen is not None:
-                candidates[:] = [n for n in candidates if id(n) != id(chosen)]
-                for key in list(buckets):
-                    buckets[key] = [n for n in buckets[key] if id(n) != id(chosen)]
-            for n in copied:
-                if n.parent and n.parent.cref not in {c.self_ref for c in copied}:
-                    nbox = _box(n, doc)
-                    if nbox:
-                        candidates.append(n)
-                        for key in keys(nbox):
-                            buckets[key].append(n)
+                    evidence["placement"] = {
+                        "parent": parent.self_ref,
+                        "neighbor": anchor.self_ref,
+                        "after": after,
+                        "basis": "native_section_and_same_page_reading_geometry",
+                    }
+                copied_root = parent.children[position].resolve(doc)
+                pairs = _repair_copied_references(incoming, copied_root, mapped.document, doc)
+                copied = [new for old, new in pairs]
+                for old, new in pairs:
+                    imported_nodes[(index, old.self_ref)] = new
+                    for name in ("captions", "references", "footnotes"):
+                        for ref in getattr(old, name, ()):
+                            deferred_references.append(
+                                (new, name, index, ref.cref, mapped.origins.get(ref.cref))
+                            )
+                for n in copied:
+                    origins[id(n)] = _Origin(
+                        index, source, disposition, list(alternative), evidence
+                    )
+                if chosen is not None:
+                    removed.append(chosen)
+                # Maintain sparse local index after replacing; old references are removed.
+                if chosen is not None:
+                    candidates[:] = [n for n in candidates if id(n) != id(chosen)]
+                    for key in list(buckets):
+                        buckets[key] = [n for n in buckets[key] if id(n) != id(chosen)]
+                for n in copied:
+                    if n.parent and n.parent.cref not in {c.self_ref for c in copied}:
+                        nbox = _box(n, doc)
+                        if nbox:
+                            candidates.append(n)
+                            for key in keys(nbox):
+                                buckets[key].append(n)
+            finally:
+                # Serialize after comparison/placement has finished enriching this evidence,
+                # including branches that retain or reject a reading via continue.
+                # Origins can accumulate evidence from a later equal reading. This decision
+                # owns its completed evidence independently of that mutable accumulation.
+                correspondences.append((*correspondence, deepcopy(evidence)))
     if removed:
         from .pdf_bulk_remove import remove_pdf_subtrees
 
@@ -1029,8 +1043,8 @@ def _select_pdf_integration(
             {"role": "input", "input_index": i, "occurrence_id": s} for i, s in candidates
         )
         local_ids = set(correspondence_outputs.get((index, source), ()))
-        for candidate in candidates:
-            local_ids.update(correspondence_outputs.get(candidate, ()))
+        for candidate_index, candidate_source in candidates:
+            local_ids.update(correspondence_outputs.get((candidate_index, candidate_source), ()))
         endpoints.extend({"role": "output", "occurrence_id": o} for o in sorted(local_ids))
         relations.append(
             {

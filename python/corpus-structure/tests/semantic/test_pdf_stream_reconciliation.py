@@ -235,3 +235,97 @@ def test_companions_are_exact_part_streams_in_model_owned_profile(native_source,
                 assert len(data.splitlines()) == 7
             if family == "health":
                 assert json.loads(data)["source_fidelity"] == "unassessed"
+
+
+@pytest.mark.parametrize(
+    ("reading", "bottom", "outcome", "structural_ids", "output_ids"),
+    [
+        ("corrected", "0.066666", "matched", {"#/texts/0"}, {"#/texts/1"}),
+        ("equal", "0.066666", "matched", {"#/texts/0"}, {"#/texts/0"}),
+        (
+            "corrected",
+            "0.166666",
+            "ambiguous",
+            {"#/texts/0", "#/texts/1"},
+            {"#/texts/0", "#/texts/1"},
+        ),
+    ],
+)
+def test_streamed_correspondence_pairs_keep_qualified_output_endpoints(
+    native_source, tmp_path, reading, bottom, outcome, structural_ids, output_ids
+):
+    from corpus_structure.ingest.pdf_reconciliation import select_pdf_integration
+
+    raw = f"<x_0.05><y_0.033333>{reading}<x_0.3><y_{bottom}><class_Text>".encode()
+    observations = [(pin(2, "a", "1" * 64, "recognition"), recognized(native_source, raw), raw)]
+    structural = pin(1, "native", "0" * 64, "structural")
+    expected = select_pdf_integration(
+        native_source.payload,
+        structural,
+        observations,
+        native_source.original,
+        native_source.recipe,
+        native_source.schema,
+    ).values()
+    with reconcile_pdf_stream(
+        DoclingDocument.model_validate(native_source.payload["document"]),
+        structural,
+        iter(observations),
+        native_source.payload["artifact_digest"],
+        directory=tmp_path,
+    ) as result:
+        rows = list(result.iter_companions())
+        relations = [row for family, row in rows if family == "relation"]
+        assert relations == expected["relations"]
+        correspondence = next(row for row in relations if row["kind"] == "correspondence")
+        assert correspondence["outcome"] == outcome
+        assert {
+            endpoint["occurrence_id"]
+            for endpoint in correspondence["endpoints"]
+            if endpoint["role"] == "input" and endpoint["input_index"] == 0
+        } == structural_ids
+        assert {
+            endpoint["occurrence_id"]
+            for endpoint in correspondence["endpoints"]
+            if endpoint["role"] == "output"
+        } == output_ids
+        assert {"role": "input", "input_index": 1, "occurrence_id": "block-0"} in correspondence[
+            "endpoints"
+        ]
+
+
+def test_correspondence_evidence_is_owned_before_later_equal_reading(native_source, tmp_path):
+    from corpus_structure.ingest.pdf_reconciliation import select_pdf_integration
+
+    raw = b"<x_0.05><y_0.033333>corrected<x_0.3><y_0.066666><class_Text>"
+    observations = [
+        (pin(task, "a", str(task) * 64, "recognition"), recognized(native_source, raw), raw)
+        for task in (2, 3)
+    ]
+    structural = pin(1, "native", "0" * 64, "structural")
+    expected = select_pdf_integration(
+        native_source.payload,
+        structural,
+        observations,
+        native_source.original,
+        native_source.recipe,
+        native_source.schema,
+    ).values()
+    with reconcile_pdf_stream(
+        DoclingDocument.model_validate(native_source.payload["document"]),
+        structural,
+        iter(observations),
+        native_source.payload["artifact_digest"],
+        directory=tmp_path,
+    ) as result:
+        relations = [row for family, row in result.iter_companions() if family == "relation"]
+        assert relations == expected["relations"]
+        correspondences = [row for row in relations if row["kind"] == "correspondence"]
+        assert len(correspondences) == 2
+        for row, source_index, source_id, equal in zip(
+            correspondences, (0, 1), ("#/texts/0", "block-0"), (False, True), strict=True
+        ):
+            evidence = json.loads(row["evidence"])
+            assert evidence["candidates"][0][:2] == [source_index, source_id]
+            assert evidence["comparison"]["text_equal"] is equal
+            assert {"role": "output", "occurrence_id": "#/texts/1"} in row["endpoints"]
