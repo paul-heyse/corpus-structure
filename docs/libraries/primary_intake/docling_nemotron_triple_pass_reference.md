@@ -790,3 +790,911 @@ NVIDIA `nvidia/Nemotron-3.5-Parse` (Hugging Face): model card; `pyproject.toml`;
 `reference/parsebench/pipeline/README.md`, `run.py`, `parse_results.py`, `postprocess.py`,
 `engine/merge.py`, `engine/policies.py`, `engine/regions.py`, `engine/geometry.py`; build.nvidia.com model
 page.
+
+# Addendum — Docling and Nemotron 3.5 Parse: Advanced Capabilities and Integration Semantics
+
+Companion to `docling_nemotron_triple_pass_reference.md` · Research date: November 1, 2026
+
+Scope. This addendum covers functionality not fully developed in the original reference, emphasizing native multipass execution, NVIDIA's public orchestration APIs, merge semantics, postprocessing, structured evidence, execution scheduling and additional serving options. Existing descriptions of model architecture, OCR behavior, coordinate transformations and repository contracts are not repeated.
+
+Version baseline. Docling 2.145.0 is the original reference's pinned release. Newer Docling functionality is explicitly identified as upstream `main` functionality rather than attributed to that release. NVIDIA's public Python interfaces are described for `nemotron-parse` 3.5.0.post7, with earlier post-release changes noted where consequential. The NVIDIA NIM interface is a separate product, version 2.4.
+
+## A. Native multipass support in Docling
+
+Extends original §§9.1–9.6 and §13.1
+
+### A.1 Version distinction and execution model
+
+Docling's `nemotron_parse_v3_5` preset originally implemented a single full-page parse. Subsequently, upstream Docling added model-specific double- and triple-pass orchestration to the VLM conversion stage.
+
+The newer implementation is available in upstream `main`, but is not part of the pinned Docling 2.145.0 release. The release boundary matters: the original reference's single-pass description remains valid for that version.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+The new capability is configured through `VlmConvertOptions.nemotron_parse`, using `NemotronParseOptions`:
+
+| Option            | Values                             | Semantics                                                 |
+| ----------------- | ---------------------------------- | --------------------------------------------------------- |
+| `passes`          | `"single"`, `"double"`, `"triple"` | Selects the parsing stages; default remains single        |
+| `triple_regions`  | `"detector"`, `"union"`            | Controls the Table/Chart region source in triple mode     |
+| `crop_batch_size` | Positive integer                   | Bounds the number of crop predictions submitted per batch |
+
+Both the Transformers engine and OpenAI-compatible API engine support multipass execution. The in-process vLLM engine remains unsupported for this preset because NVIDIA's model requires its external vLLM plugin.
+
+An illustrative configuration for upstream `main`:
+
+```
+from docling.datamodel.pipeline_options import (    NemotronParseOptions,    VlmConvertOptions,    VlmPipelineOptions,)from docling.datamodel.vlm_engine_options import AutoInlineVlmEngineOptionsopts = VlmPipelineOptions(    vlm_options=VlmConvertOptions.from_preset(        "nemotron_parse_v3_5",        engine_options=AutoInlineVlmEngineOptions(            trust_remote_code=True,        ),        nemotron_parse=NemotronParseOptions(            passes="triple",            triple_regions="union",            crop_batch_size=8,        ),    ),)
+```
+
+The multipass setting is exposed through the Python SDK, not the preset's ordinary CLI selection, which retains single-pass behavior.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source: [https://github.com/docling-project/docling/blob/main/docs/usage/model_catalog.md](https://github.com/docling-project/docling/blob/main/docs/usage/model_catalog.md?utm_source=chatgpt.com)
+
+### A.2 Multipass behavior and bounds
+
+Docling implements the same broad stage decomposition as NVIDIA's reference: page parse; optional independent detection; Table/Chart crop parsing; and structural merge.
+
+The important additional contracts are:
+
+- Crop budget and geometry: At most 80 regions per page; crops have a 12-pixel plus 4% margin and are skipped if their padded width or height is below 8 pixels. Crop predictions are remapped to page coordinates.
+- Stage-specific sampling: For multipass operation, full-page and detection stages use temperature 0.2 and repetition penalty 1.05; crops use temperature 0.1 and repetition penalty 1.0. All use `top_k=50` and `top_p=1.0`, with 4,096 detection tokens versus 8,744 parse tokens.
+- Single-pass compatibility: Selecting single-pass preserves the original preset's generation configuration rather than silently applying the multipass defaults.
+- API parameter precedence: Explicit API-engine `params` override stage parameters, so an override can change or defeat the stage-specific sampling contract.
+- Failure tolerance: Failed, empty, truncated or invalid crop output leaves the full-page result unchanged. Invalid detection output prevents that detection-derived crop stage from contributing refinements.
+
+These are upstream implementation behaviors, not independent evidence that the same page will receive the same predictions as NVIDIA's reference runner.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### A.3 Docling's guarded merge
+
+Upstream Docling implements guarded structural refinement only, not NVIDIA's alternative-preserving default merge.
+
+A crop-derived table replacement requires a valid grid, compatible column count, bounding-box intersection-over-union of at least 0.5 and text similarity of at least 0.65. Successful replacements preserve the original page-region box and reading-order position. New structural objects cannot overlap an existing object of the same class.
+
+The result is a more conservative `DoclingDocument`: incompatible refinements are rejected instead of inserted as conflicting parallel alternatives. This reduces ambiguous duplicate structures, but can retain an inferior full-page prediction.
+
+The distinction matters because NVIDIA's published multipass scores use an alternative-preserving merge, not this guarded policy. Those scores cannot be transferred directly to Docling's implementation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### A.4 Retained multipass provenance and request accounting
+
+Upstream Docling records multipass execution details in the VLM prediction and copies them into exported document metadata at:
+
+`body.meta.docling__nemotron_parse.pages`
+
+The page-number-keyed metadata includes mode, model request counts, rejected crop requests, aggregate token counts and per-stage provider usage where available.
+
+These counters have specific meanings:
+
+- `requests` counts full-page, detection and crop requests, including unsuccessful crop requests. It does not count inference batches or simply the number of logical stages.
+- `rejected_crop_requests` counts unsuccessful or invalid crop generations before merging; it is not a complete accounting of every merge-policy rejection.
+- Provider token usage is retained when returned by the engine, but does not imply the availability of calibrated extraction confidence.
+
+Consequently, the metadata can establish how much multipass inference occurred, but does not constitute a complete candidate-by-candidate merge audit.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### A.5 Broader Transformers completion handling
+
+The same upstream work also extends incomplete-generation detection across Transformers VLM presets. Reaching the generation token limit without EOS is treated as incomplete, with the conversion reported as `PARTIAL_SUCCESS`; reaching EOS at the token cap remains complete.
+
+This improves the distinction between a successful model invocation and a completed document extraction. It does not establish that an EOS-terminated response is semantically complete or factually correct.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source files:
+
+[https://github.com/docling-project/docling/blob/main/docling/datamodel/pipeline_options.py](https://github.com/docling-project/docling/blob/main/docling/datamodel/pipeline_options.py?utm_source=chatgpt.com)
+
+[https://github.com/docling-project/docling/blob/main/docling/pipeline/vlm_pipeline.py](https://github.com/docling-project/docling/blob/main/docling/pipeline/vlm_pipeline.py?utm_source=chatgpt.com)
+
+## B. NVIDIA's public multipass parsing and backend APIs
+
+Extends original §§4, 7.10 and 13.1
+
+### B.1 `DocumentParser` as a reusable orchestration layer
+
+The `nemotron_parse.inference.DocumentParser` API provides a general image-to-document parsing interface covering the same broad workflow as the standalone ParseBench driver. It operates on model predictions and page images; benchmark reference answers, labels and scorer logic are not part of its runtime dependencies.
+
+Its capability surface is broader than the reference driver's command-line workflow:
+
+| API                                             | Capability                                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| `parse(image)`                                  | Single-page inference and structured document rendering                         |
+| `parse_double(image)`                           | Full-page parse plus parser-selected Table/Chart crops                          |
+| `parse_triple(image, triple_regions=...)`       | Independent detection and crop parsing, with detector or union region selection |
+| `parse_many(images, mode=..., concurrency=...)` | Multiple documents/pages with shared inference concurrency                      |
+| `prepare(images, workers=...)`                  | Reusable, decoded and encoded image batch                                       |
+| `parse_prepared(batch, mode=..., schedule=...)` | Dependency-aware batch execution, structured documents and execution metrics    |
+
+The wrapper handles crop creation, region selection, coordinate remapping, merging and document postprocessing. Crops are generated in memory rather than through the reference driver's intermediate crop-file layout.
+
+The public `max_regions` parameter controls the region budget, which defaults to 80 per page. Crop margins are configurable; the reference geometry uses 4% of the region dimensions plus 12 pixels.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co+2
+
+
+
+A compact interface example:
+
+```
+from nemotron_parse.inference import DocumentParserwith DocumentParser(    base_url="http://localhost:8000/v1",    model="nemotron-parse",    merge_policy="alternatives",) as parser:    page = parser.parse_triple(        "page.png",        triple_regions="union",    )    batch = parser.prepare(page_images, workers=8)    result = parser.parse_prepared(        batch,        mode="triple",        concurrency=128,        postprocess_workers=8,        schedule="pipelined",    )
+```
+
+The image interface accepts PIL images and image paths; it does not itself render a PDF. Image-to-PDF-page correspondence, including the relevant crop and rotation transformations, remains an upstream responsibility.
+
+Source: [https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/6cbbc638b8fdb1d94d76d5b9830d43e55da290ad/POSTPROCESSING.md](https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/6cbbc638b8fdb1d94d76d5b9830d43e55da290ad/POSTPROCESSING.md?utm_source=chatgpt.com)
+
+### B.2 Per-stage inference configuration
+
+`GenerationSettings` provides independent decoding configuration for the full-page, detection and crop stages:
+
+```
+from nemotron_parse.inference import (    DocumentParser,    GenerationSettings,)parser = DocumentParser(    fullpage=GenerationSettings(        temperature=0,        top_k=1,        repetition_penalty=1.1,    ),    detection=GenerationSettings(        temperature=0,        top_k=1,        max_tokens=4096,    ),    crop=GenerationSettings(        temperature=0,        top_k=1,        repetition_penalty=1.0,    ),)
+```
+
+The public wrapper defaults are aligned with NVIDIA's reference sampling regime: full-page and detection temperature 0.2, repetition penalty 1.05; crop temperature 0.1, repetition penalty 1.0; `top_k=50`, `top_p=1.0`, seed 0; token limits 8,744 for parsing and 4,096 for detection.
+
+This is separate from the Docling single-pass preset's greedy defaults. A pipeline can therefore make an explicit distinction between model revisions, sampling policy, region-selection policy and structural merge policy. These are independent contributors to the resulting document.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+### B.3 `TransformersBackend`: multipass without vLLM
+
+NVIDIA exposes a backend adapter for an already-loaded Transformers model:
+
+```
+from nemotron_parse.inference import (    DocumentParser,    TransformersBackend,)backend = TransformersBackend(    model,    processor,    generation_config=generation_config,)with DocumentParser(backend=backend) as parser:    document = parser.parse_triple(image)
+```
+
+The adapter reuses the same multipass image, crop and merge orchestration without an HTTP inference server.
+
+Its documented behavior includes serialized model calls, inference mode, application of stage generation settings, and restoration of CPU/current-GPU random-number-generator state after generation. The caller retains ownership of the model and processor.
+
+This reveals an important distinction:
+
+- Execution capability: Triple-pass orchestration is available with the Transformers backend.
+- Inference scalability: The shared Transformers model is serialized; the adapter does not provide the vLLM server's continuous batching or MTP acceleration.
+- Compatibility: An existing Transformers model must still load and generate correctly under its runtime. The adapter does not remove model dependency constraints or prove compatibility with an arbitrary installed Torch/Transformers combination.
+
+The public API additionally supports custom callable inference backends with the contract:
+
+`backend(image, *, prompt, stage, settings)`
+
+A backend may return `{"raw_out": ..., "finish_reason": ..., "usage": ...}` or just a string. The structured form supports stronger completion accounting; string-only backends must handle truncation detection themselves.
+
+Custom backends used with `parse_many()` need concurrent-call safety, or concurrency should be limited to one.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+### B.4 CLI and output artifacts
+
+The installed `nemotron-parse` command supports single, double and triple modes:
+
+```
+nemotron-parse \
+  --image-dir pages \
+  --mode triple \
+  --triple-regions union \
+  --output parsed-pages
+```
+
+The default artifact set contains `documents.jsonl.gz` and `metrics.json`. Individual Markdown and JSON page files can be enabled with `--write-page-files`.
+
+The compressed document output retains processed blocks, raw model stages, settings and timing metadata. Output files are written after the batch finishes; a partially completed batch should not be assumed to provide durable, incrementally written results.
+
+The equivalent source invocation is `python -m nemotron_parse.inference`. The CLI consumes images rather than native PDFs.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+Library boundary. `DocumentParser` can replace custom machinery for staging requests, cropping, parsing and combining predictions. It does not replace Docling's native PDF text extraction, table-cell provenance, document hierarchy model or source-to-product relationships.
+
+## C. Merge policies, structural hypotheses and benchmark interpretation
+
+Extends original §§7.7–7.8, 10.3 and 13.5
+
+### C.1 Two different semantics for multipass output
+
+The NVIDIA public package exposes two merge policies. `alternatives` is the default from package `3.5.0.post5` onward, including the guide's post7 baseline. `guarded` remains explicitly selectable.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+| Property                                                     | `alternatives`                                    | `guarded`                                                |
+| ------------------------------------------------------------ | ------------------------------------------------- | -------------------------------------------------------- |
+| Overlapping but materially different Table/Chart predictions | May retain both                                   | Rejects competing same-class additions                   |
+| Near-identical predictions                                   | Geometric/text deduplication                      | Conservative structural selection                        |
+| Table refinement                                             | May preserve alternatives alongside direct blocks | Replacement subject to validity and compatibility guards |
+| Output interpretation                                        | Multiple structural hypotheses can coexist        | More compact selected representation                     |
+| Consequential risk                                           | Duplicate or contradictory content                | Discarding a correct crop alternative                    |
+
+The distinction is representational rather than merely algorithmic.
+
+With `alternatives`, the result can legitimately contain different textual or structural readings of the same page region. This can preserve evidence useful for independent reconciliation, but a consumer treating every emitted block as canonical content may count the same table twice.
+
+With `guarded`, the merger favors a single accepted reading for overlapping same-class regions. This simplifies downstream interpretation but makes the acceptance policy responsible for suppressing alternative evidence.
+
+Neither policy establishes the correctness of an accepted table. Both rely on model predictions and syntactic/geometric checks, not on externally verified ground truth.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+### C.2 Why this affects accuracy measurements
+
+NVIDIA's accuracy-restoration evaluation replayed saved model responses with different merge policies, thereby isolating the effect of merging from inference.
+
+ParseBench overall scores (%), 2,078 pages; same saved responses within each row
+
+| Response set      | Guarded | Alternatives | Difference |
+| ----------------- | ------- | ------------ | ---------- |
+| Double, staged    | 73.25   | 74.88        | +1.63      |
+| Double, pipelined | 73.28   | 74.96        | +1.68      |
+| Triple, staged    | 73.51   | 75.23        | +1.72      |
+| Triple, pipelined | 73.48   | 75.23        | +1.75      |
+
+Source: NVIDIA's official scorer replay recorded in `POSTPROCESSING.md`. Figures are vendor-reported, not independently reproduced here.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+The evaluator can credit the best-matching structural alternative in a prediction set. Consequently, a larger alternative set can improve the measured score without demonstrating that any particular selected table is equally accurate.
+
+This creates three separate quantities:
+
+1. Hypothesis coverage: Whether a correct interpretation appears among the emitted candidates.
+2. Selection correctness: Whether the interpretation chosen as canonical is correct.
+3. Representation consistency: Whether the final document has unambiguous, internally coherent structures.
+
+The published alternatives scores primarily establish performance under the benchmark's evaluation semantics. They should not be interpreted as direct measurements of the other two quantities.
+
+### C.3 Relationship to the original reference driver
+
+The original document's detailed account of `build_direct_plus_ordered_structural_addonly()` and `replace_guarded()` remains useful because it describes the low-level reference implementation.
+
+The public package adds a more explicit choice of the final structural semantics. That choice is absent from a description that treats add-only merging and guarded replacement as a single universal processing policy.
+
+The distinct implementations should therefore remain identifiable:
+
+- NVIDIA's reference-driver algorithms and their recorded benchmark configuration.
+- NVIDIA's public `DocumentParser`, with configurable `merge_policy`.
+- Docling upstream's native multipass implementation, with guarded merging only.
+
+Even when all three use the same model, crop geometry and nominal stage settings, they are not guaranteed to produce equivalent final documents.
+
+### C.4 Source evidence versus selected output
+
+The public parser retains raw stage predictions under `stages`, regardless of the selected merge policy on successful completion. This preserves access to candidate evidence even when `guarded` omits an alternative from the final rendered document.
+
+However, retaining raw responses is not identical to retaining a complete merge-decision trace. A complete audit of structural adjudication may additionally require the candidate-to-final-block correspondence, accepted/rejected decisions, transformation reasons and the exact merge-policy version.
+
+That is a distinction between available source evidence and a fully materialized adjudication history; it does not imply that NVIDIA already supplies a complete decision ledger.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+## D. Public document postprocessing, tables and charts
+
+Extends original §§7.9–7.10 and §§8–9
+
+### D.1 `postprocess_document()` separates recognition from rendering
+
+NVIDIA provides a reusable postprocessing interface that accepts an existing model response without requiring additional inference:
+
+```
+from nemotron_parse import (    PostprocessOptions,    postprocess_document,)options = PostprocessOptions(    infer_headers=True,    render_charts=True,    split_chart_value_percent=True,    relocate_chart_captions=True,)document = postprocess_document(    raw_model_output,    image_size=(width, height),    options=options,)
+```
+
+The returned representation includes:
+
+| Field                  | Information preserved                                              |
+| ---------------------- | ------------------------------------------------------------------ |
+| `raw_out`              | Cleaned model block serialization                                  |
+| `blocks[]`             | Individual structural blocks                                       |
+| Block class and `text` | Original semantic class and literal predicted body                 |
+| Block `content`        | Postprocessed presentation of that block                           |
+| `bbox`                 | Normalized geometry                                                |
+| `bbox_pixels`          | Clipped, ordered pixel geometry when image dimensions are supplied |
+| `markdown`             | Rendered complete-page output                                      |
+| `warnings`             | Detected structural or conversion problems                         |
+
+The distinction between `text` and `content` is important: a structural block can preserve its model transcription even when the renderer converts tables, transforms captions or changes formatting.
+
+This allows recognition and presentation to be evaluated separately. For example, a malformed table can be retained as model evidence with a conversion warning rather than silently turned into an apparently valid but incorrect grid.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+### D.2 Cleanup controls and preservation behavior
+
+The postprocessor exposes independent switches for:
+
+- `normalize_text`: normalization of supported textual content.
+- `deduplicate`: exact duplicate block removal.
+- `infer_headers`: structural inference of table headers.
+- `render_charts`: chart-specific presentation conversion.
+- `split_chart_value_percent`: separation of consistently predicted numerical value/percentage pairs.
+- `relocate_chart_captions`: geometric association and relocation of captions.
+
+The documented cleanup handles incomplete serialization prefixes, internal continuation markers, soft hyphens and list markers. It preserves empty table cells, merged spans, nested inline formatting, escaped literals and line breaks where applicable.
+
+Importantly, normalization is sensitive to semantic roles. Code and mathematical content receive protection against text-oriented cleanup that could change operators, identifiers or LaTeX content. Literal tabular LaTeX in prose is not indiscriminately converted as though it were a predicted `Table` block.
+
+These transformations are best understood as syntax and presentation processing, not independent recognition or verification. The postprocessor does not determine whether a visually ambiguous digit was correctly read.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+### D.3 Table export fidelity
+
+The existing `postprocess_text(..., cls="Table", table_format=...)` interface supports multiple representations with materially different preservation guarantees.
+
+| Format            | Distinctive behavior                                         | Information-loss consideration                      |
+| ----------------- | ------------------------------------------------------------ | --------------------------------------------------- |
+| LaTeX             | Preserves the original tabular notation                      | May retain malformed or ambiguous markup            |
+| HTML              | Represents merged cells through table structure              | Does not supply original PDF cell geometry          |
+| Markdown          | Readable tabular presentation                                | Limited native representation of complex spans      |
+| Record JSON       | Tabular records with named columns                           | Flattens merged-cell topology                       |
+| Hierarchical JSON | Adds `body_cells` with explicit text, spans and header roles | Still lacks model-predicted per-cell bounding boxes |
+| CSV               | Flat interchange format                                      | Loses merged-cell structure and presentation roles  |
+
+NVIDIA's converter applies several important safeguards:
+
+Span handling. Flat exports expand merged cells, whereas HTML and hierarchical JSON preserve structural information about spans. `body_cells` supplements the familiar `headers`, `columns` and `data` fields.
+
+Headerless tables. When there is no defensible header, the converter uses neutral column names instead of consuming the first data row as a header.
+
+Duplicate column names. Headers are disambiguated without overwriting corresponding data values.
+
+Malformed markup. Invalid LaTeX is preserved and reported rather than passed through a lossy row-splitting fallback.
+
+Header inference. Inference uses predicted cell-span topology and formatting evidence such as bold text, not an English vocabulary list. It can still misclassify headers and is therefore optional.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+These features can avoid custom table normalization machinery. They do not recover spatial information that the underlying model never predicted.
+
+In particular, a hierarchically preserved Nemotron table is not equivalent to a Docling TableFormer table with individual PDF-coordinate cell boxes. Structural completeness and geometric grounding remain separate capabilities.
+
+### D.4 Chart semantics and presentation
+
+NVIDIA's chart rendering recognizes chart-related titles, panels and associated data tables. It supports two additional transformations that change the output representation.
+
+Value/percentage splitting applies to consistently formatted values such as `32 (16.6%)`. When at least two nonempty cells match the expected pattern, the renderer can construct distinct Value and Percent columns. This operation separates existing predicted values; it does not recalculate percentages.
+
+Caption relocation can move an adjacent plain caption above a chart when geometric and text-preservation checks pass. Notes below charts remain separate. Disabling relocation retains the caption in its original sequence.
+
+These operations matter when document structure is later used to associate charts with captions, panels or tabular series. A presentation transform can alter relationships or reading order without changing the underlying recognized characters.
+
+The public CLI provides explicit opt-outs, including `--no-split-chart-value-percent` and `--no-relocate-chart-captions`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co+1
+
+
+
+### D.5 Chart-panel identity in Docling
+
+Docling's model catalog specifies that the Nemotron 3.5 mapping represents recognized charts as pictures with chart-classification metadata and data tables, creating a separate picture for each chart panel where applicable.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+This is more specific than a one-chart-to-one-picture assumption.
+
+Consequences for document representations:
+
+- One source chart region can produce several document objects.
+- Panel-level object identity is not necessarily equivalent to page-level chart identity.
+- Captions, charts and data tables may have different grouping semantics in NVIDIA's rendered output and Docling's mapped document.
+- Model-predicted chart values are not automatically equivalent to values obtained through a geometric reconstruction of the plotted marks.
+
+These distinctions are consequential for provenance, cross-layer comparison and downstream consumers that expect one chart object per visible chart.
+
+Sources:
+
+[https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/6cbbc638b8fdb1d94d76d5b9830d43e55da290ad/POSTPROCESSING.md](https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/6cbbc638b8fdb1d94d76d5b9830d43e55da290ad/POSTPROCESSING.md?utm_source=chatgpt.com)
+
+[https://github.com/docling-project/docling/blob/main/docs/usage/model_catalog.md](https://github.com/docling-project/docling/blob/main/docs/usage/model_catalog.md?utm_source=chatgpt.com)
+
+## E. Prepared batches, pipelined scheduling and inference diagnostics
+
+Extends original §§4, 5, 11 and 13.8
+
+### E.1 Prepared image batches
+
+`DocumentParser.prepare(images, workers=...)` converts input images into a reusable in-memory batch containing decoded RGB pixel data and encoded inference payloads.
+
+Existing compatible RGB JPEG, PNG and WebP payloads can be retained without an additional lossy encoding pass; other inputs are encoded as PNG.
+
+Preparation is separated from inference timing, allowing the same prepared images to be used across different parsing modes without conflating initial image decoding with model-serving performance.
+
+The tradeoff is retained memory. NVIDIA explicitly warns that thousands of prepared pages can occupy several gigabytes. This is an in-memory batch facility, not a persistent content-addressed cache. Reusing prepared inputs does not reuse model predictions; each parse invocation generates its own responses.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+### E.2 Dependency-aware `pipelined` versus `staged` execution
+
+`parse_prepared()` exposes two scheduling semantics:
+
+| Scheduling mode | Execution model                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------- |
+| `staged`        | Stage-barrier execution, useful for controlled comparisons                                      |
+| `pipelined`     | Overlaps independent work and dispatches dependent crops as soon as prerequisites are available |
+
+In pipelined triple-pass execution, full-page parsing and detection can proceed independently. Detector-derived crops can begin when their regions are ready. Parser-only regions are subsequently added according to the union policy. In double-pass mode, crops can start as individual page predictions finish rather than requiring the entire batch of pages to complete first.
+
+The executor uses one shared bounded concurrency window across all stages. Crop preparation can execute on separate CPU threads, and completed pages can be merged and rendered while other pages continue inference.
+
+This is an important architectural distinction from launching three separately bounded request pools. The shared request window constrains total submitted work and avoids introducing independently competing inference queues.
+
+The `postprocess_workers` setting controls output-side parallelism. Large batches may use spawned processes for rendering; ordinary standalone Python scripts therefore need the usual process main guard, or `postprocess_workers=1` where process spawning is unsuitable.
+
+A Transformers backend wrapping a single shared model remains serialized even when the surrounding orchestration supports concurrent work.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+### E.3 Throughput metrics have different denominators and time boundaries
+
+Beginning with `nemotron-parse` 3.5.0.post6, NVIDIA distinguishes model prediction throughput from complete pipeline throughput.
+
+| Metric                                | Interpretation                                                          |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| `inference_seconds`                   | First model request start through last model response across all stages |
+| `inference_pages_per_second`          | Processed pages divided by inference wall time                          |
+| `complete_inference_pages_per_second` | Fully completed pages divided by the same inference wall time           |
+| `pipeline_seconds`                    | Broader processing wall time, including final merge/render work         |
+| `processed_pages_per_second`          | Complete pipeline's processed-page rate                                 |
+| `request_service_seconds`             | Sum of request service durations, including server queue wait           |
+| `peak_inflight_requests`              | Peak client-side request window occupancy                               |
+
+Inference wall time includes HTTP transfer, server queueing, model work and delays waiting for crop dependencies. It excludes initial preparation, startup/warmup, final rendering after inference and file writing.
+
+Because request execution overlaps, summed request times are not wall-clock GPU compute. Similarly, the client in-flight count is not a direct observation of vLLM's active decoder slots. Server-side scheduling and actual GPU utilization require separate instrumentation.
+
+These definitions prevent several superficially plausible but invalid performance comparisons.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+### E.4 Interpreting NVIDIA's throughput measurements
+
+NVIDIA's reported prediction-throughput measurements for prepared ParseBench pages used one H100 80 GB GPU, the specified vLLM uni/FA3/MTP serving profile and 2,078 pages.
+
+The restored-quality configurations reported 15.42 pages/s single-pass, 11.65 double-pass and 10.62 triple-pass. The triple-pass run had 2,038 fully completed pages out of 2,078; its processed-page rate includes token-limited pages.
+
+These measurements do not include complete PDF ingestion, model startup or output-file serialization. They are also not measurements of single-page latency or maximum attainable hardware throughput.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+The earlier scheduler comparison found a substantial triple-pass pipelining benefit under a guarded merge, but also lower benchmark accuracy under that policy. Throughput and quality must therefore be compared using compatible merge semantics and sufficiently comparable inference settings.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co+1
+
+
+
+### E.5 Strict and partial-generation contracts
+
+The public parser distinguishes inference failures from semantically uncertain but syntactically completed output.
+
+By default, empty, failed, filtered and token-limited generations raise `GenerationError`. The exception exposes the failing stage and response. This makes failure visible at the inference boundary instead of silently accepting incomplete content.
+
+With `allow_partial=True`:
+
+- Token-capped raw responses can be retained.
+- Affected documents are marked `complete=False`.
+- `generation_warnings` describe incomplete generation.
+- Truncated crops are excluded from structural refinement.
+- Transport failures and empty responses still raise errors.
+
+This is not an automatic continuation or retry framework. Successful stage responses and structured outputs remain available on successful completion, while errors expose the failed response; the API does not promise a fully assembled partial history for every exception.
+
+The distinction is particularly important for downstream document processing: `finish_reason="stop"` means the generation terminated normally, not that the page was fully or correctly transcribed. Conversely, a page with `complete=False` may still contain useful partial evidence.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+huggingface.co
+
+
+
+### E.6 Structured inference evidence
+
+NVIDIA's public document result contains two especially useful evidence families.
+
+`stages` preserves original stage-level model responses and usage. This distinguishes source predictions from final postprocessed text.
+
+`inference` records execution settings and derived operational information, including request counts, region configuration, sampling, crop configuration and rendering configuration.
+
+The batch result adds aggregate metrics concerning request volume, generation completeness, timing and processing throughput.
+
+These mechanisms provide more than the reference driver's final Markdown and merge counters, but they should not be confused with calibrated correctness estimates. Request counts, token limits, postprocessing warnings and model agreement describe different properties of a conversion.
+
+Source:
+
+[https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/213eed554008e633b1150977049a8c66b7717852/POSTPROCESSING.md](https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/213eed554008e633b1150977049a8c66b7717852/POSTPROCESSING.md?utm_source=chatgpt.com)
+
+## F. NVIDIA NIM 2.4: a separate production serving interface
+
+Extends original §4 and §13.2
+
+### F.1 Document-oriented API rather than chat completions
+
+NVIDIA released Nemotron Parse as a standalone NIM in version 2.4. This is separate from the `nemotron-parse` Python package and the model's vLLM plugin.
+
+The NIM introduces a breaking serving interface relative to the earlier VLM NIM:
+
+| Aspect                 | OpenAI-compatible vLLM server       | Standalone Parse NIM 2.4             |
+| ---------------------- | ----------------------------------- | ------------------------------------ |
+| Primary endpoint       | `POST /v1/chat/completions`         | `POST /v1/parse`                     |
+| Image transfer         | Image in chat message               | Multipart `document` file            |
+| Model prompt           | Caller can submit task prompts      | Fixed full-page parse prompt         |
+| Detection-only request | Supported by the model-serving path | Not supported                        |
+| Sampling configuration | API request parameters              | Owned by NIM                         |
+| Per-request output cap | Generative model parameters         | `options.decoding.max_output_tokens` |
+| Response content       | `choices[0].message.content`        | `content`                            |
+
+The standalone NIM returns model-style content containing Markdown, bounding boxes and semantic class tokens. It does not directly return a `DoclingDocument` or NVIDIA's complete `DocumentParser` multipass result.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.nvidia.com\&sz=32)
+
+NVIDIA NIM for Nemotron Parse+1
+
+
+
+### F.2 Input, output and preprocessing limits
+
+The NIM accepts exactly one rendered page per inference request in PNG or JPEG form. It does not accept native PDFs or multi-page batches through `/v1/parse`.
+
+Additional documented limits:
+
+- Both source image dimensions must be at least 17 pixels.
+- A complete multipart request cannot exceed 100 MiB.
+- Preprocessing preserves aspect ratio while fitting content within 1,664 pixels wide by 2,048 pixels high, with padding as required.
+- The default and maximum generation limit is 9,000 tokens.
+- The response contains `content`, `finish_reason` and `usage.output_tokens`.
+- `finish_reason="length"` indicates that the output limit was reached; no resume or continuation API is provided.
+
+The 9,000-token NIM limit is distinct from the 8,744-token setting used in the reference vLLM pipeline. These service-specific limits should not be silently interchanged.
+
+At the maximum output limit, a dense page may still be incomplete. Cropping and separate inference can address some such cases, but the standalone NIM does not perform the reference triple-pass detection and union workflow itself.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.nvidia.com\&sz=32)
+
+NVIDIA NIM for Nemotron Parse+2
+
+
+
+### F.3 Additional transport and service controls
+
+The NIM also supports optional KServe V2 gRPC inference. The gRPC listener is disabled by default and can be enabled independently of the HTTP interface. This is a distinct transport contract, not an OpenAI chat-completions interface.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.nvidia.com\&sz=32)
+
+NVIDIA NIM for Nemotron Parse
+
+
+
+Its runtime exposes controls for:
+
+| Control                         | Function                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------- |
+| `NIM_PIPELINE_MAX_BATCH_SIZE`   | Concurrent decoder-slot capacity, 1–256                                      |
+| `NIM_PERFORMANCE_MODE`          | Raises default decoder-slot capacity to 128 when no explicit capacity is set |
+| `NIM_SERVER_MAX_QUEUE_SIZE`     | Bounded waiting queue, default 1,024                                         |
+| `NIM_SERVER_FAIL_FAST`          | Rejects new work when reserved/active capacity is exhausted                  |
+| `NIM_SERVER_REQUEST_TIMEOUT_S`  | Work deadline including queueing and inference                               |
+| `NIM_PIPELINE_TIMING_TELEMETRY` | Diagnostic timing logs                                                       |
+| `NIM_PIPELINE_VRAM_TELEMETRY`   | Per-iteration process GPU-memory diagnostics                                 |
+
+Queue capacity and decoder capacity are independent controls. Increasing the waiting queue does not increase the number of simultaneous decoding slots.
+
+The NIM also provides model download-only, CUDA precompile-only and persistent precompile-cache facilities, which separate checkpoint staging and kernel preparation from normal server startup.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.nvidia.com\&sz=32)
+
+NVIDIA NIM for Nemotron Parse
+
+
+
+### F.4 Observability boundaries
+
+The service exposes `/v1/metrics` in Prometheus format, along with separate liveness and readiness endpoints.
+
+Its metrics include request/error counters and sampled host, process and GPU statistics. NVIDIA explicitly documents that NIM 2.4 does not provide OpenTelemetry support, a Parse latency histogram or a built-in pages-per-second metric.
+
+Operational tracing can use Rust-style logging filters through `RUST_LOG`, configurable log formats, and optional timing/VRAM telemetry. Detailed GPU memory telemetry adds diagnostic overhead and should not be mistaken for cost-free measurement.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.nvidia.com\&sz=32)
+
+NVIDIA NIM for Nemotron Parse
+
+
+
+### F.5 Availability and integration boundaries
+
+NIM 2.4's documented support matrix covers specified NVIDIA data-center and professional GPUs in BF16. Consumer GPUs not listed in that matrix should not be assumed to have validated NIM support, even if other Transformers or vLLM runtimes can serve the underlying model.
+
+The key architectural constraint is protocol capability: the NIM fixes full-page parsing and does not expose detection-only requests, so it cannot directly satisfy the triple-pass stage contract without another detector or another serving route.
+
+Its service-level batching, admission controls and diagnostics can be valuable independently of that restriction.
+
+Sources:
+
+[https://docs.nvidia.com/nim/ingestion/parse/latest/overview.html](https://docs.nvidia.com/nim/ingestion/parse/latest/overview.html?utm_source=chatgpt.com)
+
+[https://docs.nvidia.com/nim/ingestion/parse/latest/use-the-api.html](https://docs.nvidia.com/nim/ingestion/parse/latest/use-the-api.html?utm_source=chatgpt.com)
+
+[https://docs.nvidia.com/nim/ingestion/parse/latest/environment-variables.html](https://docs.nvidia.com/nim/ingestion/parse/latest/environment-variables.html?utm_source=chatgpt.com)
+
+[https://docs.nvidia.com/nim/ingestion/parse/latest/observability.html](https://docs.nvidia.com/nim/ingestion/parse/latest/observability.html?utm_source=chatgpt.com)
+
+[https://docs.nvidia.com/nim/ingestion/parse/latest/support-matrix.html](https://docs.nvidia.com/nim/ingestion/parse/latest/support-matrix.html?utm_source=chatgpt.com)
+
+## G. Docling serialization fidelity and resource lifetime
+
+Extends original §§2.3, 9.4 and 9.5
+
+### G.1 Inline mathematics survives supported exports
+
+Docling 2.145.0 includes the fix from PR #4908, Preserve native VLM inline math through exports.
+
+The shared math-aware renderer improves conversion of model-generated inline LaTeX into document structures that survive serialization. In particular, mathematical subscripts, operators and other Markdown-sensitive characters no longer necessarily degrade into escaped or reinterpreted plain text during export.
+
+The implementation distinguishes mathematical spans from literal text, including nearby currency expressions, and is shared across relevant VLM adapters.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+This fixes an important preservation issue but does not add recognition capability to `StandardPdfPipeline`. It also does not supply individual PDF-coordinate boxes for inline formulas that the VLM predicted only as text embedded inside a larger block.
+
+Source:
+
+[https://github.com/docling-project/docling/pull/4908](https://github.com/docling-project/docling/pull/4908?utm_source=chatgpt.com)
+
+### G.2 `InputDocument.release()`
+
+Docling 2.145.0 adds a public release operation:
+
+```
+result.input.release()
+```
+
+This unloads the input backend and clears its reference while preserving input metadata and the converted document.
+
+The documented behavior includes safe repeated calls and safe handling of inputs without an active backend. If unloading raises an exception, the reference remains available so cleanup can be retried.
+
+This is a resource-lifecycle interface for conversion inputs, not a mechanism for modifying document structure or recognition results.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### G.3 Page-backend reference cleanup
+
+The same release fixes retention of page-backend references after pipeline unloading.
+
+Previously, some enrichment-enabled conversions could retain native page-backend objects in the returned conversion result even after calling `unload()`. The threaded PDF page backend's unload operation did not itself dispose of all referenced native parse structures.
+
+The change clears `page._backend` references after unloading. Upstream validation reported unchanged output documents while eliminating retained page-backend objects in the tested workload.
+
+This distinguishes two different resource-lifetime concerns:
+
+- Releasing an input-document backend through the public `InputDocument.release()` method.
+- Automatically dropping page-backend references retained by the conversion pipeline.
+
+Neither operation is a general-purpose release mechanism for every externally retained page image or document-derived artifact.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Sources:
+
+[https://github.com/docling-project/docling/pull/3600](https://github.com/docling-project/docling/pull/3600?utm_source=chatgpt.com)
+
+[https://github.com/docling-project/docling/pull/5089](https://github.com/docling-project/docling/pull/5089?utm_source=chatgpt.com)
+
+[https://github.com/docling-project/docling/releases/tag/v2.145.0](https://github.com/docling-project/docling/releases/tag/v2.145.0?utm_source=chatgpt.com)
+
+## H. Cross-layer capability distinctions
+
+Supplement to original §§10–13
+
+The additional functionality changes how the three software layers can be combined, but it does not eliminate their semantic differences.
+
+### H.1 Raw block predictions versus rendered document content
+
+The formats exposed by NVIDIA and Docling should be distinguished at three levels:
+
+| Representation                       | Primary value                                                           | Limitation                                                                  |
+| ------------------------------------ | ----------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Nemotron raw coordinate/class stream | Original model-produced spatial and semantic predictions                | Requires grammar validation, normalization and mapping                      |
+| NVIDIA postprocessed document        | Cleaned blocks, presentation content, table/chart conversions, warnings | May contain overlapping structural alternatives or transformed presentation |
+| Docling `DoclingDocument`            | Hierarchical document objects and standardized serialization            | Mapping may normalize, combine or drop parts of the raw prediction          |
+
+NVIDIA's complete-page `markdown` is not a substitute for its coordinate/class-tagged block stream when using Docling's Nemotron-specific parser. The Docling mapper depends on those structural annotations to construct items and provenance.
+
+Conversely, simply mapping the raw stream into Docling does not reproduce every feature of NVIDIA's postprocessor, such as its alternative-hypothesis semantics, hierarchical table JSON or optional chart-caption transformations.
+
+This is an inference from the two documented interfaces, not a claim that a particular combined implementation has been tested.
+
+### H.2 Recognition evidence versus derived presentation
+
+A parsing pipeline can retain several distinct representations of the same recognized content:
+
+- Raw inference evidence, including model output and per-stage settings.
+- Parsed structural elements and their coordinate frames.
+- Normalized text/table/chart content.
+- A selected or alternative-preserving merged document.
+- Serialized Markdown, HTML, JSON or another consumer-facing format.
+
+Each transformation introduces its own possibility of information loss or reinterpretation. Retaining only the final presentation can discard information necessary to understand whether an error originated in visual recognition, structural merging, normalization or serialization.
+
+The public NVIDIA APIs supply several of these layers directly, reducing the need to rebuild prediction parsing and generic table/Markdown rendering logic. They do not automatically provide an independent provenance relationship to native PDF text, glyphs and vector graphics.
+
+### H.3 Completion, confidence and agreement remain different concepts
+
+The added interfaces increase observability without establishing calibrated extraction certainty.
+
+`finish_reason`, `complete`, `generation_warnings`, postprocessing warnings, merge rejections and cross-model agreement answer different questions:
+
+| Signal                               | What it establishes                                   | What it does not establish                                |
+| ------------------------------------ | ----------------------------------------------------- | --------------------------------------------------------- |
+| Generation completed                 | A request ended within its generation contract        | Every page element was recognized                         |
+| Valid structural parse               | Output satisfies implemented syntax/geometry checks   | Text and values are visually correct                      |
+| Guarded merge accepted               | A candidate meets the selected compatibility criteria | The selected candidate is better than alternatives        |
+| Alternatives retained                | Multiple plausible predictions remain available       | One canonical interpretation has been identified          |
+| Two recognizers agree                | Predictions are similar under a comparison measure    | Errors are independent or the agreed text is correct      |
+| Full-page coverage by bounding boxes | Spatial regions received model output                 | Every visible glyph or semantic relationship was captured |
+
+This distinction is particularly relevant to inline mathematics, table cells and charts, where semantic correctness can depend on a single character or structural relationship.
+
+### H.4 Remaining boundaries of verified functionality
+
+The newly verified capabilities do not resolve runtime-specific GPU compatibility, word-level localization of Nemotron predictions, source-qualified reconciliation with native PDF glyphs, or correctness of any particular PDF corpus.
+
+Nor do the public multipass wrappers establish a universal table/chart adjudication method that converts alternative hypotheses into independently verified canonical content.
+
+The existing reference's uncertainty treatment should therefore remain intact. These additions establish what the libraries can perform natively, not what any particular deployment will achieve.
+
+## Additional primary-source reference map
+
+The following are the most useful sources for the capabilities added above. URLs are provided in plain text for independent retrieval.
+
+| Source                              | Coverage                                                                                  |
+| ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| Docling upstream model catalog      | Current Nemotron preset, native multipass options, sampling, guarded merging and metadata |
+| NVIDIA postprocessing documentation | Public parser, backend adapters, merge policies, rich table/chart conversion              |
+| NVIDIA package declaration          | Released package version, dependency bounds, extras and entry points                      |
+| NVIDIA NIM 2.4 documentation        | Separate REST/gRPC protocols, service controls and observability                          |
+| Docling 2.145.0 release notes       | Released inline-math, backend-lifetime and cleanup changes                                |
+
+Docling model catalog
+
+[https://github.com/docling-project/docling/blob/main/docs/usage/model_catalog.md](https://github.com/docling-project/docling/blob/main/docs/usage/model_catalog.md?utm_source=chatgpt.com)
+
+Docling pinned release
+
+[https://github.com/docling-project/docling/releases/tag/v2.145.0](https://github.com/docling-project/docling/releases/tag/v2.145.0?utm_source=chatgpt.com)
+
+NVIDIA public postprocessing and multipass API
+
+[https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/213eed554008e633b1150977049a8c66b7717852/POSTPROCESSING.md](https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/213eed554008e633b1150977049a8c66b7717852/POSTPROCESSING.md?utm_source=chatgpt.com)
+
+NVIDIA package metadata and version constraints
+
+[https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/main/pyproject.toml](https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/main/pyproject.toml?utm_source=chatgpt.com)
+
+NVIDIA model card, licensing and benchmark scope
+
+[https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/main/README.md](https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/main/README.md?utm_source=chatgpt.com)
+
+The model card identifies OpenMDW 1.1 as the model's governing license, with separate MIT tokenizer attribution and third-party notices. These boundaries matter when distinguishing model weights, independently installed runtime dependencies and redistributed tools.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://huggingface.co\&sz=32)
+
+nvidia/Nemotron-3.5-Parse at main+1
+
+
+
+NVIDIA standalone Parse NIM 2.4
+
+[https://docs.nvidia.com/nim/ingestion/parse/latest/release-notes.html](https://docs.nvidia.com/nim/ingestion/parse/latest/release-notes.html?utm_source=chatgpt.com)
+
+NVIDIA inference-throughput methodology
+
+[https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/213eed554008e633b1150977049a8c66b7717852/POSTPROCESSING.md](https://huggingface.co/nvidia/Nemotron-3.5-Parse/blob/213eed554008e633b1150977049a8c66b7717852/POSTPROCESSING.md?utm_source=chatgpt.com)
+
+Documentation status: This addendum is grounded in upstream documentation, tagged-release information and source descriptions available as of November 1, 2026. No inference workload, GPU compatibility test or independent benchmark reproduction was performed.

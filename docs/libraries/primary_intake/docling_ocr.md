@@ -1309,3 +1309,802 @@ Statuses were taken from GitHub search results on the research date; check befor
 - OmniDocBench: <https://github.com/opendatalab/OmniDocBench>
 - olmOCR-bench: <https://github.com/allenai/olmocr>
 - docling-eval: <https://github.com/docling-project/docling-eval>
+
+# Docling OCR — Technical Capability Addendum
+
+Target: Docling 2.145.0 (`docling-slim` 2.145.0), docling-core 2.105.0, docling-parse 7.24.2\
+Research date: November 1, 2026\
+Companion reference: `docling_ocr.md`, October 31, 2026
+
+This addendum extends the existing OCR reference with functionality that influences recognition completeness, structural reconstruction, visual-content understanding, model inference, provenance, and operational behavior. It does not repeat the OCR engine descriptions, region-selection algorithm, or native/OCR text merging rules already documented.
+
+The version baseline remains 2.145.0. Evidence follows the original guide's conventions: [src] for tagged source, [doc] for official documentation, [issue] for tracked changes or limitations, and [inf] for architectural inference. No conversion experiments were performed for this addendum.
+
+## A. Structural recognition beyond OCR
+
+### A.1 Alternative table-structure models
+
+Extends original §14 — Tables and OCR
+
+The standard PDF pipeline separates table-region detection, OCR/native text extraction, and table-structure reconstruction. OCR produces text cells; the table-structure stage determines row/column topology, spanning cells, and how recognized content is assigned to the resulting grid.
+
+Docling 2.145.0 has three table-structure implementations, selected through `PdfPipelineOptions.table_structure_options` when `do_table_structure=True`.
+
+| Options class                        | Model family            | Distinctive capability                                                                           |
+| ------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------ |
+| `TableStructureOptions`              | TableFormer V1; default | `TableFormerMode.ACCURATE` / `FAST`; geometric cell matching                                     |
+| `TableStructureV2Options`            | TableFormer V2          | Separate model architecture with predicted table content and optional matching back to PDF cells |
+| `GraniteVisionTableStructureOptions` | Granite Vision          | VLM-based table reconstruction                                                                   |
+
+All three options classes are present in the 2.145.0 tagged source. TableFormer V2 uses the `docling-project/TableFormerV2` model and an OTSL-based generation path, rather than being merely another `FAST`/`ACCURATE` setting of TableFormer V1. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+Cell matching is an information-source decision, not only a structural-accuracy setting.
+
+Both TableFormer V1 and V2 expose `do_cell_matching`. With matching enabled, predictions are reconciled against text cells extracted earlier. With matching disabled, the table model supplies its own text-cell content rather than relying on the previously parsed PDF cells.
+
+This creates a distinct mechanism for handling a failure discussed in the main guide: a line-level OCR result or native PDF cell that crosses several table columns.
+
+- Matching enabled: retains the upstream recognition path and its text-cell geometry, but incorrect spanning or merging in those cells can corrupt content assignment.
+- Matching disabled: reduces dependence on those upstream cells and can recover tables whose preexisting text-cell segmentation is unsuitable; the table model's own text output becomes authoritative within the reconstructed table.
+- Trade-off: the independent model reading may disagree with otherwise accurate native PDF text, and its quality must be evaluated separately from the OCR engine's confidence.
+
+This also means that improving the OCR engine's word segmentation does not necessarily improve the table content when cell matching is disabled. Conversely, a table reconstruction error does not necessarily establish that OCR recognition itself failed. [src][inf]
+
+The VLM-based Granite Vision table model is a third structural extraction path. It should be distinguished from both the separate whole-page `VlmPipeline` and the chart-extraction enrichment stage; these use vision models for different input scopes and output structures.
+
+Native configuration handles: `do_table_structure`, `table_structure_options`, `TableStructureOptions`, `TableStructureV2Options`, `GraniteVisionTableStructureOptions`, `TableFormerMode`, `do_cell_matching`.
+
+Primary sources:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/models/stages/table_structure/table_structure_model_v2.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/advanced_options.md`
+
+### A.2 Chart extraction: recovering data rather than transcribing labels
+
+Extends original §§13–14 — Mathematics, technical notation, and tables
+
+`do_chart_extraction` enables a separate VLM enrichment stage for extracting structured information from chart pictures. It is available through the shared `ConvertPipelineOptions` family, including standard PDF and VLM conversion configurations. Enabling it also enables picture classification, which helps identify the chart regions to be processed. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+The contemporary implementation uses `ChartExtractionVlmEngineOptions`, with the default `granite_vision_v4` preset and three independently selectable output tasks:
+
+| Task            | Default | Document metadata                                       |
+| --------------- | ------- | ------------------------------------------------------- |
+| `chart2csv`     | `True`  | `TabularChartMetaField`: extracted chart data           |
+| `chart2summary` | `False` | `DescriptionMetaField`: natural-language interpretation |
+| `chart2code`    | `False` | `CodeMetaField`: Python reconstruction code             |
+
+These outputs are produced through distinct prompts and postprocessors. The options validator requires at least one active output. The older `granite_vision_v3_3` preset uses a CSV-only response contract and explicitly disallows the summary and code tasks. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+Two additional controls matter for model integration:
+
+- `output_format` selects the output-parsing contract, independently of the general `VlmPipeline` response format.
+- `use_natural_language_prompts` substitutes ordinary-language instructions for model-specific special tokens such as `<chart2csv>`. This accommodates served or quantized models that do not preserve the relevant fine-tuned token behavior.
+
+This is a substantially different capability from OCR of a chart image. OCR may recognize a tick label, legend entry, or number without establishing which value belongs to which series. Chart extraction attempts to reconstruct the relationships themselves.
+
+The outputs remain model-derived interpretations. Neither a reconstructed data table nor executable plotting code guarantees numerical fidelity to the original chart. Small graphical differences, ambiguous legends, overlapping traces, nonlinear axes and unsupported chart forms can all affect the reconstructed result. The released option descriptions explicitly emphasize bar, pie and line charts; broader chart support should be evaluated rather than assumed. [doc][inf]
+
+Chart data, description and reconstruction code also have different downstream semantics. `TabularChartMetaField` is structured numerical content; `DescriptionMetaField` is explanatory text; `CodeMetaField` is generated source code. They should not be treated as interchangeable representations of a verified original dataset.
+
+Native configuration handles: `do_chart_extraction`, `chart_extraction_options`, `ChartExtractionVlmEngineOptions.from_preset`, `chart2csv`, `chart2summary`, `chart2code`, `output_format`, `use_natural_language_prompts`.
+
+Primary sources:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/chart_extraction_options.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/vision_models.md`
+
+## B. Specialized enrichment and preservation of technical content
+
+### B.1 Code and formula enrichment: recognition controls and output semantics
+
+Extends original §13.3 — Formula enrichment
+
+The current code/formula enrichment implementation is `CodeFormulaVlmModel`, configured by `CodeFormulaVlmOptions`. It operates on assembled document elements, not directly on arbitrary OCR text lines.
+
+The two pipeline-level switches are `do_code_enrichment` and `do_formula_enrichment`. Within the model options, `extract_code` and `extract_formulas` separately control which element types the stage processes.
+
+The stage recognizes `CodeItem` instances and `TextItem` instances labelled `DocItemLabel.FORMULA`, then uses the unified VLM inference runtime to transcribe their visual crops. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+| Option               | Default | Consequence                                                           |
+| -------------------- | ------- | --------------------------------------------------------------------- |
+| `extract_code`       | `True`  | Process recognized code blocks                                        |
+| `extract_formulas`   | `True`  | Process recognized formula regions                                    |
+| `scale`              | `2.0`   | Page-image scale used for model inputs                                |
+| `max_size`           | `None`  | Optional maximum image dimension                                      |
+| `expansion_factor`   | `0.18`  | Crop expansion on each side, relative to the region's width or height |
+| `stop_on_repetition` | `True`  | Detect and remove repetitive generation tails                         |
+
+The crop expansion and repetition controls interact directly. Enlarging a formula crop can provide useful neighboring symbols, but may also include an adjacent equation number, line of prose, or second formula. The source explicitly warns that an overly broad crop can cause the model to repeat output.
+
+`stop_on_repetition` uses a repetition-detection helper rather than relying exclusively on the model's normal end-of-sequence behavior. Inline inference engines can stop repetitive generation before exhausting the token limit; API engines and vLLM have a narrower guarantee in this path, cleaning the generated tail after inference rather than necessarily stopping its computation. [src]
+
+Code-language identification. For code enrichment, the model may produce an initial language token such as `<_python_>`. Docling extracts that token, maps the result to `CodeLanguageLabel`, removes the token from the displayed text, and stores the recognized language in `CodeItem.code_language`. An unrecognized or absent label becomes `UNKNOWN`.
+
+This is more useful than treating a code block as an arbitrary OCR paragraph: the document can preserve a code-specific item type, visually transcribed source text, and language metadata. It does not, however, perform parsing, compilation, syntax verification, or semantic validation of the code. [src][inf]
+
+Failure and information-loss behavior. The current implementation updates `item.text` in place with the model's result. If a batch inference raises an exception, the stage logs the error and yields the existing elements without erasing their prior text. This preserves a fallback, but a successful yet incorrect model response can still overwrite previously extracted content.
+
+As with formula enrichment in the main guide, only elements already identified as code or formula items qualify. Enabling these options does not create a general-purpose inline mathematical-symbol recovery mechanism for ordinary paragraph cells.
+
+Primary sources:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/models/stages/code_formula/code_formula_vlm_model.py`
+
+### B.2 Picture classification and selective semantic descriptions
+
+Extends original §§12–13 — VLM and item enrichment
+
+Picture-description enrichment is a separate operation from both OCR and chart extraction. Its input is a document picture crop, and its output is descriptive metadata rather than recognized `TextCell` objects.
+
+`PictureDescriptionBaseOptions` defines filtering and image-processing controls used by the picture-description implementations. The newer `PictureDescriptionVlmEngineOptions` supports model presets, inference-engine overrides, custom prompts and generation configuration.
+
+| Control                         | Function                                                        |
+| ------------------------------- | --------------------------------------------------------------- |
+| `picture_area_threshold`        | Minimum picture area as a fraction of page area; default `0.05` |
+| `classification_allow`          | Process only pictures with specified classification labels      |
+| `classification_deny`           | Exclude specified picture classes                               |
+| `classification_min_confidence` | Reject classifications below a specified confidence             |
+| `scale`                         | Crop rendering resolution; default `2.0`                        |
+| `batch_size`                    | Number of picture crops processed together; default `8`         |
+| `prompt`, `generation_config`   | Description task instructions and generation behavior           |
+
+The separate picture-classification stage can distinguish categories such as diagrams, charts and natural images. Its classification result may then be used to restrict picture descriptions to relevant visual content. The classifier and description generator have distinct model dependencies and inference costs. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+
+
+A notable interaction is that the classifier can function as a routing mechanism: chart extraction targets chart semantics, picture description targets visual explanations, and conventional OCR targets written labels or symbols. None automatically replaces the others.
+
+Description generation also does not guarantee that small text within a diagram will be faithfully preserved. For technical figures, a description can supply semantic context while exact label transcription remains a separate recognition problem. [inf]
+
+Primary sources:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/model_catalog.md`
+
+## C. Layout and document assembly controls that affect OCR completeness
+
+Extends original §§2–4 — OCR stage ordering, selection, and merging
+
+The main reference establishes that the OCR stage's region selector depends on layout clusters and that merged cells subsequently undergo layout postprocessing. Two separate forms of loss therefore remain possible even when recognition succeeds:
+
+1. Text is not recognized because it was outside the regions selected for OCR.
+2. Text is recognized and retained as a cell, but is subsequently misassigned, orphaned, ordered incorrectly, or excluded from assembled document items.
+
+The second class of failure requires examining layout postprocessing separately from OCR confidence.
+
+### C.1 Layout model families and selection
+
+`LayoutObjectDetectionOptions` is the current model-configuration interface, with `layout_heron_default` as the default preset and additional Heron and Egret variants, including `layout_egret_large` and `layout_egret_xlarge`.
+
+The options use Docling's pluggable object-detection inference architecture. `LayoutOptions` is retained as a deprecated compatibility interface and can translate onto the newer implementation; the legacy `DOCLING_LAYOUT_V2` model is no longer supported in this path. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+Changing the layout model can affect more than document headings or figure detection. Under the original guide's PDF-aware OCR selector, different detected clusters can create different OCR rectangles even when the OCR engine and its settings remain unchanged.
+
+Thus, recognition completeness is partly a property of the layout model + OCR selector + OCR engine, not just the recognition engine. [inf]
+
+### C.2 Cluster retention and assignment
+
+`BaseLayoutOptions` exposes three important controls inherited by `LayoutObjectDetectionOptions`:
+
+| Control                  | Default | Behavior                                                           |
+| ------------------------ | ------- | ------------------------------------------------------------------ |
+| `keep_empty_clusters`    | `False` | Retain or discard predicted regions containing no assigned content |
+| `skip_cell_assignment`   | `False` | Bypass cell-to-cluster association                                 |
+| `create_orphan_clusters` | `True`  | Create clusters for otherwise unassigned elements                  |
+
+The corresponding `BaseLayoutPostprocessorOptions` defines the same algorithm controls for the postprocessing implementation, with `LayoutPostprocessorOptions.run_postprocessor` adding the ability to skip the postprocessor and retain raw predicted clusters.
+
+An empty cluster is not necessarily evidence of an empty visual region. It may contain rendered characters that were missed by OCR, native text that was discarded in merging, or geometry for which no cells were assigned. Conversely, orphan-cluster creation can recover cells that escaped structural assignment, but cannot recover pixels that were never recognized.
+
+This distinction is important when diagnosing apparent OCR omissions. Cell existence, cluster assignment, assembled item existence and final export are separate observability points.
+
+Disabling assignment is not an equivalent alternative to enabling orphan recovery: one bypasses the association step; the other attempts to preserve unassigned content within an otherwise functioning association process. [src][inf]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+### C.3 Reading-order separators and heading hierarchy
+
+`PdfPipelineOptions.use_reading_order_separators=True` lets rule-based reading order use visible horizontal and vertical PDF rules as structural signals. Those separator geometries influence ordering without becoming document content.
+
+This is distinct from the PDF-aware OCR region selector's treatment of rule-like vector shapes. The same underlying PDF geometry can influence OCR selection and reading order through different mechanisms.
+
+`HeadingHierarchyOptions(enabled=True)` adds heading-depth inference from PDF bookmarks, numbering and font styling. It operates after layout identification rather than enabling recognition of new characters.
+
+The OCR interaction is indirect but consequential: OCR-first replacement or full-page OCR may remove native font information that would otherwise inform heading hierarchy, whereas bookmarks and textual numbering can remain available as separate structural evidence. [src][inf]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+Primary sources:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/advanced_options.md`
+
+## D. VLM inference architecture and model-specific behavior
+
+Extends original §12 — Whole-page OCR with vision-language models
+
+The original guide enumerates the available VLM presets. The missing architectural distinction is that model selection, response-format interpretation, and inference-engine execution are separate concerns in the newer Docling runtime.
+
+### D.1 Model specifications versus inference engines
+
+`VlmConvertOptions` specifies the conversion task and model through `model_spec`, together with page-image controls such as `scale`, `max_size`, and `batch_size`.
+
+Its `engine_options` select how the model runs. The same design is reused for chart extraction, picture descriptions, and code/formula enrichment, so these stages share inference infrastructure without sharing the same recognition task.
+
+| Inference options              | Significant capabilities                                                                       |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `AutoInlineVlmEngineOptions`   | Automatic local engine selection; `prefer_vllm`, `trust_remote_code`                           |
+| `TransformersVlmEngineOptions` | Device, quantization, dtype, KV cache, `torch.compile`, model-code trust                       |
+| `MlxVlmEngineOptions`          | Apple MLX inference; repetition penalty and context size                                       |
+| `VllmVlmEngineOptions`         | Tensor parallelism, GPU memory utilization, CUDA graph mode, model implementation selection    |
+| `ApiVlmEngineOptions`          | OpenAI-compatible APIs, Ollama, LM Studio; endpoint, headers, parameters, timeout, concurrency |
+
+The vLLM options include `VllmCudaGraphMode`: `NONE`, `FULL`, `PIECEWISE`, `FULL_AND_PIECEWISE`, and `FULL_DECODE_ONLY`. These control the startup/memory/steady-state throughput trade-off of CUDA graph capture. The exact behavior remains subject to the installed vLLM version and the selected model.
+
+A model specification may contain different repository IDs, revisions, generation settings or other overrides for different engines. Therefore, changing inference engines is not necessarily equivalent to executing identical model weights with identical preprocessing. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+
+
+This separation also means that enabling an API runtime does not make every model compatible with that runtime. Model-specific output protocols, custom model code and inference-engine support remain binding constraints. The model catalog identifies the supported combinations; the generic engine options alone do not establish compatibility.
+
+Remote execution boundary. `ApiVlmEngineOptions` supports remote and locally hosted OpenAI-compatible services. Docling requires `enable_remote_services=True` for API inference, even when the selected endpoint is a server on localhost. This is a permission control for sending document content to a service, distinct from allowing model-weight downloads. [doc]
+
+Primary sources:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/vlm_engine_options.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/model_catalog.md`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/advanced_options.md`
+
+### D.2 MinerU2.5 Pro: internal two-stage page recognition
+
+The `mineru2_pro` preset is not a conventional single-request page-to-Markdown recognizer. It implements MinerU's native two-step flow:
+
+1. Perform page-level layout detection.
+2. Recognize the resulting region crops with type-specific handling for text, formulas, and tables.
+
+The output includes native layout information and OTSL-based table structure. This is still the `VlmPipeline`, not the standard pipeline's separate OCR and TableFormer stages. The internal layout-and-crop process belongs to the MinerU model integration.
+
+In 2.145.0, the Transformers and API configurations target the official `opendatalab/MinerU2.5-Pro-2604-1.2B` checkpoint. The MLX configuration targets a separately published community conversion, because an official OpenDataLab MLX checkpoint was not available.
+
+The released preset does not enable image/chart analysis or cross-page table merging. Its handling of a table region should therefore not be confused with document-level table continuation reconstruction. [doc]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+The architectural implication is that a single Docling VLM conversion stage can itself include layout detection and region-specific recognition. That is different from exposing a separately configurable Docling OCR engine or offering independently reusable region-recognition output at each internal step.
+
+### D.3 Nemotron 3.5 Parse: trusted code and served inference
+
+The `nemotron_parse_v3_5` preset has two unusual compatibility constraints in 2.145.0.
+
+Custom-model-code execution. Its local Transformers path requires `trust_remote_code=True`, because the model uses repository-provided implementation code. The preset pins a model revision and does not silently opt into executing that code. The required opt-in is a model-code trust decision, not an OCR-language or remote-service setting.
+
+In-process vLLM compatibility. The model requires NVIDIA's out-of-tree vLLM integration. The built-in Docling vLLM engine cannot run it as an ordinary in-process model. A compatible externally launched vLLM server can instead be accessed through `ApiVlmEngineOptions`.
+
+For that API route, the preset supplies particular parameters, including `top_k=1`, `repetition_penalty=1.1`, and `skip_special_tokens=False`. The model catalog states that explicitly replacing the API `params` object prevents the preset's parameters from being sent, so a custom parameter set must include the necessary values.
+
+This illustrates why a nominally OpenAI-compatible endpoint is not a complete functional compatibility guarantee. The model's nonstandard output tokens and generation settings may be required to preserve structured information. [doc][src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+The same general issue applies to `unlimited_ocr`: the model's API configuration requires retaining special tokens to preserve layout annotations that would otherwise disappear from the completion.
+
+Primary source:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/model_catalog.md`
+
+### D.4 Precise limitations of `force_backend_text`
+
+The existing §12.3 requires a correction.
+
+In the new VLM runtime, `VlmPipeline` enables backend-text substitution only when both conditions hold:
+
+- `VlmConvertOptions.force_backend_text=True`.
+- The model's declared `response_format` is `ResponseFormat.DOCTAGS`.
+
+It is not a general facility for every format that contains spatial grounding, such as DOTS JSON, DeepSeek OCR Markdown, or Nemotron Parse output.
+
+The legacy `InlineVlmOptions` / `ApiVlmOptions` path instead reads `VlmPipelineOptions.force_backend_text`, with the same DOCTAGS format restriction. The legacy runtime is explicitly deprecated in favor of `VlmConvertOptions`. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+When enabled, substitution uses the backend's native PDF text within VLM-predicted element boxes. It does not perform character-level reconciliation, fill missing inline vector glyphs, or validate that the native text is better than the model's transcription.
+
+The facility is therefore best understood as VLM-provided document structure with native-PDF text substituted inside supported grounded items, not as a general hybrid OCR merger. [inf]
+
+Primary source:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/pipeline/vlm_pipeline.py`
+
+## E. VLM generation evidence, completion states and output fidelity
+
+Extends original §15 — Signals, scores, and provenance
+
+### E.1 `VlmPrediction` and optional token information
+
+The original guide correctly states that final `DoclingDocument` items do not retain OCR engine identity and per-cell OCR confidence. It should distinguish that limitation from the richer information available in the conversion's intermediate page predictions.
+
+`Page.predictions.vlm_response` is a `VlmPrediction` object with these fields:
+
+| Field              | Meaning                                                             |
+| ------------------ | ------------------------------------------------------------------- |
+| `text`             | Raw generated recognition/markup text                               |
+| `generated_tokens` | Optional `VlmPredictionToken` entries                               |
+| `generation_time`  | Generation duration, when reported                                  |
+| `num_tokens`       | Optional generated-token count                                      |
+| `usage`            | Optional provider/runtime usage payload                             |
+| `stop_reason`      | Normal stop, truncation, filtering, inference error, or unspecified |
+| `input_prompt`     | Prompt used, when recorded                                          |
+| `error_message`    | Details of inference errors                                         |
+
+`VlmPredictionToken` contains `text`, `token` and `logprob`. Values such as `-1` are defaults for missing token information, not validated confidence measurements.
+
+This gives a possible mechanism for retaining model-level generation evidence, but it has three important limitations:
+
+- Token entries and log probabilities depend on inference-engine support; their presence is not guaranteed.
+- A generative log probability measures the model's probability of generating a token in context, not the probability that the token accurately transcribes the page.
+- The information belongs to `ConversionResult.pages[].predictions`, not the normal final document-item provenance. It should be captured separately if required after the conversion result is discarded.
+
+Thus, the corrected statement for §12.4 is: VLM conversion has no standardized, calibrated per-token or per-character accuracy measure in final document items, although intermediate generation metadata can contain optional token log probabilities. [src][inf]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+Primary source:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/base_models.py`
+
+### E.2 Completion status and error propagation
+
+The `VlmStopReason` enum distinguishes `END_OF_SEQUENCE`, `STOP_SEQUENCE`, `LENGTH`, `CONTENT_FILTERED`, `INFERENCE_ERROR` and `UNSPECIFIED`.
+
+In the 2.145.0 `VlmPipeline`, `LENGTH` and `CONTENT_FILTERED` produce page-attributed incomplete-output errors and `PARTIAL_SUCCESS`. `INFERENCE_ERROR` likewise records an inference failure. When every page fails to produce output, the document conversion is marked `FAILURE` rather than merely partial.
+
+The error entries are structured `ErrorItem` objects that can carry `component_type`, `module_name`, `error_message`, `category` and `page_no`. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+These states answer a different question from the OCR confidence scores in the main guide:
+
+| Signal                         | What it can establish                                           | What it cannot establish                     |
+| ------------------------------ | --------------------------------------------------------------- | -------------------------------------------- |
+| Normal generation termination  | The model stopped without a recognized truncation/failure state | Transcription completeness or accuracy       |
+| `LENGTH`                       | Output hit a generation limit                                   | Exactly which content is missing             |
+| `CONTENT_FILTERED`             | The inference provider/model reported filtering                 | Whether all remaining content was recognized |
+| `INFERENCE_ERROR`              | A request or execution failed                                   | Recognition quality for successful pages     |
+| Token log probabilities        | Model preference among generated tokens, when supplied          | Calibrated OCR correctness                   |
+| OCR `confidence` / `ocr_score` | Engine-specific recognition scores for surviving OCR cells      | VLM quality or unrecognized missing text     |
+
+An apparently plausible but incorrect VLM response can terminate normally and produce no pipeline error. Conversely, a partial conversion may still retain useful content from successful pages.
+
+A useful evidence record can therefore preserve the source page, raw VLM response, stop reason, model/runtime identity, generation usage and final item provenance as separate fields. This is an architectural possibility enabled by Docling's transient models, not an automatically generated audit trail. [inf]
+
+### E.3 Inline mathematical notation and export semantics
+
+Docling 2.145.0 includes the correction titled Preserve native VLM inline math through exports (PR #4908).
+
+For native Nemotron and DOTS outputs, this functionality distinguishes mathematical spans inside an ordinary text region from standalone display formulas, avoiding loss of inline mathematical content during transformation into document items and subsequent serialization.
+
+This fixes an important class of failure: a model may correctly recognize `\(x_i\)` or another mathematical span, but downstream Markdown interpretation or serialization can change its content or structure. OCR accuracy and output fidelity are separate properties.
+
+There is a relevant remaining limitation at the 2.145.0 baseline. Issue #5079 reports that escaped citation brackets such as `\[9\]` can be interpreted as display-math delimiters, splitting prose into separate formula items. PR #5080 proposes a narrower parser rule; that correction should not be assumed to be present in 2.145.0. [issue]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.cnmirror.space\&sz=32)
+
+GitHub+2
+
+
+
+The practical distinction is that native VLM markup may be correctly generated but incorrectly interpreted by the response parser. Inspecting the raw response and the parsed `DoclingDocument` independently can isolate that failure from the model's recognition behavior.
+
+Primary sources:
+
+`https://github.com/docling-project/docling/pull/4908`
+
+`https://github.com/docling-project/docling/issues/5079`
+
+`https://github.com/docling-project/docling/pull/5080`
+
+## F. Native PDF form fields as a complementary extraction route
+
+Extends original §§2 and 14 — PDF inputs and tables
+
+`PdfPipelineOptions.extract_form_fields=True` enables extraction of native PDF AcroForm widgets, converting them into format-neutral `FieldItem` objects containing `FieldValueItem` children. The capability is available through the standard PDF pipeline with the docling-parse backend, independently of conventional text recognition. [doc]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+The field reconstruction model combines two kinds of evidence:
+
+- Native widget data: form field values, widget geometry and option states supplied by the PDF backend.
+- Printed page content: nearby text provides human-readable field keys, option labels and contextual hints.
+
+Field keys are inferred geometrically from printed text inside or near the widget, not from the PDF's internal field names. Text consumed as a key is removed from ordinary body text; where the key contains a heading or formula, its element type can be preserved within the field representation. Checkbox and radio-button labels are associated with their options, while a shared question introducing several options can remain a separate textual prompt.
+
+This distinction is valuable for form-heavy documents because a native checkbox has structured selection information that cannot reliably be reconstructed merely from OCR of its visible mark. [doc][inf]
+
+Table integration. When a widget is inside a detected table, Docling can place the field inside the corresponding rich table cell. The field key comes from printed text in that cell; row and column headings provide additional context through the table structure. This behavior depends on `do_table_structure=True`.
+
+Reading order. Widgets retain their native order. Geometry positions fields relative to printed text, but the text reading-order model does not independently reorder PDF widgets. A sequence of consecutive fields outside a recognized form region can become a field region of its own.
+
+Boundaries:
+
+- Scanned or flattened forms have no native widgets for this mechanism to extract. OCR may recover visible labels and marks but does not automatically reconstruct equivalent field objects.
+- Full-page OCR bypasses the native structures required for form-field extraction.
+- Raw PDF widget metadata is not retained in `DoclingDocument`; `generate_parsed_pages=True` is needed to preserve access to that underlying evidence through the conversion result.
+- `FieldItem` is not supported by the DocTags exporter. Rich-field preservation therefore depends on the selected document representation/export format.
+
+This introduces a third source of document information alongside native text and OCR: native interactive document semantics. It is neither an OCR engine nor an inferred visual understanding model.
+
+Primary sources:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/advanced_options.md`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py`
+
+## G. Native PDF extraction without recognition models
+
+Extends original §§16–17 and 19.2 — Independent extraction and OCR comparison
+
+`NativePdfPipeline` provides a model-free PDF conversion route using docling-parse alone. It produces a `DoclingDocument` containing one plain `TextItem` per native text cell and one `PictureItem` per embedded bitmap. It does not execute the layout, OCR, or table-structure models. Its output follows parser order rather than inferred reading order. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+`NativePdfPipelineOptions`, selected with `NativePdfFormatOption`, expose several controls that materially affect the resulting information:
+
+| Control                   | Behavior                                                              |
+| ------------------------- | --------------------------------------------------------------------- |
+| `text_cell_unit`          | `LINE` (default), `WORD`, or `CHAR`                                   |
+| `generate_page_images`    | Include rendered page images; default enabled                         |
+| `images_scale`            | Resolution for those rendered page images                             |
+| `generate_picture_images` | Attach decoded embedded bitmap data to picture items                  |
+| `parser_threads`          | Parser-only parallelism; defaults to all but one available CPU thread |
+
+The selected `text_cell_unit` is constrained by the backend's actual cell materialization. The docling-parse backends materialize words and lines; character-level output must not be assumed available merely because `CHAR` is an enum value.
+
+Picture items can retain their geometry without the pixel data. Native picture-image extraction additionally requires `PdfBackendOptions.include_bitmap_images=True`; otherwise the backend does not decode embedded bitmap bytes. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+The pipeline offers a useful independent comparison route because it isolates what the PDF file says from what visual recognition models infer. Its limitations are equally important:
+
+- It does not reconstruct text represented only as painted paths or raster pixels.
+- It does not infer headings, tables, logical reading order or missing symbols.
+- An incorrect ToUnicode map produces incorrect native text here just as it does in the standard pipeline.
+- Its text is a candidate reference for comparing OCR results on well-formed native text, but not ground truth for content absent from the PDF's text representation.
+
+This separation can help distinguish parser-layer encoding problems from OCR recognition problems without introducing the standard pipeline's layout and table predictions. [inf]
+
+Primary sources:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/pipeline/native_pdf_pipeline.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/advanced_options.md`
+
+## H. PDF parser and image-input controls
+
+Extends original §§4, 16 and 18 — Text fidelity, rendering, and performance
+
+### H.1 Native cell segmentation and bitmap decoding
+
+`PdfBackendOptions` exposes two controls that affect the evidence available to downstream recognition and assembly:
+
+| Option                  | Default | Effect                                                                     |
+| ----------------------- | ------- | -------------------------------------------------------------------------- |
+| `enforce_same_font`     | `True`  | Split native text cells at font boundaries                                 |
+| `include_bitmap_images` | `False` | Decode embedded bitmap bytes in addition to retaining their bounding boxes |
+
+The `enforce_same_font` setting is particularly relevant when a PDF draws a base letter and its diacritic using different fonts. Under the default, the font boundary can split characters that belong to the same textual unit. Disabling the rule allows the parser to retain such content together.
+
+This interacts with the original guide's OCR merge rules. Native-cell boundaries affect whether an OCR rectangle overlaps one or several native cells and therefore what survives PDF-first or OCR-first reconciliation. Changing the setting can improve one class of text grouping while sacrificing the useful separation of genuine font transitions elsewhere. [src][inf]
+
+`include_bitmap_images` controls extraction of embedded image payloads, not the presence of bitmap geometry in page analysis. Keeping geometry without decoding payloads reduces unnecessary data movement when the pipeline needs to know where images occur but does not need their original bytes.
+
+Primary source:\
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/backend_options.py`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+### H.2 Parser concurrency, memory and render reuse
+
+`ThreadedDoclingParseBackendOptions` provides performance controls distinct from the OCR engine and the threaded standard-pipeline stage queues.
+
+| Control                               | Default | Operational significance                                                |
+| ------------------------------------- | ------- | ----------------------------------------------------------------------- |
+| `parser_threads`                      | `None`  | Parser parallelism; falls back to the global accelerator thread setting |
+| `max_concurrent_results`              | `None`  | Limits decoded pages prefetched ahead of the pipeline                   |
+| `render_pages`                        | `True`  | Render page images during decoding                                      |
+| `render_scale`                        | `1.0`   | Resolution of the parser's prefetched render, in pixels per page point  |
+| `release_native_memory_every_n_pages` | `128`   | Periodically release parser-native memory; `0` disables this behavior   |
+
+Two independent buffering mechanisms matter:
+
+- `max_concurrent_results` bounds the pages decoded ahead by the PDF backend.
+- `PdfPipelineOptions.queue_max_size` bounds pages buffered between processing stages.
+
+These limits act at different points in the execution pipeline. Reducing one does not necessarily constrain all memory retained by the other, the OCR models, or the page-image cache. [src][inf]
+
+`render_scale` is also separate from the OCR engine's crop `scale` and the final document's `images_scale`. When a consumer requests the same resolution as the parser's prefetched render, the backend can reuse that rendering rather than rasterizing again. Whether this saves meaningful work depends on the frequency and sizes of subsequent page-image requests.
+
+Setting `render_pages=False` can avoid rendering work for native-only processing, but it is incompatible with the standard OCR path's requirement to render page crops. The original reference already describes that failure condition.
+
+These controls explain performance behavior that cannot be inferred from `ocr_batch_size`, `num_threads`, or recognition-device selection alone. [src][inf]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+Primary sources:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/backend_options.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/advanced_options.md`
+
+### H.3 Image documents: multipage frames, DPI and resource limits
+
+Docling recognizes JPEG, PNG, TIFF, BMP, WebP and GIF inputs through `InputFormat.IMAGE`. Unlike a PDF with an existing page coordinate system, the physical page geometry of an image is derived from its pixels and DPI metadata. [src]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+Docling uses 72 document points per inch. For an image with valid DPI metadata, its page size in points depends on that DPI; missing DPI, `(0, 0)` and `(1, 1)` are treated as 72 DPI.
+
+Consequently, the same 2,000 × 3,000 pixel image can have different point-coordinate dimensions depending on the metadata. The OCR scale specifies pixels per document point, not a fixed target DPI independent of source geometry.
+
+This affects crop coordinates, provenance, and comparisons between OCR results produced from an image and from a PDF containing that same raster image. [doc][inf]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+For multipage TIFF, pages are decoded lazily, one frame at a time. Docling checks `max_num_pages` before decoding begins and applies `PdfBackendOptions.max_image_pixels` to individual decoded pages.
+
+The default pixel limit is 89,478,485 pixels per frame, corresponding to Pillow's default maximum. A first page exceeding that limit rejects the document; a later oversized page fails at the point that page is processed.
+
+This is both a resource-control and failure-isolation distinction. A multipage image is not necessarily decoded in its entirety before conversion, and later-page failures need not invalidate all previously processed pages. [doc]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+Primary sources:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/base_models.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/backend_options.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/advanced_options.md`
+
+## I. Conversion observability and diagnostics
+
+Extends original §15.5 — Debugging aids
+
+### I.1 Typed progress events
+
+`DocumentConverter` accepts `progress_callback` at construction or on individual `convert`, `convert_all` and `convert_string` calls.
+
+Events are Pydantic models from `docling.datamodel.progress`, not merely formatted progress strings.
+
+| Event                       | Information                                                        |
+| --------------------------- | ------------------------------------------------------------------ |
+| `DocumentStartedProgress`   | Document accepted for processing                                   |
+| `PhaseStartedProgress`      | Entry into initialize, build, assemble or enrich phase             |
+| `PageCompletedProgress`     | Page-level processing completed, with success and aggregate counts |
+| `EnrichmentProgress`        | Progress through document-item enrichment batches                  |
+| `DocumentCompletedProgress` | Final `ConversionStatus`                                           |
+
+The event boundaries are important:
+
+- Pages may complete out of order. `completed_pages`, rather than the latest `page_no`, measures aggregate progress.
+- In the standard PDF pipeline, document-level enrichment can continue after every page has completed its page-level stages.
+- The VLM pipeline performs picture enrichment for each page before reporting that page completed, so it does not emit the same separate enrichment-progress events.
+- Failed pages and pages interrupted by `document_timeout` still contribute completion events with `success=False`.
+- Callback exceptions are logged and ignored.
+- With concurrent document conversion, callbacks can arrive from multiple worker threads and must be thread-safe.
+
+These events expose lifecycle milestones but not every OCR region, recognized line, or intermediate model decision. Detailed OCR evidence still requires the intermediate page structures described in the original guide. [doc]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+Primary source:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/usage/advanced_options.md`
+
+### I.2 Independent visualizations and raw VLM output
+
+The CLI exposes four separate diagnostic visualizations:
+
+| CLI option                 | Inspected representation |
+| -------------------------- | ------------------------ |
+| `--debug-visualize-cells`  | PDF text cells           |
+| `--debug-visualize-ocr`    | OCR results              |
+| `--debug-visualize-layout` | Layout clusters          |
+| `--debug-visualize-tables` | Table cells              |
+
+These are complementary views of the pipeline's intermediate state. Comparing their outputs can distinguish native text extraction, recognition, structural assignment and table reconstruction problems.
+
+`--vlm-write-native-output` adds an independent record of each page's unparsed VLM response under the output document's `.vlm-native/` directory. This is particularly valuable where model output is correctly generated but subsequently misinterpreted by the response parser.
+
+`--profiling` provides conversion-stage profiling summaries, and `--save-profiling` writes summaries as JSON. The latter provides reusable timing evidence, but the measurements still depend on model initialization state, device selection, document content and pipeline configuration. [doc]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+### I.3 Failure controls and exit-code semantics
+
+Docling's CLI supports `--fail-on` with three modes:
+
+| Mode                | CLI exit behavior                                     |
+| ------------------- | ----------------------------------------------------- |
+| `failure` (default) | Nonzero when any document fails                       |
+| `partial`           | Nonzero for either full failure or partial conversion |
+| `never`             | Do not fail the process based on conversion status    |
+
+Other controls include `--abort-on-error` for aborting at the first encountered error and `--document-timeout` for limiting processing duration per document.
+
+These switches do not change the underlying meaning of `ConversionStatus`. Instead, they determine how conversion outcomes are propagated to process-level orchestration.
+
+In particular, a partial conversion can be useful as a document result while still being considered an unsuccessful command execution under `--fail-on partial`. This provides a stricter completeness contract without discarding the distinction between successful and unsuccessful pages. [doc]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+Primary source:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docs/reference/cli.md`
+
+## J. Version boundary: Nemotron multi-pass parsing
+
+A version clarification for original §12.2, not a released 2.145.0 capability
+
+Current development documentation describes `NemotronParseOptions` and two additional Nemotron 3.5 Parse modes:
+
+- Double-pass: initial full-page recognition followed by re-recognition of predicted table/chart crops.
+- Triple-pass: initial recognition, an additional detection request, and selective crop recognition using detector or combined regions.
+
+These modes introduce additional model requests and guarded merging of crop results into the page output. They can improve table reconstruction without changing the base model family, but also alter throughput, provenance and failure behavior.
+
+The feature is described in issue #4931 and appears in the current main-branch SDK documentation. However, `NemotronParseOptions` is absent from the tagged 2.145.0 `pipeline_options.py`. It must therefore not be represented as available in the target release. The `nemotron_parse_v3_5` capability described in the original document remains the single-pass configuration at that version. [src][issue]&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+
+
+Relevant primary sources:
+
+`https://github.com/docling-project/docling/issues/4931`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py`
+
+`https://github.com/docling-project/docling/blob/main/docs/usage/model_catalog.md`
+
+## Architectural synthesis
+
+Taken together with the original OCR reference, these additions establish several distinct layers of information recovery:
+
+| Layer                           | Source of information                                            | Principal boundary                                                                               |
+| ------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Native PDF extraction           | Encoded text, widgets, bitmaps and PDF geometry                  | Cannot recover content absent or incorrectly encoded in the native representation                |
+| Page-stage OCR                  | Rasterized pixels within selected regions                        | Recognition and merge behavior depend on layout selection and text-cell geometry                 |
+| Layout and table reconstruction | Detected regions, assigned text cells and structural predictions | Correct recognition does not guarantee correct structural placement                              |
+| Specialized visual enrichment   | Formula, code, chart and picture model outputs                   | Produces model interpretations or transcriptions with different accuracy and fidelity properties |
+| Whole-page VLM conversion       | Generated structured markup and optional spatial grounding       | Model, runtime, response parser and exporter can introduce independent errors                    |
+| Conversion evidence             | Intermediate page predictions, metadata, errors and timings      | Much of this information does not survive automatically into final document items                |
+
+The consequential interaction is that content recognition, structural reconstruction, and preservation of evidence are separate capabilities. Docling provides native mechanisms for each, but the final `DoclingDocument` is not a lossless record of all intermediate decisions.
+
+The original guide already explains where conventional OCR can lose characters. This addendum extends that account to where correctly recognized information can be reinterpreted, reconstructed, enriched, omitted, or stripped of its original evidence during subsequent processing.
+
+Together, the two references cover the significant OCR and OCR-adjacent capability families verified for Docling 2.145.0, with later development features kept outside the released baseline.

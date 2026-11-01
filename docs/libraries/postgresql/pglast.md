@@ -1246,3 +1246,602 @@ The following source set provides direct access to the major capabilities covere
 | Alternative multi-dialect SQL engine             | [https://github.com/tobymao/sqlglot](https://github.com/tobymao/sqlglot?utm_source=chatgpt.com)                                                 |
 
 Overall assessment: pglast's distinctive value is its combination of the real PostgreSQL parser, a generated and mutable Python AST, capable visitor-driven transformations, and extensible SQL serialization. For PostgreSQL-specific structural tooling, these facilities can eliminate the need to implement large amounts of SQL parsing, tree traversal, and SQL regeneration machinery. Its principal limitations emerge when requirements cross from syntax into database-resolved semantics, cross-dialect modeling, exact source preservation, or comprehensive PL/pgSQL manipulation.
+
+# Addendum — pglast 8.7: Advanced Capabilities, Implementation Semantics, and API Corrections
+
+Research date: November 1, 2026\
+Target: pglast 8.7, PostgreSQL 18 grammar\
+Companion document: pglast 8.7 — Comprehensive Python Library Overview
+
+This addendum supplements the original reference with additional functionality, lower-level implementation mechanisms, consequential correctness distinctions, and version-specific corrections. It focuses on capabilities and behaviors not already explained in the main document.
+
+## 1. Advanced fingerprinting semantics and query identity
+
+### 1.1 Relation-name canonicalization and fingerprint controls
+
+The `libpg_query` fingerprinting algorithm performs more extensive structural normalization than replacing literal constants. In particular, relation identifiers are subject to rules that can deliberately group syntactically different relations.
+
+For the PostgreSQL 18 parser generation used by pglast 8.7, default fingerprint behavior includes:
+
+| Structural feature                                       | Default treatment                                               |
+| -------------------------------------------------------- | --------------------------------------------------------------- |
+| Literal values                                           | Normalized so different values can produce the same fingerprint |
+| Schema qualifiers in `SELECT`/DML relation references    | Ignored                                                         |
+| Relation aliases                                         | Used in place of the relation name when an alias is present     |
+| Runs of two or more consecutive digits in relation names | Ignored by default                                              |
+| PostgreSQL source positions                              | Excluded from query identity                                    |
+
+The digit-normalization rule is particularly relevant to partitioned or time-suffixed relations. For example, queries differing only in a table suffix such as `events_202601` versus `events_202602` may receive the same fingerprint. This is intentional workload grouping, not a guarantee that the two queries access equivalent data.
+
+The native engine exposes an options bitmask that modifies its fingerprint calculation:
+
+| Native `libpg_query` option                    | Effect                                                                                 |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `PG_QUERY_FINGERPRINT_RANGEVAR_IGNORE_ALIASES` | Use relation names rather than aliases                                                 |
+| `PG_QUERY_FINGERPRINT_RANGEVAR_INCLUDE_SCHEMA` | Include schema names in `SELECT`/DML relation identity                                 |
+| `PG_QUERY_FINGERPRINT_RANGEVAR_PG17_COMPAT`    | Combine the preceding options to reproduce PostgreSQL 17-style relation identification |
+| `PG_QUERY_FINGERPRINT_FULL_RELNAME`            | Preserve digit sequences in relation names                                             |
+
+These options belong to the underlying C library. pglast 8.7 exposes `fingerprint(query)` with only the query argument, so they cannot be selected through its existing public Python wrapper.
+
+Where an application needs relation-sensitive identities, including partition identity, the default pglast fingerprint is insufficient as a unique structural key. Supplementary relation information or a differently configured native fingerprinting interface is required.
+
+The underlying algorithm also uses selective field normalization and a recursion-depth cutoff rather than hashing a complete canonical serialization of every AST attribute. Consequently, its digest represents the algorithm's equivalence classes, not exhaustive syntactic identity.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+3
+
+
+
+`https://github.com/pganalyze/libpg_query/wiki/Fingerprinting`
+
+`https://github.com/pganalyze/libpg_query/releases/tag/18.1.0`
+
+`https://github.com/lelit/pglast/blob/v8.7/pglast/parser.pyx`
+
+### 1.2 Fingerprinting multi-statement scripts
+
+The fingerprint API accepts SQL containing multiple statements. The underlying algorithm incorporates all statements in the input parse tree into a single digest, rather than returning a collection of per-statement fingerprints.
+
+These operations are therefore different:
+
+```
+from pglast import fingerprint, splitscript = """SELECT * FROM orders WHERE id = 100;UPDATE orders SET status = 'paid' WHERE id = 100;"""# One fingerprint representing the entire script.script_identity = fingerprint(script)# Independent fingerprints for the individual statements.statement_identities = tuple(    fingerprint(statement)    for statement in split(script))
+```
+
+This distinction matters for workload aggregation, statement registries, and query-shape inventories. A fingerprint for an entire script identifies a compound input shape; it cannot directly substitute for statement-level identities in execution traces or PostgreSQL workload statistics.
+
+Although the underlying fingerprint algorithm is designed to group query structures similarly to PostgreSQL query identifiers, it operates on the raw parse representation. PostgreSQL's server-side query identification can incorporate analyzed information, including resolved object identities. Equality between pglast fingerprints and `pg_stat_statements` identifiers should not be assumed.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+`https://github.com/pganalyze/libpg_query/wiki/Fingerprinting`
+
+## 2. Lower-level AST traversal and mutation machinery
+
+### 2.1 `Visitor.iterate()` is an action-driven generator
+
+The high-level `Visitor.__call__()` interface invokes visitor methods and handles the traversal actions they return. Its underlying `Visitor.iterate()` method exposes a lower-level generator protocol.
+
+The generator yields `(ancestors, node)` pairs and expects the caller to send back an action describing how to handle each visited node.
+
+The distinction is consequential:
+
+- `Continue` traverses the visited node's descendants.
+- `Skip` avoids its descendants.
+- `Delete`, a replacement node, or an `(Add, ...)` instruction schedules a structural modification.
+- The high-level `Visitor.__call__()` converts a callback result of `None` into `Continue`.
+- The lower-level `iterate()` generator does not perform that conversion.
+
+As a result, directly consuming `Visitor.iterate()` with an ordinary Python `for` loop is not equivalent to a normal read-only AST walk. An ordinary loop resumes the generator with `None`, which the implementation may interpret as a replacement rather than permission to descend.
+
+For a custom read-only traversal, the generator must be driven explicitly:
+
+```
+from pglast import parse_sqlfrom pglast.visitors import Visitor, Continuetree = parse_sql("SELECT id FROM orders")walker = Visitor().iterate(tree)try:    ancestors, node = next(walker)    while True:        # Inspect the current node and its ancestry.        print(type(node).__name__, ancestors)        # Explicitly request traversal into descendants.        ancestors, node = walker.send(Continue)except StopIteration:    pass
+```
+
+This illustrates the generator protocol, not an alternative generally preferable to ordinary `Visitor` subclasses.
+
+For most analysis and rewriting, `Visitor.__call__()` is the more appropriate abstraction because it owns the dispatch and action protocol. `iterate()` is valuable when an alternative traversal controller needs explicit control over the action sent after each visit.
+
+An additional mutation distinction: pending changes are applied after traversal finishes. A newly inserted subtree is not visited automatically in that pass, and ancestry paths collected before structural changes should not be assumed to remain valid afterward.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pglast.readthedocs.io\&sz=32)
+
+pglast v8.7 documentation
+
+
+
+`https://github.com/lelit/pglast/blob/v8.7/pglast/visitors.py`
+
+### 2.2 Direct structural edits through `Ancestor.update()` and `Ancestor.apply()`
+
+`Ancestor` exposes two lower-level mutation operations:
+
+| Operation                    | Behavior                                                    |
+| ---------------------------- | ----------------------------------------------------------- |
+| `Ancestor.update(new_value)` | Records a pending update to the tracked location            |
+| `Ancestor.apply()`           | Applies the pending change to the containing tree structure |
+
+These methods handle two structurally different cases.
+
+AST attribute replacement: When a child is held in a writable AST attribute, the update can ultimately assign the replacement to that attribute.
+
+Tuple element replacement: When a child is held inside an immutable tuple, the implementation creates a temporary mutable representation, applies the requested insertions, deletions, or replacements, and reconstructs the tuple. This logic also handles nested tuples, which occur in some PostgreSQL node structures.
+
+`Add` is specifically a sequence-editing action. It cannot be applied to an arbitrary scalar AST attribute; the implementation raises `ValueError` when insertion is requested outside a sequence position.
+
+These primitives explain how pglast supports visitor-mediated structural modification without requiring each transformation to implement its own immutable-container rebuilding algorithm.
+
+They also provide a lower-level extension point for specialized AST editors that need precise control over individual tree locations.
+
+The methods are mutable-tree operations, not persistent-tree or transactional editing primitives. There is no general undo mechanism, semantic validation, or automatic update of previously captured ancestry paths.
+
+Source: `https://github.com/lelit/pglast/blob/v8.7/pglast/visitors.py`
+
+### 2.3 Reflection over generated AST classes
+
+Each `ast.Node` supports iteration over its declared attribute names. This is distinct from walking descendants or serializing the node.
+
+For example:
+
+```
+from pglast import parse_sqlstmt = parse_sql("SELECT id FROM orders")[0].stmtfields = tuple(stmt)values = {    field: getattr(stmt, field)    for field in stmt}
+```
+
+This exposes the node's field structure without a class-specific field inventory.
+
+It is useful for:
+
+- Generic AST inspectors and schema browsers.
+- Structured diagnostics across heterogeneous PostgreSQL node types.
+- AST difference and comparison tooling.
+- Discovering available attributes during programmatic SQL transformation.
+
+The resulting fields are the generated PostgreSQL parser-model attributes. They are not a stable, dialect-independent SQL schema, and the existence of an attribute does not establish that it will have a meaningful non-null value in every context.
+
+The generated classes also implement validated assignment, so generic reflection can be combined with their existing field-type validation without constructing a separate Python object model.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pglast.readthedocs.io\&sz=32)
+
+pglast v8.7 documentation
+
+
+
+`https://pglast.readthedocs.io/en/v8/usage.html`
+
+### 2.4 Explicit ancestry population and membership queries
+
+`pglast.visitors.populate_ancestors(tree)` populates the `ancestors` attribute of AST nodes without requiring an application to implement a dedicated ancestry-tracking pass.
+
+Ancestry tracking provides additional mechanisms beyond `find_nearest()`:
+
+- `NodeClass in ancestors` tests whether an ancestor of that class exists.
+- `ancestors @ root` resolves a recorded structural path against a tree.
+- `abs(ancestors)` locates the nearest ancestor referring to an AST node instead of an intermediate tuple.
+- `ancestors[n]` retrieves nodes at successive levels above the visited node.
+
+These mechanisms support context-sensitive operations involving expression placement, nested subqueries, parent statement types, and tuple-containing AST fields.
+
+The ancestry information is also a dependency of the SQL printing subsystem. `RawStream.__call__()` populates it automatically before invoking node printers. Code that bypasses this entry point and invokes low-level printing functions directly must account for that requirement.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pglast.readthedocs.io\&sz=32)
+
+pglast v8.7 documentation+1
+
+
+
+`https://pglast.readthedocs.io/en/v8/visitors.html`
+
+## 3. SQL printer internals and reusable generation primitives
+
+### 3.1 Identifier quoting and operator-name handling
+
+The serialization subsystem exposes utilities that can eliminate repetitive PostgreSQL-specific escaping and formatting logic in custom printers.
+
+`pglast.stream.maybe_double_quote_name(name)` examines an individual identifier and applies double quoting when required by its syntax or PostgreSQL keyword classification. Embedded double quotes are escaped according to PostgreSQL identifier rules.
+
+The stream machinery offers higher-level interfaces:
+
+| Interface                                                    | Specific capability                                                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `maybe_double_quote_name(name)`                              | Quote an individual PostgreSQL identifier when necessary                                         |
+| `RawStream.print_name(nodes, sep='.')`                       | Render one or more identifier components with the appropriate separator                          |
+| `RawStream.print_symbol(nodes, sep='.')`                     | Render symbols and qualified operator names without incorrectly quoting the operator itself      |
+| `RawStream.print_node(node, is_name=False, is_symbol=False)` | Dispatch an individual AST node with identifier/symbol context                                   |
+| `RawStream.print_list(...)`                                  | Render AST sequences with separators, indentation, optional parentheses, and identifier handling |
+| `RawStream.print_lists(...)`                                 | Render nested AST sequences, including independently delimited sublists                          |
+
+The distinction between identifiers and operator symbols is particularly important in PostgreSQL.
+
+For example, qualified operators use syntax such as `OPERATOR(schema.operator)`. The schema component follows identifier-quoting rules, but the operator's symbolic component must be preserved as an operator.
+
+The standard printers already handle these conventions. Custom serializers can reuse the same mechanisms rather than duplicating PostgreSQL token and quoting rules.
+
+Boundary: Identifier quoting is not the same as arbitrary SQL value escaping, parameter binding, or catalog resolution. `maybe_double_quote_name()` also operates on an individual identifier component; qualified names require component-aware handling.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pglast.readthedocs.io\&sz=32)
+
+pglast v8.7 documentation
+
+
+
+`https://github.com/lelit/pglast/blob/v8.7/pglast/stream.py`
+
+### 3.2 Expression contexts are distinct from operator precedence
+
+The 8.6 precedence improvements introduce machinery that handles not only conventional precedence and associativity but also the distinct expression productions in PostgreSQL's grammar.
+
+The important distinction is between:
+
+- `a_expr`: the broadly permitted expression grammar.
+- `b_expr`: a restricted grammar used in particular syntactic positions.
+- `c_expr`: a more restricted grammar covering atomic expression forms.
+
+The stream implementation provides complementary methods:
+
+| API                                                | Responsibility                                                                                              |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `print_operand(node, parent_prec, side, ctx=None)` | Decide whether an operand requires parentheses based on precedence, position, and grammar context           |
+| `print_b_expr(node)`                               | Render an expression in a position requiring `b_expr`                                                       |
+| `print_c_expr(node)`                               | Render an expression in a position requiring `c_expr`                                                       |
+| `push_expr_context(ctx)`                           | Temporarily establish the grammar context for nested printing                                               |
+| `expression(need_parens)`                          | Emit a parenthesized region when requested; does not independently decide whether parentheses are necessary |
+
+This separation is important because a syntactically valid expression cannot necessarily be emitted without parentheses in every PostgreSQL grammar position, even if ordinary arithmetic precedence would otherwise permit it.
+
+For example, the `BETWEEN` printer must treat its lower and upper bounds according to different grammar constraints. The native implementation uses `print_b_expr()` for the lower bound and `print_operand()` for the upper bound.
+
+The architecture therefore provides two interacting forms of correctness:
+
+1. Precedence correctness: preserving the grouping and associativity of operands.
+2. Grammar-position correctness: ensuring that the emitted expression is permitted where it appears.
+
+Both are necessary for reliable deparsing of transformed SQL trees. Custom printers that bypass these facilities can produce SQL whose parse structure differs from the intended AST.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pglast.readthedocs.io\&sz=32)
+
+pglast v8.7 documentation+1
+
+
+
+`https://pglast.readthedocs.io/en/v8/stream.html`
+
+`https://github.com/lelit/pglast/blob/v8.7/pglast/printers/dml.py`
+
+### 3.3 Enum-dependent printing through `IntEnumPrinter`
+
+The `pglast.printers` implementation includes `IntEnumPrinter`, a reusable dispatch helper for AST attributes whose enum values select different SQL output forms.
+
+An `IntEnumPrinter` subclass declares its relevant `enum` type and implements methods corresponding to the enum member names.
+
+When invoked, the dispatcher:
+
+- Resolves enum instances or supported integer-backed representations to enum member names.
+- Selects the implementation associated with the resolved member.
+- Raises an appropriate exception when the enum value is invalid or its printer implementation is absent.
+
+For example, the upstream `AExprKindPrinter` uses this mechanism to handle the different forms represented by `A_Expr_Kind`, including ordinary operators, `IN`, `BETWEEN`, and related expression categories.
+
+This avoids embedding a large conditional dispatch tree inside every node printer. The resulting structure separates node-type dispatch from enum-dependent syntax selection.
+
+`IntEnumPrinter` is a source-level extension helper rather than a prominently documented, independently versioned public contract. Its implementation should be inspected when relying on it directly.
+
+Source: `https://github.com/lelit/pglast/blob/v8.7/pglast/printers/__init__.py`
+
+### 3.4 Output streams maintain mutable generation state
+
+`OutputStream` extends `io.StringIO` with separator management. `RawStream` adds SQL-specific state, while `IndentedStream` adds indentation and column-position tracking.
+
+These objects are not stateless formatting functions.
+
+Relevant state includes pending separators, emitted content, current expression context, output-column position, indentation, and potentially pending comments.
+
+An important implication is that `RawStream.__call__()` writes into the stream instance and returns its accumulated contents. It does not automatically recreate a fresh output buffer on every invocation.
+
+Therefore, independently generated SQL outputs should not assume that repeated calls on the same stream instance start from an empty buffer. A fresh stream instance provides clearer isolation for separate serialization operations.
+
+For custom printers, the stream's existing state-management methods are useful because they centralize whitespace and indentation conventions. They also create an obligation to preserve those conventions across nested printing operations.
+
+Source: `https://github.com/lelit/pglast/blob/v8.7/pglast/stream.py`
+
+## 4. Comment representations, source spans, and diagnostics
+
+### 4.1 Two distinct comment metadata models
+
+pglast exposes two different representations of SQL comments, serving different purposes.
+
+| Property             | `pglast.parser.comments()`                          | Higher-level `pglast.Comment`                                  |
+| -------------------- | --------------------------------------------------- | -------------------------------------------------------------- |
+| Primary purpose      | Native deparser-oriented comment metadata           | Comment preservation during Python AST printing                |
+| Position information | `match_location`                                    | `location`                                                     |
+| Formatting context   | `newlines_before_comment`, `newlines_after_comment` | `at_start_of_line`, `continue_previous`                        |
+| Comment content      | `str`                                               | `text`                                                         |
+| Extraction mechanism | Native `libpg_query` comment extraction             | Token scanning through pglast's internal `_extract_comments()` |
+
+The most consequential distinction concerns the meaning of `match_location`.
+
+For the native comment interface, `match_location` refers to an anchor associated with the end of the preceding non-comment token. It is not necessarily the original character position where the comment begins.
+
+For example, the documented call:
+
+```
+from pglast.parser import commentsresult = comments(    "exists (select /* no columns */ from foo)")
+```
+
+returns comment metadata anchored at the preceding SQL token rather than treating the opening delimiter as the native match position.
+
+By contrast, the higher-level comment representation carries source-oriented information obtained through the scanner, including whether the comment begins a line and whether it continues a run of consecutive comments.
+
+These representations should not be interchanged without converting their positional and formatting semantics.
+
+The upstream documentation also describes `parser.comments()` as primarily internal and incidentally exposed. Its existence does not establish a strong compatibility contract for third-party tooling.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pglast.readthedocs.io\&sz=32)
+
+pglast v8.7 documentation+1
+
+
+
+`https://pglast.readthedocs.io/en/v8/parser.html`
+
+`https://github.com/lelit/pglast/blob/v8.7/pglast/__init__.py`
+
+### 4.2 Comment support differs between deparsing paths
+
+The Python `RawStream`/`IndentedStream` path can receive separately extracted comments and attempt to place them during SQL regeneration.
+
+The native `parser.deparse_protobuf()` interface in 8.7 does not expose equivalent user-supplied comment metadata as part of its Python signature.
+
+Its options cover SQL presentation parameters, including formatting, indentation, line length, newline behavior, and comma position. The tagged Cython implementation initializes the native comment pointer and comment count to empty values.
+
+Consequently, the presence of native comment extraction in the underlying library does not imply that pglast 8.7 exposes a complete comment-aware Protobuf deparsing interface.
+
+For exact source preservation, neither AST-based regeneration path constitutes a lossless document editor. Source-preserving transformations need to account separately for tokens, original text, comments, and structural changes.
+
+Source: `https://github.com/lelit/pglast/blob/v8.7/pglast/parser.pyx`
+
+### 4.3 Additional source-boundary metadata in PostgreSQL 18 AST nodes
+
+Some generated AST classes carry more detailed positional metadata than a single `location` field.
+
+Examples include:
+
+| AST class     | Additional positional attributes     |
+| ------------- | ------------------------------------ |
+| `A_ArrayExpr` | `list_start`, `list_end`             |
+| `ArrayExpr`   | `list_start`, `list_end`             |
+| `A_Expr`      | `rexpr_list_start`, `rexpr_list_end` |
+| `RawStmt`     | `stmt_location`, `stmt_len`          |
+
+These attributes can identify boundaries of selected grammatical regions, including array-element lists and certain right-hand expression lists.
+
+They are useful when a transformation needs a source span associated with a particular syntactic construct, rather than only the position of the construct's first token.
+
+However, PostgreSQL does not provide complete start/end ranges for every AST node. Some location attributes can contain sentinel values indicating that a location is unknown.
+
+Another important distinction concerns equality. Generated node classes extend the attributes ignored during structural equality to include positional fields such as `list_start` and `list_end`.
+
+Therefore, AST structural equality can remain true even when positional metadata differs. That is useful for parse-print-reparse comparisons, but it means AST equality cannot validate the preservation of exact source ranges.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pglast.readthedocs.io\&sz=32)
+
+pglast v8.7 documentation
+
+
+
+`https://github.com/lelit/pglast/blob/v8.7/pglast/ast.py`
+
+### 4.4 Unicode coordinates and structured parser errors
+
+There are several related but nonidentical source-coordinate interfaces.
+
+| Interface                      | Relevant coordinate behavior                                                        |
+| ------------------------------ | ----------------------------------------------------------------------------------- |
+| `parser.parse_sql_json()`      | Preserves native PostgreSQL byte-offset conventions                                 |
+| `parse_sql()`                  | Constructs Python AST objects using the library's displacement-conversion machinery |
+| `parser.scan()`                | Converts token boundaries for Python string indexing                                |
+| `split(..., only_slices=True)` | Returns slices adapted for Python Unicode strings                                   |
+| `ParseError`                   | Exposes a parser error position through its exception arguments                     |
+| `DeparseError`                 | Exposes a native deparser error position through a separate path                    |
+
+For `ParseError`, the positional value is available as the second exception argument, `error.args[1]`, rather than as a dedicated `location` attribute.
+
+The tagged parser converts native UTF-8 offsets into Python string indices when constructing these errors. The result may be `None` when the reported position is beyond the final character, as can happen for end-of-input errors.
+
+The `deparse_protobuf()` error path instead passes the native deparser cursor position to `DeparseError` without the same explicit Unicode displacement conversion.
+
+These differences matter to diagnostic systems that use locations for source highlighting, targeted replacement, or structured editor feedback.
+
+A common internal position representation is useful, but conversion must depend on the originating API. Assuming that all pglast coordinates have identical units or end-position conventions can introduce errors when multibyte characters occur before the reported location.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pglast.readthedocs.io\&sz=32)
+
+pglast v8.7 documentation+1
+
+
+
+`https://github.com/lelit/pglast/blob/v8.7/pglast/parser.pyx`
+
+## 5. Procedural-language inspection through the CLI
+
+### 5.1 `pgpp --plpgsql`
+
+The `pgpp` command-line utility supports PL/pgSQL inspection through the `-p` or `--plpgsql` option.
+
+For example, given a SQL file containing a PostgreSQL PL/pgSQL function definition:
+
+```
+pgpp --plpgsql functions.sql
+```
+
+This option implies parse-tree output.
+
+Rather than producing formatted SQL, the utility invokes the procedural parser and emits its nested Python representation as indented JSON, with sorted object keys.
+
+This is a useful standalone interface for inspecting procedural blocks, declarations, and statements without building a Python wrapper.
+
+However, the output is not equivalent to the ordinary typed SQL AST. The procedural representation remains a hierarchy of dictionaries, lists, and scalar values, without the same generated typed-node construction and rewriting capabilities.
+
+The CLI therefore provides procedural inspection, not a complete PL/pgSQL source transformation pipeline.
+
+Source: `https://github.com/lelit/pglast/blob/v8.7/pglast/__main__.py`
+
+## 6. Version boundaries and corrections to the original guide
+
+### 6.1 `pglast.parser.normalize()` is not released in 8.7
+
+The evolving v8 documentation includes a `parser.normalize(query, utility_only=False)` interface. It delegates to `libpg_query` functionality that replaces SQL constants with parameter references, supporting query-text normalization similar to PostgreSQL workload reporting.
+
+However, the upstream changelog places this API under 8.8 (unreleased) as of November 1, 2026.
+
+It is therefore not an available pglast 8.7 interface.
+
+Three different operations must remain distinct:
+
+| Operation                            | Meaning                                                                | Availability in 8.7 |
+| ------------------------------------ | ---------------------------------------------------------------------- | ------------------- |
+| `pgpp --normalize`                   | Compact SQL serialization using `RawStream`                            | Available           |
+| `pglast.printers.sfuncs.normalize()` | Specialized printer for PostgreSQL's SQL `NORMALIZE()` function syntax | Available           |
+| `pglast.parser.normalize()`          | Native query-constant normalization through `libpg_query`              | Not yet released    |
+
+The native normalization interface also includes `utility_only`, which is intended to restrict normalization to utility statements, such as certain administrative SQL commands.
+
+That additional capability should not be retroactively attributed to 8.7 simply because it appears in the live documentation.
+
+The unreleased 8.8 changelog also contains source-distribution and special-function deparsing fixes. Those fixes should similarly be distinguished from functionality guaranteed by the published 8.7 release.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pglast.readthedocs.io\&sz=32)
+
+pglast v8.7 documentation+2
+
+
+
+`https://pglast.readthedocs.io/en/v8/changes.html`
+
+`https://pglast.readthedocs.io/en/v8/parser.html`
+
+### 6.2 AST serialization does not accept `enum_name`
+
+The original guide's §3.3 lists `enum_name` among the controls accepted by `ast.Node` serialization.
+
+The tagged 8.7 implementation has this signature:
+
+```
+Node.__call__(    self,    depth=None,    ellipsis=Omissis,    skip_none=False,)
+```
+
+There is no `enum_name` argument.
+
+The generated documentation still contains a description of that parameter, but the actual method does not implement it. Supplying `enum_name=` raises `TypeError`.
+
+Enums are serialized using structures that include `#`, `name`, and `value` fields, rather than a caller-selectable enum-name-only mode.
+
+Correction to §3.3: Remove `enum_name` from the supported serialization options.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pglast.readthedocs.io\&sz=32)
+
+pglast v8.7 documentation
+
+
+
+`https://github.com/lelit/pglast/blob/v8.7/pglast/ast.py`
+
+### 6.3 Parser version reporting returns two components
+
+The live parser reference describes `get_postgresql_version()` as returning a tuple containing major, minor, and patch components.
+
+The tagged 8.7 implementation instead returns:
+
+```
+(major, minor)
+```
+
+This is computed from the compiled PostgreSQL `PG_VERSION_NUM`.
+
+Code consuming this API should use the two-element result provided by the actual implementation rather than assuming a three-element tuple based on the generated documentation.
+
+Source: `https://github.com/lelit/pglast/blob/v8.7/pglast/parser.pyx`
+
+### 6.4 Preserve the published-release boundary
+
+Some pglast documentation and Git branches are updated between releases. Version-specific reference material should therefore distinguish:
+
+- Published package behavior, verified against `v8.7`.
+- Changes present in the moving `v8` development branch.
+- Features and fixes explicitly assigned to an unreleased version.
+- Improvements released or backported in other major-version branches.
+
+In particular, a newer fix appearing in the 7.x release history does not establish that it was already included in the earlier 8.7 build.
+
+For correctness-sensitive interfaces—especially source offsets, custom printer behavior, serialization, and generated AST classes—the version tag is more authoritative than mutable documentation when they disagree.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pglast.readthedocs.io\&sz=32)
+
+pglast v8.7 documentation
+
+
+
+`https://github.com/lelit/pglast/blob/v8.7/CHANGES.rst`
+
+### 6.5 Editorial corrections to the existing examples
+
+Several code examples in the original guide have lost their line breaks or statement separation, producing invalid Python source.
+
+This affects examples in the native AST parsing, serialization, visitors, AST rewriting, scanning, splitting, fingerprinting, and deparsing sections.
+
+The examples should be restored to normal executable Python syntax, with separate import statements and correctly indented code blocks. Their underlying instructional content does not require substantive expansion.
+
+The original reference map should also preferentially use immutable tagged source URLs instead of moving branch links for claims about pglast 8.7. Tracking query parameters in existing documentation URLs can be removed without changing their destinations.
+
+## 7. Additional primary-source map
+
+The following references supplement the original document's source map.
+
+| Additional subject                                                 | Direct source                                                           |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Exact 8.7 AST implementation and serialization signature           | `https://github.com/lelit/pglast/blob/v8.7/pglast/ast.py`               |
+| Visitor generator protocol, ancestry, and deferred editing         | `https://github.com/lelit/pglast/blob/v8.7/pglast/visitors.py`          |
+| OutputStream state, quoting, nested lists, and expression printing | `https://github.com/lelit/pglast/blob/v8.7/pglast/stream.py`            |
+| `IntEnumPrinter` and printer dispatch implementation               | `https://github.com/lelit/pglast/blob/v8.7/pglast/printers/__init__.py` |
+| Expression-context printing implementations                        | `https://github.com/lelit/pglast/blob/v8.7/pglast/printers/dml.py`      |
+| Comment extraction and native error handling                       | `https://github.com/lelit/pglast/blob/v8.7/pglast/parser.pyx`           |
+| High-level comment extraction and formatting safety behavior       | `https://github.com/lelit/pglast/blob/v8.7/pglast/__init__.py`          |
+| `pgpp` procedural inspection and normalization options             | `https://github.com/lelit/pglast/blob/v8.7/pglast/__main__.py`          |
+| Detailed fingerprinting specification                              | `https://github.com/pganalyze/libpg_query/wiki/Fingerprinting`          |
+| Native PostgreSQL 18 fingerprint option support                    | `https://github.com/pganalyze/libpg_query/releases/tag/18.1.0`          |
+| Live release-status and compatibility history                      | `https://pglast.readthedocs.io/en/v8/changes.html`                      |
+
+The central architectural addition is that pglast's lower-level infrastructure offers more than typed parsing and visitor dispatch. It exposes reusable mechanisms for immutable-container editing, context-aware SQL emission, identifier handling, source-coordinate adaptation, and configurable traversal control. Understanding these mechanisms helps distinguish work that can be delegated to pglast from additional machinery required for exact source preservation, semantic analysis, and stable query identity.

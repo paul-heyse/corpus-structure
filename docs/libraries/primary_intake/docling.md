@@ -1600,3 +1600,1093 @@ The principal conclusion of this gap analysis is that the biggest missing dimens
 Three details are especially consequential for a JSON-only consumer: `DoclingDocument` is a typed reference graph rather than a flat collection of extracted objects; model and pipeline configuration can materially change which graph structures exist; and detailed native PDF information or conversion diagnostics may remain outside the exported document even though Docling observed them during processing.
 
 Those distinctions are now more important to the technical reference than its previous coverage of Markdown serializers, chunking, RAG integrations, and the broader document ecosystem.
+
+# Docling 2.145.0 — Advanced Capabilities Addendum
+
+Companion to: Docling — Comprehensive Python Library Overview (`docling.md`)\
+Research date: November 1, 2026\
+Version scope: Docling 2.145.0, released October 29, 2026; associated `docling-core` and companion packages\
+Purpose: Document advanced functionality omitted or insufficiently developed in the original overview and its PDF-to-structured-JSON supplement.
+
+This addendum covers capabilities that extend Docling beyond initial document conversion: programmable document transformations, selective ingestion, structural profiling, advanced chunk serialization, remote conversion, custom enrichment, format-specific processing, and diagnostic instrumentation.
+
+It assumes familiarity with `DocumentConverter`, `ConversionResult`, `DoclingDocument`, the PDF pipelines, and the core document schema. Those concepts are not repeated here.
+
+The principal architectural distinction is that conversion, document transformation, semantic enrichment, retrieval preparation, and service execution can be separate operations over a common document representation. Docling already supplies substantial machinery for each operation, reducing the need to manipulate serialized JSON directly or duplicate the original parsing process.
+
+The version distinction matters: `docling`, `docling-slim`, `docling-core`, and `docling-client` are separately distributed packages. Docling 2.145.0 and `docling-core` 2.105.0 are verified published versions, but their version numbers are not interchangeable. APIs described in current documentation should be checked against the corresponding installed companion-package release when exact compatibility matters.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI+2
+
+
+
+## 1. Programmable document transformations
+
+### 1.1 `DoclingDocument` is a mutable structured-document model
+
+Beyond defining a schema, `docling-core` provides operations for constructing, inserting, extracting, deleting, replacing, and composing document elements while retaining their typed identities and structural relationships.
+
+The relevant distinction is between modifying a document's semantic graph and modifying one of its exported representations. Working through the document API allows transformations to operate on `TextItem`, `TableItem`, `PictureItem`, `GroupItem`, and other typed objects, rather than relying on the conventions of Markdown, HTML, or flattened JSON.
+
+The API exposes several families of operations:
+
+| Operation family         | Principal APIs                                                                                                    | Capability                                                       |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Construction             | `add_text`, `add_heading`, `add_table`, `add_picture`, `add_page`, `add_list_item`, `add_key_values`              | Create typed content with parents, provenance and other metadata |
+| Ordered insertion        | `insert_text`, `insert_heading`, `insert_table`, `insert_picture`, `insert_code`, `insert_formula`, `insert_form` | Insert new elements relative to existing siblings                |
+| Structural editing       | `append_child_item`, `insert_node_items`, `insert_item_before_sibling`, `insert_item_after_sibling`               | Manipulate parent-child relationships and reading order          |
+| Replacement and deletion | `replace_item`, `delete_items`, `delete_items_range`                                                              | Replace or remove complete nodes and their descendants           |
+| Document composition     | `concatenate`, `insert_document`, `add_node_items`                                                                | Combine document content without flattening individual objects   |
+| Document extraction      | `extract_items_range`, `filter`                                                                                   | Derive smaller document objects from existing structure          |
+| Table manipulation       | `TableData.add_row`, `insert_row`, `remove_row`, and their plural forms                                           | Modify tabular structure directly                                |
+
+These are document operations, not generic JSON Patch operations. They understand aspects of the document's reference system and hierarchy that ordinary dictionary manipulation does not.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling+3
+
+
+
+### 1.2 Document composition and reference integrity
+
+`DoclingDocument.concatenate(docs)` constructs a combined document from a sequence of documents. Its implementation uses internal indexing to reconstruct and rebase references and page numbering.
+
+This is more substantial than concatenating the `texts`, `tables`, or `pictures` arrays. Those arrays contain objects referred to from the document hierarchy and potentially from other objects. Combining arrays without updating those relationships would produce ambiguous or invalid references.
+
+`insert_document(doc, sibling, after=True)` addresses a different problem: inserting another document's body content at a selected position in an existing document.
+
+`extract_items_range()` can create a new document from a contiguous range of top-level body nodes. It supports inclusive/exclusive boundaries and optional deletion from the source. `filter(page_nrs=...)` instead derives a document using a page-selection predicate. These are structurally different operations: a semantic section can span pages, while a page filter can cut across sections or multi-page items.
+
+Important limitation: A successfully rebased structural graph does not automatically preserve the original interpretation of source identity. Concatenating documents changes page numbering within the resulting document; consumers retaining original source-page citations need an explicit mapping between combined-document positions and original sources.
+
+### 1.3 Hierarchical traversal and controlled mutation
+
+`iterate_items()` traverses the document structure and yields `(NodeItem, depth)` pairs. It supports:
+
+- `root` to begin traversal at a selected subtree.
+- `with_groups` to include grouping nodes.
+- `page_no` for page-based traversal filtering.
+- `included_content_layers` to select body, furniture, notes or other layers.
+- `traverse_pictures` to traverse content nested inside picture items.
+
+The yielded depth describes traversal hierarchy; it is not interchangeable with the semantic heading depth stored in `SectionHeaderItem.level`.
+
+The distinction between traversal order and array order is particularly important during transformation. Processing `texts[]` sequentially may not respect the placement of tables, pictures, captions, list groups or nested document content.
+
+For direct mutation, `replace_item` permits replacing one node with another, while deletion APIs remove subtrees. When inserting an existing subtree, the document-level insertion methods handle more of the relationship management than direct edits to `children` or `parent` references.
+
+After structural transformations, `validate_document()` and `validate_tree()` provide consistency checks. `validate_tree()` verifies parent/child reciprocity and prevents duplicate traversal paths through the same tree. These checks establish graph integrity, not whether edited source text or provenance accurately represents the original document.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling+2
+
+
+
+### 1.4 Native table and document visualization
+
+Two additional APIs extend the transformation model.
+
+`TableData` provides direct row operations, allowing tabular content to be edited without first exporting to a DataFrame or reconstructing the complete table manually. Such operations are particularly valuable where cell boundaries, merged spans, or metadata need to survive the edit.
+
+`DoclingDocument.get_visualization()` generates page-indexed PIL images representing the document's interpretation. It supports `reading_order` and `key_value` modes, optional labels, reading-order branch numbering, and cell identifiers for key/value visualization.
+
+This provides a native way to inspect the constructed semantic graph spatially, complementing the separate PDF pipeline debugging visualizations discussed later. The visualizations depend on the page images and geometry available in the document; they are not a replacement for the original PDF or its low-level parser objects.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling+1
+
+
+
+### 1.5 Architectural significance
+
+The combination of typed insertion, structural extraction, provenance-aware traversal, validation and composition makes `DoclingDocument` usable as a document-transformation intermediate representation.
+
+It can support corrections to inferred structure, insertion of derived metadata, assembly of composite documents and extraction of selected document regions without implementing a separate JSON graph editor.
+
+The boundary remains important: these APIs maintain document structure; they do not automatically establish OCR correctness, resolve conflicting semantic interpretations, or provide a transactional document-editing database.
+
+Primary reference:\
+`https://docling-project.github.io/docling/reference/docling_document/`
+
+Upstream implementation:\
+`https://github.com/docling-project/docling-core/blob/main/docling_core/types/doc/document.py`
+
+## 2. Selective ingestion, input sources and conversion progress
+
+### 2.1 Page selection and input limits
+
+`DocumentConverter.convert()` and `convert_all()` expose controls that are more precise than selecting a source and a pipeline:
+
+| Parameter           | Behavior                                                            | Consequential distinction                                                        |
+| ------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `page_range`        | Selects an inclusive range of pages for conversion                  | Reduces work on excluded pages; not equivalent to a maximum document-size policy |
+| `max_num_pages`     | Maximum acceptable source-document page count                       | Documents exceeding the limit are rejected rather than silently truncated        |
+| `max_file_size`     | Maximum accepted source size                                        | Bounds admissible inputs, not inference memory                                   |
+| `raises_on_error`   | Controls whether failed conversions raise or return failure results | `PARTIAL_SUCCESS` remains distinguishable from complete success                  |
+| `headers`           | HTTP headers for URL-based source retrieval                         | Controls fetching the source, not remote inference authentication                |
+| `progress_callback` | Receives structured events during conversion                        | Provides lifecycle observability independently of final results                  |
+
+`page_range` is especially valuable when only selected portions of a long document need interpretation. The upstream example uses `(16, 16)` to convert a single page. These page numbers follow Docling's document-page convention, rather than Python's zero-based array indexing.
+
+For batch conversion, a single `page_range` applies to the document inputs in that call; it is not an independent page-selection specification for each source.
+
+A narrower page range can reduce extraction and inference work, but does not guarantee proportional savings in file loading, source validation, model initialization, or PDF backend startup.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+### 2.2 File streams, HTTP sources and direct text conversion
+
+The converter supports several input representations:
+
+- `Path` and string paths for local files.
+- URL strings and `HttpSource` for HTTP-accessible documents.
+- `DocumentStream` for binary document data held in memory.
+- `convert_string()` for directly supplying supported textual formats, including Markdown, HTML and DocLang.
+
+`DocumentStream` is useful when the document already exists as a byte stream. It carries a source name and a binary stream, allowing format detection and processing without first writing the input to a temporary file.
+
+`HttpSource` carries a URL and headers in one source object. For `convert_all()`, per-source headers are merged with the call's common headers, with source-specific values taking precedence for matching keys. This allows documents requiring different retrieval credentials to participate in one conversion batch.
+
+`convert_string()` is a distinct convenience interface for textual source representations. It should not be confused with passing arbitrary binary PDF bytes as a Python string.
+
+The important boundary is source transport versus source interpretation. A `DocumentStream` changes how bytes reach the backend; it does not select a different OCR, layout, or table-recognition process.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+### 2.3 Incremental batch results
+
+`convert_all()` returns an iterator of `ConversionResult` objects.
+
+This supports processing results incrementally instead of retaining an entire batch of converted documents. It is also compatible with handling failures individually when `raises_on_error=False`.
+
+However, an iterable result is not evidence that each document uses bounded page memory or that model inference runs with arbitrary concurrency. Memory consumption within a conversion depends on the selected pipeline, page buffering, image retention and model resources.
+
+Similarly, iteration does not by itself guarantee parallel execution. Document concurrency is a separate operational control.
+
+### 2.4 Structured progress events
+
+The progress callback API provides a more detailed processing lifecycle than a single percentage.
+
+Docling defines progress events including:
+
+| Event                       | Meaning                                                                            |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| `DocumentStartedProgress`   | A document has been selected for processing, including subsequently skipped inputs |
+| `PhaseStartedProgress`      | Processing enters initialization, build, assembly or enrichment                    |
+| `PageCompletedProgress`     | A PDF/image page completes its page-level processing                               |
+| `EnrichmentProgress`        | Reports processed item counts for enrichment stages                                |
+| `DocumentCompletedProgress` | Reports the final document status                                                  |
+
+Events include document identifiers suitable for correlating progress across a batch.
+
+Two behaviors are worth preserving in an advanced reference. First, pages may finish out of order; `completed_pages` is the appropriate progress counter, not the largest page number observed. Second, completing all page-level operations does not necessarily mean the document is finished, because document-level enrichment can follow.
+
+The VLM pipeline has different reporting semantics: enrichment performed during page processing can already be covered by the page completion event.
+
+Callbacks are observational rather than a reliable mechanism for controlling conversion. Exceptions raised inside a callback are logged and ignored. Under document-level concurrency, callbacks may be invoked from multiple worker threads and must be safe for concurrent use.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling
+
+
+
+### 2.5 Example: selective, observable conversion
+
+The following illustrates the combination of page selection, input limits and structured progress reporting. The example is based on documented APIs and has not been executed here.
+
+```
+from docling.document_converter import DocumentConverterfrom docling.datamodel.progress import ConversionProgressEventdef on_progress(event: ConversionProgressEvent) -> None:    print(event.model_dump_json())converter = DocumentConverter()result = converter.convert(    "large_report.pdf",    page_range=(10, 25),    max_num_pages=1000,    raises_on_error=False,    progress_callback=on_progress,)
+```
+
+The callback provides execution visibility; `ConversionResult` remains the authoritative source of final conversion status, errors and document output.
+
+Primary references:
+
+`https://docling-project.github.io/docling/reference/document_converter/`
+
+`https://docling-project.github.io/docling/usage/advanced_options/`
+
+Version-specific converter implementation:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/document_converter.py`
+
+## 3. Structural document and collection profiling
+
+### 3.1 `DocumentProfiler` as a separate analysis subsystem
+
+`docling-core` includes `docling_core.transforms.profiler.DocumentProfiler`, which calculates structural statistics over `DoclingDocument` objects.
+
+This functionality is independent of the original conversion process. It can therefore operate on documents constructed manually, loaded from JSON, or produced by different Docling pipelines.
+
+Its two principal interfaces are:
+
+- `DocumentProfiler.profile_document(doc)` for one document.
+- `DocumentProfiler.profile_collection(documents, include_individual_stats=...)` for aggregate analysis of multiple documents.
+
+The returned objects use typed Pydantic statistics models and support ordinary serialization through `model_dump()` or `model_dump_json()`.
+
+### 3.2 Single-document statistics
+
+The profiler can report document characteristics including page count, text item count, table count, picture count, heading count, list items, code blocks and formulas.
+
+Additional fields include aggregate item counts, average items per page, source MIME type and information about pictures potentially requiring OCR.
+
+These measurements describe the constructed document representation. For example, `num_tables` counts recognized `TableItem` objects, not the number of logical tables necessarily present in the original file.
+
+That distinction is useful when profiling alternative pipeline outputs. A document with fewer detected tables may reflect a simpler source, but it might also reflect recognition failures or differences in layout classification.
+
+### 3.3 Collection-level distributions
+
+`profile_collection()` aggregates document statistics and provides descriptive measures such as means, distributions, deciles and histograms. The official example exposes aggregate fields for document counts, total pages, total pictures, total tables and page-count distributions.
+
+The interface accepts an iterator or generator of documents. With `include_individual_stats=False`, the profiler need not retain all individual-document statistics in its returned result.
+
+This supports collection-level analysis without constructing a single list containing every document beforehand.
+
+The memory benefit has a specific boundary: a document must still exist while it is being profiled, and the profiler's aggregate structures still consume memory. Generator input removes the need to retain the entire source collection simultaneously; it does not imply constant memory for arbitrary document complexity.
+
+### 3.4 Structural profiling versus extraction-quality diagnostics
+
+The profiler addresses a different question from `ConversionResult.confidence` or `ConversionResult.timings`.
+
+| Mechanism                     | What it measures                                     |
+| ----------------------------- | ---------------------------------------------------- |
+| `DocumentProfiler`            | Characteristics of the resulting structured document |
+| `ConversionResult.timings`    | Processing time spent in conversion stages           |
+| `ConversionResult.confidence` | Available model/parser confidence assessments        |
+| Document validation           | Internal schema and reference consistency            |
+
+Structural profiling is useful for identifying documents with unusual representation patterns, including unexpectedly few text items, many small elements, very high picture density or inconsistent table counts.
+
+It can also help characterize collection heterogeneity before selecting downstream chunking or serialization behavior.
+
+But none of these structural statistics establishes that the contents of a recognized table or OCR text are correct. Profiling is descriptive, not an independent source-fidelity evaluation system.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI+2
+
+
+
+Primary reference and implementation example:
+
+`https://github.com/docling-project/docling-core/blob/main/examples/document_profiling.py`
+
+Package description:
+
+`https://pypi.org/project/docling-core/2.105.0/`
+
+## 4. Advanced chunk serialization and context expansion
+
+### 4.1 Chunk serialization is independently configurable
+
+The standard chunkers operate on structured documents, but their text representation is controlled by a separate serializer layer.
+
+`ChunkingSerializerProvider` supplies a serializer for a given document, and `ChunkingDocSerializer` controls the conversion of individual document elements into chunk text.
+
+This permits changing how tables, pictures and other components are represented without changing the chunker's structural traversal or token-management algorithm.
+
+The official example illustrates replacing the default table serialization strategy with `MarkdownTableSerializer`. The default strategy represents certain table information in a key/value-oriented triplet format; the alternative produces a Markdown table.
+
+The distinction affects downstream embedding behavior. Flattening a table into triplets can emphasize row-header/value relationships, while Markdown may preserve a more familiar grid representation. Neither serialization guarantees retention of every aspect of the original `TableData`.
+
+A custom serializer can also include picture metadata and descriptions selectively, rather than treating all pictures as a single placeholder.
+
+### 4.2 OCR text nested in pictures is excluded by default
+
+This is a consequential interaction between document semantics and retrieval serialization.
+
+OCR text recognized inside a picture can be retained as `TextItem` children of a `PictureItem`. Those children may be present in the document's reference graph and serialized JSON.
+
+However, the default `HybridChunker` serializer uses `traverse_pictures=False`, so it does not normally include the picture's nested OCR text in generated chunks.
+
+The purpose is to prevent low-quality recognition artifacts from overwhelming retrieval content. Diagrams containing numbers, dense symbols or graphical patterns can produce large amounts of noisy OCR output.
+
+For documents containing meaningful text inside images, this default can also exclude relevant information from text-only retrieval.
+
+The supported mechanism for changing this behavior is to provide a custom `ChunkingSerializerProvider` returning a `ChunkingDocSerializer` configured with `MarkdownParams(traverse_pictures=True)`.
+
+This setting changes which document elements are traversed for serialization, not whether OCR runs during conversion.
+
+The architectural implication is that extraction completeness and indexing completeness are different properties. A retained OCR item can be absent from the chunked retrieval representation without being absent from the source document model.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling
+
+
+
+### 4.3 Expand retrieved chunks to larger structural units
+
+The `docling_core.transforms.chunker.chunk_expander` module provides:
+
+- `TreeChunkExpander`, which expands a chunk to the relevant containing document element or structure.
+- `PageChunkExpander`, which expands a chunk to the content of the containing page.
+
+Both operate using a source document and serializer rather than requiring arbitrary text-window reconstruction.
+
+This supports an important distinction between retrieval granularity and consumption granularity.
+
+A tokenizer-constrained chunk can be appropriate for indexing and nearest-neighbor search while being too narrow for subsequent interpretation. For example, a retrieved chunk from a table may contain only several rows, although interpreting it requires the full table and its headers.
+
+Expanding that chunk using the original document structure can recover a larger semantic unit after retrieval.
+
+Likewise, page expansion can provide surrounding page context for answering a question or inspecting source evidence.
+
+The expansion is not guaranteed to respect the original chunk token limit. It may substantially increase prompt size, especially when an entire table or page is included. The expansion strategy also inherits the selected serializer's decisions about picture traversal and content layers.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling+1
+
+
+
+### 4.4 Interaction with document hierarchy and metadata
+
+`HierarchicalChunker` maintains heading ancestry as it walks document structure, and its emitted chunk metadata can reference contributing `DocItem` objects and document origin.
+
+The serializer controls what text is emitted, while the chunker retains relationships needed to reconstruct context.
+
+This separation permits several kinds of derived representations from one document:
+
+- A concise, token-bounded representation for retrieval.
+- A richer representation including nested image text or descriptions.
+- An expanded semantic unit for a retrieved result.
+- A page-level representation for source-grounded interpretation.
+
+These are different views of the same document. Creating them need not require another PDF conversion, provided the structured document retains the required source information.
+
+Primary reference:
+
+`https://docling-project.github.io/docling/_generated/examples/advanced_chunking_and_serialization/`
+
+Chunking architecture:
+
+`https://docling-project.github.io/docling/concepts/chunking/`
+
+## 5. Native client for remote Docling conversion
+
+### 5.1 `DoclingServiceClient`
+
+Docling provides a dedicated Python client for its companion `docling-serve` service.
+
+The relevant installation surfaces are `docling-client` and the `docling-slim[service-client]` extra. The `docling-client` distribution is a convenience metapackage; its implementation is supplied through `docling-slim`.
+
+The main client interface is `docling.service_client.DoclingServiceClient`. `AsyncDoclingServiceClient` provides asynchronous equivalents.
+
+The high-level API deliberately resembles `DocumentConverter`, including `convert()` and `convert_all()`. A remote conversion can return a `ConversionResult` containing a normal `DoclingDocument`, so downstream document manipulation and export do not require adopting a different semantic representation.
+
+The equivalence is at the document API boundary, not at every operational detail. Remote conversion uses Docling Serve's supported request schema, model configuration and installed server capabilities. Arbitrary locally defined Python pipeline classes cannot simply be transferred to a remote server through the conversion request.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+### 5.2 Conversion and job-management modes
+
+The client supports several levels of interaction:
+
+| Interface                   | Functionality                                                                                        |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `convert()`                 | Submit and obtain a converted document through a high-level synchronous interface                    |
+| `convert_all()`             | Convert multiple documents with client-side concurrency control                                      |
+| `AsyncDoclingServiceClient` | Asynchronous conversion and job operations                                                           |
+| `submit()`                  | Submit an explicit conversion job                                                                    |
+| `watch()`                   | Observe an asynchronous job                                                                          |
+| `result()`                  | Retrieve a completed job's result                                                                    |
+| `submit_batch()`            | Submit batch-source processing requests                                                              |
+| `chunk()`                   | Request server-side chunk generation                                                                 |
+| Result targets              | Support service-compatible artifact targets, including object-storage and presigned-URL arrangements |
+
+These interfaces serve different purposes.
+
+High-level conversion minimizes the amount of service protocol machinery a caller must implement. Explicit job submission provides persistent task identifiers and control over result retrieval. Batch sources and result targets are relevant when processing data already held in storage accessible to the service.
+
+The remote client also exposes typed exceptions, including `ServiceUnavailableError`, `TaskTimeoutError`, `UsageLimitExceededError`, and `ResultExpiredError`, with a common `DoclingServiceClientError` base family.
+
+These failures are not necessarily equivalent to failures in local document parsing. A service can reject work, expire an artifact or become unavailable independently of whether the underlying document is parseable.
+
+### 5.3 Artifact retrieval and security
+
+The service supports result artifacts referenced through presigned URLs.
+
+The client includes an important defensive restriction: it normally refuses artifact downloads from private, loopback and link-local network addresses. This helps prevent an untrusted or compromised service from directing the client to internal network resources.
+
+`artifact_url_allowlist` permits explicitly authorized artifact-storage origins, including private-network services. The validation also considers redirects.
+
+This is separate from authentication to the Docling Serve API. It controls where the client may retrieve service-produced artifacts, not who may submit conversion jobs.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling
+
+
+
+### 5.4 Remote CLI
+
+`docling convert-remote` exposes remote conversion from the command line.
+
+Its configuration includes service URL, optional API key, selected input/output formats, concurrency, output paths and remote-job monitoring.
+
+Unlike local `docling convert`, the remote command does not expose controls that only make sense for local execution, such as CUDA device selection, local model-thread counts or parser debug visualizers.
+
+Remote conversion therefore removes the need to initialize conversion models in the calling process, but introduces HTTP transport, service compatibility, authentication, artifact retrieval, and service-lifetime dependencies.
+
+Primary references:
+
+`https://github.com/docling-project/docling/blob/main/packages/docling-client/README.md`
+
+`https://docling-project.github.io/docling/usage/api_server/rest_api/`
+
+`https://docling-project.github.io/docling/reference/cli/`
+
+## 6. Custom enrichment and post-conversion interpretation
+
+### 6.1 Enrichment as an extension mechanism
+
+The original guide describes the built-in picture, code, formula and chart enrichments. A separate capability is developing new document-item enrichment models.
+
+The relevant extension contracts include `BaseEnrichmentModel` and `BaseItemAndImageEnrichmentModel`.
+
+`BaseEnrichmentModel` supplies an item-oriented processing interface. An implementation determines which document elements it can process through `is_processable()` and receives batches through its callable interface.
+
+An enrichment can operate directly on `DoclingDocument` objects and populate the corresponding typed metadata.
+
+For image-dependent processing, `BaseItemAndImageEnrichmentModel` provides the conceptual contract for models that require both an item and its image evidence.
+
+This permits custom interpretation of already-detected elements rather than requiring a new page-layout model or source-format backend.
+
+### 6.2 Custom stages in the standard PDF pipeline
+
+The official picture-enrichment example demonstrates subclassing `StandardPdfPipeline`, supplying custom pipeline options, and adding an enrichment implementation through `enrichment_pipe`.
+
+The example uses a dummy picture classifier that creates structured classification metadata on `PictureItem.meta`.
+
+This demonstrates the extension interface, not a production classifier. An implementation must still provide its own inference or deterministic recognition logic, model loading, error handling and metadata semantics.
+
+The distinction between the major extension points is:
+
+| Extension point                | Responsibility                                                        |
+| ------------------------------ | --------------------------------------------------------------------- |
+| Format backend                 | Interpret source-format structures                                    |
+| OCR/layout/table engine plugin | Replace or specialize a reconstruction operation                      |
+| Custom conversion pipeline     | Define the processing sequence and model composition                  |
+| `BaseEnrichmentModel`          | Add interpretation to recognized document elements                    |
+| Post-conversion enrichment     | Interpret an existing document without reconstructing it from scratch |
+
+Custom enrichment is especially useful when source parsing and layout reconstruction are already satisfactory but additional semantic interpretation is required.
+
+### 6.3 Enriching a previously serialized document
+
+Docling's official example demonstrates enriching an existing `DoclingDocument` loaded from JSON.
+
+The process is conceptually:
+
+1. Load the existing document and preserve its structural graph.
+2. Identify eligible elements using `is_processable()`.
+3. Obtain corresponding image crops from the original source using provenance coordinates.
+4. Batch eligible elements and invoke the enrichment model.
+5. Store derived annotations in the existing document representation.
+
+The implementation uses `InputDocument`, `PyPdfiumDocumentBackend`, and `ItemAndImageEnrichmentElement` to re-access the PDF and construct element/image pairs.
+
+This does not repeat the entire initial PDF-to-document semantic reconstruction. It does, however, reopen the original source to obtain visual evidence. Thus, it is not an entirely source-independent operation.
+
+The source PDF must correspond to the document used to produce the saved JSON. If page numbering, page dimensions or provenance are inconsistent, an image crop may contain the wrong evidence even though the serialized document remains structurally valid.
+
+The example also demonstrates batching as an independent control. Larger batches may improve model inference throughput but increase the memory consumed by image crops and intermediate model inputs.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling+1
+
+
+
+### 6.4 Interaction with typed metadata
+
+Enrichment can populate `PictureMeta` and other structured metadata rather than attaching arbitrary caption strings.
+
+For example, a picture classifier can produce a `PictureClassificationMetaField` containing predictions with creator identifiers, class names and confidence values.
+
+This is useful when different enrichment operations must coexist without overwriting each other. A picture may retain its original provenance and image reference while acquiring additional classification or description information.
+
+There is nevertheless no automatic guarantee of semantic consistency across independently produced enrichments. Metadata supplied by custom models must be interpreted according to their own model contracts and confidence semantics.
+
+Primary references:
+
+`https://docling-project.github.io/docling/_generated/examples/develop_picture_enrichment/`
+
+`https://docling-project.github.io/docling/_generated/examples/enrich_doclingdocument/`
+
+`https://docling-project.github.io/docling/usage/enrichments/`
+
+## 7. Browser-rendered HTML and geometry-aware ingestion
+
+### 7.1 Parsing HTML versus rendering HTML
+
+Docling's HTML backend supports two materially different processing approaches.
+
+The default approach parses HTML source structure. `HTMLBackendOptions(render_page=True)` optionally invokes a headless browser to render the document and capture page images and element bounding boxes.
+
+The latter is useful when the document's visual arrangement contains information not adequately conveyed by the markup tree alone.
+
+It does not convert HTML ingestion into the standard PDF pipeline. The HTML backend still interprets the HTML document; the browser-rendering mode supplements its output with visual and geometric information.
+
+This capability is exposed through the `htmlrender` optional dependency family, which introduces a Playwright/browser runtime rather than depending only on ordinary HTML parsing.
+
+### 7.2 Rendering configuration
+
+The v2.145.0 `HTMLBackendOptions` class includes:
+
+| Control                                   | Functionality                                                              |
+| ----------------------------------------- | -------------------------------------------------------------------------- |
+| `render_page`                             | Activate headless-browser rendering                                        |
+| `render_page_width`, `render_page_height` | Set rendered page dimensions in CSS pixels                                 |
+| `render_page_orientation`                 | Portrait or landscape                                                      |
+| `render_print_media`                      | Use print-media emulation                                                  |
+| `render_wait_until`                       | Select Playwright's `load`, `domcontentloaded`, or `networkidle` condition |
+| `render_wait_ms`                          | Additional delay after page loading                                        |
+| `render_device_scale`                     | Device pixel scaling                                                       |
+| `render_full_page`                        | Capture one full-height image rather than paginating                       |
+| `render_dpi`                              | Output image DPI                                                           |
+| `page_padding`                            | Apply padding to the HTML body                                             |
+
+These settings can materially affect the resulting geometry. Viewport dimensions, font rendering, print styles, image loading and browser timing may change element positions or pagination.
+
+Consequently, browser-derived coordinates are properties of a particular rendered representation. They should not be treated as intrinsic, device-independent coordinates of the HTML source.
+
+### 7.3 HTML resource fetching and document furniture
+
+The same backend exposes additional controls:
+
+- `fetch_images` and `source_uri` govern retrieval and resolution of image resources.
+- `headers` and `headers_allowed_origins` control where resource-fetch credentials may be sent.
+- `add_title` can retain the HTML title as document furniture.
+- `infer_furniture` controls whether content preceding the first header is treated as furniture.
+- `max_image_data_base64_bytes`, `max_remote_image_bytes`, and `max_redirects` bound certain resource-fetching operations.
+
+The header-origin restriction is important for authenticated document resources. By default, request headers are not indiscriminately forwarded to arbitrary image hosts. Explicit origin configuration is required where resource retrieval spans authorized domains.
+
+The browser-rendering option and image-fetching option are separate concerns: rendering an HTML page does not imply that every externally referenced resource will be available or that every browser-side dependency is trusted.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+### 7.4 Architectural significance and limits
+
+Browser-assisted HTML ingestion bridges authored semantics and rendered appearance.
+
+It can reduce the need for a separate screenshot/DOM-coordinate extraction system when downstream document interpretation requires both structural HTML content and geometric information.
+
+Its limitations are those of browser-derived evidence: layout is sensitive to rendering configuration, asynchronous resources may not have finished loading, and executing browser-based page rendering has different isolation and trust implications from parsing static markup.
+
+Version-specific source:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/backend_options.py`
+
+Optional dependency information:
+
+`https://pypi.org/project/docling-slim/2.145.0/`
+
+## 8. Format-specific structural fidelity and extraction controls
+
+A common `DoclingDocument` representation does not imply that every backend extracts equivalent information. Several native-format backends expose controls that affect which authored structures are recognized, how they are grouped, and whether their visual representation is retained.
+
+### 8.1 Spreadsheet segmentation and selective worksheet ingestion
+
+`MsExcelBackendOptions` and `OdsBackendOptions` expose three particularly useful controls:
+
+| Option                    | Mechanism                                                                            | Consequence                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `sheet_names`             | Case-sensitive selection of worksheets                                               | Restricts conversion to named sheets                                 |
+| `gap_tolerance`           | Permits specified numbers of empty rows or columns between neighboring data clusters | Changes whether adjacent regions become one table or separate tables |
+| `treat_singleton_as_text` | Represents isolated populated cells as `TextItem` rather than one-cell `TableItem`   | Avoids treating every isolated label or note as a standalone table   |
+
+`gap_tolerance` is a structural interpretation parameter, not a missing-value imputation mechanism. Raising it can join table regions separated by intentional spacing, but may also incorrectly combine distinct tables.
+
+Likewise, `treat_singleton_as_text` changes item type. That can affect later table-specific processing, even though the original cell text remains available.
+
+Excel additionally exposes `parse_charts`, enabled by default in the tagged source, to recognize native workbook charts. Each supported chart becomes a `PictureItem` with classification and reconstructed tabular data. This is independent of `render_chart_images`, which optionally invokes LibreOffice to render chart images.
+
+The separation matters: chart data extraction does not require chart-image rendering. A chart can have usable structured data while having no retained raster image. Conversely, rendering an image does not improve the accuracy of the extracted chart series.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+### 8.2 Office chart images and heading semantics
+
+The DOCX and PPTX backends also expose `render_chart_images`. When enabled, they isolate native charts into temporary Office documents and use LibreOffice to render corresponding images.
+
+Chart metadata and reconstructed data remain available independently of this setting. The image path introduces a LibreOffice dependency and additional processing cost.
+
+For Word documents, `MsWordBackendOptions.use_outline_level_for_headings` provides another important semantic control.
+
+Word paragraphs can indicate outline depth through `w:outlineLvl`, even when their style names are localized or do not follow conventional heading naming. Docling can use this authored signal to recover heading semantics.
+
+The tradeoff is that Word styles may carry outline levels solely for table-of-contents participation. Treating every such style as a heading can promote content that was not intended to be a semantic heading. The option is enabled by default in the v2.145.0 source; disabling it prevents this fallback for otherwise unidentified heading styles.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 8.3 Apple iWork chart reconstruction
+
+`IWorkBackendOptions` supports selective Numbers sheet conversion through `sheet_names` and optional chart rendering for Numbers and Keynote through `render_chart_images`.
+
+This renderer differs from the native Office chart pathway. Numbers and Keynote do not store chart screenshots in the form Docling needs, so the backend rebuilds a chart from recovered data as a temporary Office chart and renders that through LibreOffice.
+
+Consequently, the generated image can preserve the chart type, data and title while not necessarily retaining original colors, fonts or visual styling. Some chart classes, including mixed, dual-axis, bubble and interactive charts, cannot be rendered by this mechanism.
+
+The backend can retain recognized chart classification and data even when rendering is disabled or unsupported. This is another case where data fidelity and presentation fidelity are separate dimensions.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 8.4 Source comments, email attachments and text decoding
+
+Additional format-specific behaviors are easily overlooked:
+
+| Format             | Native capability                                                                       | Limitation or qualification                                                               |
+| ------------------ | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| AsciiDoc           | `capture_comments` retains `//` comments and `////` blocks in the `NOTES` content layer | Enabled by default in v2.145.0, but normal exports omit that layer                        |
+| AsciiDoc           | `fetch_images` and `source_uri` resolve and retrieve referenced images                  | Resource fetching is separately configurable                                              |
+| EML / MSG          | `list_attachments` records attachment names and content types                           | Disabled by default; does not embed or recursively convert attachment binaries            |
+| Text-based formats | `TextBackendOptions.encoding` selects an explicit Python codec                          | Without an explicit codec, decoding uses BOM detection, UTF-8, then CP1252 before failing |
+
+Preserving comments in the document graph while omitting them from the default textual export is a meaningful example of how content-layer policy can change apparent extraction completeness.
+
+The text-decoding option is also important for archival material. An explicit codec avoids heuristic fallback, but it does not repair text already corrupted by an earlier decoding operation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+### 8.5 Declarative EBCDIC record parsing
+
+The EBCDIC backend goes beyond converting character encodings.
+
+`EbcdicBackendOptions` accepts an `EbcdicLayout` directly or through a JSON `layout_file`. The layout can describe fixed-format records, field positions and types, and optional record-type selectors for heterogeneous record streams.
+
+Supported field concepts include character data, signed and unsigned integers, packed decimals and zoned decimals. The backend also allows codec selection, record-count limits and control-character stripping.
+
+When a layout includes several record variants, a designated record-type field identifies which schema applies. The layout validator enforces distinct record names and selectors, preventing incompatible record classes from being silently merged.
+
+This supplies a declarative route from legacy fixed-record data into Docling's document representation without first constructing a separate bespoke record parser.
+
+It is fundamentally different from natural-language document extraction: the correctness of the result depends on an accurate record layout and codec, rather than learned page understanding.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 8.6 Additional recognized source extensions
+
+The supported-extension mapping also includes `.txt`, `.text`, `.qmd` and `.Rmd` / `.rmd` through Markdown-oriented ingestion paths.
+
+This is worth noting because an accepted filename extension does not establish a wholly separate parser or full support for every source language's executable semantics. A Quarto or R Markdown document can be ingested as text/markup without Docling executing its embedded code or reproducing its rendering engine.
+
+Primary sources:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/backend_options.py`
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/base_models.py`
+
+## 9. Selective serialization and portable document archives
+
+### 9.1 Serialization of selected document views
+
+`DoclingDocument.export_to_markdown()` and related exporters support considerably more than full-document export.
+
+Important controls include:
+
+| Parameter family                              | Functionality                                                |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| `from_element`, `to_element`                  | Select a range of body elements                              |
+| `labels`                                      | Restrict output by document item class                       |
+| `page_no`                                     | Select content associated with a specific page               |
+| `included_content_layers`                     | Include or exclude selected semantic layers                  |
+| `traverse_pictures`                           | Include text nested within picture items                     |
+| `enable_chart_tables`                         | Control the textual representation of available chart tables |
+| `include_annotations`, `allowed_meta_names`   | Select which supported annotations and metadata are emitted  |
+| `image_mode`, `image_dir`, `image_uri_prefix` | Determine image references and related artifact locations    |
+| `compact_tables`                              | Select a more compact table serialization                    |
+
+The filters operate against the document's structured representation, allowing different derived views without recreating the original document.
+
+The important distinction is between selecting content for an export and removing content from the underlying document. Excluding a content layer or item label from Markdown does not necessarily delete its corresponding object from `DoclingDocument`.
+
+Furthermore, body-element ranges and page filters are not interchangeable: body hierarchy can include items spanning several pages.
+
+### 9.2 YAML as structured interchange
+
+In addition to JSON, `docling-core` provides `save_as_yaml()` and `load_from_yaml()`.
+
+YAML serialization exposes comparable controls for embedded versus referenced images, artifact paths and coordinate or confidence precision.
+
+This is a structured interchange alternative, not a different extraction model. It preserves the semantics represented by the serialized document subject to serialization settings, but cannot recover source information that the conversion pipeline never captured.
+
+For machine-oriented integrations, the underlying typed schema and its version remain more important than the choice of JSON versus YAML.
+
+### 9.3 DocLang archives (`.dclx`)
+
+`save_as_doclang_archive()` creates a packaged DocLang artifact rather than a loose markup file.
+
+Its principal features include:
+
+- DocLang markup inside an OPC-style archive.
+- Page images retained under `pages/`.
+- Referenced picture assets retained under `assets/`.
+- `add_named_groups` to emit named grouping structures for compatible round-tripping.
+- `include_namespace` and `validate` for namespace-aware DocLang validation where the required validation backend is available.
+- `xsize` and `ysize` for the DocLang location-coordinate grid.
+
+The default picture-image mode is `REFERENCED`, and `PLACEHOLDER` is also supported. `EMBEDDED` is not supported for the archive, because images remain separate from the markup. Page images are included independently of whether picture references are retained.
+
+A `.dclx` file can therefore be a more convenient portable multimodal artifact than separate markup and image files.
+
+However, it should not be treated as an identical alternative to complete native `DoclingDocument` JSON. DocLang is its own representation with different schema conventions and round-trip considerations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling+2
+
+
+
+### 9.4 Chunked JSONL as a separate output contract
+
+The CLI supports `--to chunks`, with `--chunks-type`, `--chunks-max-tokens` and `--chunks-tokenizer` controlling chunk generation.
+
+This is a retrieval-oriented output, not the canonical `DoclingDocument` reference graph serialized to JSON.
+
+The distinction is significant for consumers expecting full document reconstruction. Chunk output may retain useful metadata and references, but should not be assumed to contain every source item, relationship, picture payload or provenance field needed to recreate the original structured document.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling
+
+
+
+Primary references:
+
+`https://docling-project.github.io/docling/reference/docling_document/`
+
+`https://docling-project.github.io/docling/reference/cli/`
+
+## 10. Conditional picture interpretation and inference metadata
+
+### 10.1 Selective picture description
+
+Docling's API-based picture description configuration provides `picture_area_threshold`, allowing the description stage to ignore picture regions below a configured relative area threshold.
+
+This is useful because not every detected picture is worth the cost of a VLM call. Small icons, graphical decorations and minor page artifacts may offer little semantic value.
+
+The threshold is geometric, not a semantic relevance classifier. A small diagram or symbol may still be important, while a large decorative background may not be. This is therefore a compute-selection mechanism, not a general guarantee that only informative pictures are processed.
+
+### 10.2 Per-picture inference-usage payloads
+
+`PictureDescriptionApiOptions.usage_response_key` specifies the response field from which the backend reads an API provider's usage payload.
+
+When configured, this data can be retained in the picture's description metadata. The official example retrieves it through:
+
+```
+picture.meta.description.get_custom_part()
+```
+
+The example combines `do_picture_description=True`, `enable_remote_services=True`, and `usage_response_key="usage"`.
+
+This creates a relationship between a picture's source identity, its generated description and metadata about the inference call that produced that description.
+
+The usage payload is provider-specific. A returned token count or usage object does not establish standardized billing units, monetary cost, or attribution of all processing overhead. Nor does a picture-level usage entry measure the local layout/OCR work required to produce the picture object.
+
+The supported mechanism is therefore best understood as preserving inference-provider accounting evidence alongside semantic output, rather than providing a complete cost-modeling subsystem.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling
+
+
+
+Primary reference:
+
+`https://docling-project.github.io/docling/_generated/examples/picture_description_api_usage/`
+
+## 11. Pipeline diagnostics, profiling and failure control
+
+### 11.1 Stage-specific visual diagnostics
+
+Docling's CLI exposes visual diagnostics for intermediate PDF processing stages:
+
+| CLI option                  | Inspected information  | Principal diagnostic purpose                                       |
+| --------------------------- | ---------------------- | ------------------------------------------------------------------ |
+| `--debug-visualize-cells`   | PDF-native text cells  | Identify parsing, text segmentation and native geometry problems   |
+| `--debug-visualize-ocr`     | OCR-recognized cells   | Inspect OCR positioning and coverage                               |
+| `--debug-visualize-layout`  | Layout clusters        | Investigate incorrect element classification or grouping           |
+| `--debug-visualize-tables`  | Recognized table cells | Inspect table structure and text-to-cell association               |
+| `--debug-vlm-native-output` | Unparsed VLM responses | Distinguish model-generation failures from output parsing failures |
+
+These diagnostics provide visibility into the representation before it becomes the final structured document.
+
+For example, a missing table may originate from several different failures: native text extraction may omit relevant cells, OCR may locate text incorrectly, layout detection may fail to identify the table, or table recognition may produce an invalid grid.
+
+The final `TableItem` representation alone generally cannot distinguish all these causes.
+
+Stage-specific visualization can therefore reduce the need to build independent instrumentation around parser, OCR, layout and table-model outputs.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling
+
+
+
+### 11.2 Conversion profiling and timeout semantics
+
+The CLI supports `--profiling` for conversion-stage timing summaries and `--save-profiling` for corresponding JSON output.
+
+These measurements complement the structural `DocumentProfiler` described in §3. Conversion profiling measures execution behavior; document profiling measures characteristics of the resulting document.
+
+`PipelineOptions.document_timeout` provides a per-document processing deadline. When the deadline is exceeded, Docling can return partial output with timeout errors rather than treating the timeout as an entirely opaque external exception.
+
+The result's timeout classification and conversion status should be considered together:
+
+- `PARTIAL_SUCCESS` can indicate that some useful document content was recovered.
+- Timeout errors establish that the conversion was interrupted.
+- Neither a partial result nor a completed progress bar establishes that every intended element was processed.
+
+`ConversionResult.has_timeout_errors()` provides a direct way to identify timeout-related failures.
+
+The CLI also supports `--fail-on` with `never`, `failure` and `partial` policies. This allows process exit status to distinguish fatal conversion failures from partially completed documents. It is operational behavior separate from the document's schema validity.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling+1
+
+
+
+### 11.3 Operational interaction
+
+Progress events, timeouts, profiling, conversion status and stage-specific debug output serve different purposes.
+
+Progress reveals which work has completed; timeouts bound processing; profiling identifies where time was spent; debugging shows what intermediate representations looked like; and `ConversionResult` records the final outcome.
+
+Together, they support a more informative extraction diagnostics model without requiring all observations to be embedded in `DoclingDocument` JSON.
+
+Primary references:
+
+`https://docling-project.github.io/docling/reference/cli/`
+
+`https://docling-project.github.io/docling/reference/pipeline_options/`
+
+`https://docling-project.github.io/docling/usage/advanced_options/`
+
+## 12. Additional speech-recognition engines and their output semantics
+
+### 12.1 Transformers-based ASR presets
+
+Beyond the Whisper backends described in the original guide, Docling supports speech-recognition models through an optional Transformers integration.
+
+The `docling-slim[feat-asr-transformers]` extra supplies this backend, with model presets exposed through `docling.datamodel.asr_model_specs`.
+
+Documented model families include:
+
+| Family                 | Presets                                   | Distinctive consideration                                     |
+| ---------------------- | ----------------------------------------- | ------------------------------------------------------------- |
+| IBM Granite Speech 5.0 | `GRANITE_SPEECH_5_0_2B`                   | Transformer-based speech transcription                        |
+| Granite TurboCTC       | `GRANITE_SPEECH_5_0_470M_TURBOCTC`, `_NC` | Separate checkpoint variants and licensing                    |
+| Granite Speech 4.1     | `GRANITE_SPEECH_4_1_2B`, `_PLUS`          | Additional model-native annotation capabilities               |
+| NVIDIA Nemotron Speech | `NEMOTRON_SPEECH_STREAMING_EN_0_6B`       | Streaming-oriented checkpoint used through file transcription |
+| NVIDIA Parakeet        | `PARAKEET_CTC_1_1B`                       | CTC-based transcription alternative                           |
+
+Model availability is not equivalent to uniform output capabilities. Runtime, checkpoint, hardware and license requirements remain model-specific.
+
+For example, the `TURBOCTC_NC` checkpoint carries a CC-BY-NC-SA-4.0 license, distinct from the main Docling Python package license.
+
+On Apple MPS, the documented Granite and TurboCTC implementations use FP32 weights to avoid a BF16 normalization problem, increasing memory requirements relative to lower-precision execution.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling
+
+
+
+### 12.2 Important output limitations
+
+Docling's Transformers-based ASR pathway currently produces one transcript segment covering the entire audio duration.
+
+Consequently, these presets do not automatically provide the segment-level temporal structure associated with every Whisper configuration.
+
+The Granite Speech 4.1 Plus checkpoint can have native speaker and timestamp annotations, but its current Docling integration does not map those annotations into structured document tracks.
+
+Likewise, a checkpoint bearing streaming in its name does not establish that the Docling ASR pipeline exposes real-time streaming transcription. The documented integration performs file transcription.
+
+This illustrates the difference between model-native capabilities and what a particular document-conversion adapter exposes.
+
+For timed retrieval, subtitle production or speaker-grounded interpretation, the relevant integration's actual timestamp and segmentation behavior matters more than the model name alone.
+
+Primary reference:
+
+`https://docling-project.github.io/docling/usage/processing_audio_media/`
+
+## 13. LaTeX TikZ rendering and execution-trust boundaries
+
+### 13.1 Optional TikZ-to-image rendering
+
+`LatexBackendOptions` supports optional rendering of TikZ diagrams through the Tectonic engine.
+
+The main controls are:
+
+| Option                           | Behavior                                                      |
+| -------------------------------- | ------------------------------------------------------------- |
+| `tikz_engine="tectonic"`         | Selects Tectonic-based diagram rendering                      |
+| `tikz_engine_trusted_input`      | Explicitly permits rendering for trusted documents            |
+| `tikz_engine_timeout`            | Bounds rendering time for an individual diagram               |
+| `tikz_engine_allow_shell_escape` | Allows shell escape for trusted input when explicitly enabled |
+| `parse_timeout`                  | Bounds LaTeX document parsing time                            |
+| `source_uri`                     | Resolves relative source includes and graphics paths          |
+
+When rendering succeeds, TikZ content can become an image in the resulting document.
+
+When rendering is disabled, refused by the trust setting, or fails, Docling can preserve the original TikZ source as code rather than silently discarding the diagram.
+
+This distinguishes source preservation from visual interpretation: retaining TikZ instructions is not equivalent to understanding the resulting diagram, and rasterizing the diagram does not automatically recover semantic relationships between its visual components.
+
+### 13.2 Trust and resource implications
+
+Tectonic can access files available to its process. The upstream source explicitly states that its source pre-check is not a security boundary.
+
+Consequently, `tikz_engine_trusted_input=True` is an execution-trust declaration, not simply a fidelity or rendering-quality option.
+
+`tikz_engine_allow_shell_escape` remains disabled by default and should be distinguished from the broader trusted-input setting.
+
+For untrusted LaTeX sources, rendering in an appropriately isolated process is materially different from merely enabling a parser option in a privileged application process.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 13.3 Distinct Docling security controls
+
+Several advanced features introduce separate security decisions:
+
+| Mechanism                   | Relevant control                   | What it permits                                                       |
+| --------------------------- | ---------------------------------- | --------------------------------------------------------------------- |
+| Remote model inference      | `enable_remote_services`           | Transmitting document-derived data to configured remote services      |
+| External processing plugins | `allow_external_plugins`           | Loading installed third-party processing implementations              |
+| Model repository code       | `--trust-remote-code`              | Executing compatible locally loaded model repository code             |
+| LaTeX rendering             | `tikz_engine_trusted_input`        | Running Tectonic over trusted source material                         |
+| HTML resource fetching      | Fetch settings and allowed origins | Retrieving external content and determining where headers may be sent |
+| Referenced JSON images      | `allow_local_images`               | Loading local file-based images associated with serialized documents  |
+| Remote result artifacts     | `artifact_url_allowlist`           | Permitting additional artifact-download destinations                  |
+
+These controls are not interchangeable.
+
+Disabling remote inference does not mean locally loaded model code is trustworthy. Refusing external plugins does not eliminate the risks of browser execution or document-triggered native processing. Conversely, an authorized artifact destination does not establish the semantic correctness of its contents.
+
+The useful architectural distinction is between data egress, code execution, resource retrieval and parser isolation. Each requires separate treatment because the relevant permissions and trust assumptions differ.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling+2
+
+
+
+Primary references:
+
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/backend_options.py`
+
+`https://docling-project.github.io/docling/reference/cli/`
+
+## 14. Structured content transformation examples: PII and translation
+
+Two official examples demonstrate a further consequence of the document model: source conversion can be followed by content rewriting while retaining the surrounding document structure.
+
+### 14.1 PII detection and obfuscation
+
+The PII example converts a PDF, runs a Hugging Face token-classification model or an optional GLiNER model, and replaces recognized entity strings inside text and table content with stable, type-based identifiers.
+
+The example demonstrates several useful mechanisms:
+
+- Reuse of converted `TextItem` and `TableItem` content.
+- Entity detection as an operation separate from OCR and layout reconstruction.
+- Consistent replacement identifiers for repeated recognized entities.
+- Export of the modified document without re-running the original conversion.
+
+The entity-recognition models are external dependencies. Docling supplies the structured content and transformation surface; it does not independently guarantee comprehensive PII identification.
+
+The example is explicitly demonstrative. In particular, replacing recognized text does not establish that sensitive information has been eliminated from every other retained representation, such as images, original text fields, metadata, source files or intermediate objects.
+
+Source:
+
+`https://docling-project.github.io/docling/_generated/examples/pii_obfuscate/`
+
+### 14.2 Translation while retaining document objects
+
+The translation example traverses text and table items, updates their textual content, and preserves the surrounding document representation.
+
+Its `translate()` function is a placeholder returning the original input. Actual translation requires an external implementation.
+
+The capability demonstrated is therefore structured content rewriting, not a complete native machine-translation engine.
+
+The distinction is consequential: replacing text in an existing graph can preserve tables, picture relationships and some provenance, but translated content may have different lengths, line breaks and spatial requirements. Original coordinates should not be interpreted as faithful geometry for a newly typeset translation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+
+Docling+1
+
+
+
+Source:
+
+`https://docling-project.github.io/docling/_generated/examples/translate/`
+
+## 15. Capability interactions and architectural consequences
+
+The additional capabilities form several important combinations.
+
+Typed document editing + validation + serialization. A `DoclingDocument` can function as a mutable semantic intermediate representation. Document construction and correction can occur through native typed operations, with structural validation before producing different output formats. This avoids many failure modes associated with directly manipulating interconnected JSON arrays.
+
+Selective ingestion + progress events + diagnostics. Page-range conversion, explicit input limits, progress callbacks, stage visualizations and timeout reporting make it possible to bound and inspect extraction work through Docling's own interfaces. These mechanisms remain distinct from model confidence and structural completeness.
+
+Retained provenance + post-conversion enrichment. Existing document elements can be enriched using their original source geometry without repeating all semantic reconstruction stages. This separates initial extraction from later interpretations while making source availability and coordinate fidelity explicit dependencies.
+
+Document-aware chunking + customizable serialization + expansion. Retrieval-sized chunks can use concise representations while later stages recover larger document units. This avoids treating the text used for indexing as the only available representation of the source. Picture traversal and content-layer configuration must nevertheless be chosen explicitly where completeness matters.
+
+Remote conversion + the local document model. A Python client can delegate conversion and model execution to Docling Serve while returning a familiar structured-document interface. The resulting portability is strongest at the document-data boundary; deployment capabilities, artifact access, service failures and configuration remain separate.
+
+Format-specific parsing + common semantic representation. Spreadsheet chart data, Word outline levels, AsciiDoc notes and declarative fixed-record layouts can enter a shared document model without losing the distinction between authored source semantics and visually inferred structure. That distinction remains essential for interpreting the fidelity of the result.
+
+Taken together, these capabilities extend Docling's role from document ingestion into a broader structured-document processing substrate: conversion produces typed content, transformation changes its structure, enrichment adds interpretation, profiling characterizes it, serialization produces controlled views, and remote execution changes where those operations run.
+
+The common `DoclingDocument` representation makes these operations composable. It does not by itself guarantee source fidelity, complete semantic preservation, lossless round-tripping, or correctness of externally supplied models. Those guarantees remain specific to each format backend, pipeline, transformation, and output representation.

@@ -1375,3 +1375,1044 @@ These capabilities allow the library to serve several roles: a conventional migr
 The areas where its limitations matter most are automated interpretation of schema changes, database-specific DDL semantics, large data transformations, multi-tenant orchestration, and distributed deployment coordination.
 
 The underlying design is particularly strong where SQLAlchemy's metadata and dialect abstractions accurately represent the database structures being managed, and where custom operations or established companion libraries can extend that model instead of creating separate migration machinery.
+
+# Alembic 1.20.x — Advanced Capability Addendum
+
+Research date: November 1, 2026 | Target: Alembic 1.20.1 | Companion to the Alembic 1.20.0 Comprehensive Python Library Capability Overview
+
+## Scope and orientation
+
+This addendum extends the original guide with capabilities, execution semantics, extension mechanisms, and version-specific correctness considerations that were previously omitted or underdeveloped. It assumes familiarity with the original guide's revision graph, migration operations, autogeneration system, batch migrations, and runtime architecture.
+
+Version baseline: Alembic 1.20.1 is the latest stable release verified for this addendum. The upstream changelog dates it October 21, 2026; PyPI records publication on October 22, 2026. Alembic 1.20.2 appears in the upstream changelog without a release date and is not part of the stable capability baseline. Alembic 1.20.x requires Python 3.10+ and SQLAlchemy 2.0+.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI+1
+
+
+
+The additions develop five architectural distinctions:
+
+1. Representable versus detectable schema changes: Alembic can execute operations that its autogeneration system cannot independently discover.
+2. Abstract DDL versus database-native transitions: SQLAlchemy dialect options and Alembic transaction controls can express specialized database operations without replacing the migration framework.
+3. Migration operations versus execution environments: The programmable environment can supply runtime parameters, construct migration contexts, and coordinate revision execution.
+4. Structured transformations versus generated source: Schema differences can be represented, modified, rendered, and executed through separable interfaces.
+5. Revision correctness versus operational correctness: Schema equivalence, historical upgrade execution, transaction semantics, and physical database behavior require different forms of verification.
+
+## 1. Additional autogeneration limitations and schema normalization
+
+### 1.1 Operation support does not imply automatic change detection
+
+Alembic's autogeneration system has a narrower coverage boundary than the `Operations` API. The following distinctions are particularly consequential.
+
+| Schema construct                         | Native operation or representation                                                 | Autogeneration limitation                                                      |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Primary-key constraints                  | `create_primary_key()`, `drop_constraint()`                                        | Some standalone PK additions/removals are not detected                         |
+| PostgreSQL exclusion constraints         | `create_exclude_constraint()`, `drop_constraint()`                                 | Standalone EXCLUDE changes are not generally detected                          |
+| Standalone sequences                     | SQLAlchemy `Sequence`, DDL constructs, or custom migration operations              | Sequence addition/removal is not implemented in built-in autogeneration        |
+| Emulated enums                           | SQLAlchemy `Enum`, often represented through character types and CHECK constraints | Reflected structure may not reveal the original enum intent                    |
+| Named CHECK constraints                  | Opt-in name-based comparison                                                       | Same-name expression changes remain invisible                                  |
+| Backend-specific constraints and indexes | Dialect-specific SQLAlchemy constructs                                             | Detection depends on the dialect's reflection fidelity and Alembic comparators |
+
+Alembic's official documentation explicitly identifies incomplete detection for standalone primary-key and exclusion constraints, and unavailable detection for standalone sequences. These should be treated as coverage limitations, not universal statements that every change involving these objects is ignored.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+An important architectural consequence follows: a generated migration with no operations is not a general proof that every database object agrees with the intended schema. The comparison proves only that the enabled comparators found no actionable differences among objects they successfully inspected.
+
+Source: [https://alembic.sqlalchemy.org/en/latest/autogenerate.html](https://alembic.sqlalchemy.org/en/latest/autogenerate.html?utm_source=chatgpt.com)
+
+### 1.2 Schema normalization before comparison
+
+Some apparent schema differences arise because database reflection reconstructs a different representation from the original SQLAlchemy metadata.
+
+A database without native enum support, for example, may represent an `Enum` as a character column plus a CHECK constraint. That reflected combination is not uniquely identifiable as an enum: it could have been deliberately modeled as a character column with a constraint.
+
+SQLAlchemy supplies two useful reflection-time extension points:
+
+- `DDLEvents.column_reflect()` can reinterpret or augment a reflected column's metadata before Alembic compares it.
+- `DDLEvents.after_parent_attach()` can inspect reflected constraints as they are attached and remove constructs that should not participate in the intended comparison.
+
+These mechanisms can supply domain knowledge that generic reflection cannot recover.
+
+The resulting distinction is between three different extension strategies:
+
+| Strategy                     | Changes                                          | Best-suited problem                                                           |
+| ---------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Reflection normalization     | The database-side SQLAlchemy representation      | The database schema is semantically equivalent but reflects differently       |
+| Custom comparison            | How reflected and declared objects are evaluated | The objects are represented correctly, but need specialized equivalence rules |
+| Custom autogeneration plugin | Which objects and differences are discovered     | A schema-object family is outside standard comparison coverage                |
+
+These approaches are complementary. Normalizing a reflected enum may avoid implementing a specialized comparator; detecting changes to independently managed sequences generally requires additional object discovery and comparison machinery.
+
+The official documentation demonstrates custom sequence autogeneration using metadata annotations, schema-level comparison, and custom `MigrateOperation` directives. This illustrates how the framework can be extended without introducing a separate migration history.
+
+Sources:
+
+[https://alembic.sqlalchemy.org/en/latest/autogenerate.html](https://alembic.sqlalchemy.org/en/latest/autogenerate.html?utm_source=chatgpt.com)
+
+[https://alembic.sqlalchemy.org/en/latest/api/autogenerate.html](https://alembic.sqlalchemy.org/en/latest/api/autogenerate.html?utm_source=chatgpt.com)
+
+### 1.3 Constraint identity and comparison fidelity
+
+The distinction between comparing structural identity and comparing SQL expression equivalence is particularly important for constraints.
+
+Named CHECK autogeneration assumes that matching names identify the same constraint. It does not attempt to prove that the underlying expressions are equivalent.
+
+This is different from comparing ordinary column properties or basic foreign-key structures. SQL expressions can be reformatted, normalized, rewritten, or supplied with implicit casts by a database.
+
+For example, PostgreSQL may reflect:
+
+- An inequality using `<>` rather than `!=`.
+- A `BETWEEN` expression as separate lower and upper comparisons.
+- An `IN` predicate as an expression involving `ANY` and an array.
+- Additional type casts around stored expressions.
+
+Two textually different expressions can therefore be equivalent, while two constraints with identical names can have different semantics.
+
+The built-in name-based CHECK comparator deliberately prioritizes stable identity over expression reconciliation. This makes it useful for detecting named constraint existence, but insufficient as a general CHECK-expression validator.
+
+For systems requiring expression-sensitive comparison, a custom comparator must explicitly define the level of equivalence it promises. Comparing formatted SQL text, parsed expression trees, database-normalized expressions, and actual logical equivalence are different problems.
+
+Source: [https://alembic.sqlalchemy.org/en/latest/autogenerate.html](https://alembic.sqlalchemy.org/en/latest/autogenerate.html?utm_source=chatgpt.com)
+
+## 2. Column-operation semantics and PostgreSQL-native DDL
+
+### 2.1 `add_column()` is not equivalent to creating a complete SQLAlchemy column
+
+`Operations.add_column()` accepts a SQLAlchemy `Column` object but intentionally implements only the properties and constraints that can be expressed through its migration operation.
+
+| `Column` property                                 | `op.add_column()` behavior                              |
+| ------------------------------------------------- | ------------------------------------------------------- |
+| Name, type, nullable                              | Used to construct the column addition                   |
+| `server_default`                                  | Produces a database-side default                        |
+| `default`                                         | Python-side default; does not produce database DDL      |
+| `unique=True`                                     | Ignored; create the unique constraint separately        |
+| `index=True`                                      | Ignored; create the index separately                    |
+| `primary_key=True`                                | Does not ordinarily emit an inline PK declaration       |
+| `primary_key=True` with `inline_primary_key=True` | Requests an inline PK declaration on supported backends |
+| `ForeignKey(...)`                                 | Normally creates a separate constraint statement        |
+| `ForeignKey(...)` with `inline_references=True`   | Requests the foreign-key reference within `ADD COLUMN`  |
+
+These behaviors are explicitly documented in Alembic 1.20.1, including the ignored `unique` and `index` flags.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+The independent primary-key controls are deliberate. A column marked `primary_key=True` can influence dialect-specific type behavior without necessarily specifying that a complete primary-key constraint should be generated inline.
+
+Similarly, adding a column with `ForeignKey` and `inline_references=True` is not the same operation as adding the column and subsequently creating a standalone foreign-key constraint. The latter can have different validation and locking behavior.
+
+This matters when automatically converting SQLAlchemy schema declarations into migration operations: a general `Column` is a schema-description object, whereas `add_column()` is a specific database transformation with intentionally narrower semantics.
+
+The `if_not_exists` option changes failure behavior where supported, but does not establish that an existing column has the expected type, nullability, default, or constraints.
+
+Source: [https://alembic.sqlalchemy.org/en/latest/ops.html](https://alembic.sqlalchemy.org/en/latest/ops.html?utm_source=chatgpt.com)
+
+### 2.2 PostgreSQL type conversions through `postgresql_using`
+
+`Operations.alter_column()` supports the PostgreSQL-specific `postgresql_using` keyword argument.
+
+It supplies the SQL expression used by:
+
+```
+ALTER TABLE ... ALTER COLUMN ... TYPE ... USING ...
+```
+
+This enables Alembic to describe a type alteration and its associated value conversion as one database DDL operation.
+
+An illustrative migration:
+
+```
+from alembic import opimport sqlalchemy as safrom sqlalchemy.dialects import postgresqldef upgrade():    op.alter_column(        "events",        "payload",        type_=postgresql.JSONB(),        existing_type=sa.Text(),        postgresql_using="payload::jsonb",    )
+```
+
+This relies on every existing `payload` value being convertible to JSONB; invalid values will cause the database operation to fail.
+
+The `postgresql_using` argument is raw SQL, not a SQLAlchemy expression that Alembic automatically quotes or parameterizes. Its identifiers and expressions must be valid for the destination database.
+
+There is also a separate SQLAlchemy PostgreSQL index option named `postgresql_using`, which selects an index access method such as GIN or GiST. The two parameters have the same spelling but completely different meanings.
+
+Architectural significance: The native conversion clause can replace a separately orchestrated sequence of SQL statements where the database supports expressing the transformation within `ALTER TABLE`. It does not eliminate the physical cost of rewriting a table or provide automatic protection against irreversible conversion.
+
+Sources:
+
+[https://alembic.sqlalchemy.org/en/latest/ops.html](https://alembic.sqlalchemy.org/en/latest/ops.html?utm_source=chatgpt.com)
+
+[https://docs.sqlalchemy.org/en/21/dialects/postgresql.html](https://docs.sqlalchemy.org/en/21/dialects/postgresql.html?utm_source=chatgpt.com)
+
+### 2.3 Deferred constraint validation through `postgresql_not_valid`
+
+SQLAlchemy's PostgreSQL dialect supports the `postgresql_not_valid` argument for eligible `CheckConstraint` and `ForeignKeyConstraint` constructs. Alembic passes this option through constraint-creation operations.
+
+For example:
+
+```
+op.create_foreign_key(    "fk_orders_customer",    "orders",    "customers",    ["customer_id"],    ["id"],    postgresql_not_valid=True,)
+```
+
+This generates a foreign-key addition using PostgreSQL's `NOT VALID` option.
+
+Instead of scanning all existing rows when the constraint is installed, PostgreSQL can defer validation of historical data while enforcing the new constraint against subsequent inserts and updates.
+
+Validation can then occur separately:
+
+```
+op.execute(    "ALTER TABLE orders "    "VALIDATE CONSTRAINT fk_orders_customer")
+```
+
+The separation is meaningful because the validation step uses a less restrictive lock than the initial full validation typically would. PostgreSQL can validate the pre-existing rows without preventing ordinary concurrent updates.
+
+The behavior has several limits:
+
+- `NOT VALID` is applicable to eligible constraints added through `ALTER TABLE`, not an arbitrary constraint type.
+- Existing violations remain possible until validation succeeds.
+- Subsequent writes are still subject to the constraint.
+- Alembic does not automatically schedule or track deferred validation as an independent lifecycle state.
+- The database determines locking and validation behavior.
+
+For large tables, this mechanism can separate constraint enforcement from the potentially expensive verification of historical data. It also permits existing violations to be corrected while preventing new ones from being introduced.
+
+This differs from `inline_references=True`, which controls how a new foreign-key column and its reference are expressed. Deferred validation applies to an independently added constraint and deliberately leaves it unvalidated until a later operation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+1
+
+
+
+Sources:
+
+[https://docs.sqlalchemy.org/en/21/dialects/postgresql.html](https://docs.sqlalchemy.org/en/21/dialects/postgresql.html?utm_source=chatgpt.com)
+
+[https://www.postgresql.org/docs/current/sql-altertable.html](https://www.postgresql.org/docs/current/sql-altertable.html?utm_source=chatgpt.com)
+
+### 2.4 Concurrent PostgreSQL index creation and autocommit
+
+Alembic accepts SQLAlchemy's PostgreSQL-specific index options through `create_index()` and `drop_index()`.
+
+The option `postgresql_concurrently=True` produces PostgreSQL's concurrent index DDL on compatible server versions.
+
+For example:
+
+```
+from alembic import opdef upgrade():    with op.get_context().autocommit_block():        op.create_index(            "ix_events_external_id",            "events",            ["external_id"],            postgresql_concurrently=True,        )
+```
+
+PostgreSQL does not permit `CREATE INDEX CONCURRENTLY` inside a regular transaction block. Alembic's `autocommit_block()` supplies the relevant execution boundary.
+
+The important interaction is that entering an autocommit block commits the preceding migration transaction. Consequently, the index operation cannot be treated as part of an indivisible transaction containing earlier DDL.
+
+PostgreSQL concurrent index creation also differs substantially from ordinary index creation:
+
+| Property                        | Ordinary index creation                | Concurrent index creation                           |
+| ------------------------------- | -------------------------------------- | --------------------------------------------------- |
+| PostgreSQL transaction block    | Permitted                              | Not permitted                                       |
+| Concurrent table writes         | More restrictive                       | Intended to permit ongoing writes                   |
+| Table scans and synchronization | Conventional index build               | Multiple phases and transaction waits               |
+| Failure state                   | Transactional rollback where supported | May leave an invalid index                          |
+| Execution time                  | Often lower overhead                   | May take longer because of concurrency coordination |
+
+A failed concurrent index build can leave a catalog-visible invalid index. PostgreSQL may continue maintaining such an index on writes even though it is not eligible for normal query planning.
+
+SQLAlchemy 2.1 exposes invalid-index state through reflection, including `postgresql_invalid` within reflected index dialect options. That provides an inspection mechanism, but Alembic does not turn it into an automatic retry or recovery system.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+1
+
+
+
+The database also restricts concurrent builds on partitioned tables and concurrent index-build concurrency on a single table.
+
+Sources:
+
+[https://docs.sqlalchemy.org/en/21/dialects/postgresql.html](https://docs.sqlalchemy.org/en/21/dialects/postgresql.html?utm_source=chatgpt.com)
+
+[https://www.postgresql.org/docs/current/sql-createindex.html](https://www.postgresql.org/docs/current/sql-createindex.html?utm_source=chatgpt.com)
+
+### 2.5 Additional PostgreSQL index and constraint options
+
+Alembic's generic index and constraint operations can accept selected dialect-specific arguments that SQLAlchemy understands.
+
+Examples include:
+
+| Option                          | Underlying capability                                              |
+| ------------------------------- | ------------------------------------------------------------------ |
+| `postgresql_using` on an index  | Select B-tree, GIN, GiST, BRIN, or another supported access method |
+| `postgresql_where`              | Partial-index predicate                                            |
+| `postgresql_ops`                | Operator classes for indexed columns or expressions                |
+| `postgresql_include`            | Covering-index payload columns                                     |
+| `postgresql_with`               | Index storage parameters                                           |
+| `postgresql_tablespace`         | Index tablespace placement                                         |
+| `postgresql_nulls_not_distinct` | PostgreSQL 15+ unique-null semantics                               |
+| `postgresql_concurrently`       | Concurrent index creation or removal                               |
+| `postgresql_not_valid`          | Deferred CHECK or foreign-key validation                           |
+
+The options belong to SQLAlchemy's PostgreSQL dialect or the database itself; Alembic provides the migration operation and execution context.
+
+Not every dialect option applies to every Alembic operation, and support for emitting DDL is distinct from reliable autogeneration comparison of that option.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+
+
+An especially useful composition is PostgreSQL's ability to create a unique index concurrently and subsequently attach it as a primary-key or unique constraint using `ALTER TABLE ... ADD CONSTRAINT ... USING INDEX`.
+
+The concurrent index operation can be expressed through Alembic's index API. The subsequent attachment may require direct PostgreSQL DDL through `op.execute()`, because the generic `create_primary_key()` operation does not expose every PostgreSQL constraint-attachment form.
+
+This combination can reduce the blocking associated with building a large uniqueness-enforcing index, subject to database-specific restrictions such as column nullability and index compatibility.
+
+Source: [https://www.postgresql.org/docs/current/sql-altertable.html](https://www.postgresql.org/docs/current/sql-altertable.html?utm_source=chatgpt.com)
+
+## 3. Programmable migration environments and configuration
+
+### 3.1 `env.py` is an executable extension boundary
+
+Alembic's migration environment is not merely a configuration file that establishes a database connection.
+
+The `EnvironmentContext` abstraction supplies a programmable boundary between migration commands, the script directory, database connectivity, and execution-specific behavior.
+
+Within `env.py`, the `alembic.context` module is a proxy for the active `EnvironmentContext` instance.
+
+This enables environment logic to customize:
+
+- Connection creation and transaction ownership.
+- Migration arguments and backend selection.
+- Online versus offline execution.
+- Revision-generation hooks and rendering.
+- Schema ownership and comparison rules.
+- Migration execution callbacks and output streams.
+
+An especially important distinction is that `EnvironmentContext` can be instantiated directly, independently of a top-level `alembic.command` invocation.
+
+The documented mechanism combines `Config`, `ScriptDirectory`, `EnvironmentContext`, and `ScriptDirectory.run_env()`:
+
+```
+from alembic.config import Configfrom alembic.script import ScriptDirectoryfrom alembic.runtime.environment import EnvironmentContextconfig = Config()config.set_main_option(    "script_location",    "example_package:migrations",)script = ScriptDirectory.from_config(config)def migration_callback(revision, migration_context):    # Custom revision-selection or inspection logic.    ...with EnvironmentContext(    config,    script,    fn=migration_callback,):    script.run_env()
+```
+
+The example is schematic; a functional environment must supply an appropriate callback and configure the database or offline dialect.
+
+`script.run_env()` loads the migration environment. When that environment calls `run_migrations()`, Alembic invokes the callback supplied through `fn`.
+
+This is a lower-level execution interface than `command.upgrade()` or `command.current()`.
+
+It is useful when the surrounding program needs to control the environment lifecycle itself. For ordinary migration execution, Alembic's command functions remain the higher-level abstraction.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+Source: [https://alembic.sqlalchemy.org/en/latest/api/runtime.html](https://alembic.sqlalchemy.org/en/latest/api/runtime.html?utm_source=chatgpt.com)
+
+### 3.2 Runtime arguments passed directly into revisions
+
+`EnvironmentContext.run_migrations(**kw)` forwards keyword arguments to the `upgrade()` and `downgrade()` functions of the selected revision files.
+
+This requires the revision function signatures to accept those arguments. Alembic's `script.py.mako` template can be modified so that newly generated revisions consistently expose them.
+
+For example, a custom migration environment may invoke:
+
+```
+context.run_migrations(    engine_name="analytics",)
+```
+
+A corresponding custom revision template could define:
+
+```
+def upgrade(engine_name: str) -> None:    ...def downgrade(engine_name: str) -> None:    ...
+```
+
+The argument becomes part of the execution context rather than the static revision graph.
+
+The mechanism is used by Alembic's multi-database example environment, where one revision file may contain distinct operations for different engines.
+
+It can also convey other execution-specific context, subject to the migration authors defining consistent signatures and behavior.
+
+A consequential limitation is historical reproducibility. If the effect of a revision depends on a runtime argument, the revision identifier alone does not describe which variant was executed.
+
+The argument does not automatically become part of the version table. If that distinction matters, a surrounding system must preserve the relevant execution context separately.
+
+Source: [https://alembic.sqlalchemy.org/en/latest/api/runtime.html](https://alembic.sqlalchemy.org/en/latest/api/runtime.html?utm_source=chatgpt.com)
+
+### 3.3 CLI-supplied environment parameters
+
+Alembic provides two independent command-line argument mechanisms for custom environment logic.
+
+| Mechanism | Accessor                                | Semantics                                                 |
+| --------- | --------------------------------------- | --------------------------------------------------------- |
+| `-x`      | `EnvironmentContext.get_x_argument()`   | Open-ended user-defined parameters                        |
+| `--tag`   | `EnvironmentContext.get_tag_argument()` | One arbitrary tag for environment-specific interpretation |
+
+`get_x_argument(as_dictionary=True)` interprets supplied `key=value` arguments as a dictionary. Without that option, the arguments remain a list.
+
+For example, `alembic -x phase=metadata upgrade head` can convey a phase selector to `env.py`.
+
+These values are not interpreted by Alembic's revision graph. The environment or migration scripts must explicitly define their meaning.
+
+The official cookbook demonstrates conditional migration logic using this mechanism.
+
+There is an important distinction between using CLI arguments as environment selection and using them to change the meaning of a revision. Selecting a database connection generally preserves the revision's intended transformation. Making a revision perform different schema changes depending on a flag can result in databases reporting the same revision while having materially different structures.
+
+Source: [https://alembic.sqlalchemy.org/en/latest/cookbook.html](https://alembic.sqlalchemy.org/en/latest/cookbook.html?utm_source=chatgpt.com)
+
+### 3.4 Revision templates and generation-time arguments
+
+The migration environment also exposes additional controls over how revisions are authored.
+
+`script.py.mako` is a Mako source template from which Alembic constructs new revision files. It can be extended to include custom imports, function signatures, declarations, metadata, and other consistently generated elements.
+
+`EnvironmentContext.configure(template_args=...)` supplies additional template variables during revision generation when the environment participates.
+
+The `revision_environment=True` configuration option causes the environment to run during ordinary revision creation rather than only when autogeneration requires it.
+
+This enables a separation between:
+
+| Mechanism                     | Applies when              | Changes                                               |
+| ----------------------------- | ------------------------- | ----------------------------------------------------- |
+| `template_args`               | Revision generation       | Values available to the source template               |
+| `script.py.mako`              | Revision generation       | Structure and contents of generated Python revisions  |
+| `process_revision_directives` | Before revision rendering | Structured migration directives and revision creation |
+| `run_migrations(**kw)`        | Migration execution       | Arguments received by revision functions              |
+| `-x` / `--tag`                | Command invocation        | Execution environment parameters                      |
+
+These are different stages. Template arguments determine generated source; execution arguments affect the behavior of already-generated revisions.
+
+A customized template does not retroactively change historical migration files, and custom function signatures must remain compatible with the environment that executes those files.
+
+Source: [https://alembic.sqlalchemy.org/en/latest/api/runtime.html](https://alembic.sqlalchemy.org/en/latest/api/runtime.html?utm_source=chatgpt.com)
+
+### 3.5 INI, TOML, and programmatic configuration are not interchangeable
+
+Alembic introduced `pyproject.toml` support in 1.16.0, but several of its configuration APIs intentionally retain different behavior.
+
+`Config` supports `file_` for INI files and `toml_file` for TOML configuration. Either or both can be provided, or a configuration can be constructed entirely through Python.
+
+The key distinctions are:
+
+| Configuration API      | Reads INI             | Reads TOML         | Notable behavior                       |
+| ---------------------- | --------------------- | ------------------ | -------------------------------------- |
+| `get_main_option()`    | Yes                   | No                 | Uses the active INI section            |
+| `get_section_option()` | Yes                   | No                 | Reads a named INI section              |
+| `get_alembic_option()` | Yes                   | Yes                | INI takes precedence over TOML         |
+| `set_main_option()`    | Programmatic override | No                 | Writes to the INI-backed configuration |
+| `toml_alembic_config`  | No                    | Yes                | Exposes TOML `[tool.alembic]` data     |
+| `Config.attributes`    | Not a file setting    | Not a file setting | Carries arbitrary Python objects       |
+
+For `get_alembic_option()`, the `-n/--name` selector changes the INI section consulted, but the corresponding TOML section remains `[tool.alembic]`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+The two formats also have different native value representations. INI options are string-oriented, whereas TOML configuration can contain arrays and dictionaries.
+
+This affects configuration consumers that assume a value is always a string.
+
+Programmatic configurations have another important boundary: standard generated environments may attempt to initialize logging through `logging.fileConfig()`. A `Config()` instance constructed without an INI file may not contain the necessary logging sections, so an environment that supports programmatic configuration must account for that.
+
+`Config.attributes` is the appropriate place for passing arbitrary non-string objects such as active connections. Those objects are not equivalent to configuration values serialized in INI or TOML.
+
+Source: [https://alembic.sqlalchemy.org/en/latest/api/config.html](https://alembic.sqlalchemy.org/en/latest/api/config.html?utm_source=chatgpt.com)
+
+## 4. Additional structured-operation and dialect extension APIs
+
+### 4.1 Rendering migration operation trees independently
+
+`alembic.autogenerate.render_python_code()` renders an existing `UpgradeOps` or `DowngradeOps` object into Python migration source.
+
+Unlike `command.revision()`, it does not require writing a new revision file.
+
+A representative use:
+
+```
+from alembic.autogenerate import (    produce_migrations,    render_python_code,)migration_script = produce_migrations(    migration_context,    target_metadata,)source = render_python_code(    migration_script.upgrade_ops,    migration_context=migration_context,)
+```
+
+This example assumes `migration_context` and `target_metadata` have already been constructed.
+
+The rendering helper also accepts options such as:
+
+- `render_as_batch`, to use batch-operation syntax.
+- `render_item`, to customize the representation of individual constructs.
+- `imports`, to supply imports for the rendered code.
+- `sqlalchemy_module_prefix`, `alembic_module_prefix`, and `user_module_prefix`, to control generated references.
+
+Its role is deliberately narrow: it converts an operation tree into Python text. It does not execute the operations, validate their safety, write the surrounding revision metadata, or advance the version table.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+This makes a useful architectural distinction possible:
+
+| Representation                | What it provides                        | What it does not provide                  |
+| ----------------------------- | --------------------------------------- | ----------------------------------------- |
+| `compare_metadata()` result   | Difference tuples                       | Full structured migration semantics       |
+| `produce_migrations()` result | Structured operations and containers    | A finalized historical revision           |
+| `Rewriter`                    | Transformations of operation structures | Database validation of the resulting plan |
+| `render_python_code()`        | Python source from operation structures | Migration execution or history updates    |
+| `Operations.invoke()`         | Execution of operation directives       | Automatic revision-history lifecycle      |
+
+These mechanisms can support independent inspection and transformation of proposed changes without parsing generated Python code or SQL strings.
+
+When multiple engines participate, the operation model can contain several `UpgradeOps` and `DowngradeOps` collections with separate tokens. Tools consuming that representation must inspect the corresponding lists rather than assuming one upgrade block.
+
+Source: [https://alembic.sqlalchemy.org/en/latest/api/autogenerate.html](https://alembic.sqlalchemy.org/en/latest/api/autogenerate.html?utm_source=chatgpt.com)
+
+### 4.2 The lower-level `DefaultImpl` extension layer
+
+Alembic's public operation plugins provide new migration directives. Below them, `alembic.ddl.impl.DefaultImpl` defines the backend implementation of migration operations.
+
+This distinction is important because different databases may require different sequences of actions to implement the same abstract schema transformation.
+
+Alembic supplies implementations such as `PostgresqlImpl`, `MySQLImpl`, `MSSQLImpl`, and `SQLiteImpl`.
+
+The underlying `DefaultImpl` API exposes functionality including:
+
+| Extension point                     | Responsibility                                                 |
+| ----------------------------------- | -------------------------------------------------------------- |
+| `compare_type()`                    | Dialect-specific type equivalence                              |
+| `compare_server_default()`          | Backend-aware default comparison                               |
+| `compare_indexes()`                 | Index comparison using dialect-specific signatures             |
+| `compare_unique_constraint()`       | Constraint comparison behavior                                 |
+| `autogen_column_reflect()`          | Adjust reflected columns during autogeneration                 |
+| `correct_for_autogen_constraints()` | Reconcile reflected constraint/index representations           |
+| `requires_recreate_in_batch()`      | Determine when a batch operation requires table reconstruction |
+| `cast_for_batch_migrate()`          | Adjust value conversion during batch copying                   |
+| `prep_table_for_batch()`            | Prepare backend structures before reconstruction               |
+| `render_ddl_sql_expr()`             | Render expressions for DDL contexts                            |
+| `render_type()`                     | Control migration-source rendering of particular SQL types     |
+| `start_migrations()`                | Initialize implementation state for a migration run            |
+| `version_table_impl()`              | Construct a dialect-appropriate Alembic version table          |
+
+For example, SQLite's implementation controls when a requested alteration must become a table recreation. PostgreSQL's batch implementation can prepare constraints before replacing a table so that replacement objects do not conflict with existing constraint names.
+
+MySQL's implementation includes specialized comparison of native ENUM value changes.
+
+SQL Server's implementation accommodates backend-specific behavior such as `IDENTITY INSERT` handling during data insertion.
+
+These behaviors are not simply SQL string formatting. They may alter the operations or preparation required to carry out a migration.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+Source: [https://alembic.sqlalchemy.org/en/latest/api/ddl.html](https://alembic.sqlalchemy.org/en/latest/api/ddl.html?utm_source=chatgpt.com)
+
+### 4.3 Choosing the appropriate extension boundary
+
+The extension layers solve different problems.
+
+| Requirement                                          | Relevant abstraction                                     |
+| ---------------------------------------------------- | -------------------------------------------------------- |
+| Introduce a new migration action                     | `MigrateOperation` and operation registration            |
+| Supply execution behavior for that action            | `Operations.implementation_for()`                        |
+| Discover a new object type during autogeneration     | Custom autogeneration comparator                         |
+| Normalize database reflection                        | SQLAlchemy reflection events or dialect reflection hooks |
+| Change generic operation behavior for a backend      | `DefaultImpl` or specialized implementation class        |
+| Change generated Python without changing its meaning | Rendering hooks                                          |
+| Transform an existing operation plan                 | `Rewriter` or revision directive processing              |
+| Change output after Python source is written         | Post-write hooks                                         |
+
+The distinction between custom operations and dialect implementations is especially consequential.
+
+A custom operation can represent something Alembic does not natively model, such as a specialized database object.
+
+A dialect implementation addresses how an existing abstract operation behaves on a particular backend, including differences in DDL sequencing, reflection, or transactional behavior.
+
+The `DefaultImpl` extension surface is more tightly coupled to Alembic's implementation architecture than high-level migration directives. Its usefulness is greatest for specialized dialect integrations or framework-level database support, where overriding low-level behavior avoids duplicating an entire operation stack.
+
+### 4.4 Customizing the Alembic version-table definition
+
+One less obvious `DefaultImpl` hook is `version_table_impl()`.
+
+Added in Alembic 1.14, it allows third-party dialect implementations to supply a different SQLAlchemy `Table` definition for the Alembic version table.
+
+The table must still follow Alembic's essential requirements, including a string-valued `version_num` column.
+
+This is distinct from the public runtime options that merely configure the version table's name, schema, or primary-key behavior.
+
+It can accommodate database-specific table requirements without replacing Alembic's revision tracking. However, it does not make a version table a complete record of execution parameters, data-transform outcomes, or schema drift.
+
+Source: [https://alembic.sqlalchemy.org/en/latest/api/ddl.html](https://alembic.sqlalchemy.org/en/latest/api/ddl.html?utm_source=chatgpt.com)
+
+## 5. Additional execution semantics and backend-specific behavior
+
+### 5.1 `op.execute()` is intentionally a resultless operation
+
+`Operations.execute()` accepts executable SQLAlchemy Core constructs or SQL text, but does not return a database result set.
+
+This design preserves compatibility with Alembic's offline execution mode, in which operations are compiled to SQL text rather than executed against a connection.
+
+For operations requiring database results, online migrations can instead use:
+
+```
+connection = op.get_bind()result = connection.execute(statement)
+```
+
+Here, `statement` must be an appropriate SQLAlchemy executable.
+
+The distinction is important because the two execution interfaces have different guarantees.
+
+| Interface                 | Online behavior                           | Offline behavior                                   |
+| ------------------------- | ----------------------------------------- | -------------------------------------------------- |
+| `op.execute()`            | Execute SQL without returning a result    | Emit SQL                                           |
+| `op.get_bind().execute()` | Use the active SQLAlchemy connection      | Cannot provide ordinary live query results         |
+| `op.inline_literal()`     | Supply an inline-rendered SQL value       | Supply a literal compatible with script generation |
+| `op.bulk_insert()`        | Insert rows through the migration context | Render INSERT statements with literal values       |
+
+When `op.execute()` receives a string, Alembic converts it into SQLAlchemy's `text()` construct. Consequently, colon-prefixed expressions may be interpreted as bind parameters. A literal colon may need to be escaped.
+
+SQLAlchemy bind parameters are generally preferable for application queries, but offline migration SQL has no DBAPI execution step in which parameters can be supplied separately.
+
+For that reason, Alembic supports literal rendering. This mechanism is intended for controlled migration content, not arbitrary untrusted runtime input.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+Source: [https://alembic.sqlalchemy.org/en/latest/ops.html](https://alembic.sqlalchemy.org/en/latest/ops.html?utm_source=chatgpt.com)
+
+### 5.2 `bulk_insert(multiinsert=False)` and literal rendering
+
+`Operations.bulk_insert()` normally uses an executemany-style approach in online mode when inserting multiple rows.
+
+However, when individual values are constructed with `op.inline_literal()`, Alembic documents `multiinsert=False` as the compatible execution form.
+
+That setting causes individual INSERT statements to be issued, allowing the literal expressions to be rendered correctly instead of being passed as ordinary bound parameters.
+
+The tradeoff is between efficient parameterized batch execution and the ability to emit special literal expressions consistently across online and offline environments.
+
+For small seed-data migrations, this difference may be insignificant. For large data transfers, individual inserts can be substantially less attractive than database-native bulk operations or set-oriented SQL.
+
+The `multiinsert` setting does not turn Alembic into a generalized high-throughput data-loading framework. Its role is to make migration-oriented insertion work correctly under different SQL rendering modes.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+Source: [https://alembic.sqlalchemy.org/en/latest/ops.html](https://alembic.sqlalchemy.org/en/latest/ops.html?utm_source=chatgpt.com)
+
+### 5.3 Raw offline output versus executable migration SQL
+
+`EnvironmentContext.static_output(text)` writes literal text to Alembic's offline SQL output stream.
+
+Unlike an ordinary SQL operation, this text is not treated as a DDL statement. Alembic does not automatically add statement terminators or backend batch separators.
+
+This can be used to emit comments, explanatory markers, or other script content that should remain outside SQL compilation.
+
+It provides a different layer of control from `op.execute()`, which submits an operation to the active migration context for execution or compilation.
+
+Offline output also has backend-specific formatting controls:
+
+| Option                   | Default             | Purpose                                                  |
+| ------------------------ | ------------------- | -------------------------------------------------------- |
+| `mssql_batch_separator`  | `GO`                | Separate SQL Server command batches                      |
+| `oracle_batch_separator` | `/`                 | Separate Oracle script execution units                   |
+| `output_buffer`          | Configurable        | Control the destination text stream                      |
+| `literal_binds`          | Disabled by default | Attempt automatic literal rendering                      |
+| `starting_rev`           | Configurable        | Specify the assumed starting revision for SQL generation |
+
+Batch separators are significant because they are conventions used by SQL execution clients, not simply additional SQL statement terminators.
+
+For example, SQL Server's `GO` is recognized by client tooling and script processors rather than being ordinary T-SQL sent directly to the server.
+
+The emitted SQL therefore has a consumer-side execution contract. A program that executes it must correctly handle the relevant dialect's batch conventions.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation+1
+
+
+
+Source: [https://alembic.sqlalchemy.org/en/latest/api/runtime.html](https://alembic.sqlalchemy.org/en/latest/api/runtime.html?utm_source=chatgpt.com)
+
+### 5.4 Per-revision execution callbacks and transaction visibility
+
+The `on_version_apply` hook receives one callback invocation for each migration step after that step's operations have executed, but before the surrounding transaction is finalized.
+
+The callback receives keyword arguments including:
+
+| Argument   | Meaning                                            |
+| ---------- | -------------------------------------------------- |
+| `ctx`      | Active `MigrationContext`                          |
+| `step`     | `MigrationInfo` describing the revision transition |
+| `heads`    | Current revision frontier                          |
+| `run_args` | Keyword arguments supplied to `run_migrations()`   |
+
+The hook provides an instrumentation point that avoids modifying individual revision files.
+
+Potential uses include migration progress reporting, recording revision transitions, and associating execution diagnostics with specific migration steps.
+
+However, a successful callback invocation does not prove that the encompassing transaction eventually committed.
+
+A later migration step or transaction failure can still cause rollback, subject to the database's transactional behavior.
+
+For diagnostics recorded through the same database transaction, rollback can also remove the diagnostic records. For externally emitted telemetry, a recorded event may survive even when the database transaction does not.
+
+This distinction matters when interpreting migration audit records.
+
+The callback is an execution-observation interface, not a transactional outbox or a distributed commit protocol.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+Source: [https://alembic.sqlalchemy.org/en/latest/api/runtime.html](https://alembic.sqlalchemy.org/en/latest/api/runtime.html?utm_source=chatgpt.com)
+
+### 5.5 SQL Server constraint removal and identity behavior
+
+SQL Server associates some column properties with separately named constraint objects. The names may not be known to a migration author.
+
+Alembic provides special options for `drop_column()`:
+
+| Option                        | SQL Server-specific behavior                                               |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `mssql_drop_check=True`       | Discover and remove a CHECK constraint before dropping the column          |
+| `mssql_drop_default=True`     | Discover and remove the column's DEFAULT constraint                        |
+| `mssql_drop_foreign_key=True` | Discover and remove a single foreign-key constraint referencing the column |
+
+These options construct dynamic SQL using SQL Server system catalogs and then remove the identified constraint.
+
+The `mssql_drop_foreign_key` option is documented as supporting a column with exactly one such foreign-key constraint. It is not a general-purpose dependency resolver for arbitrary multi-constraint configurations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+SQL Server also requires special handling for certain inserts into identity columns. Alembic's `MSSQLImpl` participates in generating the necessary `IDENTITY INSERT` behavior around relevant bulk insertion operations.
+
+These capabilities illustrate that dialect-aware migration execution can involve inspection, preparatory statements, or changes to the operation sequence rather than only translating SQL syntax.
+
+Sources:
+
+[https://alembic.sqlalchemy.org/en/latest/ops.html](https://alembic.sqlalchemy.org/en/latest/ops.html?utm_source=chatgpt.com)
+
+[https://alembic.sqlalchemy.org/en/latest/api/ddl.html](https://alembic.sqlalchemy.org/en/latest/api/ddl.html?utm_source=chatgpt.com)
+
+## 6. Historical migration testing and verification
+
+### 6.1 Schema-state checks and migration-history tests answer different questions
+
+Alembic's native commands can assess detectable schema differences and whether the database has reached the expected revision heads.
+
+They do not, by themselves, establish that every historical upgrade executes successfully from an empty schema or that downgrades have the intended behavior.
+
+The third-party `pytest-alembic` project supplies tests designed for these additional questions.
+
+| Test                               | What it establishes                                                                                                      |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `test_upgrade`                     | The revision history can execute forward from base to head                                                               |
+| `test_up_down_consistency`         | Downgrade execution succeeds across the tested history                                                                   |
+| `test_model_definitions_match_ddl` | Applying the history produces schema DDL consistent with the declared models, within autogeneration's detection coverage |
+| `test_single_head_revision`        | The revision history has one head                                                                                        |
+
+The package integrates with pytest and permits migration-specific tests and configuration.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pytest-alembic.readthedocs.io\&sz=32)
+
+Pytest Alembic 0.13.2 documentation
+
+
+
+These are companion-library capabilities, not features built into Alembic itself.
+
+There are two important qualifications.
+
+First, `test_single_head_revision` assumes a deliberately linearized migration history. Alembic supports valid multiple-head and multiple-base topologies, so one head is not a universal requirement.
+
+Second, successfully exercising migrations does not prove that all possible production data states are compatible. A migration that succeeds on an empty database may fail when existing rows violate a newly introduced constraint or conversion assumption.
+
+Source: [https://pytest-alembic.readthedocs.io/en/latest/quickstart.html](https://pytest-alembic.readthedocs.io/en/latest/quickstart.html?utm_source=chatgpt.com)
+
+### 6.2 Optional tests and stronger validation semantics
+
+`pytest-alembic` also documents additional experimental checks, including `downgrade_leaves_no_trace` and `all_models_register_on_metadata`.
+
+The former is stricter than simply verifying that downgrade functions execute: it examines whether an upgrade followed by downgrade leaves the database schema in an equivalent state according to the available comparison machinery.
+
+The latter addresses a separate source of autogeneration errors: model definitions may exist in Python code but never be imported into the metadata supplied to Alembic.
+
+These experimental tests should not be treated as having the same stability guarantees as the package's standard built-in checks.
+
+The larger distinction is between three categories of correctness:
+
+| Category                       | Question                                                                                                        |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Revision-graph correctness     | Is the dependency history coherent and executable in the expected order?                                        |
+| Schema correctness             | Does the resulting database structure agree with the target description?                                        |
+| Data and execution correctness | Do the migrations preserve required data invariants and operate correctly on relevant existing database states? |
+
+Alembic and its testing extensions provide machinery for evaluating parts of each category, but none makes the other categories automatic.
+
+A downgrade can be executable without being lossless, and a schema comparison can succeed while omitting database objects outside its supported detection scope.
+
+Sources:
+
+[https://pytest-alembic.readthedocs.io/en/latest/](https://pytest-alembic.readthedocs.io/en/latest/?utm_source=chatgpt.com)
+
+[https://alembic.sqlalchemy.org/en/latest/autogenerate.html](https://alembic.sqlalchemy.org/en/latest/autogenerate.html?utm_source=chatgpt.com)
+
+## 7. SQLAlchemy 2.1 integration: additional schema DDL and lifecycle semantics
+
+Alembic 1.20.1 supports both SQLAlchemy 2.0 and SQLAlchemy 2.1. However, the versions expose materially different SQLAlchemy schema capabilities.
+
+These changes do not introduce new Alembic revision-management abstractions, but they affect the database objects and SQL constructs available to migration authors.
+
+### 7.1 Native `CREATE VIEW` and `CREATE TABLE AS SELECT`
+
+SQLAlchemy 2.1 introduces the following DDL constructs:
+
+| SQLAlchemy capability | Purpose                                                          |
+| --------------------- | ---------------------------------------------------------------- |
+| `CreateView`          | Construct a database view from a SQLAlchemy SELECT               |
+| `CreateTableAs`       | Construct a table from the results of a SELECT                   |
+| `SelectBase.into()`   | Express a table-creation operation from a SELECT                 |
+| `CreateView.table`    | Expose a generated SQLAlchemy `Table` representation of the view |
+| `CreateTableAs.table` | Expose the resulting table's generated schema representation     |
+
+The constructs use SQLAlchemy's SQL compilation and dialect infrastructure rather than requiring every definition to be expressed through handwritten SQL strings.
+
+They can participate in direct DDL execution and, where supported, SQLAlchemy's `MetaData.create_all()` lifecycle.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+
+
+This changes the integration boundary for Alembic migrations that create views or tables from queries.
+
+Previously, such operations frequently required raw SQL or custom DDL objects. SQLAlchemy 2.1 now supplies more of that SQL-generation machinery natively.
+
+However, the following distinctions remain:
+
+- SQLAlchemy's `CreateView` can construct and execute a view definition.
+- Alembic's operation system can execute suitable SQLAlchemy DDL constructs.
+- Alembic does not consequently gain general built-in view-change detection, replaceable-object history, or automatic view-definition comparison.
+- Third-party extensions and custom autogeneration comparators remain relevant for declarative version management of such objects.
+
+In particular, a view's SELECT definition may need specialized comparison or replacement semantics even though its initial creation can be represented through SQLAlchemy Core.
+
+Sources:
+
+[https://docs.sqlalchemy.org/en/21/changelog/migration_21.html](https://docs.sqlalchemy.org/en/21/changelog/migration_21.html?utm_source=chatgpt.com)
+
+[https://docs.sqlalchemy.org/en/21/core/metadata.html](https://docs.sqlalchemy.org/en/21/core/metadata.html?utm_source=chatgpt.com)
+
+### 7.2 PostgreSQL named-type lifecycle changes
+
+SQLAlchemy 2.1 changes its treatment of database-native named types, especially PostgreSQL `ENUM` and `DOMAIN`.
+
+These types are more strongly associated with `MetaData` rather than with an individual `Table`.
+
+Consequential changes include:
+
+| Behavior                    | SQLAlchemy 2.1 semantics                               |
+| --------------------------- | ------------------------------------------------------ |
+| Named-type ownership        | Associated more directly with `MetaData`               |
+| Default schema              | Inherits the `MetaData` schema by default              |
+| `Table.drop()`              | Does not automatically drop shared named types         |
+| `MetaData.drop_all()`       | Drops named types after their dependent tables         |
+| `SchemaType.inherit_schema` | Deprecated                                             |
+| `CheckFirst`                | Adds finer control over schema-object existence checks |
+
+These changes better represent the database's ownership model for named types that can be shared across multiple tables.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+
+
+They also affect migration generation and historical stability.
+
+A PostgreSQL enum may be a separate database schema object even when its use is expressed through a SQLAlchemy column type. Dropping a column or table does not necessarily imply that the enum itself should be removed.
+
+Similarly, a change in SQLAlchemy's default schema-inheritance behavior can affect the schema qualification of generated DDL.
+
+The Alembic 1.20.1 fix for PostgreSQL `DOMAIN` rendering, described below, is particularly relevant because it improves how these richer type definitions are reproduced in generated migration source.
+
+Source: [https://docs.sqlalchemy.org/en/21/changelog/migration_21.html](https://docs.sqlalchemy.org/en/21/changelog/migration_21.html?utm_source=chatgpt.com)
+
+### 7.3 Computed-column persistence semantics
+
+SQLAlchemy 2.1 also changes its PostgreSQL computed-column compilation behavior in response to PostgreSQL 18.
+
+PostgreSQL 18 introduced virtual computed columns and made `VIRTUAL` the default when a persistence form is not explicitly specified.
+
+SQLAlchemy 2.1 reflects this behavior: an unspecified `Computed.persisted` does not necessarily imply the same generated DDL across PostgreSQL versions.
+
+To express a stored computed column explicitly, SQLAlchemy supports `Computed(..., persisted=True)`.
+
+This distinction matters for migrations because virtual and stored generated columns have different physical storage and computation behavior.
+
+It is not merely a textual variation in the generated SQL. An implicit default that changes with server version can alter the resulting database object.
+
+Source: [https://docs.sqlalchemy.org/en/21/changelog/migration_21.html](https://docs.sqlalchemy.org/en/21/changelog/migration_21.html?utm_source=chatgpt.com)
+
+## 8. Alembic 1.20.1 corrections and unreleased 1.20.2 behavior
+
+### 8.1 Released 1.20.1 fixes
+
+Alembic 1.20.1 is predominantly a correctness release. Several changes directly affect functionality covered in the original guide.
+
+| Area                                            | Behavior corrected in 1.20.1                                                                                                                                 | Engineering significance                                  |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| Empty comments                                  | Empty-string table and column comments are compared as equivalent to no stored comment on databases that do not preserve the distinction                     | Avoids persistent false-positive migrations               |
+| PostgreSQL `DOMAIN`                             | Autogenerated source retains `check`, `not_null`, `default`, `collation`, `constraint_name`, `schema`, `create_type`, and properly rendered underlying types | Prevents loss of important type-definition properties     |
+| PostgreSQL computed columns                     | Reflection-added casts such as `::regconfig` or `::text` no longer cause certain false-positive comparison warnings                                          | Improves comparison reliability for generated expressions |
+| PostgreSQL expression indexes                   | More forms of casts, nested casts, and ordering modifiers are correctly handled during index comparison                                                      | Reduces spurious index recreation                         |
+| PostgreSQL identity columns                     | Fixes invalid or incomplete `ALTER COLUMN` DDL in cases where `existing_server_default` was omitted                                                          | Corrects migration execution behavior                     |
+| Plugin entry points                             | Module-valued `alembic.plugins` entry points now load correctly                                                                                              | Restores documented plugin distribution behavior          |
+| Dialect-specific constraint arguments           | Additional constraint options survive autogeneration rendering                                                                                               | Preserves vendor-specific DDL semantics                   |
+| SQLAlchemy 2.1 type-generated CHECK constraints | Prevents duplicate explicit CHECK constraints during table autogeneration                                                                                    | Avoids invalid migration output                           |
+| `CreateTableOp.from_table()`                    | Prevents duplicate type-generated CHECK constraints when directly invoking derived create-table operations                                                   | Improves structured-operation execution fidelity          |
+
+All of these changes are described in the released 1.20.1 changelog.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+Source: [https://alembic.sqlalchemy.org/en/latest/changelog.html](https://alembic.sqlalchemy.org/en/latest/changelog.html?utm_source=chatgpt.com)
+
+### 8.2 Plugin entry-point compatibility
+
+The 1.20.1 plugin-loading correction merits a specific compatibility note.
+
+The formal Alembic plugin framework supports Python package entry points under `alembic.plugins`.
+
+Before 1.20.1, a third-party entry point referring directly to a plugin module, as documented by Alembic, could cause `import alembic` to fail with a `TypeError`.
+
+Version 1.20.1 corrects this behavior.
+
+An entry point referring to a collection of modules remains accepted for compatibility, but now emits a deprecation warning.
+
+The distinction is between the introduction of a plugin registration API in 1.18.0 and the later correction of a particular plugin distribution/loading mechanism. A plugin author targeting 1.20.0 cannot assume that every entry-point form documented for the plugin framework works correctly in that release.
+
+Source: [https://alembic.sqlalchemy.org/en/latest/changelog.html](https://alembic.sqlalchemy.org/en/latest/changelog.html?utm_source=chatgpt.com)
+
+### 8.3 Constraint argument preservation requires compatible SQLAlchemy versions
+
+The 1.20.1 fixes to constraint rendering have an important dependency boundary.
+
+Alembic now preserves dialect-specific arguments on constraints that participate in certain autogenerated operations, including arguments such as `postgresql_not_valid`.
+
+However, preservation of those arguments in autogenerated `op.create_table()` directives additionally requires one of:
+
+- SQLAlchemy 2.0.55 or later in the 2.0 series.
+- SQLAlchemy 2.1.5 or later in the 2.1 series.
+
+Earlier SQLAlchemy releases could lose these arguments while copying `Table` structures, independently of Alembic's own rendering logic.
+
+This is an example of a capability whose effective availability depends on both the migration library and its underlying schema library.
+
+The declared minimum SQLAlchemy requirement of Alembic 1.20.1 does not guarantee the corrected `create_table()` behavior.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+Source: [https://alembic.sqlalchemy.org/en/latest/changelog.html](https://alembic.sqlalchemy.org/en/latest/changelog.html?utm_source=chatgpt.com)
+
+### 8.4 Unreleased 1.20.2 fix: expression indexes during batch recreation
+
+Not released in 1.20.1
+
+The upstream changelog contains a pending 1.20.2 correction for expression indexes created inside `Operations.batch_alter_table()`.
+
+Under the affected behavior, an index creation directive containing expressions such as:
+
+```
+func.lower(column("name"))
+```
+
+or an ordering expression such as:
+
+```
+column("name").desc()
+```
+
+could lose the expression when batch reconstruction recreated the table.
+
+Instead of preserving the requested expression, Alembic could create the index against the plain column names.
+
+A `text()` expression could instead result in a `KeyError`.
+
+This is more serious than a cosmetic source-rendering problem: the resulting database may contain an index with different semantics from the requested operation.
+
+The documented pending fix preserves the complete expressions of indexes created within the batch operation, in the same way that existing indexes are preserved during reconstruction.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://alembic.sqlalchemy.org\&sz=32)
+
+Alembic 1.20.1 documentation
+
+
+
+The distinction concerns specifically the interaction of newly created expression indexes with batch table recreation. It does not establish that all expression-index operations are affected.
+
+As of November 1, 2026, the upstream changelog lists the fix under version 1.20.2 without a release date. It should therefore be treated as a development-branch correction, not functionality guaranteed by Alembic 1.20.1.
+
+Source: [https://alembic.sqlalchemy.org/en/latest/changelog.html](https://alembic.sqlalchemy.org/en/latest/changelog.html?utm_source=chatgpt.com)
+
+## 9. Capability and version boundaries
+
+The additions above highlight several boundaries worth preserving when evaluating or extending Alembic.
+
+| Responsibility                            | Native provider                                   | Important boundary                                                              |
+| ----------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Revision ordering and state               | Alembic                                           | Does not capture every execution parameter or physical schema property          |
+| Candidate migration discovery             | Alembic autogeneration                            | Limited to enabled comparators and reflected objects                            |
+| Schema representation and SQL compilation | SQLAlchemy                                        | Dependent on SQLAlchemy version and backend dialect                             |
+| PostgreSQL concurrency and validation     | PostgreSQL engine                                 | Database-native locks, scans, transaction rules, and failure states             |
+| Custom object autogeneration              | Alembic extension system plus optional extensions | Requires explicit discovery, comparison, operations, and rendering              |
+| Dialect-specific operation semantics      | Alembic `DefaultImpl` and SQLAlchemy dialects     | Lower-level behavior may differ even for identical abstract operations          |
+| Historical migration testing              | Alembic APIs and optional testing packages        | Execution success is not proof of lossless or production-safe transitions       |
+| Structured migration inspection           | Alembic operation model                           | Rendering or inspecting directives does not by itself create a tracked revision |
+
+A final version distinction is relevant to the combined stack: Alembic 1.20.1 supports Python 3.10 with SQLAlchemy 2.0, whereas SQLAlchemy 2.1 requires Python 3.11 or later. Features specifically introduced in SQLAlchemy 2.1 consequently have that narrower Python compatibility boundary.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI+1
+
+
+
+The central architectural opportunity is that Alembic can use its existing revision machinery while delegating specialized schema behavior to SQLAlchemy's dialects and the underlying database, and while exposing structured hooks for independently inspecting, transforming, rendering, and testing migrations.
+
+The corresponding limitation is that those layers have separate guarantees. A valid revision graph, a successfully compiled operation, an accurate metadata comparison, and a safe physical database transition are related but non-equivalent properties.
+
+This addendum completes the identified capability gaps without changing the original guide's foundational conceptual model.

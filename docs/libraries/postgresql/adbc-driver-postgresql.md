@@ -755,3 +755,752 @@ For further investigation, the most useful documents and tagged source paths are
 | Published Python distribution                             | [https://pypi.org/project/adbc-driver-postgresql/1.13.0/](https://pypi.org/project/adbc-driver-postgresql/1.13.0/?utm_source=chatgpt.com)                                                                                                   |
 
 Overall: `adbc-driver-postgresql` is a substantial native PostgreSQL/Arrow integration layer, not merely a convenience connector. Its strongest differentiators are streaming columnar queries, binary bulk loading, structured database introspection, shared type-resolution state and Arrow schema metadata. The especially important areas for deeper technical investigation are its type-conversion asymmetries, SQL parameter limitations, PostgreSQL catalog behavior and native COPY execution paths.
+
+# Addendum — `adbc-driver-postgresql` 1.13.0
+
+Supplement to the Comprehensive Python Library Reference · Research date: November 1, 2026 · Apache Arrow ADBC Libraries 25
+
+This addendum extends the original reference with additional capabilities, implementation-level distinctions, and integration mechanisms verified against ADBC 25 documentation and the `apache-arrow-adbc-25` source tag. It omits functionality already adequately described in the original.
+
+One substantive correction: The original §3.4 and §10.2 incorrectly describe parameterized result-producing queries as unsupported. They are supported in 1.13.0. The relevant functionality was introduced in ADBC Libraries 14 (Python 1.2.0), and the PostgreSQL recipe's contrary statement remains outdated.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://apache.googlesource.com\&sz=32)
+
+apache.googlesource.com+1
+
+
+
+## 1. Parameterized result queries and execution mechanics
+
+### 1.1 Result-producing parameter binding
+
+The PostgreSQL driver supports executing SQL containing native `$1`, `$2`, etc. placeholders and returning results through the same Arrow and DBAPI consumption interfaces used for unparameterized queries.
+
+This includes ordinary parameterized `SELECT` statements, SQL expressions with typed parameters, and result-producing DML such as `INSERT ... RETURNING` where PostgreSQL accepts the statement.
+
+```
+import adbc_driver_postgresql.dbapi as pgwith pg.connect(uri) as conn:    with conn.cursor() as cur:        cur.execute(            "SELECT id, value FROM measurements WHERE site_id = $1",            parameters=(42,),        )        reader = cur.fetch_record_batch()        for batch in reader:            process(batch)
+```
+
+Illustrative, unexecuted example. `process` represents an application-provided consumer.
+
+The input mechanisms are broader than a single tuple of Python values:
+
+| Binding form                               | Execution semantics                                                                           |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Python tuple or sequence                   | One parameter set, converted to Arrow-compatible input by the DBAPI backend                   |
+| Arrow `RecordBatch`                        | One execution per parameter row                                                               |
+| Arrow `Table` or `RecordBatchReader`       | Stream of parameter rows rather than necessarily materializing all bindings as Python objects |
+| Arrow C Array / C Stream-compatible object | Direct binding through the standard Arrow interfaces                                          |
+| `executemany()`                            | Repeated parameterized execution without exposing a result set                                |
+
+The shared DBAPI also documents dictionary-based named binding, but this must not be assumed to work with PostgreSQL. In version 1.13, the PostgreSQL native statement implementation does not recognize the standard `adbc.statement.bind_by_name` option. The reliable PostgreSQL binding convention remains positional `$n` parameters.
+
+The module's declared `paramstyle="pyformat"` is consequently not evidence of `%s` or `%(name)s` substitution support.
+
+### 1.2 Bound queries bypass the normal COPY-result pathway
+
+PostgreSQL's execution mechanism depends on whether the statement has bound parameters and whether a result stream is requested.
+
+| Execution condition                             | Native pathway                          | Consequential behavior                                                                       |
+| ----------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Unparameterized query with result, COPY enabled | Binary `COPY (<query>) TO STDOUT`       | Incremental COPY decoding with the driver's approximate batch-size control                   |
+| Parameterized query with result                 | `ExecuteBind()` → `PqResultArrayReader` | PostgreSQL result objects converted to Arrow; COPY batch-size hint does not govern this path |
+| Query with COPY explicitly disabled             | `PqResultArrayReader`                   | Supports SQL forms incompatible with `COPY (...)`                                            |
+| Execution without an output stream              | Native non-result execution             | Executes and reports affected rows where available                                           |
+
+The bound-result implementation requests PostgreSQL's binary result format and converts values using the driver's PostgreSQL-to-Arrow field readers. It is therefore still Arrow-native at the consumer boundary, but does not use the same transport and buffering mechanism as streaming binary COPY.
+
+In the tagged implementation, `PqResultArrayReader` builds an Arrow batch from an available `PGresult`. Its source contains a TODO noting that the COPY batch-size hint is not respected in this path.
+
+Implication: An Arrow `RecordBatchReader` does not, by itself, guarantee bounded native buffering. Parameterized result execution can retain a complete PostgreSQL result for a binding before delivering its Arrow batch. For large-result workloads, choosing between server-side SQL filtering, unparameterized COPY-compatible queries, and bound result queries remains consequential.
+
+### 1.3 Multiple parameter sets can yield one Arrow result stream
+
+A single `cursor.execute()` can bind an Arrow batch or stream containing multiple parameter rows to a result-producing query. The native reader executes successive parameter sets and presents their results through the output Arrow stream.
+
+This is distinct from Python DBAPI `nextset()` behavior. The Python manager does not implement independent result-set navigation; rows are delivered through one stream governed by a common Arrow schema.
+
+Execution has an important lifecycle characteristic:
+
+- The driver starts executing bound parameter rows when preparing the result stream.
+- Additional parameter rows can be executed as the stream is consumed.
+- Parameter sets yielding no rows may be advanced through internally to find the next available result.
+- For bound streaming queries, affected-row information can be unknown (`rowcount == -1`).
+
+Consequently, partially consuming a bound result stream must not be equated with executing every supplied parameter set. This matters particularly for SQL statements with side effects, such as DML using `RETURNING`.
+
+By contrast, `executemany()` executes through the no-result pathway and exhausts the provided parameter bindings as part of that execution. It does not make returned rows available.
+
+### 1.4 Preparation and parameter-schema negotiation
+
+The PostgreSQL implementation exposes more parameter intelligence than the original reference develops.
+
+`cursor.adbc_prepare(sql)` is available through the shared DBAPI and can return the prospective Arrow schema of the statement's parameters. At the native level, `PostgresStatement::GetParameterSchema()` uses PostgreSQL's statement description facilities to determine parameter types and maps them into Arrow schema fields.
+
+However, `PostgresStatement::Prepare()` itself is deliberately deferred: it records preparation state without immediately preparing the actual statement on the PostgreSQL server. Native preparation is performed later when parameter types are known.
+
+This separation provides two useful mechanisms:
+
+Parameter-schema discovery. The system can determine how PostgreSQL expects a statement to be bound without executing its effects. This can support input-contract discovery and more precise Arrow parameter construction.
+
+Null-type reconciliation. When a bound Arrow schema contains `NA`/null-only fields, the driver can first ask PostgreSQL to infer expected parameter types, reconcile them with the Arrow binding schema, and then prepare using concrete PostgreSQL type OIDs. This avoids treating every untyped null as an arbitrary text parameter.
+
+The latter mechanism depends on PostgreSQL being able to infer the relevant type from the SQL expression. Ambiguous SQL parameters still require explicit typing, potentially through SQL casts.
+
+Neither API should be confused with a promise of persistent, reusable server-side prepared-statement handles across arbitrary executions or connections.
+
+Primary sources:
+
+- PostgreSQL bound-result implementation: `https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/result_reader.cc`
+- PostgreSQL statement lifecycle and preparation: `https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/statement.cc`
+- Python DBAPI execution and binding: `https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/python/adbc_driver_manager/adbc_driver_manager/dbapi.py`
+- Historical addition of result-producing parameter bindings: `https://github.com/apache/arrow-adbc/pull/2065`
+
+## 2. Target-aware bulk ingestion and native COPY encoding
+
+### 2.1 Existing-table ingestion resolves destination types
+
+For `append` and `create_append`, the driver does not simply encode Arrow values according to the types it would have inferred for a new PostgreSQL table.
+
+The native implementation:
+
+1. Resolves the destination relation.
+2. Queries `pg_attribute` to identify destination column names and PostgreSQL type OIDs.
+3. Matches incoming Arrow fields to destination columns by name.
+4. Constructs an explicit `COPY table (column_list) FROM STDIN WITH (FORMAT binary)` command.
+5. Configures field encoders using the destination types where supported.
+
+This allows column-oriented ingestion into an existing relational schema without requiring the Arrow input fields to reproduce every destination column or appear in physical table order.
+
+It also permits type-sensitive encoding that differs from default Arrow-to-PostgreSQL table creation.
+
+For example, an Arrow integer column can be encoded for an existing PostgreSQL `NUMERIC` destination. The driver has a dedicated integer-to-PostgreSQL-numeric binary writer, rather than requiring the input column to be converted into Arrow decimal values first.
+
+Similarly, a PostgreSQL `JSONB` target can use a dedicated JSONB binary writer when the incoming Arrow string carries the `arrow.json` extension annotation.
+
+These capabilities reduce bespoke pre-ingestion casting and serialization, while leaving PostgreSQL responsible for enforcing constraints, applying defaults, and rejecting incompatible values.
+
+### 2.2 Ingestion's type-dependent behavior
+
+| Arrow source / PostgreSQL target                    | Native behavior                                                                        |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Arrow integer → existing `NUMERIC`                  | Dedicated integer-to-numeric binary encoding                                           |
+| Arrow `decimal128` / `decimal256` → `NUMERIC`       | Native decimal encoding, with an optimized decimal128 path                             |
+| Arrow `string` with `arrow.json` → new table        | Inferred PostgreSQL `JSON` column                                                      |
+| Arrow `string` with `arrow.json` → existing `JSONB` | JSONB-specific binary encoding                                                         |
+| Arrow `fixed_size_binary[16]` with `arrow.uuid`     | PostgreSQL UUID type inference and native UUID representation                          |
+| Arrow `TIME32` / `TIME64`                           | COPY writers supporting the Arrow time units and PostgreSQL microsecond representation |
+| Arrow list and fixed-size list                      | PostgreSQL array encoding within supported child-type and dimensionality constraints   |
+
+There is an important distinction between type inference and destination-aware encoding. The presence of an encoder for an existing PostgreSQL target type does not imply that the driver automatically creates that same type from a generic Arrow schema.
+
+For example, a generic Arrow string is normally inferred as PostgreSQL `TEXT`, whereas an `arrow.json`-annotated string is inferred as `JSON`. Appending to a pre-existing `JSONB` column uses destination-specific behavior.
+
+### 2.3 Schema qualification, temporary relations and API maturity
+
+The PostgreSQL ingest implementation resolves the current schema using `SELECT CURRENT_SCHEMA()` when the destination schema has not been supplied. It explicitly qualifies the persistent target to avoid an identically named temporary table shadowing it.
+
+Temporary ingestion instead targets PostgreSQL's temporary namespace. The native implementation disallows combining an explicit target schema with temporary-table ingestion; the Python wrapper accommodates this by clearing the schema when enabling temporary ingestion.
+
+The common Python API exposes `catalog_name`, `db_schema_name`, and `temporary`, but documents these arguments as experimental. Their availability in the Python signature is not proof of support in every driver.
+
+In particular:
+
+- PostgreSQL accepts a target database schema for ingestion.
+- PostgreSQL's native statement implementation does not implement the ADBC target-catalog option.
+- `create_append` uses `CREATE TABLE IF NOT EXISTS` and then resolves the target's actual column types; it does not perform schema reconciliation or migrations.
+- Existing destination defaults, identity behavior, generated-column restrictions and constraints retain PostgreSQL semantics.
+
+This combination provides a useful boundary between columnar loading and relational schema governance. ADBC can perform the transfer and adapt certain encodings to existing types; it does not replace DDL or schema-migration tooling.
+
+Primary source:
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/statement.cc`
+
+## 3. Additional PostgreSQL–Arrow type semantics
+
+### 3.1 Less-common PostgreSQL types
+
+The tagged native type resolver covers several PostgreSQL types beyond the main mapping table in the original document.
+
+| PostgreSQL type              | Arrow representation                                                | Semantic consideration                                                                            |
+| ---------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `ENUM`                       | UTF-8 string                                                        | Enum identity, permitted labels and ordering are not represented by Arrow's string storage type   |
+| Domain over a supported type | Base type's Arrow representation                                    | Domain-specific checks, defaults and identity are not reconstructed from the Arrow physical type  |
+| `money` / `cash`             | `int64`                                                             | Raw monetary binary value; currency and interpretation of monetary scale require external context |
+| `oid`                        | `int32`                                                             | Object-identifier semantics are not retained by the integer type                                  |
+| `regproc`                    | `int32`                                                             | PostgreSQL routine-identifier semantics are not retained by the integer type                      |
+| `name`                       | UTF-8 string                                                        | Identifier-specific PostgreSQL semantics are not expressed by the Arrow storage type              |
+| `int2vector`                 | `list<int16>`                                                       | Specialized PostgreSQL type decoded into a conventional Arrow list                                |
+| Range types                  | Opaque binary representation where no explicit Arrow mapping exists | Range bounds, inclusivity and canonicalization require separate interpretation                    |
+
+The domain behavior is particularly relevant. In `server` resolver mode, the native `PostgresTypeResolver` recognizes PostgreSQL domains and associates them with their underlying type representation while retaining PostgreSQL type-name information. A domain over an integer, for example, can be exposed as an Arrow integer without reconstructing its database-side validation rules.
+
+Range types are recognized by the type resolver, but recognition is not equivalent to decoding them into Arrow interval or structured bound fields. In the tagged implementation, there is no corresponding general structured Arrow range mapping; they take the binary/opaque fallback path.
+
+This creates three distinct notions of fidelity: the raw binary representation, the Arrow storage type, and the PostgreSQL semantic type. `POSTGRESQL:type` and opaque-extension metadata can preserve some of the third category even when the second is simpler.
+
+Source:
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/postgres_type.h`
+
+### 3.2 Timestamp binding and precision
+
+The official PostgreSQL driver documentation states that when binding an Arrow timestamp, its timezone annotation, if present, is ignored. The value is converted to microseconds and adjusted to PostgreSQL's timestamp epoch of January 1, 2000.
+
+Overflow or underflow during that conversion produces an error.
+
+This is a materially different contract from simply transferring a timezone-aware Arrow timestamp into PostgreSQL while preserving all its associated semantics.
+
+For ingestion into newly created tables, the driver's type inference distinguishes timestamps with and without timezone annotations when choosing PostgreSQL `TIMESTAMPTZ` versus `TIMESTAMP`. That type-selection behavior should not be confused with the conversion guarantees for the timestamp value itself.
+
+The native COPY writer also accepts Arrow time values expressed in seconds, milliseconds, microseconds or nanoseconds. PostgreSQL's microsecond-resolution time representation means that nanosecond precision cannot be preserved as an independent sub-microsecond component.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+ADBC 25 Documentation
+
+
+
+`https://arrow.apache.org/adbc/current/driver/postgresql.html`
+
+### 3.3 Nested ingestion remains more restricted than nested decoding
+
+The PostgreSQL COPY writer supports Arrow lists, large lists and fixed-size lists, but their representation maps to PostgreSQL's array encoding, not arbitrary nested Arrow schema preservation.
+
+The tagged implementation's `PostgresCopyListFieldWriter` constructs one-dimensional PostgreSQL array payloads and includes a TODO concerning 64-bit offsets for `LARGE_LIST`.
+
+The writer's factory explicitly documents restrictions on supported list child types. Support for Arrow `struct` on the PostgreSQL-to-Arrow reading path is not a guarantee of symmetrical struct ingestion.
+
+The general limit is not just whether an Arrow type can be mapped to a PostgreSQL OID. The complete operation additionally requires a compatible writer, the correct PostgreSQL binary representation, and compatible target-column semantics.
+
+### 3.4 Published support matrix versus implementation
+
+There is an unresolved support discrepancy in version 1.13.0:
+
+- The published PostgreSQL driver matrix marks Arrow `large_binary` unsupported for parameter binding and bulk ingestion.
+- The tagged `PostgresType::FromSchema()` implementation maps `NANOARROW_TYPE_LARGE_BINARY` to PostgreSQL `BYTEA`.
+- The native COPY writer also contains a `NANOARROW_TYPE_LARGE_BINARY` branch.
+
+These observations establish that implementation-level support exists, but do not establish unrestricted, tested end-to-end compatibility for all lengths and execution paths. The Arrow representation permits 64-bit offsets, while PostgreSQL values and the driver's intermediate facilities have their own size limits.
+
+The published `date64` restriction should likewise not be relaxed merely because a type-inference branch can map it to PostgreSQL `DATE`; the full COPY writer does not establish equivalent support.
+
+Therefore, the published support matrix remains the conservative statement of officially documented support until runtime behavior and upstream tests resolve the discrepancy.
+
+Primary sources:
+
+`https://arrow.apache.org/adbc/current/driver/postgresql.html`
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/postgres_type.h`
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/copy/writer.h`
+
+## 4. Driver discovery, manifests and connection profiles
+
+These capabilities belong primarily to `adbc_driver_manager`. They extend how the PostgreSQL driver can be deployed, configured and reused alongside other ADBC drivers without requiring custom connection-discovery infrastructure.
+
+### 4.1 Driver manifests and portable loading
+
+The manager can resolve an ADBC driver through a shared-library path, a driver name, or a TOML driver manifest.
+
+A manifest can describe the driver identity, version, supported ADBC specification version, native initialization entry point, and platform-specific shared-library locations.
+
+This separates application configuration from native library location. An application can identify a logical driver while the manager resolves the correct native binary for its platform.
+
+On Unix-like systems, configured search locations include:
+
+| Discovery source                 | Role                                                                                   |
+| -------------------------------- | -------------------------------------------------------------------------------------- |
+| `ADBC_DRIVER_PATH`               | Environment-specified driver directories                                               |
+| `$VIRTUAL_ENV/etc/adbc/drivers`  | Python virtual-environment driver manifests, automatically added by the Python manager |
+| `$CONDA_PREFIX/etc/adbc/drivers` | Conda-associated driver installation directory when supported                          |
+| `$XDG_CONFIG_HOME/adbc/drivers`  | User-level driver configuration                                                        |
+| `/etc/adbc/drivers`              | System-level driver configuration                                                      |
+
+The exact search behavior depends on manager load flags, configured paths and platform. The manager can also derive a driver from an ADBC connection URI scheme where supported.
+
+A manifest is not a replacement for the PostgreSQL driver itself; it provides discoverability and loading metadata for the native driver.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+ADBC 25 Documentation
+
+
+
+`https://arrow.apache.org/adbc/25/format/driver_manifests.html`
+
+### 4.2 Connection profiles
+
+Connection profiles package a driver reference and database-level options into a reusable TOML configuration.
+
+They are resolved by the driver manager during database initialization and can be referenced by name or a `profile://` URI.
+
+A PostgreSQL profile can be structured as follows:
+
+```
+profile_version = 1
+driver = "postgresql"
+
+[Options]
+uri = "postgresql://localhost:5432/analytics?sslmode=verify-full"
+"adbc.postgresql.type_resolver_mode" = "builtin"
+```
+
+Illustrative configuration; driver discovery, certificates and connectivity must be configured separately.
+
+The generic Python manager offers:
+
+```
+from adbc_driver_manager import dbapiconn = dbapi.connect(profile="analytics_pg")
+```
+
+This is different from `adbc_driver_postgresql.dbapi.connect(uri, ...)`, whose first argument is a PostgreSQL connection URI rather than a driver-manager profile name.
+
+The profile manager provides several advanced behaviors:
+
+- Option precedence: Application-supplied database options can override profile options.
+- Environment substitution: Profile values support expressions such as `{{ env_var(VARIABLE_NAME) }}`. An unset variable substitutes an empty string; it is not treated as an automatic configuration error.
+- Filesystem resolution: `ADBC_PROFILE_PATH`, Conda profile directories and user configuration directories provide discoverable profile locations.
+- External providers: The C driver-manager API supports substituting a custom profile provider for filesystem lookup, permitting integration with externally managed connection configuration.
+
+The custom provider mechanism belongs to the native manager; it should not be mistaken for a Python callback hook exposed by the PostgreSQL package.
+
+An additional distinction is that profile option names must be supported by the selected driver. A generic option mentioned in the ADBC specification does not automatically become a valid PostgreSQL driver option.
+
+These capabilities offer a configuration layer that can be shared across ADBC consumers, without embedding driver locations and PostgreSQL connection strings in every application component.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+ADBC 25 Documentation
+
+
+
+`https://arrow.apache.org/adbc/25/format/connection_profiles.html`
+
+`https://arrow.apache.org/adbc/25/python/api/adbc_driver_manager.html`
+
+## 5. Arrow interoperability without mandatory PyArrow materialization
+
+### 5.1 Arrow C Stream and PyCapsule interfaces
+
+The shared ADBC Python manager exposes a lower-level interchange boundary than the PyArrow `Table` and `RecordBatchReader` conveniences.
+
+`cursor.fetch_arrow()` returns an Arrow-compatible stream handle implementing the Arrow PyCapsule interface. The handle can be imported by a consumer that understands the Arrow C Stream protocol.
+
+Conversely, the manager accepts compatible objects implementing `__arrow_c_array__` or `__arrow_c_stream__` for parameter binding and ingestion.
+
+This makes the Arrow interchange protocol, rather than a particular Python dataframe class, the central interoperability contract.
+
+| Interface                | Data movement                                                   |
+| ------------------------ | --------------------------------------------------------------- |
+| `fetch_arrow()`          | Native ADBC result stream → Arrow PyCapsule-compatible consumer |
+| `fetch_record_batch()`   | Native result stream → PyArrow reader                           |
+| `fetch_arrow_table()`    | Native result stream → materialized PyArrow table               |
+| `fetch_polars()`         | Native result stream → materialized Polars dataframe            |
+| `adbc_ingest()`          | Arrow-compatible producer → native PostgreSQL ingestion         |
+| Arrow-backed `execute()` | Arrow-compatible producer → parameter binding → result stream   |
+
+A crucial ownership rule is that `fetch_arrow()` is a one-shot transfer. It must be called before another result-consuming method, and the cursor cannot independently fetch that same stream again after ownership has been transferred.
+
+The result consumer must respect stream lifetime, and a PostgreSQL connection must not be reused for incompatible operations while a live result still owns its underlying execution resources.
+
+### 5.2 Dependency and backend distinctions
+
+The manager's high-level DBAPI documentation states that PyArrow is required for full functionality. However, the tagged implementation also provides a raw PyCapsule result pathway that can be used without constructing PyArrow data structures.
+
+Its Python backend layer includes optional Polars support for Arrow-compatible parameter conversion and stream import. If PyArrow is installed, the PyArrow backend ordinarily takes precedence as the default backend.
+
+Consequently:
+
+- PyArrow-specific fetch methods require PyArrow.
+- The raw stream interface can be consumed through compatible Arrow C interface implementations.
+- Some operations can work with Polars without first materializing a PyArrow table.
+- Full DBAPI behavior without PyArrow is not guaranteed, because other interfaces depend on backend-specific schema and Python-object conversion facilities.
+
+This distinction can reduce unnecessary materialization and dependencies in columnar pipelines, while retaining the PostgreSQL-to-Arrow conversion that the native driver must perform.
+
+It does not imply end-to-end zero-copy transfer from PostgreSQL's wire protocol.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+ADBC 25 Documentation
+
+
+
+`https://arrow.apache.org/adbc/25/python/api/adbc_driver_manager.html`
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/python/adbc_driver_manager/adbc_driver_manager/_dbapi_backend.py`
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/python/adbc_driver_manager/adbc_driver_manager/dbapi.py`
+
+## 6. Metadata completeness and schema introspection boundaries
+
+### 6.1 The metadata APIs provide different kinds of information
+
+ADBC supplies several metadata interfaces, but they are not interchangeable representations of the complete PostgreSQL schema.
+
+| Interface                 | Native information source                               | Principal limitation                                                                            |
+| ------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `adbc_get_objects()`      | PostgreSQL catalog queries                              | Covers selected hierarchy, columns, descriptions and constraints rather than all DDL properties |
+| `adbc_get_table_schema()` | Relation's column names and type OIDs                   | Does not collect all column attributes or type modifiers                                        |
+| `adbc_execute_schema()`   | PostgreSQL statement preparation and result description | Describes query output, not the complete underlying relations                                   |
+| `adbc_get_info()`         | Native driver and connection information                | Does not guarantee a meaningful installed driver-version string                                 |
+
+The tagged `adbc_get_objects()` implementation populates column names, ordinal positions, descriptions and `xdbc_type_name`, plus supported constraint relationships.
+
+It does not reconstruct a complete PostgreSQL catalog model containing every index, generated expression, collation, default, role privilege, trigger or other relational property.
+
+### 6.2 Type modifiers are not uniformly available
+
+Version 1.13 introduces `POSTGRESQL:typmod` metadata for suitable numeric result fields. This is particularly useful for interpreting declared PostgreSQL numeric precision and scale.
+
+However, the tagged native `adbc_get_table_schema()` implementation queries `attname` and `atttypid` from the catalog without collecting `atttypmod` or `attnotnull`.
+
+Consequently, the table-schema API should not be assumed to provide either precise numeric type modifiers or PostgreSQL nullability constraints.
+
+By comparison, query-result schema resolution can obtain type modifiers through PostgreSQL's result-field metadata, which is the pathway explicitly documented for the new metadata.
+
+For example, the information available from a query equivalent to:
+
+```
+SELECT amount FROM public.invoices LIMIT 0
+```
+
+can differ from the information provided by `adbc_get_table_schema()` for the underlying relation.
+
+This is an important architectural distinction for consumers that require high-fidelity domain schemas. The presence of a PostgreSQL type name in an Arrow field is not sufficient to reconstruct all PostgreSQL column semantics.
+
+### 6.3 Driver information is not a package inventory
+
+The tagged `PostgresConnection::GetInfo()` implementation provides vendor name, server version, driver name, native Arrow-library version and ADBC specification version.
+
+However, `ADBC_INFO_DRIVER_VERSION` currently returns the literal string `"unknown"`.
+
+Therefore, `adbc_get_info()` should not be treated as an authoritative source of the installed Python package version or native binary's release identifier. Distribution metadata or explicit native build provenance is needed for that purpose.
+
+Primary source:
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/connection.cc`
+
+## 7. Transaction, session and connection-lifecycle semantics
+
+### 7.1 Context managers close resources; they do not manage transaction commits
+
+The Python DBAPI's context-manager behavior is narrower than that of some other PostgreSQL clients.
+
+In the tagged implementation, the common `_Closeable.__exit__()` calls `close()` directly. It does not:
+
+- Automatically commit when a context exits successfully.
+- Automatically issue an explicit rollback when an exception occurs.
+- Implement a transaction scope that preserves the connection for reuse afterward.
+
+For a connection operating with the default `autocommit=False`, successful DML therefore requires an explicit commit before the connection is closed. Uncommitted PostgreSQL transaction work is discarded when the database session terminates.
+
+This distinction also applies to connection closure: the DBAPI `Connection.close()` closes its cursors, closes the underlying native connection and releases its reference to the shared ADBC database. It does not implement a commit-on-close policy.
+
+The relevant abstractions are separate: a context manager governs Python resource lifetime, while PostgreSQL transaction commit and rollback govern the persistence of database changes.
+
+### 7.2 Cloning shares database state, not PostgreSQL session state
+
+`Connection.adbc_clone()` shares the underlying `AdbcDatabase` object but constructs a new native `AdbcConnection`.
+
+The cloned connection shares database-level configuration and potentially costly metadata initialization, including PostgreSQL type-resolution information.
+
+It does not duplicate the original PostgreSQL session's transient state.
+
+| State                              | Shared by cloned connections?                               |
+| ---------------------------------- | ----------------------------------------------------------- |
+| ADBC database object               | Yes                                                         |
+| Cached PostgreSQL type resolver    | Yes                                                         |
+| Initial connection options         | Reapplied where specified in the original `conn_kwargs`     |
+| Active PostgreSQL transaction      | No                                                          |
+| Temporary tables                   | No                                                          |
+| Session-local `SET` changes        | No, unless independently established on the new session     |
+| Open statements and result readers | No                                                          |
+| Current autocommit state           | Not copied; Python clones initialize with the DBAPI default |
+
+The Python implementation constructs cloned connections with `autocommit=False` unless a different behavior is established subsequently.
+
+This distinction is particularly relevant when using the clone factory with a connection pool. Shared metadata initialization can reduce startup overhead, but session-dependent behavior still requires appropriate connection initialization and lifecycle management.
+
+### 7.3 Connection-option side effects
+
+The native PostgreSQL implementation contains two additional details worth making explicit.
+
+Autocommit transitions can commit active work. When switching an initialized connection from non-autocommit to autocommit, the driver issues `COMMIT` if the PostgreSQL connection is not idle. Changing the option is therefore potentially a transaction boundary rather than a purely local configuration update.
+
+The current-schema option selects one schema identifier. Setting `adbc.connection.db_schema` causes the driver to escape the supplied value as a PostgreSQL identifier and execute `SET search_path TO <identifier>`. It is not an interface for passing an arbitrary comma-separated PostgreSQL search-path expression.
+
+Reading the option returns `CURRENT_SCHEMA()`, which identifies the effective current schema rather than the complete `search_path` setting.
+
+The standardized isolation option also accepts PostgreSQL's `READ UNCOMMITTED` level, but PostgreSQL implements that level with `READ COMMITTED` semantics. The driver exposes the accepted PostgreSQL configuration; it does not introduce dirty reads into PostgreSQL's MVCC implementation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.postgresql.org\&sz=32)
+
+postgresql.org
+
+
+
+### 7.4 Concurrency and resource ownership
+
+The shared Python DBAPI declares `threadsafety = 1`: the module can be shared across threads, but database connections should not be assumed thread-safe.
+
+Distinct cloned connections can provide independent PostgreSQL sessions. Their shared database-level type resolver does not create concurrent-query support within a single `PGconn`.
+
+A result stream also has lifecycle significance. A native result reader can retain resources associated with the connection and statement; consuming or releasing the reader is part of making the underlying session safely reusable.
+
+The DBAPI maintains references to open cursors and attempts to close them before closing the underlying connection. Finalizers are a fallback rather than deterministic resource management. The manager can emit resource warnings under pytest or when `_ADBC_DRIVER_MANAGER_WARN_UNCLOSED_RESOURCE=1`.
+
+Sources:
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/python/adbc_driver_manager/adbc_driver_manager/dbapi.py`
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/connection.cc`
+
+`https://www.postgresql.org/docs/current/transaction-iso.html`
+
+## 8. Structured diagnostics and additional native execution controls
+
+### 8.1 ADBC errors expose machine-readable details
+
+The shared driver manager's exception classes expose information beyond the DBAPI exception category or message string.
+
+| Attribute     | Meaning                                                                                                     |
+| ------------- | ----------------------------------------------------------------------------------------------------------- |
+| `status_code` | Standardized ADBC status classification, such as `INVALID_ARGUMENT`, `INTEGRITY`, `IO` or `NOT_IMPLEMENTED` |
+| `vendor_code` | Optional driver- or vendor-specific numeric error code                                                      |
+| `sqlstate`    | Optional SQLSTATE code identifying the underlying SQL/database error                                        |
+| `details`     | Optional collection of additional named binary error-detail values                                          |
+
+This enables diagnostics that retain both a cross-driver error category and database-specific information.
+
+For example, PostgreSQL constraint violations and serialization failures can be differentiated using SQLSTATE when it is supplied, while the general ADBC status can provide an interoperability-level classification.
+
+These attributes should be treated as available structured information, not as guarantees that every execution pathway populates every field. The tagged PostgreSQL non-COPY result reader still contains a TODO concerning integration of extended ADBC error details.
+
+Version 1.13's SQLSTATE mapping improvements make this particularly relevant, but do not establish uniform diagnostic completeness across all operations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+ADBC 25 Documentation
+
+
+
+Source:
+
+`https://arrow.apache.org/adbc/25/python/api/adbc_driver_manager.html`
+
+### 8.2 Multiple SQL statements versus multiple result sets
+
+The native PostgreSQL implementation supports executing multiple SQL commands through the non-result execution pathway, where it can use libpq's `PQexec()`.
+
+That is different from supporting multiple independently navigable result sets.
+
+The shared Python DBAPI's `Cursor.nextset()` remains unsupported, and `Cursor.executescript()` explicitly commits an existing transaction before executing the script.
+
+Consequently, multi-statement execution should be understood as a SQL execution facility, not as a general procedure-result protocol or a way to preserve a previously active transaction boundary.
+
+Source:
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/result_reader.cc`
+
+### 8.3 Decimal fast-path control
+
+The tagged native driver supports a PostgreSQL-specific statement option not included in the public Python PostgreSQL option enum:
+
+`adbc.postgresql.disable_decimal_fast_path`
+
+When enabled, it disables the optimized Arrow `decimal128` to PostgreSQL binary `NUMERIC` encoding path and uses the alternative decimal conversion implementation.
+
+The relevant writer first attempts a specialized decimal128 encoder when permitted; unsupported fast-path cases can fall back to the general encoding path.
+
+This option has diagnostic value because it provides a way to isolate the specialized representation conversion from the general implementation when investigating conversion behavior.
+
+Its scope should remain precise:
+
+- It is a statement-level native option.
+- Its verified effect is on the COPY ingestion writer.
+- The specialized fast path applies to `decimal128`, not a corresponding optimized `decimal256` routine.
+- It does not alter the PostgreSQL-to-Arrow read mapping of `NUMERIC` as a string.
+- The option is present in the tagged native source but not represented as a dedicated symbol in the published PostgreSQL Python `StatementOptions` enum.
+
+It is therefore an implementation-level diagnostic mechanism rather than a general numerical-performance setting with published performance guarantees.
+
+Sources:
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/statement.cc`
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/copy/writer.h`
+
+### 8.4 Generic ADBC APIs do not imply PostgreSQL support
+
+The shared Python manager exposes some interfaces whose implementations vary by driver.
+
+| Generic ADBC facility         | PostgreSQL 1.13 boundary                                                                                         |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `adbc.statement.bind_by_name` | Not recognized by the tagged PostgreSQL statement-option implementation                                          |
+| `set_substrait_plan()`        | Not implemented by the PostgreSQL driver                                                                         |
+| `adbc_execute_partitions()`   | PostgreSQL does not implement partitioned result retrieval                                                       |
+| `adbc_read_partition()`       | No corresponding PostgreSQL partition-consumption capability                                                     |
+| `Cursor.nextset()`            | Unsupported by the shared DBAPI                                                                                  |
+| `Cursor.callproc()`           | Unsupported by the shared DBAPI; PostgreSQL procedure calls can still be expressed through SQL where appropriate |
+
+This is important when writing code against generic ADBC interfaces: the presence of a method in the manager or DBAPI class is not proof that the selected native driver implements the underlying operation.
+
+Where driver portability matters, unsupported-operation handling and capability detection must be distinguished from ordinary SQL execution failures.
+
+Sources:
+
+`https://arrow.apache.org/adbc/25/python/api/adbc_driver_manager.html`
+
+`https://github.com/apache/arrow-adbc/blob/apache-arrow-adbc-25/c/driver/postgresql/statement.cc`
+
+## 9. Direct integration with DuckDB's ADBC community extension
+
+The DuckDB ecosystem provides a concrete analytical-engine integration beyond manually passing Arrow tables or batches between PostgreSQL and a local query engine.
+
+The DuckDB community `adbc` extension uses installed ADBC drivers to expose remote database access through DuckDB SQL. This extension is independently maintained and versioned; its functionality should not be attributed to the Apache PostgreSQL driver itself.
+
+### 9.1 Extension capabilities
+
+The extension supports three primary remote-access mechanisms.
+
+| Mechanism                        | Function                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `ATTACH ... (TYPE adbc)`         | Expose a remote ADBC database through DuckDB's attached-catalog interface |
+| `read_adbc(profile_uri, sql)`    | Execute explicit SQL remotely and consume its result as a DuckDB table    |
+| `adbc_execute(profile_uri, sql)` | Send remote SQL commands, including supported administrative DDL          |
+| `adbc_clear_cache()`             | Invalidate locally cached ADBC catalog/schema metadata                    |
+
+For example:
+
+```
+INSTALL adbc FROM community;
+LOAD adbc;
+
+ATTACH 'profile://analytics_pg' AS pg (TYPE adbc);
+
+SELECT *
+FROM read_adbc(
+    'profile://analytics_pg',
+    'SELECT site_id, SUM(value)
+     FROM measurements
+     GROUP BY site_id'
+);
+```
+
+Illustrative SQL; the named profile and native ADBC driver must be resolvable in the DuckDB process.
+
+The execution model separates two engines:
+
+- PostgreSQL evaluates SQL explicitly submitted through the remote driver.
+- ADBC transfers the resulting data through Arrow.
+- DuckDB performs additional local SQL processing over the received data.
+
+The extension also supports operations such as `INSERT`, `COPY` and `CREATE TABLE AS` against attached databases, with streaming bulk ingestion rather than necessarily materializing complete datasets in application memory.
+
+### 9.2 Pooling and execution boundaries
+
+The extension includes its own connection-pooling and ingestion-buffer controls, including:
+
+- `adbc_connection_pool_size`
+- `adbc_insert_buffer_size`
+- `adbc_materialize_insert_rows`
+- `adbc_mix_reads_writes`
+
+These controls belong to the DuckDB extension, not to `adbc-driver-postgresql`.
+
+The documented extension behavior has consequential limitations:
+
+No automatic predicate pushdown for attached tables. A DuckDB query over an attached remote table should not be assumed to move its filters, joins or aggregations to PostgreSQL. Remote computation can instead be expressed explicitly in SQL supplied to `read_adbc()`.
+
+Autocommit-only operation. The extension documents operating in autocommit mode, so its behavior is not a substitute for the PostgreSQL DBAPI's explicit multi-statement transaction management.
+
+Concurrency restrictions. The current extension documentation states that concurrent ADBC operations within one process are unsupported, and mixing ADBC reads and writes in one SQL statement is restricted by default.
+
+Independent metadata caching. The extension's cached catalog state may need invalidation after remote DDL, separately from the PostgreSQL driver's own type-resolution cache.
+
+Together, these features provide a substantial ready-made PostgreSQL-to-DuckDB access layer. Their value comes from composing a native transport with an analytical query engine, not from ADBC itself performing federated planning or guaranteeing that every expression is pushed down.
+
+The extension documentation's general zero-copy claims should also not be transferred indiscriminately to PostgreSQL: its wire-level binary values still require decoding into Arrow buffers.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB Community Extensions
+
+
+
+`https://duckdb.org/community_extensions/extensions/adbc`
+
+## 10. Inherited `libpq` connection and security capabilities
+
+The PostgreSQL driver delegates physical connection establishment to PostgreSQL's `libpq` library, using the connection URI supplied to the native driver.
+
+This gives it access to a larger set of connection mechanisms than a simple hostname, port, username and password.
+
+| Capability                    | Relevant libpq mechanisms                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| Local database connections    | Unix-domain sockets and socket-directory `host` settings                       |
+| Multiple endpoints            | Multi-host connection strings and target-session selection                     |
+| Connection lifecycle          | `connect_timeout`, TCP keepalive-related options                               |
+| TLS                           | `sslmode`, root certificates, client certificates and keys                     |
+| Authentication                | PostgreSQL server-supported methods implemented by the bundled or linked libpq |
+| Credential configuration      | Password files, `passfile`, `PGPASSFILE`                                       |
+| Named services                | `service`, `PGSERVICE`, service configuration files                            |
+| Session identification        | `application_name`, `PGAPPNAME`                                                |
+| Initial session configuration | libpq `options` parameter, including PostgreSQL server configuration arguments |
+
+These capabilities require no corresponding Python API for every individual setting: the connection URI can express supported libpq parameters, while environment variables and configuration files supply defaults.
+
+There are two useful distinctions.
+
+ADBC profiles and libpq services operate at different layers. An ADBC connection profile selects a driver and its database options. A libpq service describes PostgreSQL connection parameters interpreted by libpq after the driver has been selected.
+
+Credential handling is inherited, not redesigned. PostgreSQL's password-file and TLS facilities remain available through libpq. ADBC does not introduce an independent PostgreSQL credential vault or certificate-validation system.
+
+PostgreSQL documents `PGPASSWORD`, but recommends password-file-based handling over environment-variable passwords where process-environment exposure is a concern. Filesystem permissions and the selected libpq version determine which client capabilities are available.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.postgresql.org\&sz=32)
+
+postgresql.org+2
+
+
+
+Primary sources:
+
+`https://www.postgresql.org/docs/current/libpq-connect.html`
+
+`https://www.postgresql.org/docs/current/libpq-envars.html`
+
+`https://www.postgresql.org/docs/current/libpq-pgpass.html`
+
+## 11. Capability composition and architectural implications
+
+Several of the added mechanisms have greater value in combination than in isolation.
+
+| Composition                                                  | Native functionality combined                                                                 | Architectural consequence                                                               |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Prepared parameter-schema discovery + Arrow binding          | PostgreSQL type inference, Arrow parameter streams, result-producing queries                  | Database-driven parameter contracts without bespoke positional serialization            |
+| Target-aware ingestion + PostgreSQL schema governance        | Column-name matching, target OID resolution, binary COPY                                      | Bulk loading into established relational schemas without recreating DDL                 |
+| Shared type resolver + cloned connections + external pooling | Cached PostgreSQL OID metadata, independent sessions, pooling policy                          | Reuse of expensive initialization while preserving transaction independence             |
+| Arrow C Stream + downstream analytical engines               | Native result conversion, Arrow interchange, external execution engines                       | Avoidance of Python-row intermediate representations                                    |
+| PostgreSQL metadata + structured SQLSTATE diagnostics        | ADBC metadata hierarchy, type identity, error classifications                                 | Structured database introspection and diagnostics without parsing human-readable output |
+| Driver manifests + profiles + libpq                          | Native driver discovery, logical connection configuration, PostgreSQL transport configuration | Separation of driver deployment, database configuration and session establishment       |
+
+The main design distinction running through these combinations is that ADBC standardizes access to database operations and Arrow data, but does not erase the semantics of either PostgreSQL or the consuming execution engine.
+
+Parameter binding, destination-type resolution, connection state, nested-type fidelity and Arrow stream lifetime all remain meaningful boundaries. The native capabilities can eliminate substantial custom connectivity code, provided those boundaries are preserved rather than hidden behind an overly generic adapter.
+
+The addendum's source-verified functionality applies to `adbc-driver-postgresql` 1.13.0 / ADBC Libraries 25. Driver-manager profiles and DuckDB integration are companion facilities with their own implementations and compatibility requirements. No local database runtime tests or performance measurements were performed for this addendum.

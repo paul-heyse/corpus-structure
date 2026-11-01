@@ -1801,3 +1801,1151 @@ Perhaps the most useful general architectural insight is that SQLAlchemy does no
 A highly relational system can use Core for set-based operations, schema reflection, and SQL generation while selectively leveraging ORM mappings for identity-sensitive or relationship-rich functionality. Both can share underlying types, metadata, dialects, execution infrastructure, and extension mechanisms.
 
 That flexibility—rather than object persistence alone—is what makes SQLAlchemy a particularly substantial Python database infrastructure library.
+
+# SQLAlchemy 2.1 — Advanced Capability Addendum
+
+Target version: SQLAlchemy 2.1.6\
+Research date: November 1, 2026\
+Companion reference: SQLAlchemy 2.1 — Comprehensive Python Library Capability Reference (originally targeting 2.1.5)\
+Scope: Additional functionality, advanced mechanisms, and consequential semantic distinctions not developed in the original reference.
+
+SQLAlchemy 2.1.6 was released on October 21, 2026 and is the current stable release. The following sections supplement the original reference without repeating its existing coverage of Core, ORM, metadata, type mapping, execution infrastructure, or general dialect architecture. Capabilities introduced before 2.1 are distinguished from 2.1 additions.
+
+The additions fall into five related architectural areas: deeper control of SQL construction and DML execution; programmable schema generation and reflection; ORM loading, instrumentation, and execution substitution; transaction and connection lifecycle control; and database-native type and constraint semantics.
+
+Primary version references:
+
+`https://www.sqlalchemy.org/download.html`
+
+`https://docs.sqlalchemy.org/en/21/changelog/migration_21.html`
+
+`https://docs.sqlalchemy.org/en/21/changelog/changelog_21.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://www.sqlalchemy.org\&sz=32)
+
+SQLAlchemy+1
+
+## 1. Advanced relational operations and SQL construction
+
+Extends original §§2.2–2.5, 7.5, and 11.1.
+
+### 1.1 INSERT-from-SELECT and database-side relational transformations
+
+`Insert.from_select()` expresses `INSERT INTO ... SELECT ...` using SQLAlchemy's normal relational expression objects.
+
+The target column sequence is explicitly associated with a source selectable. This enables inserting the results of joins, aggregations, filters, projections, and other relational operations without materializing those results in Python or translating them into dictionaries for subsequent INSERT execution.
+
+The `include_defaults` option, enabled by default, incorporates otherwise unspecified client-side SQLAlchemy column defaults into the operation. An important qualification is that a Python callable default included in an INSERT-from-SELECT statement is invoked once for the entire statement, rather than once per resulting row.
+
+This differs from ordinary parameter-set-based INSERT operations, where context-sensitive Python defaults may run separately for each parameter set.
+
+These mechanisms support database-side transformation and persistence pipelines with different default-generation semantics from bulk insertion of Python objects. They can reduce Python materialization and database round trips, but their suitability depends on whether the source and destination can be operated on by the same database execution context.
+
+`Insert.inline()` provides further control over whether SQL expression defaults are rendered inline and whether SQLAlchemy attempts to retrieve generated defaults through its usual implicit mechanisms.
+
+Other useful DML controls include `Update.ordered_values()`, which preserves the order of SET assignments for databases where assignment ordering is significant, notably MySQL.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/dml.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 1.2 Correlating bulk INSERT results with input rows
+
+SQLAlchemy's `insertmanyvalues` machinery can batch INSERT operations while returning server-generated values. However, the order of rows returned by an ordinary SQL `RETURNING` clause is not inherently guaranteed to correspond to the order of the input parameter sets.
+
+`Insert.returning(sort_by_parameter_order=True)` requests this correlation.
+
+SQLAlchemy's implementation can use different strategies depending on the database and available identifying information:
+
+- Correlate rows using automatically generated or explicitly supplied sentinel values.
+- Reconstruct input ordering using dialect-supported mechanisms.
+- Reduce batch sizes or execute individual INSERT statements where ordered correlation cannot otherwise be guaranteed.
+
+The distinction is important for bulk persistence that must associate server-generated identifiers with particular input records. Correctly associating returned identities can be more significant than maximizing batch size.
+
+#### Insert sentinel mechanisms
+
+SQLAlchemy offers several mechanisms for establishing suitable correlation identifiers:
+
+| Mechanism                         | Capability                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `Column(insert_sentinel=True)`    | Marks an appropriate column, usually with unique values, as useful for correlating inserted rows |
+| `insert_sentinel()`               | Creates a dedicated integer sentinel column with special `insertmanyvalues` behavior             |
+| `orm_insert_sentinel()`           | Declarative-compatible version that can be incorporated into mapped bases and mixins             |
+| Automatically usable primary keys | May permit correlation without adding a dedicated sentinel column                                |
+
+The dedicated sentinel column must physically exist in the database, even though its special insert behavior can make it largely transparent during normal SQLAlchemy operations.
+
+The ordinary column-sentinel approach is useful when a suitable unique column already exists. The dedicated integer sentinel provides another option when the actual primary key is generated on the server through a mechanism that does not permit efficient correlation.
+
+A sentinel is not a general-purpose ordering column for arbitrary queries.
+
+PostgreSQL-specific enhancements in 2.1 also improve batched INSERT handling for suitable server-side monotonic UUID generation, including `uuidv7()`. This is a database- and generator-specific capability, not a guarantee that every server-generated UUID is suitable for ordering correlation.
+
+Sources:
+
+`https://docs.sqlalchemy.org/en/21/core/connections.html#correlating-returning-rows-to-parameter-sets`
+
+`https://docs.sqlalchemy.org/en/21/orm/queryguide/dml.html#correlating-returning-records-with-input-data-order`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+2
+
+### 1.3 Heterogeneous bulk parameters and explicit NULL handling
+
+ORM bulk INSERT accepts parameter dictionaries that have different sets of keys.
+
+SQLAlchemy groups compatible parameter dictionaries into batches rather than requiring every record to have exactly the same shape.
+
+For example, rows containing only required columns can be processed separately from rows that supply optional values.
+
+The distinction between an omitted key and a key explicitly assigned `None` is consequential. By default, ORM bulk INSERT commonly treats `None` in a nullable attribute as an omitted value, allowing database defaults to take effect.
+
+The `render_nulls=True` execution option instead requests explicit SQL NULL values for those entries.
+
+This can improve batching uniformity, but changes the semantics of default evaluation: a database default that would run for an omitted column generally does not run when an explicit NULL is supplied.
+
+Additional advanced behavior includes:
+
+| Mechanism                                                         | Consequence                                                                                                              |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `Insert.values()` with `Session.execute()` parameter dictionaries | Applies common SQL expressions across bulk parameter sets                                                                |
+| Per-row dictionaries passed to `Insert.values()`                  | Supports SQL expressions that vary by row, but uses a different execution form from ordinary bulk parameter dictionaries |
+| Joined-table inheritance bulk INSERT                              | Emits coordinated statements across mapped tables and propagates generated identities                                    |
+| Joined-table inheritance bulk UPDATE                              | Updates affected physical tables independently according to supplied attributes                                          |
+| Bulk UPDATE by primary key                                        | Uses DBAPI `executemany` and generally does not provide `RETURNING` rows                                                 |
+
+These are important distinctions because identical-looking Python data can select materially different SQLAlchemy execution paths.
+
+Source: `https://docs.sqlalchemy.org/en/21/orm/queryguide/dml.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 1.4 `RETURNING` versus generated-default retrieval
+
+SQLAlchemy exposes two related but noninterchangeable mechanisms.
+
+`UpdateBase.returning()` explicitly requests SQL expressions or columns from a DML operation. It is the general-purpose interface for applications that need returned rows.
+
+`UpdateBase.return_defaults()` is specialized machinery used heavily by SQLAlchemy's ORM to retrieve generated primary keys and server-side defaults.
+
+`return_defaults()` can populate result metadata including `inserted_primary_key`, `returned_defaults`, `inserted_primary_key_rows`, and `returned_defaults_rows`, depending on the operation and backend support.
+
+It is mutually exclusive with `returning()` on the same statement.
+
+Unlike ordinary `RETURNING`, `return_defaults()` can proceed without retrieving values on unsupported backends, subject to its options. Its result-column handling and internal default-selection logic are also distinct.
+
+The SQLAlchemy documentation explicitly characterizes `return_defaults()` as specialized, largely ORM-oriented functionality rather than a normal application-level alternative to `returning()`.
+
+The relevant architectural distinction is between requesting arbitrary DML output and satisfying the persistence engine's obligation to discover database-generated values.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/dml.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 1.5 Pessimistic locking and database-coordinated concurrency
+
+The original reference covers optimistic version counters but does not develop SQLAlchemy's explicit row-locking capabilities.
+
+`Select.with_for_update()` represents database-native locking SELECT statements.
+
+Its options include `nowait`, `skip_locked`, `read`, `of`, and `key_share`. SQLAlchemy translates supported combinations into dialect-specific constructs such as PostgreSQL's `FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, and `FOR KEY SHARE`.
+
+These facilities allow relational queries to participate in concurrency coordination without requiring an independent lock registry in Python.
+
+Important distinctions:
+
+- `NOWAIT` can cause an immediate failure rather than waiting for a conflicting lock.
+- `SKIP LOCKED` can exclude currently locked rows, useful for database-backed work-claiming patterns.
+- `OF` can limit which relations are targeted by locking clauses on supported databases.
+- Shared and key-share lock strengths can permit different combinations of concurrent access.
+
+The actual locking behavior belongs to the database engine. SQLAlchemy does not supply independent lock arbitration, deadlock detection, or fairness guarantees.
+
+`SKIP LOCKED` also does not implement a complete job queue. Work claiming must account for transaction boundaries, failures, retries, and the possibility of repeatedly skipping contended rows.
+
+ORM loader configuration interacts with locking: a query that uses `joinedload()` can introduce joins that affect the scope of locks on some backends. The SQLAlchemy documentation cautions against casually combining joined eager loading with `FOR UPDATE`.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/selectable.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 1.6 Advanced CTE placement and side-effecting CTEs
+
+The original reference describes recursive CTEs but not the full set of CTE placement controls.
+
+`HasCTE.add_cte()` can associate CTEs with a statement even when they are not directly referenced by its selected expressions.
+
+This is useful on supporting databases for constructing statements that combine a side-effecting CTE, such as a DELETE, with another DML operation.
+
+`nest_here=True` and the related CTE nesting controls determine whether a CTE is rendered locally to the statement containing it or hoisted to a surrounding statement.
+
+These capabilities matter for reusable relational fragments, because the SQL placement of a CTE may affect name visibility, valid syntax, and evaluation semantics.
+
+A data-modifying CTE is not portable merely because SQLAlchemy can represent it. Support and execution ordering must be understood from the target database.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/selectable.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 1.7 Extensible SQL functions and ordered aggregates
+
+The `func` namespace allows arbitrary SQL function names to be constructed, but SQLAlchemy also supplies a function registration and specialization system.
+
+`GenericFunction` supports functions with declared return types, custom argument handling, namespaces, and associated methods. `register_function()` can associate a construct with a name accessible through `func`, including constructs that are not ordinary `Function` subclasses.
+
+`FunctionElement.within_group_type()` supports return types that depend on an ordered-set aggregate's ordering expression.
+
+These mechanisms can make database-native functions into reusable, type-aware SQL constructs rather than untyped string-based invocations.
+
+#### New in 2.1: `FunctionElement.aggregate_order_by()`
+
+SQLAlchemy 2.1 generalizes the previously PostgreSQL-specific ordered-aggregate functionality into `FunctionElement.aggregate_order_by()`.
+
+It represents ordering within an aggregate such as an array, string, or JSON aggregation.
+
+The compiler can render appropriate backend-specific syntax. For example, PostgreSQL can represent aggregate-local `ORDER BY`, while Oracle and SQL Server may use `WITHIN GROUP` syntax.
+
+This should be distinguished from a conventional ordered-set aggregate for which `within_group()` is semantically required.
+
+Both facilities involve ordering, but their aggregate semantics and SQL syntax are not interchangeable for every function or database.
+
+The generalized interface is particularly valuable for dialect-aware analytical SQL generation because callers can represent the intended operation without implementing every backend's aggregate syntax independently.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/functions.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+1
+
+### 1.8 Expanding parameters, post-compilation rendering, and SQL hints
+
+`bindparam(expanding=True)` handles variable-length `IN` parameter sequences.
+
+Rather than requiring a distinct statement structure for every list length, SQLAlchemy can generate parameter slots at execution time while preserving compatibility with statement compilation caching.
+
+The expanding mechanism does not support DBAPI `executemany` parameter sets.
+
+`bindparam(literal_execute=True)` supports values that must be rendered into the statement during post-compilation rather than bound in the normal DBAPI parameter position. A common use is handling dialect-specific LIMIT/OFFSET requirements.
+
+These mechanisms address different limitations: expanding parameters vary the number of bound positions, while post-compilation literal rendering changes how particular values are inserted into the final SQL text.
+
+SQLAlchemy also provides lighter-weight SQL customization through `prefix_with()`, `suffix_with()`, `with_hint()`, and `with_statement_hint()`.
+
+These can insert dialect-specific hints without building a full custom compiler.
+
+New in 2.1, `Exists.with_hint()` and `Exists.with_statement_hint()` permit hints to be applied to the SELECT enclosed by an `EXISTS` expression, including expressions produced by ORM relationship comparators such as `any()` and `has()`.
+
+This creates a useful progression of extension mechanisms: parameter adaptation, SQL function registration, hints, syntax extensions, and finally custom expression compilation.
+
+Sources:
+
+`https://docs.sqlalchemy.org/en/21/core/sqlelement.html`
+
+`https://docs.sqlalchemy.org/en/21/core/selectable.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+1
+
+## 2. Programmable DDL, reflection, and schema-derived models
+
+Extends original §§3.1–3.3.
+
+### 2.1 Conditional DDL and schema generation policies
+
+SQLAlchemy's schema infrastructure supports more sophisticated DDL generation than simply calling `MetaData.create_all()`.
+
+`Constraint.ddl_if()` and `Index.ddl_if()` attach conditional rules to constraints or indexes.
+
+The condition can be evaluated during compilation of a containing `CREATE TABLE` statement as well as during DDL execution.
+
+This matters for constraints rendered inline within table definitions, where an execution-time event alone cannot simply remove a constraint after the containing CREATE statement has been compiled.
+
+`ExecutableDDLElement.execute_if()` addresses a related but different need: conditionally executing a DDL element attached to schema lifecycle events.
+
+| Mechanism                                | Principal role                                                               |
+| ---------------------------------------- | ---------------------------------------------------------------------------- |
+| `Constraint.ddl_if()` / `Index.ddl_if()` | Decide whether an index or constraint participates in generated DDL          |
+| `ExecutableDDLElement.execute_if()`      | Conditionally execute a DDL element                                          |
+| `DDL`                                    | Represent custom DDL text with schema lifecycle integration                  |
+| `@compiles` for DDL constructs           | Customize SQL generation for specific dialects                               |
+| Schema creation/removal events           | Associate additional operations with metadata or table lifecycle transitions |
+
+Conditions may inspect dialect identity and, where applicable, compilation context.
+
+These capabilities can centralize database-version-specific schema rules and custom object creation within the SQLAlchemy schema representation.
+
+They do not imply that arbitrary existing schema objects can be safely altered through `create_all()`; that remains a migration concern.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/ddl.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 2.2 Dependency-aware schema ordering and transformation
+
+`MetaData.sorted_tables` orders tables according to known foreign-key dependencies.
+
+`sort_tables_and_constraints()` provides finer control over ordering tables and constraints, including handling foreign-key relationships that cannot be represented by a simple acyclic ordering.
+
+The distinction matters for schemas with mutually dependent foreign keys. A straightforward topological ordering cannot completely resolve such cycles; some constraints must be treated separately when the backend permits.
+
+`Inspector.get_sorted_table_and_fkc_names()` provides a related facility for reflected database structure.
+
+`Table.to_metadata()` can copy a table definition into another `MetaData` collection, optionally changing the table's schema and transforming referenced schemas using `referred_schema_fn`.
+
+This permits SQLAlchemy table metadata to serve as a manipulable schema representation, not merely the original collection in which a table was declared.
+
+It can be useful when producing logical variants of a schema or adapting a set of reflected definitions.
+
+A metadata copy should not be assumed to be a lossless reconstruction of every database-specific object. Constraint dependencies, schema qualification, server-specific options, and separately managed database objects still require attention.
+
+Sources:
+
+`https://docs.sqlalchemy.org/en/21/core/metadata.html`
+
+`https://docs.sqlalchemy.org/en/21/core/reflection.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+2
+
+### 2.3 Reflection as a programmable transformation
+
+Reflection can be intercepted and adjusted rather than accepted verbatim.
+
+`DDLEvents.column_reflect()` receives column metadata as it is reflected and permits modifications before SQLAlchemy creates the corresponding `Column` objects.
+
+This can be combined with `TypeEngine.as_generic()` to translate dialect-specific reflected types into more generic SQLAlchemy types.
+
+Other controls include selective column inclusion or exclusion, foreign-key reflection handling, and explicit overrides of individual reflected columns.
+
+The result is a programmable transformation boundary between an existing database catalog and a SQLAlchemy metadata model.
+
+For example, a reflected database table can retain its physical identity while using adapted Python-facing column keys or type definitions.
+
+Such transformation can reduce the need for an independent schema-introspection-and-normalization implementation.
+
+However, type genericization cannot guarantee semantic equivalence across databases. A vendor-specific type can include behavior that does not survive translation into a generic SQL type.
+
+Reflection also does not automatically establish that generated DDL will reproduce all source database features.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/reflection.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 2.4 DDL generation without database execution
+
+`create_mock_engine()` creates an Engine-like object that routes DDL operations to a supplied callable rather than executing them against a database.
+
+This allows SQLAlchemy schema objects to be compiled using a selected dialect and their resulting DDL to be inspected independently.
+
+Unlike normal Engine execution, it does not connect to or modify a database.
+
+The mechanism is useful for analyzing generated schema statements, inspecting dialect-specific compilation, and testing custom DDL generation.
+
+It does not verify that a live server will accept the statements, that the database catalog is in a compatible state, or that a migration is safe.
+
+`create_mock_engine()` is therefore a SQL-generation inspection facility, not an offline database validator or migration engine.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/engines.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 2.5 Defaults, computed values, and generated-value ownership
+
+SQLAlchemy supports several distinct default and generated-value mechanisms with different responsibility boundaries.
+
+| Mechanism                            | Evaluation and ownership                                                                 |
+| ------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `Column.default` with a scalar       | SQLAlchemy supplies the value when no explicit value is provided                         |
+| `Column.default` with a callable     | Python function executes during SQLAlchemy-managed DML                                   |
+| Context-sensitive Python default     | Callable receives execution context and may inspect current parameters                   |
+| `Column.default` with SQL expression | SQLAlchemy incorporates or pre-executes an expression as appropriate                     |
+| `Column.server_default`              | Database applies an explicitly configured server-side default                            |
+| `Column.onupdate`                    | SQLAlchemy supplies an update-time value or expression                                   |
+| `Column.server_onupdate`             | Marks expected server-side update generation                                             |
+| `FetchedValue`                       | Identifies server-generated values for fetch-back behavior without itself generating DDL |
+| `Computed`                           | Represents a database-generated computed column                                          |
+| `Identity` / `Sequence`              | Represent database-supported identity or sequence generation                             |
+
+`FetchedValue` deserves particular emphasis. It informs SQLAlchemy that a database-side process, such as a trigger, can generate a new value. It does not create that process.
+
+The distinction affects generated-value retrieval, ORM eager defaults, and whether values are immediately available after INSERT or UPDATE.
+
+Context-sensitive Python defaults also have a specific execution model. For a conventional parameter-set-based operation, the callable can run separately for each parameter set and inspect it through `DefaultExecutionContext.get_current_parameters()`.
+
+This differs from the single-call behavior discussed earlier for Python defaults incorporated into `INSERT...FROM SELECT`.
+
+A further database-specific caveat is that SQLAlchemy's `server_onupdate` flag does not automatically produce MySQL's `ON UPDATE CURRENT_TIMESTAMP` syntax.
+
+The architectural opportunity is to express value-generation contracts as part of column metadata while distinguishing actual database enforcement from SQLAlchemy-managed generation.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/defaults.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+2
+
+## 3. Advanced ORM mapping and loading
+
+Extends original §§5.1, 5.3, 6.4, and 7.2.
+
+### 3.1 Deferred reflection and database-first mapping
+
+`DeferredReflection` supports declarative classes whose mappings cannot be fully established until a database connection is available.
+
+Classes are declared first, then reflection and mapping are completed through `DeferredReflection.prepare()`.
+
+This differs from ordinary reflection-based mapping, which generally requires database metadata to be available when mapped classes are configured.
+
+The extension supports classes that can be defined independently of immediate database availability and configured later against a supplied Engine or Connection.
+
+Separately derived deferred-reflection hierarchies can be prepared using different database connections.
+
+`Automap` provides another database-first capability: reflected tables can produce mapped classes and relationships automatically.
+
+Automap customization includes class naming, scalar relationship naming, collection relationship naming, module naming, and relationship generation hooks.
+
+`generate_relationship` customization can influence relationship configuration and cascade behavior rather than accepting only the generated defaults.
+
+These features are particularly useful for databases whose schema is authoritative or externally managed.
+
+Important boundaries remain:
+
+- ORM mappings require an identity strategy; a reflected table is not automatically suitable for mapping if SQLAlchemy cannot determine appropriate identity columns.
+- Database foreign keys may not fully describe domain relationship semantics.
+- Automap's generated object model should not be assumed to match a separately defined domain model.
+- Deferred reflection postpones mapper configuration; it does not make arbitrary schema changes transparently self-updating after mapping.
+
+Sources:
+
+`https://docs.sqlalchemy.org/en/21/orm/extensions/declarative/index.html`
+
+`https://docs.sqlalchemy.org/en/21/orm/extensions/automap.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+1
+
+### 3.2 New in 2.1.5: declared but unmapped columns
+
+`Unmapped[T]` and `unmapped_column()` permit a column to remain part of a declarative class's `Table` without participating in its ORM mapping.
+
+The column retains Core metadata, type inference, constraints, defaults, and other appropriate column configuration.
+
+However, the mapped Python class does not expose it as an ORM attribute, and ordinary ORM SELECT, INSERT, and UPDATE statements do not treat it as a mapped property.
+
+The distinction is especially significant when database schema evolution and application mapping evolution occur at different times.
+
+An application can stop mapping a column while preserving its presence in metadata, rather than immediately deleting the corresponding schema declaration.
+
+This does not itself perform a migration, but it permits application-level mapping changes and database-level schema changes to remain separate.
+
+An unmapped column can also belong to the table's physical primary key. In such cases, the ORM must still be configured with an appropriate mapped identity, potentially using `Mapper.primary_key` to identify a different unique column.
+
+The 2.1.5 implementation also deprecates using declarative `exclude_properties` or `include_properties` to exclude attributes explicitly declared on a mapped class. Those mapper options remain supported for appropriate columns supplied through a separate table definition.
+
+Source: `https://docs.sqlalchemy.org/en/21/orm/declarative_tables.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 3.3 New in 2.1: callable bidirectional relationship references
+
+`relationship.back_populates` can accept a direct class-bound attribute reference or a callable that returns one.
+
+This provides an alternative to identifying the opposite relationship by string name.
+
+For forward references, a lambda can defer resolution until the referenced class and attribute exist.
+
+The value is primarily in typed declarative models: a relationship can reference another mapped attribute directly in a manner more amenable to static inspection, refactoring, and IDE checking.
+
+It does not change fundamental relationship persistence behavior, cascade semantics, or join construction.
+
+Source: `https://docs.sqlalchemy.org/en/21/changelog/migration_21.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 3.4 Fine-grained loader criteria and existing identity-map state
+
+Loader configuration can attach relationship-specific conditions using `PropComparator.and_()`.
+
+For example, a relationship loader can select related objects subject to additional predicates without rewriting the main query or globally changing the relationship definition.
+
+`defaultload()` and nested `Load.options()` allow configuration of subordinate loading paths without necessarily replacing the loading strategy of an intermediate relationship.
+
+A consequential distinction is that loader options interact with already-loaded ORM state.
+
+If a relationship collection has already been loaded into the identity map, issuing a new query with different loader criteria does not necessarily replace that collection.
+
+`populate_existing=True` requests refresh of existing state, including applying the new loading criteria.
+
+This is not a harmless metadata update: it can overwrite loaded attributes and discard pending in-memory changes if those changes have not been flushed.
+
+Loader options can also be retained on ORM instances for subsequent lazy-loading operations. Therefore, the relationship-loading configuration attached to an object can remain relevant after the original SELECT has completed.
+
+These semantics make the identity map an active participant in query results, not merely a cache of object instances.
+
+Source: `https://docs.sqlalchemy.org/en/21/orm/queryguide/relationships.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 3.5 Configurable select-in loading batches
+
+New in SQLAlchemy 2.1, `selectinload()` accepts `chunksize`.
+
+This controls how many parent identity values are grouped into each select-in loading statement.
+
+By default, SQLAlchemy normally groups up to 500 parent primary-key values into a batch.
+
+Smaller batches can reduce individual SQL statement size and parameter counts, while larger batches may reduce database round trips when the database supports them.
+
+The number of bound parameters is not necessarily equal to the number of parent objects, particularly with composite identifiers.
+
+An important compatibility issue is that select-in loading of composite primary keys relies on tuple-valued `IN` expressions.
+
+SQL Server does not support the required syntax, and SQLAlchemy documentation identifies `subqueryload()` as a remaining alternative for that case.
+
+`subqueryload()` is otherwise largely considered a legacy loading strategy because select-in loading generally produces simpler SQL and composes better with streaming operations.
+
+New configurability does not change these underlying SQL compatibility constraints.
+
+Source: `https://docs.sqlalchemy.org/en/21/orm/queryguide/relationships.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+1
+
+### 3.6 Recursive eager loading
+
+`selectinload(recursion_depth=...)` can recursively load self-referential relationships for a specified depth, stopping when no additional related objects are found.
+
+This provides controlled relationship traversal without manually defining a separate eager-loading option for every level.
+
+The feature is narrower than a general graph traversal mechanism.
+
+The documentation identifies it as experimental and limits automatic recursion to self-referential relationships. It does not automatically traverse arbitrary cycles involving multiple relationship definitions.
+
+Unlike a recursive CTE, it performs relationship loading into ORM object graphs through successive SELECT operations.
+
+That distinction matters when comparing database-side recursive traversal with Python object materialization.
+
+Source: `https://docs.sqlalchemy.org/en/21/orm/queryguide/relationships.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 3.7 Attribute validation, instrumentation, and history
+
+`@validates` provides a declarative way to intercept ordinary application-level attribute mutations.
+
+A validator can reject, normalize, or replace values assigned to mapped attributes. It can also intercept collection addition and, with `include_removes=True`, collection removal.
+
+`include_backrefs` controls validation triggered through bidirectional relationship synchronization.
+
+However, validators are not database constraints. They do not run merely because an ORM object is populated from database results, nor do they automatically govern all set-based DML paths.
+
+They are built on SQLAlchemy's broader `AttributeEvents` instrumentation system.
+
+For more complex behavior, attribute events can observe assignment, append, remove, initialization, and related state transitions. ORM inspection and attribute history facilities can expose changes relevant to persistence.
+
+New in 2.1, a subclass can override a parent class's `@validates` method by redefining the validator under the same method name. The parent validation does not run automatically unless explicitly invoked.
+
+This enables a form of inheritance-sensitive attribute policy without manually managing global event dispatch.
+
+Source: `https://docs.sqlalchemy.org/en/21/orm/mapped_attributes.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+## 4. ORM execution interception, substitution, and distributed routing
+
+Deepens original §§7.4 and 10.1.
+
+### 4.1 `do_orm_execute()` as a result-producing interception point
+
+`SessionEvents.do_orm_execute()` is more powerful than a conventional observer hook.
+
+It can intercept ORM SELECT and ORM-enabled bulk DML operations, inspect or replace statements and parameters, and take control of how an operation is executed.
+
+`ORMExecuteState` exposes information about whether an operation is an ORM statement, relationship load, column load, INSERT, UPDATE, DELETE, or executemany-style execution.
+
+It can also modify execution options or replace the current statement.
+
+An important boundary is that this hook does not intercept ordinary INSERT, UPDATE, and DELETE statements emitted internally by the ORM flush process. Those are controlled by other event families.
+
+This distinction determines whether a policy applies to explicit ORM operations or to every persistence operation.
+
+Source: `https://docs.sqlalchemy.org/en/21/orm/session_events.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 4.2 Nested statement execution
+
+`ORMExecuteState.invoke_statement()` permits an intercepted statement to be executed through a nested invocation.
+
+The invocation can use modified execution parameters or bind arguments and returns a `Result`.
+
+Previously invoked `do_orm_execute` handlers are skipped during the nested execution, avoiding straightforward recursive invocation of the same event handler.
+
+The mechanism supports rerouting an ORM statement to another execution context without forcing every caller to know that rerouting has occurred.
+
+A statement may also be invoked multiple times against different bindings, with compatible results merged using `Result.merge()`.
+
+This capability underlies SQLAlchemy's horizontal sharding examples.
+
+However, execution fan-out is not equivalent to a distributed SQL query engine.
+
+The caller remains responsible for determining which shards should participate, whether results can be merged correctly, how ordering and pagination should work, and what transaction-consistency guarantees are possible.
+
+### 4.3 Frozen results and ORM-aware result caching
+
+`Result.freeze()` creates a reusable frozen representation of a result.
+
+An application can use this together with `do_orm_execute()` to intercept a query, retrieve a cached frozen result, and return data without issuing the original database statement.
+
+`loading.merge_frozen_result()` provides ORM-aware reconciliation of frozen data into a Session.
+
+This differs from a conventional application cache storing serialized dictionaries because SQLAlchemy has machinery for reconnecting cached ORM row information with mapper and Session semantics.
+
+The official documentation demonstrates this in its dogpile-caching example.
+
+The combination can support a native SQLAlchemy result-caching boundary:
+
+| Capability                    | Responsibility                                                      |
+| ----------------------------- | ------------------------------------------------------------------- |
+| `do_orm_execute()`            | Determine whether execution should proceed or be replaced           |
+| `invoke_statement()`          | Execute the intercepted statement when required                     |
+| `Result.freeze()`             | Capture reusable result data                                        |
+| `merge_frozen_result()`       | Reconcile cached ORM results with a Session                         |
+| Application or external cache | Store cached data and control invalidation, freshness, and eviction |
+
+SQLAlchemy does not supply a complete persistent distributed cache, automatic invalidation, or a consistency model for cached ORM results.
+
+A cache key must account for query structure, bound values, visibility policies, schema and tenant context, and any other information that can change results.
+
+Similarly, a frozen result reflects the database state observed when it was captured, not necessarily the current database state.
+
+The value is that SQLAlchemy supplies the ORM execution and result-reconstitution mechanisms, potentially eliminating substantial bespoke object reconstruction code.
+
+Sources:
+
+`https://docs.sqlalchemy.org/en/21/orm/session_events.html#re-executing-statements`
+
+`https://docs.sqlalchemy.org/en/21/orm/examples.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+## 5. Transaction ownership, Session scoping, and binding control
+
+Extends original §§8.2 and 10.4.
+
+### 5.1 Sessions participating in externally owned transactions
+
+SQLAlchemy can bind a Session to a `Connection` that already has an active transaction.
+
+`Session.join_transaction_mode` controls how the Session interacts with that transaction.
+
+| Mode                    | Behavior                                                                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `conditional_savepoint` | Default. Creates a SAVEPOINT when the Connection already has one; otherwise generally uses rollback-only behavior                 |
+| `create_savepoint`      | Creates a SAVEPOINT for Session transaction operations, leaving the external transaction intact when SAVEPOINT support is correct |
+| `control_fully`         | Gives the Session control over commit, rollback, and close behavior of the external transaction                                   |
+| `rollback_only`         | Propagates rollback to the external transaction but does not propagate Session commits                                            |
+
+This is more precise than simply using `Session.begin_nested()`.
+
+The distinction is not whether SAVEPOINTs exist, but which component owns the outer transaction and which transaction boundaries the Session is allowed to control.
+
+`create_savepoint` is particularly useful for an ORM Session operating inside a separately managed transaction, including database integration tests that need to exercise Session commits without committing the outer transaction.
+
+The underlying database and driver must implement SAVEPOINT behavior correctly. SQLAlchemy does not emulate transaction nesting independently of database support.
+
+Sources:
+
+`https://docs.sqlalchemy.org/en/21/orm/session_transaction.html`
+
+`https://docs.sqlalchemy.org/en/21/orm/session_api.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+2
+
+### 5.2 Scoped Session registries
+
+`scoped_session` provides a registry that associates a Session with a configured execution scope.
+
+The traditional default is thread-local storage, but a custom `scopefunc` can define an alternative scope key.
+
+`scoped_session.remove()` closes and removes the current scoped Session so a subsequent lookup can create a new one.
+
+This should be distinguished from using a shared Session across threads.
+
+The registry supplies scoped access to different Session instances; it does not make an individual Session safe for simultaneous independent operations.
+
+SQLAlchemy also provides `async_scoped_session` for asynchronous contexts.
+
+Async scoping introduces additional lifecycle obligations. In particular, task-based scope functions must be paired with appropriate removal to avoid retaining task references and Session state after a task completes.
+
+Explicitly passing Sessions and using context managers remains a distinct alternative to implicit scoped access.
+
+Sources:
+
+`https://docs.sqlalchemy.org/en/21/orm/contextual.html`
+
+`https://docs.sqlalchemy.org/en/21/orm/extensions/asyncio.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+1
+
+### 5.3 New in 2.1: public Session bind collections
+
+SQLAlchemy 2.1 makes per-mapper and per-table Session bindings available through the public `Session.binds` collection.
+
+These bindings can be established through constructor arguments and methods such as `bind_mapper()` and `bind_table()`.
+
+The public collection uses normalized keys, including mapped classes and their associated selectables.
+
+It is immutable and replaced when binding configuration changes, rather than modified in place.
+
+`AsyncSession.binds` provides a corresponding view using asynchronous Engine or Connection objects.
+
+New `AsyncSession.get_async_bind()` functionality resolves a binding while returning an async-aware Engine or Connection, rather than its underlying synchronous adaptation.
+
+These facilities enable introspection of the configured binding topology without accessing private Session internals.
+
+They do not provide automatic routing policies, cross-database consistency, or distributed transaction planning.
+
+Source: `https://docs.sqlalchemy.org/en/21/changelog/migration_21.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+## 6. Engine creation, connection errors, and low-level execution extensions
+
+Extends original §§8.1, 8.4, and 10.1.
+
+### 6.1 Engine creation plugins
+
+`CreateEnginePlugin` provides a structured extension point for augmenting Engine construction.
+
+Its hooks include `update_url()`, `handle_dialect_kwargs()`, `handle_pool_kwargs()`, and `engine_created()`.
+
+An Engine plugin can consume specialized configuration arguments, adjust Engine or pool creation behavior, and install instrumentation once the Engine has been created.
+
+This is different from requiring callers to wrap every `create_engine()` invocation or separately install the same event listeners.
+
+Plugins can be selected through SQLAlchemy's Engine plugin configuration mechanisms, making them useful for reusable database integrations.
+
+The plugin API is an Engine-construction extension, not an independent driver or dialect implementation.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/connections.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 6.2 Independent connection pool construction
+
+`create_pool_from_url()` creates a SQLAlchemy connection pool without requiring a full Engine.
+
+The pool class can be selected according to the URL's dialect unless explicitly overridden.
+
+This separates connection resource management from SQLAlchemy's full expression compilation and Engine execution infrastructure.
+
+It can be useful when specialized execution software needs SQLAlchemy's pooling behavior but does not need to use an Engine for every operation.
+
+The caller remains responsible for observing the underlying driver's transaction, connection, and resource lifecycle requirements.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/engines.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 6.3 Error interception and disconnect classification
+
+`DialectEvents.handle_error()` receives an `ExceptionContext` for exceptions processed through SQLAlchemy's dialect and execution machinery.
+
+It can inspect an error, change SQLAlchemy's disconnect or invalidation determination, and replace the exception that will be raised.
+
+This is especially useful for drivers with unusual disconnection indicators or database-specific error classifications.
+
+The hook may run during statement execution, transaction processing, result fetching, connection initialization, and connection pre-ping.
+
+Therefore, listeners must not assume that a normal SQL statement, a fully established Engine connection, or a particular cursor is present.
+
+A pre-ping failure can have a different available context from a statement-execution failure.
+
+SQLAlchemy's `ExceptionContext` exposes the relevant state rather than requiring consumers to reconstruct it from exception strings alone.
+
+This is a native error-classification and lifecycle extension point, but it does not make failed transactions automatically retryable.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/events.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 6.4 New in 2.1: DBAPI errors inside cursor event hooks
+
+SQLAlchemy 2.1 extends error handling for exceptions that escape `before_cursor_execute` and `after_cursor_execute` listeners.
+
+This is specifically significant when listeners directly operate on raw DBAPI cursors or DBAPI connections.
+
+Previously, some exceptions escaping from these hooks could bypass SQLAlchemy's usual error handling and connection invalidation.
+
+The 2.1 behavior routes them through the error-handling machinery, allowing appropriate invalidation and wrapping applicable DBAPI exceptions into SQLAlchemy's exception hierarchy.
+
+This applies even to certain `BaseException` subclasses involved in interruption or cancellation.
+
+For execution instrumentation and custom driver integrations, the change improves lifecycle consistency after failures.
+
+However, code that previously expected an unwrapped DBAPI exception from an event handler may observe a different exception type.
+
+Source: `https://docs.sqlalchemy.org/en/21/changelog/migration_21.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+## 7. JSON semantics and type-aware operator validation
+
+Extends original §§4.1–4.2 and 6.5.
+
+### 7.1 SQL NULL, JSON null, and missing values
+
+SQLAlchemy's JSON type distinguishes SQL NULL from a JSON value containing `null`.
+
+The principal mechanisms are:
+
+| Value or setting           | Meaning                                                           |
+| -------------------------- | ----------------------------------------------------------------- |
+| `null()`                   | Explicit SQL NULL                                                 |
+| `JSON.NULL`                | Explicit JSON null                                                |
+| `JSON(none_as_null=True)`  | Python `None` is persisted as SQL NULL                            |
+| `JSON(none_as_null=False)` | Python `None` is persisted as JSON null                           |
+| Omitted DML column         | No explicit value supplied; applicable default behavior may occur |
+
+`JSON.NULL` and `null()` override the ambiguity of Python `None` during value persistence.
+
+The `none_as_null` setting affects persistence of Python values, not all SQL expression comparisons involving `None`.
+
+In SQL comparison expressions, `None` continues to represent SQL NULL semantics. An explicit `JSON.NULL` value is needed when the intended comparison is against JSON null.
+
+Also, `none_as_null` does not change the meaning of `None` supplied as the configuration value for `Column.default` or `Column.server_default`; in those positions it means that no default has been configured.
+
+These distinctions are critical for JSON-backed domain state because a missing key, a JSON null, and a SQL NULL may convey different information.
+
+They also interact with ORM bulk INSERT behavior, which can omit `None` values unless explicitly configured otherwise.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/type_basics.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 7.2 Typed JSON indexing and extraction
+
+The generic JSON type supports keyed, integer, and path-based indexing.
+
+JSON-indexed expressions can then use methods such as `as_string()`, `as_integer()`, `as_boolean()`, `as_float()`, `as_numeric()`, and `as_json()`.
+
+These provide type-aware expression behavior through dialect-specific SQL compilation.
+
+They are distinct from extracting JSON text into Python and validating it afterward.
+
+The appropriate cast or extraction expression can occur in the database, allowing typed predicates to be used within WHERE clauses, joins, projections, and other relational expressions.
+
+This can eliminate separate handwritten JSON extraction SQL for supported backends.
+
+However, database JSON types and operators still differ. Typed accessors do not guarantee identical handling of missing paths, numeric conversion, JSON nulls, or malformed values across engines.
+
+Source: `https://docs.sqlalchemy.org/en/21/core/type_basics.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 7.3 New in 2.1: SQL operator classes
+
+SQLAlchemy 2.1 introduces `OperatorClass` and type-level `TypeEngine.operator_classes` metadata.
+
+These identify categories of SQL operations appropriate for particular types.
+
+SQLAlchemy can use this information to detect mismatches when constructing SQL expressions rather than leaving every incompatible operation to fail at database execution time.
+
+One important motivation is distinguishing generic JSON string containment operations from PostgreSQL JSONB structural containment.
+
+Although both may use a method named `contains()`, their SQL meanings are different.
+
+For custom types, `UserDefinedType` can explicitly declare supported operator classes. A `TypeDecorator` normally inherits the operator-class behavior of its implementation type.
+
+Custom operators can also declare operator classes using the relevant operator construction interface.
+
+Current behavior: SQLAlchemy 2.1 emits deprecation warnings for incompatible combinations. The documentation states that a future major release is expected to raise an exception, but that stricter behavior is not part of the present stable contract.
+
+This is therefore a type-and-operator compatibility validation mechanism, not a complete static SQL type checker.
+
+It also should not be confused with PostgreSQL index operator classes, which control index operator semantics and are configured separately.
+
+Source: `https://docs.sqlalchemy.org/en/21/changelog/migration_21.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+## 8. Additional database-native schema and dialect functionality
+
+Extends original §9.
+
+### 8.1 PostgreSQL exclusion constraints and reusable DOMAIN types
+
+`sqlalchemy.dialects.postgresql.ExcludeConstraint` models PostgreSQL exclusion constraints.
+
+These can enforce invariants involving operators beyond ordinary equality, such as preventing overlap between ranges for records sharing another key.
+
+Constraint elements specify expressions and operators; optional configuration includes predicates, operator classes, deferrability, and names.
+
+This permits sophisticated relational invariants to be enforced by PostgreSQL rather than implemented exclusively through application-level pre-insert checks.
+
+For example, interval-overlap exclusion can be substantially safer under concurrency than querying for overlapping intervals and then inserting when none are found.
+
+Certain combinations require PostgreSQL extensions such as `btree_gist`.
+
+The `DOMAIN` type represents database-defined reusable scalar types with constraints, defaults, and nullability rules.
+
+A DOMAIN is different from a SQLAlchemy `TypeDecorator`: it is a database schema object whose restrictions can be enforced by the server across tables and clients.
+
+SQLAlchemy supports DOMAIN creation, removal, reflection, and schema ownership. PostgreSQL's Inspector also exposes `get_domains()` and `get_enums()` for direct introspection of named types.
+
+These capabilities expand the role of PostgreSQL as an invariant-enforcing domain model, rather than a passive destination for Python-validated data.
+
+Source: `https://docs.sqlalchemy.org/en/21/dialects/postgresql.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+1
+
+### 8.2 PostgreSQL indexing and transaction-sensitive DDL
+
+SQLAlchemy's PostgreSQL dialect supports additional index controls including covering indexes, partial indexes, operator classes, storage parameters, and concurrent index creation or removal.
+
+`postgresql_concurrently=True` can be applied to an Index to emit PostgreSQL's `CONCURRENTLY` syntax.
+
+This has a significant transaction consequence: PostgreSQL requires concurrent index creation to execute outside a normal transaction block.
+
+Consequently, the relevant SQLAlchemy connection must use an appropriate DBAPI autocommit isolation mode.
+
+This illustrates that schema DDL composition does not automatically imply uniform transaction semantics.
+
+A DDL construct may be representable as SQLAlchemy metadata while requiring special database execution handling.
+
+Source: `https://docs.sqlalchemy.org/en/21/dialects/postgresql.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+### 8.3 PostgreSQL 2.1-specific enhancements
+
+Several PostgreSQL changes in 2.1 have broader implications than their API surface suggests.
+
+| Capability                   | Consequence                                                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `BitString`                  | BIT results gain a SQLAlchemy-provided string subclass with bit manipulation facilities for supported drivers            |
+| Virtual computed columns     | `Computed.persisted` behavior accounts for PostgreSQL 18's introduction of virtual generated columns                     |
+| Schema-qualified collations  | `String.collation_schema`, `DOMAIN.collation_schema`, and related interfaces preserve distinct collation schema identity |
+| Revised named-type ownership | ENUM and DOMAIN objects are more explicitly associated with `MetaData` rather than a single table                        |
+| Monotonic UUID defaults      | Supports more efficient ordered correlation in suitable batched INSERT operations                                        |
+| HSTORE subscript rendering   | Uses native subscripting syntax on PostgreSQL 14 and later                                                               |
+
+The `BitString` change is driver-sensitive: the new string subclass is compatible with conventional string usage for several drivers, but differs from the independent `asyncpg.BitString` representation.
+
+For PostgreSQL 18 and later, explicitly setting `Computed.persisted=True` is important when stored generated columns are required rather than relying on backend defaults.
+
+The revised named-type lifecycle matters for shared ENUM and DOMAIN definitions because these are independent database objects used by multiple tables.
+
+The HSTORE change can also affect existing expression indexes, since the rendered SQL expression changes. Such indexes may need to be recreated when their stored expression no longer matches the form generated by SQLAlchemy.
+
+Source: `https://docs.sqlalchemy.org/en/21/changelog/migration_21.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation+3
+
+### 8.4 SQL Server, Oracle, and SQLite additions
+
+SQLAlchemy 2.1 introduces additional capabilities that matter when assessing the dialect abstraction beyond PostgreSQL.
+
+SQL Server: The new `mssql+mssqlpython` dialect integrates Microsoft's `mssql-python` driver. The SQL Server dialect also implements more efficient multi-object reflection methods that query catalog metadata in groups instead of necessarily performing separate catalog round trips for each table.
+
+A separate correction to `mssql+pyodbc` changes processing of `odbc_connect` values by avoiding an incorrect second URL-decoding step.
+
+Oracle: The default Oracle driver changes to `python-oracledb`. Oracle 23c and later can use native BOOLEAN support, while older versions continue to require emulated representations.
+
+SQLite: The new dialect-specific `JSONB` type supports SQLite's binary JSON format, available in SQLite 3.45 and later. SQLite JSONB is not equivalent to PostgreSQL JSONB at the binary representation level.
+
+These examples reinforce the distinction between the SQLAlchemy type or expression abstraction and the capabilities of each underlying database engine.
+
+Source: `https://docs.sqlalchemy.org/en/21/changelog/migration_21.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.sqlalchemy.org\&sz=32)
+
+SQLAlchemy 2.1 Documentation
+
+## 9. SQLAlchemy 2.1.6 release corrections
+
+Updates the original guide's version baseline.
+
+The original guide targets 2.1.5. The current release is 2.1.6, published October 21, 2026.
+
+The important changes are primarily fixes and compatibility adjustments rather than entirely new capability families.
+
+### 9.1 ORM correctness
+
+2.1.6 fixes an identity-map issue in which replacing an expired object with a newly flushed object having the same primary key could cause an unnecessary database SELECT and, under particular garbage-collection circumstances, an `AttributeError`.
+
+It also fixes a regression involving multiple `with_loader_criteria()` options applied to the same entity with correlated subqueries.
+
+Another fix restores correct application of `.params()` to ORM statements constructed through `Select.from_statement()` when statement compilation caching is disabled or unavailable.
+
+These changes are relevant to the advanced ORM interception and loader-criteria mechanisms described earlier.
+
+### 9.2 SQL compilation and parameter handling
+
+2.1.6 corrects cache-key generation for selected DML configuration, including `Insert.from_select(include_defaults=...)` and `return_defaults()` options.
+
+This matters because compilation caching must distinguish all SQL-affecting statement structure. Two statements that differ in whether defaults or supplemental returned columns are included should not share an inappropriate cached representation.
+
+The release also includes fixes for expanding `IN` parameters and additional asyncio behavior.
+
+### 9.3 Engine URL handling
+
+New parameters such as `make_url(keep_blank_values=True)` and `URL.update_query_string(..., keep_blank_values=True)` preserve blank query-string values when required.
+
+The default behavior continues to omit them.
+
+This is relevant for programmatic database URL generation where a blank connection option may have a meaning distinct from its absence.
+
+The live 2.1 changelog also includes entries under 2.1.7, but that version has no release date and is not the current stable release as of the research date. Those entries should not be treated as released 2.1.6 functionality.
+
+Sources:
+
+`https://www.sqlalchemy.org/blog/2026/10/21/sqlalchemy-2.1.6-released/`
+
+`https://docs.sqlalchemy.org/en/21/changelog/changelog_21.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://www.sqlalchemy.org\&sz=32)
+
+SQLAlchemy+1
+
+## 10. Cross-capability architectural implications
+
+The additional functionality reveals several important combinations that are not immediately apparent when the capabilities are considered individually.
+
+### 10.1 Schema-aware relational generation
+
+`MetaData`, programmable reflection, `Table.to_metadata()`, typed SQL expressions, conditional DDL, dialect compilation, and mock Engine execution can form an integrated schema-aware SQL generation subsystem.
+
+Such a subsystem can use one relational representation for both SQL construction and schema-oriented introspection while retaining the ability to inspect generated statements without executing them.
+
+However, it does not automatically solve schema reconciliation or migration history, nor does SQLAlchemy guarantee lossless cross-database schema translation.
+
+### 10.2 High-throughput relational mutation with precise identity handling
+
+`INSERT...SELECT`, set-based DML, `insertmanyvalues`, sentinel-based `RETURNING` correlation, generated-value metadata, and ORM-compatible bulk operations provide several ways to avoid unnecessary per-object persistence.
+
+The key design distinction is whether the operation needs Python ORM object semantics, database-side transformations, generated-value correlation, or only set-oriented mutation.
+
+Preserving a required semantic guarantee—particularly generated identity association or default evaluation—may affect the most efficient execution strategy.
+
+### 10.3 Database-enforced domain integrity
+
+Typed relational expressions, PostgreSQL DOMAINs, exclusion constraints, database defaults, row locks, and transaction isolation can collectively enforce invariants that would otherwise require substantial application-level coordination.
+
+Application validators and ORM events remain useful for early error detection and object-level behavior, but they are not substitutes for database-enforced rules when independent database clients or concurrent transactions must observe the same invariant.
+
+### 10.4 Programmable execution with controlled persistence state
+
+`do_orm_execute()`, frozen results, Session binding introspection, schema translation, scoped Session creation, and external transaction participation create a programmable execution boundary.
+
+The mechanisms can support caching, custom routing, database-specific execution policies, and sophisticated transactional integration.
+
+Their combination also introduces obligations that SQLAlchemy does not resolve automatically: cache invalidation, transaction ownership, identity semantics across bindings, cross-shard result correctness, and security enforcement.
+
+The broader architectural insight is that SQLAlchemy provides substantial reusable machinery for these systems, while leaving their application-specific consistency policies explicit.
+
+## 11. Primary-source additions for the reference map
+
+The following topic-specific official documentation pages complement the original guide's references.
+
+| Topic                                       | Direct official URL                                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------- |
+| Advanced Core DML and defaults retrieval    | `https://docs.sqlalchemy.org/en/21/core/dml.html`                         |
+| Insert batching and ordered RETURNING       | `https://docs.sqlalchemy.org/en/21/core/connections.html`                 |
+| ORM bulk INSERT and UPDATE                  | `https://docs.sqlalchemy.org/en/21/orm/queryguide/dml.html`               |
+| Locking, CTE placement, SQL hints           | `https://docs.sqlalchemy.org/en/21/core/selectable.html`                  |
+| Generic functions and ordered aggregates    | `https://docs.sqlalchemy.org/en/21/core/functions.html`                   |
+| Parameter expansion and SQL expressions     | `https://docs.sqlalchemy.org/en/21/core/sqlelement.html`                  |
+| Conditional DDL                             | `https://docs.sqlalchemy.org/en/21/core/ddl.html`                         |
+| Schema reflection and adaptation            | `https://docs.sqlalchemy.org/en/21/core/reflection.html`                  |
+| Schema metadata transformation              | `https://docs.sqlalchemy.org/en/21/core/metadata.html`                    |
+| Column and server defaults                  | `https://docs.sqlalchemy.org/en/21/core/defaults.html`                    |
+| Deferred declarative reflection             | `https://docs.sqlalchemy.org/en/21/orm/extensions/declarative/index.html` |
+| Automap generation and customization        | `https://docs.sqlalchemy.org/en/21/orm/extensions/automap.html`           |
+| Unmapped declarative columns                | `https://docs.sqlalchemy.org/en/21/orm/declarative_tables.html`           |
+| ORM loader criteria and batching            | `https://docs.sqlalchemy.org/en/21/orm/queryguide/relationships.html`     |
+| Attribute validators                        | `https://docs.sqlalchemy.org/en/21/orm/mapped_attributes.html`            |
+| ORM execution re-entry and result caching   | `https://docs.sqlalchemy.org/en/21/orm/session_events.html`               |
+| External transaction participation          | `https://docs.sqlalchemy.org/en/21/orm/session_api.html`                  |
+| Scoped Sessions                             | `https://docs.sqlalchemy.org/en/21/orm/contextual.html`                   |
+| Engine creation plugins                     | `https://docs.sqlalchemy.org/en/21/core/connections.html`                 |
+| Error handling and exception classification | `https://docs.sqlalchemy.org/en/21/core/events.html`                      |
+| JSON semantics and type accessors           | `https://docs.sqlalchemy.org/en/21/core/type_basics.html`                 |
+| PostgreSQL advanced dialect objects         | `https://docs.sqlalchemy.org/en/21/dialects/postgresql.html`              |
+| SQLAlchemy 2.1 additions and migrations     | `https://docs.sqlalchemy.org/en/21/changelog/migration_21.html`           |
+| SQLAlchemy 2.1 release history              | `https://docs.sqlalchemy.org/en/21/changelog/changelog_21.html`           |
+
+## Closing synthesis
+
+These additions materially extend the capabilities described in the original guide.
+
+SQLAlchemy's native functionality includes not only relational SQL construction and automated ORM persistence, but also programmable database-side transformation, conditional schema generation, metadata transformation, sophisticated ORM execution substitution, external transaction participation, and type-aware SQL validation.
+
+The most significant opportunities for eliminating custom machinery arise where these mechanisms compose: generating and transforming relational structures through shared metadata; performing database-side writes while retaining correct generated identities; expressing durable invariants through database-native constraints; and intercepting or rerouting ORM execution without independently reconstructing object loading and result handling.
+
+The corresponding limitations are equally important. SQLAlchemy does not convert those building blocks into a distributed query engine, automatic cache-coherence system, complete migration engine, independent transaction coordinator, or database-agnostic semantic validator.
+
+Understanding both the native mechanisms and those boundaries is what allows the library to serve as a substantial database infrastructure framework rather than only an ORM or SQL query builder.

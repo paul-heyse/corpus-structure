@@ -1456,3 +1456,852 @@ Third, its lifecycle and concurrency mechanisms can replace significant bespoke 
 Its principal boundary is equally clear: Psycopg is a sophisticated PostgreSQL driver, not a general relational modeling or schema management framework. SQLAlchemy, Alembic, PostgreSQL itself, and columnar data libraries provide capabilities at different layers.
 
 Taken together, Psycopg 3.3 provides a technically rich foundation for both direct PostgreSQL access and higher-level database abstractions. Its most distinctive capabilities are not individual convenience methods, but the ability to combine native PostgreSQL execution mechanisms, strongly controlled type adaptation, and explicit connection lifecycle management into systems that require less custom infrastructure while preserving detailed control over database behavior.
+
+# Psycopg 3.3.6 — Advanced Capability Addendum
+
+Target versions: `psycopg` 3.3.6 · `psycopg_pool` 3.3.3\
+Research date: November 1, 2026\
+Scope: Supplement to Psycopg 3 — Comprehensive Python Library Capability Reference, covering previously omitted functionality, advanced execution semantics, and version-specific qualifications.
+
+Both target versions are the latest stable releases as of the research date. Current online documentation is generated from a development revision; the additions below concern functionality available in the specified releases unless explicitly identified otherwise.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://pypi.org\&sz=32)
+
+PyPI+2
+
+
+
+## 1. Dynamic connection configuration and operational pool management
+
+Extends original §§12.2–12.4.
+
+The `psycopg_pool` package provides controls beyond automatic connection creation and recycling. In particular, it supports dynamic configuration of new physical sessions, explicit replacement of existing sessions, runtime resizing, readiness validation, and distinct operational failure signals.
+
+### 1.1 Connection configuration evaluated at creation time
+
+Since `psycopg_pool` 3.3, pool constructor arguments `conninfo` and `kwargs` may be callables rather than static values. They are evaluated for each connection attempt, allowing newly created connections to use current credentials or routing information without reconstructing the pool.
+
+The supported forms differ by pool class:
+
+| Class                 | `conninfo` / `kwargs` providers                                 |
+| --------------------- | --------------------------------------------------------------- |
+| `ConnectionPool`      | Static values or synchronous zero-argument callables            |
+| `AsyncConnectionPool` | Static values, synchronous callables, or asynchronous callables |
+
+This can integrate a pool with a credential provider, service-discovery mechanism, or configuration service. The callable is evaluated when a physical connection is created, not on every acquisition of an existing connection. Consequently, updated connection parameters do not immediately change already-established sessions.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+### 1.2 Explicit connection replacement with `drain()`
+
+`ConnectionPool.drain()`, introduced in `psycopg_pool` 3.3, removes idle connections from the pool and schedules their replacement. Connections currently borrowed by clients remain in use until returned, at which point they are closed instead of being reused.
+
+This provides a controlled session-generation boundary. It can be useful when refreshing connection credentials, reestablishing session configuration, or replacing connections whose adapter registries were initialized using older definitions.
+
+The essential distinction is that dynamic configuration controls what new connections receive, whereas draining controls when existing connections are replaced. Together, they can support connection-state transitions without forcibly interrupting ongoing database operations.
+
+The documented `drain()` API is provided on `ConnectionPool`; it should not be assumed to exist on `AsyncConnectionPool` or the null-pool variants without verification against the installed version.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+### 1.3 Runtime management and readiness controls
+
+Several operational methods deserve explicit treatment:
+
+| API                          | Behavior and significance                                                                                               |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `wait(timeout=...)`          | Waits for the pool's minimum connection population to become ready; closes the pool and raises `PoolTimeout` on failure |
+| `resize(min_size, max_size)` | Changes connection-capacity bounds at runtime                                                                           |
+| `check()`                    | Tests connections currently held by the pool, replacing failed ones                                                     |
+| `check_connection(conn)`     | Static health-check helper, also suitable as an acquisition-time `check` callback                                       |
+| `open(wait=True)`            | Opens the pool and combines initialization with readiness waiting                                                       |
+| `getconn()` / `putconn()`    | Explicit acquisition/release interface where context managers cannot be used                                            |
+
+Ordinary pools and null pools differ. In particular, `NullConnectionPool.wait()` verifies connectivity by establishing a test connection without retaining it. Operational checks must not be interpreted as guarantees that future acquisitions or queries will succeed.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation+2
+
+
+
+The lifecycle model also distinguishes between acquisition failures:
+
+- `PoolTimeout`: no connection became available before the acquisition deadline.
+- `TooManyRequests`: the configured waiting-queue limit was exceeded.
+- `PoolClosed`: acquisition was attempted after the pool became unavailable.
+
+All three derive from `OperationalError`. Distinguishing them allows callers to separate queue saturation, waiting-time exhaustion, and administrative shutdown instead of handling every failure as a database connectivity problem.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+### 1.4 Operational logging and version-specific caveats
+
+The `psycopg.pool` logger emits connection lifecycle and acquisition events through Python's standard `logging` infrastructure. These events complement `get_stats()` and `pop_stats()`: statistics provide numerical observations, while logs help inspect the sequence of connection creation, allocation, return, and replacement.
+
+Exact log messages are not a stable machine-readable interface. Monitoring integrations should depend on documented pool metrics or structured instrumentation rather than parsing log text.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Two release-specific distinctions matter:
+
+Null-pool reconnection callbacks. In released `psycopg_pool` 3.3.3, `NullConnectionPool` accepts `reconnect_failed` but does not invoke it. The upstream release notes record a correction for unreleased 3.3.4. Additionally, connection attempts made directly for requesting clients are distinct from background reconnection attempts.
+
+Asynchronous pool initialization. Opening an async pool in its constructor is deprecated. The forward-compatible pattern is explicit `await pool.open()` or an asynchronous context manager, rather than relying on constructor-side initialization.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation+1
+
+
+
+Architectural implication: The pool can own much of the connection-replacement, readiness, bounded-admission, and failure-classification machinery that would otherwise require a separate lifecycle manager. It does not provide atomic credential rotation, guarantee uninterrupted access during database outages, or replace database-side capacity management.
+
+Primary sources:
+
+`https://www.psycopg.org/psycopg3/docs/api/pool.html`
+
+`https://www.psycopg.org/psycopg3/docs/advanced/pool.html`
+
+`https://www.psycopg.org/psycopg3/docs/news_pool.html`
+
+## 2. Deliberate transaction rollback and observable transaction outcomes
+
+Extends original §§10.2–10.3.
+
+Psycopg provides additional transaction-control mechanisms that separate expected application-level rollback from unexpected failures. These are particularly useful in compositional transaction logic, validation operations, and workflows with nested savepoints.
+
+### 2.1 `psycopg.Rollback` as structured control flow
+
+Raising `psycopg.Rollback` inside a `Connection.transaction()` context causes the targeted transaction scope to roll back without propagating an exception beyond the corresponding context block.
+
+With no target, the innermost transaction scope is rolled back. Passing a `Transaction` object allows an inner operation to abort an enclosing scope, including the intervening nested transaction blocks.
+
+```
+from psycopg import Rollbackwith conn.transaction() as outer:    perform_first_operation(conn)    with conn.transaction():        if operation_should_be_cancelled():            raise Rollback(outer)        perform_second_operation(conn)# Execution continues here.
+```
+
+This differs from simply calling `Connection.rollback()`: the `Rollback` exception integrates with Psycopg's transaction-context management and can target a particular active scope.
+
+It also differs from swallowing an arbitrary database exception. The former represents an intentional decision to discard a scope; the latter may conceal a failed database operation requiring recovery.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation+1
+
+
+
+### 2.2 `force_rollback=True`
+
+`Connection.transaction(force_rollback=True)` creates a transaction scope that rolls back on normal exit even when no exception occurred.
+
+```
+with conn.transaction(force_rollback=True) as tx:    conn.execute(        "UPDATE measurements SET reviewed = true WHERE id = %s",        (record_id,),    )    inspect_provisional_result(conn)assert tx.status == tx.Status.ROLLED_BACK_EXPLICITLY
+```
+
+This provides a native mechanism for transactional dry runs, provisional transformations, and tests of database-mediated operations.
+
+The guarantee is rollback of transactional database effects, not general reversal of every consequence. PostgreSQL sequences, external calls, and other nontransactional side effects may persist or otherwise remain observable. A forced-rollback scope should therefore not be treated as a universally side-effect-free sandbox.
+
+The corresponding asynchronous transaction interface accepts the same configuration.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+### 2.3 Explicit savepoint naming and transaction status
+
+`transaction(savepoint_name=...)` allows a named savepoint to be used when the scope is nested. Normally Psycopg chooses savepoint names automatically, which avoids the need to coordinate them manually.
+
+Explicit naming can be useful for interoperability with other transaction-aware components, although it also introduces the possibility of name collisions or mismatched ownership when several layers manipulate savepoints on one connection.
+
+Psycopg 3.3 additionally exposes `Transaction.status` and `AsyncTransaction.status`. The available states include:
+
+| Status                   | Meaning                                                      |
+| ------------------------ | ------------------------------------------------------------ |
+| `NON_STARTED`            | Transaction context created but not entered                  |
+| `ACTIVE`                 | Context currently active                                     |
+| `COMMITTED`              | Context successfully committed                               |
+| `ROLLED_BACK_EXPLICITLY` | Rollback requested through `Rollback` or forced rollback     |
+| `ROLLED_BACK_WITH_ERROR` | Rollback caused by an exception inside the context           |
+| `FAILED`                 | Transaction failed because the connection became unavailable |
+
+The status remains available after the context exits. For nested scopes, it describes the managed scope's outcome; successful release of a savepoint does not mean the outermost transaction has been durably committed.
+
+These status values provide a structured basis for transactional diagnostics and outcome recording without inferring success from control-flow position alone. They do not replace PostgreSQL's connection-level transaction status, nor do they guarantee durability of a transaction whose surrounding context has not committed.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation+1
+
+
+
+Primary sources:
+
+`https://www.psycopg.org/psycopg3/docs/basic/transactions.html`
+
+`https://www.psycopg.org/psycopg3/docs/api/connections.html`
+
+`https://www.psycopg.org/psycopg3/docs/api/objects.html`
+
+## 3. Additional type-adaptation capabilities and consequential type semantics
+
+Extends original §§7.1–7.4 and §7.9.
+
+### 3.1 Native PostGIS ↔ Shapely geometry adaptation
+
+Psycopg includes an experimental adapter module, `psycopg.types.shapely`, for conversion between Python Shapely geometries and PostgreSQL PostGIS `geometry` values.
+
+The integration is based on PostgreSQL type registration rather than hardcoded geometry type identifiers. Because PostGIS defines its types through a database extension, their OIDs must be discovered from the target database before the adapter can be registered.
+
+```
+from psycopg.types import TypeInfofrom psycopg.types.shapely import register_shapelyinfo = TypeInfo.fetch(conn, "geometry")if info is not None:    register_shapely(info, conn)
+```
+
+After registration, supported Shapely geometry objects can be passed as PostgreSQL parameters, and returned geometry values are converted into Shapely objects. Text and binary formats are supported.
+
+This creates a native type boundary between spatial SQL and Python's geometry-processing ecosystem, reducing the need for manually converting Well-Known Text or Well-Known Binary at every query site. PostgreSQL and PostGIS remain responsible for spatial predicates, indexes, coordinate transformations, and server-side spatial operations; the adapter primarily handles representation.
+
+Availability and limitations: PostGIS must be installed in the database, Shapely must be installed separately, and registration applies only to the selected adaptation context and subsequently created child contexts. The module is explicitly experimental, so its interface and supported behavior warrant closer version control than stable core adapters.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/basic/pgtypes.html`
+
+### 3.2 NumPy scalar adaptation
+
+Since Psycopg 3.2, NumPy boolean, integer, and floating-point scalar values can be dumped directly through the normal parameter-adaptation system.
+
+This is useful when relational writes consume values produced by NumPy operations. Explicitly converting every NumPy scalar into a built-in Python scalar is not generally necessary merely to bind it as a query parameter.
+
+The capability does not establish native serialization of arbitrary NumPy arrays as columnar data or zero-copy exchange of NumPy memory layouts with PostgreSQL. Scalar adaptation, PostgreSQL array adaptation, and bulk/columnar transport remain separate mechanisms.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/basic/adapt.html`
+
+### 3.3 Value-dependent dumpers and PostgreSQL type selection
+
+Custom dumpers have a more sophisticated dispatch mechanism than simple Python-class-to-PostgreSQL-type mapping.
+
+`Dumper.get_key(obj, format)` and `Dumper.upgrade(obj, format)` permit selection of a more specialized dumper based on the actual value being serialized. This supports cases in which one Python class can require different PostgreSQL type representations.
+
+Psycopg itself uses value-dependent specialization for operations such as selecting integer widths and adapting collection types.
+
+The relevant mechanism is:
+
+1. Resolve a dumper using the Python object's type and requested serialization format.
+2. Obtain a more specific dispatch key where value-dependent specialization is required.
+3. Reuse or instantiate the specialized dumper within the query's adaptation context.
+4. Serialize values using the associated type identity and text or binary representation.
+
+This can replace bespoke per-query serialization dispatch for domain types whose database representations vary according to their contents.
+
+The adapter interfaces also permit `Dumper.dump()` to return `None`, representing SQL `NULL`. This behavior was introduced in Psycopg 3.2 and enables an adapter to centralize certain absence-to-null conversion policies.
+
+The `Transformer` manages dumpers and loaders at query scope. Its caching and context inheritance mean that a registered dumper is not necessarily reconstructed for every value, although Python-level conversion work still occurs for each value.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation+1
+
+
+
+Sources:
+
+`https://www.psycopg.org/psycopg3/docs/advanced/adapt.html`
+
+`https://www.psycopg.org/psycopg3/docs/api/adapt.html`
+
+### 3.4 Integer inference can change query plans
+
+A particularly consequential behavior of Psycopg's integer adaptation is that Python's arbitrary-precision `int` can exceed PostgreSQL's `bigint` range.
+
+When the value is too large for `bigint`, Psycopg can adapt it as PostgreSQL `numeric`. For a comparison against an indexed integer column, PostgreSQL may then cast the column to `numeric`, making the original integer index unusable.
+
+```
+# Validate the range before execution, or force the expected SQL type.cur.execute(    "SELECT * FROM measurements WHERE id = %s::bigint",    (record_id,),)
+```
+
+An explicit type cast causes an out-of-range value to fail rather than allowing type promotion to produce an unexpectedly expensive query plan.
+
+This is especially important for dynamically generated predicates, identifier lookups, and user-controlled numeric inputs. Such values can affect database workload cost even when parameter binding eliminates SQL injection.
+
+A related point concerns PostgreSQL function dispatch: Psycopg chooses narrow integer types where possible partly because PostgreSQL can widen integer types implicitly in contexts where narrowing is not available. Explicit casts may therefore be necessary to select a particular function signature or preserve expected operator resolution.
+
+Architectural implication: Type adaptation is part of query planning behavior, not merely serialization. A generic database-access layer may require explicit type contracts for indexed identifiers and other performance-sensitive predicates.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/basic/adapt.html`
+
+### 3.5 Reusable adaptation contexts and cursor factories
+
+`Connection.connect(context=...)` accepts an adaptation context, including a configured `AdaptersMap`, whose configuration is copied to initialize a new connection.
+
+This allows a consistent set of domain conversions to be reused across independent connections without mutating the global `psycopg.adapters` registry or repeating registration calls at every query site.
+
+Separately, connections expose `cursor_factory` and `server_cursor_factory`. These configure the concrete cursor types returned by ordinary and named-cursor creation, respectively.
+
+The two mechanisms serve different responsibilities: an adaptation context establishes how values are represented, while cursor factories establish how SQL is executed and results are managed.
+
+Combined with `psycopg_pool.configure`, these facilities provide a natural way to initialize a population of connections with coherent domain-type and cursor behavior. Configuration changes still require attention to inheritance timing: objects created before adapter changes do not necessarily inherit them, which is one reason pool draining can matter.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation+2
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/api/connections.html`
+
+### 3.6 Per-value JSON serialization
+
+In addition to the scoped `set_json_dumps()` configuration described in the original reference, both `Json` and `Jsonb` support a `dumps=` argument on the individual wrapper.
+
+```
+from psycopg.types.json import Jsonbcur.execute(    "INSERT INTO events (payload) VALUES (%s)",    (Jsonb(event, dumps=custom_serializer),),)
+```
+
+The per-object serializer takes precedence over the context's default. Different JSON values in the same statement can consequently use different serialization policies.
+
+This is useful when database operations mix ordinary JSON values with objects requiring specialized encoding, without establishing a new connection or cursor-wide policy.
+
+The customization affects client-side serialization. It does not change PostgreSQL JSONB's storage and normalization semantics or provide runtime schema validation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/basic/adapt.html`
+
+### 3.7 Temporal decoding and session timezone identity
+
+Psycopg's PostgreSQL temporal adaptation also exposes a distinction that matters for reproducibility.
+
+PostgreSQL `timestamptz` represents an instant, not a stored timezone identifier. On retrieval, the value is converted into the connection's configured `TimeZone`, and Psycopg uses the associated Python `zoneinfo.ZoneInfo` representation where supported.
+
+The active connection timezone is available through `Connection.info.timezone`.
+
+By contrast, PostgreSQL `timetz` maps to Python `time` values with fixed-offset timezone information, because a time of day without a date cannot independently determine daylight-saving-time behavior.
+
+Thus, the same `timestamptz` value can be returned with different local clock components and timezone objects on different sessions while representing the same instant. For pooled connections, timezone configuration is therefore meaningful session state rather than a purely cosmetic client-side setting.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation+1
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/basic/adapt.html`
+
+## 4. Binary protocol control, statement preparation, and runtime capability detection
+
+Extends original §§3.1, 4.2, 7.1, and 13.5.
+
+### 4.1 Parameter encoding and result encoding are independent decisions
+
+Psycopg permits explicit selection of the wire format used for individual input parameters:
+
+| Placeholder | Encoding behavior                                         |
+| ----------- | --------------------------------------------------------- |
+| `%s`        | Automatic selection of an available text or binary dumper |
+| `%b`        | Require binary parameter adaptation                       |
+| `%t`        | Require text parameter adaptation                         |
+
+A request for an unavailable format fails rather than silently using an arbitrary representation.
+
+Result-format selection works differently. `Connection.cursor(binary=True)` and `Cursor.execute(..., binary=True)` request binary results, but PostgreSQL's extended query protocol selects the result format for the complete query result rather than independently for each column.
+
+This has several consequences:
+
+- Every returned PostgreSQL type must support the requested binary output format.
+- Psycopg requires suitable loaders to produce decoded Python values; unknown types may instead arrive as raw strings or binary buffers.
+- Binary result requests cannot be combined with executing several SQL statements in one query operation.
+- Binary parameters do not require binary results, and binary results do not require binary parameters.
+
+The selection of binary format is distinct from the selection of custom dumpers and loaders. The wire representation and the Python object representation are two stages of the same adaptation boundary.
+
+Performance implication: Binary formats can reduce conversion overhead for suitable types, but the benefit depends on transfer size, the installed client implementation, adapter implementation, and downstream object creation. There is no general guarantee that enabling binary results makes all queries faster.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation+1
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/basic/params.html`
+
+### 4.2 Exact prepared-statement compatibility with PgBouncer
+
+Prepared statement management is especially sensitive to whether a logical connection preserves the identity of a PostgreSQL backend session.
+
+For Psycopg's documented PgBouncer prepared-statement support, the relevant conditions are:
+
+| Component                | Requirement                                                         |
+| ------------------------ | ------------------------------------------------------------------- |
+| PgBouncer                | Version 1.22 or newer                                               |
+| PgBouncer configuration  | `max_prepared_statements > 0`                                       |
+| Client libpq             | Version 17+ for the required prepared-statement close functionality |
+| Psycopg capability check | `psycopg.capabilities.has_send_close_prepared()`                    |
+
+With an older libpq but a sufficiently recent and configured PgBouncer, Psycopg documents an alternative: set `Connection.prepared_max = None` to disable automatic deallocation of prepared statements.
+
+This distinction is important because `prepared_max=None` does not disable automatic preparation. That is controlled independently by `prepare_threshold=None`.
+
+A transaction-pooling deployment therefore needs to distinguish preparation eligibility, statement cache eviction, and middleware-managed backend statement identity. Treating all three as one setting can produce incorrect compatibility conclusions.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/advanced/prepare.html`
+
+### 4.3 Programmatic libpq feature detection
+
+Psycopg provides a dedicated `psycopg.capabilities` object, which is more useful for feature negotiation than relying on a hardcoded libpq version comparison.
+
+| Capability check              | Feature and minimum libpq version            |
+| ----------------------------- | -------------------------------------------- |
+| `has_pipeline()`              | Pipeline execution; libpq 14+                |
+| `has_send_close_prepared()`   | Prepared-statement closure; libpq 17+        |
+| `has_cancel_safe()`           | Improved cancellation; libpq 17+             |
+| `has_stream_chunked()`        | Chunked `Cursor.stream(size > 1)`; libpq 17+ |
+| `has_full_protocol_version()` | Full protocol-version inspection; libpq 18+  |
+| `has_set_trace_flags()`       | Configurable libpq tracing flags; libpq 14+  |
+
+These methods normally return booleans. Passing `check=True` causes an unsupported feature to raise `NotSupportedError` with a descriptive explanation.
+
+This provides a reusable feature-negotiation mechanism for components distributed across environments where pure-Python, locally compiled, or bundled libpq implementations may expose different capabilities.
+
+The check reports availability of a client-side capability, not a guarantee that every server version or middleware configuration supports the corresponding operation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/api/objects.html`
+
+## 5. COPY serialization and result-preserving batch execution
+
+Extends original §§5.2, 6.4, and 9.4.
+
+### 5.1 Generating COPY-formatted data without a database COPY command
+
+Psycopg's COPY writer architecture supports a less obvious capability: generating PostgreSQL COPY-formatted data for offline transfer.
+
+A `Copy` object can be instantiated directly with a `FileWriter`, without first executing a `COPY FROM STDIN` command on PostgreSQL.
+
+```
+from psycopg import Copyfrom psycopg.copy import FileWriterwith conn.cursor() as cur:    with open("measurements.pgcopy", "wb") as f:        with Copy(cur, writer=FileWriter(f)) as copy:            for record in records:                copy.write_row(record)
+```
+
+The resulting file contains COPY-formatted data prepared through Psycopg's adaptation machinery. This allows serialization and database ingestion to be separated into distinct operations.
+
+The writer system includes:
+
+| Abstraction        | Responsibility                                                       |
+| ------------------ | -------------------------------------------------------------------- |
+| `LibpqWriter`      | Default synchronous destination for a live PostgreSQL COPY operation |
+| `FileWriter`       | Writes COPY-formatted data to a binary file-like object              |
+| `Writer`           | Abstract synchronous destination with `write()` and `finish()`       |
+| `AsyncWriter`      | Asynchronous destination interface                                   |
+| `AsyncLibpqWriter` | Default asynchronous database destination                            |
+
+A manually created `Copy` can also specify `binary=True`; binary transfer requires accurate PostgreSQL type representations, not merely serializable Python values.
+
+Important boundary: Offline COPY generation avoids executing the database COPY command, but the illustrated API still uses a cursor and its adaptation context. It should not be confused with a completely standalone serializer requiring no Psycopg connection. Generated data must be compatible with the eventual target schema and COPY format.
+
+The native writer interfaces can eliminate bespoke COPY framing and destination-plumbing code for buffered files or specialized streams, while leaving storage transport and schema compatibility to adjacent components.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/api/copy.html`
+
+### 5.2 `executemany(returning=True)` and per-execution results
+
+`Cursor.executemany()` supports an explicit `returning=True` option, introduced in Psycopg 3.1, for repeated commands that produce result sets.
+
+```
+with conn.cursor() as cur:    cur.executemany(        "INSERT INTO measurements (value) VALUES (%s) RETURNING id",        [(10.5,), (12.0,), (14.5,)],        returning=True,    )    ids = [cur.fetchone()[0] for _ in cur.results()]
+```
+
+The returned values are not represented as one combined result set. Psycopg retains separate result sets for each execution, navigable through `results()` or `nextset()`.
+
+A single `fetchall()` therefore retrieves rows only from the currently selected result set. Similarly, `rowcount` has different meanings depending on the `returning` flag:
+
+| Configuration     | `rowcount`                                      |
+| ----------------- | ----------------------------------------------- |
+| `returning=False` | Cumulative affected-row count across the batch  |
+| `returning=True`  | Row count for the currently selected result set |
+
+This supports batch writes that must retain database-generated identifiers, computed columns, or other `RETURNING` results without reverting to independent client/server execution for every row.
+
+However, preserving all result sets creates client-side result state. It is not equivalent to the COPY protocol, and its memory and protocol costs should be assessed separately from a write-only bulk load.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/api/cursors.html`
+
+## 6. Streaming results, server-side cursor navigation, and resource ownership
+
+Extends original §§9.2–9.3.
+
+### 6.1 Incomplete streaming can leave a connection unusable
+
+`Cursor.stream()` has a stronger lifecycle requirement than ordinary client-side result iteration.
+
+An ordinary cursor typically holds a completed query result. A streaming cursor instead exposes an active flow of results from PostgreSQL. If the consumer stops iterating before the stream finishes, the connection can remain in PostgreSQL transaction status `ACTIVE`.
+
+While in this state, the connection may reject additional commands because the previous operation has not completed.
+
+The returned generator exposes `close()`, and `contextlib.closing()` provides a reliable cleanup mechanism for partially consumed streams:
+
+```
+from contextlib import closingwith conn.cursor() as cur:    with closing(        cur.stream("SELECT * FROM measurements")    ) as records:        for record in records:            if should_stop(record):                break            process(record)
+```
+
+Closing the generator restores the connection's ability to progress beyond the active result operation, but it does not guarantee a clean transaction.
+
+Depending on server progress, the resulting transaction status may be `INTRANS` or `INERROR`; an autocommit connection may instead return to `IDLE`. A connection left in an error state may still require an explicit rollback.
+
+This distinction matters particularly for pooled connections, which must not be returned to shared use with unresolved streaming or transactional state.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+### 6.2 Chunked streaming and continuous-result sources
+
+The `size` parameter of `Cursor.stream()` controls how many rows may be retrieved per chunk from the server, while rows remain individually yielded to Python code.
+
+Using `size > 1` requires libpq 17 or newer. Support can be checked through `psycopg.capabilities.has_stream_chunked()`.
+
+Psycopg also documents streaming support for queries producing potentially endless result sequences, such as changefeed-style operations in certain PostgreSQL-compatible systems. This does not imply that ordinary PostgreSQL queries provide an equivalent endless-result facility.
+
+The streaming API itself remains explicitly experimental in Psycopg 3.3.6. Its resource-lifetime and failure behavior should therefore be treated as part of the interface contract, not hidden behind ordinary cursor iteration abstractions.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+### 6.3 Server cursor navigation, batching, and holdability
+
+`ServerCursor` provides additional controls over PostgreSQL's named server-side portals:
+
+| Feature                          | Behavior                                                                           |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| `scrollable=True`                | Requests a cursor supporting nonsequential navigation, including backward movement |
+| `scroll(value, mode="relative")` | Moves relative to the current position                                             |
+| `scroll(value, mode="absolute")` | Moves to an absolute position                                                      |
+| `itersize`                       | Controls the number of rows fetched per batch during cursor iteration; default 100 |
+| `withhold=True`                  | Requests a cursor that remains usable after its creating transaction commits       |
+
+These controls have consequential server-side costs.
+
+Ordinary iteration may fetch multiple rows per network operation using `itersize`, rather than issuing one PostgreSQL `FETCH` for each Python iteration. Increasing this value can reduce round trips but also changes the amount of result data buffered per fetch.
+
+Scrollable cursors can require additional execution or storage work, especially when backward movement is not naturally supported by the query plan.
+
+A held cursor (`WITH HOLD`) survives a successful commit but remains associated with the same PostgreSQL session. PostgreSQL may materialize its remaining rows in server memory or temporary files so that subsequent transactions can consume them. Holdability therefore does not eliminate resource-lifetime obligations; it changes which resources must remain available.
+
+PostgreSQL also disallows `WITH HOLD` for queries containing `FOR UPDATE` or `FOR SHARE`, and backward scrolling has corresponding restrictions.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation+1
+
+
+
+### 6.4 Adopting an existing PostgreSQL cursor
+
+A less obvious capability is that `ServerCursor` can consume a PostgreSQL cursor created outside its own `execute()` call.
+
+For example, a PL/pgSQL function may open a refcursor and return its name. Psycopg can create a matching named cursor object and begin fetching without issuing another `DECLARE`.
+
+This permits server-side cursor ownership to originate in a stored procedure while Psycopg manages subsequent retrieval.
+
+The limitation is that the cursor must exist in the same PostgreSQL session, and its lifetime remains governed by the server transaction and portal rules. This technique is not a means of transferring an open cursor between pooled connections.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Primary sources:
+
+`https://www.psycopg.org/psycopg3/docs/api/cursors.html`
+
+`https://www.psycopg.org/psycopg3/docs/advanced/cursors.html`
+
+`https://www.postgresql.org/docs/current/sql-declare.html`
+
+## 7. Pipeline synchronization and failure recovery
+
+Extends original §5.3.
+
+Pipeline mode has an important transactional property that is easy to miss: the absence of a Python-level wait between statements does not mean those statements have independent PostgreSQL transaction outcomes.
+
+### 7.1 Synchronization versus result flushing
+
+The principal synchronization points are:
+
+| Operation                                    | Effect                                                                                       |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `Pipeline.sync()`                            | Sends pending commands, establishes a synchronization point, and processes available results |
+| `Connection.commit()` / `rollback()`         | Establishes synchronization while managing transaction state                                 |
+| Exiting a pipeline context                   | Synchronizes outstanding operations                                                          |
+| Entering or exiting nested pipeline contexts | May establish additional synchronization boundaries                                          |
+| `fetchone()` and related result consumption  | Can flush pending operations to obtain results without issuing a protocol `Sync`             |
+
+The last distinction is especially significant. Receiving a result is not necessarily equivalent to completing a synchronization boundary.
+
+If an earlier command has failed, fetching may expose the error without clearing the pipeline's aborted state. Subsequent queued commands may continue to fail with `PipelineAborted` until an actual synchronization point is processed.
+
+Furthermore, the Python call at which an exception becomes visible is not necessarily the call that submitted the failing SQL. Errors can surface when Psycopg processes buffered server responses.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+### 7.2 Implicit transaction grouping in autocommit mode
+
+Even when the connection uses `autocommit=True`, PostgreSQL groups pipelined commands between synchronization points into an implicit transaction.
+
+A failing statement can therefore invalidate changes made by earlier statements in that group. Later queued statements may be skipped until synchronization occurs.
+
+This has two important consequences.
+
+First, an application cannot reason about pipelined autocommit commands as though every `execute()` were independently durable.
+
+Second, a recovery boundary must be defined in terms of protocol synchronization and database transaction state, not simply a Python `try`/`except` around individual command submissions.
+
+Where a group of operations requires an explicit atomic contract, Psycopg's transaction management facilities provide the appropriate boundary. Pipeline synchronization handles protocol completion and error propagation; it should not be mistaken for a complete transaction-design abstraction.
+
+Pipeline mode remains labeled experimental in the 3.3 release family, particularly with respect to errors and concurrency.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Primary sources:
+
+`https://www.psycopg.org/psycopg3/docs/advanced/pipeline.html`
+
+`https://www.postgresql.org/docs/current/libpq-pipeline-mode.html`
+
+## 8. Cancellation, notifications, and independent protocol inspection
+
+Extends original §§11.3, 11.5, 13.1, and 13.5.
+
+### 8.1 Safe cancellation versus legacy cancellation
+
+Psycopg exposes two cancellation mechanisms whose differences matter for asynchronous behavior and connection security.
+
+| API                                      | Behavior                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| `cancel()`                               | Uses legacy libpq `PQcancel`; may block, including on async connections        |
+| `cancel_safe(timeout=...)`               | Uses improved nonblocking libpq cancellation when supported                    |
+| `psycopg.capabilities.has_cancel_safe()` | Identifies whether the improved libpq cancellation implementation is available |
+
+The improved cancellation implementation requires libpq 17 or newer.
+
+With an older libpq, `cancel_safe()` falls back to the legacy cancellation mechanism. In that case, its timeout parameter does not take effect.
+
+The original `cancel()` method also has a security distinction: its cancellation connection may not use the same secure transport properties as the original database session. The newer libpq mechanism addresses this limitation.
+
+However, `cancel()` remains the documented choice for use as a Python signal handler; `cancel_safe()` should not be used in that context.
+
+A successful cancellation request only indicates that the client successfully submitted the request. It does not guarantee that PostgreSQL interrupted the command before completion or that the command had no observable effects.
+
+Therefore, cancellation must be separated into three events: requesting interruption, determining the command's actual outcome, and restoring a usable transaction/connection state.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/api/connections.html`
+
+### 8.2 Bounded notification consumption
+
+`Connection.notifies()` and its asynchronous counterpart support bounded consumption using two parameters:
+
+| Parameter    | Behavior                                                  |
+| ------------ | --------------------------------------------------------- |
+| `timeout`    | Bounds waiting for notifications                          |
+| `stop_after` | Requests termination after a specified notification count |
+
+These controls were added in Psycopg 3.2.
+
+The count limit is not an exact packet-level guarantee: if multiple notifications arrive in the same network packet, the generator may yield more notifications than the requested `stop_after` value.
+
+The generator may also be explicitly closed.
+
+This provides a native mechanism for bounded notification observation, rather than requiring every listener to build a custom timeout and iteration loop.
+
+As with the existing notification interfaces, these facilities do not establish a durable event log or replay protocol. Their behavior still follows PostgreSQL's notification-delivery and transaction semantics.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Sources:
+
+`https://www.psycopg.org/psycopg3/docs/api/connections.html`
+
+`https://www.psycopg.org/psycopg3/docs/advanced/async.html`
+
+### 8.3 File descriptors, raw results, and readiness integration
+
+`Connection.fileno()` exposes the file descriptor associated with the PostgreSQL connection.
+
+This makes it possible to integrate the connection with operating-system readiness mechanisms, including Python's `selectors` module, without independently opening or managing a second network socket.
+
+Psycopg also exposes lower-level result and connection objects:
+
+- `Connection.pgconn`: the underlying `PGconn` wrapper.
+- `Cursor.pgresult`: the current result's `PGresult` wrapper, where available.
+- `Connection.info`: structured connection metadata and server/session state.
+
+These interfaces can support specialized inspection of protocol and result metadata beyond ordinary row fetching.
+
+The important ownership boundary is that the high-level connection still manages its libpq object and protocol state. Obtaining a file descriptor or low-level wrapper does not give independent ownership of the connection or permit arbitrary concurrent protocol operations without coordinating with Psycopg.
+
+For independently observing connection readiness, `fileno()` is generally a more specific interface than reaching directly into libpq. For specialized protocol introspection, the raw wrappers expose information that may otherwise require a separate C-level integration.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation+2
+
+
+
+Sources:
+
+`https://www.psycopg.org/psycopg3/docs/api/connections.html`
+
+`https://www.psycopg.org/psycopg3/docs/api/cursors.html`
+
+`https://www.psycopg.org/psycopg3/docs/api/pq.html`
+
+### 8.4 Experimental connection-parameter transformation and DNS SRV resolution
+
+Psycopg includes an explicitly experimental `psycopg._dns` module supporting connection-parameter transformation before connection establishment.
+
+The module provides:
+
+| Interface                                  | Purpose                                                                                         |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `_dns.resolve_srv(params)`                 | Perform DNS SRV lookups and transform connection parameters into resolved host/port information |
+| `_dns.resolve_srv_async(params)`           | Asynchronous SRV resolution                                                                     |
+| `Connection._get_connection_params()`      | Experimental subclass hook for altering connection parameters before connecting                 |
+| `AsyncConnection._get_connection_params()` | Corresponding asynchronous hook                                                                 |
+
+These mechanisms can integrate PostgreSQL connection establishment with DNS service discovery or custom parameter transformations.
+
+The SRV utilities require the separately installed `dnspython` package, version 2.1 or newer. They are not automatically applied to ordinary connection creation. An application must explicitly invoke the utilities or use the documented experimental subclass hooks.
+
+The module also exposes `resolve_hostaddr_async()`, but this function is deprecated and unnecessary for normal asynchronous connections because Psycopg already performs nonblocking hostname resolution.
+
+The underscore-prefixed module and subclass hooks are explicitly marked unstable. They should be understood as experimentation and extension interfaces, not as a stable general-purpose service-discovery API.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+Source: `https://www.psycopg.org/psycopg3/docs/api/dns.html`
+
+## 9. Source-version and editorial qualifications
+
+Applies across the original reference and this addendum.
+
+The original guide correctly distinguishes released Psycopg 3.3 functionality from the development documentation. The same separation is necessary for the companion pooling package, whose release cycle is independent of the core driver.
+
+For version-sensitive claims, the following distinction should remain explicit:
+
+| Component                                 | Status as of November 1, 2026                                                           |
+| ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| `psycopg` 3.3.6                           | Current stable core driver                                                              |
+| `psycopg_pool` 3.3.3                      | Current stable pooling package                                                          |
+| `psycopg` 3.3.7.dev1 documentation        | Development documentation; not itself evidence that every documented change is released |
+| `psycopg_pool` 3.3.4 release-note section | Unreleased corrections, including the null-pool reconnection callback fix               |
+
+The original document also contains formatting artifacts that should be corrected in the base reference rather than carried into this addendum: several Python examples have lost their line breaks, some source entries retain generated citation-card fragments, and URLs contain tracking parameters. These issues do not generally change the capability assessment, but invalid example formatting reduces the document's usefulness as an implementation reference.
+
+For the stable driver, the tagged upstream documentation provides a version-specific reference independent of the development documentation:
+
+`https://github.com/psycopg/psycopg/tree/3.3.6/docs`
+
+Core release history:
+
+`https://www.psycopg.org/psycopg3/docs/news.html`
+
+Pool release history:
+
+`https://www.psycopg.org/psycopg3/docs/news_pool.html`
+
+Published package versions:
+
+`https://pypi.org/project/psycopg/`
+
+`https://pypi.org/project/psycopg-pool/`
+
+This addendum completes the previously identified capability gaps without replacing the original document's descriptions of the primary Psycopg subsystems.

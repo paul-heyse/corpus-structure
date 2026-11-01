@@ -1230,3 +1230,713 @@ The library can therefore eliminate several classes of bespoke infrastructure: c
 Its boundaries are equally important. It is not a query engine, transaction retry framework, distributed connection coordinator, or complete session-isolation mechanism. It is most effective when those responsibilities are kept distinct, and when the interaction between persistent connections, PostgreSQL session state, and higher-level database tooling is understood.
 
 For deeper investigation, the most authoritative starting points remain the [connection pooling guide](https://www.psycopg.org/psycopg3/docs/advanced/pool.html?utm_source=chatgpt.com), [full pool API](https://www.psycopg.org/psycopg3/docs/api/pool.html?utm_source=chatgpt.com), [release notes](https://www.psycopg.org/psycopg3/docs/news_pool.html?utm_source=chatgpt.com), and the [tagged 3.3.3 implementation](https://github.com/psycopg/psycopg/tree/pool-3.3.3/psycopg_pool?utm_source=chatgpt.com).
+
+# psycopg-pool 3.3.3 — Advanced Capability and Behavioral Semantics Addendum
+
+Research date: November 1, 2026\
+Target version: `psycopg-pool` 3.3.3\
+Companion document: psycopg-pool 3.3.3 — Comprehensive Python Library Capability Reference
+
+This addendum extends the original reference with advanced behaviors, implementation constraints, and consequential interactions not sufficiently developed in its existing sections. It is intended to be read alongside that document rather than replace its coverage of the main pooling APIs.
+
+The official release notes continue to identify 3.3.3 as the current stable release, with 3.3.4 documented as unreleased. All implementation-specific findings below are grounded in the `pool-3.3.3` upstream tag. They should not be treated as permanent public API guarantees unless the documentation separately establishes them.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation+1
+
+
+
+## A1. Zero-minimum persistent pools: a third connection-management strategy
+
+Extends original Sections 4.1, 6, and 8.1.
+
+A regular `ConnectionPool` or `AsyncConnectionPool` can use `min_size=0`, provided `max_size` is positive. This configuration is distinct from both a conventional warm pool and a null pool.
+
+```
+from psycopg_pool import ConnectionPoolpool = ConnectionPool(    conninfo="postgresql://localhost/example",    min_size=0,    max_size=8,    max_idle=60.0,    open=False,)
+```
+
+The configuration permits the pool to begin with no connections, create them in response to demand, retain them for subsequent requests, and eventually shrink back to zero when excess connections are no longer needed. The implementation explicitly rejects `min_size=0, max_size=0` for a regular pool.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+
+
+| Property                             | Regular pool, `min_size=0`      | `NullConnectionPool`           |
+| ------------------------------------ | ------------------------------- | ------------------------------ |
+| Minimum retained sessions            | Zero                            | Zero                           |
+| Advance connection creation          | None initially                  | None                           |
+| Retention after an ordinary return   | Yes                             | No                             |
+| Reuse across separated demand bursts | Possible                        | Generally not                  |
+| Normal connection creation           | Background maintenance          | Foreground acquisition         |
+| Idle shrink behavior                 | Periodic retirement toward zero | No idle inventory to shrink    |
+| Capacity limit                       | Positive `max_size` required    | Optional; zero means unbounded |
+
+The distinction is architectural, not merely a sizing optimization. A zero-minimum regular pool can retain the latency benefit of connection reuse while avoiding a permanent minimum allocation of PostgreSQL sessions. A null pool avoids idle retention altogether and therefore trades more frequent connection establishment for lower persistent resource consumption.
+
+### A1.1 Readiness semantics change when the minimum is zero
+
+For regular pools, `wait()` tests whether the pool has reached its configured minimum inventory. In the tagged implementation, that check succeeds immediately if the number of available connections is already at least `min_size`.
+
+Consequently, when `min_size=0`:
+
+- `open(wait=True)` can return without establishing a PostgreSQL connection.
+- `wait()` can succeed even when PostgreSQL is unavailable.
+- A successful readiness wait does not establish database connectivity.
+
+The corresponding `NullConnectionPool.wait()` method has different semantics: it initiates a connection test and does not retain the resulting connection.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+This means that pool initialization readiness and database connectivity readiness are not interchangeable properties. For a regular zero-minimum pool, explicit connectivity validation is a separate operation.
+
+Source: `base.py`, `pool.py`, and `null_pool.py` at tag `pool-3.3.3`.
+
+## A2. Connection growth and maintenance scheduling
+
+Extends original Sections 2.1 and 4.1–4.3.
+
+The number of maintenance workers, the maximum pool capacity, and the rate at which capacity becomes available are three different concepts.
+
+### A2.1 Initial population versus demand-driven growth
+
+The regular pool starts a dedicated scheduler and `num_workers` maintenance workers. When the pool opens, it submits initial connection-creation tasks corresponding to its minimum-size target. Multiple initial establishment operations can therefore be serviced by different workers.
+
+Subsequent elastic growth follows a more restrictive policy.
+
+The 3.3.3 implementation uses an internal `_growing` flag to allow only one active demand-driven growth sequence. The growth task may schedule another connection when demand remains and the configured maximum has not been reached.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+
+
+The resulting distinction is:
+
+| Operation                  | Scheduling behavior in 3.3.3                       |
+| -------------------------- | -------------------------------------------------- |
+| Initial minimum population | Multiple tasks can run through maintenance workers |
+| Elastic expansion          | Serialized growth sequence                         |
+| Connection replacement     | Scheduled maintenance tasks                        |
+| Delayed reconnection       | Scheduler coordinates retry timing                 |
+| Custom reset processing    | Maintenance-worker execution                       |
+| Excess idle retirement     | Periodic scheduled shrink task                     |
+
+The serialized growth policy is deliberate. Without it, a demand spike could occupy all maintenance workers with slow connection establishments, delaying connection returns or other maintenance.
+
+A pool configured with `max_size=32` and `num_workers=3` therefore does not promise that three connections will be established simultaneously whenever demand exceeds current capacity.
+
+The maximum determines permitted inventory; the scheduling policy governs how quickly additional inventory can be constructed.
+
+### A2.2 Queue scheduling and handoff
+
+The regular pool uses a deque for waiting clients.
+
+When no connection is immediately available, an acquisition request joins the queue. As a connection becomes available, the pool attempts to hand it to the earliest waiting client. A waiter whose deadline has expired or that has otherwise stopped accepting connections is skipped.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+
+
+This provides FIFO-oriented allocation, but it is not a strict fairness guarantee for complete database operations. Connection-check callbacks can require further work or retries, clients may cancel or time out, and different clients can hold acquired connections for different durations.
+
+The waiting queue regulates admission to a connection, not SQL scheduling or transaction completion order.
+
+### A2.3 Reset processing competes for maintenance capacity
+
+When a custom `reset` callback is configured, returning a connection schedules a `ReturnConnection` maintenance task instead of completing the entire return path synchronously.
+
+The worker performs transaction-state cleanup and the custom reset before returning the connection to the available inventory or handing it to a waiting client.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+This changes the performance model:
+
+- A returned connection may not immediately be available for another checkout.
+- Slow reset operations add to effective connection turnaround time.
+- Reset work competes with connection creation and other maintenance tasks for worker capacity.
+- Reset callback cost may become more significant under high turnover than under low-concurrency steady-state reuse.
+
+A custom reset policy therefore provides centralized session hygiene, but its work is not free merely because it executes outside the requesting thread or task.
+
+Architectural implication: Pool checkout latency can reflect not only insufficient maximum capacity, but also the time required to create, validate, recover, and reset connections. Increasing `max_size` does not necessarily resolve constraints elsewhere in that lifecycle.
+
+## A3. Connection retirement, idle contraction, and runtime resizing
+
+Extends original Sections 4.1, 7.4, and 8.3–8.4.
+
+The pool has two different retirement policies: reducing excess idle inventory and replacing connections that have exceeded their intended lifetime. Their timing and operational guarantees are not identical.
+
+### A3.1 `max_idle` uses periodic low-watermark accounting
+
+In version 3.3.3, the regular pool does not assign each excess connection an independent timer that fires after exactly `max_idle` seconds of idleness.
+
+Instead, it periodically executes a shrink operation that examines `_nconns_min`: the lowest available-connection count observed during the preceding interval. If at least one connection remained available throughout that interval, the pool may have surplus capacity.
+
+When the pool is above `min_size` and the shrink conditions are satisfied, the implementation retires one excess connection per shrink operation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+The practical consequences are:
+
+- Shrinking is gradual rather than an immediate return to `min_size`.
+- `max_idle` controls the observation and maintenance cadence, not a precise individual-session deadline.
+- Connections may remain allocated beyond one `max_idle` interval.
+- Under sustained demand, the pool may retain elevated capacity even when some individual sessions have experienced periods of inactivity.
+
+This policy avoids treating every temporary idle period as evidence that capacity should be discarded.
+
+It is particularly relevant to zero-minimum pools: reducing a large burst-created inventory to zero can take multiple maintenance cycles rather than one fixed timeout.
+
+### A3.2 `max_lifetime` is a reuse boundary, not forcible session termination
+
+For every newly created connection, the pool records a creation timestamp and computes an expiry timestamp. The effective lifetime is randomized between 95% and 100% of the configured `max_lifetime`, reducing synchronized replacement waves.
+
+The tagged implementation checks this expiry when connections return and during explicit `pool.check()` operations. There is no corresponding expiry check in the ordinary ready-connection dequeue path.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+
+
+This yields several distinctions:
+
+| Situation                                                | 3.3.3 behavior                                                              |
+| -------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Connection exceeds lifetime while borrowed               | Not forcibly interrupted merely because of expiry                           |
+| Expired connection returns                               | Retired and replacement scheduled                                           |
+| Expired idle connection examined by `pool.check()`       | Retired and replacement scheduled                                           |
+| Connection remains idle beyond expiry without inspection | May remain in inventory and can be borrowed before expiry is next evaluated |
+| Connection retired for expiry                            | Replaced through normal maintenance machinery                               |
+
+The lifetime is therefore best understood as a connection-retention policy, not a hard bound on the age of every PostgreSQL session at every instant.
+
+This also distinguishes `max_lifetime` from PostgreSQL-side connection termination, credential expiry, and transaction deadlines.
+
+### A3.3 `resize()` treats an omitted maximum as a new fixed-size target
+
+The implementation uses a shared size-normalization method in which `max_size=None` is resolved to the supplied `min_size`.
+
+This normalization occurs during both construction and runtime resizing.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+```
+# Initially elastic: minimum 4, maximum 16.pool.resize(min_size=8)# The new configuration is fixed-size:# min_size == 8 and max_size == 8.# To retain elastic capacity:pool.resize(min_size=8, max_size=16)
+```
+
+An omitted `max_size` therefore does not mean “leave the current maximum unchanged.”
+
+Resizing changes the configured targets and schedules additional connection creation when needed. It does not promise instantaneous expansion or immediate revocation of connections already borrowed by clients.
+
+Null pools have a different size contract: their minimum must remain zero, and their configurable dimension is the maximum concurrency bound.
+
+## A4. Connection ownership and validation semantics
+
+Extends original Sections 3.2, 5.2–5.3, and 7.5.
+
+### A4.1 Returning a manually borrowed connection is not a transaction commit
+
+`pool.connection()` and `getconn()` / `putconn()` differ in their transaction behavior.
+
+The context-managed interface invokes Psycopg's connection-context semantics. Manual borrowing does not.
+
+For a connection returned through `putconn()`, the pool examines its PostgreSQL transaction status:
+
+| Transaction status on return | Pool behavior                                                           |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `IDLE`                       | Eligible for normal reuse                                               |
+| `INTRANS`                    | Attempts a rollback                                                     |
+| `INERROR`                    | Attempts a rollback                                                     |
+| `ACTIVE`                     | Closes the connection rather than reusing it during an active operation |
+| `UNKNOWN`                    | Treats it as unusable and arranges replacement                          |
+
+A failed rollback also causes the connection to be discarded. After cleanup, the pool applies any configured reset callback before the connection becomes reusable.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+This makes `putconn()` capable of recovering a connection left in a transaction, but it does not make it an implicit commit boundary.
+
+Code integrating through `getconn()` must retain ownership of transaction success and failure semantics. The pool's cleanup rollback is a safety mechanism for reuse, not a substitute for deciding whether work should be committed.
+
+### A4.2 Pool membership is validated on manual return
+
+Before accepting a connection through `putconn()`, the pool verifies that the connection's owner association refers to that pool.
+
+A connection associated with a different pool, or no pool, is rejected with `ValueError`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+This is useful for detecting incorrect ownership across multiple pool instances and some erroneous repeated returns.
+
+However, the underlying mechanism is an association stored on the connection, not a fully separate lease-token system. It should not be interpreted as an exactly-once release guarantee under all concurrent misuse scenarios.
+
+### A4.3 Checkout validation failure does not necessarily invalidate the physical connection
+
+When a constructor-supplied `check` callback raises an ordinary exception, the pool rejects that checkout attempt.
+
+The implementation then routes the connection through its ordinary return-and-recovery path before attempting acquisition again. If the connection is still physically usable and can be restored to the required state, it may be retained.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+The acquisition loop applies backoff between unsuccessful validation attempts and is bounded by the acquisition deadline.
+
+This creates an important distinction between three different policies:
+
+| Policy                    | What it establishes                                    |
+| ------------------------- | ------------------------------------------------------ |
+| Checkout validation       | A connection must satisfy the callback before delivery |
+| Connection-state recovery | A rejected connection may be reset and reused          |
+| Physical replacement      | A connection is closed and a new one established       |
+
+A custom validation function that rejects a healthy connection because of an application-specific condition can therefore encounter the same connection again.
+
+For example, checking for a particular session setting does not automatically cause a nonconforming session to be destroyed and recreated. If the check does not change the connection's state, a repeated failure remains possible.
+
+A connection-specific validity policy must account for whether rejected state can be repaired, whether the existing connection should be retired, and whether retrying acquisition can produce a different result.
+
+Cancellation and other base exceptions are handled separately: they propagate rather than being silently converted into ordinary validation failures, while the pool arranges connection cleanup. This behavior is particularly important for asynchronous tasks and is reflected in the 3.3.2 maintenance release.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.psycopg.org\&sz=32)
+
+psycopg 3.3.7.dev1 documentation
+
+
+
+### A4.4 Null-pool health checks have two distinct interfaces
+
+`NullConnectionPool.check()` is a no-op because the null pool does not maintain an idle connection inventory.
+
+That does not mean constructor-supplied `check` callbacks are ignored. The inherited checkout logic still invokes the callback before returning a newly created or directly handed-off connection.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+Thus:
+
+- `pool.check()` examines retained inventory for regular pools.
+- Constructor `check=...` validates connections at acquisition, including for null pools.
+
+Confusing these operations can lead to an incorrect conclusion that null pools cannot perform checkout validation.
+
+## A5. `close_returns` compatibility is narrower than the common constructor interface suggests
+
+Extends original Sections 6 and 10.
+
+The 3.3.3 `NullConnectionPool` constructor accepts `close_returns`, but its implementation deliberately passes `close_returns=False` to the parent constructor, ignoring any caller-supplied value.
+
+The synchronous implementation is generated from its asynchronous counterpart, so this design applies to both null-pool families.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+This is a material exception to the apparent interface equivalence among pool classes.
+
+### A5.1 Consequences for higher-level connection ownership
+
+The SQLAlchemy integration in the original reference uses a regular Psycopg pool with `close_returns=True` and SQLAlchemy's `NullPool`.
+
+In that arrangement, SQLAlchemy can call the underlying connection's `close()` method, and Psycopg interprets that operation as a return to its pool rather than physical destruction.
+
+Substituting `psycopg_pool.NullConnectionPool` does not preserve that contract.
+
+For a null pool, calling `close()` on a manually borrowed connection physically closes it rather than returning its capacity slot through `putconn()`. An integration that only invokes `close()` can therefore fail to reconcile the pool's checked-out connection accounting.
+
+The distinction is especially significant with a bounded null pool, where unreleased capacity slots can eventually block subsequent borrowers.
+
+| Integration mechanism                                                    | Regular pool with `close_returns=True` | Null pool                                   |
+| ------------------------------------------------------------------------ | -------------------------------------- | ------------------------------------------- |
+| `getconn()` obtains connection                                           | Supported                              | Supported                                   |
+| `putconn()` releases connection                                          | Supported                              | Supported                                   |
+| Connection `close()` returns to pool                                     | Supported                              | Not enabled by `close_returns=True`         |
+| SQLAlchemy `NullPool` with `creator=pool.getconn` and close-based return | Supported integration pattern          | Does not preserve expected return semantics |
+
+The common constructor signature therefore does not establish interchangeable ownership behavior.
+
+Architectural implication: Integration adapters must distinguish whether connection release is expressed as `putconn()` or as physical `close()`. The supported regular-pool SQLAlchemy arrangement relies on the latter being translated into the former.
+
+This limitation does not prevent higher-level software from using null pools. It means that integrations must explicitly honor their actual checkout-and-return contract rather than assume `close_returns` works across every implementation.
+
+Sources: Tagged null-pool constructor and official SQLAlchemy integration documentation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+## A6. Null-pool foreground establishment and acquisition latency
+
+Extends original Sections 4.2, 6.2, and 7.3.
+
+### A6.1 Connection construction occurs inside the acquisition lock
+
+The 3.3.3 synchronous null pool overrides `_get_ready_connection()` to create a physical database connection directly when permitted by its capacity limit.
+
+The parent acquisition method invokes that operation while holding the pool's lock.
+
+Consequently, connection creation can occur while other clients are unable to enter the same pool's acquisition critical section. The asynchronous implementation follows the corresponding lock-protected acquisition structure.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+
+
+This is an implementation-level property of version 3.3.3, rather than a published concurrency guarantee.
+
+It has several performance consequences:
+
+- New connection establishments can be serialized within one null-pool instance.
+- An allowed `max_size` does not imply the same number of simultaneous connection handshakes.
+- Slow connection setup can delay other acquisitions independently of PostgreSQL execution capacity.
+- Connection-establishment performance becomes an important part of the admission-control behavior.
+
+This matters particularly for bursty workloads with few reusable sessions.
+
+### A6.2 Dynamic connection factories also participate in the critical path
+
+Connection creation includes more than the underlying PostgreSQL network handshake.
+
+The pool resolves callable `conninfo` and `kwargs` parameters, invokes the connection factory, and applies configured initialization behavior.
+
+Because normal null-pool establishment occurs inside the acquisition lock, expensive parameter factories or connection configuration can extend the critical section.
+
+This interaction can be consequential when connection parameters require external credential retrieval, authentication-token generation, network access, or other expensive work.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+The distinction between regular and null pools is therefore broader than idle retention:
+
+- A regular pool normally moves connection establishment and configuration into maintenance work.
+- A null pool normally places them on the borrower's acquisition path.
+- In the tagged null-pool implementation, that work can also constrain admission progress for other clients.
+
+This affects whether dynamic credential resolution is an inexpensive lookup or a potentially significant source of acquisition contention.
+
+### A6.3 Foreground connection errors are not background reconnection cycles
+
+The regular pool's background establishment machinery uses retries with backoff and `reconnect_timeout`.
+
+Ordinary foreground null-pool connection creation does not take that same background retry path. Connection failures can be exposed directly to the requesting client.
+
+The tagged null-pool implementation converts its internal `ConnectionTimeout` exception into `PoolTimeout`. Other connection-establishment errors can propagate through the underlying Psycopg error path.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+Consequently, `reconnect_timeout` should not be interpreted as an automatic retry budget for every null-pool acquisition.
+
+The separate known 3.3.3 issue concerning the null pool's `reconnect_failed` callback is already covered in the parent document's version-specific limitations.
+
+### A6.4 Timeout conversion is not a strict end-to-end deadline
+
+For foreground connection establishment, the tagged `_connect()` implementation converts an available timeout into a `connect_timeout` argument using:
+
+```
+kwargs["connect_timeout"] = max(round(timeout), 1)
+```
+
+The underlying PostgreSQL connection operation then determines how that timeout is applied.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+This means the client-visible acquisition deadline and the connection-operation timeout are not identical mechanisms.
+
+The conversion has one-second minimum granularity, and connection-parameter resolution and configuration may add work outside the timed driver connection call. Therefore the pool's requested timeout should not be treated as a strict wall-clock bound for every possible foreground connection-establishment failure.
+
+An overall request deadline, where required, remains a separate application-level concern.
+
+## A7. Observability: measurement coverage and statistical interpretation
+
+Corrects and extends original Sections 9.1–9.4.
+
+The built-in statistics are useful, but their exact collection points matter when deriving operational measurements.
+
+Version 3.3.3 does not instrument every kind of borrowing, waiting, establishment, and failure in an equivalent way.
+
+### A7.1 `usage_ms` does not measure manual borrowing
+
+In the tagged implementations, `usage_ms` is incremented by `pool.connection()` and its asynchronous equivalent after the connection context completes.
+
+The measurement starts after acquisition and ends after the context has returned the connection. It includes time spent inside the context, transaction-context exit work, and the relevant return call.
+
+Manual `getconn()` / `putconn()` does not perform the same usage-time accounting.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+This is particularly important for SQLAlchemy integration: when SQLAlchemy obtains connections through `creator=pool.getconn`, the native `usage_ms` counter does not measure those SQLAlchemy-held connection lifetimes.
+
+Therefore `usage_ms` is not always a complete measure of pool occupancy duration.
+
+It should not be used to infer average borrowing time across a workload mixing context-managed and manual checkout without accounting for that difference.
+
+### A7.2 Establishment metrics have unequal coverage
+
+The implementation increments `connections_num` before resolving dynamic connection parameters.
+
+It starts timing only immediately before invoking the underlying `connection_class.connect()` method.
+
+`connections_ms` is incremented after successful connection establishment, before the optional `configure` callback. `connections_errors` is incremented for exceptions raised by the driver connection operation within its guarded section.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+Therefore:
+
+- Factory resolution time is not included in `connections_ms`.
+- Custom `configure` time is not included.
+- Failed driver connection attempts contribute to `connections_num` but do not add elapsed time to `connections_ms`.
+- Exceptions during callable-parameter resolution occur before the guarded driver connection call and may not increment `connections_errors`.
+- A successfully established connection that subsequently fails configuration can have contributed establishment time despite never becoming reusable.
+
+As a result, `connections_ms / connections_num` is not a reliable mean of successful connection-establishment time during failure-heavy operation.
+
+A denominator based on successful driver connection attempts is closer to the desired quantity, but the native counters are not guaranteed to capture every parameter-factory and initialization failure in a way that supports exact reconstruction.
+
+### A7.3 Queue events are not necessarily unique client requests
+
+The pool increments `requests_num` once on entry to `getconn()`.
+
+It increments `requests_queued` each time the acquisition machinery actually places a client into a waiting queue.
+
+A single logical acquisition may make multiple internal attempts if checkout validation rejects a connection. Those retries can involve additional queue admissions.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+Consequently, the original reference's expression:
+
+`requests_queued / requests_num`
+
+is better described as a ratio of queue-admission events to acquisition requests, rather than always a precise fraction of unique requests experiencing contention.
+
+Under repeated validation failures, it need not be bounded by one.
+
+Similarly, `requests_wait_ms / requests_queued` approximates mean time per queue-admission event, including failed or timed-out waits, rather than mean end-to-end acquisition latency for unique requests.
+
+### A7.4 Error counters do not uniformly cover all acquisition failures
+
+`requests_errors` is incremented on explicit queue-full and queued-wait failure paths.
+
+However, a `PoolTimeout` generated after checkout-check retries need not pass through those same counter increments. `requests_num` is also incremented before the pool verifies that it is open.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+Thus, `requests_errors / requests_num` is not guaranteed to be an exhaustive logical acquisition failure rate.
+
+This distinction is important where operational dashboards are expected to reconcile directly with client-visible exception counts.
+
+### A7.5 Revised statistical interpretation
+
+| Native measurement   | Valid interpretation                                         | Important limitation                                                              |
+| -------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `usage_ms`           | Aggregate timing for completed `connection()` contexts       | Excludes manual checkout occupancy                                                |
+| `requests_queued`    | Number of queue-admission events                             | Not necessarily unique queued requests                                            |
+| `requests_wait_ms`   | Cumulative waiting time across queue episodes                | Not total acquisition latency                                                     |
+| `requests_errors`    | Failures recorded through particular acquisition error paths | Not comprehensive for every failure                                               |
+| `connections_num`    | Recorded connection-attempt entries                          | May include attempts failing before the driver call                               |
+| `connections_ms`     | Duration of successful underlying connection calls           | Excludes connection failures, parameter factories, and post-connect configuration |
+| `connections_errors` | Errors recorded from underlying connection calls             | Does not cover every connection initialization failure                            |
+| `pool_size`          | Count of managed connection slots                            | Includes connections being prepared, not only established sessions                |
+| `pool_available`     | Immediately reusable idle inventory                          | Not equivalent to the total available database capacity                           |
+| `requests_waiting`   | Current queue length                                         | Instantaneous rather than an accumulated counter                                  |
+
+### A7.6 Counters and gauges are different kinds of data
+
+In the underlying `BasePool` implementation, `get_stats()` combines accumulated counters with freshly calculated current measurements.
+
+`pop_stats()` resets the accumulated counter collection, then combines those counters with current measurements.
+
+The immediate gauges, including `pool_min`, `pool_max`, `pool_size`, and `pool_available`, are therefore not reset in the same sense as accumulated request and connection counters. The regular pool also adds `requests_waiting` as a current measurement.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+The resulting dictionary is a useful operational snapshot but is not a transactionally consistent snapshot of every concurrent worker's internal state.
+
+Architectural implication: Native statistics are well suited to identifying pool pressure, relative behavior, and capacity trends. Precise per-request acquisition latency, manually borrowed connection occupancy, full initialization latency, and complete client-visible failure accounting require instrumentation at the corresponding abstraction boundary.
+
+The added instrumentation need not reproduce the pool's internal queue or lifecycle management. It only needs to measure the portions of the application's interaction that the native counters do not cover.
+
+## A8. Runtime state inspection and lifecycle compatibility
+
+Extends original Sections 8.1–8.2 and 8.6.
+
+### A8.1 Public state properties are operationally useful but limited
+
+The pool exposes readable `name`, `min_size`, `max_size`, and `closed` properties.
+
+These provide simple inspection of configured identity, current capacity targets, and lifecycle state without requiring private implementation access.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+However, `closed=False` establishes only that the pool is open. It does not mean that a usable PostgreSQL connection is immediately available or that database connectivity has been validated.
+
+Similarly, `pool_size` may include connections still being prepared.
+
+This creates separate concepts of:
+
+| Concept                        | What it establishes                                                |
+| ------------------------------ | ------------------------------------------------------------------ |
+| Pool opened                    | The pool is accepting acquisition attempts                         |
+| Pool not closed                | Its lifecycle has not transitioned to closed                       |
+| Minimum inventory ready        | Enough connections are available to satisfy the configured minimum |
+| Database connectivity verified | A connection operation or health check has actually succeeded      |
+| Connection available now       | An eligible ready connection can be borrowed without waiting       |
+
+These conditions can coincide, but they are not equivalent.
+
+### A8.2 Implicit opening is deprecated for synchronous pools too
+
+The original guide explains the deprecation of constructor-based async opening.
+
+The synchronous implementation also contains compatibility behavior for implicit opening.
+
+If the `open` argument is omitted, the pool currently opens implicitly. When it is subsequently accessed through the acquisition interface, the implementation can emit a `DeprecationWarning` explaining that the default will change in a future release.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+This is distinct from the async warning, which also addresses the unsupported future behavior of opening an async pool in its constructor.
+
+Explicit `open=True` retains the current constructor-opening behavior without relying on the implicit default. Explicit `open=False` separates construction from startup. Context-managed pool ownership provides a third lifecycle expression.
+
+### A8.3 Shutdown timeout governs worker termination, not borrower completion
+
+The `close(timeout=5.0)` timeout governs how long shutdown waits for the maintenance workers and scheduler to terminate their work.
+
+It is not a deadline after which the pool forcibly closes connections currently borrowed by application clients.
+
+On closure:
+
+- Pending and future acquisition requests fail with `PoolClosed`.
+- Idle connections are removed and closed.
+- Maintenance workers are instructed to stop.
+- Borrowed connections are disposed of when subsequently returned.
+
+If the worker termination timeout expires, the pool is still considered closed.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+1
+
+
+
+This distinction matters for service shutdown and connection ownership. Pool shutdown is not a mechanism for guaranteeing that all active application transactions have completed or been cancelled.
+
+## A9. Editorial corrections to the parent reference
+
+These are documentation-integrity corrections rather than additional library functionality.
+
+The original document contains several Python fenced examples whose line breaks and indentation were lost during generation or export. Those blocks should be restored to syntactically valid Python; notably, Section 3 contains concatenated imports and context-manager statements.
+
+The document also contains favicon/image references, search-result labels, and tracking parameters that should be removed from its primary-source references. The simplified capacity visualization in Section 4.1 should be restored as a coherent table or explanation.
+
+These corrections are worth making independently of the technical additions above, especially if the reference is to be consumed by programming agents that may treat source examples as executable code.
+
+## Primary-source references
+
+The following are direct, version-relevant sources. All URLs are provided as plain text for independent use.
+
+Official pool API reference:\
+`https://www.psycopg.org/psycopg3/docs/api/pool.html`
+
+Official connection pooling guide:\
+`https://www.psycopg.org/psycopg3/docs/advanced/pool.html`
+
+Official pool release notes:\
+`https://www.psycopg.org/psycopg3/docs/news_pool.html`
+
+Tagged 3.3.3 base state, size validation, statistics, and expiry:\
+`https://raw.githubusercontent.com/psycopg/psycopg/pool-3.3.3/psycopg_pool/psycopg_pool/base.py`
+
+Tagged 3.3.3 synchronous acquisition, scheduling, reset, resizing, and lifecycle:\
+`https://raw.githubusercontent.com/psycopg/psycopg/pool-3.3.3/psycopg_pool/psycopg_pool/pool.py`
+
+Tagged 3.3.3 asynchronous pool behavior:\
+`https://raw.githubusercontent.com/psycopg/psycopg/pool-3.3.3/psycopg_pool/psycopg_pool/pool_async.py`
+
+Tagged 3.3.3 null-pool connection establishment and ownership:\
+`https://raw.githubusercontent.com/psycopg/psycopg/pool-3.3.3/psycopg_pool/psycopg_pool/null_pool.py`
+
+Upstream source tree for the complete 3.3.3 pool implementation:\
+`https://github.com/psycopg/psycopg/tree/pool-3.3.3/psycopg_pool/psycopg_pool`
+
+The findings involving internal scheduling, low-watermark shrinking, measurement collection points, and lock scope describe the tagged 3.3.3 implementation. They are valuable for understanding this release's mechanics, but their stability should not be inferred from their presence in the source alone.
