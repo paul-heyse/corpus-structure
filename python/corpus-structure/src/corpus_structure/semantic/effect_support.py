@@ -553,3 +553,19 @@ SUPPORTED_EFFECTS["stage_pdf_producer"] = {
     "version": "1",
 }
 SUPPORTED_EFFECT_VERSIONS.update(owned_private_pdf_compute="1", owned_private_pdf_replay="1")
+
+SUPPORTED_EFFECT_VERSIONS["atomic_pdf_document_publication"] = "1"
+
+SUPPORTED_EFFECTS['freeze_pdf_build'] = {'effects': ('atomic_pdf_document_publication',), 'implementation': 'freeze_pdf_build', 'transitions': {'pdf_private_freeze': ('atomic_pdf_document_publication',)}, 'version': '1'}
+
+SUPPORTED_EFFECTS['prepare_pdf_build'] = {'effects': ('atomic_pdf_document_publication',), 'implementation': 'prepare_pdf_build', 'transitions': {}, 'version': '1'}
+
+SUPPORTED_EFFECTS['validate_pdf_build'] = {'effects': ('atomic_pdf_document_publication',), 'implementation': 'validate_pdf_build', 'transitions': {}, 'version': '1'}
+
+SUPPORTED_EFFECTS['seal_pdf_build'] = {'effects': ('atomic_pdf_document_publication',), 'implementation': 'seal_pdf_build', 'transitions': {'pdf_private_publish': ('atomic_pdf_document_publication',)}, 'version': '1'}
+
+SUPPORTED_EFFECTS['adopt_pdf_companion_batch'] = {'effects': ('atomic_pdf_document_publication',), 'implementation': 'adopt_pdf_companion_batch', 'transitions': {}, 'version': '1'}
+
+SUPPORTED_EFFECTS["retain_pdf_stage_recipe"] = {"effects": ("atomic_pdf_document_publication",),"implementation":"retain_pdf_stage_recipe","transitions":{},"version":"1"}
+
+SUPPORTED_EFFECTS["inspect_pdf_build"] = {"effects": (),"implementation":"inspect_pdf_build","transitions":{},"version":"1"}

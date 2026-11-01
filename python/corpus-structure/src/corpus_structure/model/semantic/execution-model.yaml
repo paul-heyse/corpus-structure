@@ -2610,6 +2610,50 @@ concepts:
   attributes:
   - {name: content_digest, range: text, required: true, multivalued: false}
   relationships: []
+- id: PdfFrozenBuild
+  family: execution
+  scope: run
+  meaning: Immutable actual candidate inventory and declared native or integrated kind
+  identity: Build, frozen inventory, source/release/schema/recipe and publication kind
+  attributes:
+  - name: build_id
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
+- id: PdfValidationOutcome
+  family: execution
+  scope: run
+  meaning: Native conformance and independent server closure over the same fixed candidate
+  identity: Frozen inventory and archived native validation contract; exact logical recordset
+  attributes:
+  - name: build_id
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
+- id: PdfPublishedDocument
+  family: execution
+  scope: run
+  meaning: Atomically visible immutable native graph and typed evidence companions
+  identity: Qualified versioned logical pin, declared kind, source/schema/release and revision
+  attributes:
+  - name: build_id
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
+- id: PdfStageRecipe
+  family: execution
+  scope: run
+  meaning: Actual immutable producer-stage recipe linked to root source acquisition
+  identity: Task, original, release, root recipe and exact stage recipe bytes
+  attributes:
+  - name: build_id
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
 - id: PdfPrivateBuild
   family: execution
   scope: run
@@ -7037,6 +7081,187 @@ operations:
   transitions: []
   projections: []
   implementation: select_pdf_integration
+- id: freeze_pdf_build
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfFrozenBuild
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects:
+  - atomic_pdf_document_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact frozen inventory, complete native validation and atomic publication
+  implementation: freeze_pdf_build
+  transitions: [pdf_private_freeze]
+  projections: []
+- id: prepare_pdf_build
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfFrozenBuild
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects:
+  - atomic_pdf_document_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact frozen inventory, complete native validation and atomic publication
+  implementation: prepare_pdf_build
+  transitions: []
+  projections: []
+- id: validate_pdf_build
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfValidationOutcome
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects:
+  - atomic_pdf_document_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact frozen inventory, complete native validation and atomic publication
+  implementation: validate_pdf_build
+  transitions: []
+  projections: []
+- id: seal_pdf_build
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfPublishedDocument
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects:
+  - atomic_pdf_document_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact frozen inventory, complete native validation and atomic publication
+  implementation: seal_pdf_build
+  transitions: [pdf_private_publish]
+  projections: []
+- id: inspect_pdf_build
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfPrivateBuild
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects: []
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact frozen inventory, complete native validation and atomic publication
+  implementation: inspect_pdf_build
+  transitions: []
+  projections: []
+- id: retain_pdf_stage_recipe
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfStageRecipe
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects:
+  - atomic_pdf_document_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact frozen inventory, complete native validation and atomic publication
+  implementation: retain_pdf_stage_recipe
+  transitions: []
+  projections: []
+- id: adopt_pdf_companion_batch
+  inputs:
+  - TaskInvocation
+  - PdfPrivateBuild
+  results:
+  - PdfPrivateBuild
+  applicability:
+  - attempt_fence
+  universe: Actual task/source/release/recipe-bound private records and exact replay
+    bytes
+  effects:
+  - atomic_pdf_document_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact frozen inventory, complete native validation and atomic publication
+  implementation: adopt_pdf_companion_batch
+  transitions: []
+  projections: []
 - id: begin_pdf_build
   inputs:
   - TaskInvocation
@@ -8289,6 +8514,117 @@ implementations:
   - external_model_requests
   - retain_recognition_artifacts
   required_capabilities: []
+- id: freeze_pdf_build
+  owner: semantic.pdf_publication
+  symbol: freeze_pdf_build
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfFrozenBuild
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_pdf_document_publication
+  required_capabilities: []
+- id: prepare_pdf_build
+  owner: semantic.pdf_publication
+  symbol: prepare_pdf_build
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfFrozenBuild
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_pdf_document_publication
+  required_capabilities: []
+- id: validate_pdf_build
+  owner: semantic.pdf_publication
+  symbol: validate_pdf_build
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfValidationOutcome
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_pdf_document_publication
+  required_capabilities: []
+- id: seal_pdf_build
+  owner: semantic.pdf_publication
+  symbol: seal_pdf_build
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfPublishedDocument
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_pdf_document_publication
+  required_capabilities: []
+- id: inspect_pdf_build
+  owner: semantic.pdf_publication
+  symbol: inspect_pdf_build
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfPrivateBuild
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: retain_pdf_stage_recipe
+  owner: semantic.pdf_publication
+  symbol: retain_pdf_stage_recipe
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfStageRecipe
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_pdf_document_publication
+  required_capabilities: []
+- id: adopt_pdf_companion_batch
+  owner: semantic.pdf_publication
+  symbol: adopt_pdf_companion_batch
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PdfPrivateBuild
+  result_concepts:
+  - PdfPrivateBuild
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_pdf_document_publication
+  required_capabilities: []
 - id: begin_pdf_build
   owner: semantic.pdf_staging
   symbol: begin_pdf_build
@@ -9327,6 +9663,8 @@ lifecycles:
   - id: status
     values:
     - open
+    - frozen
+    - published
     - abandoned
   states:
   - id: open
@@ -9334,6 +9672,12 @@ lifecycles:
     - dimension: status
       value: open
     terminal: false
+  - id: frozen
+    values: [{dimension: status, value: frozen}]
+    terminal: false
+  - id: published
+    values: [{dimension: status, value: published}]
+    terminal: true
   - id: abandoned
     values:
     - dimension: status
@@ -9341,7 +9685,7 @@ lifecycles:
     terminal: true
   initial_states: [open]
   invariants: [attempt_fence]
-  transitions: [pdf_private_abandon]
+  transitions: [pdf_private_abandon, pdf_private_freeze, pdf_private_publish]
 
 transitions:
 - id: run_start_source
@@ -9859,6 +10203,44 @@ transitions:
   outcomes:
   - applied
   - conflict
+- id: pdf_private_freeze
+  lifecycle: pdf_private_build
+  operation: freeze_pdf_build
+  from_states:
+  - open
+  to_states:
+  - frozen
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  effects:
+  - atomic_pdf_document_publication
+  outcomes:
+  - applied
+  - conflict
+- id: pdf_private_publish
+  lifecycle: pdf_private_build
+  operation: seal_pdf_build
+  from_states:
+  - frozen
+  to_states:
+  - published
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  effects:
+  - atomic_pdf_document_publication
+  outcomes:
+  - applied
+  - conflict
 outcome_domains:
 - id: source_request
   authority: code
@@ -10230,6 +10612,9 @@ effect_definitions:
   version: '1'
   meaning: Owned immutable replay files and incremental private reconciliation; no
     publication
+- id: atomic_pdf_document_publication
+  version: '1'
+  meaning: Frozen actual inventory, independent native closure and short atomic publication
 analysis_profiles:
 - id: mathematical-interpretation
   version: '6'

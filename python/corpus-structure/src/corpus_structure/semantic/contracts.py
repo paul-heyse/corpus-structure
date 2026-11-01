@@ -25,12 +25,13 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "16"
+EXECUTION_COMPILER_VERSION = "17"
 
 
 @lru_cache(maxsize=1)
 def approved_implementations() -> Mapping[str, Any]:
     """Resolve only application-written imports, never catalog-authored module strings."""
+    from . import pdf_publication
     from types import MappingProxyType
 
     from corpus_structure.core.text_structure import capture_text
@@ -103,6 +104,13 @@ def approved_implementations() -> Mapping[str, Any]:
             "stream_pdf_native": StreamingPdfProducer.run,
             "reconcile_pdf_stream": reconcile_pdf_stream,
             "stage_pdf_producer": run_private_pdf_build,
+            "freeze_pdf_build": pdf_publication.freeze_pdf_build,
+            "prepare_pdf_build": pdf_publication.prepare_pdf_build,
+            "validate_pdf_build": pdf_publication.validate_pdf_build,
+            "seal_pdf_build": pdf_publication.seal_pdf_build,
+            "adopt_pdf_companion_batch": pdf_publication.adopt_pdf_companion_batch,
+            "retain_pdf_stage_recipe": pdf_publication.retain_pdf_stage_recipe,
+            "inspect_pdf_build": pdf_publication.inspect_pdf_build,
             "begin_pdf_build": pdf_staging.begin_pdf_build,
             "adopt_pdf_batch": pdf_staging.adopt_pdf_batch,
             "inspect_pdf_progress": pdf_staging.inspect_pdf_progress,
@@ -688,6 +696,7 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
         "12",
         "14",
         "15",
+        "16",
     }:
         # Retained immutable reader ABI, without allowing historical writes/activation.
         if name not in {
@@ -764,6 +773,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "13",
         "14",
         "15",
+        "16",
         EXECUTION_COMPILER_VERSION,
     }:
         _fail(
@@ -783,6 +793,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "13",
         "14",
         "15",
+        "16",
         EXECUTION_COMPILER_VERSION,
     }:
         effect_versions["schedule_pending_or_reused_or_skipped"] = "1"
@@ -893,8 +904,19 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("pdf/records.py", "semantic/pdf_records.py"),
                 ("pdf/record-identity.py", "semantic/pdf_record_identity.py"),
                 ("pdf/staging.py", "semantic/pdf_staging.py"),
+                ("pdf/record-product.py", "ingest/pdf_record_product.py"),
+                ("pdf/retained-stream.py", "ingest/pdf_retained_stream.py"),
+                ("orchestration/semantic.py", "orchestrate/semantic.py"),
+                ("orchestration/source-reader.py", "orchestrate/source_reader.py"),
+                ("pdf/publication.py", "semantic/pdf_publication.py"),
+                ("pdf/record-logical-identity.sql", "semantic/sql/pdf_record_logical_identity.sql"),
+                ("pdf/record-access-correspondence.sql", "semantic/sql/pdf_record_access_correspondence.sql"),
+                ("pdf/record-context.sql", "semantic/sql/pdf_record_context.sql"),
+                ("pdf/publication-native.py", "semantic/pdf_publication_native.py"),
+                ("pdf/record-reader-native.py", "semantic/pdf_record_reader_native.py"),
                 ("pdf/staging-model.yaml", "model/semantic/pdf-staging.yaml"),
                 ("pdf/streaming.py", "ingest/pdf_streaming.py"),
+                ("pdf/assembly.py", "ingest/pdf_assembly.py"),
                 ("pdf/stream-types.py", "ingest/pdf_stream_types.py"),
                 ("pdf/stream-reconciliation.py", "ingest/pdf_stream_reconciliation.py"),
                 ("pdf/stream-orchestration.py", "orchestrate/pdf_streaming.py"),
@@ -1425,8 +1447,19 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "pdf/records.py",
         "pdf/record-identity.py",
         "pdf/staging.py",
+        "pdf/record-product.py",
+        "pdf/retained-stream.py",
+        "orchestration/semantic.py",
+        "orchestration/source-reader.py",
+        "pdf/publication.py",
+        "pdf/publication-native.py",
+        "pdf/record-reader-native.py",
+        "pdf/record-logical-identity.sql",
+        "pdf/record-access-correspondence.sql",
+        "pdf/record-context.sql",
         "pdf/staging-model.yaml",
         "pdf/streaming.py",
+        "pdf/assembly.py",
         "pdf/stream-types.py",
         "pdf/stream-reconciliation.py",
         "pdf/stream-orchestration.py",

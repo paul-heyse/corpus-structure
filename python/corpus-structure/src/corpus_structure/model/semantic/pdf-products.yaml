@@ -1537,3 +1537,11 @@ classes:
       min_identical_character_run: {range: PdfInteger, required: true, minimum_value: 64, slot_uri: pdf:PdfRecognitionRecoveryPolicy_min_identical_character_run}
       max_attempts: {range: PdfInteger, required: true, minimum_value: 1, maximum_value: 1, slot_uri: pdf:PdfRecognitionRecoveryPolicy_max_attempts}
       permitted_recipe_id: {range: string, required: true, equals_string: nemotron-public-triple-union-repetition-recovery-v1, slot_uri: pdf:PdfRecognitionRecoveryPolicy_permitted_recipe_id}
+
+  PdfRecordNativeHealth:
+    is_a: PdfConversionHealth
+    description: Native conversion health and explicit original scope for record publication; growing outcomes remain native metadata rows.
+    attributes:
+      source_scope: {range: PdfString, required: true, pattern: ^(whole_document|page_range)$}
+      page_start: {range: PdfInteger, minimum_value: 1}
+      page_end: {range: PdfInteger, minimum_value: 1}

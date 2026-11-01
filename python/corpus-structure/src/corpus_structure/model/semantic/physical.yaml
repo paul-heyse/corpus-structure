@@ -4671,3 +4671,166 @@ classes:
         <= 65536", "sha256_digest = encode(sha256(body),''hex'')", "product_id = revision_id"]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
       ph:read_roles: '[]'
+
+  pdf_frozen_build:
+    is_a: PdfFrozenBuild
+    in_subset:
+    - ops
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - build_id
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns": ["build_id"], "target": "ops.pdf_stage_build.build_id"}]'
+  pdf_build_validation:
+    is_a: PdfBuildValidation
+    in_subset:
+    - ops
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - build_id
+        - frozen_digest
+        - contract_digest
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns": ["build_id"], "target": "ops.pdf_stage_build.build_id"}, {"columns":
+        ["build_id", "frozen_digest", "native_contract_digest"], "target": "ops.pdf_native_validation.build_id,frozen_digest,contract_digest"}]'
+  pdf_published_revision:
+    is_a: PdfPublishedRevision
+    in_subset:
+    - ops
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - build_id
+      unique_0:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - logical_digest
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns": ["build_id"], "target": "ops.pdf_stage_build.build_id"}]'
+  pdf_stage_companion:
+    is_a: PdfRecordCompanion
+    in_subset:
+    - ops
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - family
+        - local_id
+    annotations:
+      ph:immutability: immutable
+      ph:indexes: '[["product_id","revision_id","family","ordinal","local_id"]]'
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
+      ph:checks: '["product_id = revision_id", "octet_length(body::text) <= 65536", "jsonb_typeof(body)
+        = ''object''"]'
+  pdf_stage_endpoint:
+    is_a: PdfRecordEndpoint
+    in_subset:
+    - ops
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - relation_id
+        - ordinal
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
+      ph:checks: '["product_id = revision_id", "ordinal >= 0"]'
+  pdf_record_companion:
+    is_a: PdfRecordCompanion
+    in_subset:
+    - kb
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - family
+        - local_id
+    annotations:
+      ph:immutability: immutable
+      ph:indexes: '[["product_id","revision_id","family","ordinal","local_id"]]'
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
+      ph:checks: '["product_id = revision_id", "octet_length(body::text) <= 65536", "jsonb_typeof(body)
+        = ''object''"]'
+  pdf_record_endpoint:
+    is_a: PdfRecordEndpoint
+    in_subset:
+    - kb
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - relation_id
+        - ordinal
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
+      ph:checks: '["product_id = revision_id", "ordinal >= 0"]'
+
+  pdf_record_access:
+    is_a: PdfRecordAccess
+    in_subset:
+    - kb
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - pointer
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
+  pdf_record_region:
+    is_a: PdfRecordRegion
+    in_subset:
+    - kb
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - pointer
+        - region_index
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
+
+  pdf_stage_recipe:
+    is_a: PdfStageRecipe
+    in_subset: [ops]
+    unique_keys:
+      primary_key: {unique_key_slots: [task_id, stage_recipe_digest]}
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns":["task_id"],"target":"ops.task.id"},{"columns":["stage_recipe_digest"],"target":"kb.source_artifact.artifact_digest"},{"columns":["root_recipe_digest"],"target":"kb.source_artifact.artifact_digest"}]'
+
+  pdf_native_validation:
+    is_a: PdfNativeValidationOutcome
+    in_subset: [ops]
+    unique_keys:
+      primary_key: {unique_key_slots: [build_id, frozen_digest, contract_digest]}
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"}]'

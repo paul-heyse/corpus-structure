@@ -5,18 +5,47 @@ prefixes:
 default_prefix: pds
 default_range: PdfRecordString
 annotations:
-  pds:artifact_profiles: '{"assembly":"docling-page-assembly-v1","raster":"docling-native-raster-png-v1","candidates":"docling-inline-candidates-v1","native_completion":"pdf-native-completion-jsonl-v1","native_recipe":"pdf-native-recipe-json-v1"}'
+  pds:artifact_profiles: '{"assembly": "docling-page-assembly-v2", "raster": "docling-native-raster-png-v1",
+    "candidates": "docling-inline-candidates-v1", "native_completion": "pdf-native-completion-jsonl-v1",
+    "native_recipe": "pdf-native-recipe-json-v1", "retained_envelope": "retained-pdf-envelope-json-v1"}'
   pds:companion_profile: '{"prefix":"pdf-selected-companions-jsonl-v1:","families":["input","occurrence","relation","mapping_report","coverage","health"]}'
   pds:upload_profile: '{"max_rows":65536,"max_bytes":8388608,"max_replay_key_bytes":1024}'
+  pds:publication_identity_profile: pdf-record-sha256-fold-v1
+  pds:publication_record_profile: '{"id": "pdf-publication-records-v1", "fold": "pdf-record-sha256-fold-v1",
+    "companion": {"family": "companion/<family>", "key": "local_id", "fields": ["body", "ordinal"], "body":
+    "data.canonical_json"}, "endpoint": {"family": "endpoint", "key": "ascii-json:[relation_id,ordinal]",
+    "fields": ["relation_id", "ordinal", "target_task_id", "target_product_key", "target_content_digest",
+    "occurrence_id", "role"], "self_reference": [0, "@self", "@self"]}, "native_map_order": "original
+    map encounter order retained for exact reconstruction; logical map identity is key-based; ordinary
+    array order is identity-bearing", "publication": {"family": "publication", "key": "root", "fields":
+    ["kind"], "authority": "frozen build"}}'
+  pds:native_metadata_kinds: '["runtime_report", "inline_candidate_pages", "derivation_mappings", "cell_reports",
+    "inline_alignment_reports", "recognition_coverage", "formula_outcomes", "stage_recipe"]'
 enums:
   PdfStageState:
     permissible_values:
       open: {}
       abandoned: {}
+      frozen: {}
+      published: {}
+  PdfCompanionFamily:
+    permissible_values:
+      input: {}
+      occurrence: {}
+      relation: {}
+      mapping_report: {}
+      coverage: {}
+      health: {}
+      request_outcome: {}
+      native_metadata: {}
+  PdfPublicationKind:
+    permissible_values:
+      native: {}
+      integrated: {}
 classes:
   PdfStageBuild:
-    description: Private mutable producer build, fenced by the existing task attempt;
-      never a published product.
+    description: Private mutable producer build, fenced by the existing task attempt; never a published
+      product.
     attributes:
       build_id:
         required: true
@@ -45,8 +74,7 @@ classes:
         range: PdfStageState
         required: true
   PdfStageReceipt:
-    description: Immutable receipt over one actual uploaded bounded batch, distinct
-      from publication.
+    description: Immutable receipt over one actual uploaded bounded batch, distinct from publication.
     attributes:
       build_id:
         required: true
@@ -58,3 +86,213 @@ classes:
         range: PdfRecordInteger
         required: true
         minimum_value: 0
+  PdfFrozenBuild:
+    attributes:
+      build_id:
+        range: PdfRecordString
+        required: true
+      frozen_digest:
+        range: PdfRecordString
+        required: true
+      kind:
+        range: PdfPublicationKind
+        required: true
+  PdfRecordCompanion:
+    attributes:
+      product_id:
+        range: PdfRecordString
+        required: true
+      revision_id:
+        range: PdfRecordString
+        required: true
+      family:
+        range: PdfCompanionFamily
+        required: true
+      local_id:
+        range: PdfRecordString
+        required: true
+      body:
+        range: PdfRecordJson
+        required: true
+      ordinal:
+        range: PdfRecordInteger
+        required: true
+  PdfRecordEndpoint:
+    attributes:
+      product_id:
+        range: PdfRecordString
+        required: true
+      revision_id:
+        range: PdfRecordString
+        required: true
+      relation_id:
+        range: PdfRecordString
+        required: true
+      ordinal:
+        range: PdfRecordInteger
+        required: true
+      target_task_id:
+        range: PdfRecordInteger
+        required: true
+      target_product_key:
+        range: PdfRecordString
+        required: true
+      target_content_digest:
+        range: PdfRecordString
+        required: true
+      occurrence_id:
+        range: PdfRecordString
+        required: true
+      role:
+        range: PdfRecordString
+        required: true
+  PdfPublishedRevision:
+    attributes:
+      build_id:
+        range: PdfRecordString
+        required: true
+      task_id:
+        range: PdfRecordInteger
+        required: true
+      product_key:
+        range: PdfRecordString
+        required: true
+      logical_digest:
+        range: PdfRecordString
+        required: true
+      release_id:
+        range: PdfRecordString
+        required: true
+      source_digest:
+        range: PdfRecordString
+        required: true
+      schema_digest:
+        range: PdfRecordString
+        required: true
+      recipe_digest:
+        range: PdfRecordString
+        required: true
+      frozen_digest:
+        range: PdfRecordString
+        required: true
+      kind:
+        range: PdfPublicationKind
+        required: true
+  PdfBuildValidation:
+    attributes:
+      build_id:
+        range: PdfRecordString
+        required: true
+      frozen_digest:
+        range: PdfRecordString
+        required: true
+      logical_digest:
+        range: PdfRecordString
+        required: true
+      contract_digest:
+        range: PdfRecordString
+        required: true
+      native_callbacks:
+        range: boolean
+        required: true
+      native_contract_digest:
+        required: true
+  PdfRecordAccess:
+    attributes:
+      product_id:
+        required: true
+      revision_id:
+        required: true
+      pointer:
+        range: string
+        required: true
+      ordinal:
+        range: integer
+        required: true
+      label:
+        range: string
+        required: true
+      parent_pointer:
+        range: string
+        required: false
+      section_pointer:
+        range: string
+        required: false
+      content_layer:
+        range: string
+        required: true
+      text:
+        range: string
+        required: false
+      native_json:
+        range: json_payload
+        required: true
+  PdfRecordRegion:
+    attributes:
+      product_id:
+        required: true
+      revision_id:
+        required: true
+      pointer:
+        range: string
+        required: true
+      region_index:
+        range: integer
+        required: true
+      page_no:
+        range: integer
+        required: true
+      page_width:
+        range: exact_numeric
+        required: true
+      page_height:
+        range: exact_numeric
+        required: true
+      left:
+        range: exact_numeric
+        required: true
+      top:
+        range: exact_numeric
+        required: true
+      right:
+        range: exact_numeric
+        required: true
+      bottom:
+        range: exact_numeric
+        required: true
+      origin:
+        range: string
+        required: true
+  PdfStageRecipe:
+    attributes:
+      task_id:
+        range: PdfRecordInteger
+        required: true
+      source_digest:
+        range: PdfRecordString
+        required: true
+      root_recipe_digest:
+        range: PdfRecordString
+        required: true
+      stage_recipe_digest:
+        range: PdfRecordString
+        required: true
+      release_id:
+        range: PdfRecordString
+        required: true
+  PdfNativeValidationOutcome:
+    description: Pinned native callback outcome over an exact immutable captured candidate, distinct from
+      independent server closure.
+    attributes:
+      build_id:
+        range: PdfRecordString
+        required: true
+      frozen_digest:
+        range: PdfRecordString
+        required: true
+      contract_digest:
+        range: PdfRecordString
+        required: true
+      passed:
+        range: boolean
+        required: true
