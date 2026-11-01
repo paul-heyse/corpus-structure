@@ -100,9 +100,11 @@ all cross-row custody. RDFLib/pySHACL may realize existing graph constraints whe
 pinned generator support instead of assuming all LinkML rules become SHACL. Freeze valuesets with
 the release. No mandatory RDF store or ontology truth inference is added.
 
-Use forward Alembic/native migrations; frozen migrations remain unchanged. Backfill historical
+Use forward Alembic/native revisions against the settled head; frozen migrations remain unchanged.
+Under coordinator RC12 rebuild current products from compatible retained evidence. Qualify reused
 parent edges as structural-input relations under their original meaning, never as evidence of a
-recognizer that did not run. Retain archived readers/schema admission. No automatic product rewrite,
+recognizer that did not run. Preserve archived source bindings and current schema admission,
+without mandatory historical readers or old-layout migration. No automatic product rewrite,
 regrading or old-frame re-anchoring. Publish product, projections, decisions and selected binding
 atomically under the attempt fence; inference holds no database connection/transaction.
 

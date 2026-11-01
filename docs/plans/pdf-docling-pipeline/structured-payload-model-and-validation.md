@@ -4,7 +4,10 @@
 The [coordinator](../pdf-docling-pipeline_2026-10-31.md) alone owns PDF-27/28, investigation
 I21–I25 and source-qualified recommendation dispositions. Basis: [structured-data review](../../plan_improvement_reviews/pdf-docling-structured-data_2026-11-01.md)
 I01–I09 at `e11c89db`, consuming product baseline `0878ba1b`. Operator confirmed both rule
-changes on2026-11-01 and approved this plan-authoring scope. This document schedules product
+changes on2026-11-01 and approved this plan-authoring scope. The [integration review](../../plan_improvement_reviews/pdf-postgresql-capability-integration_2026-11-01.md)
+at `94c847cc` refines this target with shared PostgreSQL realization and Arrow processing.
+RC12 (explicitly confirmed2026-11-01) selects rebuilding current products from compatible retained
+evidence, retiring mandatory historical reader/layout migration. This document schedules product
 changes; it establishes no deployed enforcement change.
 
 ## Target and foundation assessment
@@ -49,14 +52,25 @@ PDF-27 first schedules a successor ADR through the existing decision process, su
 affected clauses of immutable ADR-0042/0044, and updates DESIGN §B4 and affected D1/D2/D3/D4/D6/D8
 owners. Accepted ADRs are not edited during plan authoring. Preserve ADR-0043 exact-byte/logical/
 export distinctions. Every committed migration through0065 stays frozen; PDF-25 supplies forward
-revisions and explicit retained-data derivation. No default changes follow from successful probes.
+revisions against the settled head and current-realization rebuild (RC12). Preserve retained
+evidence, not mandatory old published-pin readers. No default changes follow from successful probes.
 
 <a id="PDF-27"></a>
 ## PDF-27 — Payload contracts and prepared representation bridge
 
-**Inputs:** RC10/11 decision slice; existing PDF-18/19 release, identity and artifact contracts;
+**Inputs:** RC10/11/12 decision slice; existing PDF-18/19 release, identity and artifact contracts;
 I21 type profile and early I23 reader needs. **Outputs:** executable per-family declarations,
 prepared codecs and projection mappings, integrated with the first OCR/candidate consumer.
+
+Compose existing release/compiler preparation with PG-03 typed generation and PG-06
+`CompanionProjection`; PG-04 `ArrowWriteProfile` handles directional SQL transfer. Keep four
+contracts explicit: logical family schema, nested payload codec, relational projection and SQL
+wire profile. Static `TypedColumns`/`Named` and table-valued `.with_cols()` describe SQL-visible
+columns, not native payload semantics or validation. Extend these generators for envelopes and
+necessary projections; finite payload codecs derive from native/app authority rather than form
+another schema compiler. Preparation binds semantic release, codec/mapping, physical/compiler,
+projection and directional profile identities; it retains no live connection or privilege conclusion.
+A same-typed field meaning change must invalidate affected preparation even when SQL types agree.
 
 Extend existing semantic release/dependency/artifact facilities with each selected family's logical
 owner/schema, encoding/profile, retrieval unit, invariant/validator owner, publication scope and
@@ -81,7 +95,14 @@ Generalize the successful explicit native-class inventory rather than selecting 
 branch happens to validate first. Preserve subclass content deliberately under the pinned profile.
 
 For selected whole-page consumption, start with self-contained `ipc.new_stream/open_stream` units
-in existing bytea/artifact custody. `Schema.serialize`/`ipc.read_schema` can archive the physical
+in existing bytea/artifact custody. Reuse `ArrowWriteProfile.new_encoder` and
+`copy_arrow_stream` for outer SQL envelopes/parts, not to convert every nested interior to SQL
+arrays/composites or JSON strings. Keep a fresh pgpq encoder per stream. Existing Python rows use
+Psycopg `Copy.set_types/write_row`; resident relational movement uses server-side set operations
+such as Core `Insert.from_select`, with defaults/correlation semantics checked. ADBC-owned ingest
+is an alternative only for a complete justified operation; it cannot share another session's scratch.
+Directional binary/large-binary and nested support must be qualified for the selected driver.
+`Schema.serialize`/`ipc.read_schema` can archive the physical
 schema under the existing release. Bare `RecordBatch.serialize` messages are not self-contained
 schema/dictionary custody. Compare `new_file/open_file/get_batch` only for a real seekable batch
 consumer. Existing bounded artifact parts remain available for unusually large individual pages;
@@ -95,6 +116,22 @@ replacement: composite declarations alone do not carry field NOT NULL/CHECK cons
 need deliberate shape rules, and PostgreSQL text still excludes NUL. Psycopg `CompositeInfo` /
 `register_composite` plus Core bind/result mapping would need qualification if that route is selected.
 Neither ADBC nor pgpq automatically maps arbitrary nested Arrow types into PostgreSQL types.
+
+Use owned `RecordBatchReader`/batch iteration for real columnar consumers;
+`from_batches(schema, iterable)` adapts an actual producer without a full `Table`.
+`compute.struct_field`, `list_flatten`, `list_parent_indices`, `filter`, `take`, `is_valid`,
+checked arithmetic and explicit Kleene/null policies can perform selected projections/rules.
+Preserve original indexes and null/empty/absent state before flattening; do not reconstruct all
+Python objects between each stage. `RecordBatchReader.cast` is lazy but requires an authorized
+safe conversion with matching names/order; it is not permission to repair mismatched exact profiles.
+Use Arrow C Stream/PyCapsule only with actual compatible consumers, not a bespoke interchange layer.
+Keep DuckDB for existing relational analytics; Acero is a candidate only to remove a real local
+projection/filter intermediate. Native/custom validators retain semantics not expressed by kernels.
+
+A typed derivative of existing `PdfCoverageSupport` is conditional on an actual support-analysis
+consumer: current PG companion `supports_json` is not already a typed nested list. Derive its
+list/struct representation from the same model, or a protected support-row projection for SQL
+joins; preserve parent coverage identity and qualified inputs. Do not add another support authority.
 
 **Completion:** independent expected cases establish selected payload round trips, exact native
 variants/presence and required projections, including empty/null/default cases and unsupported
@@ -122,11 +159,26 @@ called by `pdf_contracts.py` on producer drafts. This does not imply OCR was nev
 or malformed corpus data was published. Include the actual frozen OCR/candidate/report payloads
 and necessary joined projections/inputs in the validation scope before relying on their validity.
 
+Extend the existing frozen child's validation-derived projection phase and the parent's bounded
+adoption to emit required page projections from the exact validated persisted payload. Retain
+early SQL locator/custody fields and independent relationship enforcement. A contradictory supplied
+projection must refuse; avoid a second producer-owned mirrored-fact/projection coordinator or
+loading page-local payloads into the materialized native graph merely to derive them.
+
 Read durable immutable members, check exact byte/schema/release bindings and evaluate page-local
 rules incrementally; evaluate cross-page/reference/coverage closure over the complete required
 set. Bind the existing validation result to frozen membership, relevant dependencies and validator
 implementation contract. Reuse established validity while those premises hold. A caller boolean,
 schema label, physical checksum or native-only callback cannot stand in for semantic validity.
+
+Reuse PG-02 outcome semantics and PG-05 `BorrowerCancellation`/`owned_adbc_read` at the actual
+operation owner. One regular Psycopg pool lends through SQLAlchemy `NullPool`; Core owns its
+transaction and COPY borrows that driver. ADBC owns its separate imported snapshot. Close/drain
+results, settle effects and retire cancellation registration before reuse. Database cancellation
+cannot stop a CPU validation child or another driver's query; retain finite child settlement.
+Distinguish cancellation/fencing, rollback and uncertain commit, resolving the original publication
+identity rather than replaying under a new one. A trusted child result bridge is not invalid merely
+because its protected registration uses a boolean; its enforced input/result binding is decisive.
 
 Keep current claim/attempt/holder authority, cancellation, heartbeat, finite child settlement and
 freeze/result/seal lifecycle. PostgreSQL verifies the matching validation result and relational
@@ -148,13 +200,33 @@ seal verify the actual immutable stored bytes and corresponding release, not det
 | PDF-20/21 | Adopt bounded payload units and projections in the existing SQLAlchemy-owned transaction; preserve durable append/freeze/fences/seal/recovery. Replace selected per-field schema compilation with PDF-28 validation. Inventory remaining pg_jsonschema consumers before relaxing its dependency; preserve necessary SQL-used validation. |
 | PDF-22/23 | Produce/consume selected typed page units; bind effective native options and source/image lifetimes. Use one native-serializer-aware envelope instead of JSON encode/decode/encode. |
 | PDF-24 | Page/group/field selectors locate data before decoding; return owned batches to columnar consumers, retaining explicit native materialization only for native behavior. Maintain relational context joins and full exports. |
-| PDF-25/10/11 | Forward migration and retained derivation, current consumer cutover, removal of replaced machinery, book publication and actual evidence-aware adoption. No second authoritative store or duplicate acceptance queue. |
+| PDF-25/10/11 | Current-realization forward construction and compatible retained-evidence rebuild, current consumer cutover, removal of replaced machinery, book publication and actual evidence-aware adoption. No second authoritative store or duplicate acceptance queue. |
 
 I23 also assesses `pdf_record_context.sql`: retain occurrence→endpoint and coverage→input/mapping
 joins, but offer their set-shaped result to large-context consumers instead of obligatorily
 materializing one JSONB envelope. Convenience envelopes need a supported scoped use; pagination
 or response limits alone do not establish bounded examined work. Preserve repeat occurrences and
 qualified pointers even when values/endpoints match.
+
+## PostgreSQL prerequisites and current adoption boundary
+
+The [PG coordinator](../postgresql-capability-leverage_2026-11-01.md) owns their implementation
+and qualification. Worktree `work/postgresql-capability-leverage` at `24b22756` contains committed
+shared foundations and reports scoped passes; combined qualification is open and nothing is merged
+into main by this plan. Refresh actual interfaces and evidence before integration. No review or
+plan publication substitutes for a working admitted prerequisite.
+
+| Required capability | PG owner | PDF integration responsibility |
+|---|---|---|
+| Model-derived typed projections/preparation | PG-03/06 | PDF-27 extends generators/profiles, then PDF-24 migrates its actual callers. |
+| Shared same-session COPY | PG-04 | PDF-20 supplies authenticated target, limits, identity and protected adoption; PG supplies transfer mechanics. |
+| Outcomes, borrower/cancel settlement | PG-02/05 | PDF-20/21/24/28 propagate handles through actual cursors/results, frozen validation and publication. |
+| Selected-source context and detached capture | PG-06/10 | PDF-24 consolidates closure and adds payload locators; it does not copy serializers or force Arrow through JSONL. |
+| Native authoring, source diagnostics, current head | PG-01/08/09/11 | PDF-27/25 consume Plugin/NativeTransitionOp/render/admission on caller Connection and select the actual successor revision. |
+
+Contract agreement permits independent design work; live acceptance requires working relevant
+prerequisites. Do not wait for unrelated PG packages or implement substitute authorities while
+waiting for integration. Shared editing/native-generation surfaces need one integration owner.
 
 ## Investigations and execution fit
 
@@ -163,14 +235,15 @@ hybrid target; a new rule impact returns for operator confirmation before depend
 
 | Investigation | Method, decision output and constrained work |
 |---|---|
-| I21 — Complete type/bridge profile | Inspect pinned native/app definitions and consumers; probe only uncertain variants/presence/extensions. Decide supported mappings, located refusal and actual cross-language needs. Required before PDF-27 codecs and broad native replacement. |
-| I22 — Persisted semantic coverage | Trace existing validators through frozen read/result/seal; use deliberate invalid persisted cases. Specify exact page-local and complete-set inputs and result binding. Blocks PDF-28/21 acceptance until closed. |
-| I23 — Selective access and placement | Trace actual discovery/alignment/diagnostic/section/export journeys. Compare typed units with current exact JSON and identify queryable projections. Blocks the affected PDF-27 family choice and PDF-24 migration, not unrelated native-profile work. |
-| I24 — Complete operation comparison | Compare encode→store→retrieve→validate→use on representative selected pages/section/export, including copying, schema preparation, compression/TOAST and conversion. Choose the simpler useful route; measurements precede numerical benefit claims, not a synthetic IPC-only ranking. Owned by PDF-20/24/25. |
-| I25 — Effective options and image lifetime | Inspect actual prepared native stages and later crop consumers; decide required crops versus retained full rasters/exact rerender from original, including recovery/cancellation. PDF-22/23 own implementation; retain I14's materialized global boundary. |
+| I21 — Complete type/bridge profile | Inspect pinned native/app definitions and consumers; probe only uncertain variants/presence/extensions. Decide native/nested mappings versus flat read/write profiles, metadata/presence rules, located refusal and actual cross-language needs; reuse PG generators. Required before PDF-27 codecs and broad native replacement. |
+| I22 — Persisted semantic coverage | Trace existing validators through frozen read/result/seal; use deliberate invalid persisted cases. Specify actual page-local/complete-set inputs, validation-derived projections and result binding; reuse PG lifecycle, which does not supply missing semantic checks. Blocks PDF-28/21 acceptance until closed. |
+| I23 — Selective access and placement | Trace actual discovery/alignment/diagnostic/section/export journeys. Compare typed units with exact JSON; reuse PG selected-context/projection contracts, consolidate context selectors and define page/field locators. Blocks the affected PDF-27 family choice and PDF-24 migration, not unrelated native-profile work. |
+| I24 — Complete operation comparison | Compare encode→store→retrieve→validate→use on representative selected pages/section/export, including unified COPY, detached capture, nested computation, copying, preparation and compression/TOAST. Choose the simpler useful route; measurements precede numerical benefit claims, not a synthetic IPC-only ranking. Owned by PDF-20/24/25. |
+| I25 — Effective options and image lifetime | Inspect actual prepared native stages and later crop consumers; decide required crops versus retained full rasters/exact rerender from original, including recovery/cancellation, Arrow thread/readahead and backing-buffer lifetime. PDF-22/23 own implementation; retain I14's materialized global boundary. |
 
-Use the same transaction/pool owner for publication and checked Psycopg COPY access; do not layer
-psycopg-pool around SQLAlchemy or introduce an ADBC writer needing another transaction. Pglast
+Retain one regular Psycopg physical pool with SQLAlchemy `NullPool` lending/return; Core owns
+publication transactions and COPY borrows the checked driver. Do not add another pool or introduce
+an ADBC writer inside that transaction. Pglast
 parsing does not compile PL/pgSQL bodies: qualify generated routines in actual PostgreSQL catalog
 context. Core expressions are suitable for relational operations; SQL authoring simplification is
 not a new lint or validator framework. No unrelated PG-00–12 dependency upgrades are absorbed.
@@ -198,12 +271,28 @@ retain a private validation copy and mutation refusal. Establish unchanged rejec
 claiming savings. These work-removal opportunities can proceed independently of broad native Arrow
 replacement once their contracts are agreed.
 
+## Conditional consumer improvements
+
+PDF-24/25 may use a verified manifest's exact file list and schema with
+`dataset(...).scanner(columns=..., filter=...).to_batches()` for an actual detached Arrow consumer.
+Retain direct DuckDB/Parquet for existing SQL consumers rather than insert another scan. Qualify
+Parquet `ARROW:schema`/type fidelity independently of exact IPC; no new archival copy by default.
+`IpcReadOptions.included_fields` prunes top-level deserialization, not PG bytea transfer or nested
+children. Coordinate `use_threads`, batch/fragment readahead and reader/backing-buffer ownership;
+small batches/Arrow allocation counters do not bound whole-operation memory.
+
+For an actual codec/projection/native-version refusal, reuse PG-07 `ci db describe` and PG-09
+source-qualified candidate/admission diagnostics for declared-versus-observed bindings and concrete
+existing remediation commands. Physical/query schema is not opaque payload schema or domain
+validity. No alignment gate, daemon or new capability registry is selected. Both enhancements
+retain explicit triggers/disposition in the coordinator; they do not block initial atomic completion.
+
 ## Execution sequence and acceptance
 
 Agree PDF-27 authority/placement and I21/I23 contract slices first; implement codecs with the first
 page consumer. PDF-20 adoption and PDF-28 validators can then converge on actual frozen inputs;
 PDF-21 publication acceptance requires both. PDF-24 migrates the affected consumers alongside the
-new representation. PDF-25 performs forward deployment/retained derivation after working readers
+new representation. PDF-25 performs forward deployment/current-product rebuild from compatible retained evidence after working readers
 and validators; PDF-10/11 own actual external/provider/evaluator/default adoption. I25 and local
 serialization/copy improvements need not wait for unrelated type experiments. Shared model/compiler
 surfaces retain one integration owner; packages are not automatic agent or worktree assignments.
@@ -211,7 +300,8 @@ surfaces retain one integration owner; packages are not automatic agent or workt
 Targeted checks accompany coherent functional changes. PDF-11 defines the revised required union
 before final qualification, preserving independent original-PDF expectations and failed/interrupted
 receipts. Include shuffled page selection without unrelated-book decode, one formula diagnostic,
-a large intact section, full export, exact native variants/presence, projection corruption,
+a large intact section with field-contained tables/cells, shared pages and outside references,
+full export, same-typed semantic field changes, exact native variants/presence, projection corruption,
 semantic-invalid payloads and interruption before/after append/freeze/seal. Final functional and
 applicable hygiene checks follow complete scope; numerical benefits need complete-operation
 measurements. Existing formatting does not invalidate otherwise applicable types/tests.
