@@ -288,7 +288,7 @@ class PublishedPdfReader:
             value["runtime_report"] = runtime[0]
         return value
 
-    def iter_companions(self, family):
+    def iter_companions(self, family) -> Iterator[Mapping[str, Any]]:
         for row in self.iter_rows("companion", {"family": family}):
             yield row["body"]
 

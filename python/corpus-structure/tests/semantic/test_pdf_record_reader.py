@@ -4,9 +4,9 @@ import codecs
 import io
 import json
 import math
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from hashlib import sha256
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import Mock
 
 import pytest
@@ -53,7 +53,7 @@ class NativeRows(PublishedPdfReader):
         )
         self._cached_record = self._record
 
-    def product_kind(self):
+    def product_kind(self) -> Literal["native", "integrated"]:
         return "integrated"
 
     def iter_native_json(self) -> Iterator[bytes]:
@@ -174,7 +174,7 @@ class NativeRows(PublishedPdfReader):
         return self.profiles[stream_id]
 
 
-def native():
+def native() -> dict[str, Any]:
     return {
         "schema_name": "DoclingDocument",
         "version": "1.10.0",
@@ -403,7 +403,7 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
 
 def test_integrated_v2_export_preserves_metadata_and_distinct_bindings():
     class Export(NativeRows):
-        def iter_companions(self, family):
+        def iter_companions(self, family) -> Iterator[Mapping[str, Any]]:
             if family == "native_metadata":
                 yield {
                     "kind": "runtime_report",
@@ -441,7 +441,7 @@ def test_integrated_export_refuses_native_kind():
 
 def test_explicit_native_hydration_uses_flat_health_contract():
     class Materialized(NativeRows):
-        def iter_companions(self, family):
+        def iter_companions(self, family) -> Iterator[Mapping[str, Any]]:
             if family == "health":
                 yield {
                     "source_scope": "page_range",
@@ -467,7 +467,7 @@ def test_explicit_native_hydration_uses_flat_health_contract():
 
 def test_native_hydration_cannot_invent_whole_document_scope():
     class Missing(NativeRows):
-        def iter_companions(self, family):
+        def iter_companions(self, family) -> Iterator[Mapping[str, Any]]:
             return iter(())
 
     with pytest.raises(ValueError, match="scope is absent"):
