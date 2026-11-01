@@ -2,8 +2,9 @@
 
 **2026-11-01 · Implemented helpers; actual consumer and provider journeys not_run.**
 This folder owns fresh receipts for the current published source. Earlier raw outputs,
-run6 references and frozen six-fact expectations remain unchanged. The coordinator owns
-acceptance and permission to begin actual external, provider and evaluator operations.
+run6 references and frozen six-fact expectations remain unchanged. The remaining external,
+provider and evaluator scope is authorized; execution awaits successful current source/run
+preparation. The coordinator owns assembled acceptance and final adoption.
 
 The current selector reads the newest selected source-view rows for an explicit run and
 refuses a mismatch with the supplied immutable product pin. It requires exactly the five
@@ -20,7 +21,7 @@ this new journey; the prior evidence files retain their original contents and ou
 
 Run from the repository root after the coordinator publishes the new book and prepares
 the five-section run. `PIN.json` must contain `task_id`, `product_key`, `content_digest`.
-`RUN_ID` and `CORPUS_DATABASE__URL` must name that exact adopted run and owned database.
+`RUN_ID` and `CORPUS_DATABASE__URL` must name that exact source-bound run and owned database.
 Every output path below must be fresh.
 
 ```bash
@@ -50,7 +51,11 @@ uv run python docs/design_review/evidence/2026-11-01_pdf-current-consumers/autho
 ```
 
 The source-only author command below starts three fresh, tool-free provider sessions.
-A and B are independent; C receives their full batches and the same frozen source input.
+A and B run concurrently in a two-worker `ThreadPoolExecutor`, with separate session IDs,
+temporary directories and per-pass input/output files. Neither sees the other's output.
+C starts only after both complete batches pass schema and source-placement admission;
+source-placement validation retains its main-thread deadline owner. C receives their full
+batches and the same frozen source input.
 Only the source frames, archived annotation/model contract and two original images enter
 those sessions. Expected six-fact answers and extractor predictions do not. No provider
 call has been run for this folder. The explicit `MODEL` is chosen by the coordinator.
@@ -61,6 +66,28 @@ authentication remain untested until the authorized actual session.
 uv run python docs/design_review/evidence/2026-11-01_pdf-current-consumers/author_source_references.py author \
   --run-id "$RUN_ID" --model "$MODEL" \
   --input docs/design_review/evidence/2026-11-01_pdf-current-consumers/references-attempt-00001
+```
+
+An A/B failure, timeout or main-thread interruption cancels the sibling request and settles
+owned process groups using SIGTERM, then SIGKILL if necessary, with bounded pipe draining.
+The executor does not wait for the 1800-second request timeout during shutdown. Per-pass raw
+and partial output remain retained; `independent-authors-interrupted.json` records each
+future's status/error, any unsettled cleanup, and which batches completed admission. The
+original failure is propagated, and C does not start after an A/B refusal.
+
+The 2026-11-01 controlled subprocess receipt
+`author-concurrency-controls-attempt-00003/receipt.json` covers the successful A/B-to-C
+barrier, one refusal, simultaneous refusals, main-thread interruption and request timeout.
+It checks distinct sessions/directories, actual image message bytes, exact prompt custody,
+both complete inputs reaching C, partial-output retention and reaping of a child that ignores
+SIGTERM. Its scripted children use a small control schema and local admission stub; this
+establishes no actual provider, rich reference validation, database, semantic grade or
+performance result. Earlier control receipts remain intact. Explicit control-module Ruff,
+author-helper F checks and both helper Pyrefly checks passed (0 errors).
+
+```bash
+uv run python docs/design_review/evidence/2026-11-01_pdf-current-consumers/check_author_concurrency.py \
+  --output docs/design_review/evidence/2026-11-01_pdf-current-consumers/author-concurrency-controls-attempt-00004
 ```
 
 After the exact five-section extraction is completed, the evaluator-only operation below
@@ -184,6 +211,24 @@ the helper retains the original export bytes and manifest checksums. Vendor
 `export_to_dict()` equality is not used as an oracle for the field-only record profile.
 Helper Pyrefly (0 errors), F checks and help passed against that returned-model API.
 The failed source receipt stays intact; actual journeys require the successor integrated run.
+
+The bounded frozen-payload efficiency slice has a separate functional receipt,
+`payload-validation-efficiency-attempt-00003.jsonl`: **passed**, 40 DB-free cases,
+with two PostgreSQL cases deliberately deselected for the coordinator's final-source union.
+The command selected `test_pdf_payload_validation.py`, `test_pdf_ocr_contracts.py` and
+`test_pdf_inline_reports.py` with `-m 'not db'`. Scoped Ruff and Pyrefly passed (0 errors).
+Earlier attempt receipts remain intact.
+
+The store now indexes companion family/kind/page selectors, folds and consumes each metadata
+stream in one part traversal, and prepares validators once per encountered kind in a validation
+invocation. It fuses page-local OCR and inline-report checks while retaining compact global
+availability/scope/outcome state. Tests retain invalid byte/schema/logical/locator/encoding,
+coverage, word/geometry and merged-region controls; they also establish that unrelated malformed
+rows are not decoded, one page decodes once across multiple original candidate indices, and a
+previous successful validation never authorizes subsequently changed captured data. Captured
+publication policy is used instead of installed policy, with actual metadata kinds derived from
+the local index. This is work removal with bounded functional evidence, not a speed measurement,
+new validity cache, full-source qualification or provider credit.
 
 After registration produces `set_id`, run the actual evaluator under its existing role:
 

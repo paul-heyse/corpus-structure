@@ -70,9 +70,9 @@ def main() -> None:
             family = prepare_payload_family(context)
             rows = list(reader._metadata_rows(FAMILY, page_nos=[page_no]))
             if len(rows) != 1:
-                    raise ValueError(
-                        "selected page requires exactly one published candidate payload"
-                    )
+                raise ValueError(
+                    "selected page requires exactly one published candidate payload"
+                )
             row = rows[0]
             if len(row.get("_fields", ())) != 1:
                 raise ValueError("selected page payload field is absent or ambiguous")
@@ -87,9 +87,8 @@ def main() -> None:
             payload = b"".join(reader.scalar(field["stream_id"]))
             # Use the actual release schema once; the same prepared object is
             # carried into the detached source after this snapshot settles.
-            family.read_batch(
-                payload, schema_digest=body["payload_schema_digest"],
-                logical_digest=body["payload_logical_digest"],
+            owned_batch, = reader.iter_payload_batches(
+                page_nos=[page_no], context=context,
             )
             report.update(
                 revision=reader.revision, page_no=page_no, envelope=row,
@@ -113,6 +112,8 @@ def main() -> None:
         )
         source = ReplayCandidatePageSource({page_no: replay}, family)
         batch, = source.iter_batches([page_no])
+        if not batch.equals(owned_batch, check_metadata=True):
+            raise ValueError("detached replay differs from the owning published Arrow batch")
         candidate_count = pc.call_function(
             "list_value_length", [batch.column("candidates")]
         )[0].as_py() or 0
@@ -171,7 +172,8 @@ def main() -> None:
             boundaries={
                 "preparation": "one exact released payload family reused through detached use",
                 "retrieval": (
-                    "one page located before byte retrieval; parts joined into owned bytes"
+                    "one page located first; exact artifact bytes and public owning-batch port "
+                    "are read separately within the same snapshot for this control"
                 ),
                 "detach": "exact bytes copied to owned replay; no database owner in source",
                 "use": "Arrow list counts and existing DuckDB geometry over selected-page batches",

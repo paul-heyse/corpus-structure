@@ -11,6 +11,14 @@ docs/design_review/evidence/**/raw/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/pages/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/toy-pages/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/*.log filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-rebuild/runtime/*.log filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-rebuild/runtime/private/integrated/task9-stopped-001/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.log filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.png filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.bin filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-consumers/exports-attempt-*/** filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.stdout.json filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.stderr.txt filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-10-30_data-capture/run.log filter=lfs diff=lfs merge=lfs -text
 
 docs/design_review/evidence/2026-10-31_pdf-child-ocr/inputs/**/*.png filter=lfs diff=lfs merge=lfs -text

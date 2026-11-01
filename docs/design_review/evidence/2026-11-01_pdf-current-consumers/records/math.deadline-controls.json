@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "id": "math.deadline-controls",
+  "title": "Scoped math deadline and evaluator repair qualification",
+  "group": "pdf-docling-pipeline",
+  "package": "PDF-11",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does borrowing automatic cyclic-GC state prevent the observed math-alarm/finalizer collision while preserving declared stage budgets and mathematical semantics?",
+  "answers": [
+    "PDF-11"
+  ],
+  "method": "Retain both original broad failures and the interrupted descriptor-bound follow-up. Exercise actual nested/outer timers, expiry, body exceptions, initially disabled GC and independently triggered automatic cycle callbacks; run the original equation in a fresh process and the complete affected math/evaluator/release selection under native77. No budget, expected mathematical outcome or warning suppression changed.",
+  "commands": [
+    "just test-all",
+    "uv run python -m pytest python/corpus-structure/tests/math/test_stages.py python/corpus-structure/tests/evaluate/test_equivalence.py -q",
+    "uv run python -m pytest 'python/corpus-structure/tests/evaluate/test_equivalence.py::test_value_tiers[a4-b4-expected4]' --report-log=docs/design_review/evidence/2026-11-01_pdf-current-consumers/deadline-cold-equation-attempt-00001.jsonl",
+    "uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/pdf-final-math-gc77-20261101 -- python/corpus-structure/tests/math python/corpus-structure/tests/evaluate python/corpus-structure/tests/semantic/test_shared_math.py python/corpus-structure/tests/semantic/test_scientific_rule_views.py python/corpus-structure/tests/semantic/test_release_compatibility.py tests/test_native_math_requests.py tests/test_native_math_methods.py tests/test_pdf_math.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/qualification/pdf-final-math-gc77-20261101/invocation.json",
+      "role": "exact-scoped-source-command-and-environment",
+      "sha256": "e7b0fd07b9b3f26e1d4c801d0bd43c3fbdfab4b303e43f67ca3897b8c539169d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/qualification",
+      "role": "original-failed-interrupted-and-passing-functional-receipts",
+      "sha256": "33d7f3e8069440dd74023e1e7504f08141e8044b697208b5169014ae47aead68"
+    },
+    {
+      "path": "deadline-cold-equation-attempt-00001.jsonl",
+      "role": "fresh-process-original-failing-equation",
+      "sha256": "b9ccb16bdfe0f5e7005c71b9e475f9224667de7fbe774181ac866f6ef83c7572"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "affected math evaluator release selection",
+      "value": 332,
+      "of": null,
+      "unit": "passed cases",
+      "note": "Original native77 source/context; overlaps earlier checks and is not an additive whole-plan count."
+    },
+    {
+      "name": "fresh cold equation",
+      "value": 1,
+      "of": null,
+      "unit": "passed case",
+      "note": null
+    },
+    {
+      "name": "broad run before repair",
+      "value": 3091,
+      "of": null,
+      "unit": "passed cases",
+      "note": "Also one failed case and its teardown error; original failed status retained."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The focused64 and affected332 checks, including eight GC ownership controls, and the isolated cold equation passed. Existing budgets, outer timers, periodic expiry and late-return rules remain. This addresses automatic cyclic-GC callbacks only; explicit collection, ordinary reference-count finalizers and opaque native work retain their existing limits. Broad failed/interrupted receipts remain unchanged. Later native snapshot/reconciliation revisions and actual book/provider/consumer/default acceptance require their own evidence; this is not whole-plan qualification.",
+  "consumed_by": [
+    "PDF-11",
+    "pdf-docling-pipeline coordinator"
+  ]
+}

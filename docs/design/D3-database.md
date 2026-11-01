@@ -178,6 +178,20 @@ OCR/candidate interiors use model-derived Arrow IPC and exact frozen runtime sem
 PostgreSQL retains custody and required relational enforcement. Typed logical identity is checked
 against actual bytes at that boundary. Other exact JSON metadata retains applicable native checks.
 The existing validation-derived projection phase and result/seal premises govern completeness.
+
+**Implemented; scoped controls Tested (2026-11-01).** Integration metadata affinity is a typed
+released policy: physical-page candidate IPC can survive under the same original/frame identity,
+while formula outcomes and scoped coverage belong to their producing graph. Reconciliation derives
+fresh health over the current formula inventory; input assessments remain available through the
+qualified structural input. Pointer spelling alone never transfers an assessment. Captured native
+validation receives the hash-checked archived staging policy, and validation identity v4 binds its
+canonical meaning so unfinished earlier receipts cannot bypass this enforcement.
+
+The application callback captures its actual native/scalar/report dependencies; independent SQL
+validation retains complete relationship and stream custody. Indexed report selectors, prepared
+per-kind validation and fused page-local checks avoid repeated page decode or whole-book payload
+maps. SQL aggregates ownership and membership once and verifies every immutable stream once per
+complete logical-identity operation. These choices establish no quantitative performance claim.
 RC12 rebuilds current products from compatible retained evidence without mandatory old readers.
 The following paragraph records the earlier scoped JSON mechanism, which remains for JSON families.
 

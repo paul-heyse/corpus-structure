@@ -1,0 +1,97 @@
+{
+  "verified_at": "2026-11-01T23:31:45.021218+00:00",
+  "outcome": "passed",
+  "scope": "controlled subprocess concurrency/custody/cleanup only; no actual provider, database, source reference or performance qualification",
+  "controls": [
+    {
+      "mode": "success",
+      "outcome": "passed",
+      "children": {
+        "B": {
+          "pid": 658196,
+          "session": "24d72be1-d1d6-4b56-8215-b3a1a695698f",
+          "cwd": "/tmp/source-reference-B-823yxq8d"
+        },
+        "A": {
+          "pid": 658197,
+          "session": "32d99cbc-d31e-48b3-a182-3a69d2276397",
+          "cwd": "/tmp/source-reference-A-m855t8hj"
+        },
+        "C": {
+          "pid": 658198,
+          "session": "9daf2959-77fa-48f4-8396-6b9596ccc696",
+          "cwd": "/tmp/source-reference-C-utlg_76l"
+        }
+      },
+      "expected_error": null
+    },
+    {
+      "mode": "failure",
+      "outcome": "passed",
+      "children": {
+        "B": {
+          "pid": 658201,
+          "session": "5edb151e-d3d6-4dc2-9029-6b363255b881",
+          "cwd": "/tmp/source-reference-B-8uwf3h4d"
+        },
+        "A": {
+          "pid": 658202,
+          "session": "f9fb9604-2960-4845-a044-85956aa37fab",
+          "cwd": "/tmp/source-reference-A-2gmtenmw"
+        }
+      },
+      "expected_error": "RuntimeError"
+    },
+    {
+      "mode": "both_refusals",
+      "outcome": "passed",
+      "children": {
+        "B": {
+          "pid": 658213,
+          "session": "4e8ae68a-1e64-4e44-a21d-65fba31b7e42",
+          "cwd": "/tmp/source-reference-B-ibgix_tc"
+        },
+        "A": {
+          "pid": 658212,
+          "session": "5a6bf8fa-3414-4350-8278-2c2113c810fe",
+          "cwd": "/tmp/source-reference-A-x_sgbnt6"
+        }
+      },
+      "expected_error": "RuntimeError"
+    },
+    {
+      "mode": "interruption",
+      "outcome": "passed",
+      "children": {
+        "B": {
+          "pid": 658216,
+          "session": "30f4559a-b5cf-4db6-88cd-d28489eba736",
+          "cwd": "/tmp/source-reference-B-rv6qg9pn"
+        },
+        "A": {
+          "pid": 658217,
+          "session": "fb4316a9-ddd9-4345-93c6-22970137e14f",
+          "cwd": "/tmp/source-reference-A-cugtp7fd"
+        }
+      },
+      "expected_error": "KeyboardInterrupt"
+    },
+    {
+      "mode": "timeout",
+      "outcome": "passed",
+      "children": {
+        "B": {
+          "pid": 658257,
+          "session": "d5fb2f49-22ed-4cc0-860e-f1524ede77fe",
+          "cwd": "/tmp/source-reference-B-wrrmaxpz"
+        },
+        "A": {
+          "pid": 658256,
+          "session": "14ba23ba-87dd-4ef6-a5b1-9ccd968a4779",
+          "cwd": "/tmp/source-reference-A-6uyfrhud"
+        }
+      },
+      "expected_error": "TimeoutExpired"
+    }
+  ]
+}

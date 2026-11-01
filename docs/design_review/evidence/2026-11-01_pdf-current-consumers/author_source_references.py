@@ -16,12 +16,15 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import threading
 import time
 import uuid
+from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed, wait
 from contextlib import suppress
 from dataclasses import asdict, replace
 from hashlib import sha256
 from pathlib import Path
+from typing import TypedDict
 
 from sqlalchemy import select, text
 from jsonschema.validators import validator_for
@@ -63,6 +66,14 @@ TOPICS = {
         },
     },
 }
+
+
+class SourcePacket(TypedDict):
+    frame: dict
+    parts: dict[str, str]
+    packet_hash: str
+    source_case: str
+    topic: dict
 
 
 def write_new(path: Path, value: bytes) -> None:
@@ -123,7 +134,7 @@ def prepare(args) -> None:
     output = args.output.resolve()
     if output.exists():
         raise FileExistsError("prepare requires a new reference-only directory")
-    exported = {}
+    exported: dict[str, SourcePacket] = {}
     settings = Settings()
     # No data.fact/data.membership/eval/production output reads occur in this path.
     with open_runtime_engine(settings, "ci-source-only-reference", purpose="read") as engine:
@@ -193,7 +204,42 @@ def provider_environment() -> dict[str, str]:
     return {key: value for key, value in os.environ.items() if not key.startswith(("CORPUS_", "PG", "DATABASE", "UV_")) and key not in {"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "PWD", "OLDPWD", "BASH_ENV"}}
 
 
-def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, max_output_tokens: int, sources: dict, schema: dict, previous: dict | None = None) -> dict:
+PROVIDER_POLL_SECONDS = 0.2
+PROVIDER_CLEANUP_SECONDS = 5.0
+
+
+def _stop_provider(process):
+    """Bound both termination and pipe draining; never inherit the request timeout."""
+    with suppress(ProcessLookupError):
+        os.killpg(process.pid, signal.SIGTERM)
+    try:
+        return process.communicate(timeout=PROVIDER_CLEANUP_SECONDS)
+    except subprocess.TimeoutExpired:
+        with suppress(ProcessLookupError):
+            os.killpg(process.pid, signal.SIGKILL)
+        return process.communicate(timeout=PROVIDER_CLEANUP_SECONDS)
+
+
+def _communicate_provider(process, message, timeout, cancelled):
+    deadline = time.monotonic() + timeout
+    first = True
+    while True:
+        if cancelled is not None and cancelled.is_set():
+            raise CancelledError("independent author group cancelled")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(process.args, timeout)
+        arguments = {"input": message} if first else {}
+        first = False
+        try:
+            return process.communicate(
+                **arguments, timeout=min(PROVIDER_POLL_SECONDS, remaining)
+            )
+        except subprocess.TimeoutExpired:
+            continue
+
+
+def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, max_output_tokens: int, sources: dict, schema: dict, previous: dict | None = None, cancelled: threading.Event | None = None) -> dict:
     command = shutil.which("claude")
     if command is None:
         raise RuntimeError("authenticated Claude CLI is required")
@@ -237,20 +283,29 @@ def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, max
         write_new(directory / f"{kind}.invocation.json", canonical_bytes({"session_id": session, "model": model, "pass_kind": kind, "prompt_digest": sha256(message).hexdigest(), "schema_digest": sha256(canonical_bytes(schema)).hexdigest(), "independent_prior_passes": [] if previous is None else list(previous), "database_credentials_forwarded": False, "tools": [], "mcp_servers": [], "timeout": timeout, "requested_max_output_tokens": max_output_tokens}))
         environment = provider_environment()
         environment["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(max_output_tokens)
+        if cancelled is not None and cancelled.is_set():
+            raise CancelledError("independent author cancelled before process launch")
         process = subprocess.Popen(argv, cwd=isolated, env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         try:
-            stdout, stderr = process.communicate(input=message, timeout=timeout)
-        except BaseException:
-            with suppress(ProcessLookupError):
-                os.killpg(process.pid, signal.SIGTERM)
+            stdout, stderr = _communicate_provider(process, message, timeout, cancelled)
+        except BaseException as error:
+            cleanup_error = None
             try:
-                stdout, stderr = process.communicate(timeout=5)
-            except subprocess.TimeoutExpired:
-                with suppress(ProcessLookupError):
-                    os.killpg(process.pid, signal.SIGKILL)
-                stdout, stderr = process.communicate()
+                stdout, stderr = _stop_provider(process)
+            except BaseException as cleanup:
+                cleanup_error = cleanup
+                stdout = getattr(cleanup, "output", None) or b""
+                stderr = getattr(cleanup, "stderr", None) or b""
+                write_new(directory / f"{kind}.cleanup-failed.json", canonical_bytes({
+                    "error_type": type(error).__name__, "error": str(error),
+                    "cleanup_error": str(cleanup), "pid": process.pid,
+                }))
             write_new(directory / f"{kind}.interrupted.stdout.json", stdout)
             write_new(directory / f"{kind}.interrupted.stderr.txt", stderr)
+            if cleanup_error is not None:
+                raise BaseExceptionGroup(
+                    "reference provider failed and cleanup failed", [error, cleanup_error]
+                )
             raise
         finally:
             with suppress(ProcessLookupError):
@@ -266,6 +321,68 @@ def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, max
     validator_class(schema).validate(value)
     write_new(directory / f"{kind}.structured.json", canonical_bytes(value))
     return value
+
+
+def authored_passes(release, sources, schema, directory, *, model, timeout, max_output_tokens):
+    """Fresh A/B sessions run concurrently; C waits for both main-thread admissions."""
+    cancelled = threading.Event()
+    executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="source-author")
+    futures = {}
+    values = {}
+    try:
+        for kind in ("A", "B"):
+            future = executor.submit(
+                provider_pass, directory, kind, model=model, timeout=timeout,
+                max_output_tokens=max_output_tokens, sources=sources, schema=schema,
+                cancelled=cancelled,
+            )
+            futures[future] = kind
+        for future in as_completed(futures):
+            kind = futures[future]
+            value = future.result()
+            # Placement/scientific policies retain their main-thread deadline owner.
+            validate_pass(release, sources, value, directory, kind)
+            values[kind] = value
+    except BaseException as error:
+        cancelled.set()
+        for future in futures:
+            future.cancel()
+        _, pending = wait(
+            futures, timeout=2 * PROVIDER_CLEANUP_SECONDS + 2 * PROVIDER_POLL_SECONDS + 1
+        )
+        settlements = {}
+        for future, kind in futures.items():
+            if future.cancelled():
+                settlements[kind] = {"state": "cancelled_before_execution"}
+            elif not future.done():
+                settlements[kind] = {"state": "cleanup_pending"}
+            else:
+                failure = future.exception()
+                settlements[kind] = (
+                    {"state": "failed", "error_type": type(failure).__name__,
+                     "error": str(failure)}
+                    if failure is not None else {"state": "returned"}
+                )
+        write_new(directory / "independent-authors-interrupted.json", canonical_bytes({
+            "error_type": type(error).__name__, "error": str(error),
+            "pending_cleanup": sorted(futures[future] for future in pending),
+            "cleanup_failures": [path.name for path in directory.glob("*.cleanup-failed.json")],
+            "completed_admissions": sorted(values), "C_started": False,
+            "pass_settlements": settlements,
+        }))
+        if pending:
+            error.add_note("independent author cleanup did not settle within its bounded grace")
+        raise
+    finally:
+        # No context-manager shutdown waiting on a sibling's 1800-second request.
+        executor.shutdown(wait=False, cancel_futures=True)
+    values = {kind: values[kind] for kind in ("A", "B")}
+    values["C"] = provider_pass(
+        directory, "C", model=model, timeout=timeout, max_output_tokens=max_output_tokens,
+        sources=sources, schema=schema, previous=values.copy(),
+    )
+    validate_pass(release, sources, values["C"], directory, "C")
+    return values
 
 
 def validate_pass(release, sources: dict, value: dict, directory: Path, kind: str) -> None:
@@ -331,10 +448,10 @@ def author(args) -> None:
         with engine.connect() as conn:
             conn.execute(text("SET TRANSACTION READ ONLY"))
             release = open_release(conn, manifest["release_id"])
-    values = {}
-    for kind in ("A", "B", "C"):
-        values[kind] = provider_pass(directory, kind, model=args.model, timeout=args.timeout, max_output_tokens=args.max_output_tokens, sources=sources, schema=schema, previous=values.copy() if kind == "C" else None)
-        validate_pass(release, sources, values[kind], directory, kind)
+    values = authored_passes(
+        release, sources, schema, directory, model=args.model, timeout=args.timeout,
+        max_output_tokens=args.max_output_tokens,
+    )
     # Only after all independent sessions finish do local frozen expected values enter comparison.
     result = frozen_diagnostics(frozen, values["C"], manifest["scope"])
     result["frozen_source_semantic_assessment"] = assess_frozen_values(
