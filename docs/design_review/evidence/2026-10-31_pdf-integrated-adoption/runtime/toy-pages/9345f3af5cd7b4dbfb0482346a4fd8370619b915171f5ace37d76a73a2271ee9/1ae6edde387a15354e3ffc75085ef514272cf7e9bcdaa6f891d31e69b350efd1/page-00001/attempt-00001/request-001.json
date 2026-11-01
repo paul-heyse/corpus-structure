@@ -1,1 +1,3 @@
-{"crop":null,"finish_reason":"stop","height":1584,"http_response":"request-001.http.json","http_status":200,"ordinal":1,"outcome":"succeeded","prompt":"</s><s><predict_bbox><predict_classes><output_no_text><predict_no_text_in_pic>","raw_digest":"d75c7b4bef7079eccf9c1356f516d093b60e565b147b18cbe61c60c692183b38","raw_response":"request-001.raw.txt","response_model":"nemotron-parse","settings":{"max_tokens":4096,"repetition_penalty":1.1,"seed":0,"temperature":0.0,"top_k":1,"top_p":1.0},"stage":"detection","submitted_digest":"879a1bb0278854f223f42e8ad526c02e06cb00caba4c25399c3278c11ef99d76","submitted_image":"request-001.png","usage":{"completion_tokens":18,"prompt_tokens":1988,"prompt_tokens_details":null,"total_tokens":2006},"width":1224}
+version https://git-lfs.github.com/spec/v1
+oid sha256:bffa16fce3d6ec9fbbf6b9082c6f62ec798bc84286db2cb53a39fe1c1706c529
+size 746

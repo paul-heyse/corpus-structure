@@ -1,1 +1,3 @@
-[{"kind":"union_selection","selected":[{"detection_error":null,"detections":[],"detector_backend":"model-detection","image_name":"image.png","image_path":"image.png","key":"page","model_coordinate_frame":"content_normalized","page_size":[1224,1584]}]}]
+version https://git-lfs.github.com/spec/v1
+oid sha256:f6a65045e81f410a7a02bc154be0434e69de19f07859ec50349c44624c2f5997
+size 252

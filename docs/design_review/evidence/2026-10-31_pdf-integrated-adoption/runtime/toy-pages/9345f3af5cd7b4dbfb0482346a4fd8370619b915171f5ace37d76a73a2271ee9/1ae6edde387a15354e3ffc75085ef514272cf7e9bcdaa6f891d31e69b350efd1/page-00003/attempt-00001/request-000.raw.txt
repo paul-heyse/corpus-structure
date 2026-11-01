@@ -1,7 +1,3 @@
-<x_0.0586><y_0.05># Qualified ownership and inspection<x_0.4629><y_0.0695><class_Section-header>
-
-<x_0.0576><y_0.1062>Custodian Acme (ORG-101) owns vessel P-17 from 2020-01-01 through 2020-12-31. Register Alpha reports this holding.<x_0.6729><y_0.1383><class_Text>
-
-<x_0.0596><y_0.1625>Inspector Boreal (ORG-202) inspected vessel P-17, held by custodian Acme (ORG-101), on 2020-07-01. The vessel was intact and its measured cargo quantity was exactly 12.3400 kg, on a dry-mass basis.<x_0.6973><y_0.2133><class_Text>
-
-<x_0.0586><y_0.2383>Register Beta separately reports that custodian Acme (ORG-101) owns vessel P-17 from 2020-01-01 through 2020-12-31.<x_0.7002><y_0.2703><class_Text>
+version https://git-lfs.github.com/spec/v1
+oid sha256:bb0df6edd4ee3b9166e8858483a267320808da9f255e107f69bf4eae3d952a61
+size 684
