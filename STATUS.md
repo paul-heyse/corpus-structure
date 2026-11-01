@@ -5,7 +5,7 @@ _Updated 2026-11-01; integrated PDF mechanisms implemented; whole-book publicati
 
 - [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns package/O/I disposition.
   PDF-13–16 implement one Docling content graph with mandatory multi-input lineage, governed
-  selection, scoped coverage and singular downstream readers. PDF-10/11 assembled acceptance is open.
+  selection, scoped coverage and singular downstream readers. PDF-17–25 now plan the structural streaming target; PDF-26 is conditional. Acceptance is open.
 - ADR-0040 governs full Standard+RapidOCR/Nemotron3.5 true triple pass and retirement of historical
   HTML runtime/read/replay compatibility. Frozen migrations, historical data and evidence remain inert.
 - Owned `corpus_pdf_20261031` is at0060; committed0061 is undeployed. Compiler14/core0.6.2, full Docling2.145/core2.105 and
@@ -54,7 +54,7 @@ _Updated 2026-11-01; integrated PDF mechanisms implemented; whole-book publicati
 
 ## Next
 
-[Streaming/storage review](docs/functional_reviews/pdf-streaming-and-storage_2026-11-01.md) published2026-11-01:
-Proposed relational/Arrow/seal target; no implementation or scope adoption. Acceptance still requires current external
+PDF-17 starts the [structural streaming extension](docs/plans/pdf-docling-pipeline/relational-document-model-and-identity.md):
+RC08/09 confirmed2026-11-01; plans authored, no runtime changes. Acceptance still requires current external
 journeys, five-section extraction, independent references and automated grading before default cutover.
 All owned tasks/processes are concluded and worktrees removed. Defaults still target the historical deployment.

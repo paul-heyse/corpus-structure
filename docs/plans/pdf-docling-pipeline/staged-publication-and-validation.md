@@ -1,0 +1,58 @@
+# Bounded staging, native validation and atomic document publication
+
+**Status:** Planned, 2026-11-01. [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-20/21 and I17/I18 state. Consumes [review O02/O04/O05](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O02) and [target §§2–4/6](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`; schema/identity owners are [PDF-18/19](relational-document-model-and-identity.md).
+
+## Result and existing strengths
+
+Persist useful document progress without holding a whole-book transaction or making partial content authoritative. PostgreSQL retains independent instance enforcement, immutable input custody and final visibility; the model governs the lifecycle. Extend existing task/attempt/holder fences and protected native functions rather than adding another lease owner or workflow engine.
+
+`semantic/arrow_publication.py::stage_arrow` already uses pgpq/Psycopg COPY on SQLAlchemy's driver connection. Its `AppendPublication` constructor still freezes full tables through IPC bytes, `read_all`, `to_pylist`, global sorting and canonical JSON. Reusing only the COPY loop is useful; retaining that constructor as the required transport would defeat this plan. `sql/pdf_integrated.sql`/`native_documents.sql` enforce substantive inventories and custody;0061's set child join corrects an access pattern but still belongs to the old envelope realization.
+
+<a id="PDF-20"></a>
+## PDF-20 — Typed batch transfer, private durable records and artifact parts
+
+**Input:** PDF-18/19 contracts, I17 begin/append ownership and replay slice, I18 exact wire profile, PDF-17 decision slice. **Output:** fenced, resumable bounded admission of actual records/bytes; staging remains unavailable to ordinary consumers.
+
+Expose model-defined begin/append/artifact-part operations qualified by document revision, source/release, task attempt and holder. Bind exact schema and replay keys. Identical replay is idempotent; changed content under the same key refuses. Delivery order is independent of native membership order. Admit complete records only and enforce cross-project/source isolation.
+
+Use a schema-bound `RecordBatchReader` producer and immutable replay owner. `RecordBatchReader.from_batches` consumes an iterator once; retries read the owned durable spool. Batches are constrained by actual bytes/values and total live state, not row count alone. Exact profile validation covers decimals, lexical strings, presence/null, nested structures, metadata and column order. pgpq is not a universal arbitrary-nesting bridge; unsupported nested structures lower into modeled child relations or explicit bounded extension data.
+
+On one SQLAlchemy-owned `Connection`, obtain the existing Psycopg driver and run `cursor.copy(... FORMAT BINARY)` with pgpq `ArrowToPostgresBinaryEncoder.write_header/write_batch/finish` and `Copy.write`. COPY targets session-local scratch; a protected function independently validates/adopts the upload into durable private relations within that same short transaction. No direct authoritative-table write grant is added. SQLAlchemy owns commit/rollback and checkout lifetime; inference never holds a connection.
+
+Temporary tables are not durable cross-session progress. Define atomic adoption from scratch, immutable membership keys and artifact-part correspondence. A client checksum or successful COPY cannot substitute for native validation. Reject malformed casts/types, stale owners and conflicting retries before their records become build members. Abort/disconnect leaves either an adopted private batch or no batch; resume checks the actual inventory.
+
+Reuse `capture_storage.py::store_relation` and its incremental `ParquetWriter.write_batch` ownership where suitable. IPC file `new_file/open_file` plus `memory_map` is appropriate for exact seekable Arrow replay; Parquet provides compression/projection with decoding allocations. Do not persist both without distinct consumers. Backing-file deletion follows the last borrower and existing failure-evidence rules.
+
+ADBC `fetch_record_batch`/existing exported-snapshot reads remain useful to PDF-24. ADBC ingestion on its own connection cannot silently share Psycopg's transaction/temp tables. Keep SQLAlchemy pooling as the publication owner; psycopg-pool is only justified for a separately owned traffic path, not layered around the same session.
+
+**Completion:** typed COPY controls check exact wire profiles and independent expected rows, including empty/reordered batches and large individual values. Exercise duplicate/conflicting retry, failed scratch adoption, cross-project artifacts, stale holder, disconnect and bounded replay. Verify no staging read path bypasses visibility. Product output is private progress, not published document or completed knowledge.
+
+<a id="PDF-21"></a>
+## PDF-21 — Freeze, complete native validation and atomic seal
+
+**Input:** PDF-20 working admission, PDF-18 model invariants, PDF-19 identity/correspondence and I17 concurrency decision. **Output:** one immutable published document with truthful closure, recovery and selective-reader authority.
+
+Author states and operation effects in the existing semantic execution model:
+
+| State | Permitted behavior |
+|---|---|
+| Open/private | Fenced append, artifact adoption and exact retry; no completed-document readers. |
+| Frozen/private | Inventory immutable; validation may inspect the entire fixed union. No outstanding writer may append or alter bytes. |
+| Published/immutable | Selected pins and readers resolve the admitted product and companion. Changes create a successor revision. |
+| Abandoned | No admission/seal; required failed evidence and independently committed valid native/recognition products survive. |
+
+Freeze and append must serialize on the same ownership/membership boundary. Validate the fixed union outside long run/task publication locks, then seal in a short protected transaction that rechecks run/task/lease, immutable inputs, release/contract, exact frozen membership and validation premises. Record validation scope under the owning model; do not invent an independent certificate framework. If any premise can mutate, remove that mutation or repeat the affected validation. Ambiguous seal recovery reads the same revision instead of creating a replacement product.
+
+Validate complete node/collection/occurrence/cell inventories, native reference mappings, order, tree containment, parent/backpointer agreement, frames/provenance, external inputs, raw artifacts, relation multiplicity/endpoints, decisions and coverage. Containment/product-input dependencies retain their declared acyclicity; ordinary document cross-reference/companion graphs may contain cycles. Private internal forward references are allowed until closure; external product dependencies must already be admitted immutable products, preserving existing cycle/self-reference protection.
+
+Use indexed FK/unique/CHECK and set-based validation, including0061's child-target semantics, without building a giant JSON aggregate or repeatedly scanning full input per parent. Local record shape checking cannot establish global completeness. Reusable Pydantic `TypeAdapter`, JSON Schema `validator_for/check_schema`, prepared validators and pinned `referencing.Registry` support boundary diagnostics; PostgreSQL independently enforces actual values and relationships. Partial-validation omission and unvalidated construction do not satisfy admission.
+
+Use existing pglast AST authoring and Alembic forward SQL/admission products. Current descriptor helper, body CHECKs, function inventory and native constraints must derive from their current semantic owners. Counterfactual changes to a governing declaration must change the realized guard/descriptor, without depending on stale frozen bodies. Never modify frozen0057–0061 or copy the duplicate physical-contract snapshot insertion into a new revision.
+
+Cancellation/lease loss fences new work and drains owned producers/COPY/validation resources. Explicit resume/adopt verifies a frozen inventory across attempts; implicit mixture is forbidden. Cleanup removes only authenticated private staging after retention obligations are met. Preserve fixed protected-function search paths and restrict raw-table privileges and functions so ordinary reads cannot bypass publication by knowing an ID. Diagnostics name the revision, record/native address, violated invariant and existing resume/remap/rebuild action.
+
+**Completion:** concurrent append/freeze, process crash/restart before and after freeze, stale validation owner, cancellation at each phase, missing/cross-product targets, contradictory backpointers, legitimate cross-reference cycles, missing decisions, wrong coverage, corruption and ambiguous commit have independent expectations. No partial completed document becomes visible. Valid independently committed inputs remain reusable after later failure. Final publication and reads are tested together; the coordinator/PDF-11 own assembled qualification, not each batch/package.
+
+## Sources and adoption boundary
+
+See [SQLAlchemy](../../libraries/sqlalchemy.md), [Psycopg](../../libraries/postgresql/psycopg.md), [pgpq](../../libraries/postgresql/pgpq.md), [pool](../../libraries/postgresql/psycopg-pool.md), [ADBC](../../libraries/postgresql/adbc-driver-postgresql.md), [pglast](../../libraries/postgresql/pglast.md), [Alembic](../../libraries/alembic.md) and the review's primary-source map. Exact pinned interfaces/types must be verified under I18 before implementation; no dependency change is premised merely by naming a capability. PDF-25 owns deployed data conversion/cutover.0060 remains deployed and0061 undeployed at plan creation.

@@ -1,5 +1,16 @@
 # PDF-only adoption, HTML retirement and acceptance
 
+> **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
+> document records, versioned identity, bounded Arrow transport, private staging and atomic seal.
+> See the [coordinator](../pdf-docling-pipeline_2026-10-31.md),
+> [record/identity owner](relational-document-model-and-identity.md),
+> [publication owner](staged-publication-and-validation.md) and
+> [streaming owner](streaming-processing-and-arrow.md). Requirements below for mandatory whole
+> native JSONB/canonical envelopes describe the implemented baseline, not the go-forward physical
+> target. Historical receipts keep their scope. Docling logical content, evidence fidelity, intact
+> sections and qualified PDF reuse remain required. PDF-26 progressive scopes are conditional.
+
+
 > **Operator correction — 2026-10-31:** Historical HTML-derived output compatibility is retired
 > by ADR-0040. Historical-read/replay acceptance below is superseded for HTML; retain current PDF
 > source reuse and generic analytical behavior. Existing data/frozen migrations/evidence remain inert.
@@ -176,3 +187,20 @@ new exact applicable qualification union before providers run. Benefits remain h
 independent selected-source assessment; schema/transport correctness is a separate claim. No human
 grading, policy tuning or historical regrading is introduced. All new provider work is not_run in
 this documentation revision.
+
+<a id="PDF-25"></a>
+## PDF-25 — Retained-data migration and structural cutover
+
+**Planned, 2026-11-01.** Implements the migration consequences of [streaming review O01–O06](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md) and [target §8](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`. Consumes working PDF-18–24 mappings, custody, seal, producers and readers. PDF-10 owns actual operational adoption/default selection; PDF-11 owns final qualification. This package supplies their migrated products and compatible deployed contracts, not a duplicate acceptance queue.
+
+Create new semantic/physical releases and forward Alembic/native migrations after PDF-17's successor ADR. Preserve every frozen revision, including committed undeployed0061. Reproduce current admission helper/CHECK/descriptor contracts from their semantic owners; incorporate the child-edge access correction in the new guard without requiring deployment/qualification of the superseded monolithic route first. Decide necessary upgrade prerequisites from the actual migration chain, not a fabricated clean database assumption.
+
+Inventory retained originals, Standard/native/organized/enriched products, all primary/recovery recognition outcomes, artifacts and exact prepared replay. Stream old canonical bytes into ordered retained parts and lower content into new records under explicit qualified derivation/adoption. Preserve historical content digests and native pins through their archived contracts; new logical identity is versioned. Do not relabel historical source/evaluation evidence, mutate old products or require recognition reruns solely for storage conversion.
+
+Use the retained1589-page book and exact prepared witness for staging, freeze, native closure, seal, selective reads and both native/integrated streamed exports. Demonstrate large individual-value handling, old exact-byte replay, total native reconstruction and logical identity across rebatching/reordering, with independently expected negative graph/coverage cases. On interrupted migration only authenticated private work is resumable/cleanable; independent valid retained products survive. A failed new deployment leaves operational defaults on the prior qualified selection.
+
+PDF-10/11 then regenerate exact selected SourceViews/consumer frames, run actual external CLI/MCP/render/export, five intact-section extraction, independent two-section A/B/C references and the six frozen original-PDF challenges, evaluator-only registration and automated grading. No human grading or all-book extraction is introduced. Reuse recognition when identities permit; demonstrate explicit retained-integrated reuse and resumed replay. Finalized completed knowledge and coherent default selection follow actual acceptance, not merely structural admission.
+
+At complete required functional scope run the declared final-source union via `just test-all`, applicable hygiene and coherent warning-inclusive type checks, preserving original failed/interrupted receipts. Targeted controls apply during implementation; no integrated campaign per package. Cosmetic lint/format does not invalidate applicable type/test passes. Measure representative end-to-end resource/runtime behavior before quantitative efficiency claims; no invented performance threshold is a completion substitute. Progressive PDF-26 remains outside this initial required union.
+
+Retire the old full-envelope/native-JSONB requirement from new writes only after new producer, validator, reader, export and replay paths work together. Existing archived PDF identities/bytes remain resolvable; no historical HTML runtime compatibility, database purge or evidence deletion is scheduled. Carry enduring mechanisms and support limits into D1–D8 and leave owning plan rows truthful about implemented, tested and measured scope.

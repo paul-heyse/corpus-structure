@@ -1,5 +1,16 @@
 # Source interfaces, runtime and publication
 
+> **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
+> document records, versioned identity, bounded Arrow transport, private staging and atomic seal.
+> See the [coordinator](../pdf-docling-pipeline_2026-10-31.md),
+> [record/identity owner](relational-document-model-and-identity.md),
+> [publication owner](staged-publication-and-validation.md) and
+> [streaming owner](streaming-processing-and-arrow.md). Requirements below for mandatory whole
+> native JSONB/canonical envelopes describe the implemented baseline, not the go-forward physical
+> target. Historical receipts keep their scope. Docling logical content, evidence fidelity, intact
+> sections and qualified PDF reuse remain required. PDF-26 progressive scopes are conditional.
+
+
 > **Operator correction — 2026-10-31:** Historical HTML-derived output compatibility is retired
 > by ADR-0040. Historical-read/replay acceptance below is superseded for HTML; retain current PDF
 > source reuse and generic analytical behavior. Existing data/frozen migrations/evidence remain inert.

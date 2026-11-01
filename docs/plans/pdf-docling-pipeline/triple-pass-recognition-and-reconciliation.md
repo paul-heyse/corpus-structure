@@ -1,5 +1,16 @@
 # Triple-pass recognition and integrated content selection
 
+> **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
+> document records, versioned identity, bounded Arrow transport, private staging and atomic seal.
+> See the [coordinator](../pdf-docling-pipeline_2026-10-31.md),
+> [record/identity owner](relational-document-model-and-identity.md),
+> [publication owner](staged-publication-and-validation.md) and
+> [streaming owner](streaming-processing-and-arrow.md). Requirements below for mandatory whole
+> native JSONB/canonical envelopes describe the implemented baseline, not the go-forward physical
+> target. Historical receipts keep their scope. Docling logical content, evidence fidelity, intact
+> sections and qualified PDF reuse remain required. PDF-26 progressive scopes are conditional.
+
+
 **Status:** Implemented and targeted-tested; actual full-book recognition passed. Integrated publication and independent quality assessment remain in the coordinator. **2026-10-31.**
 [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns current state and investigations.
 Consumes the [review](../../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md)

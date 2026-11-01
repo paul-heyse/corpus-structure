@@ -1,5 +1,16 @@
 # PDF conversion and intact document hierarchy
 
+> **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
+> document records, versioned identity, bounded Arrow transport, private staging and atomic seal.
+> See the [coordinator](../pdf-docling-pipeline_2026-10-31.md),
+> [record/identity owner](relational-document-model-and-identity.md),
+> [publication owner](staged-publication-and-validation.md) and
+> [streaming owner](streaming-processing-and-arrow.md). Requirements below for mandatory whole
+> native JSONB/canonical envelopes describe the implemented baseline, not the go-forward physical
+> target. Historical receipts keep their scope. Docling logical content, evidence fidelity, intact
+> sections and qualified PDF reuse remain required. PDF-26 progressive scopes are conditional.
+
+
 > **Target revision — 2026-10-31:** PDF-00–09 describe the delivered native baseline and its
 > scoped receipts. The selected extension is PDF-12–16: one integrated document after full Docling,
 > in-page RapidOCR and true Nemotron triple pass. See the [coordinator](../pdf-docling-pipeline_2026-10-31.md)

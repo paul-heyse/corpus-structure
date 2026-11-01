@@ -1,5 +1,16 @@
 # Singular integrated document consumers
 
+> **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
+> document records, versioned identity, bounded Arrow transport, private staging and atomic seal.
+> See the [coordinator](../pdf-docling-pipeline_2026-10-31.md),
+> [record/identity owner](relational-document-model-and-identity.md),
+> [publication owner](staged-publication-and-validation.md) and
+> [streaming owner](streaming-processing-and-arrow.md). Requirements below for mandatory whole
+> native JSONB/canonical envelopes describe the implemented baseline, not the go-forward physical
+> target. Historical receipts keep their scope. Docling logical content, evidence fidelity, intact
+> sections and qualified PDF reuse remain required. PDF-26 progressive scopes are conditional.
+
+
 > **Operator correction — 2026-10-31:** Historical HTML-derived output compatibility is retired
 > by ADR-0040. Historical-read/replay acceptance below is superseded for HTML; retain current PDF
 > source reuse and generic analytical behavior. Existing data/frozen migrations/evidence remain inert.
@@ -107,3 +118,31 @@ with I13 before running providers. Full-book source execution demonstrates sourc
 not all-book extraction or universal transcription fidelity. Reuse already admitted Standard products
 where valid; only new recognition must run. Select useful independent source challenges before seeing
 results. No human grading, historical regrading, grading-policy tuning or reference leakage is included.
+
+<a id="PDF-24"></a>
+## PDF-24 — Streaming selected readers and lossless exports
+
+**Planned, 2026-11-01.** Consumes [streaming review O06](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O06) at `1c6fc710`. PDF-16's implemented reader/consumer mechanisms remain the baseline; this package migrates them to the new [record/identity](relational-document-model-and-identity.md) and [publication](staged-publication-and-validation.md) contracts. Early interface work uses agreed PDF-18/19 schemas; acceptance needs working PDF-21 publication and PDF-23 stream production.
+
+Extend the shared selected-product reader with selective native record/relation and Arrow batch iteration over one immutable product pin. SourceViews, M09/M11/M13, extraction packets, source frames, reference/evaluation, consolidation evidence, CLI/MCP, rendering and exports use that same authority. Preserve archived PDF pins and compatible retained reads without model initialization. A small item query must not fetch complete native content, parse the original envelope, run symbolic work or invoke inference.
+
+Bind cursor/continuation identity to immutable selection and contract; reject wrong pins and prohibit staging visibility, including raw-table/function bypasses. Needed scientific/ancestor context may exceed requested output scope: selective reads must not silently reduce analytical input. Keep coordinate/precision, failed/partial/unrequested coverage and evidence ancestry explicit.
+
+Stream complete native JSON and integrated content+companions to a sink in deterministic collection/record order, hashing bytes incrementally. Avoid mandatory full `DoclingDocument.model_dump`, Python all-row lists or SQL `jsonb_agg` over the book. Explicit whole-model hydration remains available as a requested materialization with its resource cost. Native-only export declares companion omissions; integrated export preserves the complete contract. JSONL/Parquet maintain resolvable product/schema/lineage bindings. Exact retained-byte replay and value-equivalent reconstructed native JSON remain different guarantees under PDF-19.
+
+Reuse existing ADBC exported/imported snapshot capture and `fetch_record_batch`, `CapturedPacket.iter_batches`, spooled Parquet and DuckDB readers. A separate ADBC connection does not inherit the publisher transaction; imported snapshots and pinned revisions supply consistency. Borrowed reader/buffer/spool lifetime covers the last consumer, including cancellation and abandoned iterators. Do not introduce a second reader engine or implicit `to_table`.
+
+**Completion:** independent item/cell/reference/precision expectations, wrong-pin/staging refusal, stable continuations, native reload/tree validation on representative reconstructed content, exact archived-byte exports and complete streamed companion inventories. Actual external stdio MCP attachment/render/export and real scientific/extraction/reference consumers belong to PDF-11's assembled union, not component-test inference. No compatibility for retired HTML output is reintroduced.
+
+<a id="PDF-26"></a>
+## PDF-26 — Conditional progressive sealed scopes
+
+**Conditional, not required for initial atomic-document completion.** Source: [streaming review O07](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O07); depends on I19 and working PDF-18–24 scope/publication primitives. Plan creation schedules the investigation, not automatic activation of progressive analysis.
+
+I19 must identify an actual early-consumption workflow and a defensible closure policy for heading boundaries, membership/order, selection outcomes, required ancestor/scientific context, cross-scope references, native address mappings and coverage. End-of-page/section detection alone is not closure. If global heading inference or enrichment can still change the scope, keep it private until those dependencies close.
+
+If justified and explicitly selected after I19, publish an immutable scope snapshot with its own admitted pin, distinct from the unfinished document's unknown final digest. It references the same document/records, not a fabricated original or semantic chunk. Named unresolved dependencies remain typed unknown/pending; consumers requiring global completeness wait. Separate structural closure from recognition/integration completeness and from completed knowledge.
+
+Late corrections create a successor scope/product and invalidate affected dependent work through existing modeled dependencies. Never mutate cited content. External interfaces, SourceView selection and evaluator frames must share that scope authority rather than invent local partial-result interpretations. Changes beyond confirmed RC08/09 follow the existing explicit rule-decision route before activation.
+
+**Conditional completion:** a closed section can be consumed while an unrelated section fails, a necessary late target prevents sealing, no partial book appears complete, and successors leave prior citations immutable. If I19 does not establish value/closure, record the deferral and trigger in the coordinator; do not leave this as a blocker to PDF-10/11 atomic-document acceptance.

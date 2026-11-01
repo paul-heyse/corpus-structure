@@ -1,5 +1,16 @@
 # PDF semantic contracts, custody and access projections
 
+> **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
+> document records, versioned identity, bounded Arrow transport, private staging and atomic seal.
+> See the [coordinator](../pdf-docling-pipeline_2026-10-31.md),
+> [record/identity owner](relational-document-model-and-identity.md),
+> [publication owner](staged-publication-and-validation.md) and
+> [streaming owner](streaming-processing-and-arrow.md). Requirements below for mandatory whole
+> native JSONB/canonical envelopes describe the implemented baseline, not the go-forward physical
+> target. Historical receipts keep their scope. Docling logical content, evidence fidelity, intact
+> sections and qualified PDF reuse remain required. PDF-26 progressive scopes are conditional.
+
+
 > **Target revision — 2026-10-31:** PDF-00–09 describe the delivered native baseline and its
 > scoped receipts. The selected extension is PDF-12–16: one integrated document after full Docling,
 > in-page RapidOCR and true Nemotron triple pass. See the [coordinator](../pdf-docling-pipeline_2026-10-31.md)
@@ -220,9 +231,9 @@ consumer and operational acceptance; performance remains unmeasured until separa
   and [review O02](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O02): native JSON,
   normalization and schema boundaries.
 - Local [LinkML](../../libraries/linkml.md), [SQLAlchemy](../../libraries/sqlalchemy.md),
-  [psycopg](../../libraries/psycopg.md), [Alembic](../../libraries/alembic.md),
+  [psycopg](../../libraries/postgresql/psycopg.md), [Alembic](../../libraries/alembic.md),
   [Pydantic](../../libraries/pydantic.md), [JSON Schema](../../libraries/jsonschema.md) and
-  [pglast](../../libraries/pglast.md) orient the existing compiler/database mechanisms.
+  [pglast](../../libraries/postgresql/pglast.md) orient the existing compiler/database mechanisms.
 - [D1](../../design/D1-knowledge-representation.md), [D2](../../design/D2-schema-and-guidelines.md),
   [D3](../../design/D3-database.md) and [D6](../../design/D6-orchestration-metrics-policies.md)
   remain enduring architectural owners, updated through PDF-00 when implementation changes meaning.
