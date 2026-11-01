@@ -8,7 +8,8 @@ owns complete persisted semantic validators. Coordinator RC10/11 qualify the ear
 server-interior JSON-schema realization. Dated receipts below retain their original scope.
 
 PDF-20 adopts bounded page payloads and necessary projections through the existing SQLAlchemy
-transaction and checked Psycopg COPY path. Use existing artifact/byte-fold custody, exact replay,
+transaction and PG-04 `ArrowWriteProfile`/`copy_arrow_stream` mechanics with a fresh pgpq encoder
+per stream. Keep nested IPC bytes separate from the SQL envelope schema. Use existing artifact/byte-fold custody, exact replay,
 release/source/attempt checks and short uptake transactions. ADBC/pgpq remain selected transport
 options, not automatic nested-SQL types or a second transaction/pool owner. Compare actual grouped
 uptake with executemany that still invokes scalar schema compilation; replace unnecessary work.
@@ -18,15 +19,23 @@ inputs/projections, not merely producer drafts or the reconstructed native graph
 PostgreSQL relational/byte/custody enforcement and atomic public visibility. Bind results to immutable
 membership, exact bytes, schema/release and validator contract; changed premises, missing results,
 bad candidate geometry/offsets or false coverage refuse seal. Reuse task/holder, heartbeat, finite
-worker and existing result lifecycle; no caller boolean or new certificate state machine.
+worker and existing result lifecycle. Extend the validation-derived access/projection phase to
+produce required page projections from exact persisted payloads, with bounded typed adoption.
+A trusted child/result-registration bridge is judged by its enforced contract, not merely by
+whether its SQL parameters include a boolean; no detached caller assertion or certificate state
+machine replaces complete bound validation.
 
 Inventory all pg_jsonschema consumers before removing its requirement for selected interiors.
 Retain necessary SQL-used validation, and remove the dependency only when no remaining contract
 requires it. PDF-27 schedules successor ADR/owner changes before dependent behavior; PDF-25 owns
-forward migrations through the immutable0065 chain. Use actual PostgreSQL catalog compilation for
+new forward revisions against the actual integrated PG-08/11 head; committed history stays immutable. Use actual PostgreSQL catalog compilation for
 generated routines: pglast AST parsing does not compile PL/pgSQL bodies. Verify stale results,
 projection mismatch, conflicting replay and interruption around append/freeze/seal with actual
-stored members; full book/provider acceptance remains PDF-25/10/11.
+stored members; full book/provider acceptance remains PDF-25/10/11. Consume PG-02 phase/effect
+outcomes and PG-05 borrower cancellation through cursor closure and transaction settlement;
+keep native/CPU child cancellation distinct. Use the existing validation-derived projection
+adoption, not an additional producer mirror/coordinator. RC12 uses current-product rebuild from
+compatible retained evidence instead of old-layout compatibility.
 
 
 **Status:** PDF-20/21 mechanisms implemented with scoped native verification, 2026-11-01; integrated whole-book publication and complete failure/concurrency acceptance remain open. [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-20/21 and I17/I18 state. Consumes [review O02/O04/O05](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O02) and [target §§2–4/6](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`; schema/identity owners are [PDF-18/19](relational-document-model-and-identity.md).
@@ -85,7 +94,7 @@ Temporary tables are not durable cross-session progress. Define atomic adoption 
 
 Reuse `capture_storage.py::store_relation` and its incremental `ParquetWriter.write_batch` ownership where suitable. IPC file `new_file/open_file` plus `memory_map` is appropriate for exact seekable Arrow replay; Parquet provides compression/projection with decoding allocations. Do not persist both without distinct consumers. Backing-file deletion follows the last borrower and existing failure-evidence rules.
 
-ADBC `fetch_record_batch`/existing exported-snapshot reads remain useful to PDF-24. ADBC ingestion on its own connection cannot silently share Psycopg's transaction/temp tables. Keep SQLAlchemy pooling as the publication owner; psycopg-pool is only justified for a separately owned traffic path, not layered around the same session.
+ADBC `fetch_record_batch`/existing exported-snapshot reads remain useful to PDF-24. ADBC ingestion on its own connection cannot silently share Psycopg's transaction/temp tables. Retain the existing regular Psycopg physical pool lending through SQLAlchemy NullPool; Core owns the publication transaction, and COPY borrows its checked driver. No second pool or writer session is selected.
 
 ### Source/replay admission and bounded evidence
 
@@ -207,4 +216,4 @@ cross-reference cycles.
 
 ## Sources and adoption boundary
 
-See [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md), [Psycopg](../../libraries/postgresql/psycopg.md), [pgpq](../../libraries/postgresql/pgpq.md), [pool](../../libraries/postgresql/psycopg-pool.md), [ADBC](../../libraries/postgresql/adbc-driver-postgresql.md), [pglast](../../libraries/postgresql/pglast.md), [Alembic](../../libraries/postgresql/alembic.md) and the review's primary-source map. Exact pinned interfaces/types must be verified under I18 before implementation; no dependency change is premised merely by naming a capability. PDF-25 owns deployed data conversion/cutover.0060 remains deployed and0061 undeployed at plan creation.
+See [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md), [Psycopg](../../libraries/postgresql/psycopg.md), [pgpq](../../libraries/postgresql/pgpq.md), [pool](../../libraries/postgresql/psycopg-pool.md), [ADBC](../../libraries/postgresql/adbc-driver-postgresql.md), [pglast](../../libraries/postgresql/pglast.md), [Alembic](../../libraries/postgresql/alembic.md) and the review's primary-source map. Exact pinned interfaces/types must be verified under I18 before implementation; no dependency change is premised merely by naming a capability. PDF-25 owns current-realization rebuild/adoption.0060 remains deployed and0061 undeployed at plan creation.

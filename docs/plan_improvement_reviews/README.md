@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [PDF/PostgreSQL capability integration](pdf-postgresql-capability-integration_2026-11-01.md):
+  proposed shared model/transfer, nested Arrow compute, context/lifetime and native-authoring
+  amendments for PDF-27/28 and affected owners; plans unchanged, no product qualification.
+
 - [PDF structured data — Arrow payloads and PostgreSQL responsibilities](pdf-docling-structured-data_2026-11-01.md):
   proposed hybrid placement, Pydantic/Arrow contracts, validation boundaries and general PDF
   pipeline improvements; one bounded library probe, no adopted plan or production changes.

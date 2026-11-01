@@ -1,66 +1,79 @@
 # PDF-only adoption, HTML retirement and acceptance
 
-## Structured-data amendment — PDF-25/10/11 integration
+## Current adoption target and shared readiness
 
-**Accepted planning target,2026-11-01; new implementation not_run.** [PDF-27/28](structured-payload-model-and-validation.md)
-and working amended PDF-20–24 are prerequisites to the selected new-route cutover. Earlier text
-that simply directs deploying0065 or optimizing every per-row schema compiler is superseded by
-this sequence; prior adapter/verification receipts below retain their original scope.
+**Accepted planning target, 2026-11-01; realization Proposed and new implementation/acceptance
+not_run.** This document integrates the [PostgreSQL capability-integration review
+I01–I09](../../plan_improvement_reviews/pdf-postgresql-capability-integration_2026-11-01.md).
+The [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns package state, scheduled finding
+disposition and the confirmed rule-change routes. PDF-25 supplies current-realization products;
+PDF-10 owns operational adoption/defaults; PDF-11 owns assembled qualification. Their prior
+scoped receipts below do not establish the amended target.
 
-PDF-25 determines the necessary actual migration chain, adds forward revisions/releases and derives
-retained OCR/candidate payloads under exact old/new schema, recipe and identity bindings. All frozen
-migrations through0065 remain immutable even if undeployed; no obsolete route must first be qualified
-solely to replace it. Reuse retained native/recognition observations where complete dependencies allow,
-including the migration-only computed-grid derivation. Do not silently reinterpret archived pins.
+**RC12 — operator choice, 2026-11-01:** rebuild current products from compatible retained
+original/native/recognition evidence. This selects the review's RC01 alternative and replaces
+mandatory historical-reader support and old-layout/data migrations. Preserve all original/raw
+evidence, exact artifacts, archived identities, failed/interrupted receipts and immutable frozen
+history. Retiring compatibility means no new historical runtime reader, old database upgrade or
+conversion of every archived product is required; it does not authorize deleting or rewriting
+any retained data. The coordinator carries the architectural decision/owner amendments before
+dependent execution. Existing RC10/11 semantic-validation and publication obligations remain.
 
-Publish only with matching actual frozen semantic validation, relational projections and native
-closure. Verify retained-byte replay, selected native reconstruction, full integrated/native export
-and explicit interrupted resume. Remove replaced interior validators, capture/reconstruction paths
-and dependency requirements only after their actual consumers migrate; no dual editable authority.
-Rich native payload families remain conditional on I21/I23 results, rather than blocking useful OCR
-storage behind an unneeded universal converter. Retain one necessary native global graph; eliminate
-redundant representations only with unchanged mutation/fidelity refusal semantics.
+The selected target is PDF-only: one integrated document after Standard Docling, in-page RapidOCR
+and true Nemotron triple pass, with intact sections and qualified reuse. PDF-17–24 replace the
+mandatory whole-native-JSONB/canonical-envelope physical route with governed records, bounded
+transport and private staging/atomic seal; [PDF-27/28](structured-payload-model-and-validation.md)
+extend it with governed structured payloads and frozen semantic validation. Rich native families
+remain conditional on I21/I23 rather than requiring a universal converter before useful OCR
+storage. PDF-26 remains conditional. Historical HTML-derived runtime compatibility is retired;
+current analytical behavior and evidence fidelity remain within their declared contracts.
 
-PDF-10/11 extend their existing required union with these amended semantics and failure cases;
-they still own actual external CLI/MCP/render, five intact-section extraction, independent two-section
-A/B/C references, six original-PDF challenges, automated grading and completed-result/default adoption.
-Source-ready storage is not completed knowledge. I24 compares full encode/store/retrieve/validate/use
-before numerical benefits; no speed claim follows from IPC-only timing. Current defaults stay until
-actual acceptance. Preserve existing failed/interrupted receipts, component scopes and independent
-expectations; do not rerun types/tests merely because formatting changed documentation.
+| Needed capability | Readiness required for PDF adoption |
+|---|---|
+| PDF-27/18/19 with PG-03/04/06 | Agreed logical/payload/projection/wire identities enable design; working model-derived projections and exact directional transport enable actual rebuild/read consumers. |
+| PDF-20/21/28 with PG-02/05 | Actual private staging, complete frozen native/OCR/candidate/report validation, cancellation, outcome resolution and atomic seal. Shared lifecycle support alone does not validate new payload semantics. |
+| PDF-22–24 with PG-06/10 | Working producers, bounded owned reads and one selected-context membership account with demanded payload closure; selected context, full native export and full integrated export retain distinct completeness meanings. |
+| PDF-25 with PG-08/09/11 | Settled native authoring operation, source-qualified syntax and affected consumer/admission evidence at the actual integration head; author new forward artifacts after that head. |
 
+The source review reports the PG worktree clean at `24b22756`; its combined final-source qualification
+remains open. That source-inspected availability is neither main integration nor imported PG
+qualification. Agree contracts before dependent design; use working integrated capabilities and
+their affected evidence before live adoption. PDF design does not wait for all PG-12 work, and
+PDF-10/11 receive no completion credit from PG receipts alone. This revision performs no merge,
+production/database change, provider run or broad qualification.
 
-> **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
-> document records, versioned identity, bounded Arrow transport, private staging and atomic seal.
-> See the [coordinator](../pdf-docling-pipeline_2026-10-31.md),
-> [record/identity owner](relational-document-model-and-identity.md),
-> [publication owner](staged-publication-and-validation.md) and
-> [streaming owner](streaming-processing-and-arrow.md). Requirements below for mandatory whole
-> native JSONB/canonical envelopes describe the implemented baseline, not the go-forward physical
-> target. Historical receipts keep their scope. Docling logical content, evidence fidelity, intact
-> sections and qualified PDF reuse remain required. PDF-26 progressive scopes are conditional.
+Reuse the PG-08/09/11 native authoring route rather than another migration runner: Alembic
+Plugin comparison → `NativeTransitionOp` → frozen rendering → execution on
+`Operations.get_bind()`, followed by independent PostgreSQL native admission. A changed function
+result can require explicit recreation and dependency ordering. Shared `native_objects.py`
+declarations and source-qualified `prepared_sql.py` facts serve that route; pglast syntax
+success cannot establish catalog protection. Migration0066 already exists on the inspected PG
+branch: choose the actual settled head and one authoring owner rather than assigning0066 or
+assuming compiler18 is final. Every committed frozen revision stays immutable.
 
+For affected readers/publication, consume the existing regular Psycopg physical pool through
+SQLAlchemy `NullPool`; Core owns its transaction and COPY borrows its driver. ADBC owns a
+separate imported-snapshot session. Carry each actual operation's cancellation handle through
+result closure, transaction settlement and output publication. Release immutable fetch borrowers
+before local processing when consistency permits. Preserve primary and cleanup failures; do not
+add another pool, lifecycle coordinator or drift gate. Where a detached analytical consumer
+already uses DuckDB/manifest-listed Parquet, retain that route. Arrow Dataset scanning is
+conditional on an actual Arrow consumer, rather than a new adoption dependency. Useful mismatch
+diagnostics reuse `ci db describe` and native comparison/admission, distinguishing visible SQL
+contracts from opaque payload interiors; no automatic repair service follows.
 
-> **Operator correction — 2026-10-31:** Historical HTML-derived output compatibility is retired
-> by ADR-0040. Historical-read/replay acceptance below is superseded for HTML; retain current PDF
-> source reuse and generic analytical behavior. Existing data/frozen migrations/evidence remain inert.
+Verify rebuilt retained-byte custody, current native reconstruction, full native and integrated
+exports and interrupted private resume. Retire replaced validators/readers/adapters only after
+their current consumers move. Preserve one necessary native global graph and existing mutation/
+fidelity refusals. I24 compares complete encode/store/retrieve/validate/use work before numerical
+benefits; IPC-only timing establishes no end-to-end speed claim.
 
+PDF-10/11 retain actual external CLI/MCP/render, five intact-section extraction, independent
+two-section A/B/C references, six original-PDF challenges, automated grading and completed-result
+adoption. Current defaults remain selected until acceptance. Source-ready storage is not
+completed knowledge. No type/test rerun follows merely from documentation formatting.
 
-> **Target revision — 2026-10-31:** PDF-00–09 describe the delivered native baseline and its
-> scoped receipts. The selected extension is PDF-12–16: one integrated document after full Docling,
-> in-page RapidOCR and true Nemotron triple pass. See the [coordinator](../pdf-docling-pipeline_2026-10-31.md)
-> for state and [integrated model](integrated-document-model-and-lineage.md),
-> [producer/integration](triple-pass-recognition-and-reconciliation.md) and
-> [consumer migration](integrated-document-consumers.md) for new obligations. PDF-10/11 now adopt
-> and qualify that integrated target. Current implementation and acceptance are distinguished below
-> and in the coordinator; old receipts alone do not establish delivery of the extension.
-
-**Status:** Partial delivery, 2026-10-31: source readiness and active HTML retirement implemented; completed PDF adoption and qualification remain open. [Coordinator](../pdf-docling-pipeline_2026-10-31.md)
-owns PDF-10/11 state, original-review O01–O08, added-review O01–O07 and I01–I13. Basis: review revision `2c33372`,
-especially [O07](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O07).
-No current default or database is changed by this document.
-
-## Delivered mechanisms and acceptance boundary — 2026-10-31
+## Historical delivered mechanisms and acceptance boundary — 2026-10-31
 
 The active HTML producers are removed. Statistics declares the retained full PDF and five native
 section roots. Toy now declares a real three-page PDF, native scopes and SourceView policy;
@@ -81,9 +94,9 @@ external/provider/reference/grading journeys are not_run, rather than inferred f
 
 ## Foundation and completion boundary
 
-Operational defaults remain `corpus_parsing_20261030` / `parsing-pipeline` on dedicated
-`18/corpus:5434`. Their prior compiler 11/profile 6/native 0046 qualification is historical.
-The owned PDF deployment `corpus_pdf_20261031` is at native0060; committed0061 is undeployed. Consumer source preparation
+**Historical checkpoint, 2026-10-31; not refreshed by this document revision.** Operational
+defaults were `corpus_parsing_20261030` / `parsing-pipeline` on dedicated `18/corpus:5434`. Their prior compiler 11/profile 6/native 0046 qualification is historical.
+The owned PDF deployment `corpus_pdf_20261031` was at native0060; committed0061 was undeployed. Consumer source preparation
 passed for `pdf-docling-adoption` without selecting a completed knowledge answer.
 The new book is a new original and source structure, not a replacement payload under old HTML
 identity. Whole-book conversion, complete required products, a completed source-ready request,
@@ -101,15 +114,17 @@ contracts. The book's physical page number, printed page label, section path and
 source URI are different locators. Resolve source identity and profile/configuration snapshots
 through existing release/acquisition operations. Register retained PDF bytes before model work.
 
-Use the owned `corpus_pdf_20261031` deployment/project for integrated adoption, verifying ownership
-and migration/release prerequisites. Create another explicitly owned deployment only if isolation is needed. Do not repurpose or upgrade a historical
-operational database merely to simplify this run. Deploy new forward native migrations, restricted
-roles and the exact release/archive. Native model/schema correspondence and integrity must hold
-before new producers write. Migration credentials do not enter normal application/model workers.
+Reconcile actual ownership and native head, then construct the explicitly owned current
+realization/project for integrated adoption using PDF-25's rebuilt products and admitted release.
+Do not require an upgrade of `corpus_pdf_20261031` or another historical operational database.
+Use new forward authoring from the settled head, restricted roles and the exact release/archive;
+frozen revisions and old deployments remain untouched by this adoption choice. Native model/
+schema correspondence and integrity must hold before new producers write. Migration credentials
+do not enter normal application/model workers.
 
 Establish full-book integrated-source publication with required hierarchy/health/access/decision
-products. Reuse exact compatible retained Standard conversion; execute required Nemotron parse/detect
-and Table/Chart crop requests over the declared book universe. Account for all 1,589 original pages,
+products. Reuse exact compatible retained Standard and recognition evidence; execute missing or
+incompatible required Nemotron parse/detect and Table/Chart crop work over the declared book universe. Account for all 1,589 original pages,
 including failed/excluded scope; admission cannot silently narrow the full-book claim. Required
 unresolved coverage remains open rather than being labelled complete. Representative probes do not establish this
 whole-book scope; page batches remain physical execution units, not semantic section chunks. Run actual
@@ -128,12 +143,12 @@ remains coherent until replacement is complete.
 | Ingest/repair | Remove active `ingest.html`, html5lib instrumentation and DOM-repair paths after PDF writer/consumers work. | PDF-04/10 |
 | Rendered source conventions | Remove browser reference/quote/list insertion and DOM paths as evidence policy; use PDF-native/derived source contracts. | PDF-05/07/10 |
 | Macro/delimiter/TeX reconstruction | Remove HTML MathJax macro acquisition and new-PDF delimiter discovery; preserve only demonstrated native interpretation gaps. | PDF-06/10 |
-| Method/execution graph | Replace stale ingest registrations, demand prerequisites, approved implementations, source captures and archived implementation/dependency recipes. | PDF-02/06/09/10 |
+| Method/execution graph | Replace active stale ingest registrations, demand prerequisites, approved implementations and source-capture/recipe selection; preserve archived recipes and evidence unchanged. | PDF-02/06/09/10 |
 | Domain recognition | Replace CSS theorem/proof/exercise hints with attributed structural/content recognition, never implicit `proves` truth. | PDF-07 |
 | Packets and source frames | Actual rich source context and new addresses/hash bindings replace sentence-only/canonical-only assumptions. | PDF-07/08 |
 | CLI/MCP/query/export | Migrate actual entry points, selection/configuration defaults and query projections; no hidden alternate HTML ingest route. | PDF-08/10 |
 | Dependency/environment/docs | Remove application-only HTML dependencies after caller analysis, update locks and relevant architectural owners/commands. | PDF-00/10 |
-| Historical reads | Generic archived products remain readable under original meanings without rerunning HTML conversion. | PDF-03/08/10 |
+| Retained evidence and retired compatibility | Preserve original/raw artifacts, identities, receipts and frozen history; rebuild current products only from compatible evidence. Historical runtime readers and old-layout upgrades are not required. | PDF-25/10 |
 
 Check both imports and callable registrations; unreachable-looking legacy functions can remain
 admitted implementations. Library-transitive use of lxml/pylatexenc is different from an active
@@ -142,13 +157,14 @@ it; no wholesale lock upgrades. Preserve frozen migration files, all prior plans
 historical answers/grades. No compatibility framework for rerunning retired writers is required.
 
 I08/I13 must identify which existing automated reference fixtures need new PDF anchors and which
-remain historical read controls. New reference cases are independently authored from PDF source,
-with exact declared scope; never migrate expected values by copying extraction output. Keep
+remain frozen historical evidence without becoming required runtime compatibility controls. New
+reference cases are independently authored from PDF source, with exact declared scope; never migrate expected values by copying extraction output. Keep
 independent evaluator credentials and no reference leakage into source packets. Do not regrade
 history, tune grading policy or require human grading.
 
-**Acceptance:** fresh PDF-only run/replay; defaults select its completed result; explicit historical
-read still returns the original meaning; invalid non-PDF acquisition refuses; no current entry,
+**Acceptance:** fresh current-realization PDF-only run and compatible retained-evidence rebuild/
+replay; defaults select its completed result only after acceptance; retained original/raw evidence
+and frozen receipts remain unchanged; invalid non-PDF acquisition refuses; no current entry,
 registration or configuration can invoke HTML conversion. The inventory is completed by actual
 consumer evidence, not just a source search. Enduring architectural mechanisms move to D1–D8.
 
@@ -164,8 +180,8 @@ state, retaining failed/interrupted/unavailable obligations separately.
 | Journey | Behavior and revealing negative case |
 |---|---|
 | Integrated recognition and selection | Actual Nemotron parse/detect/crop outputs, useful selected contribution, raw early responses surviving later failure, alternatives/unresolved decisions and scoped partiality. |
-| Multiple-input evidence | Integrated occurrence traces through policy and both recognizers to original pixels; wrong project/run and stale input refuse; old one-parent citations remain readable. |
-| Original/native custody | Whole PDF retained; native JSON reload and hierarchy/projection linkage work; corruption/unsupported schema cannot silently rebuild history. |
+| Multiple-input evidence | Integrated occurrence traces through policy and both recognizers to original pixels; wrong project/run and stale input refuse; reused inputs retain their original qualification and new integrated lineage is explicit. |
+| Original/native custody | Whole PDF retained; current native reconstruction and hierarchy/projection linkage work; corrupt or incompatible evidence refuses rather than silently reinterpreting history. |
 | Intact hierarchy | Section/subsection and direct/descendant selections, repeated text occurrences, furniture, captions and page breaks; no persistent chunks or false parent/child duplication. |
 | OCR and recognition | Real native/raster/vector/broken-text cases; failed formula batch cannot masquerade as successful LaTeX; actual per-stage providers recorded. |
 | Formula coverage | Inline/display/table-cell mathematics; supported rich-cell links where selected, explicit remaining gaps. Unknown/unsupported does not become mathematical absence. |
@@ -174,7 +190,7 @@ state, retaining failed/interrupted/unavailable obligations separately.
 | Serving/placement/export | Real CLI and external stdio MCP sessions, PDF region/item/cell/formula inspection, direct source placement and bounded fuzzy fallback, JSONL/Parquet with source references. |
 | Runtime/publication | Real protected/native writes, attempt/source fences, cancellation, failure/retry and successful reuse; partial document cannot satisfy stronger complete-result requirements. |
 | Operational adoption | Full-book source feasibility plus scoped actual provider sections, independent automated grading routes and default selection; source-ready requests are not completed KG runs. |
-| Historical/retirement | Historical answers/products remain readable after active HTML removal; old source IDs, grades and anchors are not rewritten as PDF evidence. |
+| Rebuild/retirement | Fresh realization and compatible retained-evidence rebuild yield admitted current products; raw evidence, old source IDs, grades and anchors remain unchanged; no historical reader or old-layout migration is required. |
 
 Before assembled execution, enumerate the exact applicable native functional/provider obligations
 and source/context in the normal qualification account. Do not use a percentage or overlapping
@@ -206,7 +222,7 @@ scope. PDF-pivot plans stay in the repository when finished. No push is authoriz
 
 PDF-10/11 keep the original five intact-root extraction scope, current external MCP/render, actual
 configured providers, independent full-section reference author passes A/B/C, registration/grading,
-completed-result/default selection, replay and historical reads. Nemotron parse/detect/crop roles
+completed-result/default selection, compatible retained-evidence rebuild and current replay. Nemotron parse/detect/crop roles
 are not those reference author passes. Regenerate frames against the exact integrated consumer;
 never relabel run6 or copy expected values from extraction. A new selection invalidates affected
 consumer identity, not all prior source/type/test evidence.
@@ -219,52 +235,91 @@ grading, policy tuning or historical regrading is introduced. All new provider w
 this documentation revision.
 
 <a id="PDF-25"></a>
-## PDF-25 — Retained-data migration and structural cutover
+## PDF-25 — Current-realization rebuild and adoption handoff
 
-**Adapters implemented; deployment/cutover not_run, 2026-11-01.** Implements the migration consequences of [streaming review O01–O06](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md) and [target §8](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`. Consumes working PDF-18–24 mappings, custody, seal, producers and readers. PDF-10 owns actual operational adoption/default selection; PDF-11 owns final qualification. This package supplies their migrated products and compatible deployed contracts, not a duplicate acceptance queue.
+**Current target Proposed; rebuild/deployment/cutover not_run, 2026-11-01.** Consumes working
+PDF-18–24 and PDF-27/28, plus the relevant integrated PG contracts above. Incorporates [streaming
+review O01–O06](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md),
+[target §8](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) and
+[capability-integration I08](../../plan_improvement_reviews/pdf-postgresql-capability-integration_2026-11-01.md#I08)
+under confirmed RC12. PDF-10 owns operational adoption/default selection; PDF-11 owns final
+qualification. PDF-25 supplies rebuilt current products and compatible admitted contracts,
+without a second acceptance queue or a mandatory migration of historical products.
 
-`ingest.pdf_retained_stream` streams exact retained envelopes into companion journals and binds
-the verified historical serialization separately from the successor logical product. The native
-projection removes only checked serializer-computed `TableData.grid` fields: supplied declared
-fields and computed values must exactly match the pinned native class; unknown fields, coercion,
-mutation and changed grids refuse. Actual retained-book derivation passed for192grids across
-107tables/85chart tables, preserving1589pages and exact historical bytes. No inference or native
-product admission was performed by that check.
+### Current rebuild route
 
-The prepared [migration driver](../../design_review/evidence/2026-11-01_pdf-publication-adoption/migrate_retained_book.py)
-uses the actual retained task configuration, source and production release/task/publication APIs.
-It supports explicit open/frozen/published recovery and does not finalize knowledge or select
-defaults. It has not executed database writes. Resolve PDF-27/28 and the selected forward
-migration chain, then run actual migration/seal/read/export and the remaining adoption journeys.
+Inventory retained originals, Standard/native/organized/enriched products, primary/recovery
+recognition outcomes, artifacts and prepared replay. Decide compatibility from exact source,
+recipe, model/schema, coverage, codec/projection and qualified identity dependencies. Reuse only
+compatible evidence under its original meaning; record new current logical identity and explicit
+derivation/adoption. Do not relabel historical evidence, mutate old products, normalize unsupported
+fields or rerun recognition solely because storage changed. Missing/incompatible recognition or
+changed image/interpretation recipes require the affected producer work and remain open until done.
 
-Create new semantic/physical releases and forward Alembic/native migrations after PDF-17's successor ADR. Preserve every frozen revision, including committed undeployed0061. Reproduce current admission helper/CHECK/descriptor contracts from their semantic owners; incorporate the child-edge access correction in the new guard without requiring deployment/qualification of the superseded monolithic route first. Decide necessary upgrade prerequisites from the actual migration chain, not a fabricated clean database assumption.
+Construct a fresh explicitly owned current realization from the settled PG native head and the
+selected new declarations/releases. Consume PG-08/09/11 authoring, syntax diagnostics and native
+admission; do not hardcode0066, build a parallel migration runner, edit frozen migrations or
+require an old-layout upgrade. Preserve exact release/archive and restricted-role contracts.
+The actual current forward chain must be executable and independently admitted on that realization;
+its head stamp alone does not establish valid values, projections or protection.
 
-Inventory retained originals, Standard/native/organized/enriched products, all primary/recovery recognition outcomes, artifacts and exact prepared replay. Stream old canonical bytes into ordered retained parts and lower content into new records under explicit qualified derivation/adoption. Preserve historical content digests and native pins through their archived contracts; new logical identity is versioned. Do not relabel historical source/evaluation evidence, mutate old products or require recognition reruns solely for storage conversion.
+Use compatible retained evidence from the1589-page book through current staging, freeze, complete
+frozen semantic validation, native closure, seal and selective reads. Check fresh native and
+integrated streamed exports and current-product replay, exact retained original/raw byte custody,
+large individual values and qualified logical identity across permitted rebatching/reordering.
+Independently expected bad graph/coverage/payload cases must refuse. Exact archived bytes and
+receipts remain retained; reconstructing every archived pin through a historical runtime reader
+is outside current adoption.
 
-Use the retained1589-page book and exact prepared witness for staging, freeze, native closure, seal, selective reads and both native/integrated streamed exports. Demonstrate large individual-value handling, old exact-byte replay, total native reconstruction and logical identity across rebatching/reordering, with independently expected negative graph/coverage cases. On interrupted migration only authenticated private work is resumable/cleanable; independent valid retained products survive. A failed new deployment leaves operational defaults on the prior qualified selection.
+Only authenticated private work may resume or be cleaned up after interruption. Resume uses the
+original build/publication identity and exact immutable snapshot/recipe/profile bindings; a stale
+holder or mismatch refuses. A freeze/validation/seal interruption does not expose a partial
+public product. Confirmed rollback, cancellation and unknown commit remain distinct; resolve
+acknowledgement loss by the existing publication identity before retrying. Retained valid products
+and original/raw evidence survive failure. Operational defaults keep the prior selected result
+until PDF-10/11 establish acceptance of the replacement.
+
+### Historical adapter receipts — scoped evidence, not the current migration obligation
+
+**Implemented/scoped Tested at `1c6fc710`, reported 2026-11-01; not rerun here.**
+`ingest.pdf_retained_stream` streams retained envelopes into companion journals, binding historical
+serialization separately from successor logical identity. Its native derivation removes only
+checked serializer-computed `TableData.grid` fields; declared/computed values must exactly match
+the pinned native class, and unknown fields, coercion, mutation or changed grids refuse. The
+retained-book check passed for192grids across107tables/85chart tables, preserving1589pages and
+exact historical bytes. It performed neither inference nor native product admission. These are
+useful compatibility premises for selective rebuild reuse, not acceptance of the amended route.
+
+The prepared [historical migration driver](../../design_review/evidence/2026-11-01_pdf-publication-adoption/migrate_retained_book.py)
+used retained task configuration and production release/task/publication APIs, with explicit
+open/frozen/published recovery; database writes were not_run. Preserve that driver and its evidence.
+It is not a requirement to execute its old-layout migration or carry all of its adapter machinery
+into the new current route. Reuse a bounded evidence-reading component only when the selected
+rebuild actually needs it; otherwise retire current callers while retaining frozen artifacts.
 
 PDF-10/11 then regenerate exact selected SourceViews/consumer frames, run actual external CLI/MCP/render/export, five intact-section extraction, independent two-section A/B/C references and the six frozen original-PDF challenges, evaluator-only registration and automated grading. No human grading or all-book extraction is introduced. Reuse recognition when identities permit; demonstrate explicit retained-integrated reuse and resumed replay. Finalized completed knowledge and coherent default selection follow actual acceptance, not merely structural admission.
 
-### Improvement amendment: recipe, custody and consumer cutover
+### Recipe, custody and consumer cutover
 
 [Review I01–I11](../../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md) at `5d7a72c4` extends PDF-25/10/11 acceptance through their existing
-owners; it does not reopen completed foundations or require optional models/caches. Migrate source
-capabilities, replay descriptors, stage-outcome relations, crop/render recipes and compatible
-reader/projection versions together. Forward migrations remain frozen once committed; preserve
-0062/0063 as well as older revisions. Carry current compiler/core source versus deployed versions
-truthfully rather than relabeling the0060 deployment.
+owners; it does not reopen completed foundations or require optional models/caches. Rebuild current
+source capabilities, replay descriptors, stage-outcome relations, crop/render recipes and compatible
+reader/projection versions together. Every committed forward revision remains frozen, including
+0062/0063 and newer PG history. Record source/integration/deployment versions separately; do not
+relabel an old deployment or source-only implementation as current adoption.
 
 Pure storage lowering reuses immutable recognition under its original bindings. New image bytes,
 crop expansion, sampling, model/processor or interpretation changes create new recipes and need
 fresh affected producer evidence. In particular, default batch JPEG and current JPEG95-then-PNG
 submission cannot be silently equated. Old exact-byte artifacts and historical digests remain
-resolvable; a successful new scheduler is not proof that old and new predictions match.
+retained under their original bindings; a successful new scheduler is not proof that old and new predictions match.
 
 Retire old whole-PDF byte IPC, whole-`PdfConversion` output and required canonical publication
 containers only after owned-source producer, bounded replay, protected admission and all actual
-read/export consumers work together. Keep unrelated generic analytical/historical PDF users working
-under their own contracts. Remove replaced adapters, hooks or frozen-table constructors only from
-the consumers actually migrated. Cleanup never deletes retained source/failed evidence to make a
+read/export consumers work together. Preserve unrelated generic analytical behavior within its
+current declared contracts; do not reinstate mandatory historical PDF reader compatibility. Remove
+replaced adapters, hooks or constructors only from current consumers actually migrated; preserve
+anything frozen migrations need to execute unchanged. Cleanup never deletes retained source/failed evidence to make a
 new path appear successful.
 
 Include cross-page bookmark/list promotion and attachments, exact crop frames, out-of-order
@@ -282,4 +337,4 @@ selected, their consumer/recipe/evidence scope must be added before claiming del
 
 At complete required functional scope run the declared final-source union via `just test-all`, applicable hygiene and coherent warning-inclusive type checks, preserving original failed/interrupted receipts. Targeted controls apply during implementation; no integrated campaign per package. Cosmetic lint/format does not invalidate applicable type/test passes. Measure representative end-to-end resource/runtime behavior before quantitative efficiency claims; no invented performance threshold is a completion substitute. Progressive PDF-26 remains outside this initial required union.
 
-Retire the old full-envelope/native-JSONB requirement from new writes only after new producer, validator, reader, export and replay paths work together. Existing archived PDF identities/bytes remain resolvable; no historical HTML runtime compatibility, database purge or evidence deletion is scheduled. Carry enduring mechanisms and support limits into D1–D8 and leave owning plan rows truthful about implemented, tested and measured scope.
+Retire the old full-envelope/native-JSONB requirement from new writes only after new producer, validator, reader, export and replay paths work together. All archived PDF identities/bytes and their original bindings remain retained without a new historical-reader obligation. No historical runtime compatibility, database purge or evidence deletion is scheduled. Carry enduring mechanisms and support limits into D1–D8 and leave owning plan rows truthful about implemented, tested and measured scope.

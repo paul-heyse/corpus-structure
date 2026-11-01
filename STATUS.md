@@ -11,8 +11,8 @@ _Updated 2026-11-01; PostgreSQL leverage execution worktree; functional scope im
 - Design-phase execution guidance: all data is regenerable; prioritize the target and omit
   historical readers/retained-data upgrade work. This is temporary scope guidance, not an ADR
   or permanent product compatibility policy. No ADR was created for it.
-- Main documentation changes through `524c5a73` are merged here (`977eb8b1`); no incoming
-  production change has yet required reconciliation. Main's dirty work remains untouched.
+- Main documentation changes through `72970e40` are integrated; incoming changes remain
+  documentation-only, so no production reconciliation was needed. Main's dirty work remains untouched.
 - SQLAlchemy2.1.6/Alembic1.20.1 exactly pinned; other selected dependencies already current.
   Native upstream callable-default defect reproduced; narrow adapter retained. No alembic-utils.
 - New native head `semantic_pg_20261101` carries compiler18 admission and this series' functions.
@@ -23,8 +23,8 @@ _Updated 2026-11-01; PostgreSQL leverage execution worktree; functional scope im
 - Independent consumer review identified cross-product local-ID comparison and scoped/nested
   coverage omissions. Comparison and PG10 coverage repaired; actual native/CLI controls and independent
   focused reassessment passed. No audit documentation was changed.
-- Concurrent PDF/logging work retains its own plans; this series imports none of their unrealized
-  scope. [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) remains their owner.
+- Concurrent PDF review is integrated in its coordinator: RC12 selects current-product rebuild;
+  PDF-27/28 remain planned. This series imports none of that unrealized scope. [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) remains their owner.
 
 ## Verification
 

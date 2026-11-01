@@ -14,11 +14,17 @@ A new interior type then changes its model/codec rather than every SQL scalar/ro
 
 PDF-19 extends identity under the declared representation profile. Exact IPC bytes, serialized
 schema fingerprints and logical content identity are distinct: compression, dictionaries and batch
-layout may alter the first without altering meaning. Preserve ADR-0043 and existing historical
-pins/bytes under their archived contracts. Test independent expected variants/presence/null/order,
+layout may alter the first without altering meaning. Preserve ADR-0043 and exact historical
+bytes/receipts without promising maintained old-pin readers (RC12). Test independent expected variants/presence/null/order,
 rebatching and projection correspondence. Broader native lowering replacement waits for I21/I23;
 no silent coercion or dropped native fields. PDF-27 owns new codec work; this owner retains the
-existing record/identity integration and retirement consequences.
+existing record/identity integration and retirement consequences. Consume PG-03 generated
+`TypedColumns`/`Named`/`.with_cols` and PG-06 protected projections for SQL-visible structures;
+PG-04 directional wire profiles describe transport, while PDF-27 owns nested codecs derived
+from native/app definitions. Bind all necessary release/compiler/mapping/projection identities.
+Changing a field's meaning without changing its SQL type must invalidate affected preparation.
+Extend PG-08/09 native authoring/diagnostics for current objects, preserving committed history;
+RC12 rebuilds current products and retains evidence rather than mandatory old-layout support.
 
 
 > **Library improvement integration — 2026-11-01:** [review](../../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md) at `5d7a72c4`
@@ -80,7 +86,7 @@ Retain one immutable meaning across representations. Factor shared release-bound
 
 **Input:** I16, PDF-18 record/address contract and PDF-17 successor decision. **Output:** versioned product/byte identity rules and bounded artifact custody used by PDF-20/21/24/25.
 
-Keep original/raw byte digest, logical product/revision identity and exact serialization digest distinct. Current `content_digest` remains SHA-256 of its historical complete canonical envelope; a new manifest hash must not silently reuse that meaning. Define a new contract version and qualified pins; preserve current retained pins through their archived readers. Native-address reindexing must never reassign an existing citation.
+Keep original/raw byte digest, logical product/revision identity and exact serialization digest distinct. Current `content_digest` remains SHA-256 of its historical complete canonical envelope; a new manifest hash must not silently reuse that meaning. Define a new contract version and qualified pins; retain archived pins/bytes as evidence without mandatory historical runtime readers under RC12. Native-address reindexing must never reassign an existing citation.
 
 Specify deterministic typed record encoding, scalar normalization, presence markers, length/domain separation, collection ordinals and unordered-record ordering. Use stable key order or external sorting rather than a required whole-document Python sort. Transport batch size/order, compression and Parquet row groups cannot affect logical identity. Declared exact export bytes have their own serialization identity. A semantic JSON roundtrip is not byte-identical replay.
 

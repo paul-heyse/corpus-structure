@@ -19,14 +19,33 @@ through useful DuckDB/Acero or `compute.struct_field`, `list_flatten`, `list_par
 where semantics fit. Preserve word identities/null/ordering when deriving views; no unconditional
 `to_pylist` or full-document hydration inside a small-read contract.
 
-Preserve actual occurrence→endpoint and coverage→input/mapping joins in `pdf_record_context.sql`.
-I23 also assesses exposing that set-shaped selection directly for large intact-section consumers
-instead of forcing one JSONB context envelope. Keep scoped convenience envelopes only for real
-consumers, preserving qualified occurrence distinctions and read-only/rebuildable projections.
-Verify one diagnostic, shuffled page groups, a large intact section and full export without hidden
-unrelated-book decode. Native/integrated export, current CLI/MCP/render and all actual consumers
-move with the representation; PDF-10/11 retain final external/provider qualification. PDF-26 remains
-conditional, not a prerequisite created by this amendment.
+Reuse PG-06 protected companion projections, detached snapshot capture/manifest and PG-10
+selected-source semantic membership/context/event machinery. Extend their contracts with
+payload-family/page/group/field locators under the same pin/source/schema/recipe and declared
+projection. A page intersecting two sections is retrieval context, not authority to select both
+sections' bodies. Preserve qualified outside references and explicit omissions; missing demanded
+content returns the existing `AdditionalContextRequired`/input-required outcome. Do not force
+columnar consumers through JSONL or call a selected package a complete DoclingDocument.
+
+Consolidate `pdf_record_reader_native.py::pdf_record_context_sql` and
+`sql/pdf_record_context.sql` into one owned selection before adding payload closure. Derive
+paged, streamed and scoped convenience outputs from that set, including ancestor/page-range
+coverage, all endpoints, input supports and mappings. Preserve occurrences/multiplicity; do not
+reschedule the already-fixed PG membership forwarding. Whole-document coverage remains context.
+
+Propagate the existing PG-05 operation cancellation handle through selected export's raw query,
+Result closure, transaction settlement and pre-publication check. Its reader-local registration
+does not cover another raw query automatically. Reuse driver-specific ADBC/Psycopg ownership;
+CPU decoding/native validation has separate finite cancellation. No late cancel may hit a later
+borrower. State whether batches own detached buffers or borrow a live context; no lazy reader
+may silently outlive its source/snapshot. Local analysis follows database-session release.
+
+Verify one diagnostic, shuffled pages, an intact section with contained cells, cross-page content,
+repeated occurrences, outside references and partial/nested coverage, plus full current export.
+Exercise cancellation during selection, sink writing and immediately before rename. Native/full
+and selected/analytical exports keep distinct completeness contracts. PDF-10/11 retain actual
+external/provider qualification. RC12 removes mandatory old-pin reader/layout support; exact
+source/raw evidence remains retained. PDF-26 remains conditional.
 
 
 > **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
@@ -129,9 +148,9 @@ Changes in a result-neutral endpoint/cache location must not needlessly invalida
 ### Migration and preservation
 
 Migrate all actual callers, source request types, approved implementations, dependency recipes,
-archive reader admission, continuation/export contracts and model-generated surfaces together.
-Keep historical products/citations usable under archived semantics; legacy one-parent products must
-not falsely claim dual recognition. Version changed reader/source-frame contracts explicitly.
+current reader admission, continuation/export contracts and model-generated surfaces together.
+Under RC12 preserve historical products/citations as exact evidence; mandatory historical runtime
+readers are retired. Rebuilt inputs must not falsely claim dual recognition. Version changed reader/source-frame contracts explicitly.
 
 Retain exact native OCR/word anchors and useful existing math enrichment until the integrated route
 supplies their required coverage/precision. Determine overlap by consumer demand, not by keeping every
@@ -155,7 +174,7 @@ journey; preserve and reuse its applicable receipts instead.
 
 ## Adoption and knowledge-outcome boundary
 
-PDF-10 owns migration deployment, actual completed-result/default cutover and retired registrations;
+PDF-10 owns current-realization adoption, actual completed-result/default cutover and retired registrations;
 PDF-11 owns the required functional/provider/nonfunctional union. Extend their concrete journey scope
 with I13 before running providers. Full-book source execution demonstrates source/lifecycle capability,
 not all-book extraction or universal transcription fidelity. Reuse already admitted Standard products
@@ -167,7 +186,7 @@ results. No human grading, historical regrading, grading-policy tuning or refere
 
 **Planned, 2026-11-01.** Consumes [streaming review O06](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O06) at `1c6fc710`. PDF-16's implemented reader/consumer mechanisms remain the baseline; this package migrates them to the new [record/identity](relational-document-model-and-identity.md) and [publication](staged-publication-and-validation.md) contracts. Early interface work uses agreed PDF-18/19 schemas; acceptance needs working PDF-21 publication and PDF-23 stream production.
 
-Extend the shared selected-product reader with selective native record/relation and Arrow batch iteration over one immutable product pin. SourceViews, M09/M11/M13, extraction packets, source frames, reference/evaluation, consolidation evidence, CLI/MCP, rendering and exports use that same authority. Preserve archived PDF pins and compatible retained reads without model initialization. A small item query must not fetch complete native content, parse the original envelope, run symbolic work or invoke inference.
+Extend the shared selected-product reader with selective native record/relation and Arrow batch iteration over one immutable product pin. SourceViews, M09/M11/M13, extraction packets, source frames, reference/evaluation, consolidation evidence, CLI/MCP, rendering and exports use that same authority. Reuse compatible retained evidence for current products under RC12 without requiring historical-pin runtime readers; current small reads do not initialize models. A small item query must not fetch complete native content, parse the original envelope, run symbolic work or invoke inference.
 
 Bind cursor/continuation identity to immutable selection and contract; reject wrong pins and prohibit staging visibility, including raw-table/function bypasses. Needed scientific/ancestor context may exceed requested output scope: selective reads must not silently reduce analytical input. Keep coordinate/precision, failed/partial/unrequested coverage and evidence ancestry explicit.
 
@@ -175,7 +194,7 @@ Stream complete native JSON and integrated content+companions to a sink in deter
 
 Reuse existing ADBC exported/imported snapshot capture and `fetch_record_batch`, `CapturedPacket.iter_batches`, spooled Parquet and DuckDB readers. A separate ADBC connection does not inherit the publisher transaction; imported snapshots and pinned revisions supply consistency. Borrowed reader/buffer/spool lifetime covers the last consumer, including cancellation and abandoned iterators. Do not introduce a second reader engine or implicit `to_table`.
 
-**Completion:** independent item/cell/reference/precision expectations, wrong-pin/staging refusal, stable continuations, native reload/tree validation on representative reconstructed content, exact archived-byte exports and complete streamed companion inventories. Actual external stdio MCP attachment/render/export and real scientific/extraction/reference consumers belong to PDF-11's assembled union, not component-test inference. No compatibility for retired HTML output is reintroduced.
+**Completion:** independent item/cell/reference/precision expectations, wrong-pin/staging refusal, stable continuations, native reload/tree validation on representative reconstructed content, exact original/raw retained-byte custody and complete current streamed companion inventories. Actual external stdio MCP attachment/render/export and real scientific/extraction/reference consumers belong to PDF-11's assembled union, not component-test inference. No compatibility for retired HTML output is reintroduced.
 
 ### PDF-24 library improvement integration — I06/I07/I08/I09
 

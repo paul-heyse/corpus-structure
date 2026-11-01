@@ -5,8 +5,18 @@
 **Accepted planning target,2026-11-01; new implementation not_run.** Consume [PDF-27/28](structured-payload-model-and-validation.md)
 contracts for selected nested OCR/candidate page payloads and validation placement. The earlier
 SQL-shaped `record_arrow_schema` stays useful for relational COPY, not the authority for every
-nested interior. Keep page-local data typed through useful reconciliation/discovery work; do not
+nested interior. Reuse PG-04 prepared outer-envelope/part profiles and fresh encoders rather
+than translate nested payloads back to JSON/SQL rows. PG-03/06 projections and PDF-27 codecs share
+their logical authority, not one universal physical schema. Keep page-local data typed through useful reconciliation/discovery work; do not
 add Arrow only to immediately convert the complete book back into Python dictionaries.
+
+Use owned `RecordBatchReader.from_batches`/iteration through actual nested projection/validation
+work. Preserve original word/candidate identities before `struct_field`, `list_flatten` and
+`list_parent_indices`; null/empty/absence and coverage semantics require explicit treatment.
+Keep native validators for rules without equivalent kernels. Lazy `cast` is allowed only by the
+selected profile, not to repair schema mismatches. Reuse DuckDB for relational analytics; Acero
+only where its expression removes a real intermediate. Coordinate Arrow `use_threads` and
+readahead with native pools; slices can retain backing buffers beyond a batch's visible rows.
 
 I25 generalizes actual1.67 formula-scale capture: record requested and effective prepared-stage
 options, native variant and serialization profiles once at preparation. Nested validated Settings
@@ -270,4 +280,4 @@ quantitative improvement claims remain separate from this private producer deliv
 
 ## Sources and handoff
 
-[PyArrow](../../libraries/pyarrow.md) §§2/4–9/14, [DuckDB](../../libraries/duckdb_2.md), [Docling](../../libraries/primary_intake/docling.md), [OCR](../../libraries/primary_intake/docling_ocr.md), [triple-pass reference](../../libraries/primary_intake/docling_nemotron_triple_pass_reference.md) §§7/9/12/14 and the review's pinned/primary-source map provide the concrete mechanisms. Follow Context7 then exact installed/primary source for implementation uncertainties. PDF-24 consumes the same reader/record contract; PDF-25 and PDF-10/11 own retained-book migration, actual journeys and final qualification. Package-local checks are targeted, not recurring integrated campaigns.
+[PyArrow](../../libraries/pyarrow.md) §§2/4–9/14, [DuckDB](../../libraries/duckdb_2.md), [Docling](../../libraries/primary_intake/docling.md), [OCR](../../libraries/primary_intake/docling_ocr.md), [triple-pass reference](../../libraries/primary_intake/docling_nemotron_triple_pass_reference.md) §§7/9/12/14 and the review's pinned/primary-source map provide the concrete mechanisms. Follow Context7 then exact installed/primary source for implementation uncertainties. PDF-24 consumes the same reader/record contract; PDF-25 and PDF-10/11 own current-book rebuild from compatible retained evidence, actual journeys and final qualification. Package-local checks are targeted, not recurring integrated campaigns.
