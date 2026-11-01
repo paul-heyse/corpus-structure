@@ -1252,3 +1252,51 @@ def test_scoped_companion_does_not_materialize_bookwide_coverage(pdf13_db, seman
             after=page['cursor']
         assert {r['coverage_id'] for r in all_rows}=={c['coverage_id'] for c in values['coverage']}
         assert len(all_rows)==len(values['coverage'])
+
+
+def test_artifact_byte_pages_require_exact_input_custody(pdf13_db,semantic_reader_engine):
+    from corpus_structure.semantic.pdf_storage import read_pdf_artifact
+    db=pdf13_db
+    values=integrated(db.source,db.inputs)
+    values['product_key']='artifact-pages'
+    artifact=bytes(range(256))*600
+    product=prepare_integrated_pdf_product(values,db.source.original,db.source.recipe,artifacts=(artifact,),native_schema=db.source.schema)
+    publish(db,product)
+    args=dict(task_id=db.job.task,product_key='artifact-pages',content_digest=product.digest)
+    with semantic_reader_engine.connect() as conn:
+        offset=0;parts=[]
+        while True:
+            page=read_pdf_artifact(conn,**args,artifact_digest=sha256(artifact).hexdigest(),offset=offset)
+            assert len(page['content'])<=65536 and page['total_bytes']==len(artifact)
+            parts.append(page['content'])
+            if page['next_offset'] is None:break
+            offset=page['next_offset']
+        assert b''.join(parts)==artifact
+        # The selected product's actual observation inputs retain exact submitted bytes.
+        assert read_pdf_artifact(conn,**args,artifact_digest=sha256(IMAGE).hexdigest())['content']==IMAGE
+        with pytest.raises(NativeDocumentUnavailable,match='custody'):
+            read_pdf_artifact(conn,**args,artifact_digest='0'*64)
+        with pytest.raises(ValueError,match='byte length'):
+            read_pdf_artifact(conn,**args,artifact_digest=sha256(artifact).hexdigest(),offset=len(artifact)+1)
+
+
+def test_qualified_read_abi_survives_helper_bytes_but_refuses_unknown_binding(pdf13_db,semantic_reader_engine,monkeypatch):
+    from corpus_structure.semantic import pdf_contracts
+    db=pdf13_db
+    product=prepare(integrated(db.source,db.inputs),db.source)
+    publish(db,product)
+    load=pdf_contracts.pdf_context_for_task
+    unsupported=False
+    def archived_context(conn,task):
+        context=load(conn,task)
+        execution=context.execution
+        return replace(context,execution=replace(execution,
+            implementation_digests=tuple((name,'0'*64 if name in {'pdf/storage.py','pdf/integrated.py'} else digest) for name,digest in execution.implementation_digests),
+            implementations=tuple(replace(binding,version='unsupported-v2') if unsupported and binding.id=='read_pdf_product' else binding for binding in execution.implementations)))
+    monkeypatch.setattr(pdf_contracts,'pdf_context_for_task',archived_context)
+    with semantic_reader_engine.connect() as conn:
+        result=read_pdf_product(conn,task_id=db.job.task,product_key='selected',content_digest=product.digest,occurrence_id=CELL)
+        assert result['occurrences'][0]['body']['native_value']['text']=='equal'
+        unsupported=True
+        with pytest.raises(NativeDocumentUnavailable,match='ABI is unsupported'):
+            read_pdf_product(conn,task_id=db.job.task,product_key='selected',content_digest=product.digest,occurrence_id=CELL)

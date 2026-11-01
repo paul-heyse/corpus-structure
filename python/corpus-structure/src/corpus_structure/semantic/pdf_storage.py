@@ -197,24 +197,36 @@ def _pdf_product_identity(conn: Connection, task_id: int, product_key: str, cont
     context = pdf_context_for_task(conn, task_id)
     if identity["contract_digest"] != context.contract_digest:
         raise NativeDocumentUnavailable("PDF product differs from its archived contract")
-    if identity["kind"] != "native":
-        context.execution.require_operation("read_pdf_product")
-        expected = dict(context.execution.implementation_digests)
-        root = files("corpus_structure").joinpath("semantic")
-        if any(
-            expected.get(name) != sha256(root.joinpath(filename).read_bytes()).hexdigest()
-            for name, filename in (
-                ("pdf/integrated.py", "pdf_integrated.py"),
-                ("pdf/storage.py", "pdf_storage.py"),
-            )
+    if identity["kind"] == "native":
+        native = table("ops.native_document_product")
+        schema_digest = conn.execute(select(native.c.schema_digest).where(
+            native.c.task_id == task_id, native.c.product_key == product_key,
+        )).scalar_one_or_none()
+        if schema_digest != context.native_schema_digest or schema_digest != _reader_schema_digest():
+            raise NativeDocumentUnavailable("native PDF schema requires a qualified archived reader")
+    else:
+        from .contracts import approved_implementations
+        from .types import PreparationError
+        try:
+            operation = context.execution.require_operation("read_pdf_product")
+        except (PreparationError, StopIteration) as error:
+            raise NativeDocumentUnavailable("PDF read ABI is unsupported; qualify an archived reader") from error
+        binding = next(b for b in context.execution.implementations if b.id == operation.implementation)
+        implementation = approved_implementations()["read_pdf_product"]
+        if (binding.owner, binding.symbol) != (
+            implementation.__module__.removeprefix("corpus_structure."), implementation.__qualname__,
         ):
-            raise NativeDocumentUnavailable(
-                "companion implementation requires a qualified archived reader"
-            )
+            raise NativeDocumentUnavailable("PDF read ABI owner differs from the qualified reader")
         if "PdfIntegratedProduct" not in {d.name for d in context.boundary.definitions}:
-            raise NativeDocumentUnavailable(
-                "companion contract requires a qualified archived reader"
-            )
+            raise NativeDocumentUnavailable("companion contract requires a qualified archived reader")
+        descriptor = _pdf_descriptors(conn, [(task_id, product_key, content_digest)])[0]["descriptor"]
+        # Version 1 is the qualified immutable body/relational read ABI. Changes to helper
+        # implementation bytes do not change stored meaning; a new body ABI requires a
+        # new declared binding and an explicitly qualified reader.
+        if type(descriptor.get("version")) is not int or descriptor["version"] != 1 or descriptor.get("kind") != identity["kind"]:
+            raise NativeDocumentUnavailable("PDF body version/kind requires a qualified archived reader")
+        if identity["kind"] == "integrated" and descriptor.get("content_metadata", {}).get("schema_digest") != _reader_schema_digest():
+            raise NativeDocumentUnavailable("selected Docling schema requires a qualified archived reader")
     return dict(identity)
 
 
@@ -282,6 +294,7 @@ def read_pdf_product(
     if not 1 <= limit <= 1000 or not 1 <= row_budget <= 10000:
         raise ValueError("PDF read limit must be 1..1000 and row budget 1..10000")
     identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
+    descriptor = _pdf_descriptors(conn, [(task_id, product_key, content_digest)])[0]["descriptor"]
     occurrences, relations, endpoints, coverage, inputs = map(
         table,
         (
@@ -360,6 +373,9 @@ def read_pdf_product(
     # Coverage belongs to the materialized occurrence scope. A whole-document manifest
     # uses its own cursor rather than consuming every read's provenance budget.
     pages = {r["body"].get("page_no") for r in rows if r["body"].get("page_no") is not None}
+    if identity["kind"] == "recognition_observation":
+        page = descriptor.get("observation", {}).get("image", {}).get("page_no")
+        if page is not None: pages.add(page)
     scopes = {"whole_document"}
     scopes.update(f"page:{p}" for p in pages)
     scopes.update(f"pages:{p}-{p}" for p in pages)
@@ -393,7 +409,7 @@ def read_pdf_product(
     ) if relevant_pins or supporting_indices else []
     result = {
         "identity": identity,
-        "descriptor": _pdf_descriptors(conn, [(task_id, product_key, content_digest)])[0]["descriptor"],
+        "descriptor": descriptor,
         "occurrences": rows,
         "relations": relation_rows,
         "inputs": input_rows,
@@ -564,16 +580,19 @@ def read_pdf_artifact(conn: Connection, *, task_id: int, product_key: str,
                       content_digest: str, artifact_digest: str,
                       offset: int = 0) -> dict[str, Any]:
     """Read a fixed byte page from the exact product's retained input custody."""
-    if isinstance(offset, bool) or offset < 0:
+    if type(offset) is not int or offset < 0:
         raise ValueError("PDF artifact offset must be a nonnegative byte offset")
     if len(artifact_digest) != 64 or any(c not in '0123456789abcdef' for c in artifact_digest):
         raise ValueError("PDF artifact requires its SHA-256 digest")
     _pdf_product_identity(conn, task_id, product_key, content_digest)
-    from sqlalchemy import func, literal, tuple_
+    from sqlalchemy import func, tuple_
     inputs, custody, artifacts = map(table, (
         'ops.pdf_product_input', 'ops.pdf_product_artifact', 'kb.source_artifact'))
-    pins = select(literal(task_id, type_=inputs.c.input_task_id.type).label('task_id'), literal(product_key).label('product_key'),
-                  literal(content_digest).label('content_digest')).cte('artifact_input_custody', recursive=True)
+    products = table('ops.pdf_product')
+    pins = select(products.c.task_id, products.c.product_key, products.c.content_digest).where(
+        products.c.task_id == task_id, products.c.product_key == product_key,
+        products.c.content_digest == content_digest,
+    ).cte('artifact_input_custody', recursive=True)
     pins = pins.union(select(inputs.c.input_task_id, inputs.c.input_product_key,
                              inputs.c.input_content_digest).join(pins,
         (inputs.c.task_id == pins.c.task_id) & (inputs.c.product_key == pins.c.product_key)))

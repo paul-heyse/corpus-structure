@@ -212,3 +212,21 @@ def reconciled_pdf_products(model=None):
     admission = native_admission_sql(sql, model, extra_relations=(*changed, "kb.pdf_mapping_report", "ops.pdf_product_body", "kb.pdf_occurrence"), base_admission=previous)
     return (NativeProduct("semantic_0057_reconciliation.sql", sql.encode()),
             NativeProduct("semantic_0057_admission.sql", admission.encode()))
+
+
+def final_reconciliation_products(model=None):
+    """0058 updates current functions after the deployed 0057 physical extension."""
+    from pglast import ast, parse_sql
+    from pglast.stream import RawStream
+    full = reconciled_pdf_products(model)[0].content.decode()
+    sql = "SET LOCAL ROLE corpus_sem_publisher;\n"
+    for raw in parse_sql(full.replace("__MIGRATION_OWNER__", "corpus_migration_owner")):
+        stmt = raw.stmt
+        if isinstance(stmt, (ast.CreateFunctionStmt, ast.ViewStmt)) or (
+            isinstance(stmt, ast.GrantStmt) and stmt.objtype is not None and stmt.objtype.name == "OBJECT_FUNCTION"
+        ):
+            sql += RawStream()(stmt) + ";\n"
+    previous = ALEMBIC_DIR.joinpath("versions/semantic_0057_admission.sql").read_text()
+    admission = native_admission_sql(sql, model, base_admission=previous)
+    return (NativeProduct("semantic_0058_reconciliation.sql", sql.encode()),
+            NativeProduct("semantic_0058_admission.sql", admission.encode()))
