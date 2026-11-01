@@ -3,11 +3,11 @@ _Updated 2026-11-01; relational PDF publication/readers scoped-tested; deployed 
 
 ## Current checkpoint
 
-- [Structured-data review](docs/plan_improvement_reviews/pdf-docling-structured-data_2026-11-01.md) proposes
-  Arrow payload/relational-envelope improvements and validation ownership; not adopted into plans.
+- [Structured-data plan](docs/plans/pdf-docling-pipeline/structured-payload-model-and-validation.md)
+  adds planned PDF-27/28; RC10/11 confirmed, I21–I25 and amendments integrated in the coordinator.
+  Product implementation/deployment is not established by plan authoring.
 
 - [PostgreSQL leverage plan](docs/plans/postgresql-capability-leverage_2026-11-01.md): PG-00–12 design expanded with concrete library APIs, contracts, migration paths and consumer acceptance from review O01–15. Product work not started; latest-stable upgrades settled, alembic-utils excluded. Existing series unchanged.
-- New plan authoring checks and evidence limits are recorded in its adoption/validation owner; current product qualification remains with existing owners.
 
 - [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns package/O/I disposition.
   PDF-20/21 publication and PDF-24 selected readers/exports are implemented with scoped controls.
@@ -27,8 +27,7 @@ _Updated 2026-11-01; relational PDF publication/readers scoped-tested; deployed 
   No whole-book integrated product or new completed knowledge result was committed.
 - OCR evidence is retained (24.1MB region JSON;35.7MB candidate files). Empty-region warnings
   retain qualified diagnostics; no universal harmlessness/Nemotron recovery claim is made.
-- All owned jobs are settled and auxiliary worktrees removed; integrated edits are on main.
-  The dedicated Nemotron service remains down with its model/environment retained.
+- Owned jobs/worktrees are settled; Nemotron service remains down with model/environment retained.
 - [Logging plan series](docs/plans/structured-logging-observability_2026-11-01.md): LOG-00 bounded
   choices settled: structlog/stdlog + scoped Logbook + direct OTel; no production runtime installed. I01–I03 probes passed; I04 primitive direction selected, integrated lifecycle still open.
   I05 partial: hard cleanup deadline unestablished. I06 local contract passed; live read blocked
@@ -48,12 +47,13 @@ _Updated 2026-11-01; relational PDF publication/readers scoped-tested; deployed 
   receipt `build/test-receipts/qualification/20261101T042650Z-4190256`. No new full union is claimed.
 - **not_run:** current full `just test-all`,0065 deployment, book migration/seal/read/export,
   external MCP/render, five-section extraction, independent references/grading and default selection.
-- Earlier `just docs-check` failed on existing parsing-profile/moved logging-library links.
-  Earlier failures/interrupted receipts remain; formatting does not invalidate applicable checks.
+- **passed (plan authoring):** focused publisher/link/anchor/coverage check and independent review;
+  `git diff --check`. **failed:** `just docs-check` on existing moved-library/retired-profile links.
+  Product checks not_run for docs-only changes; earlier scoped types/tests remain applicable.
 
 ## Next
 
-Review [publication](docs/plans/pdf-docling-pipeline/staged-publication-and-validation.md), then deploy0065
-and run the retained migration driver. Assess bounded native schema-compilation amortization before
-book-scale acceptance; complete remaining integrated failure/concurrency and external/provider journeys.
-PDF-10/11 still own five-section extraction, independent automated grading and completed-result adoption.
+Start [PDF-27](docs/plans/pdf-docling-pipeline/structured-payload-model-and-validation.md#PDF-27):
+successor authority decisions and I21/I23 contract choices, then PDF-20/28/21 validation integration
+and PDF-24 consumers. PDF-25 determines forward migration prerequisites; PDF-10/11 retain actual
+adoption/qualification. Do not qualify a superseded0065 representation solely before replacing it.

@@ -1,5 +1,34 @@
 # Singular integrated document consumers
 
+## Structured-data amendment — PDF-24 integration
+
+**Accepted planning target,2026-11-01; new implementation not_run.** [PDF-27/28](structured-payload-model-and-validation.md)
+own family placement and persisted validation; I23/24 shape this reader migration. Existing exact
+metadata decoding and single-cursor exports remain strengths to retain, not unimplemented N+1 fixes.
+
+Extend the pinned reader contract with page/group and requested-field intent, selecting relational
+page/kind/pointer/outcome keys before payload decode. Keep native graph hydration explicit for actual
+native behavior. `native_product_values()` currently materializes the document and candidate/report
+families: migrate page-local discovery/alignment/diagnostic callers to scoped reads rather than wrap
+that whole-product function in a batch API. Own batch/buffer/cursor lifetimes through early exit and
+cancellation; cross into native models or JSON only for consumers that require them.
+
+Assess `IpcReadOptions.included_fields` for top-level Arrow decode selection; it does not reduce
+PostgreSQL bytea transfer or prune arbitrary nested children. Retain `RecordBatchReader`/arrays
+through useful DuckDB/Acero or `compute.struct_field`, `list_flatten`, `list_parent_indices` work
+where semantics fit. Preserve word identities/null/ordering when deriving views; no unconditional
+`to_pylist` or full-document hydration inside a small-read contract.
+
+Preserve actual occurrence→endpoint and coverage→input/mapping joins in `pdf_record_context.sql`.
+I23 also assesses exposing that set-shaped selection directly for large intact-section consumers
+instead of forcing one JSONB context envelope. Keep scoped convenience envelopes only for real
+consumers, preserving qualified occurrence distinctions and read-only/rebuildable projections.
+Verify one diagnostic, shuffled page groups, a large intact section and full export without hidden
+unrelated-book decode. Native/integrated export, current CLI/MCP/render and all actual consumers
+move with the representation; PDF-10/11 retain final external/provider qualification. PDF-26 remains
+conditional, not a prerequisite created by this amendment.
+
+
 > **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
 > document records, versioned identity, bounded Arrow transport, private staging and atomic seal.
 > See the [coordinator](../pdf-docling-pipeline_2026-10-31.md),

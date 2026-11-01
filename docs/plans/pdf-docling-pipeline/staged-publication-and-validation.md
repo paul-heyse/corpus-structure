@@ -1,5 +1,34 @@
 # Bounded staging, native validation and atomic document publication
 
+## Structured-data amendment — PDF-20/21 integration
+
+**Accepted planning target,2026-11-01; new implementation not_run.** [PDF-27](structured-payload-model-and-validation.md#PDF-27)
+owns payload/schema/codec authority; [PDF-28](structured-payload-model-and-validation.md#PDF-28)
+owns complete persisted semantic validators. Coordinator RC10/11 qualify the earlier mandatory
+server-interior JSON-schema realization. Dated receipts below retain their original scope.
+
+PDF-20 adopts bounded page payloads and necessary projections through the existing SQLAlchemy
+transaction and checked Psycopg COPY path. Use existing artifact/byte-fold custody, exact replay,
+release/source/attempt checks and short uptake transactions. ADBC/pgpq remain selected transport
+options, not automatic nested-SQL types or a second transaction/pool owner. Compare actual grouped
+uptake with executemany that still invokes scalar schema compilation; replace unnecessary work.
+
+PDF-21 requires PDF-28 results over actual frozen OCR/candidate/report payloads and their required
+inputs/projections, not merely producer drafts or the reconstructed native graph. Preserve independent
+PostgreSQL relational/byte/custody enforcement and atomic public visibility. Bind results to immutable
+membership, exact bytes, schema/release and validator contract; changed premises, missing results,
+bad candidate geometry/offsets or false coverage refuse seal. Reuse task/holder, heartbeat, finite
+worker and existing result lifecycle; no caller boolean or new certificate state machine.
+
+Inventory all pg_jsonschema consumers before removing its requirement for selected interiors.
+Retain necessary SQL-used validation, and remove the dependency only when no remaining contract
+requires it. PDF-27 schedules successor ADR/owner changes before dependent behavior; PDF-25 owns
+forward migrations through the immutable0065 chain. Use actual PostgreSQL catalog compilation for
+generated routines: pglast AST parsing does not compile PL/pgSQL bodies. Verify stale results,
+projection mismatch, conflicting replay and interruption around append/freeze/seal with actual
+stored members; full book/provider acceptance remains PDF-25/10/11.
+
+
 **Status:** PDF-20/21 mechanisms implemented with scoped native verification, 2026-11-01; integrated whole-book publication and complete failure/concurrency acceptance remain open. [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-20/21 and I17/I18 state. Consumes [review O02/O04/O05](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O02) and [target §§2–4/6](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`; schema/identity owners are [PDF-18/19](relational-document-model-and-identity.md).
 
 ## Implemented publication boundary — 2026-11-01
@@ -22,10 +51,11 @@ bits, negative zero, explicit nulls and text. [ADR-0044](../../adr/0044-native-p
 owns this mechanism; ADR-0043 owns verified byte folds versus optional serialization SHA.
 
 The installed extension has no compiled-schema handle API. Current admission validates each
-metadata row; existing bounded uploads and Psycopg executemany remain intact. Amortizing native
-schema compilation across bounded groups is remaining execution-fit work, not an implemented
-batch-validation API. Before book-scale acceptance, assess that path together with actual
-integrated endpoints/coverage, cancellation/crash recovery and the complete publication union.
+metadata row; existing bounded uploads and Psycopg executemany remain intact. PDF-27/28 and
+I22/I24 now decide selected validation replacement. Assess compilation amortization only for
+remaining families whose SQL-used contract retains pg_jsonschema; it is not a prerequisite to
+qualify the superseded interior route. Actual integrated endpoints/coverage, cancellation/crash
+recovery and the complete publication union remain required.
 0065 is authored but undeployed;0060 remains the owned application baseline.
 
 ## Improvement integration — review I05/I06/I09
@@ -65,7 +95,8 @@ actual records/artifact parts into durable private custody before a producer may
 replay input. File paths and claimed checksums alone are not custody. Do not serialize live backend,
 Docling or connection handles across IPC or hold a connection while waiting for inference.
 
-Derive exact schemas from `record_arrow_schema`; keep field order, nullability, presence/scalar
+For relational COPY families derive exact schemas from `record_arrow_schema`; selected nested
+payloads instead use PDF-27. Keep field order, nullability, presence/scalar
 profiles, JSON wire metadata and overflow-stream references. Retire `AppendPublication`'s required
 full-table IPC freeze, `read_all`, `to_pylist`, global sort and canonical-body construction from this
 new write path. Reuse only the suitable scratch COPY/adoption components. Do not remove the older

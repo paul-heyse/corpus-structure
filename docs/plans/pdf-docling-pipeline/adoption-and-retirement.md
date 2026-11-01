@@ -1,5 +1,35 @@
 # PDF-only adoption, HTML retirement and acceptance
 
+## Structured-data amendment — PDF-25/10/11 integration
+
+**Accepted planning target,2026-11-01; new implementation not_run.** [PDF-27/28](structured-payload-model-and-validation.md)
+and working amended PDF-20–24 are prerequisites to the selected new-route cutover. Earlier text
+that simply directs deploying0065 or optimizing every per-row schema compiler is superseded by
+this sequence; prior adapter/verification receipts below retain their original scope.
+
+PDF-25 determines the necessary actual migration chain, adds forward revisions/releases and derives
+retained OCR/candidate payloads under exact old/new schema, recipe and identity bindings. All frozen
+migrations through0065 remain immutable even if undeployed; no obsolete route must first be qualified
+solely to replace it. Reuse retained native/recognition observations where complete dependencies allow,
+including the migration-only computed-grid derivation. Do not silently reinterpret archived pins.
+
+Publish only with matching actual frozen semantic validation, relational projections and native
+closure. Verify retained-byte replay, selected native reconstruction, full integrated/native export
+and explicit interrupted resume. Remove replaced interior validators, capture/reconstruction paths
+and dependency requirements only after their actual consumers migrate; no dual editable authority.
+Rich native payload families remain conditional on I21/I23 results, rather than blocking useful OCR
+storage behind an unneeded universal converter. Retain one necessary native global graph; eliminate
+redundant representations only with unchanged mutation/fidelity refusal semantics.
+
+PDF-10/11 extend their existing required union with these amended semantics and failure cases;
+they still own actual external CLI/MCP/render, five intact-section extraction, independent two-section
+A/B/C references, six original-PDF challenges, automated grading and completed-result/default adoption.
+Source-ready storage is not completed knowledge. I24 compares full encode/store/retrieve/validate/use
+before numerical benefits; no speed claim follows from IPC-only timing. Current defaults stay until
+actual acceptance. Preserve existing failed/interrupted receipts, component scopes and independent
+expectations; do not rerun types/tests merely because formatting changed documentation.
+
+
 > **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
 > document records, versioned identity, bounded Arrow transport, private staging and atomic seal.
 > See the [coordinator](../pdf-docling-pipeline_2026-10-31.md),
@@ -204,8 +234,8 @@ product admission was performed by that check.
 The prepared [migration driver](../../design_review/evidence/2026-11-01_pdf-publication-adoption/migrate_retained_book.py)
 uses the actual retained task configuration, source and production release/task/publication APIs.
 It supports explicit open/frozen/published recovery and does not finalize knowledge or select
-defaults. It has not executed database writes. Deploy reviewed0065, assess bounded native schema
-compilation, then run actual migration/seal/read/export and the remaining adoption journeys.
+defaults. It has not executed database writes. Resolve PDF-27/28 and the selected forward
+migration chain, then run actual migration/seal/read/export and the remaining adoption journeys.
 
 Create new semantic/physical releases and forward Alembic/native migrations after PDF-17's successor ADR. Preserve every frozen revision, including committed undeployed0061. Reproduce current admission helper/CHECK/descriptor contracts from their semantic owners; incorporate the child-edge access correction in the new guard without requiring deployment/qualification of the superseded monolithic route first. Decide necessary upgrade prerequisites from the actual migration chain, not a fabricated clean database assumption.
 

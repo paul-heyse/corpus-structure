@@ -1,5 +1,26 @@
 # Relational document model, identity and custody
 
+## Structured-data amendment — PDF-18/19 integration
+
+**Accepted planning target,2026-11-01; new implementation not_run.** [PDF-27/28](structured-payload-model-and-validation.md)
+and coordinator RC10/11 qualify earlier universal native-field/SQL-interior requirements. Prior
+foundation implementations/receipts below remain scoped baseline, not proof of this amendment.
+
+PDF-18 consumes the per-family native/app→Arrow bridge and retains genuinely joined native
+addresses, memberships, occurrence endpoints, inputs and coverage. Nested OCR words/candidates
+can remain typed payload interiors when no SQL consumer needs their fields. Derive selected Core
+lookup columns and read-only projections from the model; do not independently edit projected facts.
+A new interior type then changes its model/codec rather than every SQL scalar/row validator.
+
+PDF-19 extends identity under the declared representation profile. Exact IPC bytes, serialized
+schema fingerprints and logical content identity are distinct: compression, dictionaries and batch
+layout may alter the first without altering meaning. Preserve ADR-0043 and existing historical
+pins/bytes under their archived contracts. Test independent expected variants/presence/null/order,
+rebatching and projection correspondence. Broader native lowering replacement waits for I21/I23;
+no silent coercion or dropped native fields. PDF-27 owns new codec work; this owner retains the
+existing record/identity integration and retirement consequences.
+
+
 > **Library improvement integration — 2026-11-01:** [review](../../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md) at `5d7a72c4`
 > is incorporated into the [coordinator](../pdf-docling-pipeline_2026-10-31.md) and PDF-20–25 targets.
 > The [streaming owner](streaming-processing-and-arrow.md) owns new source/crop lifetime and scheduler
