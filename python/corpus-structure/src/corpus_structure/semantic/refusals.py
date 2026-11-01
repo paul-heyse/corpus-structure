@@ -1,19 +1,50 @@
 """Expected semantic caller failures, separate from database and programming failures."""
 
+from dataclasses import asdict
 from functools import wraps
+from typing import Any
 
+import adbc_driver_manager
+import psycopg
+from psycopg_pool import PoolClosed, PoolTimeout, TooManyRequests
 from sqlalchemy.exc import DBAPIError
+
+from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
+from corpus_structure.core.db.store import operation_failure
 
 
 class SemanticRefusal(ValueError):
     """An owned boundary deliberately refuses an unsupported or incompatible request."""
 
 
-def database_failure_code(error):
-    """Use the storage owner's SQLSTATE policy without relabelling it as refusal."""
-    from corpus_structure.core.db.store import classify_error
+DATABASE_ERRORS = (
+    DBAPIError,
+    adbc_driver_manager.Error,
+    psycopg.Error,
+    PoolClosed,
+    PoolTimeout,
+    TooManyRequests,
+    DatabaseOperationCancelled,
+)
 
-    return "database_" + classify_error(error).value
+
+def database_failure_code(error):
+    """Name physical cause without selecting a domain replay policy."""
+    return "database_" + operation_failure(error).failure.cause.value
+
+
+def database_failure_report(error: BaseException) -> dict[str, Any]:
+    """Safe typed fields for both CLI and tool reports; no SQL or credentials."""
+    context = operation_failure(error)
+    report: dict[str, Any] = {
+        "code": database_failure_code(error),
+        "message": "database operation failed",
+        **asdict(context),
+    }
+    diagnostic = getattr(error, "database_diagnostic", None)
+    if diagnostic is not None:
+        report["database"] = asdict(diagnostic)
+    return report
 
 
 def tool_refusals(*expected: type[Exception]):
@@ -28,10 +59,12 @@ def tool_refusals(*expected: type[Exception]):
                 from fastmcp.exceptions import ToolError
 
                 raise ToolError(str(error)) from error
-            except DBAPIError as error:
+            except DATABASE_ERRORS as error:
+                import json
+
                 from fastmcp.exceptions import ToolError
 
-                raise ToolError(database_failure_code(error)) from error
+                raise ToolError(json.dumps(database_failure_report(error))) from error
 
         return invoke
 

@@ -2,8 +2,15 @@
 CREATE OR REPLACE FUNCTION ops.pdf_record_context_rows(p_task bigint,p_key text,p_digest text,p_pointers text[],p_section text)
 RETURNS TABLE(family text,local_id text,ordinal bigint,body jsonb)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- WITH published AS MATERIALIZED (
+ WITH RECURSIVE published AS MATERIALIZED (
   SELECT * FROM ops.read_pdf_published_revision(p_task,p_key,p_digest)
+ ), access AS MATERIALIZED (
+  SELECT a.* FROM kb.pdf_record_access a JOIN published p
+  ON a.product_id=p.build_id AND a.revision_id=p.build_id
+ ), scope_pointers(pointer) AS (
+  SELECT unnest(p_pointers) UNION SELECT p_section
+  UNION SELECT a.parent_pointer FROM access a JOIN scope_pointers s ON a.pointer=s.pointer
+  WHERE a.parent_pointer IS NOT NULL
  ), selected AS MATERIALIZED (
   SELECT c.* FROM kb.pdf_record_companion c JOIN published p ON c.product_id=p.build_id AND c.revision_id=p.build_id
   WHERE c.family='occurrence' AND c.body->>'pointer'=ANY(p_pointers)
@@ -15,11 +22,23 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
  ), endpoints AS MATERIALIZED (
   SELECT e.* FROM kb.pdf_record_endpoint e JOIN published p ON e.product_id=p.build_id AND e.revision_id=p.build_id
   JOIN related r USING(relation_id)
+ ), pages AS MATERIALIZED (
+  SELECT DISTINCT (o.body->>'page_no')::bigint AS page_no FROM selected o
+  WHERE o.body->>'page_no' ~ '^[0-9]+$'
+  UNION
+  SELECT DISTINCT (prov->>'page_no')::bigint FROM access a
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(a.native_json->'prov','[]')) prov
+  WHERE a.pointer=ANY(p_pointers) AND prov->>'page_no' ~ '^[0-9]+$'
  ), covered AS MATERIALIZED (
   SELECT c.* FROM kb.pdf_record_companion c JOIN published p ON c.product_id=p.build_id AND c.revision_id=p.build_id
-  WHERE c.family='coverage' AND (c.body->>'scope' IN ('whole_document',p_section||':direct',p_section||':descendants')
-   OR c.body->>'scope' IN (SELECT 'page:'||(o.body->>'page_no') FROM selected o UNION ALL
-      SELECT 'pages:'||(o.body->>'page_no')||'-'||(o.body->>'page_no') FROM selected o))
+  WHERE c.family='coverage' AND (c.body->>'scope'='whole_document'
+   OR c.body->>'scope' IN (SELECT pointer||':'||membership FROM scope_pointers
+    CROSS JOIN (VALUES('direct'),('descendants')) m(membership))
+   OR c.body->>'scope' IN (SELECT 'page:'||page_no::text FROM pages)
+   OR CASE WHEN c.body->>'scope' ~ '^pages:[0-9]+-[0-9]+$' THEN EXISTS(
+    SELECT FROM pages WHERE page_no BETWEEN
+     split_part(split_part(c.body->>'scope',':',2),'-',1)::bigint AND
+     split_part(split_part(c.body->>'scope',':',2),'-',2)::bigint) ELSE false END)
  ), inputs AS MATERIALIZED (
   SELECT c.* FROM kb.pdf_record_companion c JOIN published p ON c.product_id=p.build_id AND c.revision_id=p.build_id
   WHERE c.family='input' AND (EXISTS(SELECT FROM endpoints e WHERE e.role<>'output' AND

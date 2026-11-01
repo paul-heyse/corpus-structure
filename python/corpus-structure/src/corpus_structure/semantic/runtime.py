@@ -67,8 +67,8 @@ def open_runtime_engine(
     application_name: str = "ci",
     *,
     purpose: Purpose,
-    timeout: float = 30.0,
-    max_size: int = 4,
+    timeout: float | None = None,
+    max_size: int | None = None,
 ) -> Generator[Engine]:
     """One psycopg pool; SQLAlchemy uses the store's NullPool adapter."""
     from corpus_structure.core.db.store import open_store
@@ -76,12 +76,21 @@ def open_runtime_engine(
     with open_store(
         connection_settings(settings, purpose), application_name, timeout=timeout, max_size=max_size
     ) as store:
-        if purpose != "maintenance":
-            with store.engine.connect() as conn:
-                conn.execute(
-                    text("SELECT data.require_runtime_principal(:purpose)"), {"purpose": purpose}
-                )
-        yield store.engine
+        try:
+            if purpose != "maintenance":
+                with store.engine.connect() as conn:
+                    conn.execute(
+                        text("SELECT data.require_runtime_principal(:purpose)"),
+                        {"purpose": purpose},
+                    )
+            yield store.engine
+        except BaseException as error:
+            from corpus_structure.core.db.store import operation_failure
+
+            error.__dict__["database_diagnostic"] = store.diagnostic(
+                operation_failure(error).failure
+            )
+            raise
 
 
 def resolve_source_binding(

@@ -16,6 +16,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection, select
+from sqlalchemy.sql.elements import ColumnElement
 
 from .metadata import table
 
@@ -249,7 +250,7 @@ def native_descendant_pointers(
     return select(members.c.pointer)
 
 
-def selected_native_ancestry(run_id: int):
+def selected_native_ancestry(run_id: int | ColumnElement[int]):
     """Selected products and every direct qualified input, using indexed immutable edges."""
     views, selected, edges = map(
         table, ("kb.source_view", "ops.run_source_view", "ops.pdf_product_input")
@@ -1013,7 +1014,7 @@ def integrated_source_context(
         identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
         if identity["kind"] == "native":
             return None
-        return record_reader.source_context(pointers, section_pointer)
+        return record_reader.source_context(pointers, section_pointer, membership=membership)
     identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
     if identity["kind"] == "native":
         return None

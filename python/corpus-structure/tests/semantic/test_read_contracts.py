@@ -87,7 +87,7 @@ def test_actual_fastmcp_dispatch_keeps_context_schema_and_database_classificatio
             refused = await client.call_tool("guarded", {"number": 0}, raise_on_error=False)
             transient = await client.call_tool("guarded", {"number": -1}, raise_on_error=False)
             assert refused.is_error and "unsupported" in str(refused.content)
-            assert transient.is_error and "database_retry" in str(transient.content)
+            assert transient.is_error and "database_serialization" in str(transient.content)
 
     anyio.run(journey)
 
@@ -111,7 +111,7 @@ def test_cli_database_failure_is_not_semantic_refusal():
 
     result = CliRunner().invoke(app, [])
     assert result.exit_code == 1
-    assert json.loads(result.stdout)["error"]["code"] == "database_retry"
+    assert json.loads(result.stdout)["error"]["code"] == "database_serialization"
 
 
 def test_native_cut_family_universe_and_document_lifting(
@@ -188,3 +188,44 @@ def test_native_cut_family_universe_and_document_lifting(
         )
         outside = session.required_coverage(run, family, "documents", [document + 999])
         assert outside.diagnostic and not outside.established_by((witness("*", family=family),))
+
+
+def test_cli_adbc_failure_reports_native_fields_and_preserves_programming_defects():
+    import json
+
+    import adbc_driver_manager as adbc
+    import typer
+    from typer.testing import CliRunner
+
+    from corpus_structure.cli.failures import failure_boundary
+
+    app = typer.Typer()
+    native = adbc.OperationalError(
+        "SECRET SQL",
+        status_code=adbc.AdbcStatusCode.IO,
+        details=[
+            ("PG_DIAG_TABLE_NAME", b"observed_table"),
+            ("PG_DIAG_INTERNAL_QUERY", b"SECRET QUERY"),
+        ],
+    )
+    native.vendor_code = 91
+
+    @app.command()
+    def command():
+        with failure_boundary(True, expected=(ValueError,)):
+            raise native
+
+    result = CliRunner().invoke(app, [])
+    assert result.exit_code == 1
+    error = json.loads(result.stdout)["error"]
+    assert error["code"] == "database_io"
+    assert error["failure"]["native_status"] == "IO"
+    assert error["failure"]["vendor_code"] == 91
+    assert error["failure"]["sqlstate"] is None
+    assert error["failure"]["effects"] == "uncertain"
+    assert error["failure"]["details"] == [["table_name", "observed_table"]]
+    assert "SECRET" not in result.stdout
+    programming_defect = TypeError("unexpected programming defect")
+    with pytest.raises(TypeError) as caught, failure_boundary(True, expected=(ValueError,)):
+        raise programming_defect
+    assert caught.value is programming_defect

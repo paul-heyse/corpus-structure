@@ -2,8 +2,11 @@
 
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import cast
+from unittest.mock import MagicMock
 
+import psycopg
 import pyarrow as pa
 import pytest
 from sqlalchemy import Engine
@@ -36,11 +39,20 @@ class Transactions:
     active = 0
     commits = 0
 
+    def __init__(self):
+        self.driver = MagicMock(spec=psycopg.Connection)
+        self.driver.info.transaction_status = psycopg.pq.TransactionStatus.IDLE
+        self.connection = SimpleNamespace(driver_connection=self.driver)
+
+    @contextmanager
+    def connect(self):
+        yield self
+
     @contextmanager
     def begin(self):
         self.active += 1
         try:
-            yield object()
+            yield self
         except BaseException:
             raise
         else:
@@ -70,7 +82,9 @@ def test_private_parent_owns_transactions_and_settles_producer(monkeypatch, fail
         assert kwargs["attempt"] == 1 and kwargs["source_digest"] == "a" * 64
         return build
 
-    def adopt(connection, actual, key, relations):
+    def adopt(connection, actual, key, relations, *, cancellation):
+        assert cancellation is not None
+        assert cancellation._driver is engine.driver
         assert engine.active == 1 and actual is build and key == "batch-1"
         assert next(iter(relations["native"])).column(0).to_pylist() == [7]
         return pdf_staging.PdfStageReceipt("b", key, "d" * 64, 1)
@@ -179,6 +193,7 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypat
 
         def stream(self, *args, **kwargs):
             assert active[0] and engine.active == 0
+            return SimpleNamespace(conversion_status="success", errors=())
 
         def close(self):
             assert active[0]
@@ -189,6 +204,14 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypat
     monkeypatch.setattr(pdf_worker, "PdfWorker", Worker)
     monkeypatch.setattr(pdf_staging, "begin_pdf_build", lambda *args, **kwargs: build)
     monkeypatch.setattr(contracts, "require_database_operation", lambda *args: None)
+    from corpus_structure.semantic import pdf_publication
+
+    def adopt_health(connection, actual, family, records, *, replay_key, cancellation):
+        assert engine.active == 1 and family == "health" and actual is build
+        assert cancellation._driver is engine.driver
+        assert next(iter(records))["conversion"] == "success"
+
+    monkeypatch.setattr(pdf_publication, "adopt_pdf_companion_batch", adopt_health)
     from corpus_structure.ingest.pdf import PdfRecipe
 
     recipe = PdfRecipe("a" * 40, "b" * 40, recipe_id="docling-standard-pdf-stream-v1")
@@ -208,3 +231,41 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(monkeypat
         is build
     )
     assert events == ["worker_closed", "source_closed", "claim_closed"]
+
+
+def test_pdf_transaction_owns_handle_until_commit_and_returns_it_afterward():
+    from corpus_structure.core.db.lifetime import BorrowerCancellation
+
+    engine = Transactions()
+    cancellation = BorrowerCancellation()
+    original_begin = engine.begin
+
+    @contextmanager
+    def during_commit():
+        with original_begin() as connection:
+            yield connection
+            cancellation.request_cancel()
+
+    engine.begin = during_commit
+    with execution._pdf_transaction(cast(Engine, engine), cancellation):
+        pass
+    assert engine.commits == 1
+    engine.driver.cancel_safe.assert_called_once()
+    cancellation.request_cancel()
+    engine.driver.cancel_safe.assert_called_once()
+
+
+def test_pdf_transaction_cancellation_before_commit_rolls_back_and_clears_handle():
+    from corpus_structure.core.db.lifetime import BorrowerCancellation, DatabaseOperationCancelled
+
+    engine = Transactions()
+    cancellation = BorrowerCancellation()
+    with (
+        pytest.raises(DatabaseOperationCancelled),
+        execution._pdf_transaction(cast(Engine, engine), cancellation),
+    ):
+        cancellation.request_cancel()
+    assert engine.commits == 0 and engine.active == 0
+    engine.driver.cancel_safe.assert_called_once()
+    cancellation.request_cancel()
+    engine.driver.cancel_safe.assert_called_once()

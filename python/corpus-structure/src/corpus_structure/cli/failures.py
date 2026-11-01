@@ -10,10 +10,13 @@ from typing import Any
 
 import typer
 from pydantic import ValidationError
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.cli.output import stderr_console
-from corpus_structure.semantic.refusals import SemanticRefusal, database_failure_code
+from corpus_structure.semantic.refusals import (
+    DATABASE_ERRORS,
+    SemanticRefusal,
+    database_failure_report,
+)
 
 
 @contextmanager
@@ -21,14 +24,30 @@ def failure_boundary(json: bool, *, expected: tuple[type[Exception], ...] = ()) 
     """Report deliberate failures; programming errors and cancellation retain their identity."""
     try:
         yield
-    except DBAPIError as error:
-        code = database_failure_code(error)
+    except DATABASE_ERRORS as error:
+        detail = database_failure_report(error)
         if json:
-            typer.echo(
-                jsonlib.dumps({"error": {"code": code, "message": "database operation failed"}})
-            )
+            typer.echo(jsonlib.dumps({"error": detail}))
         else:
-            stderr_console().print(f"{code}: database operation failed")
+            failure = detail["failure"]
+            stderr_console().print(
+                f"{detail['code']}: database operation failed "
+                f"(phase={failure['phase']}, effects={failure['effects']}, "
+                f"action={detail['remediation']})"
+            )
+            native = {
+                key: failure[key]
+                for key in ("sqlstate", "native_status", "vendor_code", "details")
+                if failure[key] is not None and failure[key] != ()
+            }
+            if native:
+                stderr_console().print(f"native={native}")
+            if "database" in detail:
+                database = detail["database"]
+                stderr_console().print(
+                    f"pool={database['lifecycle']}, stats={database['pool_stats']} "
+                    f"(usage_scope={database['usage_scope']})"
+                )
         raise typer.Exit(1) from error
     except (SemanticRefusal, ValidationError, *expected) as error:
         from corpus_structure.semantic.types import PreparationError

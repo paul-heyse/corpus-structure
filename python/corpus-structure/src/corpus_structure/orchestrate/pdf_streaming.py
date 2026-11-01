@@ -8,14 +8,15 @@ transactions own database connections; no connection enters native computation.
 from __future__ import annotations
 
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
-from contextlib import AbstractContextManager, ExitStack
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 import pyarrow as pa
-from sqlalchemy import Engine
+from sqlalchemy import Connection, Engine
 
+from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.claim_lifetime import maintained_claims
 from corpus_structure.semantic.operation_results import ClaimedTask
 
@@ -44,6 +45,14 @@ class PrivatePdfProducer(Protocol):
     ) -> AbstractContextManager[Iterator[PdfStageBatch]]: ...
 
 
+@contextmanager
+def _pdf_transaction(engine: Engine, cancellation: BorrowerCancellation) -> Generator[Connection]:
+    """Retain this operation's cancellation handle through its owned transaction settlement."""
+    with engine.connect() as connection, cancellation.borrow(connection), connection.begin():
+        yield connection
+        cancellation.check_active()
+
+
 def run_private_pdf_build(
     engine: Engine,
     claim: ClaimedTask,
@@ -55,6 +64,7 @@ def run_private_pdf_build(
     replay_key: str,
     producer: PrivatePdfProducer,
     on_adopted: Callable[[PdfStageReceipt], None] | None = None,
+    cancellation: BorrowerCancellation | None = None,
 ) -> PdfBuildRef:
     """Adopt bounded producer batches under existing fences, leaving the build private.
 
@@ -64,9 +74,15 @@ def run_private_pdf_build(
     """
     from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, begin_pdf_build
 
-    with maintained_claims(engine, [claim], holder) as check_active:
+    cancellation = cancellation or BorrowerCancellation()
+    with maintained_claims(engine, [claim], holder) as check_claim_active:
+
+        def check_active():
+            cancellation.check_active()
+            check_claim_active()
+
         check_active()
-        with engine.begin() as connection:
+        with _pdf_transaction(engine, cancellation) as connection:
             build = begin_pdf_build(
                 connection,
                 task_id=claim.task_id,
@@ -87,9 +103,13 @@ def run_private_pdf_build(
                     for relation in batch.relations.values():
                         if isinstance(relation, pa.RecordBatchReader):
                             readers.callback(relation.close)
-                    with engine.begin() as connection:
+                    with _pdf_transaction(engine, cancellation) as connection:
                         receipt = adopt_pdf_batch(
-                            connection, build, batch.replay_key, batch.relations
+                            connection,
+                            build,
+                            batch.replay_key,
+                            batch.relations,
+                            cancellation=cancellation,
                         )
                 if on_adopted is not None:
                     on_adopted(receipt)
@@ -134,6 +154,7 @@ def run_private_native_pdf_build(
     structural_pin: dict[str, Any] | None = None,
     integration_policy: dict[str, Any] | None = None,
     on_adopted: Callable[[PdfStageReceipt], None] | None = None,
+    cancellation: BorrowerCancellation | None = None,
 ) -> PdfBuildRef:
     """Run the actual finite native worker into protected private record custody.
 
@@ -150,6 +171,7 @@ def run_private_native_pdf_build(
         begin_pdf_build,
     )
 
+    cancellation = cancellation or BorrowerCancellation()
     if recipe.recipe_id != "docling-standard-pdf-stream-v1":
         raise ValueError("private streaming requires its explicitly retained stream recipe")
     # Original/recipe custody must precede this entry; begin checks it natively.
@@ -159,10 +181,15 @@ def run_private_native_pdf_build(
     entered = False
     try:
         worker = PdfWorker(recipe, assets=assets)
-        with maintained_claims(engine, [claim], holder) as check_active:
+        with maintained_claims(engine, [claim], holder) as check_claim_active:
+
+            def check_active():
+                cancellation.check_active()
+                check_claim_active()
+
             entered = True
             try:
-                with engine.begin() as connection:
+                with _pdf_transaction(engine, cancellation) as connection:
                     build = begin_pdf_build(
                         connection,
                         task_id=claim.task_id,
@@ -236,12 +263,13 @@ def run_private_native_pdf_build(
                                 )
                             ):
                                 check_active()
-                                with engine.begin() as connection:
+                                with _pdf_transaction(engine, cancellation) as connection:
                                     receipt = adopt_pdf_batch(
                                         connection,
                                         build,
                                         f"page:{number}:{suffix}:{artifact.digest}:{index}",
                                         {family: (batch,)},
+                                        cancellation=cancellation,
                                     )
                                 if on_adopted is not None:
                                     on_adopted(receipt)
@@ -252,7 +280,7 @@ def run_private_native_pdf_build(
 
                             with candidates.open() as candidate_file:
                                 candidate_value = json.load(candidate_file)
-                            with engine.begin() as connection:
+                            with _pdf_transaction(engine, cancellation) as connection:
                                 adopt_pdf_companion_batch(
                                     connection,
                                     build,
@@ -265,6 +293,7 @@ def run_private_native_pdf_build(
                                         },
                                     ),
                                     replay_key=f"page:{number}:candidate-metadata",
+                                    cancellation=cancellation,
                                 )
                         return
                     if replay.family == "companion:occurrence":
@@ -289,7 +318,7 @@ def run_private_native_pdf_build(
                                     for body in batch.column("body"):
                                         yield json.loads(body.as_py())
 
-                                with engine.begin() as connection:
+                                with _pdf_transaction(engine, cancellation) as connection:
                                     adopt_pdf_companion_batch(
                                         connection,
                                         build,
@@ -297,6 +326,7 @@ def run_private_native_pdf_build(
                                         occurrences(),
                                         replay_key=f"ipc-companion:{replay.digest}:{ordinal}",
                                         start_ordinal=batch.column("ordinal")[0].as_py(),
+                                        cancellation=cancellation,
                                     )
                         return
                     if replay.family not in STAGE_FAMILIES:
@@ -304,9 +334,13 @@ def run_private_native_pdf_build(
                     batches = ipc_replay_batches([replay], check_active)
                     try:
                         for batch in batches:
-                            with engine.begin() as connection:
+                            with _pdf_transaction(engine, cancellation) as connection:
                                 receipt = adopt_pdf_batch(
-                                    connection, build, batch.replay_key, batch.relations
+                                    connection,
+                                    build,
+                                    batch.replay_key,
+                                    batch.relations,
+                                    cancellation=cancellation,
                                 )
                             if on_adopted is not None:
                                 on_adopted(receipt)
@@ -334,7 +368,7 @@ def run_private_native_pdf_build(
                     )
                 from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
 
-                with engine.begin() as connection:
+                with _pdf_transaction(engine, cancellation) as connection:
                     adopt_pdf_companion_batch(
                         connection,
                         build,
@@ -350,6 +384,7 @@ def run_private_native_pdf_build(
                             },
                         ),
                         replay_key="native:health",
+                        cancellation=cancellation,
                     )
                 import json
 
@@ -363,7 +398,7 @@ def run_private_native_pdf_build(
                             body = {"pointer": value["item_ref"], "outcome": value["outcome"]}
                             if value.get("error"):
                                 body["error"] = value["error"]
-                            with engine.begin() as connection:
+                            with _pdf_transaction(engine, cancellation) as connection:
                                 adopt_pdf_companion_batch(
                                     connection,
                                     build,
@@ -376,6 +411,7 @@ def run_private_native_pdf_build(
                                         },
                                     ),
                                     replay_key=f"native:formula:{ordinal}",
+                                    cancellation=cancellation,
                                 )
                 check_active()
             finally:
@@ -398,24 +434,35 @@ def replay_private_pdf_build(
     replays: Iterable[PdfReplayRef],
     *,
     on_adopted: Callable[[PdfStageReceipt], None] | None = None,
+    cancellation: BorrowerCancellation | None = None,
 ) -> PdfBuildRef:
     """Explicitly resume exact durable IPC output without invoking recognition again."""
     from corpus_structure.semantic.contracts import require_database_operation
     from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, resume_pdf_build
 
+    cancellation = cancellation or BorrowerCancellation()
     if build.task_id != claim.task_id or build.release_id != claim.release_id:
         raise ValueError("private PDF replay task/release differs from original build")
-    with maintained_claims(engine, [claim], holder) as check_active:
-        with engine.begin() as connection:
+    with maintained_claims(engine, [claim], holder) as check_claim_active:
+
+        def check_active():
+            cancellation.check_active()
+            check_claim_active()
+
+        with _pdf_transaction(engine, cancellation) as connection:
             require_database_operation(connection, build.release_id, "stage_pdf_producer")
             resumed = resume_pdf_build(connection, build, attempt=claim.attempt, holder=holder)
         batches = ipc_replay_batches(replays, check_active)
         try:
             for batch in batches:
                 check_active()
-                with engine.begin() as connection:
+                with _pdf_transaction(engine, cancellation) as connection:
                     receipt = adopt_pdf_batch(
-                        connection, resumed, batch.replay_key, batch.relations
+                        connection,
+                        resumed,
+                        batch.replay_key,
+                        batch.relations,
+                        cancellation=cancellation,
                     )
                 if on_adopted is not None:
                     on_adopted(receipt)
@@ -433,6 +480,7 @@ def publish_pdf_record_draft(
     *,
     directory: Path,
     check_active: Callable[[], None],
+    cancellation: BorrowerCancellation | None = None,
 ) -> PublishedPdfDocumentRef:
     """Publish the actual method result through private rows and frozen validation.
 
@@ -461,11 +509,18 @@ def publish_pdf_record_draft(
         resume_pdf_build,
     )
 
+    cancellation = cancellation or BorrowerCancellation()
+    authority_check = check_active
+
+    def check_active():
+        cancellation.check_active()
+        authority_check()
+
     check_active()
     source_digest = sha256(draft.original).hexdigest()
     recipe_digest = sha256(draft.recipe_bytes).hexdigest()
     schema_digest = sha256(draft.schema_bytes).hexdigest()
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         retain_pdf_stage_recipe(
             connection,
             task_id=claim.task_id,
@@ -520,8 +575,14 @@ def publish_pdf_record_draft(
         try:
             for batch in batches:
                 check_active()
-                with engine.begin() as connection:
-                    adopt_pdf_batch(connection, build, batch.replay_key, batch.relations)
+                with _pdf_transaction(engine, cancellation) as connection:
+                    adopt_pdf_batch(
+                        connection,
+                        build,
+                        batch.replay_key,
+                        batch.relations,
+                        cancellation=cancellation,
+                    )
         finally:
             batches.close()
 
@@ -591,7 +652,7 @@ def publish_pdf_record_draft(
             if not pending:
                 return
             check_active()
-            with engine.begin() as connection:
+            with _pdf_transaction(engine, cancellation) as connection:
                 adopt_pdf_companion_batch(
                     connection,
                     build,
@@ -599,6 +660,7 @@ def publish_pdf_record_draft(
                     pending,
                     replay_key=f"companion:{family}:{ordinal}",
                     start_ordinal=delivered,
+                    cancellation=cancellation,
                 )
             ordinal += 1
             delivered += len(pending)
@@ -613,15 +675,17 @@ def publish_pdf_record_draft(
             size += row_size
         flush()
     if draft.retained_serialization is not None:
-        _adopt_retained_serialization(engine, build, draft.retained_serialization, check_active)
+        _adopt_retained_serialization(
+            engine, build, draft.retained_serialization, check_active, cancellation=cancellation
+        )
     check_active()
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         frozen = freeze_pdf_build(connection, build, kind=draft.kind)
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         prepare_pdf_build(connection, frozen)
-    validate_pdf_build(engine, frozen, check_active=check_active)
+    validate_pdf_build(engine, frozen, check_active=check_active, cancellation=cancellation)
     check_active()
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         return seal_pdf_build(connection, frozen, product_key=draft.product_key)
 
 
@@ -633,6 +697,7 @@ def produce_published_pdf_records(
     *,
     directory: Path,
     check_active: Callable[[], None],
+    cancellation: BorrowerCancellation | None = None,
 ) -> PublishedPdfDocumentRef:
     """Actual finite page producer followed by frozen publication, never graph IPC."""
     from dataclasses import replace
@@ -649,12 +714,19 @@ def produce_published_pdf_records(
     )
     from corpus_structure.semantic.pdf_staging import resume_pdf_build
 
+    cancellation = cancellation or BorrowerCancellation()
+    authority_check = check_active
+
+    def check_active():
+        cancellation.check_active()
+        authority_check()
+
     source_digest = sha256(request.original).hexdigest()
     recipe_digest = request.recipe.digest
     schema_digest = sha256(request.schema_bytes).hexdigest()
     frozen = None
     check_active()
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         existing = inspect_pdf_build(
             connection,
             task_id=claim.task_id,
@@ -685,7 +757,7 @@ def produce_published_pdf_records(
             recipe_bytes=request.recipe.to_bytes(),
         )
     if frozen is not None:
-        return _finish_frozen_pdf(engine, frozen, "native", check_active)
+        return _finish_frozen_pdf(engine, frozen, "native", check_active, cancellation=cancellation)
     directory = directory / uuid4().hex
     directory.mkdir(parents=True)
     original = directory / "submitted.pdf"
@@ -702,15 +774,16 @@ def produce_published_pdf_records(
         source_digest=sha256(request.original).hexdigest(),
         schema_digest=sha256(request.schema_bytes).hexdigest(),
         replay_key="product:native",
+        cancellation=cancellation,
     )
     check_active()
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         frozen = freeze_pdf_build(connection, build, kind="native")
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         prepare_pdf_build(connection, frozen)
-    validate_pdf_build(engine, frozen, check_active=check_active)
+    validate_pdf_build(engine, frozen, check_active=check_active, cancellation=cancellation)
     check_active()
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         return seal_pdf_build(connection, frozen, product_key="native")
 
 
@@ -727,6 +800,7 @@ def migrate_retained_pdf_envelope(
     directory: Path,
     kind: Literal["native", "integrated"],
     product_key: str = "integrated",
+    cancellation: BorrowerCancellation | None = None,
 ) -> PublishedPdfDocumentRef:
     """Explicit qualified storage derivation; never repeats source inference.
 
@@ -739,10 +813,11 @@ def migrate_retained_pdf_envelope(
 
     from corpus_structure.ingest.pdf_retained_stream import retained_pdf_draft
 
+    cancellation = cancellation or BorrowerCancellation()
     owner = directory / uuid4().hex
     owner.mkdir(parents=True)
     with (
-        maintained_claims(engine, [claim], holder) as check_active,
+        maintained_claims(engine, [claim], holder) as check_claim_active,
         retained_pdf_draft(
             path,
             expected_sha256=expected_sha256,
@@ -754,6 +829,11 @@ def migrate_retained_pdf_envelope(
             kind=kind,
         ) as draft,
     ):
+
+        def check_active():
+            cancellation.check_active()
+            check_claim_active()
+
         return publish_pdf_record_draft(
             engine,
             claim,
@@ -761,15 +841,25 @@ def migrate_retained_pdf_envelope(
             draft,
             directory=owner / "publication",
             check_active=check_active,
+            cancellation=cancellation,
         )
 
 
-def _adopt_retained_serialization(engine, build, retained, check_active):
+def _adopt_retained_serialization(
+    engine, build, retained, check_active, *, cancellation: BorrowerCancellation | None = None
+):
     import gzip
     from hashlib import sha256
 
     from corpus_structure.semantic.pdf_record_identity import IdentityFold, emit_parts
     from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, stage_schema
+
+    cancellation = cancellation or BorrowerCancellation()
+    authority_check = check_active
+
+    def check_active():
+        cancellation.check_active()
+        authority_check()
 
     stream_id = "retained/envelope"
     common = {"product_id": build.build_id, "revision_id": build.build_id, "stream_id": stream_id}
@@ -799,7 +889,7 @@ def _adopt_retained_serialization(engine, build, retained, check_active):
             )
             if len(pending) == 64:
                 check_active()
-                with engine.begin() as connection:
+                with _pdf_transaction(engine, cancellation) as connection:
                     adopt_pdf_batch(
                         connection,
                         build,
@@ -811,11 +901,12 @@ def _adopt_retained_serialization(engine, build, retained, check_active):
                                 ),
                             ),
                         },
+                        cancellation=cancellation,
                     )
                 index += 1
                 pending.clear()
         if pending:
-            with engine.begin() as connection:
+            with _pdf_transaction(engine, cancellation) as connection:
                 adopt_pdf_batch(
                     connection,
                     build,
@@ -827,6 +918,7 @@ def _adopt_retained_serialization(engine, build, retained, check_active):
                             ),
                         ),
                     },
+                    cancellation=cancellation,
                 )
     if digest.hexdigest() != retained.serialization_sha256:
         raise ValueError("retained bytes changed during storage adoption")
@@ -838,7 +930,7 @@ def _adopt_retained_serialization(engine, build, retained, check_active):
         "serialization_sha256": digest.hexdigest(),
         "encoding_profile": "retained-pdf-envelope-json-v1",
     }
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         adopt_pdf_batch(
             connection,
             build,
@@ -848,6 +940,7 @@ def _adopt_retained_serialization(engine, build, retained, check_active):
                     pa.RecordBatch.from_pylist([row], schema=stage_schema("artifact_stream")),
                 ),
             },
+            cancellation=cancellation,
         )
 
 
@@ -886,6 +979,8 @@ def _finish_frozen_pdf(
     frozen: FrozenPdfBuildRef,
     product_key: str,
     check_active: Callable[[], None],
+    *,
+    cancellation: BorrowerCancellation | None = None,
 ) -> PublishedPdfDocumentRef:
     from corpus_structure.semantic.pdf_publication import (
         prepare_pdf_build,
@@ -893,12 +988,19 @@ def _finish_frozen_pdf(
         validate_pdf_build,
     )
 
+    cancellation = cancellation or BorrowerCancellation()
+    authority_check = check_active
+
+    def check_active():
+        cancellation.check_active()
+        authority_check()
+
     check_active()
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         prepare_pdf_build(connection, frozen)
-    validate_pdf_build(engine, frozen, check_active=check_active)
+    validate_pdf_build(engine, frozen, check_active=check_active, cancellation=cancellation)
     check_active()
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         return seal_pdf_build(connection, frozen, product_key=product_key)
 
 
@@ -913,6 +1015,7 @@ def resume_pdf_publication(
     schema_digest: str,
     kind: Literal["native", "integrated"],
     check_active: Callable[[], None],
+    cancellation: BorrowerCancellation | None = None,
 ) -> PublishedPdfDocumentRef:
     """Explicit recovery over the same frozen union; accepts no replacement draft."""
     from dataclasses import replace
@@ -920,8 +1023,15 @@ def resume_pdf_publication(
     from corpus_structure.semantic.pdf_publication import inspect_pdf_build
     from corpus_structure.semantic.pdf_staging import resume_pdf_build
 
+    cancellation = cancellation or BorrowerCancellation()
+    authority_check = check_active
+
+    def check_active():
+        cancellation.check_active()
+        authority_check()
+
     check_active()
-    with engine.begin() as connection:
+    with _pdf_transaction(engine, cancellation) as connection:
         state = inspect_pdf_build(
             connection,
             task_id=claim.task_id,
@@ -940,4 +1050,4 @@ def resume_pdf_publication(
         if build.attempt != claim.attempt or build.holder != holder:
             build = resume_pdf_build(connection, build, attempt=claim.attempt, holder=holder)
         frozen = replace(state.frozen, build=build)
-    return _finish_frozen_pdf(engine, frozen, product_key, check_active)
+    return _finish_frozen_pdf(engine, frozen, product_key, check_active, cancellation=cancellation)

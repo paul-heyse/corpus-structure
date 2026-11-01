@@ -46,13 +46,44 @@ def test_an_extension_at_another_version_fails_startup_with_the_typed_error(
 
 def test_errors_are_classified(db: Any) -> None:
     deadlock = psycopg.errors.DeadlockDetected("deadlock")
-    assert store.classify_error(deadlock) is store.ErrorClass.RETRY
+    assert store.classify_error(deadlock).cause is store.DatabaseCause.DEADLOCK
     with pytest.raises(DBAPIError) as err, db.begin_nested():
         db.execute(text("SELECT 1/0"))
-    assert store.classify_error(err.value) is store.ErrorClass.DEFECT
+    assert store.classify_error(err.value).cause is store.DatabaseCause.UNKNOWN
     with pytest.raises(IntegrityError) as dup, db.begin_nested():
         db.execute(
             text("CREATE TEMP TABLE t (x int CONSTRAINT uq_observation_task_id_ordinal UNIQUE)")
         )
         db.execute(text("INSERT INTO t VALUES (1), (1)"))
-    assert store.classify_error(dup.value) is store.ErrorClass.FENCING
+    assert store.classify_error(dup.value).cause is store.DatabaseCause.FENCING
+
+
+def test_notice_callback_copies_selected_fields_while_valid(db_engine, caplog):
+    import logging
+
+    with (
+        store.open_store(settings_for(db_engine), "test-store-notice") as opened,
+        caplog.at_level(logging.INFO, logger="corpus_structure.database"),
+        opened.engine.begin() as conn,
+    ):
+        conn.execute(
+            text("""DO $$ BEGIN
+            RAISE NOTICE 'operator notice' USING ERRCODE='01000',
+            HINT='bounded hint', CONSTRAINT='notice_constraint',
+            TABLE='notice_table', COLUMN='notice_column', SCHEMA='public';
+            END $$""")
+        )
+    notices = [
+        record.database_notice for record in caplog.records if hasattr(record, "database_notice")
+    ]
+    assert notices == [
+        {
+            "sqlstate": "01000",
+            "message_primary": "operator notice",
+            "message_hint": "bounded hint",
+            "constraint_name": "notice_constraint",
+            "table_name": "notice_table",
+            "column_name": "notice_column",
+            "schema_name": "public",
+        }
+    ]

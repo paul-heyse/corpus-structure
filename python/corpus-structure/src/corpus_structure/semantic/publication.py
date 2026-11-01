@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict, astuple, dataclass, field, fields
+from contextlib import nullcontext
+from dataclasses import asdict, astuple, dataclass, field, fields, replace
 from decimal import Decimal
 from hashlib import sha256
 from typing import Any, Protocol
@@ -18,7 +19,17 @@ from psycopg import sql
 from psycopg.types.json import Jsonb
 from sqlalchemy import Connection, Engine, text
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.exc import DBAPIError
+
+from corpus_structure.core.db.lifetime import BorrowerCancellation
+from corpus_structure.core.db.store import (
+    RETRYABLE,
+    DatabaseCause,
+    DatabaseOperationFailure,
+    DatabasePhase,
+    EffectKnowledge,
+    classify_error,
+    record_operation_failure,
+)
 
 from .identity import canonical_bytes
 from .metadata import table
@@ -563,7 +574,12 @@ def admit_release(prepared: PreparedRelease, *, connection: Connection | None = 
         raise ValueError("release contains unresolved or unchecked required semantics")
 
 
-def stage_batch(connection: Connection, batch: PublicationBatch) -> None:
+def stage_batch(
+    connection: Connection,
+    batch: PublicationBatch,
+    *,
+    cancellation: BorrowerCancellation | None = None,
+) -> None:
     """COPY fixed typed rows on the driver's *same* SQLAlchemy-owned connection."""
     connection.execute(text("SELECT data.begin_stage()"))
     driver = connection.connection.driver_connection
@@ -571,6 +587,8 @@ def stage_batch(connection: Connection, batch: PublicationBatch) -> None:
         raise TypeError("publication requires the existing psycopg-backed SQLAlchemy engine")
     with driver.cursor() as cursor:
         for name, (row_type, types) in STAGE_TYPES.items():
+            if cancellation is not None:
+                cancellation.check_active()
             columns = tuple(f.name for f in fields(row_type))
             statement = sql.SQL("COPY {} ({}) FROM STDIN").format(
                 sql.Identifier("pg_temp", "sp_" + name),
@@ -579,18 +597,28 @@ def stage_batch(connection: Connection, batch: PublicationBatch) -> None:
             with cursor.copy(statement) as copy:
                 copy.set_types(types)
                 for row in getattr(batch, name):
+                    if cancellation is not None:
+                        cancellation.check_active()
                     values = astuple(row)
                     if name == "typed_value" and values[-1] is not None:
                         values = (*values[:-1], Jsonb(values[-1]))
                     copy.write_row(values)
 
 
-def publish_on_connection(connection: Connection, batch: PublicationBatch) -> PublicationReceipt:
+def publish_on_connection(
+    connection: Connection,
+    batch: PublicationBatch,
+    *,
+    cancellation: BorrowerCancellation | None = None,
+) -> PublicationReceipt:
     """Stage and validate inside an already SERIALIZABLE transaction; never commit it."""
     from .contracts import require_database_operation
 
     require_database_operation(connection, batch.release_id, "publish")
-    stage_batch(connection, batch)
+    if cancellation is None:
+        stage_batch(connection, batch)
+    else:
+        stage_batch(connection, batch, cancellation=cancellation)
     revision = connection.execute(
         text("SELECT data.publish_batch(:release,:realization,:batch,:content)"),
         {
@@ -620,10 +648,18 @@ def lookup_receipt(engine: Engine, batch: PublicationInput) -> PublicationReceip
 
 
 def publish_batch(
-    engine: Engine, batch: PublicationBatch, *, attempts: int = 3
+    engine: Engine,
+    batch: PublicationBatch,
+    *,
+    attempts: int = 3,
+    cancellation: BorrowerCancellation | None = None,
 ) -> PublicationReceipt:
     """Retry a whole immutable batch; resolve ambiguous commits using the same identity."""
-    return _publish(engine, batch, publish_on_connection, attempts=attempts)
+
+    def publish(connection, candidate):
+        return publish_on_connection(connection, candidate, cancellation=cancellation)
+
+    return _publish(engine, batch, publish, attempts=attempts, cancellation=cancellation)
 
 
 def _publish(
@@ -632,30 +668,154 @@ def _publish(
     publish: Callable[[Connection, Any], PublicationReceipt],
     *,
     attempts: int,
+    cancellation: BorrowerCancellation | None = None,
 ) -> PublicationReceipt:
-    """Single retry owner for both transports; source fencing stays inside publication."""
+    """Own phases and settled whole-transaction retry for both publication transports."""
     if isinstance(batch, PublicationBatch):
         batch.validate_preparation()
     if attempts < 1:
         raise ValueError("attempts must be positive")
     for attempt in range(attempts):
+        phase = DatabasePhase.ACQUIRING
+        effects = EffectKnowledge.NONE
+        broken = False
         try:
-            with (
-                engine.connect().execution_options(isolation_level="SERIALIZABLE") as connection,
-                connection.begin(),
-            ):
-                receipt = publish(connection, batch)
+            if cancellation is not None:
+                cancellation.check_active()
+            with engine.connect().execution_options(isolation_level="SERIALIZABLE") as connection:
+                scope = (
+                    cancellation.borrow(connection) if cancellation is not None else nullcontext()
+                )
+                with scope:
+                    driver = connection.connection.driver_connection
+                    transaction = connection.begin()
+                    try:
+                        phase = DatabasePhase.EXECUTING
+                        effects = EffectKnowledge.UNCERTAIN
+                        receipt = publish(connection, batch)
+                        if cancellation is not None:
+                            cancellation.check_active()
+                        phase = DatabasePhase.COMMITTING
+                        transaction.commit()
+                        effects = EffectKnowledge.COMMITTED
+                    except BaseException as original:
+                        broken = connection.invalidated or bool(getattr(driver, "broken", False))
+                        try:
+                            transaction.rollback()
+                            # After commit was attempted, rollback cannot establish whether
+                            # the server committed before acknowledgement was lost.
+                            if not broken and (
+                                phase != DatabasePhase.COMMITTING
+                                or classify_error(original).sqlstate in RETRYABLE
+                            ):
+                                effects = EffectKnowledge.ROLLED_BACK
+                        except BaseException as cleanup:
+                            original.add_note("database rollback failed: " + type(cleanup).__name__)
+                            try:
+                                connection.invalidate()
+                            except BaseException as invalidation:
+                                original.add_note(
+                                    "database invalidation failed: " + type(invalidation).__name__
+                                )
+                        raise
             return receipt
-        except (DBAPIError, psycopg.Error) as exc:
-            original: Any = exc.orig if isinstance(exc, DBAPIError) else exc
-            state = getattr(original, "sqlstate", None)
-            lost = (isinstance(exc, DBAPIError) and exc.connection_invalidated) or (
-                isinstance(original, psycopg.OperationalError) and state is None
+        except BaseException as error:
+            failure = classify_error(
+                error,
+                phase=phase,
+                effects=effects,
+                broken=broken,
+                cancellation_requested=cancellation is not None and cancellation.requested,
             )
-            if lost:
-                receipt = lookup_receipt(engine, batch)
+            record_operation_failure(
+                error,
+                DatabaseOperationFailure(
+                    failure,
+                    batch.batch_id,
+                    "inspect_failure",
+                    batch.release_id,
+                    batch.realization_id,
+                ),
+            )
+            # Commit-time operational loss needs identity resolution even without a native
+            # code. That is phase knowledge, not evidence of transport loss.
+            uncertain_commit = (
+                phase == DatabasePhase.COMMITTING
+                and effects == EffectKnowledge.UNCERTAIN
+                and failure.cause
+                in {
+                    DatabaseCause.CONNECTION_UNUSABLE,
+                    DatabaseCause.UNKNOWN_OPERATIONAL,
+                    DatabaseCause.UNKNOWN,
+                }
+            )
+            if uncertain_commit:
+                try:
+                    receipt = lookup_receipt(engine, batch)
+                except PublicationConflict:
+                    raise
+                except BaseException as resolution:
+                    unresolved = classify_error(
+                        resolution,
+                        phase=DatabasePhase.RESOLVING,
+                        effects=EffectKnowledge.UNCERTAIN,
+                        cancellation_requested=(
+                            failure.cancellation_requested
+                            or (cancellation is not None and cancellation.requested)
+                            or isinstance(resolution, KeyboardInterrupt)
+                        ),
+                    )
+                    context = DatabaseOperationFailure(
+                        unresolved,
+                        batch.batch_id,
+                        "resolve_original_identity",
+                        batch.release_id,
+                        batch.realization_id,
+                    )
+                    record_operation_failure(error, context)
+                    record_operation_failure(resolution, context)
+                    if not isinstance(resolution, Exception):
+                        raise
+                    raise error from resolution
                 if receipt is not None:
                     return receipt
-            if (state not in {"40001", "40P01"} and not lost) or attempt + 1 == attempts:
+            if cancellation is not None and cancellation.requested:
+                failure = replace(failure, cancellation_requested=True)
+            retryable = failure.cause in {DatabaseCause.SERIALIZATION, DatabaseCause.DEADLOCK}
+            # A known broken session can be replayed only by this immutable, fenced
+            # publication protocol, after the old borrow has left its owner scope.
+            retryable = retryable or (
+                failure.cause == DatabaseCause.CONNECTION_UNUSABLE
+                and phase != DatabasePhase.ACQUIRING
+            )
+            # Unknown exceptions at commit may require lookup, but never authorize replay.
+            if (
+                not retryable
+                or effects == EffectKnowledge.COMMITTED
+                or failure.cancellation_requested
+                or attempt + 1 == attempts
+                or not isinstance(error, Exception)
+            ):
+                remediation = (
+                    "resolve_original_identity"
+                    if uncertain_commit
+                    else (
+                        "stop_cancelled_operation"
+                        if failure.cancellation_requested
+                        else "retry_transaction"
+                        if retryable
+                        else "inspect_failure"
+                    )
+                )
+                record_operation_failure(
+                    error,
+                    DatabaseOperationFailure(
+                        failure,
+                        batch.batch_id,
+                        remediation,
+                        batch.release_id,
+                        batch.realization_id,
+                    ),
+                )
                 raise
     raise AssertionError("unreachable")

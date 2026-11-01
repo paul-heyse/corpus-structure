@@ -1,14 +1,29 @@
 """Parent operation ordering; actual SQL admission has separate native controls."""
 
 import sys
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from types import ModuleType, SimpleNamespace
 from typing import Any
+from unittest.mock import MagicMock
 
+import psycopg
 import pytest
+from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.method import PdfRecordPublicationDraft
 from corpus_structure.orchestrate.pdf_streaming import publish_pdf_record_draft
+
+
+def transaction_engine(transaction):
+    """Keep ordering controls at the owner's explicit checkout/transaction boundary."""
+    driver = MagicMock(spec=psycopg.Connection)
+    driver.info.transaction_status = psycopg.pq.TransactionStatus.IDLE
+    connection = MagicMock(spec=Connection)
+    connection.connection.driver_connection = driver
+    connection.begin.side_effect = transaction
+    engine = MagicMock(spec=Engine)
+    engine.connect.side_effect = lambda: nullcontext(connection)
+    return engine
 
 
 @pytest.mark.parametrize("invalid", [False, True])
@@ -21,7 +36,7 @@ def test_validation_precedes_visibility_and_failure_never_seals(monkeypatch, tmp
         yield object()
         calls.append("commit")
 
-    engine: Any = SimpleNamespace(begin=transaction)
+    engine = transaction_engine(transaction)
     claim: Any = SimpleNamespace(task_id=12, attempt=2)
     build = SimpleNamespace(build_id="owned", release_id="release")
     publication = ModuleType("corpus_structure.semantic.pdf_publication")
@@ -134,7 +149,7 @@ def test_native_producer_reuses_qualified_publication_before_copy_or_inference(
     def transaction():
         yield object()
 
-    engine: Any = SimpleNamespace(begin=transaction)
+    engine = transaction_engine(transaction)
     claim: Any = SimpleNamespace(task_id=12, attempt=2, release_id="release")
     assets: Any = None
     request = PdfRecordProducerRequest(recipe, assets, original, schema)
@@ -192,7 +207,7 @@ def test_computed_draft_never_silently_replaces_frozen_or_published_content(
     def transaction():
         yield object()
 
-    engine: Any = SimpleNamespace(begin=transaction)
+    engine = transaction_engine(transaction)
     claim: Any = SimpleNamespace(task_id=12, attempt=2, release_id="release")
     draft = PdfRecordPublicationDraft(
         {"changed": "native value"}, "native", original, schema, recipe, {"conversion": "success"}

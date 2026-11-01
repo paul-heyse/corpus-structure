@@ -4,7 +4,7 @@ import codecs
 import io
 import json
 import math
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Iterator, Mapping
 from hashlib import sha256
 from typing import Any, Literal
 from unittest.mock import Mock
@@ -61,7 +61,7 @@ class NativeRows(PublishedPdfReader):
             yield {"kind": "row", "body": dict(body)}
             yield {"kind": "close"}
 
-    def iter_native_json(self) -> Iterator[bytes]:
+    def iter_native_json(self, events=None) -> Generator[bytes]:
         from corpus_structure.semantic.pdf_records import _decode_scalar, _parse_inline
 
         def encode(value):
@@ -166,7 +166,7 @@ class NativeRows(PublishedPdfReader):
 
         yield from record(self._one("header")["root_id"])
 
-    def iter_rows(self, family, filters=None, **kwargs) -> Iterator[dict[str, Any]]:
+    def iter_rows(self, family, filters=None, **kwargs) -> Generator[dict[str, Any]]:
         kind = "document" if family == "header" else family
         for row in self.rows:
             if row.kind == kind and all(row.values.get(k) == v for k, v in (filters or {}).items()):

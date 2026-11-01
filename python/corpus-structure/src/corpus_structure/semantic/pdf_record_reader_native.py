@@ -373,3 +373,67 @@ def pdf_companion_export_sql() -> str:
         "ops.read_pdf_companion_export_events(bigint,text,text,text)\n"
         " TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;\n"
     )
+
+
+def pdf_native_event_ctes(
+    *, roots_sql: str, additional_ctes: str = "", node_filter_sql: str | None = None
+) -> str:
+    """Reuse the native event algebra with trusted operation-owned record roots.
+
+    Inputs are SQL authoring fragments, never invocation text. The ordinary complete
+    export remains byte compatible. Selected-source seeds multiple roots into this one
+    ordered event query rather than invoking a native serializer for each selected item.
+    """
+    source = pdf_native_export_sql().split("AS $events$\n", 1)[1].split("$events$;", 1)[0]
+    roots = (
+        "SELECT h.root_id,ARRAY[]::bigint[] FROM ops.pdf_record_document h JOIN published p\n"
+        " ON h.product_id=p.build_id AND h.revision_id=p.build_id"
+    )
+    if source.count(roots) != 1:
+        raise ValueError("native event root authoring seam changed")
+    source = source.replace(roots, roots_sql)
+    if additional_ctes:
+        source = source.replace(
+            "), nodes AS MATERIALIZED (", "), " + additional_ctes + ", nodes AS MATERIALIZED (", 1
+        )
+    if node_filter_sql is not None:
+        start = source.index("), nodes AS MATERIALIZED (")
+        end = source.index("), members AS MATERIALIZED (", start)
+        segment = source[start:end]
+        marker = "n.product_id=p.build_id AND n.revision_id=p.build_id\n"
+        if segment.count(marker) != 1:
+            raise ValueError("native event node authoring seam changed")
+        segment = segment.replace(marker, marker.rstrip() + " AND (" + node_filter_sql + ")\n")
+        source = source[:start] + segment + source[end:]
+        start = source.index("), members AS MATERIALIZED (")
+        end = source.index("), fields AS MATERIALIZED (", start)
+        segment = source[start:end]
+        marker = "m.product_id=p.build_id AND m.revision_id=p.build_id\n"
+        if segment.count(marker) != 1:
+            raise ValueError("native event membership authoring seam changed")
+        segment = segment.replace(
+            marker, marker.rstrip() + " AND m.parent_id IN (SELECT record_id FROM nodes)\n"
+        )
+        source = source[:start] + segment + source[end:]
+    marker = ") SELECT jsonb_build_object('kind',kind,'value',value,'prefix',prefix)"
+    if source.count(marker) != 1:
+        raise ValueError("native event result authoring seam changed")
+    return source.split(marker, 1)[0] + ")"
+
+
+def pdf_companion_event_ctes(*, companions_sql: str, prefix: str) -> str:
+    """Reuse exact companion-field/part events for an operation-owned selected set."""
+    import re
+
+    if not prefix.isidentifier():
+        raise ValueError("companion event CTE prefix must be a trusted SQL identifier")
+    source = pdf_companion_export_sql().split("AS $$\n", 1)[1].split("$$;", 1)[0]
+    source = source.split("), companions AS MATERIALIZED (", 1)[1]
+    source = "companions AS MATERIALIZED (" + source
+    start = source.index("(") + 1
+    end = source.index("), fields AS MATERIALIZED (")
+    source = source[:start] + "\n" + companions_sql + "\n" + source[end:]
+    source = source.split(") SELECT event FROM events ORDER BY ", 1)[0] + ")"
+    for name in ("companions", "fields", "events"):
+        source = re.sub(r"\b" + name + r"\b", prefix + name, source)
+    return source

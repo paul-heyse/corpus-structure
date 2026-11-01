@@ -10,14 +10,24 @@ from __future__ import annotations
 import json
 import multiprocessing
 import tempfile
-from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Generator, Iterable, Mapping
+from contextlib import contextmanager
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
 from sqlalchemy import Connection, Engine, text
 from sqlalchemy.engine import RowMapping
+
+from corpus_structure.core.db.lifetime import BorrowerCancellation
+from corpus_structure.core.db.store import (
+    DatabaseOperationFailure,
+    DatabasePhase,
+    EffectKnowledge,
+    classify_error,
+    record_operation_failure,
+)
 
 from .pdf_staging import PdfBuildRef, _parameters
 
@@ -106,6 +116,7 @@ def adopt_pdf_companion_batch(
     replay_key: str,
     *,
     start_ordinal: int = 0,
+    cancellation: BorrowerCancellation | None = None,
 ) -> None:
     """Typed queryable bodies with fixed value fields in bounded segmented uploads."""
     from hashlib import sha256
@@ -122,6 +133,8 @@ def adopt_pdf_companion_batch(
 
     def flush() -> None:
         nonlocal pending, streams, parts, byte_count, chunk
+        if cancellation is not None:
+            cancellation.check_active()
         if streams:
             adopt_pdf_batch(
                 conn,
@@ -135,6 +148,7 @@ def adopt_pdf_companion_batch(
                         pa.RecordBatch.from_pylist(parts, schema=stage_schema("artifact_part")),
                     ),
                 },
+                cancellation=cancellation,
             )
         parameters = [
             {
@@ -148,6 +162,8 @@ def adopt_pdf_companion_batch(
             }
             for ordinal, local, body, fields in pending
         ]
+        if cancellation is not None:
+            cancellation.check_active()
         conn.execute(
             text(
                 "SELECT ops.adopt_pdf_companion(:build,:task,:attempt,:holder,:family,:local,CAST\
@@ -162,6 +178,8 @@ def adopt_pdf_companion_batch(
         chunk += 1
 
     for ordinal, record in enumerate(records, start=start_ordinal):
+        if cancellation is not None:
+            cancellation.check_active()
         body = dict(record)
         local = str(
             body.get(
@@ -233,6 +251,7 @@ def adopt_pdf_companion_batch(
                                 ),
                             )
                         },
+                        cancellation=cancellation,
                     )
                     field_parts = []
             parts.extend(field_parts)
@@ -398,13 +417,134 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
         result.close()
 
 
+def _run_native_validation(
+    capture: Path, projection: Path, check_active: Callable[[], None]
+) -> None:
+    """Settle this DB-free child before returning, including failed/cancelled validation."""
+    context = multiprocessing.get_context("spawn")
+    parent, child = context.Pipe(duplex=False)
+    process = context.Process(
+        target=_native_validation_child, args=(str(capture), str(projection), child)
+    )
+    primary: BaseException | None = None
+    errors: list[BaseException] = []
+
+    def cleanup(action):
+        try:
+            action()
+        except BaseException as error:
+            errors.append(error)
+
+    try:
+        check_active()
+        process.start()
+        child.close()
+        while not parent.poll(0.2):
+            check_active()
+            if not process.is_alive():
+                raise RuntimeError("native validation child exited without outcome")
+        passed, error = parent.recv()
+        check_active()
+        if not passed:
+            raise ValueError(error)
+        process.join(5)
+        if process.is_alive():
+            raise RuntimeError("native validation child did not settle")
+    except BaseException as error:
+        primary = error
+        raise
+    finally:
+        # Each independent handle is closed even if another cleanup fails. A live
+        # owned process is terminated/killed and reaped, never silently detached.
+        cleanup(child.close)
+        if process.pid is not None:
+            if process.is_alive():
+                cleanup(process.terminate)
+                cleanup(lambda: process.join(5))
+            if process.is_alive():
+                cleanup(process.kill)
+                cleanup(process.join)
+        cleanup(parent.close)
+        cleanup(process.close)
+        if errors:
+            if primary is not None:
+                for error in errors:
+                    primary.add_note("native validation cleanup failed: " + repr(error))
+            else:
+                raise BaseExceptionGroup("native validation cleanup failed", errors)
+
+
+@contextmanager
+def _validation_transaction(
+    engine: Engine,
+    frozen: FrozenPdfBuildRef,
+    cancellation: BorrowerCancellation,
+    check_active: Callable[[], None],
+) -> Generator[Connection]:
+    """Own a validation checkout, settlement and its precise failure context."""
+    phase, effects = DatabasePhase.ACQUIRING, EffectKnowledge.NONE
+    broken = False
+    try:
+        check_active()
+        with engine.connect() as conn, cancellation.borrow(conn):
+            driver = conn.connection.driver_connection
+            transaction = conn.begin()
+            try:
+                phase, effects = DatabasePhase.EXECUTING, EffectKnowledge.UNCERTAIN
+                yield conn
+                check_active()
+                phase = DatabasePhase.COMMITTING
+                transaction.commit()
+                effects = EffectKnowledge.COMMITTED
+            except BaseException as error:
+                broken = conn.invalidated or bool(getattr(driver, "broken", False))
+                try:
+                    transaction.rollback()
+                    if not broken and phase != DatabasePhase.COMMITTING:
+                        effects = EffectKnowledge.ROLLED_BACK
+                except BaseException as cleanup:
+                    error.add_note("PDF validation rollback failed: " + repr(cleanup))
+                    try:
+                        conn.invalidate()
+                    except BaseException as invalidation:
+                        error.add_note("PDF validation invalidation failed: " + repr(invalidation))
+                raise
+    except BaseException as error:
+        record_operation_failure(
+            error,
+            DatabaseOperationFailure(
+                classify_error(
+                    error,
+                    phase=phase,
+                    effects=effects,
+                    broken=broken,
+                    cancellation_requested=cancellation.requested,
+                ),
+                frozen.build.build_id,
+                "inspect_frozen_build",
+                frozen.build.release_id,
+            ),
+        )
+        raise
+
+
 def validate_pdf_build(
-    engine: Engine, frozen: FrozenPdfBuildRef, check_active: Callable[[], None] | None = None
+    engine: Engine,
+    frozen: FrozenPdfBuildRef,
+    check_active: Callable[[], None] | None = None,
+    *,
+    cancellation: BorrowerCancellation | None = None,
 ) -> PdfValidationOutcome:
-    check_active = check_active or (lambda: None)
+    authority_check = check_active or (lambda: None)
+    cancellation = cancellation or BorrowerCancellation()
+
+    def check_active():
+        cancellation.check_active()
+        authority_check()
+
     params = {**_parameters(frozen.build), "frozen": frozen.frozen_digest}
     check_active()
-    with engine.begin() as conn:
+    with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
         from .contracts import require_database_operation
 
         require_database_operation(conn, frozen.build.release_id, "validate_pdf_build")
@@ -433,7 +573,9 @@ def validate_pdf_build(
                 after = None
                 while True:
                     check_active()
-                    with engine.begin() as conn:
+                    with _validation_transaction(
+                        engine, frozen, cancellation, check_active
+                    ) as conn:
                         values = (
                             conn.execute(
                                 text(
@@ -463,47 +605,21 @@ ops.read_pdf_frozen_rows(:build,:task,:attempt,:holder,:frozen,:family,CAST(:aft
                             schema=_CAPTURE_SCHEMA,
                         )
                     )
-        context = multiprocessing.get_context("spawn")
-        parent, child = context.Pipe(duplex=False)
-        process = context.Process(
-            target=_native_validation_child, args=(str(capture), str(projection), child)
-        )
-        process.start()
-        child.close()
-        try:
-            while not parent.poll(0.2):
-                check_active()
-                if not process.is_alive():
-                    raise RuntimeError("native validation child exited without outcome")
-            passed, error = parent.recv()
-            if not passed:
-                raise ValueError(error)
-            with engine.begin() as conn:
-                conn.execute(
-                    text(
-                        "SELECT ops.record_pdf_native_validation(:build,:task,:attempt,:holder,:f\
-rozen,true)"
-                    ),
-                    params,
-                )
-            process.join(5)
-            if process.is_alive():
-                raise RuntimeError("native validation child did not settle")
-        finally:
-            if process.is_alive():
-                process.terminate()
-                process.join(5)
-            if process.is_alive():
-                process.kill()
-                process.join()
-            parent.close()
-            process.close()
+        _run_native_validation(capture, projection, check_active)
+        with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
+            conn.execute(
+                text(
+                    "SELECT ops.record_pdf_native_validation(:build,:task,:attempt,:holder,"
+                    ":frozen,true)"
+                ),
+                params,
+            )
         with projection.open() as source:
             pending = []
             size = 0
 
             def adopt_projection(rows):
-                with engine.begin() as conn:
+                with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
                     conn.execute(
                         text(
                             "SELECT ops.adopt_pdf_access_batch(:build,:task,:attempt,:holder,:fro\
@@ -523,7 +639,7 @@ zen,CAST(:rows AS jsonb))"
             if pending:
                 adopt_projection(pending)
         check_active()
-        with engine.begin() as conn:
+        with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
             row = (
                 conn.execute(
                     text(
@@ -584,7 +700,7 @@ def inspect_pdf_build(
     )
     if row is None:
         return None
-    build = PdfBuildRef(**{key: row[key] for key in PdfBuildRef.__dataclass_fields__})
+    build = PdfBuildRef(**{f.name: row[f.name] for f in fields(PdfBuildRef) if f.init})
     params = dict(build=build.build_id, task=task_id, attempt=attempt, holder=holder)
     digest = conn.execute(
         text("SELECT ops.lookup_pdf_frozen_digest(:build,:task,:attempt,:holder)"), params

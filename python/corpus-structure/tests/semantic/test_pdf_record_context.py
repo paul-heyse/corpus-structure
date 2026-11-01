@@ -1,5 +1,6 @@
 """Python and PostgreSQL frames consume one published source-context definition."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,10 @@ def context_database(semantic_bare_engine):
                 "bigint,product_key text,logical_digest text,release_id "
                 "text,source_digest text,schema_digest text,recipe_digest "
                 "text,frozen_digest text,kind text)"
+            ),
+            (
+                "CREATE TABLE kb.pdf_record_access(product_id text,revision_id text,"
+                "pointer text,parent_pointer text,native_json jsonb)"
             ),
             (
                 "CREATE TABLE kb.pdf_record_companion(product_id text,revision_id "
@@ -55,6 +60,13 @@ def context_database(semantic_bare_engine):
             ),
         ):
             conn.exec_driver_sql(ddl)
+        conn.exec_driver_sql(
+            "INSERT INTO kb.pdf_record_access VALUES"
+            "('b','b','#/body',NULL,'{}'),"
+            "('b','b','#/groups/0','#/body','{}'),"
+            "('b','b','#/groups/1','#/groups/0','{}'),"
+            "('b','b','#/texts/0','#/groups/1','{\"prov\":[{\"page_no\":1}]}')"
+        )
         conn.execute(
             text(
                 "INSERT INTO kb.pdf_record_companion "
@@ -176,3 +188,39 @@ def test_shared_native_context_wrong_pin_refuses(context_database):
         pytest.raises(NoResultFound, match=r"row was found|available|No row"),
     ):
         PublishedPdfReader(conn, ProductReference(42, "chosen", "e" * 64))
+
+
+def test_nested_and_ancestor_coverage_and_page_ranges_keep_original_claims(context_database):
+    claims = [
+        ("nested", "#/groups/1:direct", "unknown"),
+        ("ancestor", "#/body:descendants", "partial"),
+        ("range", "pages:1-3", "unknown"),
+        ("outside-range", "pages:2-4", "complete"),
+        ("outside-section", "#/groups/9:descendants", "complete"),
+    ]
+    with context_database.begin() as conn:
+        for identity, scope, outcome in claims:
+            conn.execute(
+                text(
+                    "INSERT INTO kb.pdf_record_companion VALUES"
+                    "('b','b','coverage',:identity,CAST(:body AS jsonb),10)"
+                ),
+                {
+                    "identity": identity,
+                    "body": json.dumps(
+                        dict(coverage_id=identity, scope=scope, family="formula", outcome=outcome)
+                    ),
+                },
+            )
+        actual = PublishedPdfReader(conn, ProductReference(42, "chosen", "f" * 64)).source_context(
+            ["#/groups/0", "#/groups/1", "#/texts/0"], "#/groups/0", membership="descendants"
+        )
+    assert {
+        row["coverage_id"]: (row["body"]["scope"], row["body"]["outcome"])
+        for row in actual["coverage"]
+    } == {
+        "c": ("page:1", "partial"),
+        "nested": ("#/groups/1:direct", "unknown"),
+        "ancestor": ("#/body:descendants", "partial"),
+        "range": ("pages:1-3", "unknown"),
+    }

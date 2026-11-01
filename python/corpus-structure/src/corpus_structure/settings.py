@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 ENV_PREFIX = "CORPUS_"
@@ -40,6 +40,21 @@ class DatabaseSettings(_Section):
     admission_url: str | None = None
     evaluator_url: str | None = None
     template: str = "cs_template"
+    pool_min_size: int = Field(default=1, ge=0)
+    pool_max_size: int = Field(default=4, ge=1)
+    checkout_timeout_seconds: float = Field(default=30.0, gt=0)
+    pool_max_waiting: int = Field(default=4, ge=1)
+    cancel_request_timeout_seconds: float = Field(default=5.0, gt=0)
+    renewal_statement_timeout_seconds: float = Field(default=10.0, gt=0)
+    renewal_lock_timeout_seconds: float = Field(default=5.0, gt=0)
+
+    @model_validator(mode="after")
+    def validate_pool_bounds(self) -> DatabaseSettings:
+        if self.pool_min_size > self.pool_max_size:
+            raise ValueError("database pool_min_size must not exceed pool_max_size")
+        if self.renewal_lock_timeout_seconds > self.renewal_statement_timeout_seconds:
+            raise ValueError("renewal lock timeout must not exceed statement timeout")
+        return self
 
     @property
     def sqlalchemy_url(self) -> str:

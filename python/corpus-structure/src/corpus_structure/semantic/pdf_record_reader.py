@@ -9,12 +9,22 @@ from __future__ import annotations
 import codecs
 import json
 from collections.abc import Callable, Generator, Iterator, Mapping
+from contextlib import closing, contextmanager, nullcontext
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
 from typing import Any, BinaryIO
 
 from sqlalchemy import Connection, text
+
+from corpus_structure.core.db.lifetime import BorrowerCancellation
+from corpus_structure.core.db.store import (
+    DatabaseOperationFailure,
+    DatabasePhase,
+    EffectKnowledge,
+    classify_error,
+    record_operation_failure,
+)
 
 from .product_reference import ProductReference
 
@@ -45,29 +55,40 @@ def published_native_table(conn: Connection, kind: str = "item"):
     )
 
 
-def published_record_reader(conn: Connection, reference: ProductReference):
+def published_record_reader(
+    conn: Connection,
+    reference: ProductReference,
+    *,
+    cancellation: BorrowerCancellation | None = None,
+):
     """Return the published port, or None for an explicitly archived PDF product."""
-    available = conn.execute(
-        text(
-            "SELECT to_regprocedure('ops.read_pdf_published_revision(bigint,te"
-            "xt,text)') IS NOT NULL"
+    cancellation = cancellation or BorrowerCancellation()
+    with cancellation.borrow(conn):
+        available = conn.execute(
+            text(
+                "SELECT to_regprocedure('ops.read_pdf_published_revision(bigint,te"
+                "xt,text)') IS NOT NULL"
+            )
+        ).scalar_one()
+        if not available:
+            return None
+        row = (
+            conn.execute(
+                text("SELECT * FROM ops.read_pdf_published_revision(:task,:product,:digest)"),
+                dict(
+                    task=reference.task_id,
+                    product=reference.product_key,
+                    digest=reference.content_digest,
+                ),
+            )
+            .mappings()
+            .one_or_none()
         )
-    ).scalar_one()
-    if not available:
-        return None
-    row = (
-        conn.execute(
-            text("SELECT * FROM ops.read_pdf_published_revision(:task,:product,:digest)"),
-            dict(
-                task=reference.task_id,
-                product=reference.product_key,
-                digest=reference.content_digest,
-            ),
+        return (
+            PublishedPdfReader(conn, reference, revision=dict(row), cancellation=cancellation)
+            if row
+            else None
         )
-        .mappings()
-        .one_or_none()
-    )
-    return PublishedPdfReader(conn, reference, revision=dict(row)) if row else None
 
 
 class PublishedPdfReader:
@@ -77,24 +98,59 @@ class PublishedPdfReader:
         reference: ProductReference,
         *,
         revision: Mapping[str, Any] | None = None,
+        cancellation: BorrowerCancellation | None = None,
     ):
         self.conn, self.reference = conn, reference
+        self.cancellation = cancellation or BorrowerCancellation()
         if revision is None:
-            row = (
-                conn.execute(
-                    text("SELECT * FROM ops.read_pdf_published_revision(:task,:product,:digest)"),
-                    dict(
-                        task=reference.task_id,
-                        product=reference.product_key,
-                        digest=reference.content_digest,
-                    ),
+            with self._read_scope():
+                row = (
+                    conn.execute(
+                        text(
+                            "SELECT * FROM ops.read_pdf_published_revision(:task,:product,:digest)"
+                        ),
+                        dict(
+                            task=reference.task_id,
+                            product=reference.product_key,
+                            digest=reference.content_digest,
+                        ),
+                    )
+                    .mappings()
+                    .one()
                 )
-                .mappings()
-                .one()
-            )
             revision = dict(row)
         self.revision: dict[str, Any] = dict(revision)
         self._cached_record: Callable[[str], dict[str, Any]] = lru_cache(maxsize=256)(self._record)
+
+    @contextmanager
+    def _read_scope(self) -> Generator[None]:
+        """Cancel only this live read; the caller retains its connection/snapshot owner."""
+        cancellation = getattr(self, "cancellation", None)
+        scope = cancellation.borrow(self.conn) if cancellation is not None else nullcontext()
+        try:
+            with scope:
+                yield
+        except Exception as error:
+            record_operation_failure(
+                error,
+                DatabaseOperationFailure(
+                    classify_error(
+                        error,
+                        phase=DatabasePhase.EXECUTING,
+                        effects=EffectKnowledge.NONE,
+                        cancellation_requested=cancellation is not None and cancellation.requested,
+                    ),
+                    f"pdf:{self.reference.task_id}:{self.reference.product_key}",
+                    "close_read_snapshot",
+                    getattr(self, "revision", {}).get("release_id"),
+                ),
+            )
+            raise
+
+    def _check_active(self) -> None:
+        cancellation = getattr(self, "cancellation", None)
+        if cancellation is not None:
+            cancellation.check_active()
 
     def iter_rows(
         self,
@@ -103,31 +159,35 @@ class PublishedPdfReader:
         *,
         after=None,
         batch_size: int = 100,
-    ) -> Iterator[dict[str, Any]]:
+    ) -> Generator[dict[str, Any]]:
         if not 1 <= batch_size <= 1000:
             raise ValueError("published record batch size must be 1..1000")
         while True:
             # Each bounded function call rechecks the immutable published binding. Close
             # Result before yielding so abandonment cannot leak a server-side cursor.
-            with self.conn.execute(
-                text(
-                    "SELECT * FROM ops.read_pdf_record_rows(:task,:product,:digest,:family,"
-                    "CAST(:filters AS jsonb),CAST(:after AS jsonb),:limit)"
-                ).execution_options(yield_per=batch_size),
-                dict(
-                    task=self.reference.task_id,
-                    product=self.reference.product_key,
-                    digest=self.reference.content_digest,
-                    family=family,
-                    filters=json.dumps(dict(filters or {})),
-                    after=json.dumps(after) if after is not None else None,
-                    limit=batch_size,
-                ),
-            ) as result:
+            with (
+                self._read_scope(),
+                self.conn.execute(
+                    text(
+                        "SELECT * FROM ops.read_pdf_record_rows(:task,:product,:digest,:family,"
+                        "CAST(:filters AS jsonb),CAST(:after AS jsonb),:limit)"
+                    ).execution_options(yield_per=batch_size),
+                    dict(
+                        task=self.reference.task_id,
+                        product=self.reference.product_key,
+                        digest=self.reference.content_digest,
+                        family=family,
+                        filters=json.dumps(dict(filters or {})),
+                        after=json.dumps(after) if after is not None else None,
+                        limit=batch_size,
+                    ),
+                ) as result,
+            ):
                 rows = [dict(r[0]) for r in result]
             if not rows:
                 return
             for row in rows:
+                self._check_active()
                 after = row.pop("_cursor")
                 for name in ("scalars_json", "structure_json", "scalar_json"):
                     if name in row and row[name] is not None:
@@ -139,11 +199,11 @@ class PublishedPdfReader:
                 return
 
     def _one(self, family, filters=None):
-        rows = self.iter_rows(family, filters, batch_size=2)
-        first = next(rows, None)
-        if first is None or next(rows, None) is not None:
-            raise ValueError("published native record is absent or ambiguous")
-        return first
+        with closing(self.iter_rows(family, filters, batch_size=2)) as rows:
+            first = next(rows, None)
+            if first is None or next(rows, None) is not None:
+                raise ValueError("published native record is absent or ambiguous")
+            return first
 
     def record(self, record_id: str) -> dict[str, Any]:
         return self._cached_record(record_id)
@@ -154,7 +214,7 @@ class PublishedPdfReader:
     def members(self, parent_id: str, field_name: str):
         yield from self.iter_rows("membership", {"parent_id": parent_id, "field_name": field_name})
 
-    def scalar(self, stream_id: str):
+    def scalar(self, stream_id: str) -> Generator[bytes]:
         from .pdf_record_identity import ArtifactPart, ArtifactPin, replay_artifact
 
         stream = self._one("artifact_stream", {"stream_id": stream_id})
@@ -205,17 +265,18 @@ class PublishedPdfReader:
         return json.loads(b"".join(self.iter_native_json()))
 
     def product_kind(self) -> str:
-        return self.conn.execute(
-            text(
-                "SELECT kind FROM ops.pdf_product WHERE task_id=:task AND product_key=:product "
-                "AND content_digest=:digest"
-            ),
-            dict(
-                task=self.reference.task_id,
-                product=self.reference.product_key,
-                digest=self.reference.content_digest,
-            ),
-        ).scalar_one()
+        with self._read_scope():
+            return self.conn.execute(
+                text(
+                    "SELECT kind FROM ops.pdf_product WHERE task_id=:task AND product_key=:product "
+                    "AND content_digest=:digest"
+                ),
+                dict(
+                    task=self.reference.task_id,
+                    product=self.reference.product_key,
+                    digest=self.reference.content_digest,
+                ),
+            ).scalar_one()
 
     def native_items(self, pointers):
         result = {}
@@ -313,21 +374,26 @@ class PublishedPdfReader:
             yield self.decode_companion_row(row)
 
     def iter_companion_export_events(self, family) -> Generator[dict[str, Any]]:
-        with self.conn.execute(
-            text(
-                "SELECT * FROM ops.read_pdf_companion_export_events(:task,:product,:digest,:family)"
-            ).execution_options(yield_per=32),
-            dict(
-                task=self.reference.task_id,
-                product=self.reference.product_key,
-                digest=self.reference.content_digest,
-                family=family,
-            ),
-        ) as result:
+        with (
+            self._read_scope(),
+            self.conn.execute(
+                text(
+                    "SELECT * FROM ops.read_pdf_companion_export_events(:task,:product,:digest,"
+                    ":family)"
+                ).execution_options(yield_per=32),
+                dict(
+                    task=self.reference.task_id,
+                    product=self.reference.product_key,
+                    digest=self.reference.content_digest,
+                    family=family,
+                ),
+            ) as result,
+        ):
             for row in result:
+                self._check_active()
                 yield row[0]
 
-    def iter_companion_json(self, family) -> Generator[bytes]:
+    def iter_companion_json(self, family, events=None) -> Generator[bytes]:
         """One joined cursor streams exact fields without per-field SQL or JSONB coercion."""
         from .pdf_record_identity import ArtifactPart, ArtifactPin, replay_artifact
 
@@ -336,7 +402,8 @@ class PublishedPdfReader:
                 value, ensure_ascii=False, allow_nan=False, separators=(",", ":")
             ).encode()
 
-        events = self.iter_companion_export_events(family)
+        owns_events = events is None
+        events = self.iter_companion_export_events(family) if owns_events else events
         pending = None
         first_row = True
         first_field = True
@@ -409,29 +476,34 @@ class PublishedPdfReader:
                 else:
                     raise ValueError("unexpected companion export event")
         finally:
-            events.close()
+            if owns_events:
+                events.close()
 
     def context_rows(self, family, pointers, section_pointer):
         after = ""
         while True:
-            with self.conn.execute(
-                text(
-                    "SELECT * FROM ops.read_pdf_record_context_rows(:task,:product,:digest,"
-                    "CAST(:pointers AS text[]),:section,:family,:after,:limit)"
-                ),
-                dict(
-                    task=self.reference.task_id,
-                    product=self.reference.product_key,
-                    digest=self.reference.content_digest,
-                    pointers=list(pointers),
-                    section=section_pointer,
-                    family=family,
-                    after=after,
-                    limit=100,
-                ),
-            ) as result:
+            with (
+                self._read_scope(),
+                self.conn.execute(
+                    text(
+                        "SELECT * FROM ops.read_pdf_record_context_rows(:task,:product,:digest,"
+                        "CAST(:pointers AS text[]),:section,:family,:after,:limit)"
+                    ),
+                    dict(
+                        task=self.reference.task_id,
+                        product=self.reference.product_key,
+                        digest=self.reference.content_digest,
+                        pointers=list(pointers),
+                        section=section_pointer,
+                        family=family,
+                        after=after,
+                        limit=100,
+                    ),
+                ) as result,
+            ):
                 rows = [dict(row[0]) for row in result]
             for row in rows:
+                self._check_active()
                 after = row["local_id"]
                 yield row
             if len(rows) < 100:
@@ -446,26 +518,27 @@ class PublishedPdfReader:
         membership: str = "direct",
     ) -> dict[str, Any]:
         """Use the same published relational context constructor as native frame guards."""
-        value = self.conn.execute(
-            text(
-                "SELECT ops.record_integrated_source_context(:task,:product,:digest,"
-                "CAST(:pointers AS text[]),:section,:membership,:budget)"
-            ),
-            dict(
-                task=self.reference.task_id,
-                product=self.reference.product_key,
-                digest=self.reference.content_digest,
-                pointers=list(pointers),
-                section=section_pointer,
-                membership=membership,
-                budget=row_budget,
-            ),
-        ).scalar_one()
+        with self._read_scope():
+            value = self.conn.execute(
+                text(
+                    "SELECT ops.record_integrated_source_context(:task,:product,:digest,"
+                    "CAST(:pointers AS text[]),:section,:membership,:budget)"
+                ),
+                dict(
+                    task=self.reference.task_id,
+                    product=self.reference.product_key,
+                    digest=self.reference.content_digest,
+                    pointers=list(pointers),
+                    section=section_pointer,
+                    membership=membership,
+                    budget=row_budget,
+                ),
+            ).scalar_one()
         if value is None:
             raise ValueError("published integrated source context is unavailable")
         return value
 
-    def iter_native_json(self) -> Iterator[bytes]:
+    def iter_native_json(self, events=None) -> Generator[bytes]:
         """One ordered containment cursor; scalar parts remain bounded owned reads."""
         from .pdf_records import _decode_scalar, _parse_inline
 
@@ -476,69 +549,78 @@ class PublishedPdfReader:
 
         def scalar(stream_id):
             profile = self._profile(stream_id)
-            if profile == "pdf-record-native-json-v1":
-                yield from self.scalar(stream_id)
-            elif profile == "pdf-record-scalar-v1:s":
-                yield b'"'
-                decoder = codecs.getincrementaldecoder("utf-8")()
-                for chunk in self.scalar(stream_id):
-                    yield encode(decoder.decode(chunk))[1:-1]
-                yield encode(decoder.decode(b"", final=True))[1:-1]
-                yield b'"'
-            else:
-                yield encode(_decode_scalar(self.scalar(stream_id), profile))
+            with closing(self.scalar(stream_id)) as chunks:
+                if profile == "pdf-record-native-json-v1":
+                    yield from chunks
+                elif profile == "pdf-record-scalar-v1:s":
+                    yield b'"'
+                    decoder = codecs.getincrementaldecoder("utf-8")()
+                    for chunk in chunks:
+                        yield encode(decoder.decode(chunk))[1:-1]
+                    yield encode(decoder.decode(b"", final=True))[1:-1]
+                    yield b'"'
+                else:
+                    yield encode(_decode_scalar(chunks, profile))
 
-        for event in self.iter_native_events():
-            kind, value = event["kind"], event["value"]
-            if kind == "literal":
-                yield value.encode("utf-8")
-            elif kind == "inline":
-                yield encode(_parse_inline(value))
-            elif kind in {"parts", "key_parts"}:
-                if kind == "key_parts":
-                    yield event["prefix"].encode()
-                yield from scalar(value)
-                if kind == "key_parts":
-                    yield b":"
-            elif kind == "extension":
-                pending, opened, separator = b"", False, event["prefix"]
-                for chunk in self.scalar(value):
-                    if not opened:
-                        if not chunk.startswith(b"{"):
-                            raise ValueError("native extension is not an object")
-                        chunk, opened = chunk[1:], True
-                    pending += chunk
-                    if len(pending) > 1:
-                        if separator:
-                            yield separator.encode()
-                            separator = ""
-                        yield pending[:-1]
-                        pending = pending[-1:]
-                if not opened or pending != b"}":
-                    raise ValueError("native extension object is incomplete")
-            else:
-                raise ValueError("unsupported published export event")
+        scope = closing(self.iter_native_events()) if events is None else nullcontext(events)
+        with scope as owned_events:
+            for event in owned_events:
+                kind, value = event["kind"], event["value"]
+                if kind == "literal":
+                    yield value.encode("utf-8")
+                elif kind == "inline":
+                    yield encode(_parse_inline(value))
+                elif kind in {"parts", "key_parts"}:
+                    if kind == "key_parts":
+                        yield event["prefix"].encode()
+                    yield from scalar(value)
+                    if kind == "key_parts":
+                        yield b":"
+                elif kind == "extension":
+                    pending, opened, separator = b"", False, event["prefix"]
+                    with closing(self.scalar(value)) as chunks:
+                        for chunk in chunks:
+                            if not opened:
+                                if not chunk.startswith(b"{"):
+                                    raise ValueError("native extension is not an object")
+                                chunk, opened = chunk[1:], True
+                            pending += chunk
+                            if len(pending) > 1:
+                                if separator:
+                                    yield separator.encode()
+                                    separator = ""
+                                yield pending[:-1]
+                                pending = pending[-1:]
+                    if not opened or pending != b"}":
+                        raise ValueError("native extension object is incomplete")
+                else:
+                    raise ValueError("unsupported published export event")
 
-    def iter_native_events(self):
-        with self.conn.execute(
-            text(
-                "SELECT * FROM ops.read_pdf_native_events(:task,:product,:digest)"
-            ).execution_options(yield_per=256),
-            dict(
-                task=self.reference.task_id,
-                product=self.reference.product_key,
-                digest=self.reference.content_digest,
-            ),
-        ) as result:
+    def iter_native_events(self) -> Generator[dict[str, Any]]:
+        with (
+            self._read_scope(),
+            self.conn.execute(
+                text(
+                    "SELECT * FROM ops.read_pdf_native_events(:task,:product,:digest)"
+                ).execution_options(yield_per=256),
+                dict(
+                    task=self.reference.task_id,
+                    product=self.reference.product_key,
+                    digest=self.reference.content_digest,
+                ),
+            ) as result,
+        ):
             for row in result:
+                self._check_active()
                 yield row[0]
 
     def write_native_json(self, sink: BinaryIO) -> PdfExportReceipt:
         digest, size = sha256(), 0
-        for chunk in self.iter_native_json():
-            sink.write(chunk)
-            digest.update(chunk)
-            size += len(chunk)
+        with closing(self.iter_native_json()) as chunks:
+            for chunk in chunks:
+                sink.write(chunk)
+                digest.update(chunk)
+                size += len(chunk)
         return PdfExportReceipt(size, digest.hexdigest())
 
     def write_integrated_json(self, sink: BinaryIO, *, binding=None) -> PdfExportReceipt:
@@ -573,8 +655,9 @@ class PublishedPdfReader:
             + encode(self.revision)
             + b',"content":'
         )
-        for chunk in self.iter_native_json():
-            write(chunk)
+        with closing(self.iter_native_json()) as chunks:
+            for chunk in chunks:
+                write(chunk)
         for family, name in (
             ("input", "inputs"),
             ("occurrence", "occurrences"),
@@ -586,8 +669,9 @@ class PublishedPdfReader:
             ("native_metadata", "native_metadata"),
         ):
             write(b"," + encode(name) + b":[")
-            for chunk in self.iter_companion_json(family):
-                write(chunk)
+            with closing(self.iter_companion_json(family)) as chunks:
+                for chunk in chunks:
+                    write(chunk)
             write(b"]")
         write(b"}}")
         return PdfExportReceipt(size, digest.hexdigest())
