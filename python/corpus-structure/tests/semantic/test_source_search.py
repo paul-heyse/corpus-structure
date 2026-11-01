@@ -45,3 +45,55 @@ def test_source_search_requires_no_completed_knowledge_and_mcp_returns_exact_han
             assert inspected.structured_content["rows"]
 
     anyio.run(journey)
+
+
+def test_artifact_pages_are_bound_to_the_exact_selected_product(
+    semantic_db_engine,
+    semantic_writer_engine,
+    tmp_path,
+):
+    import base64
+    from hashlib import sha256
+    from importlib.resources import files
+
+    import pytest
+
+    from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
+
+    _, run, _, view_id, _ = native_source_task(semantic_db_engine, semantic_writer_engine, tmp_path)
+    expected = (
+        files("corpus_structure")
+        .joinpath("model/semantic/docling-validation.schema.json")
+        .read_bytes()
+    )
+    with semantic_writer_engine.connect() as conn:
+        (hit,) = search_source(conn, SourceSearchRequest(run_id=run, text="Alice")).rows
+        assert hit.source_view_id == view_id
+        request = NativeSourceRequest(
+            run_id=run,
+            task_id=hit.selection.task_id,
+            product_key=hit.selection.product_key,
+            content_digest=hit.selection.content_digest,
+            view="artifact",
+            artifact_digest=sha256(expected).hexdigest(),
+        )
+        result = bytearray()
+        selected = request
+        while True:
+            response = inspect_native_source(conn, selected)
+            (chunk,) = response.rows
+            assert chunk["offset"] == len(result)
+            assert chunk["total_bytes"] == len(expected)
+            assert chunk["encoding"] == "base64"
+            encoded = chunk["data"]
+            assert isinstance(encoded, str)
+            block = base64.b64decode(encoded)
+            assert len(block) <= 65536
+            result.extend(block)
+            if response.next_cursor is None:
+                break
+            selected = request.model_copy(update={"cursor": response.next_cursor})
+        assert result == expected
+        for changed in ({"artifact_digest": "0" * 64}, {"content_digest": "f" * 64}):
+            with pytest.raises(ValueError):
+                inspect_native_source(conn, request.model_copy(update=changed))

@@ -30,18 +30,34 @@ class NativeSourceRequest(BaseModel):
         "trace",
         "companion",
         "manifest",
+        "artifact",
     ] = "items"
     section_pointer: str | None = None
     membership: Literal["direct", "descendants"] | None = None
     pointer: str | None = None
     cell_index: int | None = Field(default=None, ge=0)
     occurrence_id: str | None = None
+    artifact_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     collection: Literal["inputs", "coverage", "relations", "mapping_reports"] | None = None
     cursor: str | None = None
     limit: int = Field(default=100, ge=1, le=1000)
 
     @model_validator(mode="after")
     def qualified_selection(self):
+        if self.view == "artifact":
+            if self.artifact_digest is None or any(
+                value is not None
+                for value in (
+                    self.pointer,
+                    self.section_pointer,
+                    self.cell_index,
+                    self.occurrence_id,
+                    self.collection,
+                )
+            ):
+                raise ValueError("artifact reads require one digest and an exact product pin")
+        elif self.artifact_digest is not None:
+            raise ValueError("artifact digest is only available for artifact reads")
         if self.membership is not None and self.section_pointer is None:
             raise ValueError("membership requires a selected section")
         if self.collection is not None and self.view != "manifest":
@@ -152,7 +168,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
     trusted_pdf_context().boundary.validate_json(
         "PdfNativeReadRequest", request.model_dump_json(exclude_none=True)
     )
-    if request.view in {"companion", "manifest"} or (
+    if request.view in {"companion", "manifest", "artifact"} or (
         request.view == "trace" and request.occurrence_id is not None
     ):
         return _inspect_companion(conn, request, run.project_id)
@@ -493,6 +509,42 @@ def _inspect_companion(
         product_key=request.product_key,
         content_digest=request.content_digest,
     )
+    if request.view == "artifact":
+        from corpus_structure.semantic.pdf_storage import read_pdf_artifact
+
+        if request.artifact_digest is None:
+            raise ValueError("artifact digest is missing")
+        try:
+            offset = int(after) if after else 0
+        except ValueError as error:
+            raise ValueError("invalid artifact continuation offset") from error
+        result = read_pdf_artifact(
+            conn, **pin, artifact_digest=request.artifact_digest, offset=offset
+        )
+        following = result.pop("next_offset")
+        content = result.pop("content")
+        result.update(
+            encoding="base64",
+            data=base64.b64encode(content).decode(),
+            length=len(content),
+            next_offset=following,
+        )
+        continuation = (
+            None
+            if following is None
+            else base64.urlsafe_b64encode(
+                json.dumps(
+                    dict(selection=request.selection_digest(), after=str(following))
+                ).encode()
+            ).decode()
+        )
+        return NativeSourceResponse(
+            selection=request,
+            release_id=row.release_id,
+            health={},
+            rows=[to_jsonable_python(result)],
+            next_cursor=continuation,
+        )
     if request.view == "trace":
         if request.occurrence_id is None or request.cursor is not None:
             raise ValueError("companion trace requires one occurrence and no continuation")
