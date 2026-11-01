@@ -1,6 +1,6 @@
 # PostgreSQL capability leverage
 
-**Status:** Complete — PG-00–PG-12 implemented and targeted Tested on2026-11-01; main merge authorized. Original and supporting plan documents are retained.
+**Status:** Complete — PG-00–PG-12 implemented and targeted Tested on2026-11-01; merged into main at `7b39e1b0`. Original and supporting plan documents are retained.
 **Created/revised:** 2026-11-01. **Target claims:** Implemented and targeted Tested as recorded below; quantitative performance benefits remain unmeasured.
 **Basis:** [integrated review O01–O15](../functional_reviews/postgresql-capability-leverage_2026-11-01.md) at `09d3125e1570df7c94ca357962107155cfdb939b`. Its audit explains rationale, not a second execution queue. This coordinator is the sole package/investigation/source-disposition owner for this series. The expanded implementation design below refines the initial investigation questions without changing their IDs.
 
@@ -109,7 +109,7 @@ Apply FP-01–07 and applicable profile semantics qualitatively, especially auth
 
 **Design-phase execution constraint (operator, 2026-11-01):** all data is regenerable. This is permission to prioritize the target during the current design phase, not a permanent product compatibility policy or an architectural decision. Compiler18 is the current execution contract. Fresh current creation and regenerated-data journeys replace historical-reader and retained-data upgrade obligations. Reject obsolete execution products with a regeneration requirement. Frozen migrations, plans and receipts remain as history without ongoing compatibility support. This boundary does not authorize changing the main database.
 
-**2026-11-01:** execution is isolated in `/home/paul/corpus-structure-postgresql-capability-leverage`, branch `work/postgresql-capability-leverage`, initially based on main `0878ba1b`, with committed main documentation changes through `72970e40` integrated (branch merge `9b07c640`). Those incoming changes are documentation-only; no production or selected test byte changed after the319-case qualification. The operator authorized the main merge after targeted qualification; no further merge approval is required. Seven dirty PostgreSQL references were copied as read-only research inputs to ignored `build/reference-inputs`, with hashes; main's documentation remains untouched.
+**2026-11-01:** execution ran in `/home/paul/corpus-structure-postgresql-capability-leverage`, branch `work/postgresql-capability-leverage`, initially based on main `0878ba1b`, with committed main documentation changes through `72970e40` integrated (branch merge `9b07c640`). Those incoming changes are documentation-only; no production or selected test byte changed after the319-case qualification. The operator authorized the main merge after targeted qualification; fast-forward integration completed at `7b39e1b0` with all11 pre-existing dirty documents preserved. Seven dirty PostgreSQL references were copied as read-only research inputs to ignored `build/reference-inputs`, with hashes; main's documentation remains untouched.
 
 Private PostgreSQL18 uses `build/pg/data`, private socket `build/pg/socket`, port55434 (`max_locks_per_transaction=1024` for disposable native fixture construction), extension-only `cs_pg_template`, bootstrap-only `pgpl_bootstrap`, ordinary CREATEDB maintenance `paul`, and restricted semantic principals. All purpose URLs are local `.envrc.local` selections. Installed host extension binaries are read-only. Never run the managed-cluster provisioning/start/stop recipes for this instance. Recreate this environment explicitly from the recorded plan-execution approach; main's data and runtime environments are not shared.
 
@@ -189,7 +189,7 @@ were corrected. Existing PDF-27/28 and RC12 scope remains with its coordinator.
 Receipts originally produced under isolated `build/pg*` are retained under
 `build/postgresql-capability-leverage/`; the final and interrupted qualification directories keep
 their standard paths. Frozen migration artifacts and all plans remain committed. The private
-validation server is shut down before removing the merged worktree; no shared application
+validation server was stopped and the merged worktree/branch removed; no shared application
 cluster or deployed PDF database is migrated. Main database cutover remains with PDF RC12.
 No Rust product scope changed, and no Rust functional coverage is claimed. Structural improvements
 are implemented/tested; no speedup, bounded-memory or hard-cleanup-deadline measurement is claimed.

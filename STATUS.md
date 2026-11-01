@@ -1,11 +1,11 @@
 # Status
-_Updated2026-11-01; PostgreSQL capability series implemented and targeted Tested; main merge authorized._
+_Updated2026-11-01; PostgreSQL capability series implemented and targeted Tested; merged into main._
 
 ## Current checkpoint
 
 - [PostgreSQL coordinator](docs/plans/postgresql-capability-leverage_2026-11-01.md) records
   completed PG-00–PG-12/O01–O15 and all three investigation dispositions. Plans remain retained.
-- Work is committed in `work/postgresql-capability-leverage`; merge into main is authorized.
+- Merged into main at `7b39e1b0`; the original11 uncommitted library documents are preserved.
   Main documentation through `72970e40` is integrated; no incoming production changes existed.
 - SQLAlchemy2.1.6/Alembic1.20.1 are exactly pinned. Current execution compiler18 and ten-object
   native head `semantic_pg_20261101` are frozen/admitted; old migrations remain unchanged.
@@ -15,7 +15,7 @@ _Updated2026-11-01; PostgreSQL capability series implemented and targeted Tested
 - New native authoring, typed transfer, borrower/outcome handling, companion Parquet/DuckDB,
   scoped database description and selected-source scientific preparation are delivered.
   Comparison and nested/ancestor coverage findings were corrected and independently reassessed.
-- Private validation PostgreSQL18 on socket/port55434 is stopped. Receipt/candidate inputs are
+- Private validation PostgreSQL18 on socket/port55434 is stopped. The merged worktree/branch are removed. Receipt/candidate inputs are
   retained in `build/postgresql-capability-leverage`; qualification directories keep standard paths.
 - [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) integrates the PG/Arrow review:
   PDF-27/28 and RC12 current-product rebuilding/cutover remain its scope. Shared deployed book
@@ -29,7 +29,8 @@ _Updated2026-11-01; PostgreSQL capability series implemented and targeted Tested
   Receipt: `build/test-receipts/qualification/pg-series-final-c5394eaa`; `invocation.json` records
   the exact `scripts/test_receipts.py run --python-only -- ...` command/selection/source.
 - **passed:** `uv run ruff check .`, `uv run pyrefly check --min-severity warn --summary=none`,
-  `just deps`, `just ready` and root `just turn-end`; source unchanged after qualification.
+  `just deps`, `just ready` and root `just turn-end`; main readiness also passed after merge,
+  with production/test source unchanged after qualification.
 - **failed/interrupted:** broad attempt `20261101T131200Z-2640716` retained36failed/2615passed/
   9skipped before normal SIGINT/fixture teardown. No broad acceptance credit. The operator
   requires complete PG scope/targeted tests, not a green pre-existing PDF/repository baseline.
@@ -39,6 +40,5 @@ _Updated2026-11-01; PostgreSQL capability series implemented and targeted Tested
 
 ## Next
 
-Complete the authorized main merge, preserve dirty documentation and remove the merged worktree.
 Continue PDF-27/28 and RC12 rebuilding/cutover under the PDF coordinator, with the shared PG
 capabilities available as implemented dependencies. Other plans retain their own completion scope.
