@@ -4,7 +4,9 @@ _Updated2026-11-01; PostgreSQL capability series implemented and targeted Tested
 ## Current checkpoint
 
 - [PostgreSQL coordinator](docs/plans/postgresql-capability-leverage_2026-11-01.md) records
-  completed PG-00–PG-12/O01–O15 and all three investigation dispositions. Plans remain retained.
+  completed PG-00–PG-12/O01–O15 and all three investigation dispositions. The coordinator and
+  five supporting plans now describe actual APIs/ownership and completed verification, with
+  illustrative extensions separated from delivered behavior. Plans remain retained.
 - Merged into main at `7b39e1b0`; the original11 uncommitted library documents are preserved.
   Main documentation through `72970e40` is integrated; no incoming production changes existed.
 - SQLAlchemy2.1.6/Alembic1.20.1 are exactly pinned. Current execution compiler18 and ten-object
@@ -36,6 +38,8 @@ _Updated2026-11-01; PostgreSQL capability series implemented and targeted Tested
   requires complete PG scope/targeted tests, not a green pre-existing PDF/repository baseline.
 - **failed:** `just docs-check` has pre-existing/out-of-scope publication targets;0errors in
   this series’ changed plan/architecture documents. No blanket documentation pass is claimed.
+- **passed:** documentation closeout resolved 89 local references/20 anchors across all six plan
+  documents. No production/test change or product requalification was needed.
 - No quantitative performance, hard cleanup deadline or Rust functional coverage is claimed.
 
 ## Next

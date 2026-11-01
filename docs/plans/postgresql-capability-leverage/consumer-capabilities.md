@@ -1,37 +1,45 @@
 # Analytical, operator and selected-source consumers
 
-**Implemented and targeted Tested,2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md)
-owns PG-06/07/10 and PG-I03. These are selected delivery scope. This document settles their
+**Implemented and targeted Tested, 2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md)
+owns PG-06/07/10 and PG-I03. These are completed delivery scope. This document records their
 interfaces, meanings and realization; the coordinator records their final selected functional/native acceptance.
 Existing published/read contracts are prerequisites; unfinished work in another plan is not imported.
 
-## Baseline and shared application boundary
+## Implemented services and shared application boundary
 
-**Source-inspected, 2026-11-01:** `serve/native_source.py::NativeSourceRequest` qualifies reads
-by run/task/product/digest and separates complete native formats from partial selections.
-`export_native_source` and `cli/source.py::native_export` are the source-service/CLI seams.
-`semantic/pdf_record_reader.py::PublishedPdfReader` supplies bounded row/context reads and
-whole-root native event serialization. `pdf_record_reader_native.py::pdf_native_export_sql`
-contains the recursive ordered event query, whose current seed is the document root.
-`serve/export.py::export_packet` already writes detached Parquet with schemas, row counts and
-hashes through a temporary directory; its SPINE requirement makes it a reusable pattern, not a
-function to call with an unrelated companion packet. `semantic/analytics.py::load_packet`
-already imports one exported snapshot into a fresh ADBC session before reading multiple families.
+**Implemented and targeted Tested, 2026-11-01:**
+[`serve/companion_export.py`](../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py),
+[`serve/database_description.py`](../../../python/corpus-structure/src/corpus_structure/serve/database_description.py)
+and [`serve/selected_source.py`](../../../python/corpus-structure/src/corpus_structure/serve/selected_source.py)
+provide the shared application operations below. `cli/source.py` and `cli/db.py` parse requests
+and render their results. `NativeSourceRequest`/`export_native_source` route
+`format="selected-source-v1"` to selected export; complete native formats retain their full-root
+meaning. `export_selected_source` owns the protected selected-event cursor;
+`pdf_selected_source_native.py` defines its set-based selection/closure SQL, composing the shared
+event machinery from `pdf_record_reader_native.py` and the context-row selector.
+`PublishedPdfReader` supplies the borrowed-event serializers. No new MCP surface or external
+consumer contract is claimed.
 
-Retain those responsibilities and extend them through ordinary application functions. The CLI
-only resolves settings, parses requests and renders the same results; no CLI-specific semantics,
-interactive catalog browser, generic reader engine or second artifact registry is introduced.
-The following names describe the selected interfaces to implement; all are **Proposed**:
-
-| Type / operation | Meaning |
+| Implemented type / operation | Meaning |
 |---|---|
-| `PublishedSourcePin` | Immutable `project_id`, `run_id`, `release_id`, `task_id`, `product_key`, `content_digest`; validated against the run's authorized selected-product ancestry in an actual read snapshot. Wrap/reuse `ProductReference` for the product portion. |
-| `CompanionExportRequest` | Pin, nonempty unique families from `input/relation/coverage/mapping_report`, and a fresh destination directory. Whole published product only; no implicit current/latest selector. |
-| `export_companion_parquet(request, settings)` | Shared service; opens its own read resources and returns a detached `CompanionExportManifest` after atomic publication of all requested files. |
-| `inventory_companion_export(manifest)` | Local DuckDB operation over verified manifest-listed files, returning `CompanionInventory`; owns no PostgreSQL connection. |
-| `compare_companion_exports(left, right)` | Local DuckDB operation returning `CompanionComparison`, including comparability result, source-qualified differences and preservation of multiplicity. |
-| `DatabaseDescriptionRequest` / `describe_database` | Literal object selectors, metadata depth, optional admitted read-query description and optional estimates; returns `DatabaseDescription` with independently labeled observations. |
-| `SelectedSourceExportRequest` / `export_selected_source` | Exact pin, one intact section root and fresh destination; writes `selected-source-v1` JSONL under the closure rules below, returning `SelectedSourceExportReceipt`. |
+| `PublishedSourcePin` | Frozen `project_id`, `run_id`, `release_id`, `task_id`, `product_key`, `content_digest`; validated against authorized published ancestry in a read snapshot. |
+| `CompanionExportRequest` | Pin, nonempty unique families from `input/relation/coverage/mapping_report`, fresh destination; defaults to all four families. |
+| `export_companion_parquet(request, settings)` | Owns capture resources; returns detached `CompanionExportManifest` after atomic publication. |
+| `inventory_companion_export(path)` | Verifies a manifest path and files, then returns a dictionary with pin, projection, family inventories and `not_requested`; owns no PostgreSQL connection. |
+| `compare_companion_exports(left, right)` | Verifies two manifest paths; returns a dictionary containing both inventories, `comparable`, optional `reason`, and side-qualified multiset `differences`. There are no exported `CompanionInventory`/`CompanionComparison` classes. |
+| `DatabaseDescriptionRequest` / `describe_database` | Literal schemas/relations, depth, optional parameter-free query with `release_id`, estimates and output bounds; returns `DatabaseDescription`. |
+| `SelectedSourceExportRequest` / `export_selected_source` | Pin, `SelectedSourceSelection(root, membership="descendants")`, destination and context policy; returns `SelectedSourceExportReceipt`. |
+| `SelectedSourceReader.prepare_formula_inputs(context, ...)` | Verifies the offline package and retained admitted `PreparedInterpretationContext`; returns `PreparedSelectedFormulaInputs` through the existing formula preparation frontend. |
+
+**Closure evidence, 2026-11-01:** PG-06/07/10 and PG-I03 are complete at `c5394eaa`.
+The coordinator owns the final affected-scope command/receipt
+`build/test-receipts/qualification/pg-series-final-c5394eaa`: **passed**, 319 tests across 32 files,
+zero failures/errors/skips, JUnit time 89.560 seconds. Relevant independent cases are
+`test_companion_export.py`, `test_companion_export_native.py`, `test_database_description.py`,
+`test_selected_source.py` and `test_selected_source_native.py` under
+`python/corpus-structure/tests/semantic/`. The remaining imperative text specifies the delivered
+contract and its controls, not pending implementation. Database cutover remains PDF RC12;
+there is no measured speed/memory/deadline claim.
 
 Request/result types belong with the existing application/model declarations and trusted boundary
 adapters, not a manually synchronized schema beside them. Family fields, endpoint roles, presence,
@@ -44,12 +52,12 @@ I/O, driver, database and cancellation failures. A transport exception cannot be
 
 ### Authorized capture and detached manifest
 
-Extend the source CLI with `ci source companion-export`, using the same explicit run,
+The source CLI provides `ci source companion-export`, using the same explicit run,
 producing-task, product, digest and output options as `native-export`, plus repeatable `--family`.
 The default family set is all four; an explicit subset is recorded and never inferred complete.
-`--json` returns the same manifest/receipt structure that the service returns. Add
+`--json` returns the same manifest/receipt structure that the service returns. It also provides
 `ci source companion-inventory <manifest>` and `ci source companion-compare <left> <right>` as
-rendering clients of the local operations, supporting JSON and human output from one typed result.
+rendering clients of the local operations, supporting JSON and human output from the same application result.
 Do not change `ci export`'s existing whole-semantic-projection meaning to achieve this feature.
 
 Consume the protected typed family functions selected in
@@ -77,14 +85,14 @@ SQL-null/JSON-null distinctions and qualified references through the directional
 Parquet ordering follows modeled keys, not incidental ADBC batch boundaries. No global Python
 `to_pylist`/sort or whole-document reconstruction is required.
 
-The detached manifest contains the format `pdf-companion-export-v1`, exact pin, selected family
-set, semantic projection id, profile id/digest, model/native schema identity and export time.
-Each requested family names a safe relative file path, serialized Arrow schema with metadata,
-actual row count, logical-row digest under the declared recipe and file SHA-256/byte length.
-Unrequested families are labeled `not_requested`; they are not schema-bearing empty files.
-Reuse existing logical-row/artifact utilities and atomic temporary-directory publication.
-Never reuse the admitted product digest as an export-byte digest. A snapshot export identifier is
-capture provenance, not a durable capability that a detached reader can import later.
+The detached `CompanionExportManifest` fields are `format="pdf-companion-export-v1"`, `pin`,
+`projection_id`, `profile_id`, `created_at`, `families` and `not_requested`. Each `FamilyFile`
+contains `path`, `schema_base64`, `rows`, `logical_digest`, `sha256` and `byte_length`.
+Serialized Arrow schema metadata binds projection, pin, profile, release, physical model, family
+and product.
+Unrequested families are named in `not_requested`, not represented by empty files. Capture uses
+atomic temporary-directory publication. The admitted product digest is distinct from export-byte
+identity; a snapshot identifier is not a durable detached import capability.
 
 A result returned after rename owns no live reader, transaction, connection or temporary spool.
 The destination is durable caller-owned output; `close()` must not delete it. Internal scratch
@@ -95,20 +103,19 @@ hash bindings before use; no current/latest file discovery is permitted.
 
 ### Inventory and comparison semantics
 
-`CompanionInventory` carries the manifest pin/projection, included-family statuses and these
+The inventory dictionary carries the manifest pin/projection, requested family results and these
 operation-shaped tables, each labeled as an inventory of that projection:
 
 - Inputs: counts by modeled role and source product binding, retaining source task/product/digest,
-  input occurrence identity and repeated uses. Equal source bytes do not imply one input use.
-- Relations: relation occurrence counts by kind; endpoint counts by role, direction and qualified
-  target binding/address; outside-selection targets are separately labeled; v1 published endpoints remain fully resolved under the existing occurrence-addressed model. Count relation IDs
+  input ordinal and repeated uses. Equal source bytes do not imply one input use.
+- Relations: relation occurrence counts by kind; endpoint counts by modeled role and qualified
+  target binding/address; `target_scope` distinguishes `own_product` from `external_product` for this whole-product export; v1 published endpoints remain fully resolved under the existing occurrence-addressed model. Count relation IDs
   from the relation identity surface, not the number of joined endpoints. Preserve endpoint
   ordinal and repeated endpoints rather than collapsing them with DISTINCT.
-- Coverage: outcome distributions keyed by the actual modeled scope/universe/provider where
-  declared. Complete, partial, failed, unknown and not-requested remain distinct; missing rows
+- Coverage: outcome distributions keyed by the actual modeled `scope`, `coverage_family` and `discovery_policy`. Complete, partial, failed, unknown and not-requested remain distinct; missing rows
   do not establish zero failures or successful complete recognition.
-- Mapping reports: status counts keyed by input/source-target scope and mapping profile, retaining
-  unavailable/partial/conflicting observations rather than coercing them to a success flag.
+- Mapping reports: outcome counts keyed by input index and task/product/digest, coordinate frame,
+  coordinate scale and normalization; outcome distinctions are not coerced to a success flag.
 
 DuckDB uses explicit schemas and manifest-listed `read_parquet` relations, scoped views/CTEs and
 GROUP BY/joins at these keys. It does not read a wildcard directory or auto-union incompatible
@@ -120,21 +127,24 @@ family set and field meanings, compatible schema/profile/digest recipes and comp
 selection/context policies. Two different product pins are allowed and are precisely what a
 revision comparison describes. A different project, native/model schema, interpretation release
 or selection policy requires an already explicit equivalence/translation contract; v1 supplies
-none and returns `incomparable` with reasons and both inventories instead of a misleading diff.
+none and returns `comparable=false` with a reason and both inventories.
 Different physical batch/file boundaries alone do not make exports incomparable.
 
-For comparable exports return added/removed keyed records and changed values, grouped by family,
-with each endpoint still qualified by its own side's pin. Match cross-product records only by a
-shared declared logical key; never assume equal local IDs or pointers across different products
-mean the same occurrence. Where the projection supplies no such cross-product correspondence,
-report source-qualified multiset additions/removals and count differences, not invented edits.
-Use grouped counts or `EXCEPT ALL` under canonical typed columns to preserve duplicate multiplicity.
-A matched relation with changed endpoints is different from repeated identical relation occurrences.
-No equivalence conclusion comes solely from equal aggregate counts. A missing family reports
-`not_requested` or incomparable scope, never a zero delta. Exact lexical values remain authoritative;
-a rounded analytical numeric column cannot determine exact equality.
+The implemented comparator additionally requires identical input bindings (including ordinals
+and multiplicity) for different pins, and therefore requires the input family for cross-pin
+comparison. It returns `comparable=false` and a reason when that premise is unavailable or differs.
+The result always retains both inventories.
 
-### Independent acceptance
+For the same pin, each family's `removed`/`added` records use `EXCEPT ALL` over exact projected
+value columns, preserving duplicate multiplicity. For different comparable pins there is no
+cross-product occurrence correspondence: every left record is side-qualified `removed`, and every
+right record is side-qualified `added`, even if local IDs or row values happen to match. Each
+family result carries `left_pin`, `right_pin`, `columns` and `correspondence` (`same_product` or
+`none`). No changed-value pairing is fabricated across pins, and equal counts never establish
+semantic equivalence. A missing family remains `not_requested` or causes incomparable scope,
+never a zero delta. Lexical values remain authoritative.
+
+### Retained acceptance controls
 
 Exercise the public service and CLI with actual authorized PostgreSQL → ADBC batches → Parquet →
 DuckDB. Independently specified fixtures include two same-kind relations with repeated endpoints,
@@ -153,18 +163,19 @@ produce a manifest. A mock driver or a writer/reader round trip alone is not the
 
 ### Shared request and honest result
 
-Extend the existing Typer `db` group and JSON/human emission convention. A request names the
-current database target, one or more **literal schema names**, optional literal relation names,
+The existing Typer `db` group exposes `describe` with the shared JSON/human result. Settings select the
+current database target; a request supplies one or more **literal schema names**, optional literal relation names,
 `depth=schemas|relations|columns|constraints`, positive object/column/output bounds and
 `estimates=false|true`. Relation filters require their schema; no cross-database traversal is
-implied. Query description optionally supplies an admitted query reference, or one SELECT plus
-explicit release/model binding through the existing admission route. V1 query description is parameter-free: reject submitted parameters/placeholders before admission. The current `admit_sql` has no bound-parameter input and its supported AST excludes `ParamRef`; extending that authority is not required for useful metadata description.
-These are closed request alternatives; an absent query does not mean an arbitrary catalog query.
+implied. Query description optionally supplies one SELECT plus
+`release_id` through the existing model/native admission route; there is no separate query-reference field. V1 query description is parameter-free: reject submitted parameters/placeholders before admission. The current `admit_sql` has no bound-parameter input and its supported AST excludes `ParamRef`; extending that authority is not required for useful metadata description.
+The query and release ID must be supplied together; an absent query does not mean an arbitrary catalog query.
 
 `DatabaseDescription` records actual database/schema/relation context, request selectors/depth,
-observation time, principal scope and observations tagged `physical`, `model`, `query_output`
-or `estimate`. Each observation has `available`, `not_requested`, `unsupported`, `no_visible_match`
-or `refused` meaning where appropriate. Bounds reached produce an explicitly incomplete/refused
+observation time, principal scope and observations tagged `physical`, `query_output` or `estimate`. Query observations include the
+admitted release/physical binding; there is no separate model-observation family. Each observation has `available`, `not_requested`, `unsupported`, `no_visible_match`
+or `refused` meaning where appropriate; absent estimates and unsupported physical details can be
+`unavailable`. Bounds reached produce an explicitly incomplete/refused
 bounded description, never a complete empty catalog. A top-level transport error remains a
 failure, not a metadata-status record that could be mistaken for success.
 
@@ -186,7 +197,7 @@ fragment, or return unselected metadata just because the driver's filter matched
 | `adbc_get_statistics(approximate=True)` | Optional standard estimates from the connected DB and explicit schema, including approximation flags. Unsupported or absent values remain unavailable; no implicit COUNT(*) or ANALYZE. |
 | Core/native catalog inspection | Exact resolved names, privileges and selected facts the ADBC projection omits, including declared model links. Required native body/owner/search_path/grant admission remains separate and is never weakened to metadata presence. |
 
-Map request depth `schemas` → ADBC `db_schemas`, `relations` → `tables`, and `columns`/`constraints` → `all`; for `columns`, omit constraint detail with an explicit not-requested status. Decode actual nested reader fields, not a guessed flat table. If a deeper request cannot be fulfilled by the backend, preserve its unsupported/incomplete fields. Apply output limits incrementally and close the reader when the bounded result refuses further accumulation.
+The implemented discovery maps `schemas` → ADBC `db_schemas` and all deeper depths → `tables`. It decodes the nested discovery records, then uses Core catalog inspection for requested columns and constraints; `adbc_get_table_schema` supplies a separately labeled Arrow shape where SELECT is permitted. `columns` leaves constraints `not_requested`; unsupported exclusions are `unavailable`. This avoids treating incomplete ADBC nested column/constraint metadata as authoritative native facts. Output bounds are enforced and metadata readers close on refusal.
 
 Do not request exact statistics and silently fall back: v1 explicitly requests approximate
 statistics when selected. Report source/freshness only when actually supplied; unknown freshness
@@ -210,8 +221,8 @@ make this command an arbitrary PostgreSQL expression evaluator. Existing source-
 positions and refusal codes reach both CLI representations. `adbc_execute_schema` does not replace
 admission: planning can resolve names/functions even when it returns no rows.
 
-A query artifact is rebound/re-admitted when its release/physical/compiler dependencies differ.
-Then describe it in a short read-only session under the existing reader principal. Use the admitted parameter-free SELECT exactly; do not substitute user values or prepare it on an admin session. Do not run the query, EXPLAIN ANALYZE, DDL,
+Every submitted query is admitted against its explicit release and current physical model, then
+described in a short read-only session under the existing reader principal. Use the admitted parameter-free SELECT exactly; do not substitute user values or prepare it on an admin session. Do not run the query, EXPLAIN ANALYZE, DDL,
 DML, volatile application functions or migration operations to discover its schema. Close metadata
 readers/cursor, settle read transactions and close ADBC on all exits. No reusable result contains
 a live catalog/snapshot handle. Observations are dated descriptions, not an authorization cache
@@ -229,8 +240,7 @@ No runtime SQL data execution is credited by successful schema description.
 
 ### Settled selection and context design
 
-**PG-I03 design outcome: Proposed, source-grounded closure selected here.** Implementation needs
-independent empirical tests of this design, not a later choice of whether to provide it. The
+**PG-I03 outcome: Implemented and targeted Tested, 2026-11-01.** The native selected-source journey and independent reassessment cover the closure below, including nested/ancestor scopes and lossless recognition metadata. The
 first consumer is incremental native-formula scientific input preparation, preserving adjacent
 text/table context for extraction. It prepares inputs through the existing formula/source-frame
 contracts; it does not run new recognition or scientific inference.
@@ -248,8 +258,8 @@ Resolve section items set-wise, retain their original record/collection membersh
 nested native structures and scalar/extension parts needed to represent their values. Physical
 native-record containment and document semantic parent/child references are distinct: changing
 only `read_pdf_native_events`' physical root seed is insufficient when section descendants live
-in document arrays and are linked by native references. Extend the protected selected-source
-operation with that semantic membership first, then use the ordered event machinery for its
+in document arrays and are linked by native references. The protected selected-source
+operation derives that semantic membership and feeds the ordered event machinery for its
 records. Do not fetch one item/query per node or hydrate the subtree as a Python document.
 
 The mandatory `section-source-context-v1` closure includes:
@@ -259,8 +269,8 @@ The mandatory `section-source-context-v1` closure includes:
    content or permission to reinterpret the selected root as a complete document.
 2. Selected occurrence rows and relations incident to them, with **all endpoints of each retained
    relation** and their roles/direction/ordinal. Preserve repeated occurrences and endpoints.
-3. Coverage applying to the selected scope, pages and whole-document premise, with original scope
-   labels. Whole-document coverage is context, not narrowed into a new section completeness claim.
+3. Coverage applying to the selected root, nested selected sections, ancestor sections, pages and
+   whole-document premise, with original scope labels. Whole-document coverage is context, not narrowed into a new section completeness claim.
 4. Direct input/source evidence bindings used by retained occurrences, relation endpoints or
    coverage supports; their mapping reports, selection decisions and pertinent health/recognition
    outcomes. Keep alternative observations distinct from selected content.
@@ -288,43 +298,33 @@ occurrence IDs/pointers even if a later pure computation can reuse prepared work
 
 ### Service, native extension and event package
 
-Add `format="selected-source-v1"` to the existing `ci source native-export`/shared service with
+The existing `ci source native-export`/shared service accepts `format="selected-source-v1"` with
 one required section and descendant membership; its output path names a new package directory. Complete `docling-json`/`integrated-json` retain
 their full-root meanings and continue to reject partial selectors. The service validates its
 `SelectedSourceExportRequest`, obtains one authorized published reader/snapshot and invokes a
-new protected `ops.read_pdf_selected_source_events` operation. Model-derived request/return
+protected `ops.read_pdf_selected_source_events` operation. Model-derived request/return
 contracts govern root, membership, closure policy and ordered events; native functions recheck
 publication/run/project ancestry and derive closure from published relations. No raw table grants.
 
-Extend/reuse `pdf_record_reader_native.py` event/containment and context selectors, including
-`read_pdf_record_context_rows`, rather than a second serializer with independent selection rules.
-If their JSON-valued pages cannot express the required incremental closure, add typed/set-shaped
-native subqueries at that owner. Reuse PG-06 typed companion projections where meanings match.
-The implemented `pdf_storage.py::integrated_source_context` and
-`PublishedPdfReader.source_context` signatures must propagate the actual requested membership:
-source inspection currently shows the wrapper calling `source_context(pointers,section_pointer)`
-without forwarding its `membership`. New selected-source callers and packet preparation must
-consume the one owned closure, not rely on that omitted default or copy its behavior.
+Selected export implements its set-shaped membership/context query in
+`pdf_selected_source_native.py`, reusing native event and companion scalar-part machinery from
+`pdf_record_reader_native.py` plus the shared context-row selector. It does not depend on JSON-valued page hydration or a second selection serializer.
+The implemented `pdf_storage.py::integrated_source_context` forwards `membership=membership` to
+`PublishedPdfReader.source_context`. Selected-source callers consume the owned closure. Native
+metadata is streamed losslessly through companion payloads, including nested/collection formula
+recognition metadata; the offline reader rejects ambiguous attribution rather than inventing success.
 
 JSONL is a versioned event package, not a fragment masquerading as a DoclingDocument. Each line
 is a bounded event; large strings/opaque native JSON use ordered scalar-part events with profile,
 part order and byte encoding, not an unbounded line or Python floating conversion. Record fields,
-original pointers and collection order are retained without reindexing. A schematic stream is:
+original pointers and collection order are retained without reindexing. The concrete event schema is declared in `model/semantic/selected-source.yaml` and emitted by
+`serve/selected_source.py::_write_selected_package`. It uses `header`, `record_start`,
+`record_end`, `companion_start`, `companion_end`, `context`, `outside_reference`, `scalar_part`
+and `trailer`. Structured descriptor payloads are canonical JSON text in `data`; payload parts
+use ordered base64 with `part`, `encoding`, `value` and `final`. Header/receipt bind schema/projection,
+physical model, interpretation model and implementation digests, exact selected membership count
+and digest, included families, omissions and artifact references.
 
-```jsonl
-{"event":"header","format":"selected-source-v1","pin":{"project_id":"statistics","run_id":7,"task_id":70,"product_key":"integrated","content_digest":"1111111111111111111111111111111111111111111111111111111111111111"},"selection":{"root":"#/groups/8","membership":"descendants"},"context_policy":"section-source-context-v1","omissions":["outside_subtree_bodies","original_artifact_bodies","complete_docling_envelope"]}
-{"event":"record_start","role":"selected","pointer":"#/texts/42","record_id":"native-record-42","order":[8,2],"label":"formula"}
-{"event":"field","name":"orig","value":"x = 1"}
-{"event":"scalar_part","name":"text","part":0,"encoding":"utf8","value":"x=1","final":true}
-{"event":"record_end","record_id":"native-record-42"}
-{"event":"companion","family":"occurrence","local_id":"occ-9","body":{"pointer":"#/texts/42","recognition":"succeeded","geometry":"coarse"}}
-{"event":"outside_reference","from_occurrence":"occ-9","relation_id":"rel-4","endpoint_ordinal":1,"target":{"task_id":69,"product_key":"native","content_digest":"2222222222222222222222222222222222222222222222222222222222222222","pointer":"#/texts/3"},"resolution":"qualified_external"}
-{"event":"trailer","outcome":"complete","selected_record_count":1,"context_record_count":0,"omissions_declared":true}
-```
-
-The example abbreviates fields for readability; actual header also carries the complete pin's
-release, schema/projection/selection-policy identities, included families and context rules.
-Actual companion rows use model-owned fields, not a second schema inferred from this illustration.
 The event schema defines allowed kinds and required nesting/order. Every `record_start` closes,
 scalar parts are contiguous and complete, and all reference records retain qualification.
 Trailer counts cover actual event categories and never infer complete scientific coverage.
@@ -341,9 +341,9 @@ An optional direct streaming sink cannot retract bytes; its consumer therefore a
 only after validating the trailer and out-of-band receipt. The CLI's durable package is the
 required v1 path, with cleanup restricted to its own unpublished temporary directory.
 
-### Incremental scientific consumer and independent acceptance
+### Implemented scientific consumer and retained acceptance controls
 
-Deliver a `SelectedSourceReader` over verified JSONL that checks the header/receipt/event schema,
+`SelectedSourceReader` checks the JSONL header/receipt/event schema,
 maintains bounded current-record/scalar assembly and resolves selected/context references through
 an owned on-disk index when necessary. It yields source occurrences and context to the existing
 source-frame/packet input-preparation functions; it never reconstructs a complete Docling root.
@@ -353,8 +353,8 @@ network discovery or a mutable current default. The input-preparation caller sup
 recognized LaTeX remains separate from original text, and page geometry does not become glyph
 coordinates or an HTML macro environment. Check dependencies before demanding an outside value.
 
-Migrate the selected scientific/extraction **input-preparation** caller with the producer in
-PG-10, rather than shipping an unused exporter and promising integration later. Preserve existing
+`SelectedSourceReader.prepare_formula_inputs` is the integrated scientific/extraction
+**input-preparation** consumer delivered with PG-10. Preserve existing
 small-source reads and complete export callers. A consumer may incrementally process records,
 but it publishes an accepted prepared input only after trailer/receipt validation; failures leave
 no accepted partial input. Recipe preparation/parsing remains demand-driven, and no model inference,
@@ -371,7 +371,7 @@ A record omitted from the selected set cannot be hidden by equal counts. Compare
 independently expected inputs, not only the same production closure on both sides. Large synthetic
 scalars and early sink/reader abandonment exercise bounded handoff without live inference.
 
-## Library-informed composition and remaining uncertainty
+## Library-informed composition and qualification boundary
 
 [ADBC metadata and ownership](../../libraries/postgresql/adbc-driver-postgresql.md),
 [SQLAlchemy relational/streaming](../../libraries/postgresql/sqlalchemy.md),
@@ -379,17 +379,15 @@ scalars and early sink/reader abandonment exercise bounded handoff without live 
 [pool ownership](../../libraries/postgresql/psycopg-pool.md) supply physical mechanisms. Context7
 was consulted for ADBC metadata before installed `adbc_driver_manager/dbapi.py` source confirmed
 `adbc_get_objects` depth names/filter arguments, `adbc_get_statistics(approximate=True)` and
-`adbc_execute_schema` preparation semantics. These are source-inspected interfaces, not executed
-provider journeys. The source owner/model supplies scientific meaning and authorization.
+`adbc_execute_schema` preparation semantics. The documentation/source lookup establishes API meaning; the separate final affected-scope receipt establishes the selected executed provider journeys. The source owner/model supplies scientific meaning and authorization.
 
 The three outputs remain distinct: typed analytical relations, physical/query descriptions and
 selected-source/context events. They share source facts and resource mechanics, not one universal
 reader. H5/H6/H8/H16/H17 favor useful scope and bounded movement; DP-07/08/15 preserve order,
 multiplicity, exactness and evidence. No numerical benefit is claimed.
 
-PG-I03's design questions are settled by the explicit preparation consumer and closure above.
-Remaining empirical questions concern actual native enforcement, completeness, ordering, bounded
-resource use and end-to-end consumer behavior under the independent cases, not which context
-policy to invent during implementation. If current deployment lacks a selected published read
-prerequisite, record that external prerequisite without importing its repair. No probes, product
-tests, database changes or library upgrades were performed to author this expansion.
+PG-I03's design and selected empirical controls are closed in the coordinator. The native journey
+covers actual selection/closure, ordered membership, nested/ancestor coverage, lossless recognition
+metadata and offline formula input preparation after database closure. Missing published-read or
+retained interpretation inputs still refuse at runtime. No inference, whole-book qualification,
+external MCP delivery or quantitative performance/resource benefit is credited by those tests.

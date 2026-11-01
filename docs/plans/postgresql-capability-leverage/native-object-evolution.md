@@ -1,10 +1,12 @@
 # Native object authoring, evolution and syntax
 
-**Implemented and targeted Tested,2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md)
+**Implemented and targeted Tested, 2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md)
 owns PG-01/08/09 and PG-I01. This develops O06/O07/O08/O10/O12 from the
 [integrated review](../../functional_reviews/postgresql-capability-leverage_2026-11-01.md)
-at `09d3125e`. Source inspection establishes the existing seams and library interfaces below,
-not delivery or live qualification of the proposed target.
+at `09d3125e`. PG-01/08/09 and PG-I01 are complete within the coordinator's
+[final-source targeted qualification](../postgresql-capability-leverage_2026-11-01.md#completion-and-retained-evidence).
+The retained design contracts below describe the delivered boundary; extension examples are
+identified explicitly. They do not claim a main-database deployment or PDF RC12 cutover.
 
 ## Selected mechanism and operator correction
 
@@ -36,10 +38,42 @@ Rendering operations for inspection is supported; executable offline migration S
 selected. An operation never opens an Engine, borrows another connection, commits, or advances
 the version table itself. Alembic's existing history supplies revision movement.
 
-## Existing foundations and actual integration seams
+## As implemented and qualified
 
-**Source-inspected, 2026-11-01.** Refresh these consumers before implementation because PDF
-work continues. Their existence does not transfer unfinished PDF obligations into this series.
+**Implemented and targeted Tested, 2026-11-01.** Current source maps the selected mechanism to
+these public application contracts:
+
+| Responsibility | Delivered route |
+|---|---|
+| Definition, identity and normalization | [native_objects.py](../../../python/corpus-structure/src/corpus_structure/semantic/native_objects.py): `NativeIdentity`, `NativeDefinition`, `definition_from_sql`, `NativeObject`, `NativeAuthoring` and `prepare_native_authoring`. Explicit dependency-ordered definitions are normalized in rollback-only savepoints on an explicitly owned maintenance database. |
+| Comparison, rendering and execution | [alembic_native.py](../../../python/corpus-structure/src/corpus_structure/semantic/alembic_native.py): Plugin `corpus.semantic.native`, `compare_native`, and frozen payload-v1 `NativeTransitionOp`; rendered directives call `op.native_transition`. |
+| Recurring candidate and predecessor | [native_candidate.py](../../../python/corpus-structure/src/corpus_structure/semantic/native_candidate.py): `prepare_series_candidate`, `current_native_state`, `load_native_state` and `candidate_admission_sql`. Predecessors come from the revision's digest-bound native-state file or an explicit state file, never live catalog adoption; the bounded 0065 source fallback remains explicit. |
+| Operator authoring | [schema.py](../../../python/corpus-structure/src/corpus_structure/cli/schema.py): `ci schema native-candidate --authoring-database … --out … [--predecessor-state …]` writes `native_candidate.py`, `native_operations.json` and `native_admission.sql` after rollback. It requires a separate owned database and new output directory; it does not deploy or advance revision history. `ci schema derive` remains a foundation preview. |
+| Frozen realization | [0066](../../../python/corpus-structure/semantic_alembic/versions/0066_postgresql_capability_leverage.py), revision/head `semantic_pg_20261101`, binds ten native objects and admission SQL by digest, executes frozen operations once, and independently admits the desired state on the caller's Connection. The execution ABI is 18. Downgrade refuses before effects. |
+| Source-qualified syntax | [prepared_sql.py](../../../python/corpus-structure/src/corpus_structure/semantic/prepared_sql.py): `prepare_sql`, `PreparedSQL`, `SQLSyntaxError`; [native_inventory.py](../../../python/corpus-structure/src/corpus_structure/semantic/native_inventory.py) shares this route with current inventory, authored-SQL admission and native function-body consumers. |
+
+The frozen ten-object set contains the native record shape and context reader, the companion-pin
+guard and four published batch readers, the selected-source reader, and the execution descriptor
+and enforcing guard. Generic native operations support functions, ordinary views and triggers;
+policies, procedures and SQL-standard function bodies are outside the selected implementation.
+The narrow [defaults adapter](../../../python/corpus-structure/src/corpus_structure/semantic/alembic_defaults.py)
+remains: pinned Alembic's callable-default path accesses `Identity.arg` before identity dispatch.
+The adapter routes identity comparison to the existing dialect comparer; its separate volatile
+UUID-default exception is scoped to `ops.task.invocation_key`. Neither is replaced by Alembic Utils.
+
+The coordinator retains the exact final command and outcome in
+`build/test-receipts/qualification/pg-series-final-c5394eaa`: **passed**, 319 selected affected
+cases at production source `c5394eaa`, including actual PostgreSQL/native admission, caller rollback,
+recurring authoring and syntax consumers. The native-focused controls are in
+`test_alembic_native.py`, `test_postgresql_capability_adoption.py`, `test_prepared_sql.py`,
+`test_native_inventory.py` and `test_native_candidate_cli.py`. This document correction changes no
+production source. The receipt is targeted series qualification, not a broad repository pass,
+main-database deployment or measured performance claim.
+
+## Foundations and integration seams
+
+**Source-inspected, 2026-11-01.** These consumers are the implemented integration baseline.
+Their existence does not transfer unfinished PDF obligations into this series.
 
 - [Semantic migrations](../../../python/corpus-structure/src/corpus_structure/semantic/migrations.py)
   supply `Config.attributes['connection']`; `upgrade` runs on the caller's transaction.
@@ -60,9 +94,9 @@ work continues. Their existence does not transfer unfinished PDF obligations int
   [Authored SQL](../../../python/corpus-structure/src/corpus_structure/semantic/authored_sql.py)
   already uses `Visitor`, `referenced_relations`, restricted catalog analysis and original SQL.
 
-Displace repeated current object inventory/comparison, ordinary replacement sequencing and
-rendering across these authors. Preserve necessary historical reproduction. Version-specific
-0050/0052/0053 helpers are not refactoring targets merely because their loops look alike.
+Current forward native authoring delegates selected object comparison, replacement sequencing
+and rendering to the shared route above. Necessary historical reproduction remains frozen.
+Version-specific 0050/0052/0053 helpers are not refactoring targets merely because their loops look alike.
 
 ## Desired objects and observed catalog properties
 
@@ -82,7 +116,9 @@ If native comparison is requested without it, report the missing authoring conte
 claim an empty native comparison. Ordinary upgrade execution does not request this comparison.
 
 The comparison scope is the union of explicitly desired and predecessor-owned identities.
-Dropping requires an explicit retirement in the candidate and accounting for its dependents.
+The `NativeAuthoring.retire` set must exactly equal removed predecessor identities;
+`recreate` must name identities present in both predecessor and desired state. Definition order
+is explicit dependency order. Dropping requires accounting for dependents.
 Unrelated objects in the same schema survive. Extension-owned objects and externally provisioned
 roles remain prerequisites. Schema discovery is not authorization to adopt or remove objects.
 
@@ -93,12 +129,12 @@ roles remain prerequisites. Schema discovery is not authorization to adopt or re
 | Function | Structured schema/name and ordered input-bearing types; INOUT participates, OUT/TABLE does not identify an overload. Compare body, language, return/set semantics, volatility, strictness, security, parallel/leakproof settings, configured GUCs, owner and effective EXECUTE privileges separately. |
 | View | Schema/name, view kind and query representation, plus selected options, owner and grants. A changed query does not authorize dropping dependents. |
 | Trigger | Owning relation and trigger name; compare called function, event/timing/level, condition, enabled state and selected definition fields. |
-| Policy | Owning relation and policy name; compare command, roles, permissiveness and USING/WITH CHECK. Include a policy only when the selected owned scope has a real policy consumer. |
+| Policy (unselected extension) | No managed policy consumer was selected; policy comparison/operations are not implemented by this route. A future consumer would need relation/name identity, command, roles, permissiveness and USING/WITH CHECK. |
 | Privilege/ownership effect | Object identity, grantee/owner and action with explicit before/after expectations. A matching body never establishes the right owner, search_path or grants. |
 
 Use schema-qualified names and native identifier composition. Database OIDs are temporary
 catalog locators, never persistent semantic identities. Start from the existing input-signature
-helper; PG-01 establishes quoted identifiers, type-alias normalization and INOUT/OUT/TABLE cases.
+helper; PG-01 exercised quoted identifiers, type-alias normalization and INOUT/OUT/TABLE cases.
 Resolve overloads through PostgreSQL's input-type identity. Inspect `pg_proc`, namespaces,
 languages and types; `pg_get_functiondef` supplies diagnostic text, while actual catalog fields
 supply function properties. Compare controlled bodies against `prosrc` under the language
@@ -106,8 +142,8 @@ contract. Configured GUCs and owners remain independent checks.
 
 Use PostgreSQL ACL facilities for effective EXECUTE privileges, including default privileges
 when `proacl` is NULL, PUBLIC and relevant grant options. A NULL ACL is not an empty privilege
-set. Do not recreate an ACL parser. Observe view/trigger/policy properties through catalog
-fields and `pg_get_viewdef`, `pg_get_triggerdef` or `pg_get_expr` where appropriate.
+set. Do not recreate an ACL parser. Observe ordinary view and trigger properties through catalog
+fields and `pg_get_viewdef` or `pg_get_triggerdef`. No policy projection is selected.
 The [pg_proc catalog](https://www.postgresql.org/docs/current/catalog-pg-proc.html) defines the
 input-only `proargtypes` and independent function properties;
 [system information functions](https://www.postgresql.org/docs/current/functions-info.html)
@@ -117,8 +153,10 @@ Select conservative comparison, not a general SQL equivalence engine. Exact auth
 comparison forms and actual admission properties are distinct. When a selected property needs
 server normalization, derive its expected representation by applying the desired candidate in an
 owned authoring database under declared settings, then comparing equivalent catalog projections.
-PG-01 establishes which fields need that treatment. Never simulate DDL on a reader or adopt
-live state as desired meaning. Unsupported selected properties refuse with object/source context;
+The implemented normalization applies complete definitions, then freezes the selected catalog
+projection: function body/arguments/result/settings/security/owner/ACL and supporting function
+properties, ordinary view query/options/owner/ACL, and trigger definition/owner/enabled state.
+Never simulate DDL on a reader or adopt live state as desired meaning. Unsupported selected properties refuse with object/source context;
 they are not silently discarded. Empty autogeneration means only that enabled comparison found
 no supported change, not that every native contract has been verified.
 
@@ -138,10 +176,10 @@ native comparison with existing ordinary schema comparison.
 
 `produce_migrations(MigrationContext, metadata)` produces the standard `MigrationScript`.
 Tables/columns/indexes/constraints retain normal Alembic directives. Native effects join its
-`UpgradeOps`; they do not form a second executable migration system. Use
-`process_revision_directives` to reject incomplete candidates and integrate known prerequisites.
-Use `Rewriter` only for a concrete recurring operation transformation before rendering; do not
-parse generated Python to manipulate its meaning. A new backend-wide `DefaultImpl` is unnecessary.
+`UpgradeOps`; they do not form a second executable migration system. The implemented path
+validates candidate context and transitions in preparation/comparison and operation construction. `process_revision_directives` and `Rewriter` were considered extension
+points, not installed requirements or current application APIs. Generated Python is rendered from
+operations, not parsed to manipulate migration meaning. A backend-wide `DefaultImpl` is unnecessary.
 
 Order effects from current model/product prerequisites: create a function before its trigger,
 retire an allowed dependent before dropping its provider, and establish owner/grants before
@@ -151,9 +189,9 @@ and invocation challenge the declared order; no speculative dependency-discovery
 
 ### Operation payload and historical behavior
 
-Use a small set of `MigrateOperation` subclasses for selected create/replace/drop and privilege
-changes. Each contains immutable identity and sufficient before/after definition/effect material
-for rendering and later execution. Freeze required executable material in revision literals or
+The implementation uses one `MigrateOperation` subclass, `NativeTransitionOp`, for selected
+create/replace/drop and complete privilege effects. Its frozen payload contains identity and
+sufficient before/after definition/effect material for rendering and later execution. Freeze required executable material in revision literals or
 existing immutable digest-bound artifacts, not imports of current mutable generators. Source
 references provide provenance and diagnostics; they do not substitute for available definitions.
 
@@ -165,8 +203,9 @@ revision generation supplies revision IDs and history. Keep the stable operation
 and payload format usable by frozen revisions. A future meaning change gets a deliberate new
 contract rather than silently reinterpreting an old payload.
 
-Use Core `CreateView` and ordinary Alembic DDL where suitable. Residual function/trigger/policy
-text is trusted generated PostgreSQL SQL with explicit identifiers. Execute on
+Ordinary relational changes retain Alembic directives. Selected native function/view/trigger
+definitions retain trusted generated PostgreSQL SQL with explicit identifiers; `CreateView` was
+an illustrative option, not an implemented SQLAlchemy Core API used by this route. Execute on
 `operations.get_bind()`, using exact driver SQL when preserving archived colon/percent content
 requires it: `op.execute(str)` coerces to SQLAlchemy `text()` and can interpret bind syntax.
 Runtime values still use parameters. The implementation neither commits nor alters driver
@@ -193,30 +232,27 @@ transaction. `on_version_apply` observes a step before final commit; it does not
 completion. Independent native admission checks actual installed properties before activation.
 Normal application connections never receive migration credentials.
 
-### Worked forward change
+### Exercised forward changes
 
-Use the current `ops.read_pdf_record_rows` family to illustrate the full path. Its author
-currently combines family keys, allowed filters, seek expressions, the function declaration and
-EXECUTE grants. A real series-owned change to one selected filter should work as follows:
+**Targeted Tested, 2026-11-01.** The representative protected-family control uses a disposable
+quoted schema with an overloaded function, dependent view and trigger. It changes body,
+strictness and trigger condition alongside an ordinary table alteration, renders and executes
+frozen payloads, invokes the view and restricted reader, preserves an unowned overload, detects
+forged search_path, and restores prior state on caller rollback. A fresh process executes the
+literal without importing today's native author generators. Other native controls cover explicit
+retirement/reversal, result/OUT-slot recreation, dependency ordering and ACLs independent of
+ambient default grants.
 
-1. The semantic operation owner supplies the changed filter/query. Preparation derives the new
-   function definition and the same explicit security/grant properties; PG-09 retains source links.
-2. The comparator identifies the existing function through input arguments, compares the changed
-   body and independent properties, and emits a supported replacement. Unchanged grants produce
-   no operations; a changed grant is an explicit effect. Unowned overloads remain untouched.
-3. The renderer freezes prior/new material. A fresh process imports the stable operation support
-   and executes the revision on the caller's Connection without compiling today's model.
-4. Native admission inspects the actual definition/configuration/privileges. A restricted reader
-   exercises the selected filter against independently expected rows; an unsupported filter still
-   refuses. Rolling back the caller restores both prior object and revision state.
-
-This example is not approval to invent a filter or reopen PDF delivery. PG-01 uses an actual
-series-owned change or a disposable controlled variant. The useful result is the complete native
-extension path, not an otherwise unused API added as a demonstration.
+The actual series transition freezes the ten-object set listed above. Adoption controls establish
+one current head, byte-bound inputs before effects, ABI 18 native admission, wrong-predecessor
+refusal, shared revision/object rollback, regenerated-data activation/publication, and recurring
+current-head authoring that remains empty until a controlled definition changes. The earlier
+`ops.read_pdf_record_rows` filter-change story was illustrative; no new filter was required or
+delivered by this series. PDF product behavior and main-database cutover retain their own owner.
 
 ## Prepared syntax: source, mutation and consumer lifetime
 
-PG-09 prepares only useful shared syntax for current forward inventory, native admission input,
+`prepare_sql` prepares only useful shared syntax for current forward inventory, native admission input,
 authored-SQL diagnostics and operator inspection. Retain exact immutable SQL, source identity,
 statement slices and the selected derived facts. This is process-local preparation in an
 explicit authoring context, not a persisted universal AST or second SQL semantic model.
@@ -255,7 +291,12 @@ Exact excerpts come from original source; regenerated SQL has a distinct identit
 AST equality ignores positions and cannot establish source preservation. Fingerprints can group
 diagnostic query shapes but never replace admitted bytes, semantic identity or dependencies.
 
-## Work packages and independent acceptance
+## Completed work packages and acceptance contracts
+
+**Implemented and targeted Tested, 2026-11-01.** PG-01/08/09 and PG-I01 are closed by the
+coordinator's final-source targeted evidence. The retained inputs, outputs and acceptance
+contracts below explain the delivered scope; they are not an execution queue. Future extensions
+must preserve these boundaries without treating every illustrative mechanism as implemented.
 
 ### PG-01 / PG-I01 — Representative native extension integration
 
@@ -277,7 +318,7 @@ A fresh process executes the frozen payload without consulting current authoring
 rollback restores object and revision state. Wrong owner/search_path/grant independently fails
 native admission, and a valid restricted consumer still works. PG-I01 records the exact technical
 result and any unsupported property; failure does not authorize the excluded package or a
-universal reconciler. Only PG-08's native integration depends on this result.
+universal reconciler. PG-08 used this resolved integration result.
 
 ### PG-08 — Candidate evolution and series-owned transitions
 
@@ -327,7 +368,8 @@ serialization only. Preserve unknown positions, comment limits and original/rend
 ## Library evidence, design reasoning and limits
 
 The extension mechanics were checked through Context7 and primary documentation on 2026-11-01.
-They support interface claims, not tested integration or measured benefits.
+Those sources support library-interface claims; the implementation mapping and coordinator receipts
+above establish the separately bounded integration result. No measured benefit is claimed.
 
 - [Alembic native Plugin API](https://alembic.sqlalchemy.org/en/latest/api/plugins.html): schema
   callback arguments, comparison-chain participation and CONTINUE/STOP behavior.
@@ -350,6 +392,10 @@ They support interface claims, not tested integration or measured benefits.
 FP-01/04/06, DP-06/13–16/24 and H4/H12/H27 favor one explicit definition and narrow useful
 extensions on an established lifecycle. Work follows the owned candidate rather than every
 object in the database. Stable preparation is reused by actual consumers; credentials and
-migration exclusion remain outside ordinary processing. No quantitative performance or complete
-qualification claim follows. Exact server normalization and protected-property integration remain
-planned PG-I01 verification with bounded questions and dependent work, not unexamined design.
+migration exclusion remain outside ordinary processing. The selected normalization and
+protected-property integration are implemented and targeted Tested, 2026-11-01. Residual limits are deliberate: owned online authoring only; explicit scope and
+dependency order; selected function/view/trigger properties; no implicit CASCADE, universal SQL
+equivalence, policy/procedure support, deployment automation or historical-data compatibility.
+Historical data may be regenerated during this design phase. The frozen revision is forward-only;
+supported individual operations still retain their true before-material for reversal. No quantitative
+performance, repository-wide qualification or main-database cutover claim follows.
