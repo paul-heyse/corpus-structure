@@ -34,6 +34,9 @@ class NativeRows(PublishedPdfReader):
             record_id_for=lambda address,kind:kind+":"+address, write_scalar=write))
         self._cached_record = self._record
 
+    def product_kind(self):
+        return "integrated"
+
     def iter_native_json(self) -> Iterator[bytes]:
         from corpus_structure.semantic.pdf_records import _parse_inline, _decode_scalar
         def encode(value):
@@ -308,5 +311,65 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
         assert math.copysign(1,json.loads(sink.getvalue())["pages"]["1"]["size"]["width"]) == -1
         assert receipt.serialization_sha256 == sha256(sink.getvalue()).hexdigest()
         assert len(queries) == 1
+        queries.clear()
+        assert reader.hydrate_document() == value
+        assert len(queries) == 1
         event.remove(conn,"before_cursor_execute",called)
         assert conn.execute(text("SELECT count(*) FROM ops.read_pdf_native_events(42,'integrated',repeat('e',64))")).scalar_one() == 0
+
+
+def test_integrated_v2_export_preserves_metadata_and_distinct_bindings():
+    class Export(NativeRows):
+        def iter_companions(self,family):
+            if family == "native_metadata":
+                yield {"kind":"runtime_report","ordinal":0,"value":{"provider":"actual-provider"}}
+            elif family == "request_outcome":
+                yield {"state":"failed","primary":True}
+    reader = Export(native())
+    sink=io.BytesIO()
+    receipt=reader.write_integrated_json(sink,binding={"selection":"independent"})
+    exported=json.loads(sink.getvalue())
+    assert exported["export_profile"] == "pdf-integrated-record-export-v2"
+    assert exported["product"]["version"] == 2
+    assert exported["product"]["revision"] == reader.revision
+    assert exported["product"]["logical_digest"] == "f"*64
+    assert exported["product"]["content"] == native()
+    assert exported["product"]["native_metadata"][0]["value"]["provider"] == "actual-provider"
+    assert exported["product"]["request_outcomes"] == [{"state":"failed","primary":True}]
+    assert receipt.serialization_sha256 == sha256(sink.getvalue()).hexdigest()
+    assert receipt.serialization_sha256 != exported["product"]["logical_digest"]
+
+
+def test_integrated_export_refuses_native_kind():
+    class Native(NativeRows):
+        def product_kind(self):
+            return "native"
+    sink=io.BytesIO()
+    with pytest.raises(ValueError,match="requires an integrated product"):
+        Native(native()).write_integrated_json(sink)
+    assert sink.getvalue() == b""
+
+
+def test_explicit_native_hydration_uses_flat_health_contract():
+    class Materialized(NativeRows):
+        def iter_companions(self,family):
+            if family == "health":
+                yield {"source_scope":"page_range","page_start":2,"page_end":4,"conversion":"partial","issues":["failed page"],"display_coverage":"partial"}
+        def native_metadata(self,kind,*,pointer=None):
+            if kind == "formula_outcomes":
+                yield {"pointer":"#/texts/0","outcome":"failed"}
+    value=Materialized(native()).native_product_values()
+    assert value["source_scope"] == "page_range"
+    assert (value["page_start"],value["page_end"]) == (2,4)
+    assert "page_start" not in value["health"]
+    assert value["health"]["conversion"] == "partial"
+    assert "source_scope" not in value["health"]
+    assert value["health"]["formula_outcomes"][0]["outcome"] == "failed"
+
+
+def test_native_hydration_cannot_invent_whole_document_scope():
+    class Missing(NativeRows):
+        def iter_companions(self,family):
+            return iter(())
+    with pytest.raises(ValueError,match="scope is absent"):
+        Missing(native()).native_product_values()

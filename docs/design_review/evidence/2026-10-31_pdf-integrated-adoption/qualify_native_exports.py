@@ -139,8 +139,22 @@ def qualify(selection: dict, database: str, root: Path, output: Path) -> None:
     product = envelope["product"]
     assert product["kind"] == "integrated"
     assert product["product_key"] == selection["product_key"]
-    assert sha256(canonical(product)).hexdigest() == selection["content_digest"]
-    assert product["content"]["document"] == native_value
+    if product["version"] == 2:
+        assert envelope["export_profile"] == "pdf-integrated-record-export-v2"
+        assert product["logical_digest"] == selection["content_digest"]
+        assert product["content"] == native_value
+        assert all(product["revision"][key] for key in (
+            "build_id", "release_id", "source_digest", "schema_digest", "recipe_digest", "frozen_digest"))
+        assert "native_metadata" in product and "request_outcomes" in product
+        # Conventional export SHA is verified against actual bytes, never compared
+        # with the distinct admitted record-fold identity.
+        export_manifest = json.loads(integrated.with_name(integrated.name + ".manifest.json").read_bytes())
+        with integrated.open("rb") as stream:
+            assert file_digest(stream,"sha256").hexdigest() == export_manifest["serialization_sha256"]
+    else:
+        assert product["version"] == 1
+        assert sha256(canonical(product)).hexdigest() == selection["content_digest"]
+        assert product["content"]["document"] == native_value
     assert envelope["binding"]["contract"] == "integrated-pdf-source-3"
     assert (
         envelope["binding"]["selection"]["content_digest"]

@@ -136,7 +136,16 @@ class PublishedPdfReader:
                                             native_type=native_type)
 
     def hydrate_document(self):
-        return self.hydrate(self._one("header")["root_id"], native_type="DoclingDocument")
+        """Explicit whole-value demand uses one ordered native cursor, without repairs."""
+        return json.loads(b"".join(self.iter_native_json()))
+
+    def product_kind(self) -> str:
+        return self.conn.execute(text(
+            "SELECT kind FROM ops.pdf_product WHERE task_id=:task AND product_key=:product "
+            "AND content_digest=:digest"
+        ), dict(task=self.reference.task_id,product=self.reference.product_key,
+                digest=self.reference.content_digest)).scalar_one()
+
 
     def native_items(self, pointers):
         result = {}
@@ -156,8 +165,11 @@ class PublishedPdfReader:
         """Explicit materialization for native transformations; never a small read."""
         document = self.hydrate_document()
         health_rows = list(self.iter_companions("health"))
-        wrapper = next((h for h in health_rows if "source_scope" in h), {})
-        health = dict(wrapper.get("health", {}))
+        wrappers = [h for h in health_rows if "source_scope" in h]
+        if len(wrappers) != 1:
+            raise ValueError("native health/source scope is absent or ambiguous")
+        wrapper = wrappers[0]
+        health = {key:value for key,value in wrapper.items() if key not in {"source_scope", "page_start", "page_end"}}
         outcomes = list(self.native_metadata("formula_outcomes"))
         if outcomes:
             health["formula_outcomes"] = outcomes
@@ -166,7 +178,11 @@ class PublishedPdfReader:
                      artifact_digest=self.revision["source_digest"],
                      schema_digest=self.revision["schema_digest"],
                      recipe_digest=self.revision["recipe_digest"], document=document,
-                     source_scope=wrapper.get("source_scope", "whole_document"), health=health)
+                     source_scope=wrapper["source_scope"], health=health)
+        if wrapper["source_scope"] == "page_range":
+            if not all(key in wrapper for key in ("page_start", "page_end")):
+                raise ValueError("native page range has no admitted bounds")
+            value.update(page_start=wrapper["page_start"],page_end=wrapper["page_end"])
         for kind in ("inline_candidate_pages", "derivation_mappings", "cell_reports",
                      "inline_alignment_reports", "recognition_coverage"):
             values = list(self.native_metadata(kind))
@@ -312,6 +328,13 @@ class PublishedPdfReader:
         return PdfExportReceipt(size, digest.hexdigest())
 
     def write_integrated_json(self, sink: BinaryIO, *, binding=None) -> PdfExportReceipt:
+        """Version2 export carries native values, typed companions and immutable bindings.
+
+        Its serialization hash is distinct from the admitted logical digest. It is
+        not the historical version1 canonical-envelope replay format.
+        """
+        if self.product_kind() != "integrated":
+            raise ValueError("integrated JSON export requires an integrated product")
         digest, size = sha256(), 0
         def write(chunk):
             nonlocal size
@@ -319,13 +342,17 @@ class PublishedPdfReader:
         def encode(value):
             return json.dumps(value, ensure_ascii=False, allow_nan=False,
                               separators=(",", ":")).encode()
-        write(b'{"binding":' + encode(binding or {}) + b',"product":{"version":2,"kind":"integrated","content":')
+        write(b'{"export_profile":"pdf-integrated-record-export-v2","binding":' + encode(binding or {}) +
+              b',"product":{"version":2,"kind":"integrated","product_key":' + encode(self.reference.product_key) +
+              b',"logical_digest":' + encode(self.reference.content_digest) +
+              b',"revision":' + encode(self.revision) + b',"content":')
         for chunk in self.iter_native_json():
             write(chunk)
         for family, name in (("input", "inputs"), ("occurrence", "occurrences"),
                              ("relation", "relations"), ("mapping_report", "mapping_reports"),
                              ("coverage", "coverage"), ("health", "health"),
-                             ("request_outcome", "request_outcomes")):
+                             ("request_outcome", "request_outcomes"),
+                             ("native_metadata", "native_metadata")):
             write(b"," + encode(name) + b":[")
             for index, row in enumerate(self.iter_companions(family)):
                 write((b"," if index else b"") + encode(row))

@@ -506,8 +506,11 @@ def read_pdf_product(
         if include_body:
             from io import BytesIO
             import json
-            sink = BytesIO(); record_reader.write_integrated_json(sink)
-            result["body"] = json.loads(sink.getvalue())["product"]
+            if identity["kind"] == "native":
+                result["body"] = record_reader.native_product_values()
+            else:
+                sink = BytesIO(); record_reader.write_integrated_json(sink)
+                result["body"] = json.loads(sink.getvalue())["product"]
         return result
     identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
     descriptor = _pdf_descriptors(conn, [(task_id, product_key, content_digest)])[0]["descriptor"]
