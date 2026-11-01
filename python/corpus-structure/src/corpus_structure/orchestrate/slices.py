@@ -1,4 +1,4 @@
-"""Recorded slice expansion and rendition-bound scope resolution (O2, D6 §8)."""
+"""Immutable native PDF section scopes for the current acquisition pipeline."""
 
 from __future__ import annotations
 
@@ -6,55 +6,10 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from corpus_structure.core.canonical import digest
-from corpus_structure.core.locators import LocatorIndex, parse
 
 
 class SliceError(ValueError):
-    """A slice cannot be expanded or resolved; includes locator refusal candidates."""
-
-
-def expand(
-    selectors: Mapping[str, Any],
-    name: str,
-    documents: Sequence[Mapping[str, Any]],
-    stack: tuple[str, ...] = (),
-) -> tuple[str, ...]:
-    if name in stack:
-        raise SliceError(f"slice cycle: {' -> '.join((*stack, name))}")
-    if name not in selectors:
-        raise SliceError(f"unknown slice {name!r}; available: {sorted(selectors)}")
-    entries = selectors[name]
-    if not isinstance(entries, list):
-        raise SliceError(f"slice {name!r} must be a list")
-    out: set[str] = set()
-    for entry in entries:
-        if isinstance(entry, str):
-            out.add(entry)
-        elif isinstance(entry, dict) and len(entry) == 1:
-            key, value = next(iter(entry.items()))
-            if key == "include":
-                out.update(expand(selectors, value, documents, (*stack, name)))
-            elif key == "pages":
-                for child in value:
-                    out.update(
-                        parse(x).page for x in expand(selectors, child, documents, (*stack, name))
-                    )
-            elif key == "index":
-                out.update(
-                    str(d["meta"]["page"])
-                    for d in documents
-                    if str(d["meta"].get(value, "")).lower() not in ("", "0", "false", "no")
-                )
-            elif key == "golden_set":
-                raise SliceError(
-                    "held-out reference sets cannot select extraction source units; "
-                    "use explicit source locators"
-                )
-            else:
-                raise SliceError(f"slice {name}: unsupported selector {entry!r}")
-        else:
-            raise SliceError(f"slice {name}: invalid selector {entry!r}")
-    return tuple(sorted(out))
+    """A source selection is unavailable or outside current PDF semantics."""
 
 
 def records(
@@ -67,97 +22,46 @@ def records(
 ):
     """Resolve immutable source selection without access to held-out references."""
 
-    if docs and all(document.get("mime") == "application/pdf" for document in docs):
-        if slice is not None and scope is not None:
-            raise SliceError("choose slice or scope, not both")
-        name = slice or scope
-        selected_sections = []
-        if name is not None:
-            entries = selectors.get(name)
-            if not isinstance(entries, list):
-                raise SliceError(f"unknown native PDF scope {name!r}")
-            for entry in entries:
-                if not isinstance(entry, dict) or set(entry) != {"native_sections"}:
-                    raise SliceError("native PDF scopes require native_sections selections")
-                values = entry["native_sections"]
-                if (
-                    not isinstance(values, list)
-                    or not values
-                    or not all(isinstance(v, str) and v for v in values)
-                ):
-                    raise SliceError("native section selection requires nonempty headings")
-                selected_sections.extend(values)
-        corpus_record = {
-            "name": "pdf-originals",
-            "locators": [],
-            "documents": [document["key"] for document in docs],
-            "hash": digest([(document["key"], document["content_hash"]) for document in docs]),
-        }
-        scope_record = (
-            None
-            if name is None
-            else {
-                "kind": "native_sections",
-                "name": name,
-                "sections": list(dict.fromkeys(selected_sections)),
-                "include_descendants": True,
-                "hash": digest(selected_sections),
-            }
+    if not docs or not all(document.get("mime") == "application/pdf" for document in docs):
+        raise SliceError("source acquisition requires immutable PDF originals")
+    if corpus is not None:
+        raise SliceError(
+            "PDF source acquisition selects registered originals; corpus selectors are retired"
         )
-        return corpus_record, scope_record
-
-    def chosen(name: str | None) -> tuple[str, ...]:
-        return (
-            expand(selectors, name, docs)
-            if name
-            else tuple(sorted(str(d["meta"]["page"]) for d in docs))
-        )
-
     if slice is not None and scope is not None:
         raise SliceError("choose slice or scope, not both")
-    scope_name = slice or scope
-    scope_locs = chosen(scope_name) if scope_name else None
-    corpus_name = slice or corpus or ("first-pass" if "first-pass" in selectors else None)
-    corpus_locs = chosen(corpus_name)
-    pages = {parse(x).page for x in corpus_locs}
-    known = {str(d["meta"]["page"]) for d in docs}
-    scope_pages = {parse(x).page for x in scope_locs or ()}
-    if scope_pages - pages:
-        raise SliceError(f"scope pages outside corpus: {sorted(scope_pages - pages)}")
-    unknown = pages - known
-    if unknown:
-        raise SliceError(f"unknown corpus pages: {sorted(unknown)}")
+    name = slice or scope
+    selected_sections = []
+    if name is not None:
+        entries = selectors.get(name)
+        if not isinstance(entries, list):
+            raise SliceError(f"unknown native PDF scope {name!r}")
+        for entry in entries:
+            if not isinstance(entry, dict) or set(entry) != {"native_sections"}:
+                raise SliceError("native PDF scopes require native_sections selections")
+            values = entry["native_sections"]
+            if (
+                not isinstance(values, list)
+                or not values
+                or not all(isinstance(v, str) and v for v in values)
+            ):
+                raise SliceError("native section selection requires nonempty headings")
+            selected_sections.extend(values)
     corpus_record = {
-        "name": corpus_name,
-        "locators": list(corpus_locs),
-        "documents": [d["key"] for d in docs if d["meta"]["page"] in pages],
-        "hash": digest(corpus_locs),
+        "name": "pdf-originals",
+        "locators": [],
+        "documents": [document["key"] for document in docs],
+        "hash": digest([(document["key"], document["content_hash"]) for document in docs]),
     }
     scope_record = (
         None
-        if scope_locs is None
-        else {"name": scope_name, "locators": list(scope_locs), "hash": digest(scope_locs)}
+        if name is None
+        else {
+            "kind": "native_sections",
+            "name": name,
+            "sections": list(dict.fromkeys(selected_sections)),
+            "include_descendants": True,
+            "hash": digest(selected_sections),
+        }
     )
     return corpus_record, scope_record
-
-
-def selected(index: LocatorIndex, locators: Sequence[str] | None) -> set[str]:
-    units = index.annotation_units().units
-    if locators is None:
-        return {u.key for u in units}
-    out: set[str] = set()
-    for locator in locators:
-        if parse(locator).page != index.page:
-            continue
-        try:
-            segment = index.resolve(locator)
-        except ValueError as error:
-            raise SliceError(str(error)) from error
-        if segment.kind.value not in ("document", "unit", "paragraph"):
-            raise SliceError(f"{locator}: scope must select a page, unit or paragraph")
-        out.update(
-            u.key
-            for u in units
-            if segment.start <= u.segment.start and u.segment.end <= segment.end
-        )
-    return out

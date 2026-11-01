@@ -7,7 +7,7 @@ import json
 from hashlib import sha256
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from pydantic_core import to_jsonable_python
 from sqlalchemy import Connection, select, text
 
@@ -36,9 +36,41 @@ class NativeSourceRequest(BaseModel):
     pointer: str | None = None
     cell_index: int | None = Field(default=None, ge=0)
     occurrence_id: str | None = None
-    collection: Literal["inputs", "coverage", "relations"] | None = None
+    collection: Literal["inputs", "coverage", "relations", "mapping_reports"] | None = None
     cursor: str | None = None
     limit: int = Field(default=100, ge=1, le=1000)
+
+    @model_validator(mode="after")
+    def qualified_selection(self):
+        if self.membership is not None and self.section_pointer is None:
+            raise ValueError("membership requires a selected section")
+        if self.collection is not None and self.view != "manifest":
+            raise ValueError("collection is only available for manifest reads")
+        if self.view == "manifest" and (
+            self.collection is None
+            or any(
+                value is not None
+                for value in (
+                    self.pointer,
+                    self.section_pointer,
+                    self.cell_index,
+                    self.occurrence_id,
+                )
+            )
+        ):
+            raise ValueError("manifest reads require one collection and a whole product pin")
+        if self.occurrence_id is not None and (
+            self.view not in {"trace", "companion"}
+            or any(
+                value is not None for value in (self.pointer, self.section_pointer, self.cell_index)
+            )
+        ):
+            raise ValueError(
+                "occurrence identity requires a companion/trace selection without native selectors"
+            )
+        if self.view == "companion" and self.cell_index is not None:
+            raise ValueError("companion cell reads require their exact occurrence identity")
+        return self
 
     def selection_digest(self) -> str:
         values = self.model_dump(exclude={"cursor", "limit"})
@@ -387,8 +419,8 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
         **pin,
         pointers=[request.pointer]
         if request.pointer is not None
-        else [r["pointer"] for r in rows if "pointer" in r],
-        section_pointer=request.section_pointer,
+        else [str(r["pointer"]) for r in rows if isinstance(r.get("pointer"), str)],
+        section_pointer=request.section_pointer or "#/body",
         membership=request.membership or "direct",
     )
     return NativeSourceResponse(
@@ -467,8 +499,38 @@ def _inspect_companion(
             conn, **pin, collection=request.collection, after=after, limit=request.limit
         )
     else:
+        pointers = None
+        if request.pointer is not None:
+            pointers = [request.pointer]
+        elif request.section_pointer is not None:
+            from corpus_structure.semantic.pdf_storage import native_descendant_pointers
+
+            item = table("kb.native_document_item")
+            query = select(item.c.pointer).where(
+                item.c.task_id == request.task_id, item.c.product_key == request.product_key
+            )
+            query = (
+                query.where(
+                    item.c.pointer.in_(
+                        native_descendant_pointers(
+                            task_id=request.task_id,
+                            product_key=request.product_key,
+                            section_pointer=request.section_pointer,
+                        )
+                    )
+                )
+                if request.membership == "descendants"
+                else query.where(item.c.section_pointer == request.section_pointer)
+            )
+            pointers = list(conn.execute(query).scalars())
         result = read_pdf_product(
-            conn, **pin, occurrence_id=request.occurrence_id, after=after, limit=request.limit
+            conn,
+            **pin,
+            occurrence_id=request.occurrence_id,
+            pointers=pointers,
+            section_pointer=request.section_pointer,
+            after=after,
+            limit=request.limit,
         )
     continuation = result.get("cursor")
     next_cursor = (
@@ -581,7 +643,7 @@ def export_native_source(
         companion_request=request.model_copy(
             update={"view": "companion", "cursor": None}
         ).model_dump(mode="json", exclude_none=True),
-        manifest_collections=["inputs", "coverage", "relations"],
+        manifest_collections=["inputs", "coverage", "relations", "mapping_reports"],
     )
     if format in {"docling-json", "integrated-json"}:
         if (

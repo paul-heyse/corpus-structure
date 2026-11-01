@@ -48,7 +48,7 @@ def inspect(
         "manifest",
     ] = "items",
     occurrence: str | None = None,
-    collection: Literal["inputs", "coverage", "relations"] | None = None,
+    collection: Literal["inputs", "coverage", "relations", "mapping_reports"] | None = None,
     cursor: str | None = None,
     limit: int = 100,
     json: JsonOpt = False,

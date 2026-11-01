@@ -39,9 +39,9 @@ class SegmentSentences:
     """Named sentence preparation recipe, used by in-memory native text adapters."""
 
     name = "segment.sentences"
-    version = "1"
+    version = "2"
     family = MethodFamily.INGEST
-    unit_type = TaskUnitType.RENDITION
+    unit_type = TaskUnitType.SOURCE_VIEW
     tier = MethodTier.DETERMINISTIC
     confidence_source: ConfidenceSource | None = None
     Config = SentenceConfig

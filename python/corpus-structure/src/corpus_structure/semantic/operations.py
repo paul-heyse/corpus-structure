@@ -981,6 +981,8 @@ class BoundReader:
         )
 
     def native_document(self, reference):
+        import json
+
         from .pdf_contracts import PreparedPdfProduct, pdf_context_for_task
 
         product, build, artifact = (
@@ -1086,6 +1088,7 @@ class BoundReader:
 
     def pdf_context(self):
         from .pdf_contracts import pdf_context_for_task
+
         if not self.source_tasks:
             raise OperationConflict("PDF preparation requires a bound source task")
         context = getattr(self, "_pdf_context", None)
@@ -1094,10 +1097,19 @@ class BoundReader:
             self._pdf_context = context
         return context
 
-    def prepare_integrated_pdf_product(self, payload, original, recipe_bytes, *, artifacts=(), native_schema=None):
+    def prepare_integrated_pdf_product(
+        self, payload, original, recipe_bytes, *, artifacts=(), native_schema=None
+    ):
         from .pdf_integrated import prepare_integrated_pdf_product
-        return prepare_integrated_pdf_product(payload, original, recipe_bytes, artifacts=artifacts,
-                                              native_schema=native_schema, context=self.pdf_context())
+
+        return prepare_integrated_pdf_product(
+            payload,
+            original,
+            recipe_bytes,
+            artifacts=artifacts,
+            native_schema=native_schema,
+            context=self.pdf_context(),
+        )
 
     def prepare_pdf_product(self, payload, original, schema_bytes, recipe_bytes):
         from .pdf_contracts import pdf_context_for_task, prepare_pdf_product

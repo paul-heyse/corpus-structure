@@ -1,31 +1,34 @@
-"""Slice expansion preserves recorded selection, and scope resolves source locators."""
+"""Current native scopes preserve intact named sections and reject retired selectors."""
 
 import pytest
 
-from corpus_structure.orchestrate.slices import SliceError, expand
+from corpus_structure.orchestrate.slices import SliceError, records
 
-DOCS = [{"meta": {"page": "a.html", "dev": "yes"}}, {"meta": {"page": "b.html", "dev": "no"}}]
-
-
-def test_nested_selectors_are_sorted_and_pages_remove_unit_selection():
-    declarations = {
-        "one": ["a.html#u"],
-        "two": [{"include": "one"}, "b.html#v"],
-        "pages": [{"pages": ["two"]}],
-        "dev": [{"index": "dev"}],
-    }
-    assert expand(declarations, "two", DOCS) == ("a.html#u", "b.html#v")
-    assert expand(declarations, "pages", DOCS) == ("a.html", "b.html")
-    assert expand(declarations, "dev", DOCS) == ("a.html",)
+DOCS = [{"key": "pdf:1", "mime": "application/pdf", "content_hash": "a" * 64}]
 
 
-def test_cycles_and_unknown_names_are_refused():
-    with pytest.raises(SliceError, match="cycle"):
-        expand({"a": [{"include": "b"}], "b": [{"include": "a"}]}, "a", DOCS)
-    with pytest.raises(SliceError, match="unknown slice"):
-        expand({}, "missing", DOCS)
+def test_native_scope_retains_sections_and_original_manifest():
+    original, scope = records(
+        DOCS,
+        {"selected": [{"native_sections": ["1.1: Sets", "1.2: Functions", "1.1: Sets"]}]},
+        slice=None,
+        scope="selected",
+        corpus=None,
+    )
+    assert original["documents"] == ["pdf:1"]
+    assert scope["sections"] == ["1.1: Sets", "1.2: Functions"]
+    assert scope["kind"] == "native_sections" and scope["include_descendants"] is True
+    assert records(DOCS, {}, slice=None, scope=None, corpus=None)[1] is None
 
 
-def test_held_out_reference_sets_cannot_select_source_units():
-    with pytest.raises(SliceError, match="held-out reference sets cannot select"):
-        expand({"dev": [{"golden_set": "p0"}]}, "dev", DOCS)
+@pytest.mark.parametrize(
+    "entries", [["page.html#u"], [{"golden_set": "old"}], [{"native_sections": []}]]
+)
+def test_current_scope_refuses_html_reference_sets_and_empty_sections(entries):
+    with pytest.raises(SliceError):
+        records(DOCS, {"selected": entries}, slice="selected", scope=None, corpus=None)
+
+
+def test_current_source_refuses_retired_non_pdf_acquisition():
+    with pytest.raises(SliceError, match="PDF originals"):
+        records([{"mime": "text/html"}], {}, slice=None, scope=None, corpus=None)

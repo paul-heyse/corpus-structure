@@ -668,20 +668,9 @@ def _unit(conn: Any, view: Any, ref: Any) -> UnitView:
                 or ref.unit_id not in {r.id for r in view.reader.source_views()}
             ),
         )
-    if ref.unit_type == TaskUnitType.RENDITION:
-        r = table("kb.rendition")
-        doc = conn.execute(select(r.c.document_id).where(r.c.id == ref.unit_id)).scalar_one()
-        return UnitView(ref, view, document_id=doc, rendition_id=ref.unit_id)
-    if ref.unit_type == TaskUnitType.SEGMENT:
-        s = table("kb.segment")
-        r = table("kb.rendition")
-        row = conn.execute(
-            select(s.c.rendition_id, r.c.document_id)
-            .join(r, s.c.rendition_id == r.c.id)
-            .where(s.c.id == ref.unit_id)
-        ).one()
-        return UnitView(ref, view, document_id=row.document_id, rendition_id=row.rendition_id)
-    return UnitView(ref, view)
+    if ref.unit_type == TaskUnitType.RUN:
+        return UnitView(ref, view)
+    raise OperationConflict("source execution accepts document, SourceView and run units")
 
 
 def _packet_for_unit(
@@ -865,10 +854,8 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
     from collections import Counter
     from types import SimpleNamespace
 
-    from corpus_structure.core.locators import LocatorIndex
     from corpus_structure.core.vocab import MethodTier, PolicyChain
     from corpus_structure.orchestrate import policy
-    from corpus_structure.orchestrate.slices import selected
 
     view = run_view(conn, run_id, prepared)
     configs = TypeAdapter(dict[str, dict[str, JsonValue]]).validate_python(
@@ -884,7 +871,6 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
         native_unit_kinds=(TaskUnitType.SOURCE_VIEW.value,),
     )
     rules = policy.compile_policy(policy.parse_policy(policy_source), language, names)
-    bearing_kinds = statement_kinds(prepared, subset="claim_bearing")
     t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
     origin = t.alias("origin")
     from sqlalchemy import func
@@ -905,7 +891,6 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
         )
     }
     native_allowed = None
-    indices = {}
     counts = Counter()
     scheduled = set()
     open_count = 0
@@ -930,63 +915,24 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
             unit = unit_views[ref]
             if unit.document_id is None or ref.unit_key is None:
                 raise OperationConflict("propose requires a bound source document and unit key")
-            if unit.source_view_id is not None:
-                if (
-                    ref.unit_type is not TaskUnitType.SOURCE_VIEW
-                    or ref.unit_id != unit.source_view_id
-                ):
-                    raise OperationConflict(
-                        "native propose unit differs from its declared source-view row"
-                    )
-                unit_kind = TaskUnitType.SOURCE_VIEW.value
-                if native_allowed is None:
-                    native_allowed = {selected.id for selected in view.reader.source_views()}
-                scope_allowed = unit.source_view_id in native_allowed
-                # A section's individual attributed blocks do not classify the whole view.
-                kind, bearing = None, None
-            else:
-                if unit.rendition_id is None:
-                    raise OperationConflict("archived propose requires a located rendition unit")
-                if unit.rendition_id not in indices:
-                    d = table("kb.document")
-                    page = conn.execute(
-                        select(d.c.meta).where(d.c.id == unit.document_id)
-                    ).scalar_one()["page"]
-                    index = LocatorIndex(view.reader.content(unit.rendition_id), page)
-                    scope = view.options.get("scope")
-                    locators = None
-                    if scope is not None:
-                        if not isinstance(scope, dict):
-                            raise OperationConflict("recorded scope must be a locator mapping")
-                        locators = TypeAdapter(list[str]).validate_python(scope.get("locators"))
-                    indices[unit.rendition_id] = (index, selected(index, locators))
-                index, allowed = indices[unit.rendition_id]
-                segment = index.resolve(ref.unit_key)
-                hint = segment.attrs.get("hint", {})
-                kind = hint.get("statement_kind") if isinstance(hint, dict) else None
-                bearing = hint.get("claim_bearing") if isinstance(hint, dict) else None
-                if bearing is None and kind is not None:
-                    bearing = kind in bearing_kinds
-                if bearing is not None and not isinstance(bearing, bool):
-                    raise OperationConflict(
-                        "source claim-bearing classification must be boolean or unknown"
-                    )
-                unit_kind = segment.kind.value
-                scope_allowed = ref.unit_key in allowed
+            if (
+                unit.source_view_id is None
+                or ref.unit_type is not TaskUnitType.SOURCE_VIEW
+                or ref.unit_id != unit.source_view_id
+            ):
+                raise OperationConflict("propose requires a bound selected PDF SourceView")
+            unit_kind = TaskUnitType.SOURCE_VIEW.value
+            if native_allowed is None:
+                native_allowed = {selected.id for selected in view.reader.source_views()}
+            scope_allowed = unit.source_view_id in native_allowed
+            # Recognized local blocks do not establish the semantics of the whole section.
+            kind, bearing = None, None
 
             def outcome(name: str, unit: UnitView = unit) -> str | None:
-                keys = (
-                    [
-                        (name, "source_view", unit.source_view_id),
-                        (name, "document", unit.document_id),
-                    ]
-                    if unit.source_view_id is not None
-                    else [
-                        (name, "segment", unit.ref.unit_id),
-                        (name, "rendition", unit.rendition_id),
-                        (name, "document", unit.document_id),
-                    ]
-                )
+                keys = [
+                    (name, "source_view", unit.source_view_id),
+                    (name, "document", unit.document_id),
+                ]
                 for key in keys:
                     if key in states:
                         return {"done": "produced", "empty": "empty", "failed": "failed"}.get(
@@ -1046,7 +992,6 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
             {
                 "view": view,
                 "units": unit_views,
-                "indices": {rid: pair[0] for rid, pair in indices.items()},
             },
         )
         task = queue_agent(

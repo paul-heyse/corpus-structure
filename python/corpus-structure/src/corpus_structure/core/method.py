@@ -611,9 +611,8 @@ class Resources:
 
 
 class MethodSettings(BaseModel):
-    """The result-neutral settings a method may read: in phase 0 the data and model-cache paths
-    (the LLM endpoint joins them in phase 1). Never the database URL, the GPU mode (a run option)
-    or anything that can change output, which is configuration hashed into `cfg:`."""
+    """Result-neutral paths and operational recognition endpoints, separate from the
+    immutable configuration of model identities, inference and selection policy."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
