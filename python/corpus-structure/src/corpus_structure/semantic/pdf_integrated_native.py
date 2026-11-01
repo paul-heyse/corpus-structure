@@ -202,6 +202,10 @@ def reconciled_pdf_products(model=None):
         "-- {source_view_shape_guard}", record_shape_guards(trusted_pdf_context().boundary, "PdfSourceViewPublication", "product")
     )
     sql += views + "\n"
+    for raw in parse_sql((source / "execution_projection.sql").read_text()):
+        stmt=raw.stmt
+        if isinstance(stmt,ast.CreateFunctionStmt) and ".".join(p.sval for p in stmt.funcname or ()) == "sem.require_execution_operation":
+            sql += RawStream()(stmt) + ";\n"
     physical, _, _ = closure_products(model)
     sql += "\nDO $reference$" + physical.content.decode().split("DO $reference$", 1)[1]
     previous = ALEMBIC_DIR.joinpath("versions/semantic_0056_admission.sql").read_text()

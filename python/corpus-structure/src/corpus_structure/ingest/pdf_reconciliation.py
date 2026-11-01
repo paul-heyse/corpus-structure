@@ -421,7 +421,7 @@ def select_pdf_integration(native_product: Mapping[str,Any], structural_pin: Map
         if id(owner) not in retained_ids:continue
         target=imported_nodes.get((index,source_pointer))
         if target is None or id(target) not in retained_ids:
-            candidates=alternatives_by_source.get((index,raw_id),[])
+            candidates=alternatives_by_source.get((index,raw_id),[]) if raw_id is not None else []
             if name=='captions':candidates=[n for n in candidates if str(n.label)=='caption']
             target=candidates[0] if len(candidates)==1 else None
         if target is None:

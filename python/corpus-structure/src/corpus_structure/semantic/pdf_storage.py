@@ -572,7 +572,7 @@ def read_pdf_artifact(conn: Connection, *, task_id: int, product_key: str,
     from sqlalchemy import func, literal, tuple_
     inputs, custody, artifacts = map(table, (
         'ops.pdf_product_input', 'ops.pdf_product_artifact', 'kb.source_artifact'))
-    pins = select(literal(task_id).label('task_id'), literal(product_key).label('product_key'),
+    pins = select(literal(task_id, type_=inputs.c.input_task_id.type).label('task_id'), literal(product_key).label('product_key'),
                   literal(content_digest).label('content_digest')).cte('artifact_input_custody', recursive=True)
     pins = pins.union(select(inputs.c.input_task_id, inputs.c.input_product_key,
                              inputs.c.input_content_digest).join(pins,
