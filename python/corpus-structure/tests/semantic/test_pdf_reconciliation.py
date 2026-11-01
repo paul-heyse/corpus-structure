@@ -446,3 +446,77 @@ def test_unresolved_reading_stays_attached_after_later_crop_selection(native_sou
     assert [
         c["text"] for c in result["content"]["document"]["tables"][0]["data"]["table_cells"]
     ] == ["c", "c"]
+
+
+def test_provider_list_item_replaces_native_section_text_with_its_list_group(native_source):
+    from docling_core.types.doc import DoclingDocument, ListItem
+
+    raw = b"<x_0.05><y_0.033333>1. recognized list text<x_0.3><y_0.066666><class_List-item>"
+    result = integrate(native_source, raw)
+    doc = DoclingDocument.model_validate(result["content"]["document"])
+    item = next(n for n in doc.texts if str(n.label) == "list_item")
+    assert item.parent is not None
+    assert str(item.parent.resolve(doc).label) == "list"
+    assert isinstance(item, ListItem)
+    assert item.marker == "1."
+    assert any(r["outcome"] == "replaced" for r in result["relations"])
+
+
+def test_plain_recognition_preserves_unresolved_native_list_membership(native_source):
+    from docling_core.types.doc import (
+        BoundingBox,
+        DoclingDocument,
+        GroupLabel,
+        ProvenanceItem,
+        Size,
+    )
+
+    from corpus_structure.ingest.pdf import PdfConversion, publication_payload
+    from corpus_structure.ingest.pdf_hierarchy import snapshot
+
+    doc = DoclingDocument(name="Known list membership")
+    doc.add_page(page_no=1, size=Size(width=200, height=300))
+    section = doc.add_group(label=GroupLabel.SECTION, name="Section")
+    group = doc.add_list_group(parent=section)
+    doc.add_list_item(
+        text="native list",
+        orig="native list",
+        marker="1.",
+        enumerated=True,
+        parent=group,
+        prov=ProvenanceItem(
+            page_no=1,
+            bbox=BoundingBox(l=10, t=10, r=60, b=20, coord_origin="TOPLEFT"),
+            charspan=(0, 11),
+        ),
+    )
+    native_source.payload = publication_payload(
+        PdfConversion(
+            sha256(native_source.original).hexdigest(),
+            native_source.recipe,
+            snapshot(doc),
+            "success",
+            (),
+            (),
+            (),
+            None,
+        ),
+        product_key="native",
+        schema_digest=sha256(native_source.schema).hexdigest(),
+        section_refs=frozenset({section.self_ref}),
+        include_application_metadata=False,
+    )
+    raw = b"<x_0.05><y_0.033333>changed plain text<x_0.3><y_0.066666><class_Text>"
+    result = integrate(native_source, raw)
+    selected = DoclingDocument.model_validate(result["content"]["document"])
+    assert selected.texts[0].text == "native list"
+    assert selected.texts[0].parent is not None
+    assert str(selected.texts[0].parent.resolve(selected).label) == "list"
+    unresolved = next(
+        r for r in result["relations"] if r["kind"] == "decision" and r["outcome"] == "unresolved"
+    )
+    assert any(
+        e["role"] == "output" and e["occurrence_id"] == selected.texts[0].self_ref
+        for e in unresolved["endpoints"]
+    )
+    assert "native_list_membership_requires_qualified_mapping" in unresolved["evidence"]

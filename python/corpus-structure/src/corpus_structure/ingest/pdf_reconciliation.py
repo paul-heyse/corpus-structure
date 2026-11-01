@@ -759,6 +759,26 @@ def select_pdf_integration(
             elif overlaps or policy["unmatched_action"] != "add":
                 rejected.append((index, source, "unresolved", evidence))
                 continue
+            if chosen is not None:
+                native_parent = (
+                    chosen.parent.resolve(doc) if chosen.parent is not None else doc.body
+                )
+                if str(incoming.label) == "list_item" and str(native_parent.label) != "list":
+                    incoming = incoming_root
+                    evidence["placement_kind"] = "retained_provider_list_group"
+                elif str(native_parent.label) == "list" and str(incoming.label) != "list_item":
+                    rejected.append(
+                        (
+                            index,
+                            source,
+                            "unresolved",
+                            {
+                                **evidence,
+                                "reason": "native_list_membership_requires_qualified_mapping",
+                            },
+                        )
+                    )
+                    continue
             if chosen is None and str(incoming.label) == "list_item":
                 incoming = incoming_root
             # Add through Docling; track object identity while deletion renumbers pointers.
