@@ -56,6 +56,11 @@ class NativeRows(PublishedPdfReader):
     def product_kind(self) -> Literal["native", "integrated"]:
         return "integrated"
 
+    def iter_companion_export_events(self, family):
+        for body in self.iter_companions(family):
+            yield {"kind":"row","body":dict(body)}
+            yield {"kind":"close"}
+
     def iter_native_json(self) -> Iterator[bytes]:
         from corpus_structure.semantic.pdf_records import _decode_scalar, _parse_inline
 

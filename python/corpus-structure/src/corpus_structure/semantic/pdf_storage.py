@@ -802,7 +802,7 @@ def trace_pdf_occurrence(
                         product_key=key,
                         content_digest=digest,
                         occurrence_id=occurrence,
-                        body=row["body"],
+                        body=reader.decode_companion_row(row),
                         kind=identity["kind"],
                         artifact_digest=reader.revision["source_digest"],
                     )

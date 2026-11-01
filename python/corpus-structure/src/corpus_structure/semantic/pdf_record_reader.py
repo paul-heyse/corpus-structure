@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import codecs
 import json
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Generator, Iterator, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
@@ -228,7 +228,7 @@ class PublishedPdfReader:
         if pointer is not None:
             filters["pointer"] = pointer
         for row in self.iter_rows("companion", filters):
-            yield row["body"]["value"]
+            yield self.decode_companion_row(row)["value"]
 
     def native_product_values(self):
         """Explicit materialization for native transformations; never a small read."""
@@ -288,9 +288,98 @@ class PublishedPdfReader:
             value["runtime_report"] = runtime[0]
         return value
 
+    def decode_companion_row(self, row: Mapping[str, Any]) -> dict[str, Any]:
+        """Materialize one requested field from exact bytes, retaining JSON float bits."""
+        body = dict(row["body"])
+        if row.get("family") == "native_metadata":
+            body.pop("pointer",None)
+        for field in row.get("_fields", ()):
+            name, kind = field["field_name"], field["scalar_kind"]
+            if name in body:
+                raise ValueError("companion field has both inline and external values")
+            payload = b"".join(self.scalar(field["stream_id"]))
+            if kind == "y":
+                body[name] = json.loads(payload)
+            elif kind == "s":
+                body[name] = payload.decode("utf-8")
+            else:
+                raise ValueError("unsupported companion scalar kind")
+        return body
+
     def iter_companions(self, family) -> Iterator[Mapping[str, Any]]:
         for row in self.iter_rows("companion", {"family": family}):
-            yield row["body"]
+            yield self.decode_companion_row(row)
+
+    def iter_companion_export_events(self, family) -> Generator[dict[str, Any], None, None]:
+        with self.conn.execute(text(
+            "SELECT * FROM ops.read_pdf_companion_export_events(:task,:product,:digest,:family)"
+        ).execution_options(yield_per=32), dict(task=self.reference.task_id,
+                 product=self.reference.product_key,digest=self.reference.content_digest,family=family)) as result:
+            for row in result:
+                yield row[0]
+
+    def iter_companion_json(self, family) -> Iterator[bytes]:
+        """One joined cursor streams exact fields without per-field SQL or JSONB coercion."""
+        from .pdf_record_identity import ArtifactPart, ArtifactPin, replay_artifact
+        def encode(value):
+            return json.dumps(value,ensure_ascii=False,allow_nan=False,separators=(",",":")).encode()
+        events=self.iter_companion_export_events(family)
+        pending=None
+        first_row=True
+        first_field=True
+        try:
+            while True:
+                event=pending if pending is not None else next(events,None)
+                pending=None
+                if event is None:
+                    return
+                kind=event["kind"]
+                if kind == "row":
+                    if not first_row:
+                        yield b","
+                    first_row=False
+                    body=dict(event["body"])
+                    if family == "native_metadata":
+                        body.pop("pointer",None)
+                    encoded=encode(body)
+                    yield b"{" + encoded[1:-1]
+                    first_field=not bool(body)
+                elif kind == "field":
+                    field=event["field"]
+                    yield (b"" if first_field else b",") + encode(field["field_name"]) + b":"
+                    first_field=False
+                    pin=ArtifactPin(field["stream_id"],self.revision["release_id"],
+                        self.revision["source_digest"],field["byte_length"],field["serialization_sha256"],
+                        bytes.fromhex(field["byte_root"]))
+                    def parts():
+                        nonlocal pending
+                        for following in events:
+                            if following["kind"] != "part":
+                                pending=following
+                                return
+                            part=following["part"]
+                            yield ArtifactPart(part["stream_id"],part["ordinal"],part["byte_offset"],
+                                part["byte_length"],bytes.fromhex(part["body"].removeprefix("\\x")),
+                                part["sha256_digest"])
+                    chunks=replay_artifact(parts(),pin,release_id=self.revision["release_id"],
+                                           source_digest=self.revision["source_digest"])
+                    if field["scalar_kind"] == "y":
+                        yield from chunks
+                    elif field["scalar_kind"] == "s":
+                        yield b'"'
+                        decoder=codecs.getincrementaldecoder("utf-8")()
+                        for chunk in chunks:
+                            yield encode(decoder.decode(chunk))[1:-1]
+                        yield encode(decoder.decode(b"",final=True))[1:-1]
+                        yield b'"'
+                    else:
+                        raise ValueError("unsupported companion scalar kind")
+                elif kind == "close":
+                    yield b"}"
+                else:
+                    raise ValueError("unexpected companion export event")
+        finally:
+            events.close()
 
     def context_rows(self, family, pointers, section_pointer):
         after = ""
@@ -452,8 +541,8 @@ class PublishedPdfReader:
             ("native_metadata", "native_metadata"),
         ):
             write(b"," + encode(name) + b":[")
-            for index, row in enumerate(self.iter_companions(family)):
-                write((b"," if index else b"") + encode(row))
+            for chunk in self.iter_companion_json(family):
+                write(chunk)
             write(b"]")
         write(b"}}")
         return PdfExportReceipt(size, digest.hexdigest())
