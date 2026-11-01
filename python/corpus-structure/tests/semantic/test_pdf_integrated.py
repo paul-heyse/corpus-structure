@@ -1226,3 +1226,29 @@ def test_integrated_roundtrip_preserves_full_distinct_inventory(
         (2, "block-1"),
     ]
     assert actual["health"]["source_fidelity"] == "unassessed"
+
+
+def test_scoped_companion_does_not_materialize_bookwide_coverage(pdf13_db, semantic_reader_engine):
+    from corpus_structure.semantic.pdf_storage import read_pdf_manifest
+    db=pdf13_db
+    values=integrated(db.source,db.inputs)
+    values['product_key']='bookwide-coverage'
+    values['coverage'].extend({
+        'coverage_id':f'book-page-{page:04d}','scope':f'page:{page}','family':'table',
+        'discovery_policy':'fixture-book-page-output','outcome':'partial',
+        'detail':'Independent page output scope, no source absence claim','supports':[],
+    } for page in range(3,1590))
+    product=prepare(values,db.source)
+    publish(db,product)
+    with semantic_reader_engine.connect() as conn:
+        scoped=read_pdf_product(conn,task_id=db.job.task,product_key='bookwide-coverage',content_digest=product.digest,occurrence_id=CELL,row_budget=20)
+        assert len(scoped['inputs'])==3
+        assert all(c['body']['scope'] in {'whole_document','page:1'} for c in scoped['coverage'])
+        after='';all_rows=[]
+        while True:
+            page=read_pdf_manifest(conn,task_id=db.job.task,product_key='bookwide-coverage',content_digest=product.digest,collection='coverage',after=after,limit=137)
+            all_rows.extend(page['rows'])
+            if page['cursor'] is None:break
+            after=page['cursor']
+        assert {r['coverage_id'] for r in all_rows}=={c['coverage_id'] for c in values['coverage']}
+        assert len(all_rows)==len(values['coverage'])
