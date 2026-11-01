@@ -16,6 +16,7 @@ from sqlalchemy import select, text
 from corpus_structure.core.method import (
     Digest,
     MethodContext,
+    PdfRecordProducerRequest,
     Resources,
     SourceRunContext,
     SourceViewDraft,
@@ -35,7 +36,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.product_reference import ProductReference
 
-from .pdf import PdfConversion, PdfRecipe, publication_payload
+from .pdf import PdfConversion, PdfRecipe
 from .pdf_assets import PreparedPdfAssets, prepare_pdf_assets
 from .pdf_candidates import CandidatePage, InlineCandidate
 from .pdf_enrichment import PdfEnrichmentRequest
@@ -50,6 +51,7 @@ from .pdf_hierarchy import (
     project_section,
 )
 from .pdf_worker import PdfWorker
+from .pdf_record_product import native_publication_draft
 
 
 class PdfRuntimeConfig(BaseModel):
@@ -72,6 +74,7 @@ class PdfRuntimeConfig(BaseModel):
             self.parser_threads,
             self.stage_batch_size,
             self.timeout_seconds,
+            recipe_id="docling-standard-pdf-stream-v1",
         )
 
 
@@ -227,28 +230,17 @@ class IngestPdf:
                         organization = organize(native, cfg.section_policy())
                         adopted_recipe = self.original_recipe(cfg)
                         conversion = _conversion_from_product(archived, adopted_recipe)
-                        payload = publication_payload(
-                            conversion,
-                            product_key="organized",
-                            schema_digest=sha256(archived.schema_bytes).hexdigest(),
-                            native=organization.document,
-                            section_refs=frozenset(s.group_ref for s in organization.sections),
-                            parent=(
-                                cfg.native_product.task_id,
-                                cfg.native_product.product_key,
-                                cfg.native_product.content_digest,
-                            ),
+                        current = native_publication_draft(
+                            conversion, product_key="organized", original=archived.original,
+                            schema_bytes=archived.schema_bytes, native=organization.document,
+                            recipe_bytes=adopted_recipe,
                         )
-                        current = ctx.reader.prepare_pdf_product(
-                            payload, archived.original, archived.schema_bytes, adopted_recipe
-                        )
-                        products = (current,)
-                        retained_native = products
-                        selected_product = ctx.reader.native_product_reference(
-                            unit.ref.unit_id, "organized", current.digest
-                        )
+                        current = dataclasses.replace(current, companions={"input": (
+                            {**cfg.native_product.values(), "role": "structural"},
+                        )})
+                        selected_product = ctx.retain_pdf_records(unit.ref, current)
                         native = organization.document
-                        values = payload
+                        values = {"health": current.health}
                         nodes = native_nodes(load_snapshot(native))
                     sections = _select_sections(nodes, cfg, scope=ctx.run.options.get("scope"))
                     drafts = _drafts(
@@ -271,51 +263,32 @@ class IngestPdf:
                     )
                     continue
                 recipe, assets = self._runtime(cfg)
-                converter = self._worker(recipe, assets)
                 schema_bytes = (
                     files("corpus_structure")
                     .joinpath("model", "semantic", "docling-validation.schema.json")
                     .read_bytes()
                 )
-                schema_digest = sha256(schema_bytes).hexdigest()
                 original = ctx.reader.original(unit.ref.unit_id)
-                conversion = converter.convert_bytes(original, check_active=ctx.check_active)
-                raw_payload = publication_payload(
-                    conversion,
-                    product_key="native",
-                    schema_digest=schema_digest,
-                    include_application_metadata=False,
-                )
-                raw = ctx.reader.prepare_pdf_product(
-                    raw_payload, original, schema_bytes, conversion.recipe
-                )
-                retained_native = (raw,)
-                raw_ref = ctx.reader.native_product_reference(
-                    unit.ref.unit_id, "native", raw.digest
-                )
+                raw_ref = ctx.produce_pdf_records(unit.ref, PdfRecordProducerRequest(
+                    recipe=recipe, assets=assets, original=original, schema_bytes=schema_bytes,
+                ))
+                raw = ctx.reader.native_document(raw_ref)
+                conversion = _conversion_from_product(raw, recipe.to_bytes())
                 organization = organize(conversion.native, cfg.section_policy())
-                section_refs = frozenset(s.group_ref for s in organization.sections)
-                organized_payload = publication_payload(
-                    conversion,
-                    product_key="organized",
-                    schema_digest=schema_digest,
+                organized = native_publication_draft(
+                    conversion, product_key="organized", original=original, schema_bytes=schema_bytes,
                     native=organization.document,
-                    section_refs=section_refs,
-                    parent=(raw_ref.task_id, raw_ref.product_key, raw_ref.content_digest),
                 )
-                organized = ctx.reader.prepare_pdf_product(
-                    organized_payload, original, schema_bytes, conversion.recipe
-                )
-                retained_native = (raw, organized)
-                organized_ref = ctx.reader.native_product_reference(
-                    unit.ref.unit_id, "organized", organized.digest
-                )
+                organized = dataclasses.replace(organized, companions={"input": (
+                    {**raw_ref.values(), "role": "structural"},
+                )})
+                organized_ref = ctx.retain_pdf_records(unit.ref, organized)
                 doc = load_snapshot(organization.document)
                 drafts = _drafts(
                     unit.ref.unit_id,
                     organized_ref,
                     organization.document,
-                    organized_payload["health"],
+                    organized.health,
                     _select_sections(native_nodes(doc), cfg, scope=ctx.run.options.get("scope")),
                     cfg.membership,
                     consumer_release,
@@ -324,7 +297,7 @@ class IngestPdf:
                     UnitResult(
                         ref=unit.ref,
                         outcome=ObservationOutcome.EMPTY,
-                        native_products=(raw, organized),
+                        native_products=(),
                         source_views=drafts,
                     )
                 )
@@ -835,15 +808,12 @@ class EnrichPdfMath:
                 enriched = CellEnrichment(
                     conversion.native.digest, derived, computed.outcomes, computed.mappings
                 )
-                payload = publication_payload(
-                    conversion,
-                    product_key="math-enriched",
-                    schema_digest=sha256(product.schema_bytes).hexdigest(),
-                    native=derived,
-                    section_refs=section_refs,
-                    parent=(parent.task_id, parent.product_key, parent.content_digest),
-                    enrichment=enriched,
+                draft = native_publication_draft(
+                    conversion, product_key="math-enriched", original=product.original,
+                    schema_bytes=product.schema_bytes, native=derived,
+                    recipe_bytes=recipe_bytes, extra_outcomes=enriched.outcomes,
                 )
+                payload = {"health": dict(draft.health)}
                 payload["cell_reports"] = reports
                 payload["inline_alignment_reports"] = [
                     row.to_wire() for row in computed.alignment_reports
@@ -921,12 +891,17 @@ class EnrichPdfMath:
                         for universe, complete in states.items()
                     )
                 payload["recognition_coverage"] = coverage
-                prepared = ctx.reader.prepare_pdf_product(
-                    payload, product.original, product.schema_bytes, recipe_bytes
+                draft = dataclasses.replace(
+                    draft, health=payload["health"],
+                    metadata={**draft.metadata,
+                        "recognition_coverage": coverage,
+                        "derivation_mappings": enriched.mappings,
+                        "cell_reports": reports,
+                        "inline_alignment_reports": payload["inline_alignment_reports"],
+                    },
+                    companions={"input": ({**parent.values(), "role": "structural"},)},
                 )
-                reference = ctx.reader.native_product_reference(
-                    unit.ref.unit_id, "math-enriched", prepared.digest
-                )
+                reference = ctx.retain_pdf_records(unit.ref, draft)
                 drafts = _enrichment_view_drafts(
                     unit.ref.unit_id,
                     reference,
@@ -943,7 +918,7 @@ class EnrichPdfMath:
                     UnitResult(
                         ref=unit.ref,
                         outcome=ObservationOutcome.EMPTY,
-                        native_products=(prepared,),
+                        native_products=(),
                         source_views=drafts,
                     )
                 )

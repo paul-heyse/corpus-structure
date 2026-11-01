@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from corpus_structure.core.method import (
     Digest,
     MethodContext,
+    PdfRecordPublicationDraft,
     Resources,
     SourceRunContext,
     UnitRef,
@@ -248,7 +249,7 @@ class IngestPdfIntegrated:
                     continue
                 from corpus_structure.semantic.pdf_integrated import PreparedPdfOriginal
 
-                from .pdf_reconciliation import select_pdf_integration
+                from .pdf_stream_reconciliation import reconcile_pdf_stream
 
                 native_reference = cfg.native_product
                 if native_reference is None:
@@ -266,6 +267,9 @@ class IngestPdfIntegrated:
                             reference = ctx.retain_native_pdf(unit.ref, captured)
                             if captured.values()["product_key"] == "organized":
                                 native, native_reference = captured, reference
+                        if native is None and standard.source_views:
+                            native_reference = standard.source_views[0].native_product
+                            native = ctx.reader.native_document(native_reference)
                         if standard.outcome == ObservationOutcome.FAILED:
                             raise RuntimeError(standard.error or "Standard PDF phase failed")
                         if native is None or native_reference is None:
@@ -297,7 +301,6 @@ class IngestPdfIntegrated:
                     timeout_seconds=ctx.settings.nemotron_timeout_seconds,
                 )
                 ctx.reader.pdf_context().execution.require_operation("recognize_pdf_observation")
-                observations = []
                 failures = []
                 recovery = cfg.recovery_policy
                 if recovery is not None:
@@ -305,83 +308,90 @@ class IngestPdfIntegrated:
                         "PdfRecognitionRecoveryPolicy", recovery.model_dump_json()
                     )
 
-                for page in worker.recognize_pages(
-                    source,
-                    recipe,
-                    requested,
-                    check_active=ctx.check_active,
-                    concurrency=4,
-                    reuse_failures=True,
+                def observations(
+                    worker=worker, source=source, recipe=recipe, requested=requested,
+                    unit=unit, prepared_original=prepared_original, recovery=recovery,
+                    failures=failures,
                 ):
-                    observations.extend(
-                        _retain_page(page, unit.ref, source, recipe, prepared_original, ctx)
-                    )
-                    if (
-                        not page.succeeded
-                        and recovery is not None
-                        and repetitive_capped_page(
-                            page, minimum_run=recovery.min_identical_character_run
-                        )
+                    for page in worker.recognize_pages(
+                        source,
+                        recipe,
+                        requested,
+                        check_active=ctx.check_active,
+                        concurrency=4,
+                        reuse_failures=True,
                     ):
-                        alternate = repetition_recovery_recipe(recipe)
-                        if alternate.recipe_id != recovery.permitted_recipe_id:
-                            raise ValueError("recovery recipe differs from admitted policy")
-                        # One named recipe is attempted at most once. Failed primary/variant
-                        # receipts are reusable as failures; no deterministic blind rerun.
-                        page = next(
-                            worker.recognize_pages(
-                                source,
-                                alternate,
-                                [page.page_no],
-                                check_active=ctx.check_active,
-                                reuse_failures=True,
+                        yield from _retain_page(page, unit.ref, source, recipe, prepared_original, ctx)
+                        if (
+                            not page.succeeded
+                            and recovery is not None
+                            and repetitive_capped_page(
+                                page, minimum_run=recovery.min_identical_character_run
                             )
-                        )
-                        observations.extend(
-                            _retain_page(page, unit.ref, source, alternate, prepared_original, ctx)
-                        )
-                    if not page.succeeded:
-                        failures.append(page.page_no)
-                if failures:
-                    raise RuntimeError(f"unresolved triple-pass physical pages: {failures}")
+                        ):
+                            alternate = repetition_recovery_recipe(recipe)
+                            if alternate.recipe_id != recovery.permitted_recipe_id:
+                                raise ValueError("recovery recipe differs from admitted policy")
+                            # One named recipe is attempted at most once. Failed primary/variant
+                            # receipts are reusable as failures; no deterministic blind rerun.
+                            page = next(
+                                worker.recognize_pages(
+                                    source,
+                                    alternate,
+                                    [page.page_no],
+                                    check_active=ctx.check_active,
+                                    reuse_failures=True,
+                                )
+                            )
+                            yield from _retain_page(page, unit.ref, source, alternate, prepared_original, ctx)
+                        if not page.succeeded:
+                            failures.append(page.page_no)
+                    if failures:
+                        raise RuntimeError(f"unresolved triple-pass physical pages: {failures}")
                 ctx.check_active()
-                selected = select_pdf_integration(
-                    values,
-                    native_reference.values(),
-                    observations,
-                    native.original,
-                    self.original_recipe(cfg),
-                    native.schema_bytes,
-                    policy=cfg.integration_policy,
-                    context=ctx.reader.pdf_context(),
-                )
-                selected_values = selected.values()["content"]
-                snapshot = _snapshot_from_values(selected_values)
-                document = load_snapshot(snapshot)
-                nodes = native_nodes(document)
-                reference = ctx.reader.native_product_reference(
-                    unit.ref.unit_id, "integrated", selected.digest
-                )
-                drafts = _drafts(
-                    unit.ref.unit_id,
-                    reference,
-                    snapshot,
-                    selected_values["health"],
-                    _select_sections(nodes, cfg, scope=ctx.run.options.get("scope")),
-                    cfg.membership,
-                    consumer_release,
-                    recognition_coverage=selected_values.get("recognition_coverage", ()),
-                    document=document,
-                    node_index=nodes,
-                )
-                outputs.append(
-                    UnitResult(
-                        ref=unit.ref,
-                        outcome=ObservationOutcome.EMPTY,
-                        integrated_products=(selected,),
-                        source_views=drafts,
-                    )
-                )
+                from pathlib import Path
+                from contextlib import nullcontext
+                from uuid import uuid4
+                from .pdf_hierarchy import NativeSnapshot
+
+                document = load_snapshot(_snapshot_from_values(values))
+                owner = Path("build/pdf-reconciliation") / uuid4().hex
+                owner.mkdir(parents=True)
+                with nullcontext(owner) as root:
+                    with reconcile_pdf_stream(
+                        document, native_reference.values(), observations(), source.digest,
+                        directory=Path(root), policy=cfg.integration_policy,
+                        context=ctx.reader.pdf_context(),
+                    ) as selected:
+                        draft = PdfRecordPublicationDraft(
+                            document=selected.document, product_key="integrated",
+                            original=native.original, schema_bytes=native.schema_bytes,
+                            recipe_bytes=self.original_recipe(cfg), health=values["health"],
+                            companions={
+                                **{family: selected.journal.collection(family) for family in (
+                                    "input", "occurrence", "relation", "mapping_report", "coverage",
+                                )},
+                                "health": ({
+                                    "health": values["health"], "source_scope": "whole_document",
+                                    "integration_health": selected.health,
+                                },),
+                            },
+                            metadata={"recognition_coverage": values.get("recognition_coverage", ())},
+                        )
+                        reference = ctx.retain_pdf_records(unit.ref, draft)
+                        nodes = native_nodes(selected.document)
+                        # No native serialization is required by a projection of this owned graph.
+                        snapshot = NativeSnapshot(b"", reference.content_digest, str(selected.document.version))
+                        drafts = _drafts(
+                            unit.ref.unit_id, reference, snapshot, values["health"],
+                            _select_sections(nodes, cfg, scope=ctx.run.options.get("scope")),
+                            cfg.membership, consumer_release,
+                            recognition_coverage=values.get("recognition_coverage", ()),
+                            document=selected.document, node_index=nodes,
+                        )
+                        outputs.append(UnitResult(
+                            ref=unit.ref, outcome=ObservationOutcome.EMPTY, source_views=drafts,
+                        ))
             except Exception as error:
                 summary = error_summary(error)
                 notes = getattr(error, "__notes__", ())

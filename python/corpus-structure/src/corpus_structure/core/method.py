@@ -50,6 +50,10 @@ from corpus_structure.core.vocab import (
 )
 
 if typing.TYPE_CHECKING:
+    from docling_core.types.doc import DoclingDocument
+
+    from corpus_structure.ingest.pdf import PdfRecipe
+    from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.ingest.sentences import TextLayout
     from corpus_structure.semantic.pdf_contracts import PreparedPdfContext, PreparedPdfProduct
     from corpus_structure.semantic.pdf_integrated import (
@@ -617,6 +621,54 @@ def _unowned_integrated_publication(
 
 
 @dataclass(frozen=True, slots=True)
+class PdfRecordProducerRequest:
+    recipe: PdfRecipe
+    assets: PreparedPdfAssets
+    original: bytes
+    schema_bytes: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class RetainedPdfSerialization:
+    path: Path
+    serialization_sha256: str
+    compression: Literal["none", "gzip"] = "none"
+
+
+@dataclass(frozen=True, slots=True)
+class PdfRecordPublicationDraft:
+    """Owned native finalization plus incremental companions, never an envelope.
+
+    The document is deliberately materialized inside the method's native phase.
+    The publication owner lowers it directly into records; companions are consumed
+    once while their journal owner is still alive. No mutable value escapes seal.
+    """
+
+    document: DoclingDocument | Mapping[str, Any]
+    product_key: str
+    original: bytes
+    schema_bytes: bytes
+    recipe_bytes: bytes
+    health: Mapping[str, Any]
+    companions: Mapping[str, Iterable[Mapping[str, Any]]] = field(default_factory=dict)
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+    retained_serialization: RetainedPdfSerialization | None = None
+    source_scope: Literal["whole_document"] = "whole_document"
+
+
+def _unowned_record_publication(
+    ref: UnitRef, product: PdfRecordPublicationDraft
+) -> ProductReference:
+    raise RuntimeError("record publication requires an owned task fence")
+
+
+def _unowned_record_production(
+    ref: UnitRef, request: PdfRecordProducerRequest
+) -> ProductReference:
+    raise RuntimeError("record production requires an owned task fence")
+
+
+@dataclass(frozen=True, slots=True)
 class MethodContext:
     """What `run` receives beside its units: the run view, its reader, the settings view and a
     logger. The execution owner supplies check_active for leased work; native workers poll
@@ -627,6 +679,12 @@ class MethodContext:
     settings: MethodSettings
     logger: logging.Logger
     check_active: Callable[[], None] = _unleased_operation
+    produce_pdf_records: Callable[[UnitRef, PdfRecordProducerRequest], ProductReference] = (
+        _unowned_record_production
+    )
+    retain_pdf_records: Callable[[UnitRef, PdfRecordPublicationDraft], ProductReference] = (
+        _unowned_record_publication
+    )
     retain_native_pdf: Callable[[UnitRef, PreparedPdfProduct], ProductReference] = (
         _unowned_native_publication
     )
