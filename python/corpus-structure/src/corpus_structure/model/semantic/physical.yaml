@@ -4785,6 +4785,42 @@ classes:
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
       ph:checks: '["product_id = revision_id", "ordinal >= 0"]'
 
+  pdf_stage_companion_field:
+    is_a: PdfRecordCompanionField
+    in_subset:
+    - ops
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - family
+        - local_id
+        - field_name
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:indexes: '[["product_id","revision_id","stream_id"]]'
+      ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "family", "local_id"], "target": "ops.pdf_stage_companion.product_id,revision_id,family,local_id"}, {"columns": ["product_id", "revision_id", "stream_id"], "target": "ops.pdf_stage_artifact_stream.product_id,revision_id,stream_id"}]'
+      ph:checks: '["product_id = revision_id", "(family = ''native_metadata'' AND field_name = ''value'' AND scalar_kind = ''y'') OR (family = ''occurrence'' AND field_name = ''text'' AND scalar_kind = ''s'')"]'
+  pdf_record_companion_field:
+    is_a: PdfRecordCompanionField
+    in_subset:
+    - kb
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - family
+        - local_id
+        - field_name
+    annotations:
+      ph:immutability: immutable
+      ph:read_roles: '[]'
+      ph:indexes: '[["product_id","revision_id","stream_id"]]'
+      ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "family", "local_id"], "target": "kb.pdf_record_companion.product_id,revision_id,family,local_id"}, {"columns": ["product_id", "revision_id", "stream_id"], "target": "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
+      ph:checks: '["product_id = revision_id", "(family = ''native_metadata'' AND field_name = ''value'' AND scalar_kind = ''y'') OR (family = ''occurrence'' AND field_name = ''text'' AND scalar_kind = ''s'')"]'
   pdf_record_access:
     is_a: PdfRecordAccess
     in_subset:

@@ -11,7 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from pydantic_core import to_jsonable_python
 from sqlalchemy import Connection, select, text
 
-from corpus_structure.semantic.pdf_record_reader import published_native_table, published_record_reader
+from corpus_structure.semantic.pdf_record_reader import (
+    published_native_table,
+    published_record_reader,
+)
 from corpus_structure.semantic.product_reference import ProductReference
 
 
@@ -274,7 +277,8 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                     native_descendant_pointers(
                         task_id=request.task_id,
                         product_key=request.product_key,
-                        section_pointer=request.section_pointer, conn=conn,
+                        section_pointer=request.section_pointer,
+                        conn=conn,
                     )
                 ),
                 item.c.pointer != request.section_pointer,
@@ -401,13 +405,17 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
             elif request.view == "formula":
                 if native.get("label") != "formula":
                     raise ValueError("native pointer is not a formula")
-                record_reader = published_record_reader(conn,ProductReference(request.task_id,
-                                                        request.product_key,request.content_digest))
+                record_reader = published_record_reader(
+                    conn,
+                    ProductReference(request.task_id, request.product_key, request.content_digest),
+                )
                 if record_reader is not None:
-                    outcomes = list(record_reader.native_metadata("formula_outcomes",pointer=request.pointer))
-                    if len(outcomes)>1:
+                    outcomes = list(
+                        record_reader.native_metadata("formula_outcomes", pointer=request.pointer)
+                    )
+                    if len(outcomes) > 1:
                         raise ValueError("formula outcome metadata is ambiguous")
-                    health = outcomes[0] if outcomes else {"outcome":"unknown"}
+                    health = outcomes[0] if outcomes else {"outcome": "unknown"}
                 else:
                     health = conn.execute(
                         text(
@@ -585,7 +593,8 @@ def _inspect_companion(
                         native_descendant_pointers(
                             task_id=request.task_id,
                             product_key=request.product_key,
-                            section_pointer=request.section_pointer, conn=conn,
+                            section_pointer=request.section_pointer,
+                            conn=conn,
                         )
                     )
                 )
@@ -730,21 +739,35 @@ def export_native_source(
         inspect_native_source(conn, request.model_copy(update={"view": "products", "limit": 1}))
         from corpus_structure.semantic.metadata import table
 
-        record_reader = published_record_reader(conn, ProductReference(
-            request.task_id, request.product_key, request.content_digest))
+        record_reader = published_record_reader(
+            conn, ProductReference(request.task_id, request.product_key, request.content_digest)
+        )
         if record_reader is not None:
             temporary = destination.with_name(destination.name + ".partial")
             try:
                 with temporary.open("xb") as sink:
-                    receipt = (record_reader.write_integrated_json(sink, binding=binding)
-                               if format == "integrated-json" else record_reader.write_native_json(sink))
+                    receipt = (
+                        record_reader.write_integrated_json(sink, binding=binding)
+                        if format == "integrated-json"
+                        else record_reader.write_native_json(sink)
+                    )
                 manifest = destination.with_name(destination.name + ".manifest.json")
                 with manifest.open("x", encoding="utf-8") as stream:
-                    json.dump(dict(binding, byte_length=receipt.byte_length,
-                                   serialization_sha256=receipt.serialization_sha256,
-                                   logical_digest=request.content_digest,
-                                   projection="integrated-document" if format == "integrated-json" else "docling-content-only",
-                                   omissions=[] if format == "integrated-json" else ["mandatory evidence companions"]), stream)
+                    json.dump(
+                        dict(
+                            binding,
+                            byte_length=receipt.byte_length,
+                            serialization_sha256=receipt.serialization_sha256,
+                            logical_digest=request.content_digest,
+                            projection="integrated-document"
+                            if format == "integrated-json"
+                            else "docling-content-only",
+                            omissions=[]
+                            if format == "integrated-json"
+                            else ["mandatory evidence companions"],
+                        ),
+                        stream,
+                    )
                     stream.write("\n")
                 os.link(temporary, destination)
             finally:

@@ -155,6 +155,24 @@ exports are generated from admitted records rather than required as publication 
 
 > Decision: [ADR-0043](../adr/0043-segmented-artifact-byte-identity.md)
 
+### Native PDF metadata validation
+
+**Implemented; scoped native controls Tested (2026-11-01).** Exact metadata JSON remains in verified
+byte fields. Native admission validates it with `pg_jsonschema`0.3.4 using JSON Schema generated
+from the same release-bound class definitions. PostgreSQL's built-in JSON traversal cannot handle
+embedded NUL strings, so neither JSONB conversion nor text substitution is part of this route.
+Schema constraints also verify typed lookup projections against the actual retained value.
+Scoped health carries qualified diagnostic references; full readers/export preserve exact text.
+Native byte/graph enforcement and finite Docling callbacks retain their existing responsibilities.
+
+`ops/postgresql/extensions.txt` owns the required extension version. Install the packaged server
+library with `sudo apt-get install --no-install-recommends postgresql-18-pg-jsonschema=0.3.4-3PIGSTY~noble`,
+then use the existing dedicated-cluster provisioning route. An existing owned application database
+also needs `CREATE EXTENSION pg_jsonschema VERSION '0.3.4'` as its provisioner. Earlier frozen
+migrations remain unchanged. The PDF coordinator owns deployment and qualification state.
+
+> Decision: [ADR-0044](../adr/0044-native-pdf-metadata-jsonschema.md)
+
 ## Current task authority and historical storage
 
 **Implemented, 2026-10-30; actual regeneration/qualification remains in SP-09/SP-10.**

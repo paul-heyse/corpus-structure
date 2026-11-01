@@ -12,15 +12,20 @@ annotations:
   pds:upload_profile: '{"max_rows":65536,"max_bytes":8388608,"max_replay_key_bytes":1024}'
   pds:publication_identity_profile: pdf-record-sha256-fold-v1
   pds:publication_record_profile: '{"id": "pdf-publication-records-v1", "fold": "pdf-record-sha256-fold-v1",
-    "companion": {"family": "companion/<family>", "key": "local_id", "fields": ["body", "ordinal"], "body":
-    "data.canonical_json"}, "endpoint": {"family": "endpoint", "key": "ascii-json:[relation_id,ordinal]",
+    "companion": {"family": "companion/<family>", "key": "local_id", "fields": ["body", "ordinal"], "native_metadata_suffix": ["value"], "occurrence_suffix": ["text"], "body":
+    "data.canonical_json excluding value/text; metadata value always Python identity.canonical_bytes UTF8; optional occurrence text UTF8; absent a and null n distinct"}, "endpoint": {"family": "endpoint", "key": "ascii-json:[relation_id,ordinal]",
     "fields": ["relation_id", "ordinal", "target_task_id", "target_product_key", "target_content_digest",
     "occurrence_id", "role"], "self_reference": [0, "@self", "@self"]}, "native_map_order": "original
     map encounter order retained for exact reconstruction; logical map identity is key-based; ordinary
     array order is identity-bearing", "publication": {"family": "publication", "key": "root", "fields":
-    ["kind"], "authority": "frozen build"}}'
+    ["kind", "recipe_digest"], "authority": "frozen build"}}'
+  pds:companion_field_profile: '{"value":{"family":"native_metadata","encoding":"pdf-companion-json-field-v1","scalar_kind":"y","presence":"required; JSON null is present bytes null","canonicalizer":"corpus_structure.semantic.identity.canonical_bytes"},"text":{"family":"occurrence","encoding":"pdf-record-scalar-v1:s","scalar_kind":"s","presence":"optional; absent and explicit null remain inline distinct kinds"}}'
+  pds:metadata_validation: pg_jsonschema 0.3.4 public.json_matches_schema on actual JSON field bytes; released model JSON Schema plus exact typed projection const/presence constraints; no whole-value PostgreSQL JSON traversal or string substitution
+  pds:scope_health_projection: pointer/outcome plus optional qualified PdfCompanionReference when originalerror field is present; exact metadata bytes retain originalerror; no string substitution
+  pds:formula_health_projection: outcome and has_diagnostic envelope fields correspond exactly to raw metadata JSON outcome and error presence
+  pds:metadata_pointer_projection: first present string value.pointer/value.prose_pointer/value.table_pointer; exact admission correspondence; absent otherwise
   pds:native_metadata_kinds: '["runtime_report", "inline_candidate_pages", "derivation_mappings", "cell_reports",
-    "inline_alignment_reports", "recognition_coverage", "formula_outcomes", "stage_recipe"]'
+    "inline_alignment_reports", "recognition_coverage", "formula_outcomes"]'
 enums:
   PdfStageState:
     permissible_values:
@@ -38,6 +43,14 @@ enums:
       health: {}
       request_outcome: {}
       native_metadata: {}
+  PdfCompanionFieldName:
+    permissible_values:
+      value: {}
+      text: {}
+  PdfCompanionScalarKind:
+    permissible_values:
+      y: {}
+      s: {}
   PdfPublicationKind:
     permissible_values:
       native: {}
@@ -116,6 +129,30 @@ classes:
         required: true
       ordinal:
         range: PdfRecordInteger
+        required: true
+  PdfRecordCompanionField:
+    description: Fixed typed companion value fields stored as verified segmented bytes.
+    attributes:
+      product_id:
+        range: PdfRecordString
+        required: true
+      revision_id:
+        range: PdfRecordString
+        required: true
+      family:
+        range: PdfCompanionFamily
+        required: true
+      local_id:
+        range: PdfRecordString
+        required: true
+      field_name:
+        range: PdfCompanionFieldName
+        required: true
+      stream_id:
+        range: PdfRecordString
+        required: true
+      scalar_kind:
+        range: PdfCompanionScalarKind
         required: true
   PdfRecordEndpoint:
     attributes:

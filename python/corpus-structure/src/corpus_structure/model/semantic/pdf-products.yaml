@@ -547,6 +547,11 @@ classes:
         range: PdfString
         required: false
         slot_uri: pdf:PdfFormulaOutcome_error
+      diagnostic_ref:
+        range: PdfCompanionReference
+        required: false
+        inlined: true
+        slot_uri: pdf:PdfFormulaOutcome_diagnostic_ref
   PdfViewPiece:
     attributes:
       item_ref:
@@ -883,6 +888,12 @@ classes:
       task_id: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: 'pdf:PdfProductReference_task_id'}
       product_key: {range: PdfString, required: true, slot_uri: 'pdf:PdfProductReference_product_key'}
       content_digest: {range: PdfDigest, required: true, slot_uri: 'pdf:PdfProductReference_content_digest'}
+  PdfCompanionReference:
+    is_a: PdfProductReference
+    description: Qualified semantic companion row; exact diagnostic content remains in its verified byte field.
+    attributes:
+      family: {range: string, equals_string: native_metadata, required: true, slot_uri: 'pdf:PdfCompanionReference_family'}
+      local_id: {range: PdfString, required: true, slot_uri: 'pdf:PdfCompanionReference_local_id'}
   PdfRendererProvenance:
     attributes:
       implementation_digest: {range: PdfDigest, required: true, slot_uri: 'pdf:PdfRendererProvenance_implementation_digest'}

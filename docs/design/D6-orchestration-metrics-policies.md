@@ -32,6 +32,13 @@ are not the selected production path or a second authority for semantic executio
 
 **Accepted relational target (2026-11-01); implementation/qualification remains package-scoped.** Private append/freeze/validate/seal use the existing task attempt and holder, with immutable validation premises and atomic visibility. No inference holds publication locks. Foundation declarations do not advertise unimplemented staging operations; progressive scopes remain conditional.
 
+**Implemented; scoped Tested (2026-11-01).** PDF methods return typed publication drafts or
+qualified published pins to the existing leased executor. Only successful protected seal permits
+terminal publication. Frozen preparation allows heartbeat renewal; explicit inspection/resume
+recovers retained progress without recomputation silently replacing it. Migration source readiness
+does not finalize knowledge or change operational defaults. Complete integrated adoption and
+failure/concurrency qualification remain with the PDF coordinator.
+
 > Decision: ADR-0042
 
 

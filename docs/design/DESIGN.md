@@ -228,7 +228,7 @@ legacy wait barrier rather than implying that every old option is supported.
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
 **Accepted PDF target; Proposed implementation (2026-10-31).** PostgreSQL retains original
-PDF bytea, immutable native DoclingDocument JSONB and separate conversion health. Application
+PDF bytes, immutable native Docling content and separate conversion health. Application
 contracts govern conversion-qualified occurrences, ordered relationships, source regions and
 purposeful derived indexes/text views. Native document schema authority is scoped to Docling;
 LinkML/trusted execution definitions govern application operations, dependencies, states and
@@ -258,10 +258,24 @@ native content; the semantic release owns lowerings, identity and behavior; Post
 instance custody and enforcement. Private append/freeze/validation precedes atomic publication.
 Logical identity and exact byte/serialization identities remain distinct; historical SHA-256
 content_digest pins retain their original meaning. A named bounded fold cannot impersonate them.
-0060 remains deployed and0061 committed/undeployed; new foundation does not establish book-scale
-publication, streaming producer integration or adopted consumer qualification.
+The PDF coordinator owns deployed revision and tested scope; foundations alone do not establish
+book-scale publication, complete streaming integration or adopted consumer qualification.
 
 > Decision: ADR-0042
+
+**Accepted segmented-byte identity (2026-11-01).** New artifact streams require independently
+verified parts, lengths and canonical byte folds. Whole-stream serialization SHA is optional
+export metadata; original/raw/historical digest custody is unchanged.
+
+> Decision: ADR-0043
+
+**Accepted native metadata mechanism (2026-11-01); scoped implementation Tested.** The semantic
+release supplies metadata JSON Schema and typed projection constraints to pinned `pg_jsonschema`.
+PostgreSQL validates actual retained JSON bytes without sanitization or JSONB conversion of
+NUL-containing text. Exact byte custody and native graph/callback obligations remain distinct.
+[D3](D3-database.md#native-pdf-metadata-validation) owns the mechanism and provisioning boundary.
+
+> Decision: ADR-0044
 
 **Retained HTML implementation boundary.**
 
@@ -287,6 +301,7 @@ publication and archived read authority govern the layers; PP-05–PP-10 own imp
 qualification. Method/output versions migrate with their consumers.
 
 > Decision: ADR-0040
+
 
 > Decision: ADR-0040
 
@@ -380,6 +395,12 @@ owns the concepts and D2–D8 their realization. The
 accepted target does not establish conversion, deployment or performance/fidelity benefits.
 
 > Decision: ADR-0040
+
+**Accepted metadata realization (2026-11-01).** Native metadata validation consumes the JSON Schema
+derived from the same application release; the server extension is an evaluator, not another
+schema authority. Byte-field envelopes and diagnostic references are modeled projections.
+
+> Decision: ADR-0044
 
 **Retained HTML implementation boundary.**
 

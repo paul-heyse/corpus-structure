@@ -6,3 +6,4 @@
 pg_textsearch 1.5.1
 vector 0.8.7
 pg_stat_statements 1.12
+pg_jsonschema 0.3.4

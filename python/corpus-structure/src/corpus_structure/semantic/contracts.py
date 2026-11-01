@@ -31,7 +31,6 @@ EXECUTION_COMPILER_VERSION = "17"
 @lru_cache(maxsize=1)
 def approved_implementations() -> Mapping[str, Any]:
     """Resolve only application-written imports, never catalog-authored module strings."""
-    from . import pdf_publication
     from types import MappingProxyType
 
     from corpus_structure.core.text_structure import capture_text
@@ -60,6 +59,7 @@ def approved_implementations() -> Mapping[str, Any]:
         operations,
         pdf_contracts,
         pdf_integrated,
+        pdf_publication,
         pdf_staging,
         pdf_storage,
         prepare,
@@ -910,7 +910,10 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("orchestration/source-reader.py", "orchestrate/source_reader.py"),
                 ("pdf/publication.py", "semantic/pdf_publication.py"),
                 ("pdf/record-logical-identity.sql", "semantic/sql/pdf_record_logical_identity.sql"),
-                ("pdf/record-access-correspondence.sql", "semantic/sql/pdf_record_access_correspondence.sql"),
+                (
+                    "pdf/record-access-correspondence.sql",
+                    "semantic/sql/pdf_record_access_correspondence.sql",
+                ),
                 ("pdf/record-context.sql", "semantic/sql/pdf_record_context.sql"),
                 ("pdf/publication-native.py", "semantic/pdf_publication_native.py"),
                 ("pdf/record-reader-native.py", "semantic/pdf_record_reader_native.py"),

@@ -61,10 +61,17 @@ _selected_product = metadata.tables["ops.native_document_product"].to_metadata(
 )
 
 
-_published_items = metadata.tables["kb.native_document_item"].to_metadata(_read_metadata, name="pdf_published_item", schema="ops")
-_published_regions = metadata.tables["kb.native_document_region"].to_metadata(_read_metadata, name="pdf_published_region", schema="ops")
+_published_items = metadata.tables["kb.native_document_item"].to_metadata(
+    _read_metadata, name="pdf_published_item", schema="ops"
+)
+_published_regions = metadata.tables["kb.native_document_region"].to_metadata(
+    _read_metadata, name="pdf_published_region", schema="ops"
+)
 
-_published_coverage = metadata.tables["kb.native_document_coverage"].to_metadata(_read_metadata,name="pdf_published_coverage",schema="ops")
+_published_coverage = metadata.tables["kb.native_document_coverage"].to_metadata(
+    _read_metadata, name="pdf_published_coverage", schema="ops"
+)
+
 
 def table(name: str) -> Table:
     """Return a shared, explicitly schema-qualified Table."""

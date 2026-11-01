@@ -80,6 +80,13 @@ until their applicable current-source results are recorded in the owning plan.
 
 **Accepted relational target (2026-11-01); implementation/qualification remains package-scoped.** Record/membership/artifact reads bind immutable qualified pins and bounded bytes as well as rows. Logical content and exact export/raw byte identities are separate; archived content_digest retains its canonical-envelope SHA-256 meaning. PDF-24 owns public CLI/MCP migration; no provisional document is served as complete.
 
+**Implemented; scoped Tested (2026-11-01).** Published record revisions use one selected reader
+for native content, exact companion byte fields and shared source context. Ordered native and
+companion cursors support full export without one query per object/value. Scoped health links
+exact diagnostics through qualified companion references. A source reader borrows a connection
+per operation; concurrent analysis workers do not share a checked-out connection. These component
+controls do not establish current external attachment or full-book adoption; PDF-24/25/10/11 own them.
+
 > Decision: ADR-0042
 
 

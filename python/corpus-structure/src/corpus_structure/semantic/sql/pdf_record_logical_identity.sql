@@ -52,11 +52,39 @@ BEGIN
  SELECT * INTO STRICT stream_ FROM ops.pdf_artifact_stream
  WHERE product_id=p_product AND revision_id=p_revision AND stream_id=p_stream;
  PERFORM ops.pdf_identity_verify_artifact(p_product,p_revision,p_stream);
- IF stream_.encoding_profile='pdf-record-native-json-v1' THEN kind_:='y';
+ IF stream_.encoding_profile IN ('pdf-record-native-json-v1','pdf-companion-json-field-v1') THEN kind_:='y';
  ELSIF stream_.encoding_profile ~ '^pdf-record-scalar-v1:[anbifsyd]$' THEN
   kind_:=right(stream_.encoding_profile,1);
  ELSE RAISE EXCEPTION 'stream is not a native scalar profile' USING ERRCODE='23514'; END IF;
  RETURN convert_to(kind_,'UTF8')||int8send(stream_.byte_length)||decode(stream_.byte_root,'hex');
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.pdf_identity_companion_scalar(
+ p_product text,p_revision text,p_family text,p_local text,p_field text,p_body jsonb)
+RETURNS bytea LANGUAGE plpgsql STABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE field_ kb.pdf_record_companion_field; stream_ ops.pdf_artifact_stream;
+BEGIN
+ SELECT * INTO field_ FROM kb.pdf_record_companion_field WHERE product_id=p_product
+ AND revision_id=p_revision AND family=p_family AND local_id=p_local AND field_name=p_field;
+ IF FOUND THEN
+  IF p_body ? p_field THEN RAISE EXCEPTION 'companion field has competing inline and external values' USING ERRCODE='23514'; END IF;
+  SELECT * INTO STRICT stream_ FROM ops.pdf_artifact_stream WHERE product_id=p_product
+   AND revision_id=p_revision AND stream_id=field_.stream_id;
+  IF (p_field='value' AND (p_family<>'native_metadata' OR field_.scalar_kind<>'y'
+    OR stream_.encoding_profile<>'pdf-companion-json-field-v1'))
+   OR (p_field='text' AND (p_family<>'occurrence' OR field_.scalar_kind<>'s'
+    OR stream_.encoding_profile<>'pdf-record-scalar-v1:s')) THEN
+   RAISE EXCEPTION 'companion field profile differs' USING ERRCODE='23514';
+  END IF;
+  RETURN ops.pdf_identity_stream_scalar(p_product,p_revision,field_.stream_id);
+ END IF;
+ IF p_family='native_metadata' THEN
+  RAISE EXCEPTION 'metadata value requires its declared JSON byte stream' USING ERRCODE='23514';
+ END IF;
+ IF NOT p_body ? p_field THEN RETURN ops.pdf_identity_scalar('a',''::bytea); END IF;
+ IF jsonb_typeof(p_body->p_field) NOT IN ('null','string') THEN
+  RAISE EXCEPTION 'occurrence text must be string or null' USING ERRCODE='23514'; END IF;
+ RETURN ops.pdf_identity_inline(p_body->p_field);
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.pdf_record_logical_identity(p_product text,p_revision text)
@@ -86,10 +114,15 @@ BEGIN
     ELSE m.ordinal::text END||']',m.parent_id,m.field_name,m.ordinal
    FROM kb.pdf_record_membership m WHERE m.product_id=p_product AND m.revision_id=p_revision
   UNION ALL SELECT 'native',n.record_id,NULL,NULL,NULL FROM kb.pdf_record_native n WHERE n.product_id=p_product AND n.revision_id=p_revision
+  UNION ALL SELECT 'publication','root',NULL,NULL,NULL
   ) ordered_ ORDER BY family COLLATE "C",key COLLATE "C"
  LOOP
   names_:=ARRAY[]::text[]; values_:=ARRAY[]::bytea[];
-  IF row_.family='document' THEN
+  IF row_.family='publication' THEN
+   names_:=ARRAY['kind','recipe_digest'];
+   SELECT ARRAY[ops.pdf_identity_scalar('s',convert_to(f.kind,'UTF8')),ops.pdf_identity_scalar('s',convert_to(b.recipe_digest,'UTF8'))] INTO STRICT values_
+    FROM ops.pdf_frozen_build f JOIN ops.pdf_stage_build b USING(build_id) WHERE f.build_id=p_product;
+  ELSIF row_.family='document' THEN
    names_:=ARRAY['mapping_profile','contract_version','native_schema_digest','root_id'];
    values_:=ARRAY[ops.pdf_identity_scalar('s',convert_to(header_.mapping_profile,'UTF8')),
     ops.pdf_identity_scalar('s',convert_to(header_.contract_version,'UTF8')),
@@ -135,8 +168,16 @@ BEGIN
     names_:=array_append(names_,'value'); values_:=array_append(values_,CASE WHEN member_.value_kind='scalar' THEN ops.pdf_identity_inline(member_.scalar_json) ELSE ops.pdf_identity_stream_scalar(p_product,p_revision,member_.stream_id) END);
    END IF;
   ELSIF left(row_.family,10)='companion/' THEN
-   names_:=ARRAY['body']; SELECT ARRAY[ops.pdf_identity_scalar('s',convert_to(data.canonical_json(c.body),'UTF8'))] INTO values_ FROM kb.pdf_record_companion c
+   names_:=ARRAY['body','ordinal']; SELECT ARRAY[ops.pdf_identity_scalar('s',convert_to(data.canonical_json(CASE WHEN c.family='native_metadata' THEN c.body-'value' WHEN c.family='occurrence' THEN c.body-'text' ELSE c.body END),'UTF8')),ops.pdf_identity_scalar('i',convert_to(c.ordinal::text,'UTF8'))] INTO values_ FROM kb.pdf_record_companion c
     WHERE c.product_id=p_product AND c.revision_id=p_revision AND c.family=substr(row_.family,11) AND c.local_id=row_.key;
+   IF row_.family IN ('companion/native_metadata','companion/occurrence') THEN
+    field_:=CASE WHEN row_.family='companion/native_metadata' THEN 'value' ELSE 'text' END;
+    names_:=array_append(names_,field_);
+    SELECT array_append(values_,ops.pdf_identity_companion_scalar(p_product,p_revision,c.family,c.local_id,field_,c.body))
+     INTO values_ FROM kb.pdf_record_companion c WHERE c.product_id=p_product AND c.revision_id=p_revision
+     AND c.family=substr(row_.family,11) AND c.local_id=row_.key;
+   END IF;
+
   ELSIF row_.family='endpoint' THEN
    names_:=ARRAY['relation_id','ordinal','target_task_id','target_product_key','target_content_digest','occurrence_id','role'];
    SELECT ARRAY[ops.pdf_identity_scalar('s',convert_to(e.relation_id,'UTF8')),ops.pdf_identity_scalar('i',convert_to(e.ordinal::text,'UTF8')),
@@ -150,4 +191,5 @@ BEGIN
  RETURN encode(ops.pdf_identity_fold_finish(state_,count_,length_),'hex');
 END $$;
 REVOKE ALL ON FUNCTION ops.pdf_identity_inline(jsonb),ops.pdf_identity_ascii_string(text),
- ops.pdf_identity_stream_scalar(text,text,text),ops.pdf_record_logical_identity(text,text) FROM PUBLIC;
+ ops.pdf_identity_stream_scalar(text,text,text),
+ ops.pdf_identity_companion_scalar(text,text,text,text,text,jsonb),ops.pdf_record_logical_identity(text,text) FROM PUBLIC;

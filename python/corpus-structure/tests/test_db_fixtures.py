@@ -22,7 +22,7 @@ def test_session_database_is_cloned_from_the_migrated_template(db: Connection, d
     assert db_server.exists(db_server.current)
     assert db_server.current.startswith("cs_tpl_")
     extensions = dict(db.execute(text("SELECT extname, extversion FROM pg_extension")).all())
-    assert {"pg_textsearch", "vector", "pg_stat_statements"} <= set(extensions)
+    assert {"pg_textsearch", "vector", "pg_stat_statements", "pg_jsonschema"} <= set(extensions)
     assert db_server.expected.items() <= extensions.items()
 
 
@@ -66,7 +66,7 @@ def seeded_record(tmp_path: Path, text_: str) -> Path:
 
 def test_the_record_names_every_extension_of_the_template(db_support) -> None:
     record = db_support.expected_extensions()
-    assert set(record) == {"pg_textsearch", "vector", "pg_stat_statements"}
+    assert set(record) == {"pg_textsearch", "vector", "pg_stat_statements", "pg_jsonschema"}
     assert record["pg_textsearch"] == "1.5.1" and record["vector"] == "0.8.7"
 
 
