@@ -54,7 +54,7 @@ _Updated 2026-11-01; integrated PDF mechanisms implemented; whole-book publicati
 
 ## Next
 
-Review retained JSONB/child-validation evidence and the undeployed0061 correction before further
-whole-book publication. Subsequent acceptance requires the admitted integrated pin, current external
+[Streaming/storage review](docs/functional_reviews/pdf-streaming-and-storage_2026-11-01.md) published2026-11-01:
+Proposed relational/Arrow/seal target; no implementation or scope adoption. Acceptance still requires current external
 journeys, five-section extraction, independent references and automated grading before default cutover.
 All owned tasks/processes are concluded and worktrees removed. Defaults still target the historical deployment.
