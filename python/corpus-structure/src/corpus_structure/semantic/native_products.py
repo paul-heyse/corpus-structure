@@ -17,7 +17,9 @@ from sqlalchemy.schema import (
 )
 
 from .metadata import metadata
+from .prepared_sql import PreparedSQL
 
+# Historical foundation labels for source previews, not the current Alembic head.
 NATIVE_PREDECESSOR = "semantic_0064"
 NATIVE_REVISION = "semantic_0065"
 
@@ -129,10 +131,12 @@ def physical_products() -> tuple[NativeProduct, ...]:
     return tuple(products)
 
 
-def function_bodies(sql: str) -> dict[str, str]:
+def function_bodies(sql: str | PreparedSQL) -> dict[str, str]:
     """Inspect emitted function declarations structurally; never scrape a live deployment."""
     result = {}
-    for raw in parse_sql(sql):
+    from .prepared_sql import prepare_sql
+
+    for raw in prepare_sql(sql, source="<native function bodies>").statements:
         statement = raw.stmt
         if isinstance(statement, ast.CreateFunctionStmt):
             name = ".".join(part.sval for part in statement.funcname or ())
@@ -571,65 +575,14 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     def stream(node: Any) -> str:
         return RawStream()(node)
 
-    from .native_function_signatures import function_signature, remove_output_signature_aliases
+    from .native_inventory import update_function_inventory
 
-    statements = parse_sql(
-        (kernels + edge_sql).replace("__MIGRATION_OWNER__", "corpus_migration_owner")
-    )
-    remove_output_signature_aliases(functions, statements)
+    statements = update_function_inventory(
+        functions, (kernels + edge_sql).replace("__MIGRATION_OWNER__", "corpus_migration_owner")
+    ).statements
     for raw in statements:
         stmt = raw.stmt
-        if isinstance(stmt, ast.CreateFunctionStmt):
-            if stmt.returnType is None:
-                raise ValueError("native function requires explicit return type")
-            signature = function_signature(stmt)
-            options = {option.defname: option.arg for option in stmt.options or ()}
-            body = options["as"][0].sval
-            previous = functions.get(signature, {})
-            from copy import copy
-
-            result_type = copy(stmt.returnType)
-            result_type.setof = False
-            functions[signature] = {
-                "signature": signature,
-                "body_sha256": sha256(body.encode()).hexdigest(),
-                "language": options["language"].sval,
-                "security": bool(options.get("security") and options["security"].boolval),
-                "strict": bool(options.get("strict") and options["strict"].boolval),
-                "volatility": {"immutable": "i", "stable": "s", "volatile": "v"}.get(
-                    options.get("volatility").sval if options.get("volatility") else "volatile", "v"
-                ),
-                "parallel": "u",
-                "leakproof": False,
-                "setof": bool(stmt.returnType.setof),
-                "result": stream(result_type),
-                "config": ["search_path=pg_catalog, pg_temp"],
-                "owner": previous.get("owner", "corpus_sem_publisher"),
-                "execute_roles": list(previous.get("execute_roles", [])),
-            }
-        elif (
-            isinstance(stmt, ast.GrantStmt)
-            and stmt.objtype is not None
-            and stmt.objtype.name == "OBJECT_FUNCTION"
-        ):
-            for obj in stmt.objects or ():
-                signature = (
-                    ".".join(part.sval for part in obj.objname)
-                    + "("
-                    + ",".join(stream(arg) for arg in obj.objargs or ())
-                    + ")"
-                )
-                if signature not in functions:
-                    continue
-                roles = set(functions[signature]["execute_roles"])
-                for grantee in stmt.grantees or ():
-                    if grantee.rolename:
-                        if stmt.is_grant:
-                            roles.add(grantee.rolename)
-                        else:
-                            roles.discard(grantee.rolename)
-                functions[signature]["execute_roles"] = sorted(roles)
-        elif isinstance(stmt, ast.CreateTrigStmt):
+        if isinstance(stmt, ast.CreateTrigStmt):
             if (
                 stmt.relation is None
                 or stmt.relation.schemaname is None
@@ -852,11 +805,12 @@ def consolidation_products(model=None) -> tuple[NativeProduct, ...]:
 def forward_products(
     model=None, *, authoring_provenance: NativeAuthoringProvenance | None = None
 ) -> tuple[NativeProduct, ...]:
-    """Reproduce the head using its authoring witness and current enforcement.
+    """Derive a foundation source preview using its recorded authoring provenance.
 
-    A new candidate explicitly supplies ``current_authoring_provenance(model)``.
-    Reproduction never substitutes today's Python source hashes for the recorded
-    authoring event; all enforcing SQL and deployment metadata still derive live.
+    These historical product labels do not promise frozen 0065 reproduction or the
+    current Alembic head. Current sources intentionally affect the preview. New forward
+    candidates use ``native_candidate.prepare_series_candidate`` and the explicit
+    ``ci schema native-candidate`` command on an owned authoring database.
     """
     from .migrations import ALEMBIC_DIR
     from .pdf_publication_native import pdf_publication_products

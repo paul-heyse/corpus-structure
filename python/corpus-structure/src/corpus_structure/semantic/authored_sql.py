@@ -17,13 +17,13 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .types import PreparedRelease
 
-from pglast import ast, parse_sql
-from pglast.parser import ParseError
+from pglast import ast
 from pglast.stream import RawStream
 from pglast.visitors import Visitor, referenced_relations
 from sqlalchemy import Connection, MetaData, select, text
 
 from .identity import canonical_bytes
+from .prepared_sql import PreparedSQL, SQLSyntaxError, prepare_sql
 
 COMPILER_VERSION = "authored-select-1"
 SAFE_FUNCTIONS = frozenset({"count", "min", "max", "sum", "avg", "abs", "length", "lower", "upper"})
@@ -87,6 +87,7 @@ SAFE_NODES = frozenset(
 class SQLAdmissionError(ValueError):
     def __init__(self, message: str, location: int | None = None):
         self.location = location
+        self.message = message
         super().__init__(
             f"{message}" + (f" at character {location}" if location is not None else "")
         )
@@ -152,15 +153,20 @@ class _Inspect(Visitor):
                 raise SQLAdmissionError(f"unsupported operator {'.'.join(name)}", node.location)
 
 
-def _syntax(sql: str, metadata: MetaData) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _syntax(sql: str | PreparedSQL, metadata: MetaData) -> tuple[tuple[str, ...], tuple[str, ...]]:
     try:
-        tree = parse_sql(sql)
-    except ParseError as exc:
-        raise SQLAdmissionError(str(exc), exc.args[1] if len(exc.args) > 1 else None) from exc
+        prepared = prepare_sql(sql)
+    except SQLSyntaxError as exc:
+        raise SQLAdmissionError(str(exc), exc.position) from exc
+    tree = prepared.statements
     if len(tree) != 1 or not isinstance(tree[0].stmt, ast.SelectStmt):
         raise SQLAdmissionError("exactly one SELECT is required")
     inspection = _Inspect()
-    inspection(tree)
+    try:
+        inspection(tree)
+    except SQLAdmissionError as exc:
+        # pglast's high-level AST constructor already adapts native offsets to Unicode.
+        raise SQLAdmissionError(f"{prepared.source}: {exc.message}", exc.location) from exc
     # pglast handles CTE lexical scopes, including nested shadowing, rather than a regex scanner.
     references = referenced_relations(tree)
     known = {

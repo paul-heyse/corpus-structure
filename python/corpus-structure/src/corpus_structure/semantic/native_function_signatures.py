@@ -2,6 +2,12 @@
 
 from pglast import ast, enums
 from pglast.stream import RawStream
+from sqlalchemy.dialects.postgresql import dialect
+
+
+def qualified_name(parts) -> str:
+    quote = dialect(paramstyle="named").identifier_preparer.quote
+    return ".".join(quote(part.sval) for part in parts or ())
 
 
 def function_signature(statement: ast.CreateFunctionStmt, *, include_outputs=False) -> str:
@@ -10,7 +16,7 @@ def function_signature(statement: ast.CreateFunctionStmt, *, include_outputs=Fal
         enums.FunctionParameterMode.FUNC_PARAM_TABLE,
     }
     return (
-        ".".join(part.sval for part in statement.funcname or ())
+        qualified_name(statement.funcname)
         + "("
         + ",".join(
             RawStream()(parameter.argType)

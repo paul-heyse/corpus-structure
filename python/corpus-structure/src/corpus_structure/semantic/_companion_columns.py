@@ -1,0 +1,80 @@
+# Generated from model/semantic/companion-projections.yaml.
+from pydantic import JsonValue
+from sqlalchemy import Named, TypedColumns
+
+
+class PublishedInputRow(TypedColumns):
+    input_ordinal: Named[int]
+    input_role: Named[str]
+    input_task_id: Named[int]
+    input_product_key: Named[str]
+    input_content_digest: Named[str]
+    project_id: Named[str]
+    run_id: Named[int]
+    release_id: Named[str]
+    task_id: Named[int]
+    product_key: Named[str]
+    content_digest: Named[str]
+    projection_id: Named[str]
+
+
+class PublishedRelationRow(TypedColumns):
+    relation_id: Named[str]
+    relation_kind: Named[str]
+    relation_outcome: Named[str]
+    comparison: Named[str]
+    policy: Named[str]
+    evidence: Named[str]
+    endpoint_ordinal: Named[int]
+    endpoint_role: Named[str]
+    target_task_id: Named[int]
+    target_product_key: Named[str]
+    target_content_digest: Named[str]
+    target_occurrence_id: Named[str]
+    project_id: Named[str]
+    run_id: Named[int]
+    release_id: Named[str]
+    task_id: Named[int]
+    product_key: Named[str]
+    content_digest: Named[str]
+    projection_id: Named[str]
+
+
+class PublishedCoverageRow(TypedColumns):
+    coverage_id: Named[str]
+    scope: Named[str]
+    coverage_family: Named[str]
+    discovery_policy: Named[str]
+    outcome: Named[str]
+    detail: Named[str]
+    supports_json: Named[JsonValue | None]
+    project_id: Named[str]
+    run_id: Named[int]
+    release_id: Named[str]
+    task_id: Named[int]
+    product_key: Named[str]
+    content_digest: Named[str]
+    projection_id: Named[str]
+
+
+class PublishedMappingReportRow(TypedColumns):
+    report_ordinal: Named[int]
+    input_index: Named[int]
+    input_task_id: Named[int]
+    input_product_key: Named[str]
+    input_content_digest: Named[str]
+    occurrence_id: Named[str | None]
+    outcome: Named[str]
+    label: Named[str | None]
+    reason: Named[str | None]
+    raw_start: Named[int | None]
+    coordinate_frame: Named[str | None]
+    coordinate_scale: Named[float | None]
+    normalization: Named[str | None]
+    project_id: Named[str]
+    run_id: Named[int]
+    release_id: Named[str]
+    task_id: Named[int]
+    product_key: Named[str]
+    content_digest: Named[str]
+    projection_id: Named[str]

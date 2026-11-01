@@ -206,14 +206,11 @@ def native_admission_sql(
     extra_relations=(),
     base_admission=None,
     authoring_provenance: NativeAuthoringProvenance | None = None,
+    native_objects=(),
 ):
     from hashlib import sha256
 
-    from pglast import ast, parse_sql
-    from pglast.stream import RawStream
-
     from .identity import canonical_bytes
-    from .native_function_signatures import function_signature, remove_output_signature_aliases
     from .native_products import consolidation_products
 
     current_admission = consolidation_products(model)[-1].content.decode()
@@ -234,66 +231,37 @@ def native_admission_sql(
         # This explicit authoring witness affects no enforcement field. In
         # particular, do not inherit predecessor provenance as head provenance.
         descriptor.update(authoring_provenance.descriptor_fields())
-    from copy import copy
+    from .native_inventory import update_function_inventory
 
     functions = {item["signature"]: item for item in descriptor["functions"]}
-    statements = parse_sql(sql.replace("__MIGRATION_OWNER__", "corpus_migration_owner"))
-    remove_output_signature_aliases(functions, statements)
-    for raw in statements:
-        stmt = raw.stmt
-        if isinstance(stmt, ast.CreateFunctionStmt):
-            signature = function_signature(stmt)
-            options = {option.defname: option.arg for option in stmt.options or ()}
-            previous = functions.get(signature, {})
-            if stmt.returnType is None:
-                raise ValueError("native function return type missing")
-            result_type = copy(stmt.returnType)
-            result_type.setof = False
-            functions[signature] = dict(
-                signature=signature,
-                body_sha256=sha256(options["as"][0].sval.encode()).hexdigest(),
-                language=options["language"].sval,
-                security=bool(options.get("security") and options["security"].boolval),
-                strict=bool(options.get("strict") and options["strict"].boolval),
-                volatility={"immutable": "i", "stable": "s", "volatile": "v"}.get(
-                    options.get("volatility").sval if options.get("volatility") else "volatile", "v"
-                ),
-                parallel="u",
-                leakproof=False,
-                setof=bool(stmt.returnType.setof),
-                result=RawStream()(result_type),
-                config=["search_path=pg_catalog, pg_temp"],
-                owner=previous.get("owner", "corpus_sem_publisher"),
-                execute_roles=list(previous.get("execute_roles", [])),
-            )
-        elif (
-            isinstance(stmt, ast.GrantStmt)
-            and stmt.objtype is not None
-            and stmt.objtype.name == "OBJECT_FUNCTION"
-        ):
-            for obj in stmt.objects or ():
-                signature = (
-                    ".".join(part.sval for part in obj.objname)
-                    + "("
-                    + ",".join(RawStream()(arg) for arg in obj.objargs or ())
-                    + ")"
-                )
-                if signature not in functions:
-                    continue
-                roles = set(functions[signature]["execute_roles"])
-                for grantee in stmt.grantees or ():
-                    if grantee.rolename:
-                        if stmt.is_grant:
-                            roles.add(grantee.rolename)
-                        else:
-                            roles.discard(grantee.rolename)
-                functions[signature]["execute_roles"] = sorted(roles)
+    update_function_inventory(
+        functions, sql.replace("__MIGRATION_OWNER__", "corpus_migration_owner")
+    )
     required_signature = "data.require_execution_release(text)"
     functions[required_signature] = next(
         item
         for item in _admission_descriptor(current_admission)["functions"]
         if item["signature"] == required_signature
     )
+    for native in native_objects:
+        if native.identity.kind != "function":
+            continue
+        signature = native.identity.qualified
+        if signature not in functions:
+            raise ValueError(
+                f"normalized native function is absent from source inventory: {signature}"
+            )
+        catalog = native.catalog
+        functions[signature].update(
+            result_definition=catalog["result"],
+            argument_definition=catalog["arguments"],
+            catalog_acl=catalog["acl"],
+            config=catalog["config"],
+            argument_defaults=catalog["defaults"],
+            cost=catalog["cost"],
+            rows=catalog["rows"],
+            support=catalog["support"],
+        )
     descriptor["functions"] = sorted(functions.values(), key=lambda item: item["signature"])
     tables = {item["relation"]: item for item in descriptor["tables"]}
     for name in extra_relations:
@@ -368,10 +336,63 @@ def native_admission_sql(
                 )
             )
     descriptor["tables"] = sorted(tables.values(), key=lambda item: item["relation"])
-    encoded = canonical_bytes(descriptor).decode().replace("'", "''")
     _, separator, required = current_admission.partition("$descriptor$;")
     if not separator:
         raise ValueError("missing native descriptor boundary")
+    # The current descriptor additionally protects normalized TABLE/OUT result columns
+    # and complete ACL/grant options for series-owned functions. Historical descriptors
+    # lack these keys and retain their original admitted meaning.
+    if native_objects:
+        marker = " OR p.proretset IS DISTINCT FROM (item.value->>'setof')::boolean"
+        if marker not in required:
+            raise ValueError("missing function admission comparison boundary")
+        required = required.replace(
+            "COALESCE(to_jsonb(p.proconfig),'[]'::jsonb) IS DISTINCT FROM item.value->'config'",
+            "(CASE WHEN item.value ? 'result_definition' THEN COALESCE((SELECT "
+            "jsonb_agg(v ORDER BY v) FROM unnest(p.proconfig) v),'[]'::jsonb) ELSE "
+            "COALESCE(to_jsonb(p.proconfig),'[]'::jsonb) END) IS DISTINCT FROM "
+            "item.value->'config'",
+        )
+        required = required.replace(
+            marker,
+            marker
+            + (
+                "\n OR (item.value ? 'result_definition' AND "
+                "pg_get_function_result(p.oid) IS DISTINCT FROM "
+                "item.value->>'result_definition')\n OR (item.value ? "
+                "'argument_definition' AND pg_get_function_arguments(p.oid) IS DISTINCT "
+                "FROM item.value->>'argument_definition')\n OR (item.value ? "
+                "'argument_defaults' AND pg_get_expr(p.proargdefaults,0) IS DISTINCT "
+                "FROM item.value->>'argument_defaults')\n OR (item.value ? 'cost' AND "
+                "p.procost IS DISTINCT FROM (item.value->>'cost')::real)\n OR "
+                "(item.value ? 'rows' AND p.prorows IS DISTINCT FROM "
+                "(item.value->>'rows')::real)\n OR (item.value ? 'support' AND "
+                "p.prosupport::regproc::text IS DISTINCT FROM item.value->>'support')\n "
+                "OR (item.value ? 'catalog_acl' AND COALESCE((SELECT "
+                "jsonb_agg(jsonb_build_array(\n CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE "
+                "pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable)\n ORDER "
+                "BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) "
+                "END,a.privilege_type,a.is_grantable)\n FROM "
+                "aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) "
+                "a),'[]'::jsonb) IS DISTINCT FROM\n COALESCE((SELECT "
+                "jsonb_agg(jsonb_build_array(grantee,privilege,grantable) ORDER BY "
+                "grantee,privilege,grantable)\n FROM (SELECT CASE WHEN "
+                "entry->>0='$migration_owner' THEN owner_name::text ELSE entry->>0 END "
+                "AS grantee,\n entry->>1 AS privilege,bool_or((entry->>2)::boolean) AS "
+                "grantable\n FROM jsonb_array_elements(item.value->'catalog_acl') entry "
+                "GROUP BY 1,2) bound_acl),'[]'::jsonb))"
+            ),
+            1,
+        )
+    if native_objects:
+        from .native_products import function_bodies
+
+        # Admission protects its own exact enforcing body too. The descriptor literal
+        # is a separate function, so this digest has no self-reference.
+        functions[required_signature]["body_sha256"] = sha256(
+            function_bodies(required)["data.require_execution_release"].encode()
+        ).hexdigest()
+    encoded = canonical_bytes(descriptor).decode().replace("'", "''")
     admission = (
         (
             "SET LOCAL ROLE corpus_sem_publisher;\nCREATE OR REPLACE FUNCTION "

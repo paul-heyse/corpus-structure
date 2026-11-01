@@ -1,0 +1,219 @@
+id: https://corpus-structure.dev/semantic/companion-projections
+name: companion_projections
+prefixes:
+  cp: https://corpus-structure.dev/companion-projections/
+imports:
+- pdf-products
+- pdf-records
+- pdf-staging
+default_range: string
+annotations:
+  cp:version: pdf-companion-projection-v1
+classes:
+  PublishedCompanionProvenance:
+    abstract: true
+    attributes:
+      project_id:
+        annotations:
+          cp:source: physical:ops.run.project_id
+          cp:sql: p_project
+      run_id:
+        annotations:
+          cp:source: physical:ops.run.id
+          cp:sql: p_run
+      release_id:
+        annotations:
+          cp:source: PdfPublishedRevision.release_id
+          cp:sql: p_release
+      task_id:
+        annotations:
+          cp:source: PdfPublishedRevision.task_id
+          cp:sql: p_task
+      product_key:
+        annotations:
+          cp:source: PdfPublishedRevision.product_key
+          cp:sql: p_product
+      content_digest:
+        annotations:
+          cp:source: PdfPublishedRevision.logical_digest
+          cp:sql: p_digest
+      projection_id:
+        annotations:
+          cp:source: PdfRecordCompanion.product_id
+          cp:sql: '''{projection_id}''::text'
+  PublishedInputRow:
+    is_a: PublishedCompanionProvenance
+    annotations:
+      cp:family: input
+      cp:function: ops.read_published_input_batch
+      cp:keys: '[''input_ordinal'']'
+    attributes:
+      input_ordinal:
+        annotations:
+          cp:source: PdfRecordCompanion.ordinal
+          cp:sql: c.ordinal
+      input_role:
+        annotations:
+          cp:source: PdfProductInput.role
+          cp:sql: c.body->>'role'
+      input_task_id:
+        annotations:
+          cp:source: physical:ops.pdf_product_input.input_task_id
+          cp:sql: (c.body->>'task_id')::bigint
+      input_product_key:
+        annotations:
+          cp:source: PdfProductInput.product_key
+          cp:sql: c.body->>'product_key'
+      input_content_digest:
+        annotations:
+          cp:source: PdfProductInput.content_digest
+          cp:sql: c.body->>'content_digest'
+  PublishedRelationRow:
+    is_a: PublishedCompanionProvenance
+    annotations:
+      cp:family: relation
+      cp:function: ops.read_published_relation_batch
+      cp:keys: '[''relation_id'', ''endpoint_ordinal'']'
+    attributes:
+      relation_id:
+        annotations:
+          cp:source: PdfProductRelation.relation_id
+          cp:sql: c.local_id
+      relation_kind:
+        annotations:
+          cp:source: PdfProductRelation.kind
+          cp:sql: c.body->>'kind'
+      relation_outcome:
+        annotations:
+          cp:source: PdfProductRelation.outcome
+          cp:sql: c.body->>'outcome'
+      comparison:
+        annotations:
+          cp:source: PdfProductRelation.comparison
+          cp:sql: c.body->>'comparison'
+      policy:
+        annotations:
+          cp:source: PdfProductRelation.policy
+          cp:sql: c.body->>'policy'
+      evidence:
+        annotations:
+          cp:source: PdfProductRelation.evidence
+          cp:sql: c.body->>'evidence'
+      endpoint_ordinal:
+        annotations:
+          cp:source: PdfRecordEndpoint.ordinal
+          cp:sql: e.ordinal
+      endpoint_role:
+        annotations:
+          cp:source: PdfRelationEndpoint.role
+          cp:sql: e.role
+      target_task_id:
+        annotations:
+          cp:source: PdfRecordEndpoint.target_task_id
+          cp:sql: CASE WHEN e.target_task_id=0 THEN p_task ELSE e.target_task_id END
+      target_product_key:
+        annotations:
+          cp:source: PdfRecordEndpoint.target_product_key
+          cp:sql: CASE WHEN e.target_task_id=0 THEN p_product ELSE e.target_product_key END
+      target_content_digest:
+        annotations:
+          cp:source: PdfRecordEndpoint.target_content_digest
+          cp:sql: CASE WHEN e.target_task_id=0 THEN p_digest ELSE e.target_content_digest END
+      target_occurrence_id:
+        annotations:
+          cp:source: PdfRelationEndpoint.occurrence_id
+          cp:sql: e.occurrence_id
+  PublishedCoverageRow:
+    is_a: PublishedCompanionProvenance
+    annotations:
+      cp:family: coverage
+      cp:function: ops.read_published_coverage_batch
+      cp:keys: '[''coverage_id'']'
+    attributes:
+      coverage_id:
+        annotations:
+          cp:source: PdfProductCoverage.coverage_id
+          cp:sql: c.local_id
+      scope:
+        annotations:
+          cp:source: PdfProductCoverage.scope
+          cp:sql: c.body->>'scope'
+      coverage_family:
+        annotations:
+          cp:source: PdfProductCoverage.family
+          cp:sql: c.body->>'family'
+      discovery_policy:
+        annotations:
+          cp:source: PdfProductCoverage.discovery_policy
+          cp:sql: c.body->>'discovery_policy'
+      outcome:
+        annotations:
+          cp:source: PdfProductCoverage.outcome
+          cp:sql: c.body->>'outcome'
+      detail:
+        annotations:
+          cp:source: PdfProductCoverage.detail
+          cp:sql: c.body->>'detail'
+      supports_json:
+        annotations:
+          cp:source: PdfProductCoverage.supports
+          cp:sql: c.body->'supports'
+  PublishedMappingReportRow:
+    is_a: PublishedCompanionProvenance
+    annotations:
+      cp:family: mapping_report
+      cp:function: ops.read_published_mapping_report_batch
+      cp:keys: '[''report_ordinal'']'
+    attributes:
+      report_ordinal:
+        annotations:
+          cp:source: PdfRecordCompanion.ordinal
+          cp:sql: c.ordinal
+      input_index:
+        annotations:
+          cp:source: PdfMappingDisposition.input_index
+          cp:sql: (c.body->>'input_index')::integer
+      input_task_id:
+        annotations:
+          cp:source: physical:ops.pdf_product_input.input_task_id
+          cp:sql: (i.body->>'task_id')::bigint
+      input_product_key:
+        annotations:
+          cp:source: PdfProductInput.product_key
+          cp:sql: i.body->>'product_key'
+      input_content_digest:
+        annotations:
+          cp:source: PdfProductInput.content_digest
+          cp:sql: i.body->>'content_digest'
+      occurrence_id:
+        annotations:
+          cp:source: PdfMappingDisposition.occurrence_id
+          cp:sql: c.body->>'occurrence_id'
+      outcome:
+        annotations:
+          cp:source: PdfMappingDisposition.outcome
+          cp:sql: c.body->>'outcome'
+      label:
+        annotations:
+          cp:source: PdfMappingDisposition.label
+          cp:sql: c.body->>'label'
+      reason:
+        annotations:
+          cp:source: PdfMappingDisposition.reason
+          cp:sql: c.body->>'reason'
+      raw_start:
+        annotations:
+          cp:source: PdfMappingDisposition.raw_start
+          cp:sql: c.body->>'raw_start'
+      coordinate_frame:
+        annotations:
+          cp:source: PdfMappingDisposition.coordinate_frame
+          cp:sql: c.body->>'coordinate_frame'
+      coordinate_scale:
+        annotations:
+          cp:source: PdfMappingDisposition.coordinate_scale
+          cp:sql: c.body->>'coordinate_scale'
+      normalization:
+        annotations:
+          cp:source: PdfMappingDisposition.normalization
+          cp:sql: c.body->>'normalization'

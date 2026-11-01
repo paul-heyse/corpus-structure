@@ -91,7 +91,7 @@ k=ANY({allowed}))"
 ({expr})='object' AND\
  {expr} ? 'native_float64' AND ({expr}->>'native_float64') ~ '^[0-9a-f]{{16}}$'))"
                 elif typ == "integer":
-                    check = f"(jsonb_typeof({expr})='number' AND ({expr}::text) ~ '^-?[0-9]+$')"
+                    check = f"(jsonb_typeof({expr})='number' AND (({expr})::text) ~ '^-?[0-9]+$')"
                 elif typ in ("string", "boolean", "null"):
                     check = f"jsonb_typeof({expr})={_quote(typ)}"
                 else:
@@ -1064,6 +1064,13 @@ def pdf_publication_products(model=None, *, authoring_provenance=None):
 ON {name} FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();\n"
         sql += f"REVOKE ALL ON\
  {name} FROM PUBLIC,corpus_sem_writer,corpus_sem_reader,corpus_sem_evaluator,corpus_sem_admitter;\n"
+    # Forward read-role changes affect existing private families too. Their current
+    # model supplies every selected grant; the ordinary closed deployment emits none.
+    from .pdf_record_model import record_tables
+
+    for name, relation in sorted(record_tables().items()):
+        for role in relation.info.get("read_roles", ()):
+            sql += f"GRANT SELECT ON {name} TO {pg.identifier_preparer.quote(role)};\n"
     # Existing lifecycle check is derived again from its model-owned enum.
     from sqlalchemy.schema import CheckConstraint
 

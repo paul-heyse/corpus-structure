@@ -1,4 +1,4 @@
-"""Pinned Alembic 1.20 identity/default comparison integration.
+"""Pinned Alembic 1.20.1 identity/default comparison integration.
 
 Its callable-default path reads Identity.arg before dispatching identity comparison. Route
 identity columns to the existing dialect comparer first; all other defaults retain normal
@@ -29,6 +29,39 @@ def compare_identity(
         autogen_context, alter_column_op, schema, tname, cname, inspected, declared
     )
     return PriorityDispatchResult.STOP
+
+
+def compare_default(
+    ctx: Any,
+    inspected: Any,
+    declared: Any,
+    inspected_default: str | None,
+    metadata_default: Any,
+    rendered_default: str | None,
+) -> bool | None:
+    """Avoid evaluating one volatile UUID default to compare it with itself.
+
+    Other defaults retain Alembic's normal comparison, including changed expressions.
+    """
+    if (
+        inspected.table.schema != "ops"
+        or inspected.table.name != "task"
+        or inspected.name != "invocation_key"
+    ):
+        return None
+
+    def normalized(value: str | None) -> str:
+        return (
+            "".join((value or "").split())
+            .replace("'legacy-task:'::text", "'legacy-task:'")
+            .replace("(", "")
+            .replace(")", "")
+        )
+
+    expected = "gen_random_uuid::text"
+    if normalized(inspected_default) == normalized(rendered_default) == expected:
+        return False
+    return None
 
 
 plugin = Plugin("corpus.semantic.defaults")

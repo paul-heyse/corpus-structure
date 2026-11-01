@@ -7,46 +7,15 @@ from typing import Any
 
 from alembic import context
 
+from corpus_structure.semantic.alembic_defaults import compare_default
 from corpus_structure.semantic.alembic_defaults import plugin as defaults_plugin
+from corpus_structure.semantic.alembic_native import plugin as native_plugin
 from corpus_structure.semantic.metadata import SCHEMAS, metadata
 from corpus_structure.semantic.migrations import VERSION_TABLE
 
 
 def include_name(name: str | None, type_: str, parent_names: Any) -> bool:
     return name in SCHEMAS if type_ == "schema" else True
-
-
-def compare_default(
-    ctx: Any,
-    inspected: Any,
-    declared: Any,
-    inspected_default: str | None,
-    metadata_default: Any,
-    rendered_default: str | None,
-) -> bool | None:
-    """Avoid evaluating one volatile UUID default to compare it with itself.
-
-    Other defaults retain Alembic's normal comparison, including changed expressions.
-    """
-    if (
-        inspected.table.schema != "ops"
-        or inspected.table.name != "task"
-        or inspected.name != "invocation_key"
-    ):
-        return None
-
-    def normalized(value: str | None) -> str:
-        return (
-            "".join((value or "").split())
-            .replace("'legacy-task:'::text", "'legacy-task:'")
-            .replace("(", "")
-            .replace(")", "")
-        )
-
-    expected = "gen_random_uuid::text"
-    if normalized(inspected_default) == normalized(rendered_default) == expected:
-        return False
-    return None
 
 
 def applied(ctx: Any, step: Any, heads: Collection[Any], run_args: Mapping[str, Any]) -> None:
@@ -74,7 +43,9 @@ context.configure(
         "alembic.autogenerate.*",
         "alembic.ext.checkconstraint_byname",
         defaults_plugin.name,
+        native_plugin.name,
     ],
+    native_authoring=context.config.attributes.get("native_authoring"),
     on_version_apply=applied,
 )
 with context.begin_transaction():

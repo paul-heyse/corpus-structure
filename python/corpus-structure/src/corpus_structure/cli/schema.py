@@ -1,4 +1,4 @@
-"""Compile the real composed semantic release without acquiring a database."""
+"""Compile semantic releases and explicitly author rollback-only native candidates."""
 
 from __future__ import annotations
 
@@ -13,13 +13,13 @@ from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.output import JsonOpt, emit
 
 
-def refusal(json):
+def refusal(json, *, expected=()):
     from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
     from corpus_structure.semantic.releases import ReleaseConflict
     from corpus_structure.semantic.types import PreparationError
 
     return failure_boundary(
-        json, expected=(PreparationError, ReleaseConflict, ExecutionAdmissionError)
+        json, expected=(PreparationError, ReleaseConflict, ExecutionAdmissionError, *expected)
     )
 
 
@@ -128,7 +128,10 @@ def derive_(
     domains: Annotated[Path, typer.Option("--domains")] = Path("domains"),
     json_: JsonOpt = False,
 ):
-    """Emit reviewed candidate products to a new directory; never deploy or overwrite history."""
+    """Emit a foundation source preview; use native-candidate for current forward authoring.
+
+    Historical product labels are not frozen reproduction or the current migration head.
+    """
     from corpus_structure.semantic.refusals import SemanticRefusal
 
     with refusal(json_):
@@ -219,6 +222,151 @@ def derive_(
             ),
             json=json_,
             render=_render,
+        )
+
+
+class NativeCandidateResult(BaseModel):
+    database: str
+    predecessor: str
+    output: str
+    native_operations: int
+    ordinary_operations: int
+    products: list[ArtifactRow]
+
+
+def _render_native_candidate(result):
+    table = Table("field", "value", title="native candidate")
+    for key in ("database", "predecessor", "output", "native_operations", "ordinary_operations"):
+        table.add_row(key, str(getattr(result, key)))
+    return table
+
+
+@schema_app.command("native-candidate")
+def native_candidate_(
+    ctx: typer.Context,
+    authoring_database: Annotated[
+        str,
+        typer.Option(
+            "--authoring-database",
+            help="Explicitly owned disposable semantic database for rollback-only authoring.",
+        ),
+    ],
+    out: Annotated[Path, typer.Option("--out")],
+    predecessor_state: Annotated[Path | None, typer.Option("--predecessor-state")] = None,
+    json_: JsonOpt = False,
+):
+    """Compare/render a native candidate on an owned maintenance connection; never deploy it."""
+    from hashlib import sha256
+    from tempfile import TemporaryDirectory
+
+    from alembic.autogenerate import render_python_code
+    from sqlalchemy.engine import make_url
+
+    from corpus_structure.cli.output import state
+    from corpus_structure.semantic.alembic_native import NativeTransitionOp
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.migrations import current_revision
+    from corpus_structure.semantic.native_candidate import (
+        candidate_admission_sql,
+        prepare_series_candidate,
+        series_native_definitions,
+    )
+    from corpus_structure.semantic.native_objects import NativeAuthoringError
+    from corpus_structure.semantic.prepared_sql import SQLSyntaxError
+    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.companion_export import _publish_directory
+
+    with refusal(json_, expected=(NativeAuthoringError, SQLSyntaxError)):
+        if out.exists():
+            raise SemanticRefusal("native authoring requires a new --out directory")
+        settings = state(ctx).settings()
+        source = make_url(settings.database.url)
+        if authoring_database in {
+            "",
+            "postgres",
+            "template0",
+            "template1",
+            source.database,
+            settings.database.template,
+        }:
+            raise SemanticRefusal("select a separate explicitly owned --authoring-database")
+        maintenance = make_url(settings.database.maintenance_url).set(database=authoring_database)
+        selected = settings.model_copy(
+            update={
+                "database": settings.database.model_copy(
+                    update={
+                        "url": source.set(database=authoring_database).render_as_string(
+                            hide_password=False
+                        ),
+                        "maintenance_url": maintenance.render_as_string(hide_password=False),
+                    }
+                )
+            }
+        )
+        with (
+            open_runtime_engine(selected, "ci-native-candidate", purpose="maintenance") as engine,
+            engine.connect() as conn,
+        ):
+            transaction = conn.begin()
+            try:
+                predecessor = current_revision(conn)
+                if predecessor is None:
+                    raise SemanticRefusal("native authoring requires a migrated semantic database")
+                script, authoring = prepare_series_candidate(
+                    conn, owned_authoring=True, predecessor_state=predecessor_state
+                )
+                upgrade_ops = script.upgrade_ops
+                if upgrade_ops is None:
+                    raise NativeAuthoringError(
+                        "single-connection candidate has no upgrade operations"
+                    )
+                native = [item for item in upgrade_ops.ops if isinstance(item, NativeTransitionOp)]
+                rendered = render_python_code(upgrade_ops)
+                python_source = (
+                    "from alembic import op\nimport sqlalchemy as sa\n"
+                    "from corpus_structure.semantic import alembic_native\n\n"
+                    "def upgrade():\n" + rendered + "\n"
+                )
+                compile(python_source, "native_candidate.py", "exec")
+                admission = candidate_admission_sql(
+                    conn, series_native_definitions(conn), authoring.desired
+                )
+                products = {
+                    "native_candidate.py": python_source.encode(),
+                    "native_operations.json": canonical_bytes(
+                        {
+                            "version": 1,
+                            "predecessor": predecessor,
+                            "operations": [item.payload() for item in native],
+                            "desired": [item.payload() for item in authoring.desired],
+                        }
+                    ),
+                    "native_admission.sql": admission.encode(),
+                }
+            finally:
+                transaction.rollback()
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(prefix=".native-candidate-", dir=out.parent) as directory:
+            prepared_output = Path(directory) / "candidate"
+            prepared_output.mkdir()
+            for name, content in products.items():
+                (prepared_output / name).write_bytes(content)
+            _publish_directory(prepared_output, out)
+        emit(
+            NativeCandidateResult(
+                database=authoring_database,
+                predecessor=predecessor,
+                output=str(out),
+                native_operations=len(native),
+                ordinary_operations=len(upgrade_ops.ops) - len(native),
+                products=[
+                    ArtifactRow(kind=name, hash=sha256(content).hexdigest())
+                    for name, content in products.items()
+                ],
+            ),
+            json=json_,
+            render=_render_native_candidate,
         )
 
 
