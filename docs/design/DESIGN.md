@@ -244,7 +244,12 @@ and immutable direct-input relations connect raw recognition and document produc
 consumers do not independently merge providers. PDF-13–16 own implementation; provider success,
 operational adoption and qualification do not follow from accepting the target.
 
-> Decision: ADR-0039
+**Confirmed retirement boundary (2026-10-31).** Historical HTML-derived outputs no longer require
+reader/API or replay compatibility. Remove their active adapters, contracts and compatibility-only
+gates after migrating maintained PDF users; preserve current PDF pinning, generic text/math kernels
+and inert databases/frozen migration/evidence records. No destructive data cleanup is implied.
+
+> Decision: ADR-0040
 
 **Retained HTML implementation boundary.**
 
@@ -269,9 +274,9 @@ structure and syntax requests do not implicitly construct symbolic values. Exist
 publication and archived read authority govern the layers; PP-05–PP-10 own implementation and
 qualification. Method/output versions migrate with their consumers.
 
-> Decision: ADR-0039
+> Decision: ADR-0040
 
-> Decision: ADR-0039
+> Decision: ADR-0040
 
 **Proposed accepted target (2026-10-30).** Analytical ownership and preparation contracts use existing release-scoped rows and immutable products; physical capture may be resident or detached spooled under one snapshot/custody contract.
 
@@ -362,7 +367,7 @@ owns the concepts and D2–D8 their realization. The
 [PDF coordinator](../plans/pdf-docling-pipeline_2026-10-31.md) owns implementation and qualification;
 accepted target does not establish conversion, deployment or performance/fidelity benefits.
 
-> Decision: ADR-0039
+> Decision: ADR-0040
 
 **Retained HTML implementation boundary.**
 
@@ -385,7 +390,7 @@ protected native consumers are implemented. The [parsing coordinator](../plans/p
 owns required-union qualification and fresh operational adoption; these claims do not imply
 universal grammar support or exact attribution of every repaired HTML node.
 
-> Decision: ADR-0039
+> Decision: ADR-0040
 
 **Implemented (2026-10-30).** One admitted interpretation authority governs distinct qualified physical frontends and model-bound context, demand, result and dependency projections. Source declarations are prepared independently of downstream resolution, and each native stage consumes its admitted capability contract.
 

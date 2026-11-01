@@ -114,7 +114,7 @@ own assembled acceptance and fresh operational adoption.
 
 **Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** A PDF-scoped product identity with typed bodies supports direct immutable input relations across native, recognition and integrated products. Qualified foreign keys and fenced atomic publication establish custody; only already published inputs are admitted before new identities. Historical payloads remain unchanged; bounded lineage reads traverse direct inputs.
 
-> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
+> Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 
 ## Current task authority and historical storage
 

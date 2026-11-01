@@ -166,7 +166,7 @@ retain independent invalid-input and native enforcement results.
 
 **Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** Docling owns the embedded content schema; LinkML and trusted execution contracts own the integrated envelope, input roles, occurrence relations, outcomes, lifecycle and effects. Recognition receipts are typed products, not malformed Docling documents; future unqualified operations remain unsupported.
 
-> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
+> Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 
 ## 1. Principles
 

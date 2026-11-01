@@ -210,7 +210,7 @@ own the selected qualification boundary.
 
 **Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** One selected integrated document combines Docling content with mandatory multi-input provenance, correspondence, decisions and coverage. Native and Nemotron observations retain their attributed meanings; integration selects content, while consolidation alone produces knowledge claims.
 
-> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
+> Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 
 ### 3.2 Segments
 

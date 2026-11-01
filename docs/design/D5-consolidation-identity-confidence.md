@@ -55,7 +55,7 @@ scientific equivalence, confidence or evidence-grading policy.
 
 **Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** Claims trace through selected occurrences, integration decisions and multiple attributed provider inputs to original PDF evidence. Agreement between passes of the same model is not independent corroboration; recognized chart values remain inferred observations until consolidation establishes a claim.
 
-> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
+> Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 
 ## Shared scientific evidence and analytical inputs
 

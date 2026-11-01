@@ -1,5 +1,10 @@
 # Singular integrated document consumers
 
+> **Operator correction — 2026-10-31:** Historical HTML-derived output compatibility is retired
+> by ADR-0040. Historical-read/replay acceptance below is superseded for HTML; retain current PDF
+> source reuse and generic analytical behavior. Existing data/frozen migrations/evidence remain inert.
+
+
 **Status:** Planned extension, not delivered consumer behavior. **2026-10-31.**
 [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns package/O/I state.
 Consumes [review O07](../../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O07)

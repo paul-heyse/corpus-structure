@@ -1,10 +1,10 @@
 ---
 id: ADR-0039
 title: Integrate PDF recognizers through one governed document and provenance model
-status: accepted
+status: superseded
 date: 2026-10-31
 supersedes: [ADR-0038]
-superseded-by: null
+superseded-by: ADR-0040
 design: [§B4, §B5]
 evidence: Proposed
 revisit: A required consumer cannot faithfully or reasonably use Docling content plus typed companion relations, or the selected multipass runtime cannot serve the supported workload.

@@ -117,7 +117,7 @@ operational adoption are recorded separately at PP-10.
 
 **Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** Reuse existing task/attempt and publication ownership for integrated products and partial recognition receipts. Inputs are prior immutable products, not mutable workflow edges. Bound page preparation and share GPU capacity across native/Nemotron consumers; no new scheduler or model service is introduced by the contract foundation.
 
-> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
+> Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 
 ## Agent supervision and current retirement boundary
 

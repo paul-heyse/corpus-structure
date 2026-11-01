@@ -63,7 +63,7 @@ this decision supplies no new grades, changed evidence policy or qualification c
 
 **Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** Independent reference-author passes A/B/C are distinct from Nemotron parse/detect/crop roles. Frames bind the exact integrated selection and qualified evidence inputs; historical grades/frames are not rewritten. Actual independent grading and provider quality remain PDF-10/11 obligations.
 
-> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
+> Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 
 ## 1. The problem and the answer
 

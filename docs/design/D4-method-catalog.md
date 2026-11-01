@@ -98,7 +98,7 @@ own assembled consumer acceptance, independently from these implementation claim
 
 **Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** The selected target composes StandardPdfPipeline/RapidOCR with public Nemotron3.5 parse/detect/crop orchestration, then governed integration before downstream methods. PDF-14/15 implement recognition and selection; PDF-13 record/publication primitives do not claim those producers exist.
 
-> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
+> Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 
 **Implemented; targeted controls Tested, 2026-10-31.** Native M09/M11 behavior revision 8
 retains formal SymPy equality/inequality nodes with `evaluate=False`, including chains. Explicit

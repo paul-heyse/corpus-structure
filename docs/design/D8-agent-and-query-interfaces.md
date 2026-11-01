@@ -170,7 +170,7 @@ and adoption evidence belong to [PP-10](../plans/parsing-pipeline_2026-10-30.md#
 
 **Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** The target reader returns one integrated content/companion contract and bounded multi-input evidence traces. Legacy readers must not silently drop mandatory evidence. PDF-13 supplies admitted primitives; PDF-16 migrates CLI/MCP, source frames, packets and exports without inference on retained reads.
 
-> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
+> Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 
 ## 1. Surfaces
 

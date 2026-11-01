@@ -10,6 +10,15 @@ at `2c333722fe9b3ad03c8004d14c5f50a1605c3f4b` and its target; added
 at `d25fff8`. This coordinator alone owns package state, source-qualified opportunity dispositions
 and investigations I01–I13. Supporting documents own technical explanations, not duplicate queues.
 
+## Current operator correction — 2026-10-31
+
+Historical HTML-derived documents and outputs no longer require compatibility. ADR-0040 records
+this explicit instruction. It supersedes historical-read/replay requirements elsewhere in this
+series; prior dated implementation receipts remain true within their original scope. PDF-16/10
+retire compatibility-only readers, profiles, fixtures, old ABI branches and dependencies after
+migrating current PDF users. Current PDF reuse and generic release/text/math semantics survive.
+No database purge, frozen migration rewrite, plan/evidence deletion or grading-policy change is implied.
+
 ## 1. Outcome and fixed boundaries
 
 The selected target is **PDF → StandardPdfPipeline with in-page RapidOCR + Nemotron3.5 true

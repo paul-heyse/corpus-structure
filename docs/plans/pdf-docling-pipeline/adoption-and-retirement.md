@@ -1,5 +1,10 @@
 # PDF-only adoption, HTML retirement and acceptance
 
+> **Operator correction — 2026-10-31:** Historical HTML-derived output compatibility is retired
+> by ADR-0040. Historical-read/replay acceptance below is superseded for HTML; retain current PDF
+> source reuse and generic analytical behavior. Existing data/frozen migrations/evidence remain inert.
+
+
 > **Target revision — 2026-10-31:** PDF-00–09 describe the delivered native baseline and its
 > scoped receipts. The selected extension is PDF-12–16: one integrated document after full Docling,
 > in-page RapidOCR and true Nemotron triple pass. See the [coordinator](../pdf-docling-pipeline_2026-10-31.md)
