@@ -65,3 +65,12 @@ benefits remain unmeasured until a named end-to-end workload requires measuremen
 Sources: [OTel](../../libraries/logging/OpenTelemetry_Python.md) §§4,8,11–12;
 [Logfire](../../libraries/logging/pydantic-logfire.md) §§4.3,8,14–16;
 [D6](../../design/D6-orchestration-metrics-policies.md) metrics/policy owners.
+
+## Investigative input — 2026-11-01
+
+The direct OTel three-signal probe retained a final counter before the periodic interval; final
+collection is a demonstrated native route. Minimal archive projection preserved metric union,
+temporality/histogram/exemplar fields, but did not establish complete typed query semantics.
+Keep the independent reset/type/scope acceptance cases above. Logfire collect_in_spans is not
+selected as a core dependency; any optional process-local summary must honor the explicit
+provider boundary established by I01. See I03/I04/I05 receipts in the coordinator.

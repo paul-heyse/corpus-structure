@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "logging.i01",
+  "title": "Select field-preserving event routing and native incident capture",
+  "group": "logging-investigations",
+  "package": "LOG-00",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Select field-preserving event routing and native incident capture for the selected Typer-first logging target?",
+  "answers": [
+    "I01",
+    "LOG-00"
+  ],
+  "method": "Pinned-source inspection and isolated synthetic native probes; retain original failures and separate bounded library evidence from application/provider acceptance.",
+  "commands": [
+    "/home/paul/.cache/corpus-logging-investigations/events/.venv/bin/python docs/design_review/evidence/2026-11-01_logging-events-history/probe.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "probe.py",
+      "role": null,
+      "sha256": "a7f73f78bb37aee18b4580e119379a1f65716dea226f1bfd4560bba868a82152"
+    },
+    {
+      "path": "environment.toml",
+      "role": null,
+      "sha256": "9824a076077e3c4d9ee294713da35a111912c5192ebbc0e2a8e53387280c7723"
+    },
+    {
+      "path": "uv.lock",
+      "role": null,
+      "sha256": "7ad437a4ff6ef21af6e681d471676e55c27d2eda252130a711820670e81fa320"
+    },
+    {
+      "path": "raw",
+      "role": null,
+      "sha256": "ac2d9b4b95e93d15cb4d944b8be92ebe75c6ec32f1f33fe5d1b8a728a9ac6b1e"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Select structlog26.1.0/stdlog and scoped Logbook1.10.1; source and twenty bounded checks support native fields, safe branches and incident behavior. Direct OTel selection is corroborated by the telemetry record; production pipeline and byte-budget integration not_run.",
+  "consumed_by": [
+    "I01",
+    "LOG-00"
+  ]
+}

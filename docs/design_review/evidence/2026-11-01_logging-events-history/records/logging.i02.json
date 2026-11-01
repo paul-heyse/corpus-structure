@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "id": "logging.i02",
+  "title": "Select causal history semantics",
+  "group": "logging-investigations",
+  "package": "LOG-00",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Select causal history semantics for the selected Typer-first logging target?",
+  "answers": [
+    "I02",
+    "LOG-00"
+  ],
+  "method": "Pinned-source inspection and isolated synthetic native probes; retain original failures and separate bounded library evidence from application/provider acceptance.",
+  "commands": [
+    "/home/paul/.cache/corpus-logging-investigations/events/.venv/bin/python docs/design_review/evidence/2026-11-01_logging-events-history/probe.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "probe.py",
+      "role": null,
+      "sha256": "a7f73f78bb37aee18b4580e119379a1f65716dea226f1bfd4560bba868a82152"
+    },
+    {
+      "path": "raw",
+      "role": null,
+      "sha256": "ac2d9b4b95e93d15cb4d944b8be92ebe75c6ec32f1f33fe5d1b8a728a9ac6b1e"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Retain OTel parent/links and explicit coverage; Eliot native parsing handles tested reversal/missing history but adds tree identity while fan-in remains metadata. No complete-retention or domain-success claim follows.",
+  "consumed_by": [
+    "I02",
+    "LOG-00"
+  ]
+}

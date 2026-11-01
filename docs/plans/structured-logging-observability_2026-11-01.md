@@ -91,11 +91,12 @@ by publication of this proposed series.
 
 ## 4. Reading route and execution queue
 
-All packages below are **planned; not started**. This table alone owns their live state.
+LOG-00 investigative choices are complete at the bounded scope below; LOG-01–LOG-12 remain
+planned and not implemented. This table alone owns their live state.
 
 | Package | Owner and delivered capability | Prerequisite |
 |---|---|---|
-| LOG-00 | [Contracts/runtime](structured-logging-observability/contracts-runtime-and-instrumentation.md#LOG-00): settle consequential compositions, compatibility and native boundaries | Current source/guides |
+| LOG-00 | **Investigated 2026-11-01**; [Contracts/runtime](structured-logging-observability/contracts-runtime-and-instrumentation.md#LOG-00): settle consequential compositions, compatibility and native boundaries | Current source/guides |
 | LOG-01 | Same plan: decisions, event/configuration contracts, privacy and visibility | LOG-00 choices |
 | LOG-02 | Same plan: owned runtime, safe pipeline and first installed Typer operation | LOG-01 |
 | LOG-03 | [Retention/analysis](structured-logging-observability/retention-query-and-incidents.md#LOG-03): archives and scoped event/trace query, basic Typer reads | LOG-02 |
@@ -189,3 +190,31 @@ outside this series do not authorize repairs to existing plans.
 Focused independent advice checked all seven plans and found no package prerequisite cycle. Its
 incident first-retention and aggregate-buffering corrections are integrated here and in LOG-01/04.
 This is focused plan advice, not a formal recommendation audit or implementation acceptance.
+
+## Investigation disposition — 2026-11-01
+
+Executed from clean baseline `28f735b87eb2672c521af816aed411ab665b79f4`. No production
+manifests, runtime code, databases or services changed. Isolated probe environments live outside
+the repository; exact specifications/locks and failed attempts are retained with evidence.
+
+| Item | Current scoped conclusion | Evidence owner |
+|---|---|---|
+| I01 | passed bounded comparisons: select structlog26.1.0/stdlog, scoped Logbook1.10.1 and direct OTel core ownership. Local Logfire is not a drop-in global/native/Pydantic instrumentation owner. | [events/history](../design_review/evidence/2026-11-01_logging-events-history/README.md), [SDK runtime](../design_review/evidence/2026-11-01_logging-telemetry-runtime/README.md) |
+| I02 | passed comparison: OTel parent/links plus explicit coverage; do not add Eliot identity/tree now. Missing entire children remain unknowable without independent inventory. | events/history; record logging.i02 |
+| I03 | passed isolated family/import and native three-signal path: SDK/API1.45.1, file exporter/contrib0.66b1. Private FileLogExporter module requires explicit pin qualification. Product lock integration remains LOG-01/02. | SDK runtime; record logging.i03 |
+| I04 | partial overall; primitive probes passed and mechanism selected: stable rotation stream, samefs closedsegment hardlinks/private snapshot manifest, active-prefix copies, ingestion-position cursors. Production lifecycle/security remains LOG-03. | [archive/query](../design_review/evidence/2026-11-01_logging-archive-queries/README.md); record logging.i04 |
+| I05 | partial; final collection/host ownership and loopback transport control exercised. Hard overall graceful deadline remains unestablished:10ms force_flush took about250ms. Blocks LOG-02 bounded-cleanup acceptance until a qualified strategy is supplied. | SDK runtime; record logging.i05 |
+| I06 | partial; exact query source and local MockTransport checks passed. Live reads blocked by missing authorized endpoint/read token/known test scope; no remote query or ingestion occurred. | [remote contract](../design_review/evidence/2026-11-01_logging-remote-contract/README.md); record logging.i06 |
+
+LOG-00 closes composition/causality/candidate-family investigation only, not product implementation
+or all-source qualification. The next package is LOG-01 decision/contracts. Before LOG-02 can claim
+its5s shutdown guarantee, qualify a shared-deadline execution/isolation strategy or explicitly
+restrict supported destinations without weakening the accepted failure contract. No hard graceful
+guarantee follows from a watchdog killing a stuck exporter. I04 integrated lifecycle and I06 live
+access remain open at their existing package owners. No new ADR has been accepted by this task.
+
+Investigation publication checks (2026-11-01): **passed** `just evidence` (114 records,0errors,
+38historical warnings), `just ready`, required `just turn-end` and scoped link/whitespace inspection.
+**failed** `just docs-check` on the pre-existing parsing-profile and moved-library review links;
+those unrelated owners were not edited. **not_run** broad product qualification and real remote
+acceptance. Six finalized records preserve original failed setup/probe attempts.

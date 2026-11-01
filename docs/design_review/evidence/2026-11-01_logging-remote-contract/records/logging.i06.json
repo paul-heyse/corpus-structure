@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "id": "logging.i06",
+  "title": "Qualify remote query API separately from unavailable backend",
+  "group": "logging-investigations",
+  "package": "LOG-10",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Qualify remote query API separately from unavailable backend for the selected Typer-first logging target?",
+  "answers": [
+    "I06",
+    "LOG-10"
+  ],
+  "method": "Pinned-source inspection and isolated synthetic native probes; retain original failures and separate bounded library evidence from application/provider acceptance.",
+  "commands": [
+    "/home/paul/.cache/corpus-logging-investigations/telemetry/.venv/bin/python docs/design_review/evidence/2026-11-01_logging-remote-contract/inspect_contract.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "inspect_contract.py",
+      "role": null,
+      "sha256": "a2ef2415e901dd12416a7843be1b291614e68a337a158d663576aaff2b808e89"
+    },
+    {
+      "path": "raw",
+      "role": null,
+      "sha256": "78ffa5fe9677ac739ea90e90f2ad1b04358e28957c51e5bb7cca7b3127fc4579"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Exact installed query source and synthetic MockTransport control passed for request/time/error mapping. Live acceptance blocked: no authorized endpoint/read token/known test scope. No remote query or ingestion; CSV/Arrow runtime not_run.",
+  "consumed_by": [
+    "I06",
+    "LOG-10"
+  ]
+}

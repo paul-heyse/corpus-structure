@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "id": "logging.i03",
+  "title": "Qualify isolated Python dependency family and native telemetry file APIs",
+  "group": "logging-investigations",
+  "package": "LOG-00",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Qualify isolated Python dependency family and native telemetry file APIs for the selected Typer-first logging target?",
+  "answers": [
+    "I03",
+    "LOG-00"
+  ],
+  "method": "Pinned-source inspection and isolated synthetic native probes; retain original failures and separate bounded library evidence from application/provider acceptance.",
+  "commands": [
+    "python3 docs/design_review/evidence/2026-11-01_logging-telemetry-runtime/run_probes.py attempt2",
+    "/home/paul/.cache/corpus-logging-investigations/telemetry/.venv/bin/python docs/design_review/evidence/2026-11-01_logging-telemetry-runtime/cli_composition.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "probe.py",
+      "role": null,
+      "sha256": "984eb5896157b173f5dc8467b98f0e4627f579762c615e5dea359c8458e4af1d"
+    },
+    {
+      "path": "run_probes.py",
+      "role": null,
+      "sha256": "cd1aec79c5b23a20fbf4906bf778108f3e921f6c27411fcd65626436a3d1218a"
+    },
+    {
+      "path": "cli_composition.py",
+      "role": null,
+      "sha256": "a88ecea5c10f43ba4ab25db964442eeeff03e8ceb99d2d5f4887310b5cd566c6"
+    },
+    {
+      "path": "raw",
+      "role": null,
+      "sha256": "54bbc6962a332e684b2e9f257776601c63863edcbdb2f2c176a5cf0798c87c42"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Isolated Python3.14.10 family resolves and emits/reads all three signals; SDK/API1.45.1 with file/contrib0.66b1. Exact private FileLogExporter boundary retained. Product lock and application qualification not_run.",
+  "consumed_by": [
+    "I03",
+    "LOG-00"
+  ]
+}

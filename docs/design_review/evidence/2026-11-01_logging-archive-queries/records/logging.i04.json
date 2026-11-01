@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "logging.i04",
+  "title": "Settle archive rotation snapshots and cursor primitives",
+  "group": "logging-investigations",
+  "package": "LOG-03",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Settle archive rotation snapshots and cursor primitives for the selected Typer-first logging target?",
+  "answers": [
+    "I04",
+    "LOG-03"
+  ],
+  "method": "Pinned-source inspection and isolated synthetic native probes; retain original failures and separate bounded library evidence from application/provider acceptance.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-01_logging-archive-queries/probe.py",
+    "/home/paul/.cache/corpus-logging-investigations/telemetry/.venv/bin/python docs/design_review/evidence/2026-11-01_logging-archive-queries/exporter_probe.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "probe.py",
+      "role": null,
+      "sha256": "6f543ef8445bca3ce24f61e1d412738a2f237ae7459d7351fb32e42b6d711ea0"
+    },
+    {
+      "path": "exporter_probe.py",
+      "role": null,
+      "sha256": "3c912b9bfd27d25c9a9e353eee37f7488dfa87b650f2acc05ec351897d9059e3"
+    },
+    {
+      "path": "raw",
+      "role": null,
+      "sha256": "271e9d2f1932679593285703be15d80ffecd118c273465bd5efe39fa3ad1fec6"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Native primitives passed; select stable stream adapter, samefs closedsegment snapshots and copied active prefixes with retained-position cursors. Integrated manifest lifecycle, authorization and product query acceptance remain LOG-03.",
+  "consumed_by": [
+    "I04",
+    "LOG-03"
+  ]
+}

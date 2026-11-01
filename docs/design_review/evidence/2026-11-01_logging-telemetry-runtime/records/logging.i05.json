@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "logging.i05",
+  "title": "Qualify provider ownership and shutdown deadline feasibility",
+  "group": "logging-investigations",
+  "package": "LOG-02",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Qualify provider ownership and shutdown deadline feasibility for the selected Typer-first logging target?",
+  "answers": [
+    "I05",
+    "LOG-02"
+  ],
+  "method": "Pinned-source inspection and isolated synthetic native probes; retain original failures and separate bounded library evidence from application/provider acceptance.",
+  "commands": [
+    "python3 docs/design_review/evidence/2026-11-01_logging-telemetry-runtime/run_probes.py attempt2",
+    "/home/paul/.cache/corpus-logging-investigations/telemetry/.venv/bin/python docs/design_review/evidence/2026-11-01_logging-telemetry-runtime/cli_composition.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "probe.py",
+      "role": null,
+      "sha256": "984eb5896157b173f5dc8467b98f0e4627f579762c615e5dea359c8458e4af1d"
+    },
+    {
+      "path": "run_probes.py",
+      "role": null,
+      "sha256": "cd1aec79c5b23a20fbf4906bf778108f3e921f6c27411fcd65626436a3d1218a"
+    },
+    {
+      "path": "raw",
+      "role": null,
+      "sha256": "54bbc6962a332e684b2e9f257776601c63863edcbdb2f2c176a5cf0798c87c42"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "Host/local ownership and final collection exercised; actual loopback transport timeout fails bounded request. SDK flush10ms took about250ms, disproving naive hard-deadline preemption. Total graceful application shutdown remains unestablished.",
+  "consumed_by": [
+    "I05",
+    "LOG-02"
+  ]
+}

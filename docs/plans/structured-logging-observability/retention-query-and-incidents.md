@@ -98,3 +98,21 @@ Native storage/formatting is delegated; application code supplies only scoped ar
 and retention/read lifetime gaps. Compare necessary work over many unrelated runs, long histories,
 concurrent readers and empty-result queries. No throughput or bounded-memory claim follows solely
 from limiting returned rows. Product source/evidence retention remains a separate owner.
+
+## I04 decision — 2026-11-01
+
+Bounded native probes select a stable IO-compatible stream adapter: exporters retain borrowed
+streams, so replacing another stream variable does not rotate them. Rotation is at complete native
+batch boundaries;16MiB remains a target, not a promise to split a large batch. Initial missing
+IO.closed failure is retained. Select short selection/prune exclusion, same-filesystem hardlinks
+for immutable closed segments, and copies of active prefixes at newline-terminated byte cuts. A
+reopenable manifest binds scope/filter/schema/cut and explicit expiry; descriptors alone cannot
+serve later CLI processes. Abrupt owner exit leaves pins requiring authenticated owned cleanup.
+
+Use retained ingestion-position/cut plus identity for cursor/follow state. Incident DEBUG released
+after paging can have older producer time; producer-time cursors skipped that history in the probe.
+DuckDB rejects partial and complete corrupt records; do not hide them with ignore_errors. Minimal
+raw projections retained OTLP typed unions, links, histogram/exemplar and temporality. These are
+primitive tests, not production authorization, schema-view correctness, cross-platform hardlinks
+or capacity qualification. Integrated I04 lifecycle remains LOG-03 work. See the coordinator's
+archive evidence link and logging.i04 record.

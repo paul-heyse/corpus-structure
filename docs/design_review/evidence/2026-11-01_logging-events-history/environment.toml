@@ -1,0 +1,5 @@
+[project]
+name = "corpus-logging-events-investigation"
+version = "0.0.0"
+requires-python = "==3.14.10"
+dependencies = ["structlog==26.1.0", "loguru==0.7.3", "Logbook==1.10.1", "eliot==1.18.0"]

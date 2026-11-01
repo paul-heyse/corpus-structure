@@ -25,12 +25,12 @@ _Updated 2026-11-01; integrated PDF mechanisms implemented; whole-book publicati
 - Obsolete logs/probe installations/scratch cleanup recovered about25GB. No abandoned authenticated
   test databases existed. Current environments, models, source inputs, receipts and databases remain.
 
-- [Logging plan series](docs/plans/structured-logging-observability_2026-11-01.md) proposes complete
-  Typer/Rich diagnostics, local archives/metrics, MCP parity and conditional remote integration.
-  RC01–RC04 accepted2026-11-01; LOG-00 begins the bounded composition investigations.
-  Seven new plan documents authored; no logging runtime/dependencies installed or qualified.
-  Plan links/traceability and `just turn-end` passed; `just docs-check` failed on existing
-  parsing-plan/source-review links (2026-11-01). Existing plans were not changed by this task.
+- [Logging plan series](docs/plans/structured-logging-observability_2026-11-01.md): LOG-00 bounded
+  choices settled: structlog/stdlog + scoped Logbook + direct OTel; no production runtime installed.
+  I01–I03 probes passed; I04 primitive direction selected, integrated lifecycle still open.
+  I05 partial: hard cleanup deadline unestablished. I06 local contract passed; live read blocked
+  by missing endpoint/read token/test scope. Six finalized records retain failures and boundaries.
+  `just evidence` passed (0errors/38historical warnings); `just ready` passed (2026-11-01).
 
 ## Verification
 

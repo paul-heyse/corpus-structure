@@ -77,3 +77,19 @@ Sources: [FastMCP](../../libraries/fastmcp.md) §§2.4,5,7,8.4,11;
 [OTel](../../libraries/logging/OpenTelemetry_Python.md) §§5,9–10;
 [ECS](../../libraries/logging/ecs-logging.md) §§3–8;
 [JSON logger](../../libraries/logging/python-json-logger.md) §§3–8.
+
+## I06 and instrumentation disposition — 2026-11-01
+
+Use direct OTel ownership for native FastMCP4 spans; local Logfire providers do not automatically
+receive native global spans. No real MCP protocol journey was run by this investigation.
+Public logfire.query_client.LogfireQueryClient is available in installed Logfire/logfire-sdk5.4.0
+after adding HTTPX0.28.1; released5.4 already uses the split SDK distribution. Public query source
+was inspected after presumed GitHub paths returned404; no API absence was inferred from404.
+
+Local MockTransport checks exercised info(), required min_timestamp, explicit max_timestamp/limit,
+/v2/query body, schema/data to columns/rows mapping and QueryRateLimitedError.retry_after. Exactly
+three synthetic requests occurred, without automatic retry. Native default timeout is30s; choose
+an explicit application timeout. CSV/Arrow runtime fidelity, live authentication, retention and
+ingestion delay remain not_run. No authorized endpoint/read token/test scope was supplied, so
+live I06 acceptance is blocked. Existing ingestion credentials would not establish read permission
+or authorize a new write destination. See logging.i06 and the coordinator's remote evidence link.

@@ -147,3 +147,33 @@ Use independent known event/causal expectations and fresh-process startup/cleanu
 These capability sources were read during preparation; I01–I03 qualify the actual selected pins.
 Use processor chains and native instrumentors before bespoke wrappers. Safe context is captured
 once, compact references replace payload copies, and disabled detail avoids expensive construction.
+
+## LOG-00 investigation decision — 2026-11-01
+
+Select structlog26.1.0 + stdlib and scoped Logbook1.10.1; retain OTel causal parent/links rather
+than Eliot1.18.0's additional action identity. Select direct OTel process ownership. Qualified
+isolated pins: opentelemetry-api/sdk/exporter-otlp-proto-http1.45.1; exporter-otlp-json-file and
+instrumentation-logging/sqlalchemy0.66b1; HTTPX0.28.1. Pydantic2.14.1/SQLAlchemy2.1.5 were
+co-resolved, and structlog/Logbook/Typer0.27.3/Rich15.0 were subsequently combined in that lock.
+Loguru/Eliot/Logfire were comparison candidates, not required production additions. Product-lock
+resolution and any extra instrumentors remain implementation prerequisites, not implied passes.
+
+Exact imports: FileSpanExporter/FileMetricExporter at opentelemetry.exporter.otlp.json.file;
+FileLogExporter at its private _log_exporter module; LoggingHandler at
+opentelemetry.instrumentation.logging.handler. Pin and qualify that private-module boundary.
+The first same-version file-exporter pin1.45.1 failed; the correct distribution version is0.66b1.
+
+Local Logfire/logfire-sdk5.4.0 explicit spans work, but local=True leaves native global consumers
+on their host provider. Its Pydantic plugin uses GLOBAL_CONFIG/default instance; local-only capture
+produced no validation spans, whereas fresh global configuration captured a later-defined model.
+Do not silently enable global Logfire in an embedded host. Optional Logfire/Pydantic capture needs
+an explicit global-owner mode and import-order contract; it is not default instrumentation.
+
+Native final metrics and borrowed-stream ownership passed bounded probes. force_flush(timeout=10ms)
+did not preempt a250ms exporter; the configured transport timeout separately bounded a controlled
+loopback request. I05 therefore remains partial: actual supported exporter execution must establish
+the overall cleanup budget before LOG-02 acceptance. The disposable Typer/Rich/native-span app
+passed stream separation; installed ci and real MCP integration remain not_run.
+
+See coordinator investigation disposition and its linked evidence/records for commands, original
+failures and scope. No runtime/manifest/ADR changes follow solely from these choices.
