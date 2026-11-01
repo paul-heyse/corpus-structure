@@ -200,7 +200,7 @@ def test_explicit_live_base_and_archived_composed_refusal():
             RegistryRow("execution_model", model.model_id, canonical_bytes(historic)),
         ),
     )
-    with pytest.raises(PreparationError, match="historical archives are read-only"):
+    with pytest.raises(PreparationError, match="current compiler ABI; regenerate the release"):
         prepare_interpretation_context(archived, macros={})
 
 
@@ -239,7 +239,7 @@ def test_unknown_execution_abi_refuses_before_model_binding():
     model = compile_execution_model(trusted_execution_inputs())
     changed = json.loads(model.content)
     changed["inputs"]["compiler_version"] = "999"
-    with pytest.raises(PreparationError, match="supported compiler ABI"):
+    with pytest.raises(PreparationError, match="current compiler ABI; regenerate the release"):
         _bound_execution_model(canonical_bytes(changed), model.model_id)
 
 
@@ -271,11 +271,7 @@ def test_historical_abi_cannot_self_attest_analysis_capabilities():
             RegistryRow("execution_model", model.model_id, canonical_bytes(changed)),
         ),
     )
-    from corpus_structure.semantic.contracts import EXECUTION_COMPILER_VERSION
-
-    with pytest.raises(
-        PreparationError, match=f"requires execution compiler {EXECUTION_COMPILER_VERSION}"
-    ):
+    with pytest.raises(PreparationError, match="current compiler ABI; regenerate the release"):
         prepare_interpretation_context(archived, macros={})
 
 

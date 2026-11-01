@@ -3,6 +3,7 @@
 from dataclasses import replace
 from unittest.mock import MagicMock
 
+import psycopg
 import pytest
 from sqlalchemy import Connection
 
@@ -48,6 +49,9 @@ def test_retained_view_hydrates_pins_but_refuses_layout_and_outside_run(
     retained_release, monkeypatch
 ):
     conn = MagicMock(spec=Connection)
+    driver = MagicMock(spec=psycopg.Connection)
+    driver.info.transaction_status = psycopg.pq.TransactionStatus.IDLE
+    conn.connection.driver_connection = driver
     item = {"self_ref": "#/texts/0", "label": "formula", "orig": "x", "text": "x"}
     row = dict(
         id=31,
@@ -73,7 +77,24 @@ def test_retained_view_hydrates_pins_but_refuses_layout_and_outside_run(
 
     def execute(statement, *args):
         result = MagicMock()
-        if "unnest" in str(statement):
+        sql = str(statement)
+        if "to_regclass" in sql or "to_regprocedure" in sql:
+            result.scalar_one.return_value = True
+        elif "ops.read_pdf_published_revision" in sql:
+            assert args == ({"task": 23, "product": "organized", "digest": "a" * 64},)
+            result.mappings.return_value.one_or_none.return_value = {
+                "build_id": "current-published-native",
+                "task_id": 23,
+                "product_key": "organized",
+                "logical_digest": "a" * 64,
+                "release_id": retained_release.release_id,
+                "source_digest": "d" * 64,
+                "schema_digest": "e" * 64,
+                "recipe_digest": "f" * 64,
+                "frozen_digest": "0" * 64,
+                "kind": "native",
+            }
+        elif "unnest" in sql:
             result.mappings.return_value = [dict(pointer="#/texts/0", item=item)]
         else:
             result.mappings.return_value.one.return_value = row

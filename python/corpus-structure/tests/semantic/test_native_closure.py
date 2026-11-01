@@ -310,22 +310,36 @@ def test_selected_view_drift_refuses_admission(semantic_db_engine, admitter):
             _verify_deployment_functions(conn)
 
 
-def test_model_products_match_frozen_forward_revision():
-    from pathlib import Path
-
+def test_model_products_match_frozen_current_native_state(semantic_db_engine, monkeypatch):
     from sqlalchemy.dialects.postgresql import dialect
     from sqlalchemy.schema import CreateTable
 
+    from corpus_structure.semantic import source_view_native
     from corpus_structure.semantic.metadata import metadata
-    from corpus_structure.semantic.native_products import forward_products
+    from corpus_structure.semantic.native_candidate import (
+        current_native_state,
+        prepare_series_candidate,
+    )
 
-    versions = Path(__file__).resolve().parents[2] / "semantic_alembic/versions"
     before = {
         name: str(CreateTable(relation).compile(dialect=dialect()))
         for name, relation in metadata.tables.items()
     }
-    for product in forward_products():
-        assert versions.joinpath(product.name).read_bytes() == product.content
+
+    def refuse_recorded_provenance(_admission):
+        raise AssertionError("current candidate must declare current authoring provenance")
+
+    monkeypatch.setattr(
+        source_view_native, "recorded_authoring_provenance", refuse_recorded_provenance
+    )
+    with semantic_db_engine.connect() as conn:
+        frozen = current_native_state(conn)
+        assert frozen is not None
+        script, authoring = prepare_series_candidate(conn, owned_authoring=True)
+        assert script.upgrade_ops is not None and script.upgrade_ops.is_empty()
+        assert {item.identity: item.payload() for item in authoring.desired} == {
+            item.identity: item.payload() for item in frozen
+        }
     assert before == {
         name: str(CreateTable(relation).compile(dialect=dialect()))
         for name, relation in metadata.tables.items()
@@ -348,56 +362,45 @@ def _forward_descriptor(product):
     return json.loads(cast.arg.val.sval)
 
 
-def test_forward_reproduction_uses_head_witness_and_candidate_uses_explicit_current(monkeypatch):
+def test_current_frozen_head_witness_records_current_authoring_provenance():
     from hashlib import sha256
     from pathlib import Path
 
+    from alembic.script import ScriptDirectory
+
+    from corpus_structure.semantic.contracts import EXECUTION_COMPILER_VERSION
     from corpus_structure.semantic.execution_admission import _DESCRIPTOR_SHA256
+    from corpus_structure.semantic.migrations import alembic_config, head_revision
     from corpus_structure.semantic.native_products import (
-        NATIVE_REVISION,
         NativeProduct,
         current_authoring_provenance,
-        forward_products,
         function_bodies,
     )
 
-    versions = Path(__file__).resolve().parents[2] / "semantic_alembic/versions"
-    head = NativeProduct("head", versions.joinpath(f"{NATIVE_REVISION}_admission.sql").read_bytes())
-    from corpus_structure.semantic import source_view_native
-
-    original = source_view_native.recorded_authoring_provenance
-    witnessed = []
-
-    def recorded_witness(admission):
-        witnessed.append(sha256(admission.encode()).hexdigest())
-        return original(admission)
-
-    monkeypatch.setattr(source_view_native, "recorded_authoring_provenance", recorded_witness)
-    reproduced = forward_products()[-1]
-    assert reproduced.content == head.content
-    assert witnessed == [head.digest]
+    current_head = head_revision()
+    assert current_head is not None
+    head_script = ScriptDirectory.from_config(alembic_config()).get_revision(current_head)
+    assert head_script is not None
+    revision = head_script.module
+    head = NativeProduct(
+        revision.NATIVE_ADMISSION_FILE,
+        Path(head_script.path).with_name(revision.NATIVE_ADMISSION_FILE).read_bytes(),
+    )
+    assert head.digest == revision.NATIVE_ADMISSION_SHA256
     recorded = _forward_descriptor(head)
-    # SQL-only revisions can legitimately share release input provenance. Verify
-    # the exact head witness was read, rather than relying on differing inputs.
     assert (
         sha256(
-            function_bodies(reproduced.content.decode())[
-                "data.execution_contract_descriptor"
-            ].encode()
+            function_bodies(head.content.decode())["data.execution_contract_descriptor"].encode()
         ).hexdigest()
         == _DESCRIPTOR_SHA256
     )
 
     current = current_authoring_provenance()
-    candidate = _forward_descriptor(forward_products(authoring_provenance=current)[-1])
-    assert candidate["model_id"] == current.model_id
-    assert candidate["inputs"] == [
+    assert recorded["execution_abi"] == EXECUTION_COMPILER_VERSION == "18"
+    assert recorded["model_id"] == current.model_id
+    assert recorded["inputs"] == [
         {"name": name, "sha256": digest} for name, digest in current.inputs
     ]
-    expected = dict(recorded)
-    expected["model_id"] = current.model_id
-    expected["inputs"] = [{"name": name, "sha256": digest} for name, digest in current.inputs]
-    assert candidate == expected
 
 
 def test_forward_reproduction_still_detects_current_function_change(monkeypatch):
@@ -708,9 +711,12 @@ def test_alembic_current_physical_comparison(semantic_db_engine):
     from alembic import command
 
     from corpus_structure.semantic.migrations import alembic_config
+    from corpus_structure.semantic.native_objects import NativeAuthoring
 
     with semantic_db_engine.connect() as conn:
-        command.check(alembic_config(conn))
+        config = alembic_config(conn)
+        config.attributes["native_authoring"] = NativeAuthoring(())
+        command.check(config)
 
 
 def test_live_cross_purpose_privilege_drift_refuses(

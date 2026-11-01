@@ -15,7 +15,9 @@ from corpus_structure.semantic.refusals import SemanticRefusal
 
 
 @pytest.mark.parametrize("command", ["golden", "eval", "regenerate"])
-@pytest.mark.parametrize("kind", ["refusal", "retry", "fencing", "defect", "bug", "cancel"])
+@pytest.mark.parametrize(
+    "kind", ["refusal", "serialization", "fencing", "unknown", "bug", "cancel"]
+)
 def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, command, kind):
     from corpus_structure.core.db.store import FENCING_CONSTRAINT
     from corpus_structure.semantic import regeneration, runtime
@@ -26,8 +28,8 @@ def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, comma
             if command != "regenerate"
             else SemanticRefusal("pack refused")
         )
-    elif kind == "retry":
-        failure = DBAPIError(None, None, psycopg.errors.SerializationFailure("retry"))
+    elif kind == "serialization":
+        failure = DBAPIError(None, None, psycopg.errors.SerializationFailure("serialization"))
     elif kind == "fencing":
 
         class Fenced(Exception):
@@ -35,7 +37,7 @@ def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, comma
             diag = SimpleNamespace(constraint_name=FENCING_CONSTRAINT)
 
         failure = DBAPIError(None, None, Fenced("fenced"))
-    elif kind == "defect":
+    elif kind == "unknown":
         failure = DBAPIError(None, None, psycopg.errors.UndefinedColumn("broken SQL"))
     elif kind == "bug":
         failure = ValueError("implementation defect")
@@ -68,6 +70,14 @@ def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, comma
     error = json.loads(result.stdout)["error"]
     expected = type(failure).__name__ if kind == "refusal" else "database_" + kind
     assert error["code"] == expected
+    if kind != "refusal":
+        assert error["failure"]["phase"] == "unknown"
+        assert error["failure"]["effects"] == "uncertain"
+        assert (
+            error["failure"]["sqlstate"]
+            == {"serialization": "40001", "fencing": "23505", "unknown": "42703"}[kind]
+        )
+        assert error["remediation"] == "inspect_failure"
 
 
 def test_invalid_pack_is_a_typed_actual_regenerate_refusal(cli, tmp_path):
@@ -79,7 +89,9 @@ def test_invalid_pack_is_a_typed_actual_regenerate_refusal(cli, tmp_path):
 
 
 @pytest.mark.parametrize("route", ["schema", "db_check"])
-@pytest.mark.parametrize("kind", ["refusal", "retry", "fencing", "defect", "bug", "cancel"])
+@pytest.mark.parametrize(
+    "kind", ["refusal", "serialization", "fencing", "unknown", "bug", "cancel"]
+)
 def test_schema_and_database_check_keep_failure_taxonomy(cli, monkeypatch, route, kind):
     from corpus_structure.core.db.store import FENCING_CONSTRAINT
     from corpus_structure.semantic import regeneration, runtime
@@ -87,8 +99,8 @@ def test_schema_and_database_check_keep_failure_taxonomy(cli, monkeypatch, route
 
     if kind == "refusal":
         failure = ExecutionAdmissionError("required effect profile is unsupported")
-    elif kind == "retry":
-        failure = DBAPIError(None, None, psycopg.errors.SerializationFailure("retry"))
+    elif kind == "serialization":
+        failure = DBAPIError(None, None, psycopg.errors.SerializationFailure("serialization"))
     elif kind == "fencing":
 
         class Fenced(Exception):
@@ -96,7 +108,7 @@ def test_schema_and_database_check_keep_failure_taxonomy(cli, monkeypatch, route
             diag = SimpleNamespace(constraint_name=FENCING_CONSTRAINT)
 
         failure = DBAPIError(None, None, Fenced("fenced"))
-    elif kind == "defect":
+    elif kind == "unknown":
         failure = DBAPIError(None, None, psycopg.errors.UndefinedColumn("broken SQL"))
     elif kind == "bug":
         failure = ValueError("unexpected program failure")
@@ -127,7 +139,16 @@ def test_schema_and_database_check_keep_failure_taxonomy(cli, monkeypatch, route
             assert result.exception is failure
     else:
         code = "ExecutionAdmissionError" if kind == "refusal" else "database_" + kind
-        assert json.loads(result.stdout)["error"]["code"] == code
+        error = json.loads(result.stdout)["error"]
+        assert error["code"] == code
+        if kind != "refusal":
+            assert error["failure"]["phase"] == "unknown"
+            assert error["failure"]["effects"] == "uncertain"
+            assert (
+                error["failure"]["sqlstate"]
+                == {"serialization": "40001", "fencing": "23505", "unknown": "42703"}[kind]
+            )
+            assert error["remediation"] == "inspect_failure"
 
 
 @pytest.mark.parametrize(
@@ -192,7 +213,7 @@ def test_actual_database_check_preserves_native_admission_diagnostic(
 
 
 @pytest.mark.parametrize("route", ["schema", "db_check"])
-@pytest.mark.parametrize("kind", ["retry", "fencing", "defect", "bug"])
+@pytest.mark.parametrize("kind", ["serialization", "fencing", "unknown", "bug"])
 def test_actual_archive_query_failure_reaches_cli_unchanged(
     cli, semantic_db_engine, semantic_reader_engine, route, kind
 ):
@@ -212,8 +233,8 @@ def test_actual_archive_query_failure_reaches_cli_unchanged(
             )
         }
     )
-    if kind == "retry":
-        failure = DBAPIError(None, None, psycopg.errors.SerializationFailure("retry"))
+    if kind == "serialization":
+        failure = DBAPIError(None, None, psycopg.errors.SerializationFailure("serialization"))
     elif kind == "fencing":
 
         class Fenced(Exception):
@@ -221,7 +242,7 @@ def test_actual_archive_query_failure_reaches_cli_unchanged(
             diag = SimpleNamespace(constraint_name=FENCING_CONSTRAINT)
 
         failure = DBAPIError(None, None, Fenced("fenced"))
-    elif kind == "defect":
+    elif kind == "unknown":
         failure = DBAPIError(None, None, psycopg.errors.UndefinedColumn("broken SQL"))
     else:
         failure = RuntimeError("unexpected archive program defect")
@@ -248,4 +269,12 @@ def test_actual_archive_query_failure_reaches_cli_unchanged(
         assert result.exception is failure
         assert '"error"' not in result.stdout
     else:
-        assert json.loads(result.stdout)["error"]["code"] == "database_" + kind
+        error = json.loads(result.stdout)["error"]
+        assert error["code"] == "database_" + kind
+        assert error["failure"]["phase"] == "unknown"
+        assert error["failure"]["effects"] == "uncertain"
+        assert (
+            error["failure"]["sqlstate"]
+            == {"serialization": "40001", "fencing": "23505", "unknown": "42703"}[kind]
+        )
+        assert error["remediation"] == "inspect_failure"
