@@ -1,0 +1,1775 @@
+{
+  "scope": "actual retained1589page inference + explicit type-preserving assembly derivation/nativeglobal/enrichment replay; no database publication",
+  "pages": 1589,
+  "texts": 44632,
+  "tables": 101,
+  "formula_outcomes": 6336,
+  "errors": [],
+  "elapsed_seconds": 1853.9885958259983,
+  "replays": [
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000000-artifact_part.arrow",
+      "digest": "34763da8e647bded9ef443d3a7edd4e3c2dbddda49bd16caafedb2b988c08d4f",
+      "byte_length": 4158458,
+      "family": "artifact_part",
+      "rows": 83
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000001-artifact_part.arrow",
+      "digest": "6cd71b84faebc93d2820c4e5c930c8cda29406dd96d4d2ed9d4d50b412c09d31",
+      "byte_length": 4120218,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000002-artifact_part.arrow",
+      "digest": "c17979d39404aa478de80027017000d2c70995b2b2f9188ceedde6059cfa2ddf",
+      "byte_length": 4123138,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000003-artifact_part.arrow",
+      "digest": "b9643b9494f707ce42ff0359b92d8f79374a661cc1c6a37b4e43e3154dcab668",
+      "byte_length": 4171498,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000004-artifact_part.arrow",
+      "digest": "0401631ab0cf573bf71f1349056f208477761d2d69eee486c636ae7d238f488d",
+      "byte_length": 4115106,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000005-artifact_part.arrow",
+      "digest": "5ffaa6f4d7c2e67bb5e2065a3031811e5612921fce77e6512b374d15ad932515",
+      "byte_length": 4170538,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000006-artifact_part.arrow",
+      "digest": "f0c54c29b4608bddd67c24c15636ccce2f043be4614f644a731ce58fe47e00ab",
+      "byte_length": 4161922,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000007-artifact_part.arrow",
+      "digest": "72ea1b6840e44b1ba04e62ec7dbe4eb07c65b2f403c0d8cbbf10011cc9206664",
+      "byte_length": 4129634,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000008-artifact_part.arrow",
+      "digest": "6e2d0f3365833fee354982ba82f12939e4a89c95ab872ccd683826762028f703",
+      "byte_length": 4135794,
+      "family": "artifact_part",
+      "rows": 76
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000009-artifact_part.arrow",
+      "digest": "f46b030b0cbb3585ce79fdd8c351ebf0bba3eaa141f1e44f1f925f38a29d4b4d",
+      "byte_length": 4167962,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000010-artifact_part.arrow",
+      "digest": "c147f107c4b2c2db85b90cb67d0c9f5573e5815c027b38f502a0f701d55f6c82",
+      "byte_length": 4124322,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000011-artifact_part.arrow",
+      "digest": "39e33b5fdb1bc93e7a4f540c20b7a6122c54b18415969fee29f5d9d5adb70959",
+      "byte_length": 4126506,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000012-artifact_part.arrow",
+      "digest": "2cd87d96fdd75ffdf8c727f135712b97deb4051746dc657e811f53a5e905e22d",
+      "byte_length": 4125602,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000013-artifact_part.arrow",
+      "digest": "f834e4a65525be72318dd272187289cf589b81ce4fabb2c50d2f0c6f929ef85f",
+      "byte_length": 4139530,
+      "family": "artifact_part",
+      "rows": 69
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000014-artifact_part.arrow",
+      "digest": "fc32133e8f0c59b449c8c7527b87cec0565764ff9e55f9a3267f8f212c4484f7",
+      "byte_length": 4124122,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000015-artifact_part.arrow",
+      "digest": "1cecd7d09d4f09b73c8ed6992adc97b78fd51d3cbac34c4d4fafae12282019fd",
+      "byte_length": 4178922,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000016-artifact_part.arrow",
+      "digest": "2a04f8ee577358ba1bc77431cbfbfb5775f85df76c29f2f503215fdfee5e25a6",
+      "byte_length": 4135330,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000017-artifact_part.arrow",
+      "digest": "37a683080dfb07ecef01eb79b1ce6c2e9f0084a38b145d3bd7e007a0be76d0fc",
+      "byte_length": 4119234,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000018-artifact_part.arrow",
+      "digest": "55e25926e897a7a1699fb77cc5b0672a61da4ec035450c23045e185b2fb7675c",
+      "byte_length": 4167482,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000019-artifact_part.arrow",
+      "digest": "9dfcf643bf7537a4689f71cf687d7e35588f363d900721fd8673c70b4f75b6d1",
+      "byte_length": 4172490,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000020-artifact_part.arrow",
+      "digest": "26de1754e7fa15b22042a5a64abe78726980913803340bc4e9174614ba48330d",
+      "byte_length": 4131266,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000021-artifact_part.arrow",
+      "digest": "dd3e2603218f913869d1786a51fcd8d03011c877900843d4c6110e53e36fa85b",
+      "byte_length": 4153434,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000022-artifact_part.arrow",
+      "digest": "1179b14e1eb3dabd3e371f39ae38a61c1a7e49c6877f08ea1678ca43f36997ad",
+      "byte_length": 4148994,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000023-artifact_part.arrow",
+      "digest": "065d6f98099cca9875b623d3d3270d64865c6af1a5f886f0f748a11f5992bf5c",
+      "byte_length": 4159650,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000024-artifact_part.arrow",
+      "digest": "59cce7b038bcbfe679eefe8183c09456a9fc48dacf63db053cb5088dad673911",
+      "byte_length": 4175050,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000025-artifact_part.arrow",
+      "digest": "958637d65f545e743fd928b8d8bc63d94980f83b41e122a124a6717bd628d6ae",
+      "byte_length": 4120426,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000026-artifact_part.arrow",
+      "digest": "91fd21233362dffeadae09dccee63d881bc921dd5555707104c61edae70ad59c",
+      "byte_length": 4174954,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000027-artifact_part.arrow",
+      "digest": "7d815d9899d6b97f62c9c7bf09aebde8cf523328245235bc068d7b05024be738",
+      "byte_length": 4128890,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000028-artifact_part.arrow",
+      "digest": "f37420e11611476f01faceb59bbed2e005639a800e1c328db9f62e734c6f68e4",
+      "byte_length": 4163402,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000029-artifact_part.arrow",
+      "digest": "e2fed636a74ac3cb1010aba1b7fe9ed10f0b96d1efc5ab9c9f1de9837e53e396",
+      "byte_length": 4134834,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000030-artifact_part.arrow",
+      "digest": "aa8b52bc28d831d7312b56a7fb8b7626a9076a0f6bc07ab5fe3f38e44f4d6310",
+      "byte_length": 4154170,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000031-artifact_part.arrow",
+      "digest": "5c1bf313390e5351e75723b174acd72330f31678b3e889a3717c0ebd4f23e708",
+      "byte_length": 4132354,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000032-artifact_part.arrow",
+      "digest": "072c0bebed479103a8ce552b7cd0dce451504774fc2814628f09c425f85d6f90",
+      "byte_length": 4156010,
+      "family": "artifact_part",
+      "rows": 67
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000033-artifact_part.arrow",
+      "digest": "064f84fb35a26573cdc39233095abf7cf453f0fb6fe8967ad21d9751d2cf88aa",
+      "byte_length": 4165458,
+      "family": "artifact_part",
+      "rows": 76
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000034-artifact_part.arrow",
+      "digest": "5281d37b60b5b4aa7e21fef3bd7915e49995767a397b682708fae508cbe573c3",
+      "byte_length": 4161210,
+      "family": "artifact_part",
+      "rows": 69
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000035-artifact_part.arrow",
+      "digest": "41c9aa190dffced70419a587ca10f45ad4dc3bdc7b11d880230855cabcf1636d",
+      "byte_length": 4115610,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000036-artifact_part.arrow",
+      "digest": "fda557fd5aec9b76fea5082dd46f9f5925a97ef8383cfeb0c7f0298c62557d5d",
+      "byte_length": 4135362,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000037-artifact_part.arrow",
+      "digest": "99fa12b6c841cf4149264b5255a787683a0f3a0c9691b1fd5fd2289f0e786f3f",
+      "byte_length": 4133330,
+      "family": "artifact_part",
+      "rows": 75
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000038-artifact_part.arrow",
+      "digest": "9cda3c2d4e11cec5a21b370f9bba23443b60dcf4200a89bc7fe4125732090826",
+      "byte_length": 4158938,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000039-artifact_part.arrow",
+      "digest": "8a6e9872c25d2c6571876b117108f7db6cf317e7431c5fa7528d862e1a09273d",
+      "byte_length": 4121234,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000040-artifact_part.arrow",
+      "digest": "cdb444c00c470c8f58dd67dd01fb2fe6bf92f5fa87bfd4c11f1f0b95aaab5103",
+      "byte_length": 4127146,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000041-artifact_part.arrow",
+      "digest": "c579411559df0d0a72d0a2d4355240a78fd1b3a1907050a272838f5cff4c2e80",
+      "byte_length": 4175754,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000042-artifact_part.arrow",
+      "digest": "b9630f7519c5614e58b2c26336d594fbf7f7c7ce339b8a7a75b3430042fda914",
+      "byte_length": 4123338,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000043-artifact_part.arrow",
+      "digest": "52ac5cdba925559df7d36bed22c55aee3522d2d7213a3521c8b8768cb90bdd17",
+      "byte_length": 4129746,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000044-artifact_part.arrow",
+      "digest": "cd895a29505309afe65bbb45da5d814279e2781979bbb97168e0deffcbcb884f",
+      "byte_length": 4138378,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000045-artifact_part.arrow",
+      "digest": "ab1f020f1fc5a95e8e0dcec29b330ce63a293126ed045343e4f905844856881e",
+      "byte_length": 4153018,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000046-artifact_part.arrow",
+      "digest": "d169a47cb9d02f3563e6af47c447afd0248bb10e130d5620448a32d43128c1a7",
+      "byte_length": 4167178,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000047-artifact_part.arrow",
+      "digest": "5f88205aa8a3492235be81d2dac6bc2c0a620d02b9ef54160a255bfa61839d26",
+      "byte_length": 4133930,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000048-artifact_part.arrow",
+      "digest": "87f512c0d783e7d340dc7c0b85b49c82798cf755f42b70710598fecd9d6d9c06",
+      "byte_length": 4172474,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000049-artifact_part.arrow",
+      "digest": "595f81ce5695339c44a808c42523e8b32884eb9ee853bdb3328591cbadd45209",
+      "byte_length": 4136914,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000050-artifact_part.arrow",
+      "digest": "bf52786625c6b26bb13c527126589467c15dec1ac619715c850cccfdf858a81a",
+      "byte_length": 4133978,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000051-artifact_part.arrow",
+      "digest": "2769b40ee1765e22f66aaa91553a74c280a4386b1a87f676ce2b21fd7037dbbc",
+      "byte_length": 4160786,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000052-artifact_part.arrow",
+      "digest": "75a0d51b28443125727cd91668944b460e1a3487cca2c00352492f1116841be7",
+      "byte_length": 4124426,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000053-artifact_part.arrow",
+      "digest": "b6b4d0f848fd4fbc501e0b4da5f02973b481e901779419485efbdeebf3fd06b7",
+      "byte_length": 4121050,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000054-artifact_part.arrow",
+      "digest": "6f2bac1405947e01c4c516e35413fa3c1c51eaddf746f4ee882ab9adb53b9197",
+      "byte_length": 4119562,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000055-artifact_part.arrow",
+      "digest": "8d9e3a99eca212a1b12fe7e7e447b9ad0e66f2935af2d6d375c93e59a0a8f1ac",
+      "byte_length": 4134450,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000056-artifact_part.arrow",
+      "digest": "dc786f45d48be8325cdecf7fd4f285079ad18e06a18a33691c66c3ccad7896f5",
+      "byte_length": 4154194,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000057-artifact_part.arrow",
+      "digest": "4f7f87170ce27081bdf00725cad23e0d319efb6839d3856ec268d645c30deb69",
+      "byte_length": 4160674,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000058-artifact_part.arrow",
+      "digest": "41c06fbf4d6c38130d1012c83a241194f89828f63219762b055c9dd65de33ecd",
+      "byte_length": 4122194,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000059-artifact_part.arrow",
+      "digest": "975b7c085aa36ff66efc39103be1afd171efba182aea584d59ea1de6223d7ba5",
+      "byte_length": 4120082,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000060-artifact_part.arrow",
+      "digest": "7f91e907466edec4a36818b1bb370e85b798c75bba4e3504ed4426d362f79867",
+      "byte_length": 4142666,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000061-artifact_part.arrow",
+      "digest": "a5d76475ccfc87fabaaa0ca56a69f0fee9be672f35f1150be91b3bbf5b076c39",
+      "byte_length": 4152234,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000062-artifact_part.arrow",
+      "digest": "22318dd4d88f5defd9365204701e7f3c6dfd22d822ec5257e3072a89be6a0ae3",
+      "byte_length": 4134010,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000063-artifact_part.arrow",
+      "digest": "212ed30d6c0a1a04f3c070c84708608f35725072e0e9b3fb2e00c03b0652b44e",
+      "byte_length": 4152650,
+      "family": "artifact_part",
+      "rows": 75
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000064-artifact_part.arrow",
+      "digest": "36579494044e37f937d6e25f204192c6ec990e20376d77861a1b6ece10f481aa",
+      "byte_length": 4143986,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000065-artifact_part.arrow",
+      "digest": "6b7d3f2f425c11a4d4f9bb38926357468d8aad994f1309eb9d814b757dee5d2f",
+      "byte_length": 4117026,
+      "family": "artifact_part",
+      "rows": 75
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000066-artifact_part.arrow",
+      "digest": "8de2c4160f718076d2a8ff4d8e9ab495b63bf84ee2635e25824425d056b9c285",
+      "byte_length": 4120170,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000067-artifact_part.arrow",
+      "digest": "2fa839354a47ded84909a90403987e1c5055bd6f8339991bf826bce953583c76",
+      "byte_length": 4117530,
+      "family": "artifact_part",
+      "rows": 75
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000068-artifact_part.arrow",
+      "digest": "0ec15d13ba08ede557c379fba13e760722b3808e8df015be7a665111bc9c0060",
+      "byte_length": 4120490,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000069-artifact_part.arrow",
+      "digest": "12c7254d561ba246b1a6034ac1850cde97b84cbe55ba6f134bfd9eccaf5424e9",
+      "byte_length": 4143962,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000070-artifact_part.arrow",
+      "digest": "6ffe8bcf086fe0b5653936acdbae228de73cb31536f5f1bf299c193d919acc93",
+      "byte_length": 4178266,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000071-artifact_part.arrow",
+      "digest": "66b91247195c74686425cf6b8ccc155e154da0ca9a1b1738e68cacdc64c7c34b",
+      "byte_length": 4154202,
+      "family": "artifact_part",
+      "rows": 75
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000072-artifact_part.arrow",
+      "digest": "489d1702ffc1998f4238297b28b753aced655c93e4275eb4813bc5281636bd7c",
+      "byte_length": 4131018,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000073-artifact_part.arrow",
+      "digest": "de9f4fc8234723c8915342c79b10fe9c45268c5fd8c815da3e5897870fe3fb8f",
+      "byte_length": 4151362,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000074-artifact_part.arrow",
+      "digest": "404ad587d395688379acb7d8da6c9ae763c6b9ad67b86a8b5059fc537424b45c",
+      "byte_length": 4159042,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000075-artifact_part.arrow",
+      "digest": "919bc6f336b6eaa18483940ca6ca8175e121ab1b17e6bfc4f80387beb9d23288",
+      "byte_length": 4167298,
+      "family": "artifact_part",
+      "rows": 75
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000076-artifact_part.arrow",
+      "digest": "fadf2f55ab5dad9e151d51beecf7c77db14b5f5129fc7141869ea7a7f5fa37a2",
+      "byte_length": 4131818,
+      "family": "artifact_part",
+      "rows": 76
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000077-artifact_part.arrow",
+      "digest": "cc42ef094c75aafd520b0cf99145d60f55b98e825f92ec57e904728ffdbea096",
+      "byte_length": 4161802,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000078-artifact_part.arrow",
+      "digest": "ff3efbefad3f76a6aa7888be06542ef7014c716d21bedcf4cfe52491e943126f",
+      "byte_length": 4168866,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000079-artifact_part.arrow",
+      "digest": "9eec89cab68cdb50e634f46070c26fea8933421813d974d80f0cb22402539a70",
+      "byte_length": 4151386,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000080-artifact_part.arrow",
+      "digest": "d6899c5e621e3828e777d28a2cc469de1291a94239af3d1e783c7562ad7efa29",
+      "byte_length": 4168178,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000081-artifact_part.arrow",
+      "digest": "2fb16d18df6365ee1e3f7f3e26f7e77efb731c2084035895efe3d72477e54885",
+      "byte_length": 4152666,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000082-artifact_part.arrow",
+      "digest": "1aba3694c732a852e475ed86389eff16b4065e5fbbf0b38c026aef5eb5869286",
+      "byte_length": 4177026,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000083-artifact_part.arrow",
+      "digest": "cec46f40338aba18650a882fe4e6a2ee9b630d14db38207be5d9fca2b5c9ad1b",
+      "byte_length": 4126914,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000084-artifact_part.arrow",
+      "digest": "95fe20390f766274e923b9974c378d85a10f28db4b7d24b27b6bbb8d64e8b85f",
+      "byte_length": 4164138,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000085-artifact_part.arrow",
+      "digest": "9b252c00d835722da5cffdf4007bdb15c391af91b5293ca0d9a143085ee9db00",
+      "byte_length": 4147714,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000086-artifact_part.arrow",
+      "digest": "3574e2378b7d9365fb865ed2111ceb9b31e202bdd5a596692b670f5cf543adfa",
+      "byte_length": 4130138,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000087-artifact_part.arrow",
+      "digest": "c9df5248a42a43581fe74d58ed19ba77e74ebfabe9bc5efe5be8a48d629361a5",
+      "byte_length": 4144354,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000088-artifact_part.arrow",
+      "digest": "2cc36e82c8b4978d877c167247ec2d56664e47d32f6df8edc96d39c6e84d71cd",
+      "byte_length": 4158634,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000089-artifact_part.arrow",
+      "digest": "7896ef5290119a411306050458bef22b419e30a02cb730c1c488c5ccf172142d",
+      "byte_length": 4177882,
+      "family": "artifact_part",
+      "rows": 75
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000090-artifact_part.arrow",
+      "digest": "1d5c6676a7922d04ea1326d63b3feb8b76af382c994440d6ab4d4abcd0a4ec26",
+      "byte_length": 4158930,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000091-artifact_part.arrow",
+      "digest": "6ca5d67231150c87cb03b97e167c9be45adfb572d2780a527bb1525dced20319",
+      "byte_length": 4156026,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000092-artifact_part.arrow",
+      "digest": "1cdb53886357db3060d8a96c425ff811f6fc74f652dd35fadc740414b76851c7",
+      "byte_length": 4155498,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000093-artifact_part.arrow",
+      "digest": "0147eb41ed6995d664878bf42102295c2613a897f8f319fd8d265f6be4549582",
+      "byte_length": 4123698,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000094-artifact_part.arrow",
+      "digest": "21cf04a20edbee540797f9e86df988ecc93a6acd41d6394814d41bafc43bfe93",
+      "byte_length": 4162810,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000095-artifact_part.arrow",
+      "digest": "30304007b94cd0fbadce5052a2e9dbbceb1c3493d41ef70e52a3289d916532cd",
+      "byte_length": 4153258,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000096-artifact_part.arrow",
+      "digest": "ce1c73c749ee1b16a254649506ffe0a12fd17abe247c4df8c663cde70fb065e3",
+      "byte_length": 4168018,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000097-artifact_part.arrow",
+      "digest": "de808976400178ad6a43e1881759d5d3baf202be0cb61da2a807e3368472ffa4",
+      "byte_length": 4160794,
+      "family": "artifact_part",
+      "rows": 76
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000098-artifact_part.arrow",
+      "digest": "f1d4a7b97ef9da7e300daeeeb7553c40ddb08f7247899ff9ab6a11064d7e527f",
+      "byte_length": 4150258,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000099-artifact_part.arrow",
+      "digest": "e8ea2ee742c30173df5e4622ada62a9149d817d2347ca9eb06f7a4f5a149049a",
+      "byte_length": 4125538,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000100-artifact_part.arrow",
+      "digest": "0d691e33749dd7702469408e718fc7445912e046c650de233ed522372825e868",
+      "byte_length": 4116114,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000101-artifact_part.arrow",
+      "digest": "fafe85e05bcc482df8f08e51c712bbb618b73cb56a0069b0cb34f60cb013028b",
+      "byte_length": 4173914,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000102-artifact_part.arrow",
+      "digest": "2c895dac4b0f374fc2bd18b8ce3f00f5b5459aa563d5a5b603aba1dd37be5fbe",
+      "byte_length": 4166842,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000103-artifact_part.arrow",
+      "digest": "e0a1dfba6ca0687c56d2e063ea91ef22205fcc90698f0e719be43e2f2758240a",
+      "byte_length": 4120194,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000104-artifact_part.arrow",
+      "digest": "933babcf3603678935c464fd87e3e642f1ff469911f6282e8a63a924ee73ea3d",
+      "byte_length": 4148122,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000105-artifact_part.arrow",
+      "digest": "6b58f46073e2ae8e37560908b1ac593eb06e6e850c560607a39a9e083b1e0411",
+      "byte_length": 4161986,
+      "family": "artifact_part",
+      "rows": 76
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000106-artifact_part.arrow",
+      "digest": "1d9596aaa2ba8bce7cdef5a98aedbf8eec6e64456fdac0d4ddc5d8d0a420c988",
+      "byte_length": 4128490,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000107-artifact_part.arrow",
+      "digest": "9c3d07630497f4b40cac00e4145cc67f4721eea0aa81bcf37b653a8f3d633b60",
+      "byte_length": 4159186,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000108-artifact_part.arrow",
+      "digest": "cb49e5561f18b278359a07980fbb332b025a7db08349f7ad9f562a8a48903bb9",
+      "byte_length": 4167146,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000109-artifact_part.arrow",
+      "digest": "f7f66d0e018879135abc8c24c94f7325cc620dc331fec354c472aadccd73c55f",
+      "byte_length": 4136730,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000110-artifact_part.arrow",
+      "digest": "156bde45b30e03c2b83ecf503c300d6381d81e1f03bc417e4faf6abac9b5b165",
+      "byte_length": 4163746,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000111-artifact_part.arrow",
+      "digest": "0d4afc8192338da4ed0690a5a586f278818fdd6b3d237f80390bbbe93fefc7cd",
+      "byte_length": 4153050,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000112-artifact_part.arrow",
+      "digest": "8208f7b628093abcd130602e7ee5d82d9ff1a3f98df2381c6a54d8f283736f20",
+      "byte_length": 4131594,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000113-artifact_part.arrow",
+      "digest": "350f3aeb6c63aaf6ad759e0ec1920ddb8198f0778bffa8671f48c621ba98ef08",
+      "byte_length": 4128538,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000114-artifact_part.arrow",
+      "digest": "c012c227e49ac39f692952c32df9776d1db05e3327a962dc28ea0ab847e74dfa",
+      "byte_length": 4117538,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000115-artifact_part.arrow",
+      "digest": "387d810ad61a2699906619b50f7722631ae46cbcb8bee4ced592a3b1543b0eb6",
+      "byte_length": 4180346,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000116-artifact_part.arrow",
+      "digest": "1f6b7e830684c744081254f16a60fefbce969aa0662b96e85f5666c551744cdb",
+      "byte_length": 4163442,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000117-artifact_part.arrow",
+      "digest": "11c59ec78f26c369648129ae856f2e1eff044d2fe105b1a4f76019e210157e74",
+      "byte_length": 4152474,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000118-artifact_part.arrow",
+      "digest": "506b31b579d6ad30eaa19eb1850316f3aca82d0038d54149394e83fc4d7d7d17",
+      "byte_length": 4177458,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000119-artifact_part.arrow",
+      "digest": "4b485affc9d0da6a776b2b198ba9a7b3c2043959432af0871e7fac08783f4680",
+      "byte_length": 4132970,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000120-artifact_part.arrow",
+      "digest": "4b226c5864aa5f22be3d155ada5a7b543ed7f663a9b656e9f6a563b0adc62f54",
+      "byte_length": 4161234,
+      "family": "artifact_part",
+      "rows": 75
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000121-artifact_part.arrow",
+      "digest": "ed5cde24b84d1fc85bfbdb35265149a4abe7cf07e01be0bc86c2afd459d21db2",
+      "byte_length": 4143594,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000122-artifact_part.arrow",
+      "digest": "8d146242c9eda5f96e898319911ef6e86780d4836a49e0d1c5bfbc925d50febd",
+      "byte_length": 4131146,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000123-artifact_part.arrow",
+      "digest": "bc360d7bf9e637dbfc14ea260f6a0b5441cef001888a65df289603a46f23d7ad",
+      "byte_length": 4118490,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000124-artifact_part.arrow",
+      "digest": "86d522278cd3cc0c0e5fd6c64f4715ddd8c0f222e5fd191de0bddd4d538b73db",
+      "byte_length": 4178002,
+      "family": "artifact_part",
+      "rows": 70
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000125-artifact_part.arrow",
+      "digest": "b64c2b5580e2dc38d7030ddfaa10399446d0486873fc50b8cd15e60448b33271",
+      "byte_length": 4120490,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000126-artifact_part.arrow",
+      "digest": "06125196ca6a09ec843a77384d9d00778d60e571e51ebb69649e4ed215881a7f",
+      "byte_length": 4143914,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000127-artifact_part.arrow",
+      "digest": "f14a5cb7c43fde4e5e7ec9c059cecf383be3833ec2b5ebc8b5b04570f9963759",
+      "byte_length": 4122626,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000128-artifact_part.arrow",
+      "digest": "d305fc2d6fcc291bc9a2845e063763fc44485ca2f5a1baa7d0a4ff8e2df37c06",
+      "byte_length": 4177986,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000129-artifact_part.arrow",
+      "digest": "e3c84b08c1b4d3de422d93cdfb05ea411aacc045eb181fe6adce8092681841d5",
+      "byte_length": 4143906,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000130-artifact_part.arrow",
+      "digest": "13a2d9e75e5a931133af82d5cf0a52905f2bff5cd3241c32543b7e66937d1411",
+      "byte_length": 4128634,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000131-artifact_part.arrow",
+      "digest": "80d41d397cde1e43c30fc6fd7c4e921da294242932d8ca86504046be6f874edf",
+      "byte_length": 4173370,
+      "family": "artifact_part",
+      "rows": 76
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000132-artifact_part.arrow",
+      "digest": "8fc48b97d3171f0ca0132bc0262b5c6abf80328ab931e2b1d1ece3834b988fa4",
+      "byte_length": 4123874,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000133-artifact_part.arrow",
+      "digest": "2e698573113f9071429923f73dd6104943fdd7a24e609cf84b153302cd654efa",
+      "byte_length": 4157666,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000134-artifact_part.arrow",
+      "digest": "398bd7c27b1ee23c64b455fba5e12cbe06332b9d7885451b40a07f3e050142d9",
+      "byte_length": 4156050,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000135-artifact_part.arrow",
+      "digest": "2507292f5b769ec4bad19696bf5c2715317f5931e4139281fc0c8d56792a93e6",
+      "byte_length": 4147122,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000136-artifact_part.arrow",
+      "digest": "05ee62e6bc9973a6bd287b2c1693b18961a543ded000835d0fc2d9f05d49fcc9",
+      "byte_length": 4161506,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000137-artifact_part.arrow",
+      "digest": "c567498176910d0aa15f7619d1b14aad299d14f41d976c00d84fd8e22e5e8925",
+      "byte_length": 4143834,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000138-artifact_part.arrow",
+      "digest": "9bf9a1ef563ebea3870aea7249331708ec28e08a365abff3661b29352d93c444",
+      "byte_length": 4140506,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000139-artifact_part.arrow",
+      "digest": "e0ec5aff5ac06fce0a31ef74b0deb79d218e365bf8acf94b61f42ad2ec13cf38",
+      "byte_length": 4133234,
+      "family": "artifact_part",
+      "rows": 75
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000140-artifact_part.arrow",
+      "digest": "e01b475050d1dc711d8eb8f4c589be04c84abc7378a0350e7fc5f3571ac9f20a",
+      "byte_length": 4155250,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000141-artifact_part.arrow",
+      "digest": "a29e772d11698333fc7662fccc2e1159af630cf5bc5bfaabf90df80a6f688174",
+      "byte_length": 4140474,
+      "family": "artifact_part",
+      "rows": 75
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000142-artifact_part.arrow",
+      "digest": "7ddf3db1c04756018d95772e85b702f58326cb9a79b5721ca5532f8edf9e1185",
+      "byte_length": 4159346,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000143-artifact_part.arrow",
+      "digest": "b663c94200faabac7753a8ead932d7b92a27bf1f08d2e3c14f8b503a9d8f72d3",
+      "byte_length": 4115306,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000144-artifact_part.arrow",
+      "digest": "c3259432e51cc8fa5be731f19bd0ed427cbfc7dd63eeb7088c8c3eb11e007e64",
+      "byte_length": 4115506,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000145-artifact_part.arrow",
+      "digest": "6f05b967cfda2b474dc3ad5cd33242c0f60dc4a11ab69817938205926bf0b55b",
+      "byte_length": 4142586,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000146-artifact_part.arrow",
+      "digest": "c96bf08691f2c63a150d01cffa6e16247cf8270e39d43e3ec1018d42c69f4534",
+      "byte_length": 4142090,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000147-artifact_part.arrow",
+      "digest": "354e0ceef33e8126d5cb4137226c90b6bd62dfcf093af7ad5e0be807ab52f3bf",
+      "byte_length": 4127170,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000148-artifact_part.arrow",
+      "digest": "31f8feef8a1c8a7a2d26bf5122686eb462cc62cdb09d1f524acaec61afb7aada",
+      "byte_length": 4165322,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000149-artifact_part.arrow",
+      "digest": "41adc66d8d0bb5470bdf72523d4f157619b7df87748d0ed8f26675e93d127543",
+      "byte_length": 4135330,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000150-artifact_part.arrow",
+      "digest": "4aecfca5e493ce2aaeadff82f4ad1fcf01258309fa517f972c7931d5f62a6c05",
+      "byte_length": 4139746,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000151-artifact_part.arrow",
+      "digest": "ef9c7cb85cae3dc899e540bf88e1a27fbf4809c2c9aed7c71df34334037d0539",
+      "byte_length": 4152666,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000152-artifact_part.arrow",
+      "digest": "3b12a41a893c66b286ee75004a95418ab05955af63981949e3b93f1915f21eeb",
+      "byte_length": 4152362,
+      "family": "artifact_part",
+      "rows": 75
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000153-artifact_part.arrow",
+      "digest": "4b17047885a77f4a2a99b1a6a7c308c5eec52d081b15a8ff292f735e31e74d1f",
+      "byte_length": 4139490,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000154-artifact_part.arrow",
+      "digest": "cd75f3f60d57e06d6f5b977332d3b726e01f2e3a63b65039564f16671ea2e275",
+      "byte_length": 4144362,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000155-artifact_part.arrow",
+      "digest": "549998bf2cdd6dc7076e904d66e8b63e04363ee2dc5d878ac0af932a7b41e4d2",
+      "byte_length": 4151690,
+      "family": "artifact_part",
+      "rows": 76
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000156-artifact_part.arrow",
+      "digest": "1a19a40bba37cb9a188c224bbc1af470416df04f1560d5062cff35f7b5576f6a",
+      "byte_length": 4175234,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000157-artifact_part.arrow",
+      "digest": "5d27a7dae9d88a8a869cc6ff801177496d0de9ed1b91ca1b1fea056cd2dce450",
+      "byte_length": 4129002,
+      "family": "artifact_part",
+      "rows": 74
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000158-artifact_part.arrow",
+      "digest": "890f7ed6ebe99bfbed89db14c20f6e2b68da36ada3afb90c4ef05972ca3e4095",
+      "byte_length": 4173394,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000159-artifact_part.arrow",
+      "digest": "63cbe52c6f279682d7357758bb1fc2403c39a5f64420c2caa0e289a3b2407744",
+      "byte_length": 4158650,
+      "family": "artifact_part",
+      "rows": 71
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000160-artifact_part.arrow",
+      "digest": "12a9e8e7b82dadeca3a58f2426eacf06ad383d32947f26926c272469ba49177d",
+      "byte_length": 4121930,
+      "family": "artifact_part",
+      "rows": 72
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000161-artifact_part.arrow",
+      "digest": "fb5744f51388725bef69055cbbe1b2b2ec688c4b2141f52b42f69bbda04316c7",
+      "byte_length": 4146218,
+      "family": "artifact_part",
+      "rows": 73
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000162-artifact_part.arrow",
+      "digest": "eb34b67d3f5f02ca38aafcb351d26ce7bfc79930680c4395395e8c786ce768b0",
+      "byte_length": 4149138,
+      "family": "artifact_part",
+      "rows": 116
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000163-artifact_part.arrow",
+      "digest": "bc17deda7f2208789bdda6f43c051cec4cdf14be638eb544c7ece6b0e5dc0c51",
+      "byte_length": 4079626,
+      "family": "artifact_part",
+      "rows": 253
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000164-artifact_part.arrow",
+      "digest": "d61412356c87f0b291e6985689eb5b4b06957f67b15cc642d3cf16bd2b809ee4",
+      "byte_length": 4153994,
+      "family": "artifact_part",
+      "rows": 171
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000165-artifact_part.arrow",
+      "digest": "0b4b1b4fcd4dfc4347da71203c007c4af288a2488d5b91a233229d489c1b1467",
+      "byte_length": 4128474,
+      "family": "artifact_part",
+      "rows": 175
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000166-artifact_part.arrow",
+      "digest": "f020bd342d0ee90f5fd4d8fb1c1361420b4c715d93e1dd75613cd35f11cf75ea",
+      "byte_length": 4110050,
+      "family": "artifact_part",
+      "rows": 212
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000167-artifact_part.arrow",
+      "digest": "d56d936469b6e4c53acbb773bf3315849b57cc7cbb4875e77d8164f7bdaed19b",
+      "byte_length": 4124962,
+      "family": "artifact_part",
+      "rows": 204
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000168-artifact_part.arrow",
+      "digest": "953ccc44b1050987727ce37ee2dac2edac879d0631a91826af84c431a5794e35",
+      "byte_length": 4133218,
+      "family": "artifact_part",
+      "rows": 173
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000169-artifact_part.arrow",
+      "digest": "d5704b65eeb181284bb509d47d563f0b06af40cbdd8eb5f94d9d88faea005573",
+      "byte_length": 4150074,
+      "family": "artifact_part",
+      "rows": 153
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000170-artifact_part.arrow",
+      "digest": "e02091ee740b5d28057a09fe923533f9a579773ef221124af4438addb11cd108",
+      "byte_length": 4156042,
+      "family": "artifact_part",
+      "rows": 132
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000171-native.arrow",
+      "digest": "6dcbe69d40f9c6235e6e6ca2bf3599a7f92d49813143b21c70ebdafeccc03217",
+      "byte_length": 2667602,
+      "family": "native",
+      "rows": 6965
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000172-membership.arrow",
+      "digest": "ae6571c083137edc17a3a07019a8faecbf4da3af10e96a8f44ab54ea10274310",
+      "byte_length": 2016858,
+      "family": "membership",
+      "rows": 9775
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000173-native.arrow",
+      "digest": "0e767c55af5d4410e769714fa48b5ac806c267c5ba555d7852b471eab92ad0f6",
+      "byte_length": 2674234,
+      "family": "native",
+      "rows": 6935
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000174-membership.arrow",
+      "digest": "a9e4887d4bd18cd2bf9d830745064c10f3d91a1b03ae2002b6d4dc97854b2b9e",
+      "byte_length": 2019226,
+      "family": "membership",
+      "rows": 9763
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000175-native.arrow",
+      "digest": "3ceb75e634c4c5aaeb36a10dbf2a4b09f04795f578ae907df083f463d2512378",
+      "byte_length": 2654058,
+      "family": "native",
+      "rows": 7028
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000176-reference.arrow",
+      "digest": "c7da102bd414bce5e218a6099780b31f56c78adf386331d18617e72a30c00ba8",
+      "byte_length": 2098154,
+      "family": "reference",
+      "rows": 9387
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000177-native.arrow",
+      "digest": "6d4a2df315b5886106c15650732ea80bd2d9da9b5b450dd9664c25c7c2ade771",
+      "byte_length": 2560410,
+      "family": "native",
+      "rows": 7453
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000178-membership.arrow",
+      "digest": "9a127fb46549baccab91a2dc73f25d83401f66913a37a187a38b3919f7caf719",
+      "byte_length": 2063986,
+      "family": "membership",
+      "rows": 9563
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000179-reference.arrow",
+      "digest": "703bf709d8ef6c470d791a6779a005a45f44b6290fc031d159401109fd5ec9b4",
+      "byte_length": 2101594,
+      "family": "reference",
+      "rows": 9373
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000180-native.arrow",
+      "digest": "f7c73db704417fcbeb3d9e4ccb499879c25ba4c7393fbae4c231d06f2beccbb5",
+      "byte_length": 2381594,
+      "family": "native",
+      "rows": 8268
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000181-membership.arrow",
+      "digest": "0b52ba21543f66cf0a4f6f5523a4c772d44615a06a0cdbd29013d0e58a39b1cc",
+      "byte_length": 2133738,
+      "family": "membership",
+      "rows": 9251
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000182-native.arrow",
+      "digest": "f62043f35becf63cd77f7f374d4258ddd58c02903bcbd0e69f1d46f81dd5e850",
+      "byte_length": 2613730,
+      "family": "native",
+      "rows": 7211
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000183-native.arrow",
+      "digest": "025f7da32f28badfe5ffd21ef5e7b9e4ea44cc5ce508cb24816b9b63e5d2bf52",
+      "byte_length": 2837826,
+      "family": "native",
+      "rows": 6192
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000184-membership.arrow",
+      "digest": "70cb703a3e6657009735ba10375ebd8159dff54ef631658363769edbed61c1a8",
+      "byte_length": 2014418,
+      "family": "membership",
+      "rows": 9786
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000185-native.arrow",
+      "digest": "130e57e3b6205f84d8d96e28f08cbcd4847b50ae5b5d502ffc5fcc269fa8ab90",
+      "byte_length": 2762314,
+      "family": "native",
+      "rows": 6534
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000186-native.arrow",
+      "digest": "2d33b4e9212d6e5bd422604d7f8c0bb1fd045b7acde5df9ba490a68f5b0a6371",
+      "byte_length": 2784626,
+      "family": "native",
+      "rows": 6433
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000187-membership.arrow",
+      "digest": "f73a3135e5dc4f377797a59f5ef19ddbec3099758a7b5f927e16e6bb174998b6",
+      "byte_length": 1974714,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000188-reference.arrow",
+      "digest": "1b20e84bd9103bcaa6c89850c669d807384049841f868755af0f68f2ebf29b73",
+      "byte_length": 2098450,
+      "family": "reference",
+      "rows": 9387
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000189-native.arrow",
+      "digest": "dfcd2b81deb9dccc3d6d3a69cb0f365b62c0c5b0c95c6b3399bf04466524774b",
+      "byte_length": 2762794,
+      "family": "native",
+      "rows": 6532
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000190-membership.arrow",
+      "digest": "2c33cb58ecafabd29a88044fdb625f7c697a40ac99e10da004dee82387b1eab0",
+      "byte_length": 1974490,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000191-native.arrow",
+      "digest": "25459bb6963202dbab72246dfb20bf23092f6594796b2f9ce1f122ace621f7c7",
+      "byte_length": 2779106,
+      "family": "native",
+      "rows": 6459
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000192-native.arrow",
+      "digest": "f6ab43ca9a4a9d0f66b2e213b86c31e822ba817a248604dff7f8d9196b80e541",
+      "byte_length": 2780002,
+      "family": "native",
+      "rows": 6455
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000193-membership.arrow",
+      "digest": "1d96a03b1192496b80971ca14bd3570ce0853d32316a8b12ed118ae44d078e04",
+      "byte_length": 1974818,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000194-native.arrow",
+      "digest": "2515b81a6dd6c43375da47700b699c8acbfeb5978154881c1f7c8fb294c051d2",
+      "byte_length": 2772434,
+      "family": "native",
+      "rows": 6488
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000195-membership.arrow",
+      "digest": "ae9da9258b6439e03012e3cd6e36099c267162da95fc7b9940823f4e9c1ba552",
+      "byte_length": 1974754,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000196-native.arrow",
+      "digest": "b30ff63ed749a4077acdfb7c4ec56a65ec321d96c8cbb39ff7f7653350678570",
+      "byte_length": 2794386,
+      "family": "native",
+      "rows": 6390
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000197-native.arrow",
+      "digest": "c03b029e14e213db4e27a2fe9f84186a886dc44039482ea0860faa1bf394693d",
+      "byte_length": 2783946,
+      "family": "native",
+      "rows": 6436
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000198-reference.arrow",
+      "digest": "88e3161355653adb5567d35c05198a450cde6bdb1cfd9a18000eace1ff21421b",
+      "byte_length": 2093402,
+      "family": "reference",
+      "rows": 9408
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000199-membership.arrow",
+      "digest": "e2a29433920c9dc1730e38f766f1f3813f4008dd2b67ec939540ba8c3d4400da",
+      "byte_length": 1974618,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000200-native.arrow",
+      "digest": "9915941a2cc3e33da5a348941590e916a05ed253fb33147041acf15d143095a3",
+      "byte_length": 2767378,
+      "family": "native",
+      "rows": 6513
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000201-membership.arrow",
+      "digest": "16f0bd719ef669f664e28053c8b109e472de463c0979896d0d366f06665ae704",
+      "byte_length": 1974642,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000202-native.arrow",
+      "digest": "e36398e49f87417724fba1f50cda9cd8fe65e0e194a47379ad7d004e67b73f52",
+      "byte_length": 2777954,
+      "family": "native",
+      "rows": 6464
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000203-native.arrow",
+      "digest": "5be79e1a6462bcf73daf2856c4e5676e1d7d85e87fdc2459a4289a2bdc0ec218",
+      "byte_length": 2786738,
+      "family": "native",
+      "rows": 6423
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000204-membership.arrow",
+      "digest": "2567deb5916170f8b3ad00245de4c953eec13496d7eaa75ee6cc0a0824e10a09",
+      "byte_length": 1974618,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000205-native.arrow",
+      "digest": "b9650978e6cb27a83705434816c7ec2ef13147dd6a540eb9a112790e0c2c9538",
+      "byte_length": 2774474,
+      "family": "native",
+      "rows": 6479
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000206-membership.arrow",
+      "digest": "a8078836a94bf15d36fe495f4f3bde5625ea54b1d3e681d0c98c1c93356603cc",
+      "byte_length": 1974666,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000207-native.arrow",
+      "digest": "f17bfbb3c790cc820e13c9b2c970e60778d02439b4e8262319d1b1624fd34f41",
+      "byte_length": 2772826,
+      "family": "native",
+      "rows": 6487
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000208-native.arrow",
+      "digest": "801e947f15a43ac79cf568c7721909344ea00c8dc0d95c16295ba2511f116dc3",
+      "byte_length": 2778690,
+      "family": "native",
+      "rows": 6461
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000209-reference.arrow",
+      "digest": "f40e60d5f063ca3279cdcc30340157134c9ae741ee527fc7b12f586f060b272c",
+      "byte_length": 2090314,
+      "family": "reference",
+      "rows": 9422
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000210-membership.arrow",
+      "digest": "0a373f3d6f7c18819a0116a225e9263be073f0108b17d4a56fd45a3abc5f91e6",
+      "byte_length": 1974626,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000211-native.arrow",
+      "digest": "b7ddd407315efd9905c7621a1ef86293b6fdf688c5bf42ededf841f3ab03cd62",
+      "byte_length": 2776154,
+      "family": "native",
+      "rows": 6473
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000212-native.arrow",
+      "digest": "bb34144265586e1aa755d589bf1c836f24dfaad5f6854a799391b7c493daf467",
+      "byte_length": 2775794,
+      "family": "native",
+      "rows": 6473
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000213-membership.arrow",
+      "digest": "8be64ac1c3af9f16727f18d06aa9f715089d53452e85b5d7c5d887e3b1617d18",
+      "byte_length": 1974498,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000214-native.arrow",
+      "digest": "d27b3b05f966f024cfc5a64cfbbd18d22d9bdbb1d16cc64873c87c87b949e134",
+      "byte_length": 2790650,
+      "family": "native",
+      "rows": 6405
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000215-membership.arrow",
+      "digest": "fe1a08136082ff521f6ea6b2bbe3366c410e7d5264082521590d0727bc8c8e15",
+      "byte_length": 1974746,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000216-native.arrow",
+      "digest": "a1320737d3f2795e881f017551aa452ec039f4d0aa30dff987b4daccf65ff444",
+      "byte_length": 2792834,
+      "family": "native",
+      "rows": 6397
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000217-native.arrow",
+      "digest": "925cd576c17662ab88904542630a5926a662bc72d7a8e25c24a3b60da36f56ce",
+      "byte_length": 2775226,
+      "family": "native",
+      "rows": 6476
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000218-membership.arrow",
+      "digest": "2582552d2c1f17c7cd8338dfb357daadc10b7843f0d1097ea710028a846e1e06",
+      "byte_length": 1974722,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000219-reference.arrow",
+      "digest": "ba97db8490ae78a87c3bceaaecbc6627156616b5d71d21295551b24dffc025c8",
+      "byte_length": 2092266,
+      "family": "reference",
+      "rows": 9414
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000220-native.arrow",
+      "digest": "4e23fbbf702d2f004e7111e8015c1ca6c89343e50f72e0a963841b4329eab9ae",
+      "byte_length": 2777994,
+      "family": "native",
+      "rows": 6461
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000221-membership.arrow",
+      "digest": "a1ad74875e51bea8c2f9be139e24d74a6086c83a2d1401f3272788939ced2b1a",
+      "byte_length": 1974602,
+      "family": "membership",
+      "rows": 9964
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000222-native.arrow",
+      "digest": "0f732f1d343039dcaedeaebc020d81f7c7c1ca470340cb81dbbde24140226c99",
+      "byte_length": 2769122,
+      "family": "native",
+      "rows": 6505
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000223-native.arrow",
+      "digest": "81783105a35b24e26eae788cd35fb58e951c4eb25520b8e52d9dcb35038d740b",
+      "byte_length": 2786290,
+      "family": "native",
+      "rows": 6426
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000224-membership.arrow",
+      "digest": "30238928d24350da2a9ed0cfd6e2751d8ab27601f70d36e5fc1c541584dba24d",
+      "byte_length": 1974514,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000225-native.arrow",
+      "digest": "4e7b0af976fb41b2ecc0017a2c7fea0f41d53cd8212f7163a5b6a629c5d9cf52",
+      "byte_length": 2790594,
+      "family": "native",
+      "rows": 6405
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000226-membership.arrow",
+      "digest": "e1e2fbfe8bccc4516d9f31a7045019960ffa4e8b6da17a838c635ed4698aa35c",
+      "byte_length": 1974482,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000227-native.arrow",
+      "digest": "d882973dc68f7690ed39e3107e7cac7d6496374789c883f902031bf48fc1f07f",
+      "byte_length": 2785450,
+      "family": "native",
+      "rows": 6431
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000228-native.arrow",
+      "digest": "e436751e74aa85dc1d7ca6974f5254ae05f3e678e301fc3a6aa8b60a1643f17c",
+      "byte_length": 2785234,
+      "family": "native",
+      "rows": 6431
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000229-membership.arrow",
+      "digest": "66663f11c2ffd6f7c703242c914ac71e7681ceb5b0c3bc0d919ef61a810ec566",
+      "byte_length": 1974650,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000230-reference.arrow",
+      "digest": "71e5ef1796386bf0103eff48a1e9ec80b9994b53b90286ec0a4b4519302162b0",
+      "byte_length": 2092274,
+      "family": "reference",
+      "rows": 9414
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000231-native.arrow",
+      "digest": "cf6db6f693fdd3136bf3854b1ecce025363035f9ffbb13c3f48109ce848c0d79",
+      "byte_length": 2790570,
+      "family": "native",
+      "rows": 6408
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000232-membership.arrow",
+      "digest": "e7ca6479841e380e3fb830940bf38e8f0b0b5c1191e661e262d62d78fef50553",
+      "byte_length": 1974810,
+      "family": "membership",
+      "rows": 9963
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000233-native.arrow",
+      "digest": "f72481d2bcfece354d1304bc25c10300462ad637e4848bc77b7eabbbfe576a2b",
+      "byte_length": 2798298,
+      "family": "native",
+      "rows": 6372
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000234-native.arrow",
+      "digest": "0d022bf4ee59db2026f4f14586e81c8197e9016f1cd6cc2be619d9e5a8ff7839",
+      "byte_length": 2442522,
+      "family": "native",
+      "rows": 7990
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000235-membership.arrow",
+      "digest": "2a8d402ea90061f1f5759b6b9a72009ca50552c126eea42dfead50137b777dc3",
+      "byte_length": 2098554,
+      "family": "membership",
+      "rows": 9408
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000236-reference.arrow",
+      "digest": "cfe9ff8d964312673e01ed996d69aeb7cd57919fa30f775301e6741e686636c6",
+      "byte_length": 2104922,
+      "family": "reference",
+      "rows": 9358
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000237-native.arrow",
+      "digest": "ee4e97b7f2184192ff73bdb60f2cff066065749795aa141053224765fb9d6a3f",
+      "byte_length": 2216306,
+      "family": "native",
+      "rows": 9019
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000238-membership.arrow",
+      "digest": "ae970a131ba475a2ad1c7f9c0a44b47d37ab09eca1412ee3e48ae899a1d7b5cc",
+      "byte_length": 2135442,
+      "family": "membership",
+      "rows": 9238
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000239-reference.arrow",
+      "digest": "c1540019d33324fe257358a344cc816acea5488ceca03fea1e5199be4f79a920",
+      "byte_length": 2114034,
+      "family": "reference",
+      "rows": 9316
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000240-native.arrow",
+      "digest": "3c49e7f1892e3fe1c3fbeb60368170645dffbb4b455da990f21a3497532315ca",
+      "byte_length": 2221506,
+      "family": "native",
+      "rows": 8996
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000241-membership.arrow",
+      "digest": "342c94187fb36028d3d38af5f2b24512d609d24f7f7343ecb72944581869ef23",
+      "byte_length": 2135442,
+      "family": "membership",
+      "rows": 9238
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000242-reference.arrow",
+      "digest": "6096860347e03f44fbc2e4e1bb07b028d4118ff159aeab0ed28ff52d41695ff7",
+      "byte_length": 2114410,
+      "family": "reference",
+      "rows": 9315
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000243-native.arrow",
+      "digest": "3c8c64c88bdbbdc256b3c74fc8b1a2c8b09820fb0287bae194d20d1c7643513b",
+      "byte_length": 2221346,
+      "family": "native",
+      "rows": 8995
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000244-membership.arrow",
+      "digest": "edf24b3dc9d236ea48086db5c2edfe23c4deffec2e9099340fff19f6699dfae4",
+      "byte_length": 2135442,
+      "family": "membership",
+      "rows": 9238
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000245-reference.arrow",
+      "digest": "5db792edd87b80f32ea7786c24bc8afc4a26acbff84ca7c9a1f5a8fb82e8a02f",
+      "byte_length": 2114458,
+      "family": "reference",
+      "rows": 9315
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000246-artifact_stream.arrow",
+      "digest": "ebc692df24fe478d28621b6523126f7fa7473baf8c0327cd83415049dde99970",
+      "byte_length": 1649946,
+      "family": "artifact_stream",
+      "rows": 6120
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000247-artifact_part.arrow",
+      "digest": "c9f6d61b6e9e030a9e825985e47397f58a7db607f9cd74e9d1c13ece0e78cfb3",
+      "byte_length": 3581690,
+      "family": "artifact_part",
+      "rows": 1441
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000248-native.arrow",
+      "digest": "fb5e7bf6e582d8b8e55aeb1c6b0a591ccef31fcd76c95d0c1fdd35a811595436",
+      "byte_length": 1918602,
+      "family": "native",
+      "rows": 7763
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000249-membership.arrow",
+      "digest": "f8c57d80b00aea8a10c526e6d318d0aa66414e0006d6dccbd43cfd7ca2df1533",
+      "byte_length": 1138282,
+      "family": "membership",
+      "rows": 4912
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000250-reference.arrow",
+      "digest": "fd8668296fc44f208895c03af97e454d5e9c96ac1539075d8cef54deac4e19b2",
+      "byte_length": 689762,
+      "family": "reference",
+      "rows": 3025
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/pdf-remaining-native-finalization-fourth/records/00000251-header.arrow",
+      "digest": "1482be23f749353dd2abf31c4304c81063efdac87add93f44a75b5292dd55b6e",
+      "byte_length": 4978,
+      "family": "header",
+      "rows": 1
+    }
+  ]
+}

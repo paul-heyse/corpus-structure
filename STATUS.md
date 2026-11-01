@@ -1,5 +1,5 @@
 # Status
-_Updated 2026-11-01; private PDF streaming/staging implemented; whole-book publication/adoption incomplete._
+_Updated 2026-11-01; relational PDF publication/readers scoped-tested; deployed book adoption remains incomplete._
 
 ## Current checkpoint
 
@@ -7,28 +7,25 @@ _Updated 2026-11-01; private PDF streaming/staging implemented; whole-book publi
 - New plan authoring checks and evidence limits are recorded in its adoption/validation owner; current product qualification remains with existing owners.
 
 - [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns package/O/I disposition.
-  PDF-13–16 implement one Docling content graph with mandatory multi-input lineage, governed
-  selection, scoped coverage and singular downstream readers. PDF-17–19 foundation plus private
-  PDF-22/23 and the minimum PDF-20 staging prerequisite are implemented. PDF-21/24/25 remain planned.
-- ADR-0040 governs full Standard+RapidOCR/Nemotron3.5 true triple pass and retirement of historical
-  HTML runtime/read/replay compatibility. Frozen migrations, historical data and evidence remain inert.
-- Owned `corpus_pdf_20261031` is at0060;0061–0064 are undeployed. Source ABI16/relational
-  compiler4/core0.6.4, deployed compiler14/core0.6.2; full Docling2.145/core2.105 and
-  native schema1.10.0 are bound. Isolated Python3.12/vLLM0.26 runs actual RTX5090 MTP/effectiveFA2;
-  stable model/environment remain retained; the dedicated inference service is shut down.
-- Actual all-page recognition passed:1589 A,1589 B,261 C,1433 valid zero-C pages. Two primary
-  length/repetition failures recovered under a separately bound repetition1.3 recipe; originals stay failed.
-- Fresh composed toy publication passed in run7/task70. Native list/cell/lexical and shared chart
-  provenance corrections retain their earlier receipts; whole-book failed/interrupted attempts remain.
-- Book attempt6/run13/task86 reached protected publication but its270447 relations exceeded
-  PostgreSQL's JSONB array limit. Exact558190320-byte prepared replay and native field-cast results
-  are retained. ADR-0041/0060 implements JSON-text decomposition into existing normalized rows.
-  Attempt7 passed that cast, then was cancelled during child validation; no integrated product committed.
-  Committed0061 replaces the correlated child check with one shared set join; book-scale validation is open.
-- New explicit native-stream recipe retains page assemblies/raster/candidates, streams verified IPC
-  and adopts private modeled rows under maintained claims; completion-driven recognition and
-  Arrow/DuckDB reconciliation preserve native selection. Native global finalization remains
-  materialized by operator selection; strict I14 stays open. No source/public default changed.
+  PDF-20/21 publication and PDF-24 selected readers/exports are implemented with scoped controls.
+  PDF-25 exact-envelope migration/explicit resume adapters are ready; actual cutover remains open.
+- Owned `corpus_pdf_20261031` remains0060/compiler14/core0.6.2;0061–0065 are undeployed.
+  Source ABI17/relational compiler4/core0.6.4 binds full Docling2.145/core2.105/schema1.10.0.
+  Reviewed0065 authoring, native actual-record identity, freeze/validate/seal and pinned readers
+  preserve private progress and atomic published visibility. No source/knowledge default changed.
+- ADR-0043 separates verified byte folds from optional export SHA. ADR-0044 uses model-derived
+  native JSON Schema for exact metadata; pinned pg_jsonschema0.3.4 is provisioned in the dedicated
+  templates/owned database. This did not migrate the application's semantic schema.
+- Native global replay passed over1589retained pages; fresh current pages20/1211 passed.
+  Explicit native-class replay and actual1.67formula raster scale correct prior failures.
+  Global graph finalization remains materialized; strict streaming is deferred under I14.
+- Actual prior all-page recognition and exact558190320-byte integrated witness remain retained.
+  The new storage derivation verified192computed grids across107tables/85chart tables.
+  No whole-book integrated product or new completed knowledge result was committed.
+- OCR evidence is retained (24.1MB region JSON;35.7MB candidate files). Empty-region warnings
+  retain qualified diagnostics; no universal harmlessness/Nemotron recovery claim is made.
+- All owned jobs are settled and auxiliary worktrees removed; integrated edits are on main.
+  The dedicated Nemotron service remains down with its model/environment retained.
 - [Logging plan series](docs/plans/structured-logging-observability_2026-11-01.md): LOG-00 bounded
   choices settled: structlog/stdlog + scoped Logbook + direct OTel; no production runtime installed. I01–I03 probes passed; I04 primitive direction selected, integrated lifecycle still open.
   I05 partial: hard cleanup deadline unestablished. I06 local contract passed; live read blocked
@@ -36,25 +33,24 @@ _Updated 2026-11-01; private PDF streaming/staging implemented; whole-book publi
 
 ## Verification
 
-- **passed:** streaming/private-stage functional union314cases:312 passed initially, two stale
-  fixture assumptions repaired, affected file14 passed (overlap, not summed). Global `just types`,
-  `uv run ruff check python/corpus-structure` and `just model check` passed. [Runtime receipts](docs/design_review/evidence/2026-11-01_pdf-streaming-runtime/README.md).
-- **passed:** actual two-page native inference/differential; controlled-provider IPC with actual
-  PostgreSQL custody. Retained1589-page native graph lowered/verified into83 IPC files, largest
-  batch2885993bytes. This is not fresh whole-book inference, final seal or bounded global memory.
-- **passed:** earlier PDF-17–19 foundation/schema union394tests retains its dated scope. [Foundation receipts](docs/design_review/evidence/2026-11-01_pdf-record-foundations/README.md).
-- **passed:** `just test-all`0060 baseline2643 Python tests/10warnings, complete reporting and stable source.
-  Receipt `build/test-receipts/qualification/20261101T042650Z-4190256`; zero listed Rust tests establish
-  no Rust functional coverage. This broad pass precedes0061 and is not whole-book acceptance.
-- Earlier0060/0061 bounded, typing/lint and lifecycle receipts retain their original scope; failed/interrupted broad records remain archived. Cosmetic formatting does not invalidate them.
-- **not_run:** current external MCP/render/export journey, actual five-section extraction,
-  independent full-section A/B/C authors, registration/grading and completed-result/default selection.
-- **failed:** `just docs-check` on existing parsing-profile and moved logging-library links;
-  product typing/lint results above are passed. Own plan links are checked separately.
+- **passed:** selected121-case union117initial passes plus four repaired affected controls
+  (overlapping, not125). Actual publication/readers/staging, producer/grid, closure and source
+  controls are detailed in [new receipts](docs/design_review/evidence/2026-11-01_pdf-publication-adoption/README.md).
+- **passed:** `uv run pyrefly check --min-severity warn --summary=none`, `uv run ruff check .`,
+  `just model check`, `just ready`; corrected fixture scopes also passed Pyrefly/Ruff.
+- **passed:** `just evidence`: three new finalized records;0errors/38existing warnings globally.
+- **partial:** full-book fresh native worker failed, retained assembly/enrichment replay passed;
+  fresh corrected selected-page workers passed. This is not a rerun of the full corrected worker.
+- **passed:** earlier0060 `just test-all`2643Python tests/10warnings retains its original scope;
+  receipt `build/test-receipts/qualification/20261101T042650Z-4190256`. No new full union is claimed.
+- **not_run:** current full `just test-all`,0065 deployment, book migration/seal/read/export,
+  external MCP/render, five-section extraction, independent references/grading and default selection.
+- Earlier `just docs-check` failed on existing parsing-profile/moved logging-library links.
+  Earlier failures/interrupted receipts remain; formatting does not invalidate applicable checks.
 
 ## Next
 
-Continue [PDF-21 freeze/seal/publication](docs/plans/pdf-docling-pipeline/staged-publication-and-validation.md),
-then PDF-24 selected readers/exports and PDF-25 deployment/adoption. Private producer/staging
-mechanisms are implemented and scoped-tested; actual book publication and consumer journeys remain
-open. Acceptance still requires five-section extraction, independent references and automated grading.
+Review [publication](docs/plans/pdf-docling-pipeline/staged-publication-and-validation.md), then deploy0065
+and run the retained migration driver. Assess bounded native schema-compilation amortization before
+book-scale acceptance; complete remaining integrated failure/concurrency and external/provider journeys.
+PDF-10/11 still own five-section extraction, independent automated grading and completed-result adoption.

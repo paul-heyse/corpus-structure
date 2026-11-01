@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "id": "publication.scoped-integration",
+  "title": "Scoped relational PDF publication and consumer integration",
+  "group": "pdf-docling-pipeline",
+  "package": "PDF-21",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the integrated native publication, byte-field readers and producer adapters satisfy their selected controls before deployment?",
+  "answers": [
+    "PDF-20",
+    "PDF-21",
+    "PDF-24",
+    "I17",
+    "I18",
+    "ADR-0044"
+  ],
+  "method": "Run the selected121-case union against actual PostgreSQL and controlled producer interfaces. Retain117passing cases and four original harness failures; repair two active-helper mutation targets and two spawn entrypoint imports, then rerun those affected controls. The final active-helper controls use strict marker/config settings.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/semantic/test_pdf_publication.py python/corpus-structure/tests/semantic/test_pdf_publication_identity.py python/corpus-structure/tests/semantic/test_pdf_record_reader.py python/corpus-structure/tests/semantic/test_pdf_companion_field_reader.py python/corpus-structure/tests/semantic/test_pdf_record_context.py python/corpus-structure/tests/semantic/test_pdf_access_correspondence.py python/corpus-structure/tests/semantic/test_pdf_staging.py python/corpus-structure/tests/semantic/test_native_closure.py python/corpus-structure/tests/semantic/test_source_views.py python/corpus-structure/tests/ingest/test_pdf_assembly.py python/corpus-structure/tests/ingest/test_pdf_streaming.py python/corpus-structure/tests/ingest/test_pdf_retained_stream.py python/corpus-structure/tests/orchestrate/test_pdf_published_execution.py python/corpus-structure/tests/orchestrate/test_source_reader.py python/corpus-structure/tests/test_db_fixtures.py -q --maxfail=6",
+    "uv run pytest python/corpus-structure/tests/semantic/test_native_closure.py::test_forward_reproduction_still_detects_current_function_change python/corpus-structure/tests/semantic/test_native_closure.py::test_forward_reproduction_still_detects_current_identity_helper_change --strict-markers --strict-config",
+    "uv run pytest python/corpus-structure/tests/ingest/test_pdf_streaming.py::test_worker_adopts_replay_before_terminal_result python/corpus-structure/tests/ingest/test_pdf_streaming.py::test_partial_stream_disposes_containing_worker",
+    "uv run pyrefly check --min-severity warn --summary=none",
+    "uv run ruff check . --output-format concise",
+    "just model check",
+    "just ready"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "command-receipts.json",
+      "role": "scope-and-command-log-inventory",
+      "sha256": "564b603d9d3e87d08f98fd38d07349feb970677216b89343ef958e6525463ee5"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/command-receipts.tar.gz",
+      "role": "passing-and-failed-command-receipts",
+      "sha256": "41893f4cea10a0e5af96a573deb7eea521f39d72e69ea9b5b8be274db9693f36"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "selected union cases",
+      "value": 121,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "initial passing cases",
+      "value": 117,
+      "of": null,
+      "unit": "cases",
+      "note": null
+    },
+    {
+      "name": "repaired affected controls",
+      "value": 4,
+      "of": null,
+      "unit": "cases",
+      "note": "Included in121; not additional cases."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Selected actual PostgreSQL freeze/private preparation/native callbacks/seal/replay/heartbeat, model-derived NUL-safe metadata validation, exact byte-field reads/exports and producer/control interfaces passed. Four corrected test assumptions are covered by focused controls. Global warning-inclusive Pyrefly and Ruff passed; corrected fixture scopes also passed. This is bounded component integration, not complete publication failure coverage, deployed0065, actual whole-book integrated seal/export, external CLI/MCP, provider extraction, grading or adopted defaults. Native pg_jsonschema compilation remains per row.",
+  "consumed_by": [
+    "PDF-20",
+    "PDF-21",
+    "PDF-24",
+    "PDF-25",
+    "pdf-docling-pipeline coordinator"
+  ]
+}

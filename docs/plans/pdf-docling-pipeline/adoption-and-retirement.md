@@ -191,7 +191,21 @@ this documentation revision.
 <a id="PDF-25"></a>
 ## PDF-25 — Retained-data migration and structural cutover
 
-**Planned, 2026-11-01.** Implements the migration consequences of [streaming review O01–O06](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md) and [target §8](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`. Consumes working PDF-18–24 mappings, custody, seal, producers and readers. PDF-10 owns actual operational adoption/default selection; PDF-11 owns final qualification. This package supplies their migrated products and compatible deployed contracts, not a duplicate acceptance queue.
+**Adapters implemented; deployment/cutover not_run, 2026-11-01.** Implements the migration consequences of [streaming review O01–O06](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md) and [target §8](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`. Consumes working PDF-18–24 mappings, custody, seal, producers and readers. PDF-10 owns actual operational adoption/default selection; PDF-11 owns final qualification. This package supplies their migrated products and compatible deployed contracts, not a duplicate acceptance queue.
+
+`ingest.pdf_retained_stream` streams exact retained envelopes into companion journals and binds
+the verified historical serialization separately from the successor logical product. The native
+projection removes only checked serializer-computed `TableData.grid` fields: supplied declared
+fields and computed values must exactly match the pinned native class; unknown fields, coercion,
+mutation and changed grids refuse. Actual retained-book derivation passed for192grids across
+107tables/85chart tables, preserving1589pages and exact historical bytes. No inference or native
+product admission was performed by that check.
+
+The prepared [migration driver](../../design_review/evidence/2026-11-01_pdf-publication-adoption/migrate_retained_book.py)
+uses the actual retained task configuration, source and production release/task/publication APIs.
+It supports explicit open/frozen/published recovery and does not finalize knowledge or select
+defaults. It has not executed database writes. Deploy reviewed0065, assess bounded native schema
+compilation, then run actual migration/seal/read/export and the remaining adoption journeys.
 
 Create new semantic/physical releases and forward Alembic/native migrations after PDF-17's successor ADR. Preserve every frozen revision, including committed undeployed0061. Reproduce current admission helper/CHECK/descriptor contracts from their semantic owners; incorporate the child-edge access correction in the new guard without requiring deployment/qualification of the superseded monolithic route first. Decide necessary upgrade prerequisites from the actual migration chain, not a fabricated clean database assumption.
 

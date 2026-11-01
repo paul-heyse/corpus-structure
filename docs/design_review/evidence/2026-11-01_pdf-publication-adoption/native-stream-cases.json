@@ -1,0 +1,161 @@
+{
+  "scope": "fresh selected-page native producer only; no database publication or whole-book claim",
+  "cases": [
+    {
+      "page": 20,
+      "status": "success",
+      "native_types": [
+        "BoundingBox",
+        "DoclingDocument",
+        "DocumentOrigin",
+        "FormulaItem",
+        "GroupItem",
+        "ListGroup",
+        "ListItem",
+        "PageItem",
+        "PictureItem",
+        "ProvenanceItem",
+        "RefItem",
+        "SectionHeaderItem",
+        "Size",
+        "TextItem"
+      ],
+      "replays": [
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/20/pages/page-000020.json",
+          "digest": "106da20c06660cf074bf853bfb6b1ea1b460cd7dd97b74f23f46b153c5972cdd",
+          "byte_length": 131048,
+          "family": "page",
+          "rows": 0
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/20/records-occurrences/00000000-occurrence.arrow",
+          "digest": "8b51977023a8c557a754bd56794f2a4b3c52f49939c5931a4bfba42d43d7794b",
+          "byte_length": 32242,
+          "family": "companion:occurrence",
+          "rows": 71
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/20/records/00000000-artifact_part.arrow",
+          "digest": "bbf36742f3798d321aef44c14dfefeb5760386aee64af69ca0fd9239b711cb19",
+          "byte_length": 449098,
+          "family": "artifact_part",
+          "rows": 12
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/20/records/00000001-artifact_stream.arrow",
+          "digest": "e917c9d2c40a499306babfee0b506b9644086edf02aa5c4aa66fdbdbf4e438f3",
+          "byte_length": 5962,
+          "family": "artifact_stream",
+          "rows": 7
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/20/records/00000002-reference.arrow",
+          "digest": "58e381f23646097fcde24ec0f6b7f127b93ac123fb0aefa9e40abedebc54a6c3",
+          "byte_length": 19778,
+          "family": "reference",
+          "rows": 73
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/20/records/00000003-native.arrow",
+          "digest": "afaf807700ddb469949e1decb1893b12b3d86a13feb378be829e3e3c6a3ca8f7",
+          "byte_length": 72362,
+          "family": "native",
+          "rows": 181
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/20/records/00000004-membership.arrow",
+          "digest": "9623597e23c3a6a91292ec180ad9e032acbb546a5d6e95fe8b4f3e85f01e76f5",
+          "byte_length": 39186,
+          "family": "membership",
+          "rows": 173
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/20/records/00000005-header.arrow",
+          "digest": "256d1b30b0a4d5841b1495e6fbb0fd42ee0a247fca7640055778f7dd50092cf6",
+          "byte_length": 4962,
+          "family": "header",
+          "rows": 1
+        }
+      ]
+    },
+    {
+      "page": 1211,
+      "status": "success",
+      "native_types": [
+        "BoundingBox",
+        "DoclingDocument",
+        "DocumentOrigin",
+        "GroupItem",
+        "PageItem",
+        "PictureItem",
+        "ProvenanceItem",
+        "RefItem",
+        "SectionHeaderItem",
+        "Size",
+        "TableCell",
+        "TableData",
+        "TableItem",
+        "TextItem"
+      ],
+      "replays": [
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/1211/pages/page-001211.json",
+          "digest": "f424ff861dcd96245f822227637cfc10e95cc05a59cb2816b76a537ca988a3f7",
+          "byte_length": 504325,
+          "family": "page",
+          "rows": 0
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/1211/records-occurrences/00000000-occurrence.arrow",
+          "digest": "8a8ef0b250674efdb493f9241533671267f5d5093dfa125c5abb0222a82683f1",
+          "byte_length": 67242,
+          "family": "companion:occurrence",
+          "rows": 134
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/1211/records/00000000-artifact_part.arrow",
+          "digest": "2bdbe697edd9801706184dad6442b661581766bb0de96ef2ffdd1decc8017dff",
+          "byte_length": 709594,
+          "family": "artifact_part",
+          "rows": 14
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/1211/records/00000001-artifact_stream.arrow",
+          "digest": "aad862e46b007f23811e15863a3a52db05ab9ff2bf92317273558dc6db7e9b0a",
+          "byte_length": 5298,
+          "family": "artifact_stream",
+          "rows": 5
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/1211/records/00000002-native.arrow",
+          "digest": "046a6204d25f07a5324baa0d2dbf3cb295fdedc5b96f5d13a96c1ad5a361d35c",
+          "byte_length": 133162,
+          "family": "native",
+          "rows": 302
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/1211/records/00000003-reference.arrow",
+          "digest": "2e02291db9e10a3aea43c21923ec945cd96e52cdaeb1440152c9e664bc734c4e",
+          "byte_length": 16058,
+          "family": "reference",
+          "rows": 54
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/1211/records/00000004-membership.arrow",
+          "digest": "e3756b88dbee6e3bd274ef4a99eae46f9f1a2a2710e372229a36f5a7b8735305",
+          "byte_length": 49674,
+          "family": "membership",
+          "rows": 212
+        },
+        {
+          "path": "/home/paul/corpus-structure/build/pdf-remaining-native-stream-cases/1211/records/00000005-header.arrow",
+          "digest": "f151832bb33a5725ccdace5104601400195afbe48ba1dcf3ad5b6cf46279aeb3",
+          "byte_length": 4962,
+          "family": "header",
+          "rows": 1
+        }
+      ]
+    }
+  ]
+}

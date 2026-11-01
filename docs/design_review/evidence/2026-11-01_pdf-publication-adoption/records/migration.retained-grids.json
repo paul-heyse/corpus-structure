@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "migration.retained-grids",
+  "title": "Exact retained-book metadata inventory and computed-grid derivation",
+  "group": "pdf-docling-pipeline",
+  "package": "PDF-25",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the exact retained integrated book be prepared for relational migration without silently dropping computed native table data?",
+  "answers": [
+    "PDF-25"
+  ],
+  "method": "Stream the exact558190320-byte envelope under its recorded SHA256, inventory companion sizes, and verify every computed TableData.grid against the pinned native class using its governed historical serialization profile. Preserve supplied native cells and original bytes; derive only verified serializer projections.",
+  "commands": [
+    "/usr/bin/time -v uv run python - <<'PY' > build/pdf-retained-grid-book.log 2> build/pdf-retained-grid-book-time.log\nimport gzip,json,time\nfrom pathlib import Path\nfrom corpus_structure.ingest.pdf_retained_stream import iter_retained_pdf_values,derive_retained_native_projection\np=Path('docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/integration/raw/book-task86-prepared.json.gz')\nexpected='c8f19ca1703206e9007b416eecb7c0d286de57d7ce82b006a605335efe7da524'\nt=time.perf_counter();document=None\nwith gzip.open(p,'rb') as source:\n for family,value in iter_retained_pdf_values(source,expected_sha256=expected):\n  if family=='document':document=value\nassert document is not None\nprojected,count=derive_retained_native_projection(document)\nassert count>=107\nassert len(projected['pages'])==1589 and len(projected['tables'])==107\nassert all('grid' not in t['data'] for t in projected['tables'])\nassert all('grid' in t['data'] for t in document['tables'])\nprint(json.dumps({'outcome':'passed','scope':'actual retained exact-envelope computed projection derivation only; no DBwrites/inference','profile':'retained-docling-computed-grid-v1','projected_grid_count':count,'native_pages':len(projected['pages']),'native_tables':len(projected['tables']),'seconds':time.perf_counter()-t},indent=2))\nPY"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "migrate_retained_book.py",
+      "role": "prepared-migration-driver",
+      "sha256": "a3d57e7178fdb48468f2f7000deb4f7cac9d6db44bc2159d6bc50cd31b85155d"
+    },
+    {
+      "path": "inspect_retained_book.py",
+      "role": "verbatim-executed-probe-source",
+      "sha256": "28be94f4be4096f99e9f779c7a0e4cceef87f259288933ea260bfe17130a3312"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "retained-grid-book.json",
+      "role": "actual-derivation-receipt",
+      "sha256": "18d53c783e0c9ed174edcd135606467c0e0f92cb9704659389c8fd24acad7b0a"
+    },
+    {
+      "path": "raw/command-receipts.tar.gz",
+      "role": "actual-inventory-and-derivation-command-output",
+      "sha256": "41893f4cea10a0e5af96a573deb7eea521f39d72e69ea9b5b8be274db9693f36"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native pages retained",
+      "value": 1589,
+      "of": null,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "native tables retained",
+      "value": 107,
+      "of": null,
+      "unit": "tables",
+      "note": null
+    },
+    {
+      "name": "verified computed grids",
+      "value": 192,
+      "of": null,
+      "unit": "grids",
+      "note": "107tables and85chart tables."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Exact-envelope parsing and governed computed-grid derivation passed on the retained book. Nonmetadata companion rows fit64KiB; native health formula arrays are handled as metadata rows. The prepared migration driver uses production release/source/task/publication APIs and explicit recovery, but has not executed writes. This establishes no deployed schema, product migration, inference rerun, integrated seal, knowledge completion or default selection.",
+  "consumed_by": [
+    "PDF-25",
+    "pdf-docling-pipeline coordinator"
+  ]
+}

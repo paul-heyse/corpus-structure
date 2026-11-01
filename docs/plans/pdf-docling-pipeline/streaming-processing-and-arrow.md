@@ -4,6 +4,21 @@
 
 ## Library improvement basis and readiness
 
+**Native execution closeout — scoped Tested (2026-11-01).** Retained fresh inference for all
+1589pages completed type-preserving global reading order, hierarchy and6336formula enrichments,
+producing44632text items/101tables without reported finalization errors. The initial worker run
+failed during global assembly; explicit pinned v1-to-v2 assembly derivation and exact native-scale
+rerendering allowed its durable page results to be reused. New ordinary capture retains each
+native page-element class explicitly rather than re-inferring an ambiguous Pydantic union.
+Formula raster capture uses the native stage's actual1.67scale, not the unused2.0option.
+Fresh finite-worker pages20/1211 passed with the current capture/replay path.
+
+These receipts establish selected producer/global behavior, not a freshly rerun whole-book worker,
+deployed product, integrated seal or bounded global graph. [Execution evidence](../../design_review/evidence/2026-11-01_pdf-publication-adoption/README.md)
+preserves the failed attempts and qualified replay. Full OCR evidence is retained: all1589pages'
+region metadata occupies24105299uncompressed JSON bytes; complete candidate files35736297bytes.
+Empty-result diagnostics remain distinct from successful recovery; further OCR tuning is deferred.
+
 [Improvement review](../../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md) at `5d7a72c4` supplies I01–I11. This revision schedules
 I01/02/03/05/06/08/09, I07's shared lifetime foundation and I11's corrected table premise;
 additional recognizers and I10 caches remain conditional. The coordinator alone owns disposition,
@@ -215,7 +230,9 @@ crop profile and cannot silently reuse an older recipe's inference claims.
 Source is ABI16, relational compiler4/core0.6.4.0064 supplies private staging;0060 remains deployed
 and0061–0064 remain undeployed. No PDF-21 seal/public native closure, PDF-24 public cutover,
 PDF-25 data migration, new recognizer/cache or completed knowledge claim follows. I14 remains
-partial because native finalization still needs a document graph. The coordinator owns current
+partial for strict memory streaming because native finalization still needs a document graph;
+the operator retained that boundary for remaining mandatory execution, with a workload/upstream
+seam revisit trigger. The coordinator owns current
 package/investigation state and the runtime evidence below owns exact check outcomes.
 
 [Runtime receipts](../../design_review/evidence/2026-11-01_pdf-streaming-runtime/README.md)

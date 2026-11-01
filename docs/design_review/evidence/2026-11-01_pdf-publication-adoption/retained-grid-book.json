@@ -1,0 +1,9 @@
+{
+  "outcome": "passed",
+  "scope": "actual retained exact-envelope computed projection derivation only; no DBwrites/inference",
+  "profile": "retained-docling-computed-grid-v1",
+  "projected_grid_count": 192,
+  "native_pages": 1589,
+  "native_tables": 107,
+  "seconds": 37.616183338017436
+}

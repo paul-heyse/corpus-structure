@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "id": "native.book-finalization",
+  "title": "Native whole-book global replay and fresh capture corrections",
+  "group": "pdf-docling-pipeline",
+  "package": "PDF-22",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can retained whole-book page assemblies complete pinned native global finalization after preserving element classes and exact enrichment raster scale?",
+  "answers": [
+    "PDF-22",
+    "I14"
+  ],
+  "method": "Preserve the failed actual whole-book worker attempt. Explicitly derive pinned native classes for retained v1 assemblies, rerender original pages with the same backend at the actual formula-stage scale, and execute native reading order/heading/formula enrichment. Separately run the current finite-worker capture/replay path on original pages20/1211.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-01_pdf-publication-adoption/native_book.py build/pdf-remaining-native-book",
+    "uv run python docs/design_review/evidence/2026-11-01_pdf-publication-adoption/replay_native_finalization.py",
+    "uv run python docs/design_review/evidence/2026-11-01_pdf-publication-adoption/native_stream_cases.py build/pdf-remaining-native-stream-cases"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "native_book.py",
+      "role": "probe-source",
+      "sha256": "3db7453ce65abbc328d63eb36e138f6e17dc3d7d1465dd7179d8bceb604e3363"
+    },
+    {
+      "path": "replay_native_finalization.py",
+      "role": "probe-source",
+      "sha256": "9988f9e71f299626c0c4c7c86abc9faa08e067ec48337caa575dcd4511779e2c"
+    },
+    {
+      "path": "native_stream_cases.py",
+      "role": "probe-source",
+      "sha256": "35383452f2431546fafbd1ed0dabb79e9a86b2fe56d714df20ec19bd5f0d9ef0"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "native-book-finalization.json",
+      "role": "actual-replay-receipt",
+      "sha256": "647f4e21b2f21e59d9d545407e10a2e7b1f2520e659ff48fda5bc7d37c3eb0f4"
+    },
+    {
+      "path": "native-stream-cases.json",
+      "role": "actual-current-capture-receipt",
+      "sha256": "a60a52f3578cdb0f1fa0b0f0900fd209eb27b52e676613dc754507d3822aa44f"
+    },
+    {
+      "path": "raw/native-finalization-records.tar.gz",
+      "role": "actual-native-record-and-artifact-replays",
+      "sha256": "ea33b2c506a4e03570ca45ff1ba9d42897b9d2c52744a17df915fbaa0eb8b161"
+    },
+    {
+      "path": "raw/command-receipts.tar.gz",
+      "role": "failed-and-passing-attempts",
+      "sha256": "41893f4cea10a0e5af96a573deb7eea521f39d72e69ea9b5b8be274db9693f36"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "retained pages",
+      "value": 1589,
+      "of": null,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "native text items",
+      "value": 44632,
+      "of": null,
+      "unit": "items",
+      "note": null
+    },
+    {
+      "name": "native tables",
+      "value": 101,
+      "of": null,
+      "unit": "tables",
+      "note": null
+    },
+    {
+      "name": "formula outcomes",
+      "value": 6336,
+      "of": null,
+      "unit": "outcomes",
+      "note": null
+    },
+    {
+      "name": "fresh selected pages",
+      "value": 2,
+      "of": null,
+      "unit": "pages",
+      "note": "Original pages20and1211; not all pages rerun after capture repair."
+    },
+    {
+      "name": "OCR region metadata",
+      "value": 24105299,
+      "of": null,
+      "unit": "uncompressed JSON bytes",
+      "note": null
+    },
+    {
+      "name": "complete candidate files",
+      "value": 35736297,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "largest candidate page",
+      "value": 121188,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Actual retained all-page inference completed type-preserving global assembly and native enrichment without finalization errors; current fresh finite-worker pages20/1211 passed. The initial whole-book worker failed and is retained; its v1 assembly/raster repair is an explicit derivation, not a successful fresh rerun of the full corrected worker. The global graph remains materialized. No PostgreSQL publication, integrated adoption, bounded global memory or Nemotron recovery claim follows.",
+  "consumed_by": [
+    "PDF-22",
+    "PDF-25",
+    "I14"
+  ]
+}

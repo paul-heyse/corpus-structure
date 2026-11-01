@@ -24,6 +24,20 @@ PDF-10/11 retain operational adoption and assembled qualification; this is not a
 
 ## Implemented consumer mechanisms — 2026-10-31
 
+**Relational reader integration — Implemented, scoped Tested (2026-11-01).** Published revision
+pins now gate selective node/collection/context reads and complete streamed native/integrated
+exports. Native hydration and companion exports use ordered cursors; companion field parts are
+decoded and verified without one query per metadata value. The same relational source-context
+constructor serves Python readers and native frame guards. Source readers borrow connections
+for each operation rather than share one connection across analysis workers.
+
+Exact metadata JSON and external occurrence text survive decoding/export, including embedded NUL,
+binary64 details and explicit null. Scoped formula health contains pointer/outcome and qualified
+references to exact retained diagnostics. This is a governed projection, not discarded error text.
+The [publication receipts](../../design_review/evidence/2026-11-01_pdf-publication-adoption/README.md)
+cover selected controls. Full retained-book reconstruction/export and current CLI/external MCP,
+render, source views and provider journeys remain PDF-24/25/10/11 acceptance obligations.
+
 One selected-product reader supplies native and integrated SourceViews, frame-v3 packets, scientific
 methods and current CLI/query/MCP consumers. Companions retain scoped decisions and input ancestry;
 paged manifests and pin-authorized 64KiB artifact reads expose retained raw evidence. Integrated JSON

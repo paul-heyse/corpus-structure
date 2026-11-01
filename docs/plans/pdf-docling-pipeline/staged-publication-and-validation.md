@@ -1,6 +1,32 @@
 # Bounded staging, native validation and atomic document publication
 
-**Status:** Minimum PDF-20 private staging/replay implemented, 2026-11-01; PDF-21 and complete publication remain planned. [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-20/21 and I17/I18 state. Consumes [review O02/O04/O05](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O02) and [target §§2–4/6](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`; schema/identity owners are [PDF-18/19](relational-document-model-and-identity.md).
+**Status:** PDF-20/21 mechanisms implemented with scoped native verification, 2026-11-01; integrated whole-book publication and complete failure/concurrency acceptance remain open. [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-20/21 and I17/I18 state. Consumes [review O02/O04/O05](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O02) and [target §§2–4/6](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`; schema/identity owners are [PDF-18/19](relational-document-model-and-identity.md).
+
+## Implemented publication boundary — 2026-11-01
+
+Forward0065 implements model-owned frozen/native/integrated kinds, immutable private candidate
+records, actual-row logical identity, required finite native callback outcomes and a short final
+published-revision bridge. Preparation and validation do not retain task locks that block lease
+heartbeats. Stage recipes bind original source/root recipes without rewriting original custody.
+Explicit inspection/resume distinguishes open, frozen and published progress; a newly computed
+draft cannot silently replace a frozen result. Freeze/seal and typed replay controls run against
+actual PostgreSQL. The coordinator and [receipts](../../design_review/evidence/2026-11-01_pdf-publication-adoption/README.md)
+retain their bounded scope; no deployed whole-book product follows from fixture controls.
+
+Fixed companion fields retain oversized/NUL text and all native metadata values as independently
+verified byte parts, while envelope identifiers and lookup projections remain queryable.
+Native `pg_jsonschema`0.3.4 validates actual metadata JSON under the released class schema and
+projection constraints. Its raw-JSON interface avoids PostgreSQL's NUL-rejecting JSON traversal;
+there is no sanitization or client-only schema assertion. Exact Python reads/exports retain float
+bits, negative zero, explicit nulls and text. [ADR-0044](../../adr/0044-native-pdf-metadata-jsonschema.md)
+owns this mechanism; ADR-0043 owns verified byte folds versus optional serialization SHA.
+
+The installed extension has no compiled-schema handle API. Current admission validates each
+metadata row; existing bounded uploads and Psycopg executemany remain intact. Amortizing native
+schema compilation across bounded groups is remaining execution-fit work, not an implemented
+batch-validation API. Before book-scale acceptance, assess that path together with actual
+integrated endpoints/coverage, cancellation/crash recovery and the complete publication union.
+0065 is authored but undeployed;0060 remains the owned application baseline.
 
 ## Improvement integration — review I05/I06/I09
 
@@ -112,6 +138,22 @@ Use indexed FK/unique/CHECK and set-based validation, including0061's child-targ
 Use existing pglast AST authoring and Alembic forward SQL/admission products. Current descriptor helper, body CHECKs, function inventory and native constraints must derive from their current semantic owners. Counterfactual changes to a governing declaration must change the realized guard/descriptor, without depending on stale frozen bodies. Never modify frozen0057–0061 or copy the duplicate physical-contract snapshot insertion into a new revision.
 
 Cancellation/lease loss fences new work and drains owned producers/COPY/validation resources. Explicit resume/adopt verifies a frozen inventory across attempts; implicit mixture is forbidden. Cleanup removes only authenticated private staging after retention obligations are met. Preserve fixed protected-function search paths and restrict raw-table privileges and functions so ordinary reads cannot bypass publication by knowing an ID. Diagnostics name the revision, record/native address, violated invariant and existing resume/remap/rebuild action.
+
+### Approved validation and identity placement — 2026-11-01
+
+Freeze fixes the real typed inventory, including companion families and request outcomes. Final
+rows and access projections are prepared privately before the short publication transaction;
+immutable staging is not patched to resolve references. Validation uses the actual fixed candidate,
+not a producer's claimed successful result. Parent-owned record capture supplies an authenticated
+replay to a finite DB-free native-conformance child; its explicit full native hydration preserves
+the selected global materialization boundary. PostgreSQL separately enforces actual field/type,
+collection/reference/containment/frame/companion and artifact invariants through generated local
+and set-shaped guards. Validation outcomes bind the immutable inventory and archived contract.
+
+[ADR-0043](../../adr/0043-segmented-artifact-byte-identity.md) separates required native byte folds
+and exact retained-byte correspondence from optional new export serialization SHA-256. There is
+no submitted whole native export prerequisite. Readers generate that serialization explicitly
+from admitted records. Existing original/raw/historical byte identities stay unchanged.
 
 ### Frozen interpretation and validation coverage
 
