@@ -229,3 +229,10 @@ selected libraries at source `1cb8e620`. They supersede only the explicitly reex
 including current field adapters, shared reference traversal and metadata-derived Arrow. Other
 October 29 accounts retain their dates. Comparative selection belongs to the
 [principal target review](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md).
+
+## PostgreSQL authoring followup — 2026-11-01
+
+The [seven-library applicability account](unified-model-postgresql_2026-11-01.md) connects typed
+domain calls, relational/native authoring, Alembic evolution and directional transport. It
+consumes UM-20261101-r3 and preserves exact source/version limits; comparative preference is
+in the revised unified-model principal review. Earlier assessments retain their original scope.

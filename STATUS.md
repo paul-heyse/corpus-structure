@@ -1,5 +1,5 @@
 # Status
-_Updated2026-11-01; remaining PDF execution active; operational adoption and acceptance remain open. [Unified-model review](docs/design_review/reviews/design_review_unified-domain-model_2026-11-01.md) published 2026-11-01; targets remain Proposed._
+_Updated2026-11-01; remaining PDF execution active; operational adoption and acceptance remain open. [Unified-model review](docs/design_review/reviews/design_review_unified-domain-model_2026-11-01.md) updated 2026-11-01 with typed domain API / minimal-SQL followup; targets remain Proposed._
 
 ## Current checkpoint
 

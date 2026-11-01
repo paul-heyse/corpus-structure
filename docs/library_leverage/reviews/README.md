@@ -362,3 +362,7 @@ execution, broad Map/Datalog replacement and a general interpreter. It consumes 
 [semantic](../libraries/unified-model-semantics_2026-11-01.md) and
 [boundary](../libraries/unified-model-boundaries_2026-11-01.md) assessments. It is the primary
 comparison owner for this engagement; the preceding CBO account retains its October 29 baseline.
+
+The same principal review now includes a PostgreSQL authoring followup: generated typed domain
+operations, Core implementations, structured native functions and complementary SQLGlot analysis.
+Its R05–R09 extend R01–R04 rather than creating another recommendation or execution account.

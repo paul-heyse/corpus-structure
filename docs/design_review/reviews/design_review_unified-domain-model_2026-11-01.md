@@ -13,10 +13,13 @@ between authored meaning, owned operation contracts, qualified implementations a
 The strongest target preserves scoped upstream schemas, LinkML application definitions, Python
 domain functions, PostgreSQL integrity, typed Arrow/DuckDB execution and qualified RDF views.
 The next improvements concern meaningful connections and reuse across these responsibilities.
+The PostgreSQL followup selects **domain APIs backed by generated typed relational/native
+implementations**, with minimal maintained SQL authorship. Retaining database-side execution
+does not select handwritten SQL as its authoring mechanism.
 
-Source baseline `1cb8e62003489d588a8f2041ea52b73ba096ec0f`; diagnostic publication
+Original source baseline `1cb8e62003489d588a8f2041ea52b73ba096ec0f`; diagnostic publication
 `cc2998d9`, **UM-20261101-r2**. Concurrent STATUS, PDF plan/evidence and Arrow/DuckDB guide edits
-were read as context and preserved. Source under the product package was clean during this
+were read as context and preserved. Source under the product package was clean during that original
 inspection. Audit freshness and inherited limits are in the [audit](../audit/README.md).
 October 29 DA/CBO conclusions were reconsidered where used; they are not freshly open by default.
 
@@ -24,6 +27,14 @@ Three scoped contributors mapped implementation, semantic capabilities and typed
 capabilities; a fresh design reviewer independently compared integrated options after diagnostic
 publication. The coordinator inspected decisive current sources and reconciled their judgments.
 No recommendation audit or product remediation was initiated.
+
+**PostgreSQL followup (2026-11-01):** original principal preserved at `f999ffcb`;
+continuing diagnostic publication `54cd74cb` / UM-20261101-r3. All seven additional PostgreSQL
+guides were read end to end, with Context7 then installed/tagged sources for consequential
+interfaces. A fresh design reviewer assessed the integrated authoring alternatives. Dirty
+contracts/PDF-staging model, native-candidate, PDF contracts/validators/publication, correspondence
+and identity SQL, tests and evidence were treated as evolving source, not qualified deployments.
+R01–R04/O01–O03 retain their identities; R05–R09 develop the added authoring target.
 
 ## 2. Current model and strengths to preserve
 
@@ -162,8 +173,10 @@ classification. If promised, its realizing boundary must preserve it. If descrip
 must not treat it as a guaranteed native diagnostic. Use existing bindings/admission where sufficient.
 
 Generating all guards from a general constraint language is not selected. Metadata reconstruction
-cannot prove a SQL body correct. Handwritten SQL remains appropriate for concurrent relational
-invariants, with independent expectations when enforcement correctness is tested. Resolve this
+cannot prove a SQL body correct. Database-side enforcement remains appropriate for concurrent relational
+invariants; its authoring should be structured/generated where feasible (R07). A residual
+handwritten body needs a specific justification rather than a default exemption. Preserve
+independent expectations when enforcement correctness is tested. Resolve this
 ownership question before planning additional lowering or claiming an A2/G3 pass.
 
 <a id="R04"></a>
@@ -194,6 +207,136 @@ consumption case is appropriate before a stronger correctness claim.
 | Broad Map/Datalog replacement | Relevant capabilities exist, but their stable semantics do not discharge the present complete translation/inference contracts. Named future use remains eligible. |
 | Universal workflow/operation interpreter | Finite implementation bindings already provide the needed seam. Another language and execution lifecycle lacks a concrete requirement. |
 
+<a id="R05"></a>
+
+### R05 — Generate the complete typed domain-call boundary
+
+**Proposed.** Ordinary callers use named domain operations with typed arguments/requests and
+results. The selected operation definition and trusted implementation binding supply parameter
+identity, codec, nullability, cardinality, result projection and failures. Existing `claim_tasks`
+and companion export already expose domain-facing APIs; extend their internal continuity.
+
+Generate explicit implementation signatures, model-derived Core function calls/selects, private
+bind dictionaries and result materializers together. Reuse `TypedColumns`, narrow column protocols,
+`GenericFunction[T]`/typed table-valued calls and explicit positional projections; emit `__row_pos__`
+when whole-row typing is required. Materialize external rows through the bound validated result
+contract. Keep genuinely dynamic records at declared checked boundaries, with unknowns explicit.
+
+`with_cols` only adds static information; it performs no runtime validation. SQLAlchemy parameter
+mappings are not statically linked to the statement, and `RowMapping` values are `Any`. Generating
+only annotations or casting a final mapping therefore does not establish this target. A named
+function signature must reject incompatible parameters statically, and runtime admission must
+still reject incompatible actual server output. Do not replace domain calls with a general
+`execute(name, dict)` API. Generate thin code in existing owners; no service or registry is needed.
+
+<a id="R06"></a>
+
+### R06 — Author relational implementations through model-bound expressions
+
+**Proposed selected primary route: SQLAlchemy Core.** Reuse the current effective metadata and
+typed projections for joins, CTEs, lateral/recursive relations, aggregates, JSON access, typed
+casts and insert-from-select/conflict DML. Preserve native set operations and complete qualified
+universes rather than pulling data into Python to avoid SQL syntax.
+
+Concrete first applications are companion `cp:sql` expressions/joins and inference seed/update
+queries. Resolve projection inputs to authoritative fields, operation parameters and typed
+transformations; generate Core expressions and static result shapes from that definition.
+SQL strings in YAML, `literal_column`, `text`, `tstring`, f-strings and compiler templates all
+remain authored SQL when a maintainer must specify their grammar. Moving them is not elimination.
+A small existing expression vocabulary may suffice; do not invent a general query language.
+Where a specialized algorithm is clearer in ordinary typed Python composing Core, retain that
+implementation behind its domain contract instead of forcing the algorithm into schema data.
+
+Selective imperative ORM mapping over existing generated tables, composites and hybrids is a
+credible alternative for a named editable aggregate. Wholesale ORM is not selected for immutable
+releases, protected publication or analytical batches: sessions, identity maps, flushes and hidden
+loading add obligations, and object events do not protect independent writers or bulk DML.
+
+<a id="R07"></a>
+
+### R07 — Make native SQL a generated product wherever the contract permits
+
+**Proposed target, partly Interface-checked; complete procedural elimination unresolved.**
+Use existing Core Table/Constraint/Index/CreateView DDL first. Use pglast PostgreSQL nodes for
+missing declarations, names, ownership/privilege/trigger forms and appropriate SQL-language
+function bodies. Its 8.7 `CreateFunctionStmt.sql_body` printer supports `ReturnStmt` and
+`BEGIN ATOMIC` sequences. This is an affirmative route beyond opaque string bodies.
+
+Current `native_inventory.py:20–26` requires `AS`, hashes the source string, and
+`native_objects.py:311–314` rejects observed SQL-standard bodies. Extend inventory, native
+identity/body custody, catalog normalization, dependency comparison and admission together
+before using the structured route. Definition-time name/dependency binding differs from
+string-body behavior. `CREATE OR REPLACE`, overload/result changes, safe search paths, owner,
+ACLs, volatility and replacement dependencies must retain their declared semantics.
+
+For guarded mutation, compare typed relational predicates/DML plus a bounded assertion/effect
+pattern against each actual routine. `sql/selection.sql` and `sql/fact.sql` offer concrete
+assert + delete/insert-from-select cases. Existing operation/state/effect catalogs provide
+contracts, but do not currently encode executable predicates, order or locking sufficient to
+generate arbitrary bodies. Typed implementation programs must supply that realization and
+remain bound to their semantic owner. A small lowering must earn its total machinery cost.
+
+Retained procedural families requiring qualification include trigger `NEW`/`OLD`/return behavior,
+IF/RAISE and SQLSTATE, mutable record/variable assignment, loops and dynamic EXECUTE. pglast's
+PL/pgSQL parser returns dictionaries; SQLGlot does not supply a complete procedural authoring
+contract. Full elimination is therefore **unestablished**, not categorically impossible. Each
+residual needs a named construct gap, scope, owner and elimination route; a handwritten renderer
+still counts as SQL maintenance. Do not weaken native locks, atomic effects or restricted writer
+privileges to remove source strings. Arbitrary procedural compilation is not selected.
+
+Keep the actual Alembic Plugin/comparator/operation/renderer chain, explicit predecessor/desired
+sets, before/after catalog checks and frozen payload execution. Structured authoring changes the
+input to that lifecycle. Frozen migrations remain immutable products independent of current
+compiler code. Cover catalog queries with Inspector where complete; use bounded model-derived
+Core catalog expressions for necessary omitted properties, preserving version and scope.
+
+<a id="R08"></a>
+
+### R08 — Use SQLGlot as complementary model-derived analysis where valuable
+
+**Proposed selected capability direction; first integration conditional on exact-version checks.**
+The named candidate is companion-family projection qualification/type/dependency analysis and
+its contribution to O02. Derive `MappingSchema` and UDF return metadata from the same effective
+model/native signatures, construct `exp` nodes directly, and use qualification/scopes,
+`annotate_types` and column lineage to explain output dependencies and catch unresolved mappings.
+Use strict column qualification before lineage (whose default internal pass disables validation).
+Distinguish declared routine parameters from driver placeholders. Unknown types/functions remain
+unresolved; unsupported PostgreSQL constructs must fail explicitly.
+Use exact PostgreSQL dialect semantics and compare any generated output with server admission.
+
+This is stronger value than adding another SQL renderer. Keep Core as the primary relational
+implementation so SQLGlot is not a second writable schema or mandatory AST hop for every query.
+A bounded secondary projection may be worthwhile for dependency analysis, with a mapping from
+its fields to model identities. A central SQLGlot IR would unify more analysis but requires much
+broader parameter/result/DDL/catalog/driver bridges; its unproven benefit does not justify that
+migration now. Parsing already-generated SQL is acceptable for analysis, but does not itself
+remove authorship; direct model lowering remains the authoring objective.
+
+AST Python classes and runtime SQL type annotation are not static domain/result typing, server
+function-overload resolution or authorization. AST diff/lineage contributes declared syntactic
+impact, not behavioral equivalence, row provenance or complete semantic change detection.
+
+<a id="R09"></a>
+
+### R09 — Preserve domain typing through directional transport and execution
+
+**Proposed extension of existing profiles, not a transport rewrite.** Derive bindings, codecs,
+result shapes and wire mappings from the operation's authoritative model and verify them at
+external boundaries. Retain current Core/Psycopg transaction ownership and pgpq fresh encoders for
+atomic scratch/publication writes; pgpq DDL is not an alternate semantic schema. Psycopg row
+factories/custom adapters fit only where they remove a real conversion gap without duplicating
+model definitions or bypassing Core's owner. Custom PostgreSQL types require explicit OID and
+schema lifecycle, not just a Python class.
+
+Keep separate ADBC sessions and imported snapshots for selected analytical reads. Generated Core
+SQL for COPY is already machine output, so literal rendering need not be replaced solely to
+reduce authored SQL. ADBC 1.13 supports `$n` bound result queries, but uses a non-COPY PGresult
+path without COPY batch hints, with potentially lazy execution per parameter set. Select that
+route only for a concrete parameterized consumer whose memory/effect/lifetime contract fits.
+ADBC ingestion does not automatically preserve the current same-session staging/adoption contract.
+Model exact numeric/null/JSON/temporal/array/composite asymmetries rather than treating Arrow,
+Python and PostgreSQL storage types as identical.
+
 ## 5. Library coverage and comparative dispositions
 
 Focused mechanisms, exact-version evidence and residual obligations are preserved in the
@@ -221,6 +364,17 @@ Datalog are not product dependencies. Pydantic 2.14.2/settings 2.16.2/pySHACL 0.
 identify candidate upgrades; their fixes are not credited to current pins. Map 0.6 prerelease and
 unmerged Datalog work are separate from stable/alpha candidates. Version moves belong to selected
 implementation and affected qualification, not a blanket upgrade or adoption requirement.
+
+### PostgreSQL followup coverage
+
+The [seven-library assessment](../../library_leverage/libraries/unified-model-postgresql_2026-11-01.md)
+records the full capability-family survey, actual utilization and exact-version conditions for
+SQLAlchemy 2.1.6, pglast 8.7, SQLGlot candidate 30.27.0, Alembic 1.20.1, pgpq 0.12.0,
+Psycopg 3.3.6/pool 3.3.3 and ADBC PostgreSQL 1.13.0. SQLGlot is not currently a product dependency.
+Core/compiler/native authoring, ORM alternatives, Alembic operation rewriting, adapters/row
+factories and ADBC binding/ingestion were considered, not just previously used entry points.
+Async/pipelines/TPC/notifications, generic dialect portability and new federation do not currently
+remove the identified authorship gap and are not selected additions. No dependency was installed.
 
 ## 6. Change, failure and execution-fit scenarios
 
@@ -255,6 +409,18 @@ does not imply absence or a completed product. Cancellation settles owned reader
 resources and supported lazy results honor that existing ownership boundary.
 
 These are source-reasoned design scenarios, not executed journeys or capacity measurements.
+
+**Followup acceptance scenarios (future implementation):** (1) add/change an operation parameter
+and result field through generated domain signature, native binding and decoder; include wrong
+types, NULL and cardinality. (2) add a companion field and change JSON path/cast/scope; derive
+Core/Arrow/result types and dependency analysis together. (3) generate and deploy a structured
+SQL-language body; verify body/dependency/catalog identity, privilege refusal and changed result
+recreation. (4) change a guarded mutation without losing lock/failure timing or atomic rollback;
+exercise stale-owner/independent-writer and duplicate/conflicting inputs. (5) evolve a view or
+same-name constraint while preserving frozen predecessors and drift refusal. (6) compare bound
+ADBC with COPY on exact schema/value and partial-consumption/cancellation semantics.
+Static negative typing cases and native independent expectations establish different guarantees.
+None of these scenarios was executed for this source-based followup.
 
 ## 7. Findings, functional opportunities and disposition
 
@@ -307,6 +473,13 @@ before richer derived policy/impact tooling; R04 can proceed independently. Deta
 API wire shapes and final acceptance unions belong to subsequent selected implementation planning.
 Unscheduled proposals remain here; accepted plans will own their disposition and closure evidence.
 
+R05–R09 strengthen O01 with generated callable contracts, O02 with qualified projection
+lineage, and O03 with exact model/parameter/output locations. They introduce no separate
+opportunity ledger. Their prerequisite route is shared semantic request/result/projection
+contracts → domain-call generation and Core lowering → structured native custody/admission →
+consumer migration. SQLGlot analysis can start with one settled projection; it need not block
+all domain calls or native generation. R02's existing query-pinning defect remains urgent.
+
 ## 8. Independent architectural judgments
 
 | Judgment | Inspected current design | Recommended target |
@@ -321,6 +494,13 @@ are affected by R02; FP-04/DP-04 by R01's explicit equivalence relations; FP-05/
 FP-01/06/07 and DP-18/20 by R04. DP-13–16 favor complete existing library capabilities over
 new generic machinery, while preserving actual residual semantic obligations. No novelty or
 dependency-count score determines alignment.
+
+**Followup delta:** A1/A3 favor generated domain boundaries plus existing Core/Alembic owners;
+A2 needs executable signature/projection/enforcer correspondence beyond static AST annotations;
+A4 preserves bulk server/columnar execution and avoids a mandatory second AST/catalog per call.
+The proposed structured-native route has unresolved admission/body-dependency equivalence.
+Current G1/G6 failures and other unresolved gates below remain; no authoring-library choice
+closes them automatically. G8's positive scoped comparison now includes all seven libraries.
 
 ## 9. Correctness and fidelity gates
 
@@ -359,6 +539,11 @@ and `linkml_extension_libraries.html` routes). Its diagnostics named no new unif
 or applicability path. This review does not repair that unrelated link migration. Product tests
 and probes remain **not_run**, appropriate to this source/documentation review.
 
+**Followup documentation verification (2026-11-01):** `just docs-check` **failed** on the
+existing library-reorganization `.html` links; diagnostics named no unified-model principal,
+new PostgreSQL applicability account or followup audit anchor. No product test/probe was run.
+The earlier check above retains its original scope; this is the followup command outcome.
+
 ## 11. Rule impacts and transition boundaries
 
 No mandatory replacement of §B decisions is selected. R01–R04 fit scoped semantic authority,
@@ -373,11 +558,31 @@ The old Datalog deferral is reconsidered here on current evidence rather than tr
 Current PDF deployment/default adoption and qualification stay with the PDF coordinator. This
 review neither imports that unfinished work into another series nor closes its findings.
 
+### Followup rule impacts
+
+| ID | Current owner/choice affected | Proposed change and decision route |
+|---|---|---|
+| RC01 | D2/D3 and PG-03's retained native set-SQL choice | Domain APIs become normal caller boundary; model-derived Core and typed operation materializers replace independently authored query/call/projection text. Authorship reduction is now a concrete benefit. Amend architectural owners through selected implementation planning; do not edit the completed PG plan's historical scope. |
+| RC02 | Native-body retention in D3/PG native-object realization; current AS-only/prosqlbody-refused profile | Permit qualified structured SQL-language bodies and generated native declarations; version body/custody/catalog/admission products together. Extend supported scope deliberately via existing ADR/owner route. No automatic procedures/general PL/pgSQL support. |
+| RC03 | New SQLGlot analysis realization supporting D2/D8/O02 | Select one model-bound analysis consumer and exact dependency only if useful after qualification. Routine dependency addition needs no ADR by itself; any changed semantic authority does. |
+| RC04 | Hypothetical client-side replacement of protected functions | Would change §B4 enforcement/privilege responsibilities. Not selected; requires explicit architectural decision if later proposed. |
+
+R05–R09 are recommendations, not implementation permission. No plan, accepted ADR, operational
+default, native deployment or dependency manifest is changed by this report. Generated/frozen
+SQL and deliberate invalid SQL fixtures remain legitimate output/evidence; maintained handwritten
+queries, bodies, annotations and compiler templates remain within the minimization objective.
+No zero-SQL or fully-static end-to-end implementation claim is made.
+
 ## 12. Decision and next boundary
 
 **Revise the inspected supported design; recommend the extended compiled-release target.**
-Keep existing SQL/Arrow/graph/typed foundations. Correct query implementation pinning and resource
-propagation, make comparison projection explicit, and settle invariant/enforcer observability.
+Keep PostgreSQL execution, Arrow/graph fidelity and typed foundations. Select generated typed
+domain APIs, Core relational implementations, structured pglast native declarations/appropriate
+SQL-language bodies and current Alembic lifecycle. Add complementary SQLGlot analysis for a named
+projection when it supplies useful qualification/dependency information. Minimize maintained SQL
+through R05–R09; complete procedural SQL elimination remains unresolved construct by construct.
+Correct query implementation pinning and resource propagation, make comparison projection explicit,
+and settle invariant/enforcer observability.
 Use those foundations for applicability explanation, semantic impact and actionable validation.
 Select concrete improvements for implementation planning; no product changes are authorized by
 this report. Target implementation and its complete relevant acceptance remain future work.
