@@ -225,7 +225,11 @@ def fixture(
             code_commit="test",
         )
         views = publish_controlled_pdf_views(
-            conn, prepared=prepared, run_id=run, document_id=document, original=original,
+            conn,
+            prepared=prepared,
+            run_id=run,
+            document_id=document,
+            original=original,
             paragraphs=paragraphs,
             keys=("page#one", "page#two") if double_source else ("page#one",),
         )

@@ -79,7 +79,10 @@ def current_authoring_provenance(model=None) -> NativeAuthoringProvenance:
     model = compile_execution_model(trusted_execution_inputs()) if model is None else model
     return NativeAuthoringProvenance(
         model.model_id,
-        tuple((item.name, item.digest) for item in composed_dependencies(ResolvedDependencies()).artifacts),
+        tuple(
+            (item.name, item.digest)
+            for item in composed_dependencies(ResolvedDependencies()).artifacts
+        ),
     )
 
 

@@ -158,8 +158,11 @@ def source_view_products(model=None):
 
 def _admission_descriptor(admission):
     import json
+
     from pglast import ast, parse_sql
+
     from .native_products import function_bodies
+
     descriptor_body = function_bodies(admission)["data.execution_contract_descriptor"]
     statement = parse_sql(descriptor_body)[0].stmt
     if not isinstance(statement, ast.SelectStmt) or not statement.targetList:
@@ -184,21 +187,31 @@ def recorded_authoring_provenance(admission: str) -> NativeAuthoringProvenance:
     if not isinstance(model_id, str) or not isinstance(inputs, list):
         raise ValueError("native authoring witness has malformed provenance")
     if any(
-        not isinstance(item, dict) or set(item) != {"name", "sha256"}
-        or not isinstance(item["name"], str) or not isinstance(item["sha256"], str)
+        not isinstance(item, dict)
+        or set(item) != {"name", "sha256"}
+        or not isinstance(item["name"], str)
+        or not isinstance(item["sha256"], str)
         for item in inputs
     ):
         raise ValueError("native authoring witness has malformed input provenance")
-    return NativeAuthoringProvenance(model_id, tuple((item["name"], item["sha256"]) for item in inputs))
+    return NativeAuthoringProvenance(
+        model_id, tuple((item["name"], item["sha256"]) for item in inputs)
+    )
 
 
 def native_admission_sql(
-    sql, model=None, *, extra_relations=(), base_admission=None,
+    sql,
+    model=None,
+    *,
+    extra_relations=(),
+    base_admission=None,
     authoring_provenance: NativeAuthoringProvenance | None = None,
 ):
     from hashlib import sha256
+
     from pglast import ast, parse_sql
     from pglast.stream import RawStream
+
     from .identity import canonical_bytes
     from .native_products import consolidation_products
 

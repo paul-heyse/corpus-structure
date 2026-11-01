@@ -82,6 +82,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
     from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
 
     original = write_controlled_pdf(path, (source,))
+
     class SourceConfig(BaseModel):
         pass
 
@@ -107,8 +108,13 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             code_commit="test",
         )
         (view,) = publish_controlled_pdf_views(
-            conn, prepared=prepared, run_id=run, document_id=document, original=original,
-            paragraphs=(source,), keys=("Statistics#qualified",),
+            conn,
+            prepared=prepared,
+            run_id=run,
+            document_id=document,
+            original=original,
+            paragraphs=(source,),
+            keys=("Statistics#qualified",),
         )
         unit_locator = view.ref.key
         frame = native_source_frame(view, (("s1", 0, len(source)),))

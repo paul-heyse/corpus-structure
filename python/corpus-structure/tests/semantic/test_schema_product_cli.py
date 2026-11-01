@@ -5,7 +5,9 @@ import json
 
 def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
     from corpus_structure.semantic.native_products import (
-        NATIVE_PREDECESSOR, NATIVE_REVISION, current_authoring_provenance,
+        NATIVE_PREDECESSOR,
+        NATIVE_REVISION,
+        current_authoring_provenance,
     )
     from corpus_structure.semantic.source_view_native import recorded_authoring_provenance
 

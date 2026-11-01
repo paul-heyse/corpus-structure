@@ -195,19 +195,32 @@ def test_known_input_exclusions_follow_participating_endpoints(
         from pdf_acceptance_support import publish_controlled_pdf_views
 
         views, selected = table("kb.source_view"), table("ops.run_source_view")
-        old_view = conn.execute(
-            select(views).join(selected, selected.c.source_view_id == views.c.id)
-            .where(selected.c.run_id == old_run)
-        ).mappings().one()
-        document = conn.execute(
-            select(table("kb.document")).where(
-                table("kb.document").c.id == old_view["document_id"]
+        old_view = (
+            conn.execute(
+                select(views)
+                .join(selected, selected.c.source_view_id == views.c.id)
+                .where(selected.c.run_id == old_run)
             )
-        ).mappings().one()
+            .mappings()
+            .one()
+        )
+        document = (
+            conn.execute(
+                select(table("kb.document")).where(
+                    table("kb.document").c.id == old_view["document_id"]
+                )
+            )
+            .mappings()
+            .one()
+        )
         (view,) = publish_controlled_pdf_views(
-            conn, prepared=prepared, run_id=run, document_id=old_view["document_id"],
+            conn,
+            prepared=prepared,
+            run_id=run,
+            document_id=old_view["document_id"],
             original=Path(document["original_path"]).read_bytes(),
-            paragraphs=("Alice is here.",), keys=("source.html#known-people",),
+            paragraphs=("Alice is here.",),
+            keys=("source.html#known-people",),
         )
         locator = view.ref.key
         (task,) = queue_agent(

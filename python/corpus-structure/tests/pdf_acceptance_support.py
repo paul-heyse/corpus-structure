@@ -348,35 +348,64 @@ def publish_controlled_pdf_views(
         sections.append(document.add_group(label=GroupLabel.SECTION, name="Other", parent=root))
     for index, paragraph in enumerate(paragraphs):
         document.add_text(
-            label=DocItemLabel.TEXT, text=paragraph, orig=paragraph,
+            label=DocItemLabel.TEXT,
+            text=paragraph,
+            orig=paragraph,
             parent=sections[min(index, len(sections) - 1)],
         )
     conversion = PdfConversion(
-        sha256(original).hexdigest(), b'{"fixture":"controlled-native-report-v1"}',
-        snapshot(document), "success", (), (), (), None,
+        sha256(original).hexdigest(),
+        b'{"fixture":"controlled-native-report-v1"}',
+        snapshot(document),
+        "success",
+        (),
+        (),
+        (),
+        None,
     )
-    schema = files("corpus_structure").joinpath(
-        "model/semantic/docling-validation.schema.json"
-    ).read_bytes()
+    schema = (
+        files("corpus_structure")
+        .joinpath("model/semantic/docling-validation.schema.json")
+        .read_bytes()
+    )
     config = record_method(
         conn,
         SimpleNamespace(
-            name="pdf.controlled-source", version="1", family="ingest", tier="deterministic",
-            confidence_source=None, unit_type="document", Config=create_model("ControlledSource"),
+            name="pdf.controlled-source",
+            version="1",
+            family="ingest",
+            tier="deterministic",
+            confidence_source=None,
+            unit_type="document",
+            Config=create_model("ControlledSource"),
         ),
-        "default", {}, "controlled-source-config",
+        "default",
+        {},
+        "controlled-source-config",
     )
     task = create_task(
-        conn, run_id=run_id, config_id=config, stage="ingest", unit_type="document",
-        unit_id=document_id, unit_key="controlled-source", input_hash=conversion.original_digest,
+        conn,
+        run_id=run_id,
+        config_id=config,
+        stage="ingest",
+        unit_type="document",
+        unit_id=document_id,
+        unit_key="controlled-source",
+        input_hash=conversion.original_digest,
     )
     claim = claim_tasks(conn, run_id=run_id, config_id=config, holder="controlled-source")[0]
     store_pdf_original(
-        conn, task_id=task, attempt=claim.attempt, holder=claim.holder,
-        original=original, recipe_bytes=conversion.recipe,
+        conn,
+        task_id=task,
+        attempt=claim.attempt,
+        holder=claim.holder,
+        original=original,
+        recipe_bytes=conversion.recipe,
     )
     payload = publication_payload(
-        conversion, product_key="native", schema_digest=sha256(schema).hexdigest(),
+        conversion,
+        product_key="native",
+        schema_digest=sha256(schema).hexdigest(),
         section_refs=frozenset(section.self_ref for section in sections),
     )
     product = prepare_pdf_product(
@@ -389,19 +418,34 @@ def publish_controlled_pdf_views(
     for index, (key, section) in enumerate(zip(keys, sections, strict=True)):
         membership = "descendants" if index == 0 and len(sections) > 1 else "direct"
         (draft,) = _drafts(
-            document_id, ProductReference(task, "native", product.digest),
-            conversion.native, payload["health"], (section.self_ref,), membership,
-            prepared.release_id, document=document,
+            document_id,
+            ProductReference(task, "native", product.digest),
+            conversion.native,
+            payload["health"],
+            (section.self_ref,),
+            membership,
+            prepared.release_id,
+            document=document,
         )
         draft = replace(draft, key=key)
         view_id = store_source_view(
-            conn, run_id=run_id, task_id=task, attempt=claim.attempt,
-            holder=claim.holder, draft=draft, position=index,
+            conn,
+            run_id=run_id,
+            task_id=task,
+            attempt=claim.attempt,
+            holder=claim.holder,
+            draft=draft,
+            position=index,
         )
         views.append(load_source_view(conn, view_id))
     complete_task(
-        conn, task_id=task, attempt=claim.attempt, holder=claim.holder,
-        prepared=prepared, observations=[], outcome="empty",
+        conn,
+        task_id=task,
+        attempt=claim.attempt,
+        holder=claim.holder,
+        prepared=prepared,
+        observations=[],
+        outcome="empty",
     )
     return tuple(views)
 
@@ -428,8 +472,10 @@ def independent_pdf_address(conn, run_id, key, *, start=None, end=None, pointer=
         {"pointer": pointer}
         if pointer is not None
         else {
-            "source_view_id": row.id, "projection_digest": row.projection_digest,
-            "start": start, "end": end,
+            "source_view_id": row.id,
+            "projection_digest": row.projection_digest,
+            "start": start,
+            "end": end,
         }
     )
     return "pdf:" + json.dumps(address, sort_keys=True, separators=(",", ":"))
@@ -442,8 +488,13 @@ def native_evidence_sources(inputs):
     result = []
     for evidence_id, link in inputs.source_links.items():
         assert isinstance(link, NativeEvidenceLink)
-        result.append(EvidenceSourceRow(
-            evidence_id, link.observation_id, None,
-            source_view_id=link.source_view_id, native_address=link.native_address,
-        ))
+        result.append(
+            EvidenceSourceRow(
+                evidence_id,
+                link.observation_id,
+                None,
+                source_view_id=link.source_view_id,
+                native_address=link.native_address,
+            )
+        )
     return tuple(result)

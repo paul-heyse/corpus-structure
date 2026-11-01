@@ -33,7 +33,8 @@ def independent_native_frame(conn, run, unit_key, sentence_id):
     """Bind independently authored offsets to current source custody, not a producer frame."""
     views, selected = table("kb.source_view"), table("ops.run_source_view")
     view_id = conn.scalar(
-        select(views.c.id).join(selected, selected.c.source_view_id == views.c.id)
+        select(views.c.id)
+        .join(selected, selected.c.source_view_id == views.c.id)
         .where(selected.c.run_id == run, views.c.key == unit_key)
     )
     view = load_source_view(conn, view_id)

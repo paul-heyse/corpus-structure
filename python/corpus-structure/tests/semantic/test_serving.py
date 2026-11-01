@@ -249,7 +249,8 @@ def test_named_semantic_pages_explanations_and_source_search(
         matches = serve_query(conn, registry, "find", {"text": "Alice"}, run=run)
         hits = [
             FindAnswer.model_validate(row)
-            for row in matches.rows if row.get("source_selection") is not None
+            for row in matches.rows
+            if row.get("source_selection") is not None
         ]
         assert len(hits) == 1
         hit = hits[0]
@@ -260,22 +261,28 @@ def test_named_semantic_pages_explanations_and_source_search(
         from corpus_structure.semantic.source_views import load_source_view
 
         selected = table("ops.run_source_view")
-        assert conn.scalar(
-            select(selected.c.source_view_id).where(
-                selected.c.run_id == run, selected.c.source_view_id == hit.source_view_id
+        assert (
+            conn.scalar(
+                select(selected.c.source_view_id).where(
+                    selected.c.run_id == run, selected.c.source_view_id == hit.source_view_id
+                )
             )
-        ) == hit.source_view_id
+            == hit.source_view_id
+        )
         view = load_source_view(conn, hit.source_view_id)
         assert view.text == "Alice is here."
         assert hit.projection_digest == view.ref.projection_digest
         pin = hit.source_selection
         assert pin is not None
         assert (pin.run_id, pin.task_id, pin.product_key, pin.content_digest) == (
-            run, view.ref.native_product.task_id, view.ref.native_product.product_key,
+            run,
+            view.ref.native_product.task_id,
+            view.ref.native_product.product_key,
             view.ref.native_product.content_digest,
         )
         assert (pin.section_pointer, pin.membership) == (
-            view.ref.section_pointer, view.ref.membership,
+            view.ref.section_pointer,
+            view.ref.membership,
         )
         token = json.loads(base64.urlsafe_b64decode(first.next_page_token))
         token["revision"] += 1

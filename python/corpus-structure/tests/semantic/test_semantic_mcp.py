@@ -96,8 +96,11 @@ classes:
 
     original = write_controlled_pdf(raw, (text,))
     configuration = {
-        "model": "declared-automated-agent", "mode": "extract", "max_units": 1,
-        "packet_cap_chars": cap, "sentences": SentenceConfig().model_dump(mode="json"),
+        "model": "declared-automated-agent",
+        "mode": "extract",
+        "max_units": 1,
+        "packet_cap_chars": cap,
+        "sentences": SentenceConfig().model_dump(mode="json"),
     }
     engine = semantic_writer_engine
     with engine.begin() as conn:
@@ -120,8 +123,13 @@ classes:
             mime="application/pdf",
         )
         (view,) = publish_controlled_pdf_views(
-            conn, prepared=prepared, run_id=run, document_id=document, original=original,
-            paragraphs=(text,), keys=("source.html#detail",),
+            conn,
+            prepared=prepared,
+            run_id=run,
+            document_id=document,
+            original=original,
+            paragraphs=(text,),
+            keys=("source.html#detail",),
         )
         locator = view.ref.key
         (agent_task,) = queue_agent(

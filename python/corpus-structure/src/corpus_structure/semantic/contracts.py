@@ -878,7 +878,9 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact(
             "pdf/reconciliation.py", root.joinpath("ingest", "pdf_reconciliation.py").read_bytes()
         ),
-        SourceArtifact("pdf/bulk_remove.py", root.joinpath("ingest", "pdf_bulk_remove.py").read_bytes()),
+        SourceArtifact(
+            "pdf/bulk_remove.py", root.joinpath("ingest", "pdf_bulk_remove.py").read_bytes()
+        ),
         SourceArtifact("pdf/storage.py", root.joinpath("semantic", "pdf_storage.py").read_bytes()),
         SourceArtifact("grammar/grammar.py", math.joinpath("grammar.py").read_bytes()),
         SourceArtifact("grammar/extension.lark", math.joinpath("extension.lark").read_bytes()),

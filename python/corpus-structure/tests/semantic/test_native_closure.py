@@ -354,25 +354,40 @@ def test_forward_reproduction_uses_head_witness_and_candidate_uses_explicit_curr
 
     from corpus_structure.semantic.execution_admission import _DESCRIPTOR_SHA256
     from corpus_structure.semantic.native_products import (
-        NATIVE_PREDECESSOR, NATIVE_REVISION,
-        NativeProduct, current_authoring_provenance, forward_products, function_bodies,
+        NATIVE_PREDECESSOR,
+        NATIVE_REVISION,
+        NativeProduct,
+        current_authoring_provenance,
+        forward_products,
+        function_bodies,
     )
 
     versions = Path(__file__).resolve().parents[2] / "semantic_alembic/versions"
     head = NativeProduct("head", versions.joinpath(f"{NATIVE_REVISION}_admission.sql").read_bytes())
-    predecessor = NativeProduct("previous", versions.joinpath(f"{NATIVE_PREDECESSOR}_admission.sql").read_bytes())
+    predecessor = NativeProduct(
+        "previous", versions.joinpath(f"{NATIVE_PREDECESSOR}_admission.sql").read_bytes()
+    )
     reproduced = forward_products()[-1]
     assert reproduced.content == head.content
     recorded = _forward_descriptor(head)
     old = _forward_descriptor(predecessor)
     # These were separate authoring events; the predecessor is not the head witness.
     assert (recorded["model_id"], recorded["inputs"]) != (old["model_id"], old["inputs"])
-    assert sha256(function_bodies(reproduced.content.decode())["data.execution_contract_descriptor"].encode()).hexdigest() == _DESCRIPTOR_SHA256
+    assert (
+        sha256(
+            function_bodies(reproduced.content.decode())[
+                "data.execution_contract_descriptor"
+            ].encode()
+        ).hexdigest()
+        == _DESCRIPTOR_SHA256
+    )
 
     current = current_authoring_provenance()
     candidate = _forward_descriptor(forward_products(authoring_provenance=current)[-1])
     assert candidate["model_id"] == current.model_id
-    assert candidate["inputs"] == [{"name": name, "sha256": digest} for name, digest in current.inputs]
+    assert candidate["inputs"] == [
+        {"name": name, "sha256": digest} for name, digest in current.inputs
+    ]
     expected = dict(recorded)
     expected["model_id"] = current.model_id
     expected["inputs"] = [{"name": name, "sha256": digest} for name, digest in current.inputs]
@@ -386,6 +401,7 @@ def test_forward_reproduction_still_detects_current_function_change(monkeypatch)
     from corpus_structure.semantic.native_products import forward_products, function_bodies
 
     original = Path.read_text
+
     def changed_template(path, *args, **kwargs):
         content = original(path, *args, **kwargs)
         if path.name == "pdf_selected.sql":
@@ -399,7 +415,11 @@ def test_forward_reproduction_still_detects_current_function_change(monkeypatch)
     assert before[0].content != after[0].content and before[-1].content != after[-1].content
     body = function_bodies(after[0].content.decode())["ops.integrated_source_context"]
     assert "'changed_descriptor'" in body
-    function = next(f for f in _forward_descriptor(after[-1])["functions"] if f["signature"] == "ops.integrated_source_context(bigint,text,text,text[],text,text)")
+    function = next(
+        f
+        for f in _forward_descriptor(after[-1])["functions"]
+        if f["signature"] == "ops.integrated_source_context(bigint,text,text,text[],text,text)"
+    )
     assert function["body_sha256"] == sha256(body.encode()).hexdigest()
 
 
@@ -408,7 +428,9 @@ def test_forward_reproduction_refuses_unsupported_current_effect(monkeypatch):
     from corpus_structure.semantic.native_products import forward_products
     from corpus_structure.semantic.types import PreparationError
 
-    monkeypatch.setitem(SUPPORTED_EFFECTS["read_pdf_product"], "effects", ("atomic_native_publication",))
+    monkeypatch.setitem(
+        SUPPORTED_EFFECTS["read_pdf_product"], "effects", ("atomic_native_publication",)
+    )
     with pytest.raises(PreparationError, match="effect"):
         forward_products()
 
@@ -428,7 +450,10 @@ def test_forward_reproduction_still_detects_current_constraint_change():
     finally:
         relation.constraints.remove(constraint)
     assert before[-1].content != after[-1].content
-    assert _forward_descriptor(before[-1])["physical_checks_source_digest"] != _forward_descriptor(after[-1])["physical_checks_source_digest"]
+    assert (
+        _forward_descriptor(before[-1])["physical_checks_source_digest"]
+        != _forward_descriptor(after[-1])["physical_checks_source_digest"]
+    )
 
 
 @pytest.fixture

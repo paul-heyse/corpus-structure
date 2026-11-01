@@ -132,8 +132,13 @@ def source_task(
             mime="application/pdf",
         )
         (view,) = publish_controlled_pdf_views(
-            conn, prepared=prepared, run_id=run, document_id=document, original=original,
-            paragraphs=paragraphs, keys=("source.html#people",),
+            conn,
+            prepared=prepared,
+            run_id=run,
+            document_id=document,
+            original=original,
+            paragraphs=paragraphs,
+            keys=("source.html#people",),
         )
         locator = view.ref.key
         (task,) = queue_agent(

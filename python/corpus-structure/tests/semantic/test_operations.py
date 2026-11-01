@@ -724,7 +724,8 @@ def test_cli_initializes_pdf_source_project_without_active_pointer_changes(
         )
         assert source["source_uri"] == "toy/input.pdf" and source["mime"] == "application/pdf"
         assert source["meta"] == {
-            "input_format": "pdf", "source_inventory": "configured-pdf-originals"
+            "input_format": "pdf",
+            "source_inventory": "configured-pdf-originals",
         }
 
 
