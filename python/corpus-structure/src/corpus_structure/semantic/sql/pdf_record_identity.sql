@@ -121,6 +121,11 @@ BEGIN
       get_byte(p_scalars[i],1)>127 THEN
     RAISE EXCEPTION 'record field name/scalar invalid' USING ERRCODE='23514';
    END IF;
+   IF (get_byte(p_scalars[i],0) IN (97,110) AND substring(p_scalars[i] FROM 2 FOR 8)<>int8send(0::bigint)) OR
+      (get_byte(p_scalars[i],0)=98 AND substring(p_scalars[i] FROM 2 FOR 8)<>int8send(1::bigint)) OR
+      (get_byte(p_scalars[i],0)=102 AND substring(p_scalars[i] FROM 2 FOR 8)<>int8send(8::bigint)) THEN
+    RAISE EXCEPTION 'scalar kind has an invalid payload length' USING ERRCODE='23514';
+   END IF;
    body_ := body_ || ops.pdf_identity_frame(convert_to('n','UTF8'),convert_to(p_names[i],'UTF8')) || p_scalars[i];
    IF octet_length(body_)+8>65527 THEN
     RAISE EXCEPTION 'record frame exceeds 64 KiB; lower collections into rows' USING ERRCODE='23514';

@@ -168,6 +168,14 @@ def scalar_payload(value: Scalar) -> tuple[bytes, bytes]:
 
 
 def describe_scalar(value: Scalar) -> ScalarDescriptor:
+    if type(value) is str:
+        # At most 16K codepoints/64K UTF-8 bytes are encoded at once. The
+        # materializing scalar_payload helper remains explicit, not this path.
+        size = BLOCK_BYTES // 4
+        length, root = byte_root(
+            value[offset : offset + size].encode("utf-8") for offset in range(0, len(value), size)
+        )
+        return ScalarDescriptor(b"s", length, root)
     kind, payload = scalar_payload(value)
     length, root = byte_root((payload,))
     return ScalarDescriptor(kind, length, root)
@@ -331,6 +339,15 @@ def replay_artifact(
     ordinal = 0
     offset = 0
 
+    def read_exact(source: BinaryIO, length: int) -> bytes:
+        result = bytearray()
+        while len(result) < length:
+            chunk = source.read(length - len(result))
+            if not chunk:
+                break
+            result.extend(chunk)
+        return bytes(result)
+
     def verified() -> Iterator[bytes]:
         nonlocal ordinal, offset
         for part in parts:
@@ -339,7 +356,7 @@ def replay_artifact(
                 raise ValueError("artifact parts must be one contiguous ordered stream")
             if (
                 already_admitted is not None
-                and already_admitted.read(part.byte_length) != part.body
+                and read_exact(already_admitted, part.byte_length) != part.body
             ):
                 raise ValueError("artifact bytes differ from already-admitted retained bytes")
             standard.update(part.body)

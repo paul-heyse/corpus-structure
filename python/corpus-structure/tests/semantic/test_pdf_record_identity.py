@@ -294,3 +294,48 @@ def test_postgresql_independent_primitive_and_record_parity(semantic_db_engine: 
                     text("SELECT ops.pdf_identity_scalar(:kind,:payload)"),
                     dict(kind=kind, payload=payload),
                 )
+
+
+def test_retained_correspondence_accepts_short_reads():
+    class ShortReader(io.BytesIO):
+        def read(self, size=-1):
+            return super().read(min(size, 7) if size >= 0 else 7)
+
+    raw = b"retained" * 100
+    assert (
+        b"".join(
+            replay_artifact(
+                _parts(raw, 64),
+                _pin(raw),
+                release_id="release",
+                source_digest="1" * 64,
+                already_admitted=ShortReader(raw),
+            )
+        )
+        == raw
+    )
+    with pytest.raises(ValueError, match="already-admitted"):
+        list(
+            replay_artifact(
+                _parts(raw, 64),
+                _pin(raw),
+                release_id="release",
+                source_digest="1" * 64,
+                already_admitted=ShortReader(raw[:-1]),
+            )
+        )
+
+
+def test_native_record_frame_rejects_fabricated_scalar_lengths(semantic_db_engine):
+    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/pdf_record_identity.sql"
+    with semantic_db_engine.begin() as conn:
+        conn.exec_driver_sql(sql.read_text(), execution_options={"no_parameters": True})
+        for tag, length in [(b"a", 1), (b"n", 1), (b"b", 0), (b"f", 1)]:
+            bad = tag + length.to_bytes(8, "big") + bytes(32)
+            with pytest.raises(DBAPIError), conn.begin_nested():
+                conn.execute(
+                    text(
+                        "SELECT ops.pdf_identity_record_frame('s','f','k',ARRAY['x'],ARRAY[:bad])"
+                    ),
+                    {"bad": bad},
+                )
