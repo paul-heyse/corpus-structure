@@ -1,5 +1,13 @@
 # Source interfaces, runtime and publication
 
+> **Target revision — 2026-10-31:** PDF-00–09 describe the delivered native baseline and its
+> scoped receipts. The selected extension is PDF-12–16: one integrated document after full Docling,
+> in-page RapidOCR and true Nemotron triple pass. See the [coordinator](../pdf-docling-pipeline_2026-10-31.md)
+> for state and [integrated model](integrated-document-model-and-lineage.md),
+> [producer/integration](triple-pass-recognition-and-reconciliation.md) and
+> [consumer migration](integrated-document-consumers.md) for new obligations. PDF-10/11 now adopt
+> and qualify that integrated target. New capabilities are planned, not delivered by old receipts.
+
 **Status:** Implemented mechanisms described below; the coordinator owns current qualification and adoption state.
 **Created:** 2026-10-31. The [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns
 PDF-08/09 status, investigation outcomes and review O06/O07/O08 disposition.
@@ -34,7 +42,7 @@ renderer and package identities without math preparation; incompatible renderer 
 explicit compatible-consumer adoption route. Generic PDF execution validates the archived typed
 native scope before creating a run/task, including callers below the CLI scope loader.
 
-## Foundation assessment and intended execution shape
+## Original foundation assessment and intended execution shape (pre-PDF implementation)
 
 `serve/source.py`, `cli/source.py` and `semantic/parsing_queries.py` already provide pinned,
 bounded source reads shared by CLI/MCP. Their scalar extents and canonical defaults cannot
@@ -164,10 +172,10 @@ probe is a partial product with declared scope. Section chunking is excluded; an
 oversized-section failure returns to the coordinator as a future decision, not an automatic
 runtime fallback.
 
-Conditional independent OCR verification uses an explicit demanded region and attributable
-recognizer/configuration/alignment evidence. Preserve competing strings and resolution outcomes;
-no multi-engine voting or new universal reconciliation framework is part of ordinary execution.
-An accepted correction creates a new derived document and does not mutate the retained conversion.
+PDF-14 adds owned whole-page parse/detect/crop recognition; PDF-13/15 add the integrated contract
+and selection, including governed replacement. PDF-16 migrates actual readers, frames and exports
+with multi-input reachability. Additional OCR verification beyond that composition remains conditional.
+No independent voting framework or second workflow scheduler is selected.
 
 **Acceptance:** native source completion/replay, restricted publication, stale attempt/source
 fencing, cancellation and failure recovery preserve coherent selected products. Full-book source

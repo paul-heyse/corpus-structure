@@ -1,5 +1,13 @@
 # PDF semantic contracts, custody and access projections
 
+> **Target revision — 2026-10-31:** PDF-00–09 describe the delivered native baseline and its
+> scoped receipts. The selected extension is PDF-12–16: one integrated document after full Docling,
+> in-page RapidOCR and true Nemotron triple pass. See the [coordinator](../pdf-docling-pipeline_2026-10-31.md)
+> for state and [integrated model](integrated-document-model-and-lineage.md),
+> [producer/integration](triple-pass-recognition-and-reconciliation.md) and
+> [consumer migration](integrated-document-consumers.md) for new obligations. PDF-10/11 now adopt
+> and qualify that integrated target. New capabilities are planned, not delivered by old receipts.
+
 **Status:** Implemented mechanisms described below; the coordinator owns current qualification and adoption state.
 The [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-02/03 state and review/investigation
 dispositions. Consumes the [review](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md)
@@ -41,7 +49,7 @@ as invalid source. Native options JSON is not replay-safe by itself; use explici
 [Foundation evidence](../../design_review/evidence/2026-10-31_pdf-docling-foundations/README.md)
 provides bounded source/API/native results; complete contracts/deployment remain PDF-02/03.
 
-## Foundation assessment and physical reasoning
+## Original foundation assessment and physical reasoning (pre-PDF implementation)
 
 `semantic/metadata.py` compiles `model/semantic/physical.yaml` through LinkML `SchemaView` and
 `schema.relational.compile_metadata(..., target="semantic")`; shared fixed `Table` objects serve

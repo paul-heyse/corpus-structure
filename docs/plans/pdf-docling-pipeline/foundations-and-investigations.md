@@ -1,5 +1,13 @@
 # PDF foundations and capability investigations
 
+> **Target revision — 2026-10-31:** PDF-00–09 describe the delivered native baseline and its
+> scoped receipts. The selected extension is PDF-12–16: one integrated document after full Docling,
+> in-page RapidOCR and true Nemotron triple pass. See the [coordinator](../pdf-docling-pipeline_2026-10-31.md)
+> for state and [integrated model](integrated-document-model-and-lineage.md),
+> [producer/integration](triple-pass-recognition-and-reconciliation.md) and
+> [consumer migration](integrated-document-consumers.md) for new obligations. PDF-10/11 now adopt
+> and qualify that integrated target. New capabilities are planned, not delivered by old receipts.
+
 **Status:** Implemented mechanisms described below; the coordinator owns current qualification and adoption state.
 The [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns package state, review O01–O08
 and investigation I01–I08 disposition. This document explains PDF-00/01, not a second queue.
@@ -16,7 +24,7 @@ The complete original conversion is retained. Investigation conclusions and cond
 remain owned by the coordinator; source conversion does not establish universal OCR fidelity.
 
 
-## Foundation assessment
+## Original foundation assessment (pre-PDF implementation)
 
 The existing semantic runtime already has immutable originals/products, a trusted finite
 operation catalog, archived release reconstruction, attempt fencing and protected publication.
@@ -116,8 +124,8 @@ stage outcome through supported integration or retain explicit unknown. For ordi
 [issue #3828](https://github.com/docling-project/docling/issues/3828) identifies a specific producer
 gap despite rich-cell representational capacity. If encountered, prefer native cell-to-formula
 extension using existing regions; do not reverse-engineer two-dimensional math from garbled text.
-`mineru2_pro`/Nemotron Parse remain investigative alternatives for material failures; switching
-whole-document pipelines requires a revised decision, not a hidden fallback. Nemotron-OCR is a
+Nemotron3.5 Parse triple pass is selected by RC06/07 and implemented through PDF-12–16.
+`mineru2_pro` and other replacement pipelines remain alternatives for an actual blocker. Nemotron-OCR is a
 different capability with a narrower runtime baseline.
 
 For I04 enable `HeadingHierarchyOptions(enabled=True)`. In tagged 2.145.0 the heading-style
@@ -136,7 +144,8 @@ I08 can identify reference/consumer obligations early while operational proof fi
 If a native capability fails, retain the gap and its dependent work; do not silently weaken the
 required coverage, declare absence or preserve an unneeded old frontend indefinitely. Named
 conditional alternatives need explicit evidence of value before implementation. No multi-engine
-OCR voting, mandatory whole-book second pass, preview table model or chart extraction is selected.
+OCR voting or preview table model is selected by PDF-01. The added target explicitly selects
+whole-page Nemotron discovery and Table/Chart crop interpretation through PDF-12–16.
 
 **Acceptance:** applicable investigation results identify concrete APIs/configuration and support
 limits, with input/source references and an actionable route for unresolved outcomes. Native
@@ -161,3 +170,74 @@ locks are unchanged. Full model breadth is installed, not automatically selected
 No application migration, default cutover, actual agent/evaluator run or full-book qualification
 is established. Most sampled recognized strings require more than the default SymPy grammar;
 retirement of the existing mathematical frontend remains conditional on PDF-06 qualification.
+
+<a id="PDF-12"></a>
+## PDF-12 — Integrated target decisions and consequential feasibility
+
+**Planned extension; not implemented.** The operator explicitly adopted both changes on 2026-10-31:
+select StandardPdfPipeline+RapidOCR with true Nemotron triple pass, and permit governed integration
+including native-content replacement with originals/alternatives/evidence preserved. Coordinator
+RC06/07 records confirmation. This package supplies the successor ADR superseding ADR-0038 and
+coherent D1–D8 updates before dependent behavior is deployed. It does not reopen delivered PDF-00.
+No new diagnostic audit or change to audit premises is required by plan authoring.
+
+### Existing foundation and chosen direction
+
+Current native 0055, archived release compilation, Core metadata, fences, finite conversion workers
+and selective readers are reusable. Current single-parent ancestry, formula-only image lifetime and
+Standard-only source selection need extension; they cannot be fixed by an extra optional JSON field.
+PDF-13 owns connected integrated contracts/storage; PDF-14 delegates multipass mechanics to NVIDIA;
+PDF-15 owns application correspondence/selection; PDF-16 migrates consumers. Follow the
+[review](../../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md) and
+[target](../../functional_reviews/docling-nemotron-triple-pass_2026-10-31_target-model.md) at `d25fff8`.
+
+Choose one integrated consumer product: native Docling content with mandatory typed application
+relations. A whole new hybrid content schema is deferred unless a required consumer demonstrably
+cannot use that representation faithfully or reasonably. The single-reader boundary is mandatory;
+provider-specific merging in consumers is not an acceptable temporary completion claim.
+
+### Investigation methods, outputs and dependent decisions
+
+Current state is recorded only in the coordinator. These are execution investigations, **not_run**
+in plan authoring; retain accepted probe results through existing evidence tools, including failures.
+
+| ID | Bounded investigation and necessary output | Decision consequence |
+|---|---|---|
+| I09 | Inspect exact public `DocumentParser` export/dependency source; select package, code/weights/tokenizer revisions and effective prompts/render/decoding recipe. Compare Docling/benchmark model revisions rather than treating current source revision as weight pin. In isolated environment verify actual RTX5090 vLLM/plugin/backend startup and one real triple request. | Pins and launch contract for PDF-14; no silent single-pass substitution. MTP-off is a separately identified investigation if MTP fails; do not force root Torch/Transformers downgrade. |
+| I10 | Independently specified MediaBox/CropBox mismatch, rotation, clipped crops and known pixel/PDF landmarks; verify original→render→crop and mapper normalization. Include rotated text. | Admitted coordinate/precision rules for PDF-13/15; unverified fine alignment stays unresolved, not manufactured offsets. |
+| I11 | Actual inline/vector math, tables with spans/headers, chart/panels and clean prose: retain A/B/C raw, provider alternatives and mapped content. Trace malformed/unknown/dropped/duplicate blocks. Compare native and generated text and chart grammar; define integration actions and evidence requirements. | Mapping loss and versioned application selection policy; if content cannot map, assess a typed companion extension before replacing the entire content model. Record cross-page continuity gaps/remedies explicitly. |
+| I12 | Finite page batches and crop fan-out, phased GPU ownership, page release after last actual consumer; later-pass failure, partial receipts, cancellation, lease loss and replay. | PDF-14 lifecycle/capacity and PDF-10 full-book route; public `parse_many` eager preparation cannot be treated as memory bounded by request concurrency alone. |
+| I13 | Fix concrete source/section/provider/reference/render/export journeys and independent source expectations before results. Include retained ambiguous cases, normal pages, math, table/chart and OCR pages; confirm physical page identity. | PDF-16/10/11 scope and actual evidence boundary; separate whole-book integrated source from five-section knowledge extraction and independent reference author passes A/B/C. |
+
+I09 starts from the vendor's validated Python3.12/vLLM0.26 configuration and declared package bounds;
+Blackwell attention fallback is source-inspected but plugin/MTP/capacity is unqualified. Endpoint,
+cache and service lifecycle are operational settings; actual model/decoding/kernel choices affecting
+results belong in the binding. No cloud provider, new hardware purchase or unbounded co-residency is
+assumed. An unresolved required runtime names the blocker and dependent work, not a false pass.
+
+Use Context7 first for newly uncertain API details, then immutable primary/installed sources. The
+review already resolves ParseBench add-before-guarded replacement and identifies public API reuse;
+these do not need another speculative probe. Compare greedy and benchmark-sampled generation only
+where it changes the selected recipe or benefit argument. The vendor score can select a best table
+alternative; it is not an acceptance threshold for one selected transcription. Logprobs are optional
+unless a named diagnostic needs them; test their MTP shape only then.
+
+Retain full Docling with requested extras. Nemotron-OCR is not Nemotron3.5 Parse. `force_backend_text`
+does not protect Nemotron prose (DOCTAGS only); compact heading-line retention in 2.145 needs no full
+parsed-page retention. The user-owned references contain stale/inconsistent statements, so preserve
+them and use pinned code as the deciding source rather than editing those drafts in this package.
+
+### Scope, sequencing and completion
+
+Decision/contract design and bounded library investigation can overlap. Runtime probes need neither
+all new database tables nor all consumers; final publication does. PDF-13 can establish common
+identities/states while I09 resolves backend pins; I10/11 constrain only affected final boundaries.
+The successor ADR and owner updates precede dependent production deployment. Acceptance of this
+package requires explicit chosen mechanisms, qualified results or named unresolved prerequisites,
+and a credible normal-workload route; protective refusal alone does not establish book-scale fit.
+
+Whole-book inference is not required to choose architecture. PDF-10/11 later establish the selected
+whole-book source capability, reusing compatible Standard products and running required new passes.
+No full-book symbolic/agent extraction, broad tuning campaign, human grading or historical regrading
+is introduced. pgvector/logprob retention, extra OCR, native forms/annotations, full PDF-object graphs,
+Granite chart enrichment and other model families remain conditional on a named unmet capability.

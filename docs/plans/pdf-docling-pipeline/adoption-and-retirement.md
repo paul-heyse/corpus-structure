@@ -1,7 +1,15 @@
 # PDF-only adoption, HTML retirement and acceptance
 
+> **Target revision — 2026-10-31:** PDF-00–09 describe the delivered native baseline and its
+> scoped receipts. The selected extension is PDF-12–16: one integrated document after full Docling,
+> in-page RapidOCR and true Nemotron triple pass. See the [coordinator](../pdf-docling-pipeline_2026-10-31.md)
+> for state and [integrated model](integrated-document-model-and-lineage.md),
+> [producer/integration](triple-pass-recognition-and-reconciliation.md) and
+> [consumer migration](integrated-document-consumers.md) for new obligations. PDF-10/11 now adopt
+> and qualify that integrated target. New capabilities are planned, not delivered by old receipts.
+
 **Status:** Partial delivery, 2026-10-31: source readiness and active HTML retirement implemented; completed PDF adoption and qualification remain open. [Coordinator](../pdf-docling-pipeline_2026-10-31.md)
-owns PDF-10/11 state, O01–O08 disposition and I01–I08. Basis: review revision `2c33372`,
+owns PDF-10/11 state, original-review O01–O08, added-review O01–O07 and I01–I13. Basis: review revision `2c33372`,
 especially [O07](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O07).
 No current default or database is changed by this document.
 
@@ -34,8 +42,8 @@ completed knowledge extraction, independent grading and measured benefits are se
 <a id="PDF-10"></a>
 ## PDF-10 — Source inventory, operational adoption and complete retirement
 
-**Owner:** cross-consumer integration/adoption. **Inputs:** actual PDF-03–09 producers and
-consumers; I08 selection/reference conclusions; I07 feasible full-book route. **Output:** an
+**Owner:** cross-consumer integration/adoption. **Inputs:** actual PDF-03–09 and working PDF-13–16
+producers/consumers; I08/I13 exact selection/reference scope; I07/I12 feasible integrated full-book route. **Output:** an
 operational PDF-only source route, coherent defaults and no active HTML producer.
 
 Replace HTML glob/TSV/page profiles with the source original and native section/item selection
@@ -43,13 +51,18 @@ contracts. The book's physical page number, printed page label, section path and
 source URI are different locators. Resolve source identity and profile/configuration snapshots
 through existing release/acquisition operations. Register retained PDF bytes before model work.
 
-Use a fresh owned operational database/project for the PDF adoption journey, selecting concrete
-names and recording ownership when execution begins. Do not repurpose or upgrade a historical
+Use the owned `corpus_pdf_20261031` deployment/project for integrated adoption, verifying ownership
+and migration/release prerequisites. Create another explicitly owned deployment only if isolation is needed. Do not repurpose or upgrade a historical
 operational database merely to simplify this run. Deploy new forward native migrations, restricted
 roles and the exact release/archive. Native model/schema correspondence and integrity must hold
 before new producers write. Migration credentials do not enter normal application/model workers.
 
-Perform a full-book conversion and persist required hierarchy/health/access products. Run actual
+Establish full-book integrated-source publication with required hierarchy/health/access/decision
+products. Reuse exact compatible retained Standard conversion; execute required Nemotron parse/detect
+and Table/Chart crop requests over the declared book universe. Account for all 1,589 original pages,
+including failed/excluded scope; admission cannot silently narrow the full-book claim. Required
+unresolved coverage remains open rather than being labelled complete. Representative probes do not establish this
+whole-book scope; page batches remain physical execution units, not semantic section chunks. Run actual
 configured-provider knowledge extraction over the representative intact sections selected by I08;
 record exactly which sections/methods are required for this acceptance, and distinguish that from
 all-book agent extraction. Exercise resumed/completed replay without unnecessary inference.
@@ -78,7 +91,7 @@ application HTML pipeline. Remove direct dependencies only when actual surviving
 it; no wholesale lock upgrades. Preserve frozen migration files, all prior plans/evidence and
 historical answers/grades. No compatibility framework for rerunning retired writers is required.
 
-I08 must identify which existing automated reference fixtures need new PDF anchors and which
+I08/I13 must identify which existing automated reference fixtures need new PDF anchors and which
 remain historical read controls. New reference cases are independently authored from PDF source,
 with exact declared scope; never migrate expected values by copying extraction output. Keep
 independent evaluator credentials and no reference leakage into source packets. Do not regrade
@@ -92,14 +105,16 @@ consumer evidence, not just a source search. Enduring architectural mechanisms m
 <a id="PDF-11"></a>
 ## PDF-11 — Required functional union, source fidelity and evidence closeout
 
-**Owner:** root integration/qualification. **Inputs:** all selected functional work including
-retirement; I08 concrete journey union. **Output:** accountable adopted result and truthful plan
+**Owner:** root integration/qualification. **Inputs:** all selected functional work including PDF-13–16 and
+retirement; I08/I13 concrete journey union. **Output:** accountable adopted result and truthful plan
 state, retaining failed/interrupted/unavailable obligations separately.
 
 ### Planned acceptance journeys
 
 | Journey | Behavior and revealing negative case |
 |---|---|
+| Integrated recognition and selection | Actual Nemotron parse/detect/crop outputs, useful selected contribution, raw early responses surviving later failure, alternatives/unresolved decisions and scoped partiality. |
+| Multiple-input evidence | Integrated occurrence traces through policy and both recognizers to original pixels; wrong project/run and stale input refuse; old one-parent citations remain readable. |
 | Original/native custody | Whole PDF retained; native JSON reload and hierarchy/projection linkage work; corruption/unsupported schema cannot silently rebuild history. |
 | Intact hierarchy | Section/subsection and direct/descendant selections, repeated text occurrences, furniture, captions and page breaks; no persistent chunks or false parent/child duplication. |
 | OCR and recognition | Real native/raster/vector/broken-text cases; failed formula batch cannot masquerade as successful LaTeX; actual per-stage providers recorded. |
@@ -136,3 +151,19 @@ Finalize useful probe/qualification records through existing evidence tools, ret
 Update coordinator package/O/I states only to the boundary established; update STATUS and enduring
 owners with the exact adopted boundary. Completed prior plans remain completed under their old
 scope. PDF-pivot plans stay in the repository when finished. No push is authorized by execution.
+
+## Integrated adoption delta and retained obligations
+
+PDF-10/11 keep the original five intact-root extraction scope, current external MCP/render, actual
+configured providers, independent full-section reference author passes A/B/C, registration/grading,
+completed-result/default selection, replay and historical reads. Nemotron parse/detect/crop roles
+are not those reference author passes. Regenerate frames against the exact integrated consumer;
+never relabel run6 or copy expected values from extraction. A new selection invalidates affected
+consumer identity, not all prior source/type/test evidence.
+
+Retain unchanged Standard source and useful enrichment receipts. Do not first complete grading of
+an obsolete Standard-only intermediate. PDF-16 supplies the migrated consumers; I13 specifies the
+new exact applicable qualification union before providers run. Benefits remain hypotheses until
+independent selected-source assessment; schema/transport correctness is a separate claim. No human
+grading, policy tuning or historical regrading is introduced. All new provider work is not_run in
+this documentation revision.

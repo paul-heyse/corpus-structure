@@ -1,5 +1,13 @@
 # PDF conversion and intact document hierarchy
 
+> **Target revision — 2026-10-31:** PDF-00–09 describe the delivered native baseline and its
+> scoped receipts. The selected extension is PDF-12–16: one integrated document after full Docling,
+> in-page RapidOCR and true Nemotron triple pass. See the [coordinator](../pdf-docling-pipeline_2026-10-31.md)
+> for state and [integrated model](integrated-document-model-and-lineage.md),
+> [producer/integration](triple-pass-recognition-and-reconciliation.md) and
+> [consumer migration](integrated-document-consumers.md) for new obligations. PDF-10/11 now adopt
+> and qualify that integrated target. New capabilities are planned, not delivered by old receipts.
+
 **Status:** Implemented mechanisms described below; the coordinator owns current qualification and adoption state.
 [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-04/05 state and opportunity disposition.
 Basis: review [O01](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O01),
@@ -25,7 +33,7 @@ descendant membership, with direct ancestor context kept separate. There are no 
 The coordinator owns remaining adoption and acceptance claims.
 
 
-## Foundation and responsibility
+## Original foundation and responsibility (pre-PDF implementation)
 
 `ingest/html.py`, `source_capture.py`, `profile.py` and root `sources/siegrist.yaml` currently
 own DOM repair, CSS roles, rendered markers, macro acquisition and canonical text. Replacing
@@ -92,11 +100,10 @@ in a **derived** document, with original text and recognition evidence retained.
 that route; it is not assumed available. Jumbled cell text is not recoverable spatial LaTeX by
 string cleanup. Keep unresolved required support open, not closed by recording partiality.
 
-Optional independent OCR requires an actual consequential uncertainty/selected precision consumer.
-Use another recognizer on the affected region rather than repeat full layout/table assembly for
-the whole book. Retain candidates, geometry, configuration, alignment and unresolved outcomes.
-No voting framework or automatic correction is baseline scope. A correction creates a derived
-product and does not mutate native conversion JSON.
+The selected extension uses full-page Nemotron parse/detect and Table/Chart crop recognition,
+not just native-selected gap regions. PDF-14/15 retain candidates and implement governed integrated
+content addition/replacement without mutating native JSON. Other OCR engines remain conditional;
+no multi-engine voting is selected. PDF-04's receipt establishes the native route only.
 
 **Acceptance:** real native/image/vector/broken-text cases with recorded source coverage;
 explicit formula-stage failure; inline/display/table formula cases; malformed/unsupported input
@@ -155,5 +162,5 @@ and [table-formula issue](https://github.com/docling-project/docling/issues/3828
 
 The tagged release retains needed heading lines internally; do not enable all parsed-page
 retention merely for style-based hierarchy. Raw glyph/annotation retention, interactive forms,
-charts and generative picture descriptions remain conditional at the coordinator, not omitted
-mandatory conversion scope.
+Nemotron chart interpretation is selected in PDF-15/16; raw glyph/annotation retention, forms
+and extra picture descriptions remain conditional. These are distinct capabilities.

@@ -1,5 +1,13 @@
 # Mathematical interpretation and domain consumers
 
+> **Target revision — 2026-10-31:** PDF-00–09 describe the delivered native baseline and its
+> scoped receipts. The selected extension is PDF-12–16: one integrated document after full Docling,
+> in-page RapidOCR and true Nemotron triple pass. See the [coordinator](../pdf-docling-pipeline_2026-10-31.md)
+> for state and [integrated model](integrated-document-model-and-lineage.md),
+> [producer/integration](triple-pass-recognition-and-reconciliation.md) and
+> [consumer migration](integrated-document-consumers.md) for new obligations. PDF-10/11 now adopt
+> and qualify that integrated target. New capabilities are planned, not delivered by old receipts.
+
 **Status:** Implemented mechanisms described below; the coordinator owns current qualification and adoption state.
 **Created:** 2026-10-31. The [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns
 PDF-06/07 status, investigation outcomes and scheduled disposition of review O04/O05.
@@ -31,7 +39,7 @@ versions are unchanged. Source-ready run6 predates the final adapter correction 
 claim of current assembled provider execution. Prepare a compatible consumer from the retained
 enriched pin before continuing that journey.
 
-## Foundation assessment and resulting boundary
+## Original foundation assessment and resulting boundary (pre-PDF implementation)
 
 `methods/math/spans.py` currently discovers `math_inline`/`math_display` segments and strips
 HTML-source delimiter pairs. `PreparedMathInput` in `methods/math/prepared.py` separates lexical,

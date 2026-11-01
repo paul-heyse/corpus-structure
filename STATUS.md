@@ -3,9 +3,9 @@ _Updated 2026-10-31; implementation integrated, PDF qualification incomplete._
 
 ## Current checkpoint
 
-- **Proposed:** [Docling–Nemotron review](docs/functional_reviews/docling-nemotron-triple-pass_2026-10-31.md)
-  and [integrated target](docs/functional_reviews/docling-nemotron-triple-pass_2026-10-31_target-model.md)
-  recommend public triple-pass reuse and one downstream document contract; adoption is not scheduled.
+- **Planned target:** [PDF-12–16](docs/plans/pdf-docling-pipeline_2026-10-31.md#PDF-12)
+  integrate true Nemotron triple pass with Docling/RapidOCR into one document contract.
+  Both rule changes are confirmed; successor ADR, runtime feasibility and implementation remain open.
 
 - [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns package/O/I disposition
   and remaining acceptance. All implementation worktrees are integrated and removed.
@@ -28,8 +28,8 @@ _Updated 2026-10-31; implementation integrated, PDF qualification incomplete._
 
 ## Verification — 2026-10-31
 
-- **passed:** review documentation publication/link check (`just docs-check`); independent static
-  review of domain/consumer and runtime/API recommendations. Product inference/tests not run for this review.
+- **passed:** review/plan documentation publication/link check (`just docs-check`); independent
+  static review. New model inference and product tests are not_run for documentation authoring.
 
 - **passed:** global warning-inclusive `just types`; no suppressions added. Focused native,
   reuse, scope, legacy conformance/model and controlled PDF CLI lifecycle checks passed.
@@ -49,10 +49,9 @@ _Updated 2026-10-31; implementation integrated, PDF qualification incomplete._
 
 ## Next
 
-For the proposed parser extension, select review opportunities for planning; runtime feasibility,
-local quality and consumer delivery are unqualified. Existing PDF acceptance remains below.
-
-Prepare a compatible current consumer from the retained task 7 enriched pin after the final math
-adapter correction; inference is reusable. Regenerate reference frames for that exact consumer,
-complete actual MCP/render and independent authoring/extraction/grading, then select the completed
-PDF result and update defaults. Finish the declared required qualification union.
+Begin PDF-12 successor decision and focused runtime/geometry/mapping investigations alongside
+PDF-13 integrated-model agreement. Then deliver PDF-14–16 and retarget PDF-10/11 acceptance to
+that product: new compatible consumer/reference frames, real external MCP/render, independent
+reference authors and five-section extraction/grading, replay, completed-result/default selection
+and the required qualification union. Reuse compatible retained native products and receipts;
+run6 frames are not integrated-product evidence. Library drafts remain untouched.
