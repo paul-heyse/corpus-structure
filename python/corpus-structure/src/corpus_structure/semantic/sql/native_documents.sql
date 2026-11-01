@@ -130,6 +130,11 @@ BEGIN
   WHERE entry.value ? 'self_ref'
   UNION ALL SELECT product->'document'->'body'->>'self_ref',product->'document'->'body'
   UNION ALL SELECT product->'document'->'furniture'->>'self_ref',product->'document'->'furniture'
+ ), bad_child_edges AS (
+  SELECT edge_parent.pointer FROM nodes edge_parent
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(edge_parent.node->'children','[]'::jsonb)) child
+  LEFT JOIN nodes edge_target ON edge_target.pointer=child->>'$ref'
+  WHERE edge_target.pointer IS NULL OR edge_target.node->'parent'->>'$ref' IS DISTINCT FROM edge_parent.pointer
  ), walk(pointer,path,trail,scope) AS (
   SELECT pointer,ARRAY[CASE pointer WHEN '#/body' THEN 0 ELSE 1 END]::bigint[],ARRAY[pointer]::text[],NULL::text FROM nodes WHERE pointer IN ('#/body','#/furniture')
   UNION ALL
@@ -155,7 +160,7 @@ BEGIN
  OR actual.parent_pointer IS DISTINCT FROM e.node->'parent'->>'$ref'
  OR (actual.parent_pointer IS NOT NULL AND NOT EXISTS(SELECT FROM nodes p WHERE p.pointer=actual.parent_pointer))
  OR actual.section_pointer IS DISTINCT FROM e.scope
- OR EXISTS(SELECT FROM jsonb_array_elements(COALESCE(e.node->'children','[]'::jsonb)) child LEFT JOIN nodes target ON target.pointer=child->>'$ref' WHERE target.pointer IS NULL OR target.node->'parent'->>'$ref' IS DISTINCT FROM e.pointer)
+ OR EXISTS(SELECT FROM bad_child_edges)
  ) THEN RAISE EXCEPTION 'native access universe/order/membership differs' USING ERRCODE='23514'; END IF;
  -- One set-shaped provenance projection avoids repeated whole-document pointer lookup.
  IF EXISTS(

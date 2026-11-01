@@ -348,13 +348,12 @@ def _forward_descriptor(product):
     return json.loads(cast.arg.val.sval)
 
 
-def test_forward_reproduction_uses_head_witness_and_candidate_uses_explicit_current():
+def test_forward_reproduction_uses_head_witness_and_candidate_uses_explicit_current(monkeypatch):
     from hashlib import sha256
     from pathlib import Path
 
     from corpus_structure.semantic.execution_admission import _DESCRIPTOR_SHA256
     from corpus_structure.semantic.native_products import (
-        NATIVE_PREDECESSOR,
         NATIVE_REVISION,
         NativeProduct,
         current_authoring_provenance,
@@ -364,15 +363,22 @@ def test_forward_reproduction_uses_head_witness_and_candidate_uses_explicit_curr
 
     versions = Path(__file__).resolve().parents[2] / "semantic_alembic/versions"
     head = NativeProduct("head", versions.joinpath(f"{NATIVE_REVISION}_admission.sql").read_bytes())
-    predecessor = NativeProduct(
-        "previous", versions.joinpath(f"{NATIVE_PREDECESSOR}_admission.sql").read_bytes()
-    )
+    from corpus_structure.semantic import source_view_native
+
+    original = source_view_native.recorded_authoring_provenance
+    witnessed = []
+
+    def recorded_witness(admission):
+        witnessed.append(sha256(admission.encode()).hexdigest())
+        return original(admission)
+
+    monkeypatch.setattr(source_view_native, "recorded_authoring_provenance", recorded_witness)
     reproduced = forward_products()[-1]
     assert reproduced.content == head.content
+    assert witnessed == [head.digest]
     recorded = _forward_descriptor(head)
-    old = _forward_descriptor(predecessor)
-    # These were separate authoring events; the predecessor is not the head witness.
-    assert (recorded["model_id"], recorded["inputs"]) != (old["model_id"], old["inputs"])
+    # SQL-only revisions can legitimately share release input provenance. Verify
+    # the exact head witness was read, rather than relying on differing inputs.
     assert (
         sha256(
             function_bodies(reproduced.content.decode())[

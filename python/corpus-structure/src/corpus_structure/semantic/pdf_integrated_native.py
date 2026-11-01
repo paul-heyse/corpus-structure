@@ -421,3 +421,18 @@ def json_pdf_products(model=None, *, authoring_provenance=None):
         NativeProduct("semantic_0060_reconciliation.sql", sql.encode()),
         NativeProduct("semantic_0060_admission.sql", admission.encode()),
     )
+
+
+def native_edge_products(model=None, *, authoring_provenance=None):
+    """0061 checks the same native child edges once as a document-wide relation."""
+    sql = native_exclusion_products(model, authoring_provenance=authoring_provenance)[
+        0
+    ].content.decode()
+    previous = ALEMBIC_DIR.joinpath("versions/semantic_0060_admission.sql").read_text()
+    admission = native_admission_sql(
+        sql, model, base_admission=previous, authoring_provenance=authoring_provenance
+    )
+    return (
+        NativeProduct("semantic_0061_reconciliation.sql", sql.encode()),
+        NativeProduct("semantic_0061_admission.sql", admission.encode()),
+    )
