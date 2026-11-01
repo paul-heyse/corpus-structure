@@ -115,7 +115,7 @@ attempt/source fences. Explicit archived requests reuse successful compatible ta
 remain retryable attempts, and cancellation drains the owned run. Broader qualification and
 operational adoption are recorded separately at PP-10.
 
-**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** Reuse existing task/attempt and publication ownership for integrated products and partial recognition receipts. Inputs are prior immutable products, not mutable workflow edges. Bound page preparation and share GPU capacity across native/Nemotron consumers; no new scheduler or model service is introduced by the contract foundation.
+**Implemented; fresh GPU lifecycle scoped Tested (2026-10-31).** Existing document-task/attempt ownership governs native conversion, finite recognition and integrated publication. Native and per-request products are fenced and retained before later stages can fail. Up to four finite page workers bound prepared pixels; short PDFium calls serialize while inference overlaps. Fresh conversion sleeps the dedicated local Nemotron service, closes the native child, then wakes recognition; failures/cancellation restore the service and retain partial evidence. Exact recipe-qualified replay avoids inference. One declared recovery recipe may handle a capped repeated-character response, with primary failure and recovery identity both preserved. No request-level DB workflow or second scheduler is introduced.
 
 > Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 

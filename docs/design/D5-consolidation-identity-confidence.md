@@ -53,7 +53,7 @@ build and dependencies even when renditions are content-identical. PP-06/PP-10 o
 scope/binding, quote placement and affected consumers; this target establishes no new binding,
 scientific equivalence, confidence or evidence-grading policy.
 
-**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** Claims trace through selected occurrences, integration decisions and multiple attributed provider inputs to original PDF evidence. Agreement between passes of the same model is not independent corroboration; recognized chart values remain inferred observations until consolidation establishes a claim.
+**Implemented relation model (2026-10-31); actual knowledge trace acceptance belongs to PDF-11.** Claim evidence binds selected occurrences, integration decisions and attributed provider inputs to original PDF evidence. Agreement between passes of the same model is not independent corroboration; chart values remain recognized observations until consolidation establishes a claim. Qualified source frames preserve alternatives and coarse/unknown precision rather than converting them into exact source assertions.
 
 > Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 

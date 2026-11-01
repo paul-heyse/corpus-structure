@@ -96,7 +96,7 @@ restrictions precede native cancellation. Timeouts retain failed attempt state
 and serialization does not retry the failed operation. [PP-05–PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
 own assembled consumer acceptance, independently from these implementation claims.
 
-**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** The selected target composes StandardPdfPipeline/RapidOCR with public Nemotron3.5 parse/detect/crop orchestration, then governed integration before downstream methods. PDF-14/15 implement recognition and selection; PDF-13 record/publication primitives do not claim those producers exist.
+**Implemented; actual provider controls Tested (2026-10-31).** The selected `ingest.pdf_integrated` method composes StandardPdfPipeline with in-page RapidOCR, then the pinned public Nemotron3.5 `DocumentParser.parse_triple(..., triple_regions="union")`, then governed integration. Retained Standard inputs skip native inference; explicit retained integrated inputs skip recognition and selection. The isolated Python3.12/vLLM service preserves the full root Docling environment. Public Docling mapping and caption linking retain table/chart structure; policy selects keep/add/replace or unresolved alternatives without declaring recognized content true.
 
 > Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 

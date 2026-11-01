@@ -112,7 +112,7 @@ changes in that index-only revision.
 [PP-09/10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
 own assembled acceptance and fresh operational adoption.
 
-**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** A PDF-scoped product identity with typed bodies supports direct immutable input relations across native, recognition and integrated products. Qualified foreign keys and fenced atomic publication establish custody; only already published inputs are admitted before new identities. Historical payloads remain unchanged; bounded lineage reads traverse direct inputs.
+**Implemented; protected publication scoped Tested (2026-10-31).** A common PDF product identity and typed bodies support immutable direct inputs across native, recognition and integrated products. Qualified foreign keys and fenced publication admit already retained inputs; streamed native and recognition products survive a later producer failure. Common selected-document projections serve both retained native and integrated content, with indexed occurrence pointers, qualified chart cells and bounded multi-input lineage/artifact reads. Historical rows and frozen migrations remain inert. The PDF coordinator owns current deployment and assembled acceptance.
 
 > Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 

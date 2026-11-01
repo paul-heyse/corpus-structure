@@ -168,7 +168,7 @@ full source coverage rows are not copied into every prompt. Unknown coverage giv
 nonblocking diagnostic rather than an assertion that relevant context is absent. CLI/MCP transport, provider
 and adoption evidence belong to [PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution).
 
-**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** The target reader returns one integrated content/companion contract and bounded multi-input evidence traces. Legacy readers must not silently drop mandatory evidence. PDF-13 supplies admitted primitives; PDF-16 migrates CLI/MCP, source frames, packets and exports without inference on retained reads.
+**Implemented; component interfaces scoped Tested (2026-10-31).** Native inspection3 returns one integrated content/companion contract, scoped manifest/trace and protected artifact bytes in fixed64KiB pages. Source-only `find` shares the selected SourceView query and returns exact retrievable handles before any completed knowledge result exists. CLI/MCP, source frames, packets and JSONL/Parquet retain selection/companion bindings; integrated JSON includes both contract halves, while content-only Docling JSON explicitly declares omissions. Rendering uses qualified original regions. Retained reads initialize no model service. Actual external stdio, extraction and adopted-result journeys remain PDF-11 acceptance.
 
 > Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 

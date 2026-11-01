@@ -77,7 +77,7 @@ def test_the_statistics_phase0_policy_compiles_and_routes_claim_bearing_units(
     compiled = load_policy(STATISTICS / "policies.yaml", language, configs)
     (e,) = compiled.entries(PolicyChain.PROPOSE)
     assert (e.key, e.method, e.unit_type) == ("propose.phase0.agent_all", "agent.opus",
-                                             TaskUnitType.SEGMENT)  # fmt: skip
+                                             TaskUnitType.SOURCE_VIEW)  # fmt: skip
     fired = compiled.matches(PolicyChain.PROPOSE, thing(statement_kind="theorem",
                                                          claim_bearing=True))  # fmt: skip
     assert [x.key for x in fired] == ["propose.phase0.agent_all"]

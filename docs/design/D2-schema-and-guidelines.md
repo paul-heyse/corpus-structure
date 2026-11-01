@@ -164,7 +164,7 @@ assessment adapters are bound under profile 6. Macro-event selection uses discri
 metadata rather than explanatory value strings. Unsupported required recipes refuse before effects. [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
 retain independent invalid-input and native enforcement results.
 
-**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** Docling owns the embedded content schema; LinkML and trusted execution contracts own the integrated envelope, input roles, occurrence relations, outcomes, lifecycle and effects. Recognition receipts are typed products, not malformed Docling documents; future unqualified operations remain unsupported.
+**Implemented (execution ABI14; 2026-10-31).** Docling owns the embedded content schema. Archived LinkML contracts own the PDF envelope, input roles, occurrences, relationships, outcomes, lifecycle and effects; typed native adapters retain generic text capture and mathematical interpretation/assessment. Recognition receipts have their own typed body. Qualified read bindings and immutable body/schema versions govern retained reads; helper-file hashes do not define document meaning. Historical HTML parsing contracts are retired.
 
 > Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 

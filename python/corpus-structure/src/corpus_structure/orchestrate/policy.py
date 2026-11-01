@@ -58,11 +58,11 @@ from corpus_structure.schema.rulelang import CALL, Language, RuleError, Vocabula
 
 # The unit type an entry takes when it names none (D6 §7.1 "Rows").
 DEFAULT_UNIT_TYPE: Mapping[PolicyChain, TaskUnitType] = {
-    PolicyChain.PROPOSE: TaskUnitType.SEGMENT,
-    PolicyChain.ESCALATE: TaskUnitType.SEGMENT,
+    PolicyChain.PROPOSE: TaskUnitType.SOURCE_VIEW,
+    PolicyChain.ESCALATE: TaskUnitType.SOURCE_VIEW,
     PolicyChain.ADJUDICATE: TaskUnitType.ALTERNATIVE_GROUP,
     PolicyChain.IDENTITY: TaskUnitType.IDENTITY_GROUP,
-    PolicyChain.GAPS: TaskUnitType.SEGMENT,
+    PolicyChain.GAPS: TaskUnitType.SOURCE_VIEW,
 }
 METHOD_FUNCTIONS = ("ran", "outcome", "judged_by", "decision", "confidence")
 

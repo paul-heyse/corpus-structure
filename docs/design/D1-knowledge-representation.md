@@ -208,7 +208,7 @@ implementation and remaining assembled acceptance are owned by
 [PP-05–PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution). [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
 own the selected qualification boundary.
 
-**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** One selected integrated document combines Docling content with mandatory multi-input provenance, correspondence, decisions and coverage. Native and Nemotron observations retain their attributed meanings; integration selects content, while consolidation alone produces knowledge claims.
+**Implemented; scoped Tested (2026-10-31).** One selected integrated document combines native Docling content with mandatory multi-input provenance, correspondence, decisions and coverage. Native and Nemotron observations retain their attributed meanings; integration selects content, while consolidation alone produces knowledge claims. Qualified item/cell/region precision survives into SourceViews and evidence; inherited chart/table grounding never becomes invented fine geometry. Whole-book recognition and fresh three-page protected publication have actual receipts; final knowledge adoption is owned by PDF-10/11.
 
 > Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 
