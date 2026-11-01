@@ -22,7 +22,6 @@ from corpus_structure.core._model import revision
 from corpus_structure.core.batch import CitationFrame
 from corpus_structure.core.db import legacy_metadata as db
 from corpus_structure.core.options import RunOptions
-from corpus_structure.core.parse_detail import ParseDetail
 from corpus_structure.schema import interchange as ix
 from corpus_structure.schema import model
 
@@ -251,13 +250,6 @@ SAMPLES: dict[str, tuple[Any, list[Any]]] = {
                 "method_configs": {},
                 "fresh": ["extract.math"],
             },
-        ],
-    ),
-    "parse_detail": (
-        ParseDetail,
-        [
-            {"data_loss_warnings": 0},
-            {"encoding": "utf-8", "data_loss_warnings": 2, "macro_notes": ["\\P"]},
         ],
     ),
     "citation_frame": (

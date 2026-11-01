@@ -31,6 +31,7 @@ class PreparedSourceView:
     health: dict[str, Any]
     text_policy: Any = None
     analysis_enabled: bool = True
+    integrated_context: dict[str, Any] | None = None
 
     @cached_property
     def topology(self) -> NativeTopology:
@@ -75,9 +76,12 @@ class PreparedSourceView:
         return self._layouts[key]
 
     def context(self) -> dict[str, Any]:
-        return dict(
+        value: dict[str, Any] = dict(
             pieces=self.pieces, items=self.items, ancestors=self.ancestors, health=self.health
         )
+        if self.integrated_context is not None:
+            value["integrated_context_json"] = canonical_bytes(self.integrated_context).decode()
+        return value
 
 
 def _ref(row) -> SourceViewRef:
@@ -143,6 +147,17 @@ def load_source_view(
     from .releases import open_release
 
     policy = prepare_text_policy(open_release(conn, row["release_id"])) if analysis else None
+    from .pdf_storage import integrated_source_context
+
+    integrated = integrated_source_context(
+        conn,
+        task_id=reference.native_product.task_id,
+        product_key=reference.native_product.product_key,
+        content_digest=reference.native_product.content_digest,
+        pointers=projection["items"],
+        section_pointer=reference.section_pointer,
+        membership=reference.membership,
+    )
     return PreparedSourceView(
         reference,
         projection["text"],
@@ -152,6 +167,7 @@ def load_source_view(
         projection["health"],
         policy,
         analysis,
+        integrated,
     )
 
 

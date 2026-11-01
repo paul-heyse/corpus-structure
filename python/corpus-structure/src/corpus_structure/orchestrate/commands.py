@@ -159,17 +159,18 @@ def start_bound_run(
         from corpus_structure.orchestrate.phase0 import bind_pdf_source
 
         native_configs = {
-            step.config.partition("/")[2] or "default"
+            (step.config.partition("/")[0], step.config.partition("/")[2] or "default")
             for _, steps in selected_graph.stages
             for step in steps
-            if step.config.partition("/")[0] == "ingest.pdf"
+            if step.config.partition("/")[0] in {"ingest.pdf", "ingest.pdf_integrated"}
         }
         if len(native_configs) != 1:
             raise CommandError(
                 "native source binding requires exactly one PDF ingestion configuration"
             )
+        method_name, configuration = next(iter(native_configs))
         selected_registry = bind_pdf_source(
-            selected_registry, native_product, configuration=next(iter(native_configs))
+            selected_registry, native_product, configuration=configuration, method_name=method_name
         )
     return run_source_methods(
         engine,

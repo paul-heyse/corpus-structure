@@ -117,19 +117,6 @@ def acquire_pack(pack: Path) -> PackInputs:
         )
         if (pack / filename).is_file()
     )
-    from corpus_structure.ingest.profile import SOURCES_DIR
-    from corpus_structure.orchestrate.phase0 import registry as method_registry
-
-    registry = method_registry(pack)
-    profiles = {
-        profile
-        for method, config in registry.named()
-        for _, profile in registry.profiles(method, config)
-    }
-    artifacts += tuple(
-        SourceArtifact(f"source-profile/{name}.yaml", (SOURCES_DIR / f"{name}.yaml").read_bytes())
-        for name in sorted(profiles)
-    )
     split_policy = pack / "eval/split.yaml"
     if split_policy.is_file():
         artifacts += (SourceArtifact("operation/evaluation-split.yaml", split_policy.read_bytes()),)

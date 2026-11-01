@@ -182,11 +182,22 @@ def _before_descendant(parent: Any, child: Any, pointer: str) -> bool | None:
 
 def recognition_context_issues(view: Any) -> tuple[str, ...]:
     """Unseen recognition members may contain declarations; usable items remain usable."""
-    return tuple(
+    issues = tuple(
         f"native {universe} recognition context {outcome}: {view.ref.key}"
         for universe in ("display", "inline", "cell")
         if (outcome := view.health.get(universe + "_coverage", "unknown")) != "complete"
     )
+    integrated = getattr(view, "integrated_context", None)
+    if integrated is not None:
+        issues += tuple(
+            "integrated recognition context "
+            + str(row.get("body", row).get("outcome", "unknown"))
+            + ": "
+            + str(row.get("coverage_id", "unknown"))
+            for row in integrated.get("coverage", ())
+            if row.get("body", row).get("outcome", "unknown") != "complete"
+        )
+    return issues
 
 
 def ancestor_views(reader: Any, view: Any):
@@ -1468,7 +1479,13 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
     from corpus_structure.core.vocab import MathKind, SegmentKind
     from corpus_structure.ingest.sentences import Block, SentenceConfig, split
 
-    from .methods import _KIND_OF
+    kind_of = {
+        MathKind.FORMULA: "formula",
+        MathKind.RELATION: "relation",
+        MathKind.MEMBERSHIP: "member",
+        MathKind.SET: "set_expr",
+        MathKind.LIST: "list",
+    }
     from .scope import resolve_scopes
     from .spans import MathRelation, SpanValue, SymbolMention
 
@@ -1626,9 +1643,7 @@ def native_scope_result(unit: Any, cfg: Any, ctx: Any) -> UnitResult:
                 SpanValue(
                     math_segments[pointer],
                     value.value,
-                    _KIND_OF.get(value.math_kind)
-                    if isinstance(value.math_kind, MathKind)
-                    else None,
+                    kind_of.get(value.math_kind) if isinstance(value.math_kind, MathKind) else None,
                     value.parse_error if isinstance(value.parse_error, str) else None,
                 )
             )

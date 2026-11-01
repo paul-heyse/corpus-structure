@@ -41,7 +41,7 @@ from corpus_structure.orchestrate.runner import Graph, PassReport, Step
 from corpus_structure.semantic.parsing_products import ProductReference
 from corpus_structure.validate.runner import RulesMethod
 
-M01, M02 = "ingest.pdf", "profile.segments"
+M01, M02 = "ingest.pdf_integrated", "profile.segments"
 MATH_ENRICH = "enrich.pdf_math"
 M09, M11, M13 = "extract.math", "normalize.formula", "resolve.symbol_scope"
 
@@ -51,10 +51,9 @@ PHASE0 = Graph(
         (
             Stage.NORMALIZE,
             (
-                Step(f"{MATH_ENRICH}/default", upstream=(M01,)),
-                Step(f"{M02}/default", upstream=(MATH_ENRICH,)),
-                Step(f"{M09}/default", upstream=(MATH_ENRICH,)),
-                Step(f"{M11}/default", upstream=(MATH_ENRICH,)),
+                Step(f"{M02}/default", upstream=(M01,)),
+                Step(f"{M09}/default", upstream=(M01,)),
+                Step(f"{M11}/default", upstream=(M01,)),
             ),
         ),
         (Stage.SCOPE, (Step(f"{M13}/default", upstream=(M09, M11)),)),
@@ -113,7 +112,11 @@ def registry(pack: Path) -> MethodRegistry:
 
 
 def bind_pdf_source(
-    registry: MethodRegistry, product: ProductReference, *, configuration: str = "default"
+    registry: MethodRegistry,
+    product: ProductReference,
+    *,
+    configuration: str = "default",
+    method_name: str = "ingest.pdf_integrated",
 ) -> MethodRegistry:
     """Bind one explicit retained input without editing the domain's configuration definitions."""
     from dataclasses import replace
@@ -122,12 +125,12 @@ def bind_pdf_source(
 
     if not isinstance(product, ProductReference):
         raise TypeError("native source binding requires a validated product reference")
-    if not isinstance(registry.overlay("ingest.pdf", configuration), PdfIngestConfig):
+    if not isinstance(registry.overlay(method_name, configuration), PdfIngestConfig):
         raise ValueError("selected ingestion configuration does not support native PDF adoption")
     configs = dict(registry.file.configs)
-    named = dict(configs.get("ingest.pdf", {}))
+    named = dict(configs.get(method_name, {}))
     named[configuration] = {**named.get(configuration, {}), "native_product": product.values()}
-    configs["ingest.pdf"] = named
+    configs[method_name] = named
     return MethodRegistry(
         registry.methods(),
         replace(registry.file, configs=configs),

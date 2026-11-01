@@ -17,21 +17,20 @@ from typing import TYPE_CHECKING, Any
 import yaml
 from pydantic import BaseModel
 
-from corpus_structure.core.evidence import MacroDef, RenditionContent
+from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
 
 if TYPE_CHECKING:
-    from corpus_structure.methods.llm.packet import SentenceEntry, StandingContextCoverage
-
     from .parsing_products import ProductReference
 
 
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "agent.yaml"
 _EMPTY_DEPENDENCIES = ResolvedDependencies()
-SEMANTIC_AGENT_VERSION = "semantic-5"
+SEMANTIC_AGENT_VERSION = "semantic-6"
+MAX_KNOWN = 30
 
 
 def proposal_inputs(
@@ -146,6 +145,7 @@ class NativeFrameSource:
     projection_digest: str
     recipe_digest: str
     native_context: str
+    version: int = 2
 
     def __post_init__(self) -> None:
         from .identity import canonical_bytes
@@ -154,14 +154,29 @@ class NativeFrameSource:
         ProposalFrame(self.unit_ref, self.text, self.sentences)
         if self.source_view_id < 1 or self.membership not in {"direct", "descendants"}:
             raise ValueError("native frame requires a real source view and membership policy")
+        if self.version not in {2, 3}:
+            raise ValueError("unsupported native frame contract version")
         context = json.loads(self.native_context)
-        if not isinstance(context, dict) or set(context) != {
+        if not isinstance(context, dict) or set(context) - {"integrated_context_json"} != {
             "items",
             "pieces",
             "ancestors",
             "health",
         }:
             raise ValueError("native frame context must retain items, pieces, ancestry and health")
+        if "integrated_context_json" in context:
+            if self.version != 3:
+                raise ValueError("integrated frame requires contract version 3")
+            integrated = json.loads(context["integrated_context_json"])
+            selection = integrated["selection"]
+            if selection != dict(
+                task_id=self.native_product.task_id,
+                product_key=self.native_product.product_key,
+                content_digest=self.native_product.content_digest,
+            ):
+                raise ValueError("integrated frame companion differs from selected product")
+            if canonical_bytes(integrated).decode() != context["integrated_context_json"]:
+                raise ValueError("integrated frame companion must use canonical semantic JSON")
         if canonical_bytes(context).decode() != self.native_context:
             raise ValueError("native frame context must use canonical semantic JSON")
         for digest in (
@@ -301,6 +316,11 @@ def native_frame_identity(frame: ProposalFrame | NativeProposalFrame) -> dict[st
     from dataclasses import asdict
 
     value = asdict(frame)
+    if isinstance(frame, NativeProposalFrame) and frame.version == 2:
+        value.pop("version", None)
+        for source in value.get("context_sources", ()):
+            if source.get("version") == 2:
+                source.pop("version", None)
     if isinstance(frame, NativeProposalFrame) and not frame.context_sources:
         value.pop("context_sources", None)
     return value
@@ -335,8 +355,14 @@ def native_address(
 
 def native_evidence_entries(frame: NativeFrameSource) -> tuple[dict[str, Any], ...]:
     """Deterministic evidence handles over retained native projection pieces, not PDF glyphs."""
+    context = json.loads(frame.native_context)
+    integrated = (
+        json.loads(context["integrated_context_json"])
+        if "integrated_context_json" in context
+        else None
+    )
     entries = []
-    for index, piece in enumerate(json.loads(frame.native_context)["pieces"]):
+    for index, piece in enumerate(context["pieces"]):
         if (
             piece.get("kind") != "native_text"
             or not piece.get("item_ref")
@@ -354,6 +380,27 @@ def native_evidence_entries(frame: NativeFrameSource) -> tuple[dict[str, Any], .
         for name in ("cell_index", "source_field"):
             if name in piece:
                 entry[name] = piece[name]
+        if integrated is not None:
+            matches = [
+                row
+                for row in integrated.get("occurrences", ())
+                if row.get("body", row).get("pointer") == piece["item_ref"]
+                and (
+                    "cell_index" not in piece
+                    or row.get("body", row).get("cell_index") == piece["cell_index"]
+                )
+            ]
+            entry["integrated_selection"] = integrated["selection"]
+            entry["occurrences"] = [
+                dict(
+                    occurrence_id=row["occurrence_id"],
+                    precision=row.get("precision", "unknown"),
+                    address_space=row.get("address_space", "unknown"),
+                )
+                for row in matches
+            ]
+            precisions = {row.get("precision", "unknown") for row in matches}
+            entry["precision"] = next(iter(precisions)) if len(precisions) == 1 else "unknown"
         entries.append(entry)
     return tuple(entries)
 
@@ -378,7 +425,11 @@ def native_source_frame(
         return value
 
     context = canonical_bytes(
-        {name: plain(getattr(view, name)) for name in ("items", "pieces", "ancestors", "health")}
+        plain(view.context())
+        if hasattr(view, "context")
+        else {
+            name: plain(getattr(view, name)) for name in ("items", "pieces", "ancestors", "health")
+        }
     ).decode()
     ref = view.ref
     # Coordinates are authored from the already prepared text projection, never guessed by
@@ -421,21 +472,8 @@ def native_source_frame(
         ref.projection_digest,
         ref.recipe_digest,
         context,
+        version=3,
     )
-
-
-def source_frame(
-    unit_ref: str, content: RenditionContent, page: str, sentences: Sequence[SentenceEntry]
-) -> ProposalFrame:
-    """Project the served sentence identities from the immutable source rendition."""
-    index = LocatorIndex(content, page)
-    located = []
-    for sentence in sentences:
-        segment = index.resolve(sentence.locator)
-        if content.canonical_text[segment.start : segment.end] != sentence.text:
-            raise ProposalRefused("packet sentence differs from source frame")
-        located.append(ProposalSentence(sentence.id, sentence.locator, segment.start, segment.end))
-    return ProposalFrame(unit_ref, content.canonical_text, tuple(located))
 
 
 def statement_anchor(
@@ -867,7 +905,6 @@ class ProposalPacket:
     known_entities: tuple[KnownProposalEntity, ...] = ()
     bootstrap_terms: tuple[str, ...] = ()
     macros: tuple[tuple[str, MacroDef], ...] = ()
-    source_coverage: StandingContextCoverage | None = None
     native_observations: tuple[Mapping[str, Any], ...] = ()
 
     @property
@@ -895,7 +932,6 @@ class ProposalPacket:
                     [asdict(entity) for entity in self.known_entities],
                     self.bootstrap_terms,
                     [(name, macro.model_dump(mode="json")) for name, macro in self.macros],
-                    *([asdict(self.source_coverage)] if self.source_coverage is not None else []),
                     *([self.native_observations] if self.native_observations else []),
                 ]
             )
@@ -983,11 +1019,6 @@ class ProposalPacket:
                         else {}
                     ),
                     "macros": {name: macro.model_dump(mode="json") for name, macro in self.macros},
-                    **(
-                        {"source_coverage": asdict(self.source_coverage)}
-                        if self.source_coverage is not None
-                        else {}
-                    ),
                 }
             ).decode(),
         }
@@ -1012,7 +1043,6 @@ def proposal_packet(
     known_entities: tuple[KnownProposalEntity, ...] = (),
     bootstrap_terms: tuple[str, ...] = (),
     macros: Mapping[str, MacroDef] | None = None,
-    source_coverage: StandingContextCoverage | None = None,
     native_observations: tuple[Mapping[str, Any], ...] = (),
 ) -> ProposalPacket:
     """Bind all model-facing parts and their complete source frame before queuing agent work."""
@@ -1035,6 +1065,5 @@ def proposal_packet(
         tuple(sorted(known_entities, key=lambda entity: entity.entity_id)),
         bootstrap_terms,
         tuple(sorted((macros or {}).items())),
-        source_coverage,
         native_observations,
     )

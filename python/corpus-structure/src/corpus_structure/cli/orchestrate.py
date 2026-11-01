@@ -162,7 +162,13 @@ def run(
     from corpus_structure.semantic.runtime import resolve_source_binding
 
     method_settings = MethodSettings(
-        data_dir=settings.paths.data_dir, model_cache=settings.paths.model_cache
+        data_dir=settings.paths.data_dir,
+        model_cache=settings.paths.model_cache,
+        nemotron_endpoint=settings.nemotron.endpoint,
+        nemotron_python=settings.nemotron.python,
+        nemotron_worker=settings.nemotron.worker,
+        nemotron_receipts=settings.nemotron.receipts,
+        nemotron_timeout_seconds=settings.nemotron.timeout_seconds,
     )
     if gpu_mode is not None:
         raise typer.BadParameter("the selected semantic graph has no GPU operation")

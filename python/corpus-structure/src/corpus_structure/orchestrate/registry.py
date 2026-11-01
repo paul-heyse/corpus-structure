@@ -11,8 +11,8 @@ from the named params alone, so each field the params give replaces the default 
 is never merged key by key) and each field they omit takes its declared default. References are
 resolved after the overlay, on its result: an `ArtifactRef` to the hash of the schema version's
 artifact of that compiler and kind (the installed compiler version's), a `ConfigRef` to the other
-method's resolved params (named `<method>/<name>` or `<name>`), a `SourceProfileRef` to the parsed
-profile, a `PackSection` to the file's section. A float becomes its canonical decimal string before
+method's resolved params (named `<method>/<name>` or `<name>`), a `PackSection` to the file's
+section. A float becomes its canonical decimal string before
 hashing (D1 §10.1), and `cfg:` hashes the complete canonical params, defaults included.
 
 **Per run.** `resolve_all` prepares complete named configurations. Current semantic source
@@ -39,7 +39,6 @@ from corpus_structure.core.method import (
     Method,
     PackSection,
     ResolvedConfig,
-    SourceProfileRef,
     config_references,
 )
 
@@ -209,8 +208,6 @@ class MethodRegistry:
                         other_name = ref.split("/", 1)[1] if ref.startswith(f"{other}/") else ref
                         inner = self.resolve(other, other_name, artifacts, (*_seen, key))
                         _set(dump, path, dict(inner.params))
-                case SourceProfileRef():
-                    _set(dump, path, self._profile(str(value), where))
                 case PackSection(name=section):
                     if section not in self.file.sections:
                         problems.append(f"{where}: methods.yaml has no section {section!r}")
@@ -228,27 +225,8 @@ class MethodRegistry:
     def config(self, method: str, name: str) -> ResolvedConfig:
         return self.resolve(method, name)
 
-    def profiles(self, method: str, name: str) -> list[tuple[str, str]]:
-        """(field, profile name) of each `SourceProfileRef` the configuration names."""
-        config = self.overlay(method, name)
-        dump = config.model_dump(mode="json")
-        return [
-            (".".join(path), str(_get(dump, path)))
-            for path, marker in config_references(type(config)).items()
-            if isinstance(marker, SourceProfileRef)
-        ]
-
     def bind_release(self, prepared: Any) -> MethodRegistry:
         return MethodRegistry(self.methods(), self.file, self.sources, prepared=prepared)
-
-    def _profile(self, name: str, where: str) -> Any:
-        from corpus_structure.ingest.profile import SOURCES_DIR, ProfileError, load_profile
-
-        try:
-            profile = load_profile(name, self.sources or SOURCES_DIR, prepared=self.prepared)
-        except (ProfileError, FileNotFoundError) as error:
-            raise RegistryError([f"{where}: source profile {name!r}: {error}"]) from None
-        return profile if self.prepared is not None else profile.model_dump(mode="json")
 
     def resolve_all(self, artifacts: Mapping[tuple[str, str], str]) -> dict[str, ResolvedConfig]:
         """Every named configuration of every registered method, by `<method>/<name>`."""

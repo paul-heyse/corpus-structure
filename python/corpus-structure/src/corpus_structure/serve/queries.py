@@ -197,109 +197,85 @@ class Unsupported(Query):
 class Find(Query):
     result: type[BaseModel]
     name, params, result = "find", FindParams, FindAnswer
+    version = "integrated-source-3"
 
     def rows(self, ctx, p, after=None):
-        from sqlalchemy import Integer, cast, func, literal_column, or_
+        from sqlalchemy import func, literal_column, or_
 
-        from corpus_structure.core.locators import LocatorIndex
         from corpus_structure.semantic.metadata import table
-        from corpus_structure.semantic.operations import read_rendition
+        from corpus_structure.serve.native_source import NativeSourceRequest
 
         phase, score_after, key_after = (0, None, None) if after is None else after
         if phase not in (0, 1):
             raise ValueError("invalid source search cursor")
-        r, rr, s, d, b, ct, completed = (
-            table(n)
-            for n in (
-                "kb.rendition",
-                "ops.run_rendition",
-                "kb.segment",
-                "kb.document",
-                "ops.rendition_build",
-                "ops.cut_task",
-                "ops.completed_result",
-            )
+        view, selected, document = map(
+            table, ("kb.source_view", "ops.run_source_view", "kb.document")
         )
+        newer = selected.alias("newer_search_source")
         config = literal_column("'english'::regconfig")
         query = func.websearch_to_tsquery(config, p.text)
-        document_vector = func.to_tsvector(config, r.c.canonical_text)
-        content = func.substring(
-            r.c.canonical_text,
-            cast(s.c.start_offset + 1, Integer),
-            cast(s.c.end_offset - s.c.start_offset, Integer),
-        )
-        vector = func.to_tsvector(config, content)
+        source_text = view.c.projection["text"].as_string()
+        vector = func.to_tsvector(config, source_text)
         score = func.ts_rank_cd(vector, query)
-        source = (
-            rr.join(r, rr.c.rendition_id == r.c.id)
-            .join(d, rr.c.document_id == d.c.id)
-            .join(s, s.c.rendition_id == r.c.id)
-        )
-        effective = exists(
-            select(1)
-            .select_from(
-                b.join(ct, ct.c.origin_task_id == b.c.task_id).join(
-                    completed, completed.c.cut_id == ct.c.cut_id
-                )
-            )
-            .where(b.c.rendition_id == r.c.id, completed.c.run_id == ctx.run_id)
-        )
         base = (
             select(
-                s.c.id,
-                s.c.rendition_id,
-                s.c.kind,
-                s.c.start_offset,
-                s.c.end_offset,
-                d.c.source_uri,
-                content.label("text"),
+                view.c.id,
+                view.c.native_task_id,
+                view.c.native_product_key,
+                view.c.native_content_digest,
+                view.c.section_pointer,
+                view.c.membership,
+                view.c.projection_digest,
+                document.c.source_uri,
+                func.ts_headline(config, source_text, query, "MaxWords=45,MinWords=15").label(
+                    "excerpt"
+                ),
                 score.label("score"),
             )
-            .select_from(source)
+            .join(selected, selected.c.source_view_id == view.c.id)
+            .join(document, document.c.id == view.c.document_id)
             .where(
-                rr.c.run_id == ctx.run_id,
-                effective,
-                document_vector.op("@@")(query),
+                selected.c.run_id == ctx.run_id,
+                ~select(newer.c.source_view_id)
+                .where(newer.c.run_id == ctx.run_id, newer.c.supersedes_source_view_id == view.c.id)
+                .exists(),
                 vector.op("@@")(query),
-                s.c.kind.in_(("paragraph", "list_item", "table_cell", "heading")),
             )
         )
         if phase == 0:
-            indices = {}
             while True:
                 stmt = base
                 if score_after is not None and key_after is not None:
                     stmt = stmt.where(
                         or_(
                             score < float(score_after),
-                            and_(score == float(score_after), s.c.id > int(key_after)),
+                            and_(score == float(score_after), view.c.id > int(key_after)),
                         )
                     )
                 rows = (
-                    ctx.conn.execute(stmt.order_by(score.desc(), s.c.id).limit(ctx.row_batch))
+                    ctx.conn.execute(stmt.order_by(score.desc(), view.c.id).limit(ctx.row_batch))
                     .mappings()
                     .all()
                 )
                 if not rows:
                     break
                 for row in rows:
-                    rid = row["rendition_id"]
-                    if rid not in indices:
-                        index = LocatorIndex(
-                            read_rendition(ctx.conn, rid, prepared=ctx.session.prepared),
-                            row["source_uri"],
-                        )
-                        indices[rid] = (
-                            index,
-                            {(seg.kind.value, seg.start, seg.end): seg for seg, _ in index},
-                        )
-                    index, segments = indices[rid]
-                    segment = segments[(row["kind"], row["start_offset"], row["end_offset"])]
+                    selection = NativeSourceRequest(
+                        run_id=ctx.run_id,
+                        task_id=row["native_task_id"],
+                        product_key=row["native_product_key"],
+                        content_digest=row["native_content_digest"],
+                        section_pointer=row["section_pointer"],
+                        membership=row["membership"],
+                    )
                     yield Positioned(
                         FindAnswer(
                             source_uri=row["source_uri"],
-                            locator=str(index.generate(segment)),
-                            text=row["text"],
+                            source_selection=selection,
+                            source_view_id=row["id"],
+                            projection_digest=row["projection_digest"],
+                            text=row["excerpt"],
+                            text_is_excerpt=True,
                             score=float(row["score"]),
                         ),
                         [0, str(row["score"]), str(row["id"])],

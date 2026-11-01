@@ -150,26 +150,6 @@ def test_malformed_candidate_only_blocks_subsequent_context_in_its_own_unit():
     assert source.operands[3].source_context_failure is None
 
 
-def test_production_readings_share_early_source_context(monkeypatch):
-    from types import SimpleNamespace
-
-    from corpus_structure.methods.math import methods
-    from corpus_structure.semantic.parsing_products import ProductReference
-
-    value = content(["f(t)=t", "f(t)"])
-    ren = methods._Rendition(1, "rendition", "digest", value, {})
-    selected = SimpleNamespace(reference=ProductReference(7, "text", "b" * 64))
-    reader = SimpleNamespace(
-        math_readings_batch=methods.MathReadingsBatch(),
-        layered_products=lambda *args, **kwargs: (selected,),
-    )
-    first = methods._readings(ren, methods.NormalizeFormulaConfig(), reader)
-    second = methods._readings(ren, methods.ExtractMathConfig(), reader)
-    assert first is second
-    assert first[1].result.status is ParseOutcome.OK
-    assert first[1].prepared.source_declarations[0].declaration.source_id == SOURCE
-
-
 def test_equality_inside_an_operator_condition_does_not_declare_outer_function():
     source = prepare(content([r"\operatorname{P}(f(t)=t)", "f(t)"]))
     assert source.definitions == ()

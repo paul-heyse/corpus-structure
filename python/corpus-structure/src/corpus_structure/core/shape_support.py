@@ -21,7 +21,7 @@ import re
 from collections.abc import Iterator
 from typing import Annotated, Any
 
-from pydantic import MISSING, BaseModel, ConfigDict, Field, JsonValue, RootModel
+from pydantic import MISSING, BaseModel, ConfigDict, Field, RootModel
 
 from corpus_structure.core._model.types import PREFIXED_NAME, SENTENCE_ID, CoreModel
 from corpus_structure.core.canonical import CANONICAL_DECIMAL, canonical_decimal
@@ -114,14 +114,6 @@ class BatchMethods:
         for kind in ("entities", "statements", "claims", "unsupported"):
             for item in getattr(self, kind):
                 yield kind, item.local_ref
-
-
-class ParseDetailMethods:
-    """A build's diagnostics' methods."""
-
-    def to_json(self) -> dict[str, JsonValue]:
-        assert isinstance(self, BaseModel)
-        return self.model_dump(mode="json")
 
 
 # --- The citation frame ------------------------------------------------------------------------

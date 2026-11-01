@@ -14,18 +14,29 @@ from sqlalchemy import Connection, select, text
 
 class NativeSourceRequest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    version: Literal[2] = 2
+    version: Literal[3] = 3
     run_id: int = Field(gt=0)
     task_id: int = Field(gt=0)
     product_key: str = Field(min_length=1)
     content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     view: Literal[
-        "products", "items", "sections", "item", "formula", "cell", "regions", "trace"
+        "products",
+        "items",
+        "sections",
+        "item",
+        "formula",
+        "cell",
+        "regions",
+        "trace",
+        "companion",
+        "manifest",
     ] = "items"
     section_pointer: str | None = None
     membership: Literal["direct", "descendants"] | None = None
     pointer: str | None = None
     cell_index: int | None = Field(default=None, ge=0)
+    occurrence_id: str | None = None
+    collection: Literal["inputs", "coverage", "relations"] | None = None
     cursor: str | None = None
     limit: int = Field(default=100, ge=1, le=1000)
 
@@ -38,13 +49,14 @@ class NativeSourceRequest(BaseModel):
 
 class NativeSourceResponse(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    version: Literal[2] = 2
+    version: Literal[3] = 3
     selection: NativeSourceRequest
     release_id: str
     outcome: Literal["source_ready", "missing", "invalid", "unsupported"] = "source_ready"
     health: dict[str, JsonValue]
     rows: list[dict[str, JsonValue]]
     next_cursor: str | None = None
+    companion: dict[str, JsonValue] | None = None
 
 
 def _inline_alignment_reports(conn: Connection, *, task_id: int, product_key: str, pointer: str):
@@ -89,7 +101,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
         (
             "ops.run",
             "ops.task",
-            "ops.native_document_product",
+            "ops.pdf_selected_product",
             "ops.source_build",
             "kb.native_document_runtime",
         ),
@@ -103,9 +115,15 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
 
     context = pdf_context_for_run(conn, request.run_id)
     context.execution.require_operation("read_native_source")
-    context.boundary.validate_json(
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+
+    trusted_pdf_context().boundary.validate_json(
         "PdfNativeReadRequest", request.model_dump_json(exclude_none=True)
     )
+    if request.view in {"companion", "manifest"} or (
+        request.view == "trace" and request.occurrence_id is not None
+    ):
+        return _inspect_companion(conn, request, run.project_id)
     origin = runs.alias("native_origin_run")
     header = conn.execute(
         select(
@@ -327,7 +345,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                     raise ValueError("native pointer is not a formula")
                 health = conn.execute(
                     text(
-                        "SELECT outcome.value FROM ops.native_document_product p\n"
+                        "SELECT outcome.value FROM ops.pdf_selected_product p\n"
                         "                    CROSS JOIN LATERAL "
                         "jsonb_array_elements(COALESCE(p.health->'formula_outcomes"
                         "','[]'::jsonb)) outcome(value)\n"
@@ -362,11 +380,109 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                 sort_keys=True,
             ).encode()
         ).decode()
+    from corpus_structure.semantic.pdf_storage import integrated_source_context
+
+    companion = integrated_source_context(
+        conn,
+        **pin,
+        pointers=[request.pointer]
+        if request.pointer is not None
+        else [r["pointer"] for r in rows if "pointer" in r],
+        section_pointer=request.section_pointer,
+        membership=request.membership or "direct",
+    )
     return NativeSourceResponse(
         selection=request,
         release_id=header.release_id,
         health=to_jsonable_python(header.health),
         rows=to_jsonable_python(rows),
+        next_cursor=next_cursor,
+        companion=to_jsonable_python(companion),
+    )
+
+
+def _inspect_companion(
+    conn: Connection, request: NativeSourceRequest, project_id: int
+) -> NativeSourceResponse:
+    """Authorize the exact selected graph before reading retained companion/observation data."""
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.pdf_storage import (
+        read_pdf_manifest,
+        read_pdf_product,
+        selected_native_ancestry,
+        trace_pdf_occurrence,
+    )
+
+    products, tasks, runs = map(table, ("ops.pdf_product", "ops.task", "ops.run"))
+    selected = selected_native_ancestry(request.run_id)
+    reachable = (
+        select(selected.c.task_id)
+        .where(
+            selected.c.task_id == products.c.task_id,
+            selected.c.product_key == products.c.product_key,
+            selected.c.content_digest == products.c.content_digest,
+        )
+        .exists()
+    )
+    row = conn.execute(
+        select(products.c.release_id)
+        .join(tasks, tasks.c.id == products.c.task_id)
+        .join(runs, runs.c.id == tasks.c.run_id)
+        .where(
+            products.c.task_id == request.task_id,
+            products.c.product_key == request.product_key,
+            products.c.content_digest == request.content_digest,
+            runs.c.project_id == project_id,
+            (tasks.c.run_id == request.run_id) | reachable,
+        )
+    ).one_or_none()
+    if row is None:
+        raise ValueError("PDF companion is not selected by the requested project/run")
+    after = ""
+    if request.cursor is not None:
+        try:
+            cursor = json.loads(base64.urlsafe_b64decode(request.cursor))
+            if cursor["selection"] != request.selection_digest() or not isinstance(
+                cursor["after"], str
+            ):
+                raise ValueError("cursor selection differs")
+            after = cursor["after"]
+        except (KeyError, ValueError, TypeError) as error:
+            raise ValueError("invalid PDF companion continuation") from error
+    pin = dict(
+        task_id=request.task_id,
+        product_key=request.product_key,
+        content_digest=request.content_digest,
+    )
+    if request.view == "trace":
+        if request.occurrence_id is None or request.cursor is not None:
+            raise ValueError("companion trace requires one occurrence and no continuation")
+        result = trace_pdf_occurrence(
+            conn, **pin, occurrence_id=request.occurrence_id, limit=request.limit
+        )
+    elif request.view == "manifest":
+        if request.collection is None:
+            raise ValueError("manifest inspection requires a named collection")
+        result = read_pdf_manifest(
+            conn, **pin, collection=request.collection, after=after, limit=request.limit
+        )
+    else:
+        result = read_pdf_product(
+            conn, **pin, occurrence_id=request.occurrence_id, after=after, limit=request.limit
+        )
+    continuation = result.get("cursor")
+    next_cursor = (
+        None
+        if continuation is None
+        else base64.urlsafe_b64encode(
+            json.dumps(dict(selection=request.selection_digest(), after=continuation)).encode()
+        ).decode()
+    )
+    return NativeSourceResponse(
+        selection=request,
+        release_id=row.release_id,
+        health={},
+        rows=[to_jsonable_python(result)],
         next_cursor=next_cursor,
     )
 
@@ -439,7 +555,7 @@ def _recorded_interpretations(conn: Connection, request: NativeSourceRequest) ->
     )
 
 
-NativeExportFormat = Literal["jsonl", "parquet", "docling-json"]
+NativeExportFormat = Literal["jsonl", "parquet", "docling-json", "integrated-json"]
 
 
 def export_native_source(
@@ -459,7 +575,15 @@ def export_native_source(
     destination = Path(destination)
     if destination.exists():
         raise FileExistsError(destination)
-    if format == "docling-json":
+    binding = dict(
+        contract="integrated-pdf-source-3",
+        selection=request.model_dump(mode="json", exclude_none=True),
+        companion_request=request.model_copy(
+            update={"view": "companion", "cursor": None}
+        ).model_dump(mode="json", exclude_none=True),
+        manifest_collections=["inputs", "coverage", "relations"],
+    )
+    if format in {"docling-json", "integrated-json"}:
         if (
             request.view not in {"items", "products"}
             or request.section_pointer is not None
@@ -474,7 +598,7 @@ def export_native_source(
         inspect_native_source(conn, request.model_copy(update={"view": "products", "limit": 1}))
         from corpus_structure.semantic.metadata import table
 
-        products = table("ops.native_document_product")
+        products = table("ops.pdf_selected_product")
         native = conn.execute(
             select(products.c.native_json.cast(Text)).where(
                 products.c.task_id == request.task_id,
@@ -482,6 +606,41 @@ def export_native_source(
                 products.c.content_digest == request.content_digest,
             )
         ).scalar_one()
+        if format == "integrated-json":
+            from corpus_structure.semantic.pdf_storage import read_pdf_product
+
+            bundle = read_pdf_product(
+                conn,
+                task_id=request.task_id,
+                product_key=request.product_key,
+                content_digest=request.content_digest,
+                limit=1,
+                include_body=True,
+            )
+            if bundle["identity"]["kind"] != "integrated":
+                raise ValueError("integrated JSON export requires an integrated product")
+            native = json.dumps(
+                to_jsonable_python(dict(binding=binding, product=bundle["body"])),
+                ensure_ascii=False,
+            )
+        else:
+            manifest = destination.with_name(destination.name + ".manifest.json")
+            with manifest.open("x", encoding="utf-8") as stream:
+                json.dump(
+                    dict(
+                        binding,
+                        projection="docling-content-only",
+                        omissions=[
+                            "integration decisions",
+                            "alternative observations",
+                            "coverage",
+                            "input provenance",
+                        ],
+                    ),
+                    stream,
+                    ensure_ascii=False,
+                )
+                stream.write("\n")
         temporary = destination.with_name(destination.name + ".partial")
         with temporary.open("x", encoding="utf-8") as stream:
             stream.write(native)
@@ -503,7 +662,7 @@ def export_native_source(
 
     relation = table("kb.native_document_item")
     derivation = table("kb.native_document_derivation")
-    products, builds = table("ops.native_document_product"), table("ops.source_build")
+    products, builds = table("ops.pdf_selected_product"), table("ops.source_build")
     source = conn.execute(
         select(
             builds.c.artifact_digest,
@@ -535,6 +694,7 @@ def export_native_source(
         ]
         + [
             pa.field("content_digest", pa.string(), nullable=False),
+            pa.field("companion_binding", pa.string(), nullable=False),
             pa.field("name", pa.string()),
             pa.field("artifact_digest", pa.string(), nullable=False),
             pa.field(
@@ -584,7 +744,12 @@ def export_native_source(
             ),
         ]
     )
-    schema = schema.with_metadata({b"source_selection": request.model_dump_json().encode()})
+    schema = schema.with_metadata(
+        {
+            b"source_selection": request.model_dump_json().encode(),
+            b"source_contract": json.dumps(binding).encode(),
+        }
+    )
     temporary = destination.with_name(destination.name + ".partial")
     with temporary.open("xb") as stream:
         writer = (
@@ -649,6 +814,7 @@ def export_native_source(
                     dict(
                         row,
                         content_digest=request.content_digest,
+                        companion_binding=json.dumps(binding),
                         name=native[row["pointer"]].get("name"),
                         artifact_digest=source.artifact_digest,
                         parent_product=parent,

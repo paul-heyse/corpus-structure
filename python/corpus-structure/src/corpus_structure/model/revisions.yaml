@@ -288,3 +288,389 @@
     judgment_carry_over: null
     compiled_artifacts: []
     source_profiles: []
+- label: 0.6.2
+  content_hash: df024758c4f4ff0f3c1969f151f967ddf711e75f1e0e9d8efc8ab0272b1cd52d
+  key_scheme: 1
+  compilers:
+    corpus_structure.schema.generate: '1'
+    corpus_structure.schema.interchange: '1'
+    corpus_structure.schema.relational: '2'
+    linkml-runtime: 1.12.1
+  parent: ba316957d50d1d98142506eadaca77bcb6fe83dc4befee9e91111e3fb0451bc7
+  change_record:
+    from_revision: ba316957d50d1d98142506eadaca77bcb6fe83dc4befee9e91111e3fb0451bc7
+    to_revision: df024758c4f4ff0f3c1969f151f967ddf711e75f1e0e9d8efc8ab0272b1cd52d
+    changes:
+    - element: core
+      change: changed
+      aspect: version
+      compatibility_class: descriptive
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: null
+      upcaster: null
+    - element: sys:BlockHint
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:CorpusIndex
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:DetailsKinds
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:ExcludeRule
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:ExcludedElement
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:FigureRender
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:LegacyMeasurementScope
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:LegacyTaskUnitType
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:ListMarkerRule
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:ListMarkerStyle
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:MathAnomaly
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:MathSpec
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:Measurement.scope_type
+      change: changed
+      aspect: range
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:MeasurementScope
+      change: changed
+      aspect: description
+      compatibility_class: descriptive
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: null
+      upcaster: null
+    - element: sys:MeasurementScope
+      change: changed
+      aspect: inherits
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:OrphanRun
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:ParseDetail
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:ParserError
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:PolicyRule.unit_type
+      change: changed
+      aspect: range
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:QuoteRender
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:ReferenceRender
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:ReferenceSpec
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:RenderSpec
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:RoleConflict
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:SectionHint
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:SectionSource
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:SourceProfile
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:SummaryKind
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:SummaryRender
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:SynthesisEvidence
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:SynthesisObject
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:SynthesisRule
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:Task.unit_type
+      change: changed
+      aspect: range
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:TaskUnitType
+      change: changed
+      aspect: description
+      compatibility_class: descriptive
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: null
+      upcaster: null
+    - element: sys:TaskUnitType
+      change: changed
+      aspect: inherits
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    - element: sys:UnicodeChange
+      change: removed
+      aspect: null
+      compatibility_class: breaking
+      reason: Retire HTML source-profile and diagnostic contracts; current PDF runtime vocabulary and
+        physical fields own their direct closed sets.
+      authorized_by: Operator PDF integrated execution and full HTML compatibility retirement, 2026-10-31
+      decision: Historical data and migration files remain frozen; no HTML reader/profile upcaster is
+        retained.
+      upcaster: null
+    name_map: {}
+    alembic_revision: null
+    key_consequences: null
+    judgment_carry_over: null
+    compiled_artifacts: []
+    source_profiles: []

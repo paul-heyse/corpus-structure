@@ -79,7 +79,6 @@ def json_schema(adapter: TypeAdapter[Any]) -> dict[str, Any]:
 
 def _adapters() -> dict[str, TypeAdapter[Any]]:
     from corpus_structure.core import batch, options, payloads, values
-    from corpus_structure.core.parse_detail import ParseDetail  # a build's diagnostics
 
     out: dict[str, TypeAdapter[Any]] = {
         "value.authored": values.VALUE_ADAPTERS["authored"],
@@ -98,7 +97,6 @@ def _adapters() -> dict[str, TypeAdapter[Any]]:
         "compiled_artifact": TypeAdapter(JsonValue),  # a compiled artifact's body: any JSON
         "run_options": TypeAdapter(options.RunOptions),
         "intervention_refs": TypeAdapter(payloads.InterventionRefs),
-        "parse_detail": TypeAdapter(ParseDetail),
     }
     for kind, model in payloads.PAYLOADS.items():
         out[f"payload.{kind.value}"] = TypeAdapter(model)

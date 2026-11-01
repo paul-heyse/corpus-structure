@@ -7,12 +7,11 @@
   markers (`Refers`, `CITATION`) and the loader of keyed (dict-inlined) collections;
 - `core/_model/shapes.py`: the core values, conditions, batch forms and keyed candidate set, the
   observation payloads, the operations JSON and the build diagnostics, with `PAYLOADS`;
-- `ingest/_shapes.py`: the source-profile classes (ingest owns them; core never imports ingest).
 
-The hand modules (`core/values.py`, `batch.py`, `payloads.py`, `candidates.py`, `parse_detail.py`,
-`ingest/profile.py`) re-export these classes and keep only behaviour. What the generated classes
+The hand modules (`core/values.py`, `batch.py`, `payloads.py`, `candidates.py`,
+and their consumers) re-export these classes and keep only behaviour. What the generated classes
 call or inherit is hand-written in a support module the generated module imports and that never
-imports it (`core/shape_support.py`, `ingest/profile_support.py`): `ci:validator` hooks, `ci:mixin`
+imports it (`core/shape_support.py`): `ci:validator` hooks, `ci:mixin`
 method classes, and the hand-written `CitationFrame` and `FrameEntry` (probe Q-1).
 
 **A direct emitter over `SchemaView`**, not a `PydanticGenerator` subclass. Probe Q-1
@@ -81,7 +80,6 @@ PACKAGE = Path(__file__).resolve().parents[1]
 GENERATOR = "corpus_structure.schema.stage_b"
 TYPES = "core/_model/types.py"
 SHAPES = "core/_model/shapes.py"
-PROFILE = "ingest/_shapes.py"
 
 FORMS = ("model", "stored")
 PREFIX = {"model": "Authored", "stored": "Stored"}
@@ -95,7 +93,6 @@ CORE_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Value", FORMS), ("Condition", FORMS), ("Batch", FORMS),
     ("KeyedCandidateSet", ("stored",)), ("MentionRef", ("stored",)),
 )  # fmt: skip
-PROFILE_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (("SourceProfile", ("stored",)),)
 # Payload classes whose Python form is not a generated class: the trigger metrics and a compiled
 # artifact's body are JSON aliases, and the citation frame is the hand-written `CitationFrame`
 # (`ci:py_type`).
@@ -110,7 +107,6 @@ KNOWN = {
 }  # fmt: skip
 SUPPORT = {
     SHAPES: "corpus_structure.core.shape_support",
-    PROFILE: "corpus_structure.ingest.profile_support",
 }
 
 
@@ -376,11 +372,8 @@ class Plan:
                 self.visit(root, form, SHAPES)
         for name in self.system_classes:
             payload = ci_annotations(self.cls(name)).get("ci:payload")
-            if payload and name not in HAND_PAYLOADS and name not in self.profile_classes:
+            if payload and name not in HAND_PAYLOADS:
                 self.visit(name, "stored", SHAPES)
-        for root, forms in PROFILE_ROOTS:
-            for form in forms:
-                self.visit(root, form, PROFILE)
         return self
 
     def visit(self, name: str, form: str, module: str) -> None:
@@ -456,26 +449,6 @@ class Plan:
     def module_of(self, name: str, form: str) -> str:
         return self.emits[self.key(name, form)].module
 
-    @cached_property
-    def profile_classes(self) -> set[str]:
-        return _profile_classes(self)
-
-
-def _profile_classes(plan: Plan) -> set[str]:
-    """The system classes the source profile reaches (they belong to the profile module)."""
-    out: set[str] = set()
-    todo = [r for r, _ in PROFILE_ROOTS]
-    while todo:
-        c = todo.pop()
-        if c in out:
-            continue
-        out.add(c)
-        for s in plan.view.class_induced_slots(c):
-            for r in plan.slot_ranges(s, "stored"):
-                if plan.cls(r) is not None:
-                    todo.append(r)
-    return out
-
 
 # --- Emitting a module -----------------------------------------------------------------------
 
@@ -534,8 +507,6 @@ class Emitter:
                 self.use("corpus_structure.core.vocab", name)
             elif name in self.support_names and self.support:
                 self.use(self.support, name)
-            elif self.module == PROFILE and name in self.core_shape_names:
-                self.use("corpus_structure.core._model.shapes", name)
             else:
                 raise ModelError([f"{self.module}: the name {name!r} in {expr!r} is unknown"])
 
@@ -1190,17 +1161,10 @@ def render(model: Model) -> dict[str, str]:
         "JSON and the build diagnostics, generated from `model/core.yaml` and `model/system.yaml`\n"
         "(`schema/stage_b.py` states the rules). Behaviour is hand-written: the hooks and\n"
         "method classes in `core/shape_support.py`, and the functions of the modules that\n"
-        "re-export these classes (`values`, `batch`, `payloads`, `candidates`, `parse_detail`)."
-    )
-    profile_doc = (
-        "The source-profile classes (D2 §12.1; D4 M01; ingest and math §3.2).\n\n"
-        "Generated from `model/system.yaml`'s `SourceProfile` and the classes it reaches\n"
-        "(`schema/stage_b.py` states the rules); their behaviour is hand-written in\n"
-        "`ingest/profile_support.py`, and `ingest/profile.py` loads, checks and compiles profiles."
+        "re-export these classes (`values`, `batch`, `payloads`, `candidates`)."
     )
     shapes = _module(plan, SHAPES, aliases, shapes_doc)
-    profile = _module(plan, PROFILE, aliases, profile_doc)
-    return {TYPES: types_text, SHAPES: shapes, PROFILE: profile}
+    return {TYPES: types_text, SHAPES: shapes}
 
 
 def iter_classes(model: Model) -> Iterator[tuple[str, str, str]]:

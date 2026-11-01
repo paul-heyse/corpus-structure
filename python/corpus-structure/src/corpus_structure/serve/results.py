@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.semantic.query import EntityReference, Evidence, QueryRow, ValueNode
+from corpus_structure.serve.native_source import NativeSourceRequest
 
 
 class Answer(BaseModel):
@@ -33,6 +34,10 @@ class FindAnswer(Answer):
     locator: str | None = None
     text: str | None = None
     score: float = 0
+    source_selection: NativeSourceRequest | None = None
+    source_view_id: int | None = None
+    projection_digest: str | None = None
+    text_is_excerpt: bool = False
 
 
 class TransformationAnswer(Answer):

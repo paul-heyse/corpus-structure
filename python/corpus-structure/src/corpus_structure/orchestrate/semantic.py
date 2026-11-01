@@ -108,7 +108,7 @@ def run_source_methods(
             name = configurations.get(method, default or "default")
             configs[method] = registry.resolve(method, name)
     native_source = any(
-        registry.method(name).name == "ingest.pdf"
+        registry.method(name).name in {"ingest.pdf", "ingest.pdf_integrated"}
         or registry.method(name).unit_type == TaskUnitType.SOURCE_VIEW
         for name in configs
     )
@@ -187,7 +187,7 @@ def run_source_methods(
 
         library_names = set()
         native_libraries = {}
-        if set(configs) & {"ingest.pdf", "enrich.pdf_math"}:
+        if set(configs) & {"ingest.pdf", "ingest.pdf_integrated", "enrich.pdf_math"}:
             from corpus_structure.ingest.pdf import pdf_package_versions
 
             native_libraries = dict(pdf_package_versions())
@@ -544,6 +544,45 @@ def run_source_methods(
                                 )
 
                                 with maintained_claims(engine, claimed, holder) as check_active:
+
+                                    def retain_integrated_pdf(
+                                        ref,
+                                        product,
+                                        *,
+                                        claimed_tasks=tuple(claimed),
+                                        active=check_active,
+                                    ):
+                                        from corpus_structure.semantic.parsing_products import (
+                                            ProductReference,
+                                        )
+                                        from corpus_structure.semantic.pdf_integrated import (
+                                            store_integrated_pdf_product,
+                                        )
+
+                                        active()
+                                        matches = [
+                                            task
+                                            for task in claimed_tasks
+                                            if (task.unit_type, task.unit_id, task.unit_key)
+                                            == (str(ref.unit_type), ref.unit_id, ref.unit_key)
+                                        ]
+                                        if len(matches) != 1:
+                                            raise OperationConflict(
+                                                "integrated publication is outside the claimed unit"
+                                            )
+                                        task = matches[0]
+                                        with engine.begin() as publication_conn:
+                                            digest = store_integrated_pdf_product(
+                                                publication_conn,
+                                                task_id=task.task_id,
+                                                attempt=task.attempt,
+                                                holder=holder,
+                                                product=product,
+                                            )
+                                        return ProductReference(
+                                            task.task_id, product.values()["product_key"], digest
+                                        )
+
                                     results = method.run(
                                         units,
                                         config.config,
@@ -553,6 +592,7 @@ def run_source_methods(
                                             method_settings,
                                             logging.getLogger(method.name),
                                             check_active=check_active,
+                                            retain_integrated_pdf=retain_integrated_pdf,
                                         ),
                                     )
                                 completed.append((method, config, claimed, results))
@@ -653,15 +693,9 @@ def _packet_for_unit(
     preparation: dict | None = None,
 ):
     """Shared queue/serve preparation including recorded M13 standing context."""
-    from corpus_structure.core.evidence import MacroDef
-    from corpus_structure.methods.llm.packet import MAX_KNOWN, PacketTooLarge, unit_inputs
     from corpus_structure.orchestrate.semantic_references import document_references
     from corpus_structure.semantic.operations import lock_input_snapshot
-    from corpus_structure.semantic.proposals import (
-        KnownProposalEntity,
-        proposal_packet,
-        source_frame,
-    )
+    from corpus_structure.semantic.proposals import MAX_KNOWN
 
     lock_input_snapshot(conn, run_id)
     preparation = {} if preparation is None else preparation
@@ -678,64 +712,13 @@ def _packet_for_unit(
     if ref not in units:
         units[ref] = _unit(conn, view, ref)
     unit = units[ref]
-    if unit.source_view_id is not None:
-        from corpus_structure.methods.math.native import native_proposal_packet
+    if unit.source_view_id is None:
+        raise OperationConflict("agent proposals require a selected PDF SourceView")
+    from corpus_structure.methods.math.native import native_proposal_packet
 
-        known = document_references(conn, view, unit.document_id, limit=MAX_KNOWN)
-        return native_proposal_packet(
-            view.reader, unit.source_view_id, prepared, configuration, known=known
-        )
-    if unit.rendition_id is None or unit.document_id is None or ref.unit_key is None:
-        raise OperationConflict("an agent proposal requires a located source unit")
-    raw_math = configuration.get("math", {})
-    macros = {name: MacroDef(body=body) for name, body in raw_math.get("macros", {}).items()}
-    inputs = unit_inputs(
-        view.reader,
-        rendition_id=unit.rendition_id,
-        document_id=unit.document_id,
-        unit_key=ref.unit_key,
-        reference_run_id=None,
-        pack_macros=macros,
-        preparation=preparation.setdefault("unit_inputs", {}),
-        coordinate_index=preparation.get("indices", {}).get(unit.rendition_id),
-    )
-    refs = preparation.setdefault("references", {})
-    if unit.document_id not in refs:
-        refs[unit.document_id] = document_references(conn, view, unit.document_id, limit=MAX_KNOWN)
-    references = refs[unit.document_id]
-    if references:
-        from dataclasses import replace
-
-        from corpus_structure.methods.llm.packet import KnownEntity
-
-        inputs = replace(
-            inputs,
-            known=tuple(
-                KnownEntity(entity.label, ",".join(entity.classes), entity.aliases)
-                for entity in references
-            ),
-        )
-    try:
-        rendered = inputs.packet(configuration.get("packet_cap_chars", 18000))
-    except PacketTooLarge as exc:
-        raise OperationConflict(str(exc)) from exc
-    if "guideline" not in preparation:
-        preparation["guideline"] = view.reader.guideline()
-    return proposal_packet(
-        prepared,
-        source_frame(ref.unit_key, inputs.content, inputs.page, rendered.sentences),
-        guideline=preparation["guideline"],
-        configuration=configuration,
-        macros=inputs.macros,
-        source_coverage=inputs.source_coverage,
-        known_classes={entity.entity_id: entity.classes for entity in references},
-        known_entities=tuple(
-            KnownProposalEntity(entity.entity_id, entity.label, entity.aliases)
-            for entity in references
-        ),
-        bootstrap_terms=tuple(entity.label for entity in inputs.known or () if entity.cls is None)
-        if not references
-        else (),
+    known = document_references(conn, view, unit.document_id, limit=MAX_KNOWN)
+    return native_proposal_packet(
+        view.reader, unit.source_view_id, prepared, configuration, known=known
     )
 
 

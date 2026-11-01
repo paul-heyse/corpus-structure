@@ -80,11 +80,10 @@ def test_a_shape_changing_edit_generates_and_checks_clean_in_one_pass(tmp_path: 
     assert generate.drift(generate.render(loaded), out) == []  # check: clean after one generate
 
 
-def test_the_parse_detail_payload_has_a_registry_entry() -> None:
-    """O1's rendition write looks the payload schema up by kind and refuses without one."""
+def test_html_profile_and_diagnostics_are_retired() -> None:
     from corpus_structure.schema import registry
 
     loaded = model.load()
-    assert "parse_detail" not in registry.without_schema(loaded)
-    (entry,) = [e for e in registry.payload_schema_entries(loaded) if e.kind == "parse_detail"]
-    assert entry.class_ == "sys:ParseDetail"
+    assert "SourceProfile" not in loaded.system.all_classes()
+    assert "ParseDetail" not in loaded.system.all_classes()
+    assert not any(e.kind == "parse_detail" for e in registry.payload_schema_entries(loaded))

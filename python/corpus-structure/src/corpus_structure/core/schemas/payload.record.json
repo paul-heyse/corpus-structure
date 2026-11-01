@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/ba316957d50d/payload.record.json",
+  "$id": "https://corpus-structure.dev/schemas/df024758c4f4/payload.record.json",
   "$defs": {
     "JsonValue": {},
     "RecordField": {

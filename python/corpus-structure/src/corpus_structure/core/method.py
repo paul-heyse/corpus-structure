@@ -10,7 +10,7 @@ The types live in `core` because the methods sit below `orchestrate` (in `ingest
 - what a method returns: `ObservationDraft`s naming their payload class, version and source,
   `MeasurementDraft`s, and one `UnitResult` per unit; `Digest` from `input_digest`;
 - `Resources`, `MethodSettings` (the result-neutral settings only) and `MethodContext`;
-- the configuration reference markers (`ArtifactRef`, `ConfigRef`, `SourceProfileRef`,
+- the configuration reference markers (`ArtifactRef`, `ConfigRef`,
   `PackSection`), found on a `Config` by `config_references`;
 - `payload_hash`, the one form in which digests cite upstream observations;
 - the `Registry` interface and `ResolvedConfig`.
@@ -59,6 +59,7 @@ if typing.TYPE_CHECKING:
         SelectedParsingProduct,
     )
     from corpus_structure.semantic.pdf_contracts import PreparedPdfProduct
+    from corpus_structure.semantic.pdf_integrated import PreparedIntegratedPdfProduct
     from corpus_structure.semantic.source_views import PreparedSourceView
     from corpus_structure.semantic.types import PreparedRelease
 
@@ -567,6 +568,7 @@ class UnitResult:
     parsing_products: PreparedParsingProductSet | None = None
     coverage: tuple[CoverageDraft, ...] = ()
     native_products: tuple[PreparedPdfProduct, ...] = ()
+    integrated_products: tuple[PreparedIntegratedPdfProduct, ...] = ()
     source_views: tuple[SourceViewDraft, ...] = ()
 
     def __post_init__(self) -> None:
@@ -617,10 +619,21 @@ class MethodSettings(BaseModel):
 
     data_dir: Path
     model_cache: Path
+    nemotron_endpoint: str = "http://127.0.0.1:8035/v1"
+    nemotron_python: Path = Path("services/nemotron-parse/.venv/bin/python")
+    nemotron_worker: Path = Path("services/nemotron-parse/worker.py")
+    nemotron_receipts: Path = Path("build/recognition")
+    nemotron_timeout_seconds: float = 1800.0
 
 
 def _unleased_operation() -> None:
     """Standalone method kernels have no external task lease to maintain."""
+
+
+def _unowned_integrated_publication(
+    ref: UnitRef, product: PreparedIntegratedPdfProduct
+) -> ProductReference:
+    raise RuntimeError("integrated publication requires an owned task fence")
 
 
 @dataclass(frozen=True, slots=True)
@@ -634,6 +647,9 @@ class MethodContext:
     settings: MethodSettings
     logger: logging.Logger
     check_active: Callable[[], None] = _unleased_operation
+    retain_integrated_pdf: Callable[[UnitRef, PreparedIntegratedPdfProduct], ProductReference] = (
+        _unowned_integrated_publication
+    )
 
 
 # --- Configuration references ------------------------------------------------------------------
@@ -651,14 +667,9 @@ class ArtifactRef:
 @dataclass(frozen=True, slots=True)
 class ConfigRef:
     """A field naming another method's configuration, embedded as its resolved params (as
-    `ingest.html` names `segment.sentences/<name>`)."""
+    a consumer names `segment.sentences/<name>`)."""
 
     method: str
-
-
-@dataclass(frozen=True, slots=True)
-class SourceProfileRef:
-    """A field naming a source profile, resolved to the parsed `sources/<name>.yaml`."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -669,8 +680,8 @@ class PackSection:
     name: str
 
 
-type ConfigReference = ArtifactRef | ConfigRef | SourceProfileRef | PackSection
-_REFERENCES = (ArtifactRef, ConfigRef, SourceProfileRef, PackSection)
+type ConfigReference = ArtifactRef | ConfigRef | PackSection
+_REFERENCES = (ArtifactRef, ConfigRef, PackSection)
 
 
 def config_references(config: type[BaseModel]) -> dict[tuple[str, ...], ConfigReference]:

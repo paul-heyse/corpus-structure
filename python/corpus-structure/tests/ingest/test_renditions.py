@@ -20,7 +20,6 @@ import pytest
 from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.locators import LocatorIndex, parse
 from corpus_structure.core.vocab import SegmentKind
-from corpus_structure.ingest.profile import CompiledProfile
 from corpus_structure.ingest.profile_segments import MEASURED, features, measurements
 
 
@@ -178,7 +177,7 @@ def test_the_trace_segment_fixtures_match(unit: str, ingest: Ingest) -> None:
         assert result.content.canonical_text[record["start"] : record["end"]] == record["text"]
 
 
-def test_m02_features_count_characters_and_math(ingest: Ingest, profile: CompiledProfile) -> None:
+def test_m02_features_count_characters_and_math(ingest: Ingest) -> None:
     result = ingest("special/Normal.html")
     rows = features(result.content)
     assert rows and {f.segment.kind for f in rows} <= MEASURED

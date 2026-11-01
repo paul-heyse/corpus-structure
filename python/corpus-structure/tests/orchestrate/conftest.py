@@ -14,7 +14,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Annotated, Any
+from typing import Any
 
 import pytest
 import yaml
@@ -25,7 +25,6 @@ from corpus_structure.core.method import (
     Digest,
     MethodContext,
     Resources,
-    SourceProfileRef,
     UnitRef,
     UnitResult,
     UnitView,
@@ -53,7 +52,7 @@ class Empty(BaseModel):
 class IngestConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    source_profile: Annotated[Any, SourceProfileRef()] = "siegrist"
+    source_profile: str = "siegrist"
 
 
 @dataclass

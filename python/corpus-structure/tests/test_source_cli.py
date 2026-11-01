@@ -189,3 +189,50 @@ def test_native_request_json_emits_dataclass_and_preserves_failure_exit(
         code_commit="native-source-cli-v2",
     )
     assert source_runtime.opened == [("ci-native-request", "write")]
+
+
+def test_current_inspection_preserves_exact_product_and_companion_selector(
+    cli, monkeypatch, source_runtime
+):
+    from corpus_structure.serve import native_source
+
+    read = MagicMock(
+        return_value=native_source.NativeSourceResponse(
+            selection=native_source.NativeSourceRequest(
+                run_id=17,
+                task_id=23,
+                product_key="integrated",
+                content_digest="a" * 64,
+                view="manifest",
+                collection="coverage",
+            ),
+            release_id="release-17",
+            health={},
+            rows=[{"outcome": "unknown"}],
+        )
+    )
+    monkeypatch.setattr(native_source, "inspect_native_source", read)
+    result = cli(
+        "source",
+        "inspect",
+        "17",
+        "--producing-task",
+        "23",
+        "--product",
+        "integrated",
+        "--native-digest",
+        "a" * 64,
+        "--native-view",
+        "manifest",
+        "--collection",
+        "coverage",
+        "--json",
+    )
+    assert result.exit_code == 0, (result.output, result.exception)
+    selected = read.call_args.args[1]
+    assert selected.version == 3
+    assert selected.content_digest == "a" * 64
+    assert selected.view == "manifest" and selected.collection == "coverage"
+    assert json.loads(result.stdout)["rows"] == [{"outcome": "unknown"}]
+    old = cli("source", "inspect", "17", "4")
+    assert old.exit_code != 0

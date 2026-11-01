@@ -51,6 +51,10 @@ configs:                                               # named configurations, r
     default:
       originals: [siegrist_random/Full_PDF/Full.pdf]
       membership: descendants
+  ingest.pdf_integrated:
+    default:
+      originals: [siegrist_random/Full_PDF/Full.pdf]
+      membership: descendants
   segment.sentences:
     default: {model: en_core_web_sm, variant: math_as_word, exclude: [ner, lemmatizer]}
                                                        # b′ (D4 M03): each inline math span and reference marker is one

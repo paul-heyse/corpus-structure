@@ -143,8 +143,16 @@ class ProfileSegments:
 
 def native_methods():
     """Fresh operation ownership per registry; enrichment shares its run's PDF child owner."""
+    from .pdf_recognition_methods import IngestPdfIntegrated
+
     producer = IngestPdf()
-    return (producer, EnrichPdfMath(producer), SegmentSentences(), ProfileSegments())
+    return (
+        producer,
+        IngestPdfIntegrated(),
+        EnrichPdfMath(producer),
+        SegmentSentences(),
+        ProfileSegments(),
+    )
 
 
 METHODS = native_methods()

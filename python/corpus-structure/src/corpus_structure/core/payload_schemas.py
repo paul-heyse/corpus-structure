@@ -58,7 +58,6 @@ def default_readers() -> dict[str, Callable[[Any], Any]]:
     from pydantic import JsonValue, TypeAdapter
 
     from corpus_structure.core import batch, options, payloads
-    from corpus_structure.core.parse_detail import ParseDetail
 
     out: dict[str, Callable[[Any], Any]] = {
         str(kind): model.model_validate for kind, model in payloads.PAYLOADS.items()
@@ -73,7 +72,6 @@ def default_readers() -> dict[str, Callable[[Any], Any]]:
         "compiled_artifact": TypeAdapter(JsonValue).validate_python,
         "run_options": options.RunOptions.model_validate,
         "intervention_refs": payloads.InterventionRefs.model_validate,
-        "parse_detail": ParseDetail.model_validate,
     }
     return out
 

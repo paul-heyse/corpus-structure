@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/ba316957d50d/run_options.json",
+  "$id": "https://corpus-structure.dev/schemas/df024758c4f4/run_options.json",
   "$defs": {
     "AgentMode": {
       "description": "Which agent tasks a run resolves (D6 §2); no setting supplies it. Lifecycle: static.",

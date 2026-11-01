@@ -18,7 +18,6 @@ from corpus_structure.core.method import (
     ConfigRef,
     PackSection,
     Resources,
-    SourceProfileRef,
 )
 from corpus_structure.core.vocab import ConfidenceSource, MethodFamily, MethodTier, TaskUnitType
 from corpus_structure.orchestrate import registry as reg
@@ -39,7 +38,6 @@ class SentencesConfig(Strict):
 
 class IngestConfig(Strict):
     # a reference field holds its resolved form after resolution (core.method's contract)
-    source_profile: Annotated[Any, SourceProfileRef()] = "siegrist"
     sentences: Annotated[Any, ConfigRef("segment.sentences")] = "segment.sentences/default"
     threshold: float = 0.5
     macros: dict[str, str] = {"\\R": "\\mathbb{R}", "\\N": "\\mathbb{N}"}
@@ -73,7 +71,7 @@ class Stub:
 
 
 METHODS = [
-    Stub("ingest.html", IngestConfig),
+    Stub("ingest.pdf", IngestConfig),
     Stub("segment.sentences", SentencesConfig),
     Stub(
         "agent.opus",
@@ -96,7 +94,7 @@ FILE = {
     "version": "0.1.0",
     "math": {"macros": {"\\E": "\\mathbb{E}"}, "constants": ["e"]},
     "configs": {
-        "ingest.html": {"default": {"macros": {"\\P": "\\mathbb{P}"}, "threshold": 0.1}},
+        "ingest.pdf": {"default": {"macros": {"\\P": "\\mathbb{P}"}, "threshold": 0.1}},
         "segment.sentences": {"default": {}, "bare": {"exclude": []}},
         "agent.opus": {"extract": {}, "adjudicate": {"packet_cap_chars": 9000}},
     },
@@ -109,30 +107,28 @@ def test_every_reference_kind_resolves(tmp_path: Path) -> None:
     assert sorted(resolved) == [
         "agent.opus/adjudicate",
         "agent.opus/extract",
-        "ingest.html/default",
+        "ingest.pdf/default",
         "segment.sentences/bare",
         "segment.sentences/default",
     ]
-    ingest: Any = resolved["ingest.html/default"].params
+    ingest: Any = resolved["ingest.pdf/default"].params
     assert ingest["sentences"] == {"model": "en_core_web_sm", "exclude": ["ner"]}
-    assert ingest["source_profile"]["root"] == "siegrist_random/random"  # the parsed profile
     agent = resolved["agent.opus/extract"].params
     assert agent["batch_schema"] == "a" * 64
     assert agent["math"] == {"macros": {"\\E": "\\mathbb{E}"}, "constants": ["e"]}
-    assert registry.profiles("ingest.html", "default") == [("source_profile", "siegrist")]
 
 
 def test_floats_hash_as_canonical_decimals_and_the_key_covers_defaults(tmp_path: Path) -> None:
     registry = reg.MethodRegistry(METHODS, methods_file(tmp_path, FILE))
-    rc = registry.resolve("ingest.html", "default", ARTIFACTS)
+    rc = registry.resolve("ingest.pdf", "default", ARTIFACTS)
     assert rc.params["threshold"] == "0.1"
-    assert rc.config_hash == config_key("ingest.html", "1", rc.params)
-    assert set(rc.params) == {"source_profile", "sentences", "threshold", "macros"}
+    assert rc.config_hash == config_key("ingest.pdf", "1", rc.params)
+    assert set(rc.params) == {"sentences", "threshold", "macros"}
 
 
 def test_a_nested_object_replaces_the_default_whole(tmp_path: Path) -> None:
     registry = reg.MethodRegistry(METHODS, methods_file(tmp_path, FILE))
-    rc = registry.resolve("ingest.html", "default", ARTIFACTS)
+    rc = registry.resolve("ingest.pdf", "default", ARTIFACTS)
     assert rc.params["macros"] == {"\\P": "\\mathbb{P}"}  # no default entry merged in
     bare = registry.resolve("segment.sentences", "bare")
     assert bare.params["exclude"] == []
@@ -219,10 +215,10 @@ def test_literal_configuration_reference_is_validated_as_referenced_value(tmp_pa
     import copy
 
     source: dict[str, Any] = copy.deepcopy(FILE)
-    source["configs"]["ingest.html"]["default"]["sentences"] = {
+    source["configs"]["ingest.pdf"]["default"]["sentences"] = {
         "model": "explicit-model",
         "exclude": [],
     }
     registry = reg.MethodRegistry(METHODS, methods_file(tmp_path, source))
-    result = registry.resolve("ingest.html", "default", ARTIFACTS)
+    result = registry.resolve("ingest.pdf", "default", ARTIFACTS)
     assert result.params["sentences"] == {"model": "explicit-model", "exclude": []}

@@ -34,7 +34,6 @@ from corpus_structure.core.method import (
     PackSection,
     Resources,
     RunView,
-    SourceProfileRef,
     SourceRunContext,
     UnitRef,
     UnitResult,
@@ -278,7 +277,15 @@ def test_a_unit_result_keeps_rule_2() -> None:
 
 
 def test_method_settings_hold_only_their_declared_fields(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert set(MethodSettings.model_fields) == {"data_dir", "model_cache"}
+    assert set(MethodSettings.model_fields) == {
+        "data_dir",
+        "model_cache",
+        "nemotron_endpoint",
+        "nemotron_python",
+        "nemotron_worker",
+        "nemotron_receipts",
+        "nemotron_timeout_seconds",
+    }
     monkeypatch.setenv("CORPUS_PATHS__DATA_DIR", "/elsewhere")
     settings = MethodSettings(data_dir=Path("d"), model_cache=Path("m"))
     assert settings.data_dir == Path("d")  # the environment is never read
@@ -304,10 +311,9 @@ class Sentences(BaseModel):
     abbreviations: Annotated[tuple[str, ...], PackSection("aliases")] = ()
 
 
-class HtmlConfig(BaseModel):
+class SourceConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    profile: Annotated[str, SourceProfileRef()] = "default"
     schema_hash: Annotated[str, ArtifactRef("json_schema", "batch.model_facing")] = ""
     sentences: Annotated[Sentences, ConfigRef("segment.sentences")] = Sentences()
     math: Annotated[dict[str, str], PackSection("math")] = {}
@@ -315,8 +321,7 @@ class HtmlConfig(BaseModel):
 
 
 def test_a_configs_references_are_found_by_introspection() -> None:
-    assert config_references(HtmlConfig) == {
-        ("profile",): SourceProfileRef(),
+    assert config_references(SourceConfig) == {
         ("schema_hash",): ArtifactRef("json_schema", "batch.model_facing"),
         ("sentences",): ConfigRef("segment.sentences"),
         ("sentences", "abbreviations"): PackSection("aliases"),

@@ -812,6 +812,13 @@ def complete_unit_result(
             store_pdf_product(
                 conn, task_id=task_id, attempt=attempt, holder=holder, product=product
             )
+    if result.integrated_products:
+        from .pdf_integrated import store_integrated_pdf_product
+
+        for product in result.integrated_products:
+            store_integrated_pdf_product(
+                conn, task_id=task_id, attempt=attempt, holder=holder, product=product
+            )
     if result.source_views:
         from .source_views import store_source_view
 
@@ -1254,57 +1261,6 @@ class BoundReader:
         for name in names:
             context.execution.require_operation(name)
 
-    def text_layouts(
-        self, rendition_id: int, expected_config, content: RenditionContent | None = None
-    ):
-        """Read the run-selected producing task, including explicit source-task reuse."""
-        from .text_layouts import load_text_layouts
-
-        build, task, config, method, chosen = (
-            table("ops.rendition_build"),
-            table("ops.task"),
-            table("ops.method_config"),
-            table("ops.method"),
-            table("ops.run_rendition"),
-        )
-        query = (
-            select(build.c.text_layout, build.c.method_config_id, config.c.params)
-            .join_from(task, config, task.c.method_config_id == config.c.id)
-            .join(method, config.c.method_id == method.c.id)
-            .join(build, build.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id))
-            .join(
-                chosen,
-                (chosen.c.run_id == task.c.run_id)
-                & (chosen.c.document_id == build.c.document_id)
-                & (chosen.c.rendition_id == build.c.rendition_id),
-            )
-            .where(
-                task.c.run_id == self.run_id,
-                build.c.rendition_id == rendition_id,
-                method.c.name == "ingest.html",
-            )
-        )
-        rows = self.conn.execute(query).mappings().all()
-        if not rows:
-            return ()
-        if len(rows) != 1:
-            raise OperationConflict("source selection has multiple token layout builds")
-        row = rows[0]
-        from corpus_structure.ingest.sentences import SentenceConfig
-
-        stored_config = row["params"].get("sentences")
-        if (
-            not isinstance(stored_config, dict)
-            or SentenceConfig.model_validate(stored_config) != expected_config
-        ):
-            return ()  # Different tokenizer configuration requires canonical reconstruction.
-        return load_text_layouts(
-            row["text_layout"],
-            (self.content(rendition_id) if content is None else content),
-            self.prepared,
-            row["method_config_id"],
-        )
-
     def layered_products(self, rendition_id: int, **selection):
         """Common immutable product selection for the run and its reused producers."""
         from .parsing_products import select_layered_products
@@ -1312,20 +1268,6 @@ class BoundReader:
         return select_layered_products(
             self.conn, run_id=self.run_id, rendition_id=rendition_id, **selection
         )
-
-    def parsing_product(self, rendition_id: int, *, producing_task_id: int | None = None):
-        """Compatibility root shim through the common qualified product selector."""
-        from .parsing_products import PreparedParsingProduct, read_layered_product
-
-        selected = self.layered_products(
-            rendition_id, kind="source", producing_task_id=producing_task_id
-        )
-        if not selected:
-            return None
-        result = read_layered_product(self.conn, selected[0].reference)
-        if result is not None and not isinstance(result, PreparedParsingProduct):
-            raise OperationConflict("source product selector returned a derived product")
-        return result
 
     def segments(self, rendition_id: int) -> Mapping[str, int]:
         s = table("kb.segment")
