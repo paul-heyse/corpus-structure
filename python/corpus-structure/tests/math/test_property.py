@@ -50,6 +50,7 @@ def agrees(result: G.MathResult, given_text: str) -> tuple[bool, str, str]:
         "a \\big/ b",
         "\\Bigl( x \\Bigr)",
         "\\mu x + \\mu_{x}",  # a control word before a letter keeps its space
+        r"\mu\,x",  # an ignored spacing command still separates a control word from a letter
         "x + y,",  # T1: the dropped tail is printed after the trimmed reading
         "\\begin{align} f(x) & = x^2 \\\\ & = y \\end{align}",  # T2: an outer environment
         "X_n \\to X \\text{ as  } n \\to \\infty",  # T3: a text-mode argument from the source
@@ -62,6 +63,30 @@ def test_the_printer_agrees_on_cases(latex: str, env: Any) -> None:
     assert result.tree is not None, result.failure
     ok, printed, token = agrees(result, latex)
     assert ok, (printed, token)
+
+
+@pytest.mark.parametrize(
+    ("latex", "expected", "tail"),
+    [
+        (r"(\#,\#)\text{\}", r"(\#,\#)\text{\}", ""),
+        (r"(\#,\#)\text{\}x", r"(\#,\#)\text{\}x", ""),
+        (r"(\#,\#)\text{\}  x", r"(\#,\#)\text{\} x", ""),
+        (r"(\#,\#)\text{\},", r"(\#,\#)\text{\},", ","),
+        (r"(\#,\#)\text{\} ,", r"(\#,\#)\text{\} ,", " ,"),
+        (r"X\text{\mu\,x}", r"X\text{\mu x}", ""),
+    ],
+)
+def test_opaque_text_mode_keeps_source_gaps_without_invented_separators(
+    latex: str, expected: str, tail: str, env: Any
+) -> None:
+    # The grammar treats TEXT_BODY as opaque, so it can accept a closing brace escaped
+    # under TeX's lexer. Genuine following whitespace remains text; joining invents none.
+    macros = tex.effective_macros({}, env.macros)
+    result = G.parse(latex, "any_value", macros)
+    assert result.tree is not None, result.failure
+    assert result.tail == tail
+    assert tex.token_form(latex, macros) == expected
+    assert print_tree(result.tree, result.latex, result.macros, result.tail) == expected
 
 
 def test_corpus_layer_on_the_spike_pages(spike_pages: dict[str, Any]) -> None:

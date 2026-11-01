@@ -15,8 +15,9 @@ three such changes, kept here:
   `TEXT_MODE`) is printed from the source, so whitespace the grammar's `%ignore` skipped inside it
   is kept and collapsed as the token form collapses it.
 
-The leaves are rejoined with a space between tokens, which the normalization removes outside
-text-mode arguments, so `\\mu` and `x` stay two tokens.
+Leaf text retains source whitespace between positioned leaves. Joining adds only the separator
+needed to keep a control word and a following letter distinct; arbitrary separators can become
+content inside an opaque text-mode argument whose closing brace is escaped in TeX.
 """
 
 from __future__ import annotations
@@ -29,9 +30,21 @@ from corpus_structure.methods.math import _tree
 
 
 def leaf_texts(tree: _tree.Node, source: str) -> list[str]:
-    """The tree's leaf texts; a text-mode command's braced argument as one source slice (T3)."""
+    """Leaf texts, original whitespace gaps and text-mode argument source slices (T3)."""
     leaves = _tree.leaves(tree)
     out: list[str] = []
+    position = 0
+
+    def append(value: str, start: int | None, end: int | None) -> None:
+        nonlocal position
+        if start is not None:
+            whitespace = "".join(c for c in source[position:start] if c.isspace())
+            if whitespace:
+                out.append(whitespace)
+        out.append(value)
+        if end is not None:
+            position = end
+
     i = 0
     while i < len(leaves):
         leaf = leaves[i]
@@ -46,14 +59,36 @@ def leaf_texts(tree: _tree.Node, source: str) -> list[str]:
                 j += 1
             start, end = opening.start_pos, leaves[j].end_pos if j < len(leaves) else None
             if start is not None and end is not None:
-                out += [str(leaf), source[start:end]]
+                append(str(leaf), leaf.start_pos, leaf.end_pos)
+                append(source[start:end], start, end)
                 i = j + 1
                 continue
-        out.append(str(leaf))
+        append(str(leaf), leaf.start_pos, leaf.end_pos)
         i += 1
+    whitespace = "".join(c for c in source[position:] if c.isspace())
+    if whitespace:
+        out.append(whitespace)
     return out
+
+
+def _join_leaves(parts: list[str]) -> str:
+    out: list[str] = []
+    previous: tex.Token | None = None
+    for part in parts:
+        if not part:
+            continue
+        if previous is not None and previous.kind == "word" and part[0] in (
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+        ):
+            out.append(" ")
+            previous = None
+        out.append(part)
+        # The final token can cross a grammar-leaf boundary (e.g. a bare backslash).
+        previous = tex.tokens((previous.text if previous is not None else "") + part)[-1]
+    return "".join(out)
 
 
 def print_tree(tree: _tree.Node, source: str, table: Mapping[str, MacroDef], tail: str = "") -> str:
     """The printed form of a reading of `source`, with the dropped `tail` after it (T1)."""
-    return tex.token_form(" ".join([*leaf_texts(tree, source), tail]), table)
+    reading = source[: -len(tail)] if tail else source
+    return tex.token_form(_join_leaves([*leaf_texts(tree, reading), tail]), table)
