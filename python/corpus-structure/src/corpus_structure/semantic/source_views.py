@@ -133,7 +133,8 @@ def load_source_view(
     values = conn.execute(
         text(
             "SELECT refs.pointer,i.native_json AS item\n        FROM "
-            + items_relation.fullname + " i JOIN unnest(CAST(:pointers AS text[])) WITH "
+            + items_relation.fullname
+            + " i JOIN unnest(CAST(:pointers AS text[])) WITH "
             "ORDINALITY refs(pointer,position) ON refs.pointer=i.pointer\n        "
             "WHERE i.task_id=:task AND i.product_key=:key ORDER BY refs.position"
         ),
@@ -425,6 +426,23 @@ def scope_source_views(conn: Connection, selected, scope):
             for other in roots
         )
     )
+
+
+def formula_health_summary(
+    outcomes: Sequence[Mapping[str, Any]], reference: ProductReference
+) -> list[dict[str, Any]]:
+    """Keep queryable formula state and qualify diagnostics retained in exact metadata."""
+    summary: list[dict[str, Any]] = []
+    for ordinal, outcome in enumerate(outcomes):
+        value: dict[str, Any] = {"pointer": outcome["pointer"], "outcome": outcome["outcome"]}
+        if "diagnostic_ref" in outcome:
+            value["diagnostic_ref"] = dict(outcome["diagnostic_ref"])
+        elif "error" in outcome:
+            value["diagnostic_ref"] = dict(
+                reference.values(), family="native_metadata", local_id=f"formula_outcomes:{ordinal}"
+            )
+        summary.append(value)
+    return summary
 
 
 def source_view_health(

@@ -292,7 +292,8 @@ class PublishedPdfReader:
         """Materialize one requested field from exact bytes, retaining JSON float bits."""
         body = dict(row["body"])
         if row.get("family") == "native_metadata":
-            body.pop("pointer",None)
+            for projection in ("pointer", "outcome", "has_diagnostic"):
+                body.pop(projection,None)
         for field in row.get("_fields", ()):
             name, kind = field["field_name"], field["scalar_kind"]
             if name in body:
@@ -340,7 +341,8 @@ class PublishedPdfReader:
                     first_row=False
                     body=dict(event["body"])
                     if family == "native_metadata":
-                        body.pop("pointer",None)
+                        for projection in ("pointer", "outcome", "has_diagnostic"):
+                            body.pop(projection,None)
                     encoded=encode(body)
                     yield b"{" + encoded[1:-1]
                     first_field=not bool(body)

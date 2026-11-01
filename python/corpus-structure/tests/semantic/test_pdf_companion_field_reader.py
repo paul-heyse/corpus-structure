@@ -29,7 +29,7 @@ def field_database(semantic_bare_engine):
             "CREATE TABLE kb.pdf_record_companion_field(product_id text,revision_id text,family text,local_id text,field_name text,stream_id text,scalar_kind text)",
             "CREATE TABLE ops.pdf_artifact_stream(product_id text,revision_id text,stream_id text,byte_length bigint,serialization_sha256 text,byte_root text,encoding_profile text)",
             "CREATE TABLE ops.pdf_artifact_part(product_id text,revision_id text,stream_id text,ordinal bigint,byte_offset bigint,byte_length bigint,body bytea,sha256_digest text)",
-            "INSERT INTO kb.pdf_record_companion VALUES('b','b','native_metadata','formula_outcomes:0','{\"kind\":\"formula_outcomes\",\"ordinal\":0,\"pointer\":\"#/texts/0\"}',0),('b','b','occurrence','o','{\"occurrence_id\":\"o\",\"pointer\":\"#/texts/0\"}',0)",
+            "INSERT INTO kb.pdf_record_companion VALUES('b','b','native_metadata','formula_outcomes:0','{\"kind\":\"formula_outcomes\",\"ordinal\":0,\"pointer\":\"#/texts/0\",\"outcome\":\"failed\",\"has_diagnostic\":true}',0),('b','b','occurrence','o','{\"occurrence_id\":\"o\",\"pointer\":\"#/texts/0\"}',0)",
             "INSERT INTO kb.pdf_record_companion_field VALUES('b','b','native_metadata','formula_outcomes:0','value','meta','y'),('b','b','occurrence','o','text','text','s')",
         ):
             conn.exec_driver_sql(ddl)
@@ -91,3 +91,22 @@ def test_abandoned_companion_export_closes_owned_cursor(field_database):
         assert conn.execute(query).scalar_one() == 1
         chunks.close()
         assert conn.execute(query).scalar_one() == 0
+
+
+def test_formula_health_summary_keeps_exact_diagnostic_in_qualified_metadata():
+    from corpus_structure.semantic.source_views import formula_health_summary
+
+    reference = ProductReference(42, 'p', 'f' * 64)
+    outcomes = [
+        {'pointer': '#/texts/0', 'outcome': 'succeeded'},
+        {'pointer': '#/texts/1', 'outcome': 'failed', 'error': 'unsupported\x00symbol'},
+    ]
+    summary = formula_health_summary(outcomes, reference)
+    assert summary == [
+        {'pointer': '#/texts/0', 'outcome': 'succeeded'},
+        {'pointer': '#/texts/1', 'outcome': 'failed', 'diagnostic_ref': {
+            'task_id': 42, 'product_key': 'p', 'content_digest': 'f' * 64,
+            'family': 'native_metadata', 'local_id': 'formula_outcomes:1'}},
+    ]
+    assert outcomes[1]['error'] == 'unsupported\x00symbol'
+    assert formula_health_summary(summary, reference) == summary
