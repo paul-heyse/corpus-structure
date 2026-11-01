@@ -21,20 +21,26 @@ export after removing a checkout. Do not copy weights or environments into evide
 The validated2026-10-31 RTX5090/driver615.71.10 launch uses:
 
 ```sh
-services/nemotron-parse/.venv/bin/vllm serve services/nemotron-parse/vendor \
+VLLM_SERVER_DEV_MODE=1 services/nemotron-parse/.venv/bin/vllm serve services/nemotron-parse/vendor \
   --served-model-name nemotron-parse --trust-remote-code --dtype bfloat16 \
   --distributed-executor-backend uni --tensor-parallel-size 1 --data-parallel-size 1 \
   --max-model-len 16384 --max-num-seqs 4 --max-num-batched-tokens 16384 \
   --no-enable-prefix-caching --limit-mm-per-prompt '{"image":1}' \
   --attention-config '{"flash_attn_version":3}' \
   --chat-template services/nemotron-parse/vendor/chat_template.jinja \
-  --host 127.0.0.1 --port 8035 --gpu-memory-utilization 0.72
+  --host 127.0.0.1 --port 8035 --gpu-memory-utilization 0.72 --enable-sleep-mode
 ```
 
 The plugin enables trained one-token MTP. On this Blackwell GPU vLLM rejectsFA3 and
 selects effective FlashAttention2; the application recipe records that effective choice.
 This is the local validated configuration, not the vendor H100 throughput profile.
-The parent operation phases GPU ownership with native Docling and other model services.
+The fresh combined producer uses this dedicated endpoint's level-one sleep/wake API.
+It offloads Nemotron weights and releases KV memory before Standard Docling runs on
+CUDA, closes the native child after its last consumer, then restores Nemotron for triple
+recognition. The GPU is restored on native failure and cancellation. Missing control
+capability is an actionable failure; the producer never substitutes a CPU or single-pass
+route. The archived source recipe names this phase policy. Retained Standard and retained
+integrated products reuse their existing content without another Standard conversion.
 
 `worker.py` accepts one input JSON file and exits after a complete public
 `DocumentParser.parse_triple(..., triple_regions="union")` call. It has no database.
