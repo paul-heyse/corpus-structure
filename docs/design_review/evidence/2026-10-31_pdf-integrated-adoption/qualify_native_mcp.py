@@ -32,8 +32,13 @@ async def exercise(selection: dict, database: str, root: Path, output: Path) -> 
     pin={key:selection[key] for key in ('run_id','task_id','product_key','content_digest')}
     async with Client(transport) as client:
         tools={tool.name:tool for tool in await client.list_tools()}
-        assert {'inspect_source','render_source_region','queue_status'} <= tools.keys()
+        assert {'inspect_source','render_source_region','queue_status','find'} <= tools.keys()
         receipts.append({'operation':'list_tools','tools':sorted(tools)})
+        checkpoint()
+        found=await client.call_tool('find',{'request':dict(run_id=selection['run_id'],text='normal distribution',limit=2)})
+        assert found.structured_content and found.structured_content['rows']
+        assert all(row['selection']['content_digest']==selection['content_digest'] for row in found.structured_content['rows'])
+        receipts.append({'operation':'find','result':found.structured_content})
         checkpoint()
         requests=[dict(pin,version=3,view='sections',limit=5),
             dict(pin,version=3,view='formula',pointer=selection['formula_pointer']),

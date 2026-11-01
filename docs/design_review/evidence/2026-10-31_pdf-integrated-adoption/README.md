@@ -60,6 +60,15 @@ Three-page parallel execution overlapped finite workers with one guarded PDFium 
 The first whole-book attempt failed at page226 after successful pages1–225; its raw response repeats
 an integral symbol until the output cap. Both primary and unsuccessful sampled retry are retained.
 The explicit repetition-penalty1.3 recovery recipe completed page226; it has a separate identity.
-The second finite bulk attempt continues pages227–1589, retaining individual failures while completing
-the selected universe. These facts establish actual scoped provider behavior, not whole-book completion,
-source fidelity, extraction or grading. Provider `READY` preflight establishes availability only.
+The second finite bulk attempt completed pages227–1589, retaining a second length/repetition failure
+at page1380. The same declared recovery recipe completed that page. Both failed bulk invocations
+remain failed records. `runtime/fullbook-recognition-inventory.json` accounts for every original
+page and its successful selected result: 1,589 full-page parses, 1,589 layout requests and 261 crop
+requests; 1,433 pages had valid zero-crop outcomes. These are provider outcomes, not source fidelity,
+integrated publication, extraction or grading. Provider `READY` preflight establishes availability only.
+
+The service now runs from the stable cache environment outside the temporary worktree. The
+`service-stable*.json` and startup logs retain the successive owned launches. The dedicated local
+service enables vLLM level1 sleep/wake so fresh native Docling conversion and Nemotron inference can
+release GPU ownership between phases. `runtime/phase-api-control.json` passed actual sleep/state/wake
+requests; the fresh composed producer journey remains a separate obligation.

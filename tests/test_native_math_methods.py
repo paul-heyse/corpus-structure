@@ -90,10 +90,11 @@ class Reader(ReaderPort):
     def _unavailable(self, *args: object, **kwargs: object) -> Never:
         raise AssertionError("this native consumer control does not supply that reader capability")
 
-    require_parsing_operations = _unavailable
     native_document = _unavailable
     native_product_reference = _unavailable
     prepare_pdf_product = _unavailable
+    prepare_integrated_pdf_product = _unavailable
+    pdf_context = _unavailable
     renditions = _unavailable
     content = _unavailable
     segments = _unavailable
@@ -102,11 +103,6 @@ class Reader(ReaderPort):
     measurements = _unavailable
     artifact = _unavailable
     guideline = _unavailable
-    prepare_parsing_product = _unavailable
-    layered_products = _unavailable
-    parsing_fallback_macros = _unavailable
-    source_product_reference = _unavailable
-    prepare_layered_product = _unavailable
     original = _unavailable
     connection = _unavailable
 

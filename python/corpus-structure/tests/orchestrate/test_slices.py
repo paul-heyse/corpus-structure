@@ -16,6 +16,7 @@ def test_native_scope_retains_sections_and_original_manifest():
         corpus=None,
     )
     assert original["documents"] == ["pdf:1"]
+    assert scope is not None
     assert scope["sections"] == ["1.1: Sets", "1.2: Functions"]
     assert scope["kind"] == "native_sections" and scope["include_descendants"] is True
     assert records(DOCS, {}, slice=None, scope=None, corpus=None)[1] is None
