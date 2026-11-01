@@ -641,7 +641,7 @@ def test_reuse_requires_complete_bound_meaning(semantic_db_engine, semantic_writ
         ).one() == ("pending", None)
 
 
-def test_cli_initializes_indexed_source_project_without_active_pointer_changes(
+def test_cli_initializes_pdf_source_project_without_active_pointer_changes(
     semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
 ):
     from contextlib import contextmanager
@@ -656,24 +656,19 @@ def test_cli_initializes_indexed_source_project_without_active_pointer_changes(
     p = setup(semantic_db_engine, observations=True, archive=True)
     e = semantic_writer_engine
     corpus = tmp_path / "corpus"
-    (corpus / "toy").mkdir(parents=True)
-    (corpus / "toy" / "input.html").write_text("<p>Source</p>")
-    (corpus / "index.tsv").write_text("path\tfirst_pass\ninput.html\tyes\n")
-    sources = tmp_path / "sources"
-    sources.mkdir()
-    (sources / "test.yaml").write_text(
-        "version: '1'\nroot: toy\nindex: {file: index.tsv, page: path}\napplies_to: 'toy/*.html'\n"
-    )
+    from pdf_acceptance_support import write_controlled_pdf
+
+    write_controlled_pdf(corpus / "toy/input.pdf", ("Source",))
     registry = MethodRegistry(
         METHODS,
         MethodsFile(
             configs={
-                "ingest.html": {"default": {"source_profile": "test"}},
+                "ingest.pdf": {"default": {"originals": ["toy/input.pdf"]}},
+                "ingest.pdf_integrated": {"default": {"originals": ["toy/input.pdf"]}},
                 "segment.sentences": {"default": {}},
                 "profile.segments": {"default": {}},
             }
         ),
-        sources=sources,
     )
 
     @contextmanager
@@ -727,7 +722,10 @@ def test_cli_initializes_indexed_source_project_without_active_pointer_changes(
             .mappings()
             .one()
         )
-        assert source["source_uri"] == "toy/input.html" and source["meta"]["page"] == "input.html"
+        assert source["source_uri"] == "toy/input.pdf" and source["mime"] == "application/pdf"
+        assert source["meta"] == {
+            "input_format": "pdf", "source_inventory": "configured-pdf-originals"
+        }
 
 
 @pytest.mark.parametrize(

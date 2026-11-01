@@ -2,7 +2,6 @@
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import anyio
@@ -10,10 +9,8 @@ from fastmcp import Client
 from mcp.types import TextContent
 from sqlalchemy import insert, select
 
-from corpus_structure.core.evidence import RenditionContent, Segment
-from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import SegmentKind, TaskUnitType
+from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.semantic import queue_agent
 from corpus_structure.semantic import (
@@ -28,9 +25,7 @@ from corpus_structure.semantic.operations import (
     OperationBinding,
     create_run,
     create_task,
-    record_method,
     register_document,
-    store_rendition,
 )
 from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.releases import persist_release
@@ -73,9 +68,15 @@ classes:
         ),
         qualification_class="ScopedQualification",
     )
-    prepared = prepare_release(bundle)
+    from corpus_structure.semantic.analytical_profile import analytical_inputs
+    from corpus_structure.semantic.composed import composed_dependencies
+
+    bundle, dependencies = analytical_inputs(bundle, ResolvedDependencies())
+    dependencies = composed_dependencies(dependencies)
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, dependencies, profile)
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), prepared)
+        persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="mcp"))
         conn.execute(
             insert(table("data.realization")).values(
@@ -89,14 +90,15 @@ classes:
         + "with long source detail " * 40
         + "."
     )
-    raw.write_text("<p>" + text + "</p>", encoding="utf-8")
-    sentence = Segment(kind=SegmentKind.SENTENCE, start=0, end=len(text))
-    paragraph = Segment(kind=SegmentKind.PARAGRAPH, start=0, end=len(text), children=(sentence,))
-    content = RenditionContent(
-        canonical_text=text,
-        document=Segment(kind=SegmentKind.DOCUMENT, start=0, end=len(text), children=(paragraph,)),
-    )
-    locator = str(LocatorIndex(content, "source.html").generate(paragraph))
+    from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
+
+    from corpus_structure.ingest.sentences import SentenceConfig
+
+    original = write_controlled_pdf(raw, (text,))
+    configuration = {
+        "model": "declared-automated-agent", "mode": "extract", "max_units": 1,
+        "packet_cap_chars": cap, "sentences": SentenceConfig().model_dump(mode="json"),
+    }
     engine = semantic_writer_engine
     with engine.begin() as conn:
         run = create_run(
@@ -104,70 +106,30 @@ classes:
             project_id="mcp",
             binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
             kind="full",
-            options={
-                "agent_configs": {
-                    "extract": {
-                        "model": "declared-automated-agent",
-                        "mode": "extract",
-                        "max_units": 1,
-                        "packet_cap_chars": cap,
-                    }
-                }
-            },
+            options={"agent_configs": {"extract": configuration}},
             code_commit="native-mcp",
             guideline="Extract only what the source states.",
-        )
-        config = record_method(
-            conn,
-            SimpleNamespace(
-                name="ingest",
-                version="1",
-                family="ingest",
-                tier="deterministic",
-                confidence_source=None,
-            ),
-            "default",
-            {},
-            "config:source",
-        )
-        task = create_task(
-            conn, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="source"
         )
         document = register_document(
             conn,
             project_id="mcp",
             source_uri="source.html",
             original_path=str(raw),
-            original=raw.read_bytes(),
+            original=original,
             metadata={"page": "source.html"},
-            mime="text/html",
+            mime="application/pdf",
         )
-        rendition = store_rendition(
-            conn,
-            run_id=run,
-            document_id=document,
-            content=content,
-            task_id=task,
-            config_id=config,
-            parse_detail={},
+        (view,) = publish_controlled_pdf_views(
+            conn, prepared=prepared, run_id=run, document_id=document, original=original,
+            paragraphs=(text,), keys=("source.html#detail",),
         )
-        segments = table("kb.segment")
-        segment = conn.execute(
-            select(segments.c.id).where(
-                segments.c.rendition_id == rendition, segments.c.kind == "paragraph"
-            )
-        ).scalar_one()
+        locator = view.ref.key
         (agent_task,) = queue_agent(
             conn,
             run_id=run,
             prepared=prepared,
-            configuration={
-                "model": "declared-automated-agent",
-                "mode": "extract",
-                "max_units": 1,
-                "packet_cap_chars": cap,
-            },
-            units=(UnitRef(TaskUnitType.SEGMENT, segment, locator),),
+            configuration=configuration,
+            units=(UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, locator),),
         )
     session = SemanticAgentSession(engine, run)
     server = build_semantic_server(session)

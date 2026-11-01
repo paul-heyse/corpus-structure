@@ -4,19 +4,15 @@ import json
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
-from types import SimpleNamespace
 
 import anyio
 import yaml
 from fastmcp import Client
-from pydantic import BaseModel
 from sqlalchemy import insert, select
 from typer.testing import CliRunner
 
-from corpus_structure.core.evidence import RenditionContent, Segment
-from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import SegmentKind, TaskUnitType
+from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.semantic import agent_packet, queue_agent
 from corpus_structure.semantic import (
@@ -34,13 +30,8 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.operations import (
     OperationBinding,
-    claim_tasks,
-    complete_task,
     create_run,
-    create_task,
-    record_method,
     register_document,
-    store_rendition,
 )
 from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.publication import EvidenceRow, SelectionRow, publish_batch
@@ -113,21 +104,19 @@ def test_native_known_reference_packet_mcp_and_finalizer(
         batch, selection=tuple(SelectionRow(row.fact_id) for row in batch.fact)
     ).bind_preparation(prepared)
     publish_batch(semantic_writer_engine, batch)
+    from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
+
+    from corpus_structure.ingest.sentences import SentenceConfig
+
     text = "Alice is here."
-    path = tmp_path / "source.html"
-    path.write_text("<p>" + text + "</p>")
-    sentence = Segment(kind=SegmentKind.SENTENCE, start=0, end=len(text))
-    paragraph = Segment(kind=SegmentKind.PARAGRAPH, start=0, end=len(text), children=(sentence,))
-    content = RenditionContent(
-        canonical_text=text,
-        document=Segment(kind=SegmentKind.DOCUMENT, start=0, end=len(text), children=(paragraph,)),
-    )
-    locator = str(LocatorIndex(content, "source.html").generate(paragraph))
+    path = tmp_path / "source.pdf"
+    original = write_controlled_pdf(path, (text,))
     configuration = {
         "model": "automated-test-agent",
         "mode": "extract",
         "max_units": 1,
         "packet_cap_chars": 18000,
+        "sentences": SentenceConfig().model_dump(mode="json"),
     }
     e = semantic_writer_engine
     with e.begin() as conn:
@@ -144,63 +133,22 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             project_id="known",
             source_uri="source.html",
             original_path=str(path),
-            original=path.read_bytes(),
+            original=original,
             metadata={"page": "source.html"},
-            mime="text/html",
+            mime="application/pdf",
         )
 
-        class SourceConfig(BaseModel):
-            pass
-
-        config = record_method(
-            conn,
-            SimpleNamespace(
-                name="read",
-                version="1",
-                family="ingest",
-                tier="deterministic",
-                confidence_source=None,
-                unit_type=TaskUnitType.RUN,
-                Config=SourceConfig,
-            ),
-            "default",
-            {},
-            "read-config",
+        (view,) = publish_controlled_pdf_views(
+            conn, prepared=prepared, run_id=run, document_id=document, original=original,
+            paragraphs=("Alice is here.",), keys=("source.html#people",),
         )
-        task = create_task(
-            conn, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="input"
-        )
-        claim = claim_tasks(conn, run_id=run, config_id=config, holder="source")[0]
-        rendition = store_rendition(
-            conn,
-            run_id=run,
-            document_id=document,
-            content=content,
-            task_id=task,
-            config_id=config,
-            parse_detail={},
-        )
-        complete_task(
-            conn,
-            task_id=task,
-            attempt=claim.attempt,
-            holder="source",
-            prepared=prepared,
-            observations=[],
-            outcome="empty",
-        )
-        segment = conn.execute(
-            select(table("kb.segment").c.id).where(
-                table("kb.segment").c.rendition_id == rendition,
-                table("kb.segment").c.kind == "paragraph",
-            )
-        ).scalar_one()
+        locator = view.ref.key
         (agent,) = queue_agent(
             conn,
             run_id=run,
             prepared=prepared,
             configuration=configuration,
-            units=(UnitRef(TaskUnitType.SEGMENT, segment, locator),),
+            units=(UnitRef(TaskUnitType.SOURCE_VIEW, view.ref.id, locator),),
         )
         packet = agent_packet(conn, run, agent, prepared)
         assert dict(packet.known_classes)["known-alice"] == ("https://example.org/Person",)

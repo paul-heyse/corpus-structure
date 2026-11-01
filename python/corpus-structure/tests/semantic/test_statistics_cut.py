@@ -6,9 +6,6 @@ from types import SimpleNamespace
 from pydantic import BaseModel
 from sqlalchemy import insert, select
 
-from corpus_structure.core.evidence import RenditionContent, Segment
-from corpus_structure.core.locators import LocatorIndex
-from corpus_structure.core.vocab import SegmentKind
 from corpus_structure.semantic import (
     PreparationProfile,
     ResolvedDependencies,
@@ -30,12 +27,11 @@ from corpus_structure.semantic.operations import (
     record_method,
     register_document,
     seal_cut,
-    store_rendition,
 )
 from corpus_structure.semantic.proposals import (
-    ProposalFrame,
-    ProposalSentence,
+    SEMANTIC_AGENT_VERSION,
     locate_proposal,
+    native_source_frame,
     proposal_inputs,
     proposal_packet,
 )
@@ -83,24 +79,9 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
         "case of FirstParent and SecondParent."
     )
     path = tmp_path / "Statistics.html"
-    path.write_text(source)
-    sentence = Segment(kind=SegmentKind.SENTENCE, start=0, end=len(source))
-    paragraph = Segment(kind=SegmentKind.PARAGRAPH, start=0, end=len(source), children=(sentence,))
-    content = RenditionContent(
-        canonical_text=source,
-        document=Segment(
-            kind=SegmentKind.DOCUMENT, start=0, end=len(source), children=(paragraph,)
-        ),
-    )
-    locators = LocatorIndex(content, "Statistics.html")
-    unit_locator = str(locators.generate(paragraph))
-    frame = ProposalFrame(
-        unit_locator,
-        source,
-        (ProposalSentence("s1", str(locators.generate(sentence)), 0, len(source)),),
-    )
-    packet = proposal_packet(prepared, frame, guideline="", configuration={})
+    from pdf_acceptance_support import publish_controlled_pdf_views, write_controlled_pdf
 
+    original = write_controlled_pdf(path, (source,))
     class SourceConfig(BaseModel):
         pass
 
@@ -110,9 +91,9 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             project_id="p",
             source_uri=path.as_uri(),
             original_path=str(path),
-            original=path.read_bytes(),
+            original=original,
             metadata={"page": "Statistics.html"},
-            mime="text/html",
+            mime="application/pdf",
         )
         key = conn.execute(
             select(table("kb.document").c.key).where(table("kb.document").c.id == document)
@@ -125,15 +106,22 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             options={"corpus": {"documents": [key]}},
             code_commit="test",
         )
+        (view,) = publish_controlled_pdf_views(
+            conn, prepared=prepared, run_id=run, document_id=document, original=original,
+            paragraphs=(source,), keys=("Statistics#qualified",),
+        )
+        unit_locator = view.ref.key
+        frame = native_source_frame(view, (("s1", 0, len(source)),))
+        packet = proposal_packet(prepared, frame, guideline="", configuration={})
         config = record_method(
             conn,
             SimpleNamespace(
                 name="agent.opus",
-                version="1",
+                version=SEMANTIC_AGENT_VERSION,
                 family="agent",
                 tier="agent",
                 confidence_source="agent",
-                unit_type="document",
+                unit_type="source_view",
                 Config=SourceConfig,
             ),
             "extract",
@@ -145,23 +133,14 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             run_id=run,
             config_id=config,
             stage="propose",
-            unit_type="document",
-            unit_id=document,
+            unit_type="source_view",
+            unit_id=view.ref.id,
             unit_key=unit_locator,
             input_hash="input",
             packet_hash=packet.hash,
             agent=True,
         )
         claimed = claim_tasks(conn, run_id=run, config_id=config, holder="agent", agent=True)[0]
-        rendition = store_rendition(
-            conn,
-            run_id=run,
-            document_id=document,
-            content=content,
-            task_id=task,
-            config_id=config,
-            parse_detail={},
-        )
         capture_source_frame(conn, task, packet)
     namespace = "https://corpus-structure.dev/domains/statistics/"
 
@@ -240,7 +219,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
                     "item_key": "proposal",
                     "kind": "claim_proposal",
                     "payload": located.stored.model_dump(mode="python"),
-                    "rendition_id": rendition,
+                    "source_view_id": view.ref.id,
                 }
             ],
         )

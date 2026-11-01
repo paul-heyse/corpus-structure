@@ -1,0 +1,22 @@
+# Frozen independent sampling input from c02da29^:domains/statistics/slices.yaml.
+# Historical declaration SHA-256: 78b65b3c829c300a88c98cc0a2a59e4432b996dbe12a7c70cc0eef0f73e70e91
+version: 0.2.0
+slices:
+  trace:
+  - special/LocationScale.html@p:As usual, our starting point
+  - special/LocationScale.html#dfn1
+  - special/Normal.html@p:Suppose again that \( X \) has the normal distribution with
+    location parameter
+  - special/Normal.html#rel1
+  - special/LogNormal.html#dfn
+  core12:
+  - include: trace
+  - special/Normal.html#rel2
+  - special/Normal.html@p:Recall that in general, if \(X\) is a random variable with
+    mean
+  - special/Normal.html@p:In some settings, it's convenient to consider a constant
+  - special/Normal.html@u:A metal rod is designed
+  - special/LogNormal.html@u:Suppose that \(n \in \N_+\) and that
+  - special/Gamma.html#dfn4
+  - special/Gamma.html#rel2
+  - special/Gamma.html#mom1

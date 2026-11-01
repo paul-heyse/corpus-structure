@@ -64,7 +64,7 @@ class ArchivedSource:
         ids = [value for value in statement.compile().params.values() if isinstance(value, int)]
         if ids:
             return self.contents[ids[0]].model_dump(mode="json")
-        return (ROOT / "domains/statistics/slices.yaml").read_bytes()
+        return (ROOT / "fixtures/trace/archived-slices.yaml").read_bytes()
 
 
 def test_forced_trace_scope_records_core_units_outside_completed_cut(trace_source):
