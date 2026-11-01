@@ -6,15 +6,123 @@ never initialize a converter or hydrate the native whole-document payload.
 
 from __future__ import annotations
 
+import base64
+import json
 from collections.abc import Sequence
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
-from typing import Any
+from typing import Any, Literal
 
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection, select
 
 from .metadata import table
+
+
+class PdfObservationListRequest(BaseModel):
+    """One closed source task's immutable recognition-product catalog."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    version: Literal[1] = 1
+    run_id: int = Field(gt=0)
+    task_id: int = Field(gt=0)
+    kind: Literal["recognition_observation"] = "recognition_observation"
+    cursor: str | None = None
+    limit: int = Field(default=100, ge=1, le=1000)
+
+    def selection_digest(self) -> str:
+        return sha256(
+            json.dumps(
+                self.model_dump(exclude={"cursor", "limit"}),
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+
+
+class PdfObservationPin(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    kind: Literal["recognition_observation"]
+    task_id: int = Field(gt=0)
+    product_key: str = Field(min_length=1)
+    content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class PdfObservationPage(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    version: Literal[1] = 1
+    selection: PdfObservationListRequest
+    products: tuple[PdfObservationPin, ...]
+    next_cursor: str | None = None
+
+
+def read_pdf_observations(
+    conn: Connection, request: PdfObservationListRequest
+) -> PdfObservationPage:
+    """Discover pins without loading Docling content or observation bodies.
+
+    The existing archived read operation and terminal task lifecycle qualify this read.
+    A task from another run/project is never an admitted observation-catalog scope.
+    """
+    tasks, builds = map(table, ("ops.task", "ops.source_build"))
+    task = conn.execute(
+        select(tasks.c.status, tasks.c.finished_at)
+        .join(builds, builds.c.task_id == tasks.c.id)
+        .where(tasks.c.id == request.task_id, tasks.c.run_id == request.run_id)
+    ).one_or_none()
+    if task is None:
+        raise ValueError("source task is unavailable in the requested run/project")
+    from .pdf_contracts import pdf_context_for_run
+
+    context = pdf_context_for_run(conn, request.run_id)
+    context.execution.require_operation("read_pdf_product")
+    states = context.execution.lifecycle("task").states
+    terminal = {
+        value.value for state in states if state.terminal
+        for value in state.values if value.dimension == "status"
+    }
+    nonterminal = {
+        value.value for state in states if not state.terminal
+        for value in state.values if value.dimension == "status"
+    }
+    if task.status not in terminal - nonterminal or task.finished_at is None:
+        raise ValueError("recognition catalog requires a finished source task")
+    after = ""
+    if request.cursor is not None:
+        try:
+            cursor = json.loads(base64.urlsafe_b64decode(request.cursor))
+            if cursor["selection"] != request.selection_digest() or not isinstance(
+                cursor["after"], str
+            ):
+                raise ValueError("cursor selection differs")
+            after = cursor["after"]
+        except (KeyError, ValueError, TypeError) as error:
+            raise ValueError("invalid recognition catalog continuation") from error
+    products = table("ops.pdf_product")
+    rows = conn.execute(
+        select(
+            products.c.kind, products.c.task_id,
+            products.c.product_key, products.c.content_digest,
+        )
+        .where(
+            products.c.task_id == request.task_id,
+            products.c.kind == request.kind,
+            products.c.product_key > after,
+        )
+        .order_by(products.c.product_key)
+        .limit(request.limit + 1)
+    ).mappings().all()
+    more = len(rows) > request.limit
+    pins = tuple(PdfObservationPin.model_validate(row) for row in rows[:request.limit])
+    continuation = (
+        base64.urlsafe_b64encode(
+            json.dumps({"selection": request.selection_digest(), "after": pins[-1].product_key})
+            .encode()
+        ).decode()
+        if more else None
+    )
+    return PdfObservationPage(selection=request, products=pins, next_cursor=continuation)
 
 
 class NativeDocumentUnavailable(ValueError):

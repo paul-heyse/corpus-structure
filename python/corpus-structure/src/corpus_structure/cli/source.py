@@ -137,8 +137,16 @@ def native_export(
 
 
 @app.command("native-products")
-def native_products(ctx: typer.Context, run: int, json: JsonOpt = False):
-    """List immutable native source pins produced or selected by a run."""
+def native_products(
+    ctx: typer.Context,
+    run: int,
+    observations: bool = typer.Option(False, help="List retained recognition observation pins."),
+    task: int | None = typer.Option(None, help="Exact finished source task for observations."),
+    cursor: str | None = None,
+    limit: int = typer.Option(100, min=1, max=1000),
+    json: JsonOpt = False,
+):
+    """List native pins, or a bounded recognition catalog from one finished source task."""
     from sqlalchemy import or_, select
 
     from corpus_structure.cli.failures import failure_boundary
@@ -154,6 +162,24 @@ def native_products(ctx: typer.Context, run: int, json: JsonOpt = False):
         ) as engine,
         read_snapshot(engine) as conn,
     ):
+        if observations:
+            from corpus_structure.semantic.pdf_storage import (
+                PdfObservationListRequest,
+                read_pdf_observations,
+            )
+
+            if task is None:
+                raise ValueError("--observations requires --task with a finished source task")
+            emit(
+                read_pdf_observations(
+                    conn,
+                    PdfObservationListRequest(run_id=run, task_id=task, cursor=cursor, limit=limit),
+                ),
+                json=json,
+            )
+            return
+        if task is not None or cursor is not None or limit != 100:
+            raise ValueError("observation catalog paging requires --observations")
         context = pdf_context_for_run(conn, run)
         context.execution.require_operation("read_native_source")
         context.boundary.validate_json("PdfNativeRunRequest", jsonlib.dumps(dict(run_id=run)))
