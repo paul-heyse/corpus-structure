@@ -994,7 +994,10 @@ class BoundReader:
         row = (
             self.conn.execute(
                 select(
-                    product,
+                    product.c.payload,
+                    product.c.contract_digest,
+                    product.c.schema_digest,
+                    product.c.recipe_digest,
                     identity.c.kind.label("product_kind"),
                     build.c.artifact_digest.label("original_digest"),
                 )
