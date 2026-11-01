@@ -1,0 +1,8 @@
+{
+  "at": "2026-11-01T04:51:48.280152+00:00",
+  "pid": 4190096,
+  "outcome": "interruption_requested",
+  "reason": "actual protected publication active over18minutes; exact generic plan shows correlated full node scans for39221nonempty parents. Retain source/raw artifacts and replace with equivalent set-shaped child-edge check.",
+  "action": "SIGINT to exact owned CLI process; driver cancels and rolls back its in-flight transaction",
+  "command": "/home/paul/corpus-structure/.venv/bin/python /home/paul/corpus-structure/.venv/bin/ci regenerate --domain statistics --corpus docs/statistics_corpus/corpus --project pdf-docling-adoption --native-source docs/design_review/evidence/2026-10-31_pdf-adoption/enriched-source-pin.json --prepare-only --leave-unselected --json "
+}

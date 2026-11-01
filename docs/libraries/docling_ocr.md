@@ -1,1044 +1,1311 @@
-# Docling OCR — Comprehensive guide for born-digital PDFs
-
-Docling 2.145.0 · October 31, 2026 · Focus: PDFs with native text, layout and embedded content → structured `DoclingDocument` JSON
-
-## 1. Executive conclusions
-
-OCR can add significant value even when a PDF already has an embedded, selectable text layer. In Docling, OCR is not limited to recovering text from scanned pages. It can complement native PDF extraction, recover visually rendered content missing from the text layer, replace corrupted text, and provide an independent recognition result for quality verification.
-
-The important distinction is between three uses of OCR:
-
-1. Content recovery: Extract additional text from embedded images, vector-drawn glyphs, diagrams and regions absent from the native PDF text.
-2. Corrective OCR: Replace unusable native text—particularly defective font-to-Unicode mappings—with visually recognized text.
-3. Independent verification: Compare one or more OCR recognizers against the native text to identify disagreements and possible errors, without automatically treating the OCR result as authoritative.
-
-Docling provides native functionality for the first two. The third is possible through additional OCR passes and integration with Docling's intermediate representations, but Docling does not provide a general-purpose, automatic multi-engine OCR voting and reconciliation system as part of its standard PDF pipeline.
-
-### Recommended operating model
-
-For PDFs with embedded text, the strongest general starting point is:
-
-Preserve native PDF text where it is reliable; selectively OCR regions where it is incomplete; use additional OCR engines to validate or repair specific uncertainties.
-
-That is preferable to simply replacing every page with OCR-generated text. The native layer can preserve exact characters, punctuation, Unicode, and source geometry that raster recognition may degrade.
-
-| Processing strategy                         | Principal purpose                                                    | Expected value for born-digital PDFs                           |
-| ------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Native PDF text only                        | Recover embedded text exactly as encoded                             | Strong when font mappings and source geometry are correct      |
-| Native text + PDF-aware selective OCR       | Recover missing visual text without replacing valid native text      | Best general baseline                                          |
-| Native text + broken-text repair            | Automatically correct detectably corrupted text layers               | High-value reliability enhancement                             |
-| OCR of all detected layout regions          | Prefer visual recognition within detected document regions           | Useful for targeted troubleshooting and alternative extraction |
-| Full-page OCR                               | Reconstruct text from the rendered appearance                        | Fallback for severely unreliable text layers                   |
-| Independent second OCR engine               | Detect disagreements and provide alternate candidates                | Useful for precision-sensitive content                         |
-| OCR + specialized code/formula/chart models | Recover semantic structures ordinary OCR cannot represent adequately | Useful for technical, scientific and financial PDFs            |
-
-Docling's source confirms that its default OCR mode is already PDF-aware selective OCR, rather than indiscriminate full-page OCR. It also confirms that the default merging policy favors native PDF cells in overlapping regions.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
-
-GitHub+2
-
-
-
-Primary sources:
-
-[https://docling-project.github.io/docling/concepts/OCR/](https://docling-project.github.io/docling/concepts/OCR/?utm_source=chatgpt.com)
-
-[https://docling-project.github.io/docling/reference/pipeline_options/](https://docling-project.github.io/docling/reference/pipeline_options/?utm_source=chatgpt.com)
-
-[https://github.com/docling-project/docling/blob/v2.145.0/docling/models/base_ocr_model.py](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/base_ocr_model.py?utm_source=chatgpt.com)
-
-## 2. How Docling combines native PDF text and OCR
-
-The key architectural point is that Docling combines text at the page text-cell layer, before assembling the final semantic document.
-
-A conventional born-digital PDF conversion follows this approximate sequence:
-
-PDF text and OCR integration
-
-Conceptual standard PDF pipeline. OCR recognition and cell merging happen before the final structured document is assembled.
-
-This is important for your JSON objective. Docling does not ordinarily store native text and OCR transcriptions as two parallel, independent alternatives in `DoclingDocument.texts[]`. It resolves competing text cells before the semantic object is constructed.
-
-Consequently, changing the OCR mode can change not only the recognized text but also the reconstructed paragraphs, tables, reading order and source spans.
-
-### 2.1 The PDF-first merge policy
-
-Docling's OCR implementation defines two merge priorities:
-
-- `PDF_FIRST`: retain native visible text cells; add OCR cells only where they do not overlap existing native cells.
-- `OCR_FIRST`: retain OCR cells; add native visible cells only where they do not overlap OCR cells.
-
-The overlap test is geometric, using bounding boxes. It is not a text-quality comparison between two candidate strings.
-
-That distinction has two important consequences.
-
-A native text cell containing an incorrect but plausible string can prevent a correct OCR candidate from being used when PDF-first precedence applies.
-
-Conversely, OCR-first precedence can replace correct programmatic text with a visually misrecognized result.
-
-The source also distinguishes visible native text from invisible PDF text cells, such as hidden OCR layers or clipping-only text. Invisible cells are handled separately to avoid treating them like ordinary visible text during merging.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
-
-raw\.githubusercontent.com
-
-
-
-### 2.2 Why multiple OCR engines are a separate concern
-
-`PdfPipelineOptions.ocr_options` selects one OCR engine configuration for the standard pipeline. The engine can internally use multiple detection, classification and recognition models, but that is not the same thing as running several independent OCR engines and reconciling their outputs.
-
-Likewise, `OcrAutoOptions` chooses one available engine, rather than running all available engines.
-
-To compare RapidOCR, Nemotron-OCR and Tesseract on the same source, one can use separate conversions or specialized custom processing. The resulting candidate texts require alignment, evidence comparison and a deliberate selection policy before being incorporated into a canonical JSON representation.
-
-This is potentially valuable, but running more recognizers does not automatically produce more accurate information.
-
-## 3. All OCR region-selection modes
-
-Docling 2.145.0 exposes four `OcrMode` values. These determine which page regions are sent to the selected OCR engine and how the OCR results compete with embedded PDF text.
-
-| Mode                       | OCR coverage                                                                   | Overlap precedence               | Suitability for structured PDFs                        |
-| -------------------------- | ------------------------------------------------------------------------------ | -------------------------------- | ------------------------------------------------------ |
-| `DEFAULT`                  | Currently PDF-aware selective regions                                          | PDF-first                        | General-purpose baseline                               |
-| `PDF_AWARE_LAYOUT_REGIONS` | Regions with bitmap content, missing native text, or unexplained vector shapes | PDF-first                        | Explicit version of the baseline                       |
-| `LAYOUT_REGIONS`           | Every detected layout region                                                   | OCR-first                        | Alternative recognition where native text may be wrong |
-| `FULL_PAGE`                | Entire rendered page                                                           | OCR replaces native visible text | Severe corruption or controlled fallback               |
-
-### 3.1 `DEFAULT` and `PDF_AWARE_LAYOUT_REGIONS`
-
-Preferred baseline for born-digital PDFs
-
-These two modes currently execute the same selection logic in Docling 2.145.0.
-
-The PDF-aware selector starts from layout-detected regions and sends a region to OCR when at least one of these conditions is met:
-
-- The region overlaps a bitmap, which may contain rasterized text.
-- It contains no visible native PDF text, even though content may have been drawn as vector outlines.
-- It contains visual shapes not adequately explained by the programmatic text already present.
-
-The third condition is a particularly valuable capability.
-
-Consider a technical diagram drawn with vector graphics. Most of the PDF page has ordinary embedded text, but a few labels inside a schematic are rendered as filled vector paths rather than as PDF character objects.
-
-Those labels have no usable programmatic text. Docling's PDF-aware logic can recognize that the geometry is not explained by the native text layer and attempt OCR on the corresponding region.
-
-It is also careful not to treat every vector object as missing text. Rules, underlines, table borders, background fills and highlighted text are common in digital PDFs.
-
-The current implementation distinguishes rule-like geometry and checks whether programmatic text plausibly accounts for the shape. This helps avoid unnecessary OCR and protects correct native text from being replaced.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
-
-raw\.githubusercontent.com
-
-
-
-What this mode does not do: it does not independently re-read every clean native text region to verify the characters. Therefore, a seemingly valid native string such as `O.05` where the page visibly says `0.05` may survive unchanged.
-
-### 3.2 `LAYOUT_REGIONS`
-
-This mode passes all detected layout clusters to the OCR engine without first excluding regions already served by native PDF text.
-
-It then gives the OCR cells precedence over overlapping native PDF cells.
-
-This is useful when the PDF text layer looks plausible but is known to be unreliable, or when investigating whether the visible document differs from the programmatic text.
-
-Unlike `FULL_PAGE`, layout-region OCR operates on the detected regions rather than treating the entire page as one OCR input. This can improve crop focus, although it also makes OCR coverage dependent on layout detection.
-
-The main disadvantage is that visually recognized text may displace perfectly correct native text. Small characters, mathematical notation, punctuation, and dense tables are common areas of risk.
-
-Use it as an alternative extraction path, not as an unconditional upgrade from PDF-aware mode.
-
-### 3.3 `FULL_PAGE`
-
-This mode OCRs the entire rendered page and replaces the visible native text-cell representation with the OCR result.
-
-A less obvious implementation detail: Docling can skip native text-cell decoding in this mode because the ordinary native cells would be discarded anyway. This can substantially avoid parser work on extremely vector-dense documents. It also means full-page OCR is not automatically an appropriate way to preserve all native PDF semantics.
-
-Full-page OCR is most suitable when the text layer is broadly unusable or when a complete visual transcription is specifically wanted.
-
-For a structured PDF, using it indiscriminately can discard the advantages of accurate embedded text, particularly precise symbols, character codes, and native text geometry.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
-
-raw\.githubusercontent.com+1
-
-
-
-### 3.4 Deprecated full-page control
-
-`force_full_page_ocr=True` remains supported as a compatibility alias for full-page mode, but is deprecated.
-
-Use:
-
-```
-from docling.datamodel.pipeline_options import OcrModeocr_options.mode = OcrMode.FULL_PAGE
+# Docling OCR: comprehensive capability reference
+
+Target: Docling 2.145.0 (code in `docling-slim` 2.145.0; `docling` is the meta package), docling-core 2.105.0,
+docling-parse 7.24.2 | Research date: October 31, 2026
+
+This reference covers every route by which Docling turns pixels into text: the OCR engines that run inside
+the standard PDF pipeline, the rules that decide which page regions they read, how their output is merged
+with a native PDF text layer, the whole-page vision-language OCR models, plugin engines, and the signals
+that survive into the converted document. It is written for engineers designing a document pipeline who
+need to know what each mechanism actually does, where it silently loses information, and which knobs
+exist. The emphasis is on born-digital technical PDFs (papers, standards, reports with mathematics, tables
+and vector graphics), but scanned and mixed documents are covered too.
+
+It complements the general Docling reference (`docling.md`). Where the two disagree on OCR behaviour, this
+document was checked against tagged 2.145.0 source and should be preferred.
+
+## 1. Orientation and research basis
+
+### 1.1 Four routes from pixels to text
+
+Docling has four distinct OCR-shaped mechanisms. They differ in what they read, what they produce and
+where their output lands.
+
+```text
+                         PDF / image input
+                                |
+        +-----------------------+---------------------------+
+        |                                                   |
+  StandardPdfPipeline                                  VlmPipeline
+        |                                                   |
+  preprocess: render, native cells,                 (2) whole-page VLM OCR
+  parse_score, broken-layer test                    page image -> DocTags / Markdown /
+        |                                           HTML / JSON with or without boxes
+  layout model -> clusters                                  |
+        |                                                   |
+  (1) page-stage OCR engine                                 |
+  reads selected regions, output                            |
+  merged with native text cells                             |
+        |                                                   |
+  layout postprocess -> tables -> assemble                  |
+        |                                                   |
+  (3) enrichment models read crops of                       |
+  assembled items (formula -> LaTeX, code,                  |
+  picture description)                                      |
+        +-----------------------+---------------------------+
+                                |
+                         DoclingDocument
+                                |
+  (4) region OCR outside conversion: render a crop, call an engine
+      directly, keep the result in your own record
 ```
 
-rather than setting the older `force_full_page_ocr` property.
+1. **Page-stage OCR** (sections 2 to 11): a `BaseOcrModel` subclass (RapidOCR, Tesseract, EasyOCR,
+   Nemotron OCR, macOS Vision, KServe v2, or a plugin) runs on regions of the rendered page between layout
+   detection and layout post-processing. Its text cells are merged with the native PDF text cells.
+2. **Whole-page VLM OCR** (section 12): `VlmPipeline` with a `VLM_CONVERT` preset sends each page image
+   to a vision-language model that emits text and structure together.
+3. **Item enrichment** (section 13): the code/formula model and picture description read crops of items
+   after assembly. The formula model is the only built-in route that turns rendered mathematics into LaTeX
+   inside the standard pipeline.
+4. **Region OCR outside conversion** (section 16): calling an engine directly on chosen crops. Docling
+   has no built-in hook for this after conversion, but its backends expose what you need.
 
-The four modes and their current behavior are defined in the version-tagged pipeline options and OCR implementation:
+### 1.2 Evidence labels
 
-[https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py?utm_source=chatgpt.com)
+Each consequential claim carries one label.
 
-[https://github.com/docling-project/docling/blob/v2.145.0/docling/models/base_ocr_model.py](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/base_ocr_model.py?utm_source=chatgpt.com)
+| Label | Meaning |
+|---|---|
+| **[doc]** | Stated in official documentation, a model card or a field description. |
+| **[src]** | Read in the tagged release source (Docling `v2.145.0`, docling-core `v2.105.0`, RapidOCR `v3.10.0`, plugin wheels) or in a bundled model artifact. |
+| **[issue]** | Reported in a GitHub issue or pull request; status given as of the research date. |
+| **[inf]** | The author's inference from source or documentation; not executed. |
 
-## 4. Automatic repair of broken native PDF text layers
+Nothing in this document was executed against a PDF. Code blocks are illustrative sketches and were not
+run. The one measurement is a count of characters in a bundled model file (section 7.6).
 
-`replace_broken_text_layer` is particularly relevant for your use case because it addresses a failure mode specific to PDFs containing ostensibly valid embedded text.
+### 1.3 Versions and packages
 
-### 4.1 What constitutes a broken text layer?
+| Package | Version researched | Role |
+|---|---|---|
+| `docling-slim` | 2.145.0 (2026-10-29) | All pipeline and OCR adapter code |
+| `docling` | 2.145.0 | Meta package; extras pull engines (`easyocr`, `tesserocr`, `rapidocr`, `onnxruntime`, `ocrmac`, `vlm`, `remote-serving`, ...) |
+| `docling-core` | 2.105.0 | `TextCell`, `PdfTextCell`, `SegmentedPdfPage`, `ProvenanceItem`, `DoclingDocument` |
+| `docling-parse` | 7.24.2 (2026-10-29) | Native PDF parsing, shape geometry, page rendering |
+| `rapidocr` | 3.10.0 (2026-10-08) | PP-OCR runtime; bundles PP-OCRv6 small det/rec and a v2 classifier |
+| `tesserocr` | 2.12.0 (2026-10-22) | Python binding to libtesseract |
+| `easyocr` | 1.7.2 (2024-09-24) | CRAFT detector plus CRNN recognisers |
+| `ocrmac` | 1.0.1 | macOS Vision wrapper |
+| `nemotron-ocr` | 2.0.2 | Nemotron OCR v2 runtime (Python 3.11 to 3.13 by its metadata; Docling requires 3.12) |
+| `docling-ocr-onnxtr` | 0.3.1 (2026-10-09) | Plugin: OnnxTR engine |
+| `docling-surya` | 0.1.0 (2025-11-02) | Plugin: Surya engine (stale, see section 11.3) |
+| `docling-eval` | 1.4.2 | Evaluation harness |
 
-Some PDFs render correctly but their internal font encoding does not map glyphs to the intended Unicode characters.
+Source paths in links below are relative to
+`https://github.com/docling-project/docling/blob/v2.145.0/docling/`. Line anchors were checked against the
+2.145.0 wheel, which is byte-identical to the tag for the files cited.
 
-For example, the reader sees a word correctly, but programmatic extraction returns an unrelated sequence of characters.
+### 1.4 Capability map
 
-Docling can detect several patterns associated with this problem:
+| Problem | Mechanism | Section |
+|---|---|---|
+| Decide which page areas get OCR | `OcrOptions.mode` (`OcrMode`), PDF-aware region selector | 3 |
+| Combine OCR with a native text layer | `post_process_cells`, PDF-first / OCR-first merge | 4 |
+| Detect and replace garbage text layers | `replace_broken_text_layer`, `is_broken_text_layer` | 5 |
+| Pick recognition languages and scripts | `lang`, `iso:` BCP-47 tags, `OcrLanguageResolver` | 6 |
+| Fast local CPU OCR | RapidOCR (PP-OCRv6 via ONNX Runtime / OpenVINO / Paddle / Torch) | 7 |
+| Mature, configurable OCR with word output | Tesseract CLI / tesserocr | 8 |
+| PyTorch OCR with many language packs | EasyOCR | 9 |
+| GPU OCR with reading-order grouping | Nemotron OCR v2 | 10.1 |
+| Platform OCR on macOS | `OcrMacOptions` | 10.2 |
+| Served OCR | `KserveV2OcrOptions` | 10.3 |
+| Third-party engines | pluggy plugins (`ocr_engines`), OnnxTR, Surya | 11 |
+| Page-to-markup OCR with layout and math | `VlmPipeline` presets | 12 |
+| Mathematics | native text, region OCR, formula enrichment, VLM | 13 |
+| Tables containing OCR text | TableFormer token assembly | 14 |
+| Quality signals and provenance | `TextCell.from_ocr`, `confidence`, `ConfidenceReport` | 15 |
+| Targeted re-reading of regions | Backend rendering and shape APIs | 16 |
+| Cross-checking engines | Engine agreement patterns | 17 |
+| Throughput, offline assets, reproducibility | Threads, batches, artifacts, determinism issues | 18 |
+| Measuring and choosing | Benchmarks, born-digital self-labelling, configuration table | 19 |
 
-- Unicode replacement characters (`�`) and certain control or private-use characters.
-- Unmapped or incorrectly encoded font glyphs.
-- Text that appears to be a different script misdecoded as accented Latin characters.
-- Latin-script text with suspiciously low vowel frequency.
-- Extensive corruption across multiple text lines.
+## 2. Where OCR sits in the standard PDF pipeline
 
-The detector considers the visible page text rather than relying exclusively on a confidence score from one cell.
+### 2.1 Stage order
 
-### 4.2 How repair operates
+`StandardPdfPipeline` is a threaded pipeline of stages connected by bounded queues. The wiring is
+**[src]** ([standard_pdf_pipeline.py#L859](https://github.com/docling-project/docling/blob/v2.145.0/docling/pipeline/standard_pdf_pipeline.py#L859)):
 
-When enabled:
-
-1. Docling evaluates the page's native visible text layer during preprocessing.
-2. Pages identified as having a broken text layer are marked for replacement.
-3. The OCR stage performs full-page recognition for those pages, even if the configured mode normally selects only limited regions.
-4. The resulting OCR text replaces the page's visible native text cells, with invisible PDF cells handled separately.
-5. Other pages follow the usual configured OCR policy.
-
-A useful property is that `replace_broken_text_layer` is available across Docling's OCR engines, not tied to RapidOCR or Tesseract.
-
-The associated `parse_score` remains low (zero on a page flagged as broken), because it measures the source PDF text quality, not the correctness of the replacement OCR result.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
-
-Docling+1
-
-
-
-### 4.3 What it cannot repair automatically
-
-This is where multiple OCR engines can become valuable.
-
-The detector is not a universal text-correction system. It can miss errors where the extracted characters are individually legitimate but incorrect.
-
-For example:
-
-| Native extraction                                | Visually intended           | Automatic repair likely? |
-| ------------------------------------------------ | --------------------------- | ------------------------ |
-| Invalid glyph mappings or replacement characters | Ordinary readable text      | Potentially              |
-| Severely garbled text across a page              | Correct page text           | Potentially              |
-| `O` substituted for `0`                          | `0`                         | Not reliably             |
-| `l` substituted for `1`                          | `1`                         | Not reliably             |
-| A plausible but incorrect word                   | Another legitimate word     | Not reliably             |
-| Misplaced decimal separator                      | Correct numeric value       | Not reliably             |
-| One corrupt symbol in otherwise good text        | Correct mathematical symbol | Not necessarily          |
-
-Docling explicitly notes that a single broken cell on an otherwise good page does not ordinarily trigger whole-page replacement.
-
-The appropriate role of automatic repair is recognizing and correcting substantial text-layer corruption—not silently correcting every possible character error.
-
-### 4.4 Baseline repair configuration
-
+```text
+preprocess -> layout -> ocr -> layout_postprocess -> table -> (form_field) -> assemble
 ```
-from docling.datamodel.base_models import InputFormatfrom docling.datamodel.pipeline_options import (    OcrMode,    PdfPipelineOptions,    RapidOcrOptions,)from docling.document_converter import DocumentConverter, PdfFormatOptionoptions = PdfPipelineOptions(    do_ocr=True,    ocr_options=RapidOcrOptions(        backend="onnxruntime",        lang=["iso:en"],        mode=OcrMode.PDF_AWARE_LAYOUT_REGIONS,        replace_broken_text_layer=True,    ),)converter = DocumentConverter(    format_options={        InputFormat.PDF: PdfFormatOption(pipeline_options=options)    })result = converter.convert("report.pdf")document_json = result.document.export_to_dict()
-```
 
-This preserves native text precedence in ordinary regions, performs OCR where the page contains otherwise inaccessible visual text, and replaces the visible native text on pages with detectably broken encodings.
+then document-level enrichment (formula/code, picture classification and description) runs on the
+assembled `DoclingDocument`.
 
-It is a good reference configuration for understanding how these features compose, although the best engine and language selection depend on the documents being processed.
+| Stage | What it does that matters for OCR |
+|---|---|
+| preprocess | Renders the page image cache (scale 1.0 plus `images_scale`), decodes native text cells into `page.parsed_page` (`SegmentedPdfPage`), rates each cell's text quality into `parse_score`, and, when enabled, runs the broken-text-layer test. In `FULL_PAGE` mode the native cell decode is skipped entirely ([page_preprocessing_model.py#L27](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/stages/page_preprocessing/page_preprocessing_model.py#L27)). **[src]** |
+| layout | Predicts clusters (text, section header, formula, table, picture, list item, caption, ...) from the page image. It sees vector glyphs and raster text because it reads pixels. **[src]** |
+| ocr | Chooses OCR rectangles from the clusters (section 3), renders each rectangle at `scale`, runs the engine, merges the cells with native cells (section 4) and writes them back to `page.parsed_page.textline_cells`. **[src]** |
+| layout_postprocess | Assigns the merged text cells to clusters (a cell belongs to a cluster when at least 20% of the cell's own area lies inside it) and resolves overlaps. Cluster text comes from these cells. **[src]** |
+| table | TableFormer predicts structure and fills cells from word and OCR tokens (section 14). **[src]** |
+| assemble | Builds document items; each item's text is the concatenation of its cells' text, and provenance is the cluster box. **[src]** |
 
-Source:
+### 2.2 Consequences of the ordering
 
-[https://docling-project.github.io/docling/concepts/OCR/](https://docling-project.github.io/docling/concepts/OCR/?utm_source=chatgpt.com)
+- **OCR cannot read what layout did not detect.** Outside `FULL_PAGE` (and broken-layer replacement),
+  OCR input rectangles are derived from layout clusters. Text in an area with no cluster is never
+  OCR'd. **[src]**
+- **OCR runs once, before tables and enrichment.** No later stage re-runs a page-stage engine. The
+  formula model reads its own crops of the page image, independently of OCR. **[src]**
+- **Item text is cell text.** Whatever the merge keeps is what the document says. There is no later
+  reconciliation between OCR text and native text. **[src]**
+- **Rendering is required.** OCR crops come from `page._backend.get_page_image(scale, cropbox)`. A
+  docling-parse backend configured with `render_pages=False` raises when asked for an image, so OCR cannot
+  run on it ([docling_parse_backend.py#L277](https://github.com/docling-project/docling/blob/v2.145.0/docling/backend/docling_parse_backend.py#L277)). **[src]**
+- **Image inputs** (PNG, TIFF, JPEG) travel through the same pipeline with no native text, so every
+  cluster qualifies for OCR in the PDF-aware mode. **[inf]**
 
-## 5. Shared OCR options and defaults
+### 2.3 Batching and threads
 
-All built-in OCR engines inherit the base `OcrOptions` configuration. These settings are generally more consequential for structured-PDF fidelity than changing OCR engines alone.
+`ocr_batch_size`, `layout_batch_size` and `table_batch_size` default to 4; `batch_polling_interval_seconds`
+is 0.5 and `queue_max_size` is 100 **[src]**. A stage collects up to its batch size or until the polling
+interval expires. The built-in engines (except Nemotron) then process the pages of a batch one after
+another and the rectangles of a page one after another; only Nemotron buffers crops across pages into
+model batches (`batch_size`, default 8) **[src]**. Batch assembly is timer-based, and an open issue reports
+that conversion results can depend on machine load because of it
+([#4274](https://github.com/docling-project/docling/issues/4274), open) **[issue]**.
 
-| Option                                 | Default            | Effect                                                  | Guidance for born-digital PDFs                                             |
-| -------------------------------------- | ------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `PdfPipelineOptions.do_ocr`            | `True`             | Enables OCR stage                                       | Keep enabled for selective recovery, even with native text                 |
-| `PdfPipelineOptions.ocr_options`       | `OcrAutoOptions()` | Chooses the OCR engine and its configuration            | Select explicitly when reproducibility matters                             |
-| `OcrOptions.mode`                      | `DEFAULT`          | Selects regions and text merge behavior                 | Prefer PDF-aware selection                                                 |
-| `OcrOptions.lang`                      | Engine-specific    | Selects recognition language or model                   | Specify expected languages instead of relying on unrelated engine defaults |
-| `OcrOptions.scale`                     | `3.0`              | OCR rasterization at 72 × scale DPI, normally 216 DPI   | Tune for small labels and recognition cost                                 |
-| `OcrOptions.replace_broken_text_layer` | `False`            | Repairs detectably broken native PDF text, page by page | Valuable for unreliable PDF encodings                                      |
-| `force_full_page_ocr`                  | Deprecated         | Compatibility control for full-page mode                | Use `mode=OcrMode.FULL_PAGE`                                               |
+### 2.4 Switching OCR off
 
-`scale` controls OCR input resolution and is separate from `PdfPipelineOptions.images_scale`, which concerns retained document images. Likewise, `generate_page_images=True` is useful for preserving visual evidence in JSON, but is not required merely to execute OCR.&#x20;
+`PdfPipelineOptions.do_ocr` defaults to `True` **[src]**. With `do_ocr=False` the OCR stage passes pages
+through untouched, so clusters whose text is not in the native layer (scans, vector-outlined glyphs,
+text inside pictures) produce empty or missing text **[inf]**. The broken-text-layer test only runs when
+both `do_ocr` and `replace_broken_text_layer` are on **[src]**.
 
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+## 3. Region selection: what OCR actually reads
 
-GitHub
+### 3.1 Modes
 
+`OcrOptions.mode` takes an `OcrMode`
+([pipeline_options.py#L107](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py#L107)) **[src]**:
 
+| Mode | OCR input | Merge priority | Native cells |
+|---|---|---|---|
+| `DEFAULT` | Wired to `PDF_AWARE_LAYOUT_REGIONS` | PDF first | Kept |
+| `PDF_AWARE_LAYOUT_REGIONS` | Layout clusters that fail the "text layer accounts for this" test (3.3) | PDF first | Kept |
+| `LAYOUT_REGIONS` | Every layout cluster, deduplicated | OCR first | Kept where no OCR cell overlaps |
+| `FULL_PAGE` | One rectangle covering the page | OCR only | Not decoded at all |
 
-### 5.1 The importance of explicit languages
+The deprecated constructor keyword `force_full_page_ocr=True` is still accepted and maps to
+`mode=OcrMode.FULL_PAGE` with a deprecation warning **[src]**. The `bitmap_area_threshold` option that
+older material mentions no longer exists, so there is no built-in way to OCR only scanned pages
+([#4834](https://github.com/docling-project/docling/issues/4834), open); restoring a page-level threshold is
+proposed in [PR #4999](https://github.com/docling-project/docling/pull/4999) (open) **[issue]**.
 
-Docling accepts either an engine-native language code or a BCP-47 language tag prefixed with `iso:`.
+### 3.2 `FULL_PAGE`
 
-Examples:
+The page is OCR'd as one image and the native decode is skipped
+(`resolve_skip_cell_extraction`, introduced for vector-dense pages that cost gigabytes to decode,
+[#4058](https://github.com/docling-project/docling/issues/4058),
+[PR #4061](https://github.com/docling-project/docling/pull/4061)) **[src][issue]**. Consequences:
 
-| Language input                                      | Meaning                                                                    |
-| --------------------------------------------------- | -------------------------------------------------------------------------- |
-| `RapidOcrOptions(lang=["iso:en"])`                  | Select RapidOCR's model for English                                        |
-| `TesseractCliOcrOptions(lang=["eng"])`              | Use Tesseract's English trained data                                       |
-| `TesseractCliOcrOptions(lang=["iso:de", "iso:en"])` | German and English, mapped to installed trained data                       |
-| `EasyOcrOptions(lang=["en", "fr"])`                 | Recognize both languages when a compatible recognition model supports them |
-| `NemotronOcrOptions(lang=["english"])`              | Select Nemotron's English recognizer                                       |
+- No native words or characters, fonts, or rendering modes exist for the page; `word_cells` and
+  `char_cells` hold OCR cells only. **[src]**
+- Heading-level inference from fonts and any consumer of native glyph metadata lose their input. **[inf]**
+- With RapidOCR, a full page rendered at the default scale 3.0 is usually larger than RapidOCR's
+  `max_side_len` of 2000 px and is shrunk before detection and recognition (section 7.4). An A4 page is
+  about 1785 by 2526 px at scale 3.0, so it is resized to roughly 2000 px tall, an effective 170 DPI. This
+  is arithmetic from the configuration, not a measurement. **[inf]**
 
-A subtle but important limitation is that a list of languages does not mean the same thing for every engine.
+### 3.3 `PDF_AWARE_LAYOUT_REGIONS` (and `DEFAULT`)
 
-Tesseract can use several language models in one invocation. EasyOCR supports multiple compatible languages. RapidOCR and Nemotron-OCR select only the first specified language or recognition model and warn about additional entries.
+`_find_pdf_aware_layout_ocr_rects`
+([base_ocr_model.py#L394](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/base_ocr_model.py#L394))
+keeps a cluster for OCR when any of these holds **[src]**:
 
-For remotely hosted KServe OCR, Docling forwards the first language string verbatim; it does not apply the normal language-code translation.
+1. **It overlaps a bitmap.** Any embedded image touching the cluster, however small or decorative,
+   sends the whole cluster to OCR.
+2. **It contains no visible native text.** Visible means the text rendering mode paints ink (not
+   `INVISIBLE` or `ONLY_CLIPPING`). Vector-outlined text and empty regions fall here.
+3. **It contains native text and a shape the text does not account for.** The test, per connected shape
+   that touches the cluster:
+   - Shapes are the page's *connected shape bounding boxes* from the backend
+     (`get_connected_shape_bounding_boxes()`), read lazily once per page.
+   - A shape whose extent is rule-like (long side at least `RULE_LIKE_ASPECT_RATIO = 12.0` times its
+     thickness, or zero thickness) is ignored as a rule, underline or border.
+   - Otherwise the shape is **clipped to the cluster** and the clipped probe is tested again for being
+     rule-like.
+   - The probe is "accounted for" when native text lies on it and either the probe is no thicker than
+     `THIN_SHAPE_LINE_HEIGHTS = 2.0` times the median height of the text lines on it, or text covers at
+     least `TEXT_BACKED_MIN_COVERAGE = 0.1` of its area.
+   - One unaccounted shape sends the whole cluster to OCR.
 
-The engine also matters when `lang=[]`: RapidOCR defaults to Simplified Chinese, while Nemotron-OCR and EasyOCR default to English. Tesseract uses orientation/script detection and requires appropriate `osd` data. Consequently, leaving the language list empty is not a reliable universal strategy for English-language PDFs.&#x20;
+Text geometry is the visible **text-line** cells. When the backend implements `has_content_in`
+(docling-parse does), bitmap and text presence are answered by native queries; otherwise Docling builds
+R-tree indexes **[src]**.
 
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+The selected cluster boxes are then **deduplicated by rasterisation**: drawn into a binary page-sized
+mask, dilated with a 20 px kernel (`DEFAULT_DILATION_SIZE`, at page-point resolution), labelled into
+connected components, and replaced by each component's bounding box; boxes contained in another are
+dropped ([base_ocr_model.py#L533](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/base_ocr_model.py#L533),
+[PR #4748](https://github.com/docling-project/docling/pull/4748)) **[src][issue]**. Selected clusters within
+about 10 points of each other therefore become one OCR rectangle, and that rectangle can cover parts of
+clusters that were not selected. OCR text read there is subject to the merge rules of section 4. **[inf]**
 
-Docling
+### 3.4 What the PDF-aware selector misses, and why
 
+The selector is tuned to avoid OCR on good native text (the history:
+[#4174](https://github.com/docling-project/docling/issues/4174), closed, reported a fourfold CPU slowdown in
+2.123.0, and the source cites it, with #4139, for OCR of rule-crossed native text being slow and lossy; [#4209](https://github.com/docling-project/docling/pull/4209), merged 2026-10-09, brought back OCR for
+clusters mixing filled-path glyphs with real text). It errs towards skipping in these cases **[inf]**:
 
+| Pattern | Why it is skipped |
+|---|---|
+| A paragraph with a few inline symbols or a short formula drawn as filled paths | Native text in the paragraph easily covers 10% of the clipped probe, so the shape counts as accounted for. Section 4.4 shows that OCR could not insert those glyphs even if the cluster were selected. |
+| A one-line display equation drawn as paths, with a native equation number such as "(3)" in the same cluster | The probe is at most two line-heights tall and has native text on it, so the thin-band rule accounts for it. |
+| Glyph paths fused with a large background fill | docling-parse merges visible shapes whose *bounding boxes* overlap into one connected box. A page-wide fill or frame therefore fuses everything on the page into one box; clipped to a text-heavy cluster, it is accounted for by coverage. |
+| Text hidden under an opaque object, or white-on-white | Visibility is decided by rendering mode, not by occlusion ([#4566](https://github.com/docling-project/docling/issues/4566), open). |
+| Areas outside all clusters | Never candidates. |
 
-Source: [https://docling-project.github.io/docling/concepts/OCR/](https://docling-project.github.io/docling/concepts/OCR/?utm_source=chatgpt.com)
+And towards OCR in these cases **[inf]**:
 
-## 6. All built-in OCR engines
+| Pattern | Effect |
+|---|---|
+| Any cluster touching any bitmap (logos, icons, tiny masks) | OCR runs on the cluster; with PDF-first merge, its output is mostly discarded where native text exists, so the cost buys little. |
+| Charts and diagrams drawn as paths with native labels | Thick shapes with sparse text fail the coverage test, so the whole figure cluster is OCR'd. Since 2.121 this has been reported as an 8 to 12 times slowdown on vector-heavy documents ([#4489](https://github.com/docling-project/docling/issues/4489), open). |
+| Rasterised text regions under the threaded parser | Reported regressions in [#4139](https://github.com/docling-project/docling/issues/4139) (open). |
 
-The current release exposes seven built-in choices, counting Tesseract's two interfaces separately, plus automatic engine selection and third-party plugins.
+A scanned page carrying an invisible text layer from an earlier OCR tool is treated as having no
+visible text: docling-parse's `intersects_with` answers for *visible* content only (its docstring says so),
+and the fallback path uses `get_visible_text_cells`. Its clusters are therefore OCR'd, and the invisible
+cells are added back afterwards wherever no OCR cell overlaps them (4.1) **[src][doc]**.
 
-| Engine / option class    | Main characteristics                                                             | Potential role for structured PDFs                               |
-| ------------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `OcrAutoOptions`         | Selects one available engine based on platform, hardware and language support    | Convenient defaults, but results can vary by environment         |
-| `RapidOcrOptions`        | PaddleOCR-family models with ONNX Runtime, OpenVINO, Paddle or PyTorch execution | Strong configurable baseline and secondary recognizer            |
-| `NemotronOcrOptions`     | NVIDIA model with word/sentence/paragraph granularity                            | Alternative recognition on supported CUDA systems                |
-| `EasyOcrOptions`         | Neural OCR with multilingual support and configurable confidence threshold       | Independent recognition and multilingual content                 |
-| `TesseractOcrOptions`    | Tesseract through Python's `tesserocr` bindings                                  | Independent engine, extensive language-trained-data options      |
-| `TesseractCliOcrOptions` | Tesseract through an external executable                                         | Similar recognition family with different deployment boundary    |
-| `OcrMacOptions`          | Apple Vision OCR                                                                 | macOS-native alternative                                         |
-| `KserveV2OcrOptions`     | Remote KServe v2-compatible inference service                                    | Externally hosted OCR models and shared inference infrastructure |
+### 3.5 `LAYOUT_REGIONS`
 
-### 6.1 Automatic engine selection: `OcrAutoOptions`
+Every cluster box is OCR'd after the same deduplication, and OCR cells take priority over native cells
+([base_ocr_model.py#L289](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/base_ocr_model.py#L289)) **[src]**.
+This reads everything the layout model found, including clusters with perfect native text, so it is the
+expensive mode. Because of the OCR-first merge it replaces native text wherever an OCR line touches it,
+losing font identity and exact characters there. It is useful as a measurement tool (section 19.2) and
+for documents whose text layer is untrustworthy but not detectably broken. **[inf]**
 
-Docling's automatic selection order in 2.145.0 is:
+## 4. Merging OCR output with the native text layer
 
-1. OcrMac on macOS.
-2. Nemotron-OCR on Linux with CUDA, where its dependencies are available.
+### 4.1 Algorithm
+
+`post_process_cells`
+([base_ocr_model.py#L619](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/base_ocr_model.py#L619))
+**[src]**:
+
+1. If the mode is `FULL_PAGE`, or the page's text layer was found broken and
+   `replace_broken_text_layer` is on, the result is the OCR cells only. A broken-layer page also keeps its
+   **invisible** native cells (added where they overlap no OCR cell); a `FULL_PAGE` page keeps none.
+   `word_cells` and `char_cells` are filtered to OCR cells (plus invisible ones for a replaced page).
+2. Otherwise native cells are split into visible and invisible
+   (`segregate_by_visibility`; invisible = rendering modes `INVISIBLE` and `ONLY_CLIPPING`; cells with no
+   mode, and mode `UNKNOWN`, count as visible).
+3. With **PDF first** (`DEFAULT`, `PDF_AWARE_LAYOUT_REGIONS`), every visible native cell is kept and an OCR
+   cell is added only if its box overlaps **no** visible native cell. With **OCR first**
+   (`LAYOUT_REGIONS`), the roles swap.
+4. Invisible native cells are then added where they overlap nothing already kept.
+5. The result replaces `page.parsed_page.textline_cells`; `page.cells` reads that list.
+6. The page's `ocr_score` is the mean `confidence` of the OCR cells that **survived** the merge.
+
+The overlap test is a plain bounding-box intersection through an R-tree, with no area or IoU threshold
+(the code calls it "a weak criterion but it works") **[src]**. Rounding of OCR boxes has caused cells to be
+dropped by strict intersection before ([#1644](https://github.com/docling-project/docling/issues/1644))
+**[issue]**.
+
+### 4.2 Granularity decides what survives
+
+Native cells are **text lines** (`textline_cells`), and most engines emit **lines** too (table below). Under
+PDF-first, one OCR line touching one native line anywhere is dropped entirely, even if most of it covers
+text the native layer lacks. Under OCR-first, one native line touching an OCR line is dropped entirely.
+**[src][inf]**
+
+| Engine | Cell granularity emitted to Docling |
+|---|---|
+| RapidOCR | Lines (detector boxes); word boxes not requested |
+| tesserocr | Text lines (`GetComponentImages(TEXTLINE)`) |
+| Tesseract CLI | Words (TSV level-5 rows) |
+| EasyOCR | Detector text boxes after CRAFT grouping (usually word groups or line fragments) |
+| Nemotron OCR | Word, sentence or paragraph (`merge_level`, default sentence) |
+| macOS Vision | Recognised text observations (typically lines) |
+| KServe v2 | Whatever the served model returns; the reference RapidOCR graph gives lines |
+| OnnxTR plugin | Words |
+| Surya plugin | Lines |
+
+Word-level output does not help with gaps *inside* a native line (the native line box covers the gap),
+but it lets OCR words beside native text survive where a whole OCR line would have been rejected
+**[inf]**.
+
+### 4.3 Where OCR text can and cannot enter
+
+| Situation | Outcome under PDF first |
+|---|---|
+| Cluster with no native text (scan, outlined text, empty frame) | OCR text enters. |
+| Native text present, OCR reads the same words | OCR is discarded. |
+| OCR reads text in a gap between native lines, not touching them | OCR text enters as an extra cell; its reading order within the cluster depends on later ordering. |
+| Missing glyphs inside a native text line | **Cannot enter.** See 4.4. |
+| Broken layer replaced | OCR replaces all visible native text on the page. |
+
+### 4.4 Inline vector glyphs: an engine-independent gap
+
+A born-digital line such as "the energy E = mc² is ..." where `E = mc²` is drawn as filled paths and the
+surrounding words are real text produces a native line cell (or two cells) whose box spans the whole
+line, and no characters for the path glyphs. Two rules combine **[src][inf]**:
+
+1. **Selection**: the paragraph cluster has native text covering far more than 10% of the clipped
+   shape, so the shape counts as accounted for and the cluster is usually not OCR'd at all (3.3).
+2. **Merge**: if the cluster is OCR'd anyway (because a bitmap touches it, or a custom engine passes
+   `priority=PDF_FIRST` to `post_process_cells`), any OCR line covering the formula overlaps the native
+   line box and is dropped under PDF first.
+
+So no choice of engine, scale or language makes the standard pipeline insert inline path-drawn glyphs
+into native lines. Only `FULL_PAGE`/`LAYOUT_REGIONS` with OCR priority (which replace good native text),
+a whole-page VLM (section 12), or region OCR with your own reconciliation (sections 13.5, 16) recover
+them. **[inf]**
+
+### 4.5 What OCR-first costs
+
+OCR-first discards native line cells that touch an OCR line. The document then carries OCR spelling,
+OCR confidences, no font names, and OCR boxes for those lines; hyphenation, ligature and symbol handling
+follow the engine, not the PDF. **[inf]**
+
+## 5. Broken text layers
+
+### 5.1 Two separate mechanisms
+
+Docling judges native text in two ways, and only the second acts **[src]**:
+
+| Mechanism | Input | Output | Acts? |
+|---|---|---|---|
+| Per-cell `rate_text_quality` | Each text-line cell | Page `parse_score` = 10th percentile of cell scores | No; a signal only |
+| Page-level `is_broken_text_layer` | All visible cell text of the page, joined by newlines | `page._broken_text_layer = True`, `parse_score = 0` | Yes, when `do_ocr` and `replace_broken_text_layer` are both on: the page is OCR'd in full and its visible native text replaced |
+
+`replace_broken_text_layer` defaults to `False` on every engine's options **[src]**. The field description
+states that a low `parse_score` alone never replaces a page **[doc]**. The feature arrived in
+[PR #4654](https://github.com/docling-project/docling/pull/4654) (merged 2026-10-27) **[issue]**.
+
+### 5.2 Per-cell quality score
+
+`rate_text_quality`
+([page_preprocessing_model.py#L194](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/stages/page_preprocessing/page_preprocessing_model.py#L194))
+**[src]**:
+
+- **Hard zero** for a cell containing U+FFFD, a `GLYPH<hex>` placeholder, two or more `/G<digits>` in a
+  row, or text that *starts* with two or more `/token` sequences.
+- **Penalty** of 0.1 per "fragmented word" match (`x/ab.cd/ef.gh` shapes), applied only once there are at
+  least three.
+- Otherwise 1.0.
+
+docling-parse emits U+0000 for glyphs it cannot map; Docling replaces it with U+FFFD so these rules see it
+([PR #5070](https://github.com/docling-project/docling/pull/5070)) **[issue]**. Because the page score is the
+10th percentile, a page where more than about a tenth of the lines contain one unmapped glyph (for
+example an unmapped bullet or a ligature) scores 0 even though most of its text is fine **[inf]**.
+
+### 5.3 Page-level test
+
+`is_broken_text_layer`
+([text_quality.py#L96](https://github.com/docling-project/docling/blob/v2.145.0/docling/utils/text_quality.py#L96))
+returns `True` only when confident, and `False` when unsure **[src]**:
+
+1. Fewer than 20 non-space characters: not broken (`_MIN_CHARS`).
+2. A lone junk character followed by a space at the start of a line (an unmapped bullet) is ignored.
+3. **Junk share**: control (other than whitespace), surrogate, private-use or U+FFFD characters make up at
+   least 3% of the page's non-space characters.
+4. **Junk lines**: lines with U+FFFD or a control character after their first character number at least
+   max(3, 10% of lines). Private-use characters do not count here (icon fonts use them legitimately).
+5. **Wrong Latin** (`_is_wrong_latin`, applied after removing `GLYPH<...>` placeholders), with at least 50
+   Latin letters:
+   - accented Latin letters (U+00C0 to U+024F) at least half of them: a non-Latin 8-bit font read as
+     Latin-1;
+   - or, with at least 200 letters in 3 to 20-letter lowercase-bearing tokens, vowels (base letters, plus
+     æ œ ø ı ə) under 25%: a shifted ToUnicode map or a legacy font placing another script on ASCII.
+
+### 5.4 What it catches and what it does not
+
+| Catches **[src][inf]** | Misses or mishandles **[issue][inf]** |
+|---|---|
+| Fonts whose glyphs map to nothing, control codes or the private-use area | A layer broken in a few clusters only: the decision is per page, and the fix is whole-page OCR; replacing only the broken clusters is proposed in [#5059](https://github.com/docling-project/docling/issues/5059) (open) |
+| Unmapped ligatures repeated across many lines | Indian scripts ([#5088](https://github.com/docling-project/docling/issues/5088), open) and partially mapped CJK layers ([#4083](https://github.com/docling-project/docling/issues/4083)) |
+| Cyrillic or Greek 8-bit fonts decoded as Latin-1 | Text that is wrong but plausible, such as a math font whose Greek glyphs map to Latin letters |
+| Caesar-shifted or scrambled Latin text | Pages under 20 characters, or with too few Latin letters for the statistical tests |
+
+A math-dense page set in a symbol font that maps its glyphs into the private-use area can reach the 3%
+junk share. The page is then replaced by full-page OCR, losing the good native text of its prose along
+with the bad symbols **[inf]**. The `parse_score` of a replaced page stays 0 and keeps describing the
+native layer, not the OCR result **[doc]**.
+
+## 6. Language handling
+
+### 6.1 The `lang` field
+
+Every engine's options carry `lang: list[str]`, in order of preference **[doc]**
+([pipeline_options.py#L230](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py#L230)):
+
+- A **bare code** is the engine's native code (`deu`, `ch`, `script/Cyrillic`, `en-US`) and is passed
+  through untouched.
+- A tag behind **`iso:`** is BCP-47 and is canonicalised by `OcrLanguageResolver`
+  ([ocr_language.py#L131](https://github.com/docling-project/docling/blob/v2.145.0/docling/utils/ocr_language.py#L131))
+  to a language-script pair, so `iso:deu`, `iso:ger`, `iso:de` and `iso:de-DE` all become `iso:de-Latn`,
+  then mapped to the engine's code.
+- `iso:mul`, `iso:und` and `iso:zxx` are refused **[src]**; a script-qualified `zxx-Latn` slips through
+  ([#5105](https://github.com/docling-project/docling/issues/5105), open) **[issue]**.
+- An empty list means the engine's default: the Chinese/English PP-OCR model for RapidOCR, per-crop
+  script detection for Tesseract, and engine-specific defaults elsewhere **[doc]**.
+- A language the engine has no model for raises `OcrLanguageNotSupportedError` instead of silently
+  falling back **[doc]**.
+
+Some bare codes collide with BCP-47 meanings: `ch`, `ang`, `frk`, `tab`, `ka` (PP-OCR Kannada versus
+BCP-47 Georgian) and `mah` **[src]**. Using `iso:` tags avoids the ambiguity. Canonicalisation was the
+subject of [#4075](https://github.com/docling-project/docling/issues/4075) **[issue]**.
+
+### 6.2 Per-engine behaviour
+
+| Engine | Languages per run | Default `lang` | Notes |
+|---|---|---|---|
+| RapidOCR | One; extras dropped with a warning | `["ch"]` (Chinese + English model) | PP-OCRv6 serves about 52 codes with one multilingual recogniser; other languages route to PP-OCRv5 script models (onnxruntime, openvino, paddle) or PP-OCRv4 (torch) **[doc]** |
+| tesserocr / Tesseract CLI | Several, joined with `+` | `eng, spa, fra, deu` | Empty list: OSD picks a script per crop and the matching traineddata is used if installed **[src]** |
+| EasyOCR | Several, within one compatible recogniser family | `en, es, fr, de` | No universal multilingual model; some combinations are incompatible **[doc]** |
+| Nemotron OCR | One recogniser | `english` | `english` or `multilingual` (zh-Hans, zh-Hant, ja, ko, ru); other Latin languages best-effort on english **[doc]** |
+| macOS Vision | Several (preference list) | `en-US, es-ES, fr-FR, de-DE` | `fast` recognition supports fewer languages than `accurate` **[doc]** |
+| KServe v2 | First entry, sent verbatim | `english, chinese` | `canonicalize_lang = False`; no mapping **[src]** |
+| Auto | Forwarded to the chosen engine | `[]` | Engines lacking the language are skipped during selection **[doc]** |
+
+RapidOCR and Nemotron read one language per run, so a document mixing scripts needs either the
+multilingual recogniser or several conversions **[inf]**.
+
+## 7. RapidOCR
+
+RapidOCR packages the PaddleOCR PP-OCR models for ONNX Runtime, OpenVINO, PaddlePaddle and PyTorch. It is
+the default engine that Auto selection reaches on Linux without a CUDA-capable Nemotron setup **[src]**.
+
+### 7.1 Model chain
+
+| Stage | Model chosen by Docling | Notes |
+|---|---|---|
+| Detection | PP-OCRv6 multilingual detector at `model_size` (`tiny`, `small` default, or `medium`) | DB-style text detector: a probability map thresholded into polygons **[doc][src]** |
+| Classification | PP-OCR mobile 0/180 line classifier (`ch_ppocr_mobile_v2.0_cls_mobile.onnx`), unaffected by `model_size` | Labels `["0", "180"]`, threshold 0.9; flips whole line crops only **[src]** |
+| Recognition | PP-OCRv6 multilingual recogniser at `model_size`, or PP-OCRv5 / v4 script models for languages outside v6 | CTC head; one model covers about 50 languages **[doc][src]** |
+
+PP-OCRv6 (PaddleOCR documentation) uses a PPLCNetV4 backbone, a RepLKFPN detection neck and an
+EncoderWithLightSVTR recognition neck with a CTC head, from 1.5M to 34.5M parameters across sizes. Small
+and medium cover 50 languages, tiny 49 (no Japanese). Its published figures are from PaddleOCR's own
+benchmark: detection Hmean / recognition accuracy of 86.2 / 83.2 (medium), 84.1 / 81.3 (small) and
+80.6 / 73.5 (tiny) **[doc]**. They make no claim about mathematics.
+
+The rapidocr 3.10.0 wheel bundles `PP-OCRv6_det_small.onnx` (9.9 MB), `PP-OCRv6_rec_small.onnx`
+(21.2 MB) and the classifier, so the default small configuration needs no download **[src]**. Other sizes
+and languages are fetched on first use, or prefetched with
+`docling-tools models download rapidocr --rapidocr-backend-lang onnxruntime:<lang>`; when
+`artifacts_path` is set, Docling expects them there and runs offline **[src]**.
+
+### 7.2 Docling fields
+
+`RapidOcrOptions`
+([pipeline_options.py#L372](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py#L372))
+**[src]**:
+
+| Field | Default | Effect |
+|---|---|---|
+| `lang` | `["ch"]` | One language; see 6.2 |
+| `backend` | `onnxruntime` | `onnxruntime`, `openvino`, `paddle`, `torch`; torch limits non-v6 languages to v4 models |
+| `model_size` | `small` | PP-OCRv6 size; unsupported combinations raise `RapidOcrModelSizeNotSupportedError` |
+| `text_score` | 0.5 | Minimum recognition score kept |
+| `use_det`, `use_cls`, `use_rec` | `None` (RapidOCR defaults) | Disable stages, for example `use_det=False` to recognise a crop as one line |
+| `detect_orientation` | `False` | Re-read poorly read regions at 90/180/270 degrees (7.5) |
+| `det_model_path`, `cls_model_path`, `rec_model_path`, `rec_keys_path` | `None` | Custom checkpoints and character dictionaries |
+| `font_path` | `None` | Visualisation font only |
+| `rapidocr_params` | `{}` | Any RapidOCR config key in dotted form; applied last, overriding Docling's settings |
+| `scale` (inherited) | 3.0 | Render scale for crops (216 DPI) |
+
+Docling itself sets `Global.text_score` (0 when `detect_orientation` is on, filtering afterwards), the
+onnxruntime `intra_op_num_threads` from `AcceleratorOptions.num_threads`, `use_cuda` from the accelerator
+device and `use_dml` when the device is `AUTO` **[src]**.
+
+### 7.3 RapidOCR configuration worth knowing
+
+From rapidocr 3.10.0
+[`config.yaml`](https://github.com/RapidAI/RapidOCR/blob/v3.10.0/python/rapidocr/config.yaml), all
+reachable through `rapidocr_params` **[src]**:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Global.use_preprocess_img` | true | Resize the input within `[min_side_len, max_side_len]` |
+| `Global.min_side_len` / `max_side_len` | 30 / 2000 | Bounds on the input image's short and long side, in pixels |
+| `Global.use_vertical_padding`, `min_height`, `width_height_ratio` | true, 30, 8 | Letterbox very short or very wide inputs vertically |
+| `Det.limit_side_len` / `limit_type` | 736 / `min` | Upscale so the short side reaches 736 px before detection |
+| `Det.thresh` / `box_thresh` | 0.3 / 0.5 | Pixel and box score thresholds |
+| `Det.unclip_ratio` | 1.6 | How far detected polygons are expanded |
+| `Det.max_candidates` | 1000 | Box cap per image |
+| `Det.use_dilation`, `score_mode` | true, `fast` | Map dilation and box scoring method |
+| `Rec.rec_img_shape` | `[3, 48, 320]` | Line crops are resized to height 48 |
+| `Rec.rec_batch_num` | 6 | Recognition batch size |
+| `EngineConfig.onnxruntime.enable_cpu_mem_arena` | false | ONNX Runtime arena allocator off |
+| `EngineConfig.onnxruntime.cuda_ep_cfg.cudnn_conv_algo_search` | `EXHAUSTIVE` | Reported to make CUDA slower than CPU ([#4167](https://github.com/docling-project/docling/issues/4167); fix proposed in [PR #4168](https://github.com/docling-project/docling/pull/4168), open) **[issue]** |
+
+OpenVINO, Paddle, Torch and TensorRT engine sections exist in the same file **[src]**.
+
+### 7.4 Image geometry: what resolution the model really sees
+
+Three resizes happen inside RapidOCR, on the crop Docling rendered at `scale` **[src]**:
+
+1. `resize_image_within_bounds`: a crop whose long side exceeds 2000 px is shrunk to 2000 (sides rounded
+   to multiples of 32); a crop whose short side is under 30 px is enlarged to 30.
+2. Vertical letterboxing: a crop no taller than 30 px, or wider than 8 times its height, is padded
+   above and below until its height is about a quarter of its width.
+3. Detection resize: with `limit_type: min`, the detector input is enlarged until its short side is 736
+   px.
+
+Detection and the line crops passed to recognition both come from the image after step 1, so step 1
+caps the effective resolution of recognition too. Consequences **[inf]**:
+
+- Raising `scale` above 3.0 does not help regions whose long side already exceeds 2000/scale points
+  (667 pt at scale 3.0, more than a full page width); the pixels are discarded again.
+- Small regions are cheap to recognise but step 3 enlarges them a lot for detection, so many small
+  clusters can cost more detection work than their size suggests.
+- `Global.max_side_len` can be raised through `rapidocr_params` for full-page or large-region OCR, at a
+  memory and time cost.
+- An open issue reports silent downscaling by the detector's input limit
+  ([#4131](https://github.com/docling-project/docling/issues/4131)) **[issue]**.
+
+### 7.5 Output, orientation and confidence
+
+- **Cells are lines.** Each RapidOCR result is a quadrilateral, a string and a score. Docling builds an
+  axis-aligned box from corners 0 and 2 and maps it back to page coordinates
+  ([rapid_ocr_model.py#L777](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/stages/ocr/rapid_ocr_model.py#L777)).
+  RapidOCR can also return word and single-character boxes (`return_word_box`, `return_single_char_box`
+  call arguments) but Docling does not request them **[src]**. Rotated lines get loose boxes **[inf]**.
+- **Confidence** is RapidOCR's recognition score for the line, filtered at `text_score` **[src]**.
+- **Orientation.** `use_cls` flips individual line crops by 180 degrees. `detect_orientation` handles
+  regions turned by 90 or 270 degrees: when a region yields at least 3 lines and fewer than half score
+  0.8 or more, Docling re-reads it at 90, 180 and 270 degrees and keeps the first orientation that reads
+  well with at least twice as many confidently read characters
+  ([rapid_ocr_model.py#L862](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/stages/ocr/rapid_ocr_model.py#L862),
+  [PR #4709](https://github.com/docling-project/docling/pull/4709), merged 2026-10-29) **[src][issue]**.
+  Tall line crops are rotated a quarter turn by RapidOCR itself before recognition, which is why rotated
+  regions can read upside down **[src]**.
+- **Spacing.** Missing spaces between words have been reported ([#2887](https://github.com/docling-project/docling/issues/2887)) **[issue]**.
+
+### 7.6 Character coverage of the bundled recogniser
+
+The character dictionary embedded in `PP-OCRv6_rec_small.onnx` (rapidocr 3.10.0) has **18,708 entries**,
+counted on 2026-10-31 by reading the dictionary stored in the model file **[src]**. It includes:
+
+- all printable ASCII;
+- 64 Greek letters, including α β γ δ ε θ λ μ σ π Σ Ω;
+- operators and relations ∑ ∫ ∂ √ ∞ ≤ ≥ ≠ ± × ÷ − ∈ ∉ ⊂ ∪ ∩ ∀ ∃, many arrows (→ and others);
+- primes and degree ′ ″ ° ‰;
+- superscripts ¹ ² ³ ⁰ ⁿ ⁺ ⁻ ⁼ and subscripts ₀ ₁ ₂ ₊ ₋ ₌, but not ⁱ or ₙ.
+
+A CTC recogniser reads a line as one left-to-right sequence. It can emit a superscript digit only if it
+recognises the small raised glyph as that precomposed character; it has no notion of a baseline shift,
+fractions, radicals spanning content, or two-dimensional layout **[inf]**. Section 13 discusses what this
+means for mathematics.
+
+### 7.7 Known problems
+
+- Latin language selection crashing in some configurations ([#3840](https://github.com/docling-project/docling/issues/3840), open) **[issue]**.
+- GPU crash reports ([#4886](https://github.com/docling-project/docling/issues/4886)) and CUDA slower than CPU ([#4167](https://github.com/docling-project/docling/issues/4167)) **[issue]**.
+- Model-size selection was requested in [#4020](https://github.com/docling-project/docling/issues/4020) and added by [PR #4500](https://github.com/docling-project/docling/pull/4500) **[issue]**.
+
+## 8. Tesseract: tesserocr and CLI
+
+Docling has two Tesseract adapters with the same options and different mechanics **[src]**:
+
+| | `TesseractOcrOptions` (`kind="tesserocr"`) | `TesseractCliOcrOptions` (`kind="tesseract"`) |
+|---|---|---|
+| Binding | `tesserocr.PyTessBaseAPI` in-process | `tesseract` executable via `subprocess` |
+| Orientation | OSD on every crop with a dedicated OSD reader, then rotate by `orient_deg` | `tesseract --psm 0 -l osd` on every crop, then rotate |
+| Recognition | `GetComponentImages(TEXTLINE)`, then per line `SetRectangle` + `GetUTF8Text` | `tesseract <png> stdout tsv` once per crop |
+| Cells | **Text lines** | **Words** (TSV rows with text) |
+| Confidence | `MeanTextConf() / 100` per line ([PR #4534](https://github.com/docling-project/docling/pull/4534)) | TSV `conf / 100` per word |
+| Text | stripped `GetUTF8Text` | kept verbatim, read with pandas `QUOTE_NONE` and no NA conversion, so "N/A" or "007" survive ([PR #4536](https://github.com/docling-project/docling/pull/4536)) |
+| Concurrency | A lock serialises use of the shared readers ([PR #4941](https://github.com/docling-project/docling/pull/4941)) | One process per call |
+| Resolution | Image passed in memory | PNG written with its DPI ([PR #5031](https://github.com/docling-project/docling/pull/5031)) |
+
+Shared fields: `lang` (default `eng, spa, fra, deu`), `path` (tessdata directory), `psm` (page
+segmentation mode; `None` means `PSM.AUTO`), and for the CLI `tesseract_cmd`. Arguments passed to the CLI are
+sanitised and `psm` is cast to `int` **[src]**. OEM is `DEFAULT` **[src]**.
+
+With an empty `lang`, OSD picks the script for each crop, the matching traineddata is loaded on demand,
+and crops whose OSD fails are skipped; this needs `osd.traineddata` **[src]**. With explicit languages, an
+OSD failure is logged and recognition proceeds **[src]**.
+
+**Page segmentation modes** (Tesseract documentation) **[doc]**: 0 OSD only; 1 automatic with OSD; 3 fully
+automatic (default); 4 single column of variable sizes; 6 single uniform block; 7 single line; 8 single
+word; 10 single character; 11 sparse text; 12 sparse text with OSD; 13 raw line. Docling crops are
+usually single layout regions, so 6 (block) or 7 (line) can fit better than automatic segmentation for
+small regions **[inf]**.
+
+**Model families** **[doc]**: `tessdata` (legacy plus integer LSTM models), `tessdata_best` (float LSTM,
+most accurate and slowest), `tessdata_fast` (integer LSTM, fastest). OEM 0 and 2 (legacy engine) are not
+supported by the best and fast sets.
+
+The in-process adapter's per-line `SetRectangle` calls re-run recognition for each line rectangle after
+the layout pass, so it does more work than the CLI's single TSV pass **[inf]**. The CLI's word cells are
+the finest built-in granularity, which matters for the merge (4.2) and for table tokens (14) **[inf]**.
+A reliability rework is open ([PR #4942](https://github.com/docling-project/docling/pull/4942)) **[issue]**.
+
+## 9. EasyOCR
+
+EasyOCR uses a CRAFT text detector and CRNN-family recognisers, one per language group, on PyTorch
+**[doc]**.
+
+`EasyOcrOptions`
+([pipeline_options.py#L569](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py#L569))
+**[src]**:
+
+| Field | Default | Effect |
+|---|---|---|
+| `lang` | `en, es, fr, de` | Languages for one `Reader`; they must share a recogniser family |
+| `use_gpu` | `None` | Derived from the accelerator device when unset |
+| `confidence_threshold` | 0.5 | Cells below are dropped |
+| `model_storage_directory` | `None` | Model directory |
+| `recog_network` | `standard` | Recogniser variant; the field description's mention of `craft` is wrong, CRAFT is the detector |
+| `download_enabled` | `True` | Allow model downloads |
+| `suppress_mps_warnings` | `True` | Silence an Apple MPS warning |
+
+Docling calls `reader.readtext(image)` with **no further arguments**, so EasyOCR's own defaults apply
+([easyocr_model.py#L308](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/stages/ocr/easyocr_model.py#L308))
+**[src]**. Those defaults, from EasyOCR 1.7.2 **[doc][src]**: `decoder="greedy"` (alternatives
+`beamsearch`, `wordbeamsearch` with `beamWidth=5`), `allowlist`/`blocklist`, `paragraph=False`,
+`min_size=10`, `rotation_info=None`, `contrast_ths=0.1`, `adjust_contrast=0.5`, `text_threshold=0.7`,
+`low_text=0.4`, `link_threshold=0.4`, `canvas_size=2560`, `mag_ratio=1`, `slope_ths=0.1`,
+`ycenter_ths=0.5`, `height_ths=0.5`, `width_ths=0.5`, `add_margin=0.1`. Changing any of them needs a
+subclass or plugin **[inf]**. Making the canvas size configurable is proposed
+([PR #4342](https://github.com/docling-project/docling/pull/4342), open), as is CUDA cache handling
+([PR #4725](https://github.com/docling-project/docling/pull/4725), open) **[issue]**.
+
+Cells are EasyOCR's detector boxes after its horizontal grouping (`width_ths`, `ycenter_ths`), so their
+size varies between words and line fragments; boxes come from corners 0 and 2 of each quadrilateral
+**[src][inf]**. There is no orientation handling beyond what `rotation_info` would offer, which Docling
+does not pass **[src]**.
+
+## 10. Nemotron OCR, macOS Vision, KServe v2 and Auto selection
+
+### 10.1 Nemotron OCR v2
+
+`NemotronOcrOptions` (`kind="nemotron-ocr"`) wraps NVIDIA's `nemotron-ocr` 2.x
+([nemotron_ocr_model.py](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/stages/ocr/nemotron_ocr_model.py))
+**[src]**:
+
+- **Runtime gate.** `validate_runtime` requires Linux on x86_64, Python 3.12, a CUDA accelerator device,
+  `torch.cuda.is_available()` and a torch build for CUDA 13.x; otherwise it fails with a message naming
+  the missing piece **[src]**. Install hint: `docling[feat-ocr-nemotron]` **[src]**.
+- **Fields.** `lang` (default `["english"]`; see 6.2), `merge_level` (`word`, `sentence` default,
+  `paragraph`), `batch_size` (8).
+- **Cross-page batching.** Unlike the other engines, crops are buffered across the pages of a pipeline
+  batch and sent to the model in groups of `batch_size`; pages are post-processed and released in input
+  order once all their crops are done **[src]**. The field description still says "within the same page",
+  which the code no longer matches **[src]**.
+- **Model.** Model card for `nvidia/nemotron-ocr-v2` (commit `0e83e83`) **[doc]**: a RegNetX-8GF detector
+  (45.4M parameters), a pre-norm Transformer recogniser, and a relational model that predicts reading order
+  and groups words into lines and paragraphs. The English variant totals 53.8M parameters with an
+  855-character set and 32-token maximum sequence; the multilingual variant 83.9M with 14,244 characters
+  and 128 tokens. The card describes evaluation on 23,378 OmniDocBench crops and SynthDoG without
+  publishing scores.
+
+The relational model is the distinguishing capability: `merge_level` lets the engine return words for
+fine-grained merging, or sentences/paragraphs with its own reading order **[doc][inf]**.
+
+### 10.2 macOS Vision (`OcrMacOptions`)
+
+`kind="ocrmac"`; uses the `ocrmac` package over Apple's Vision framework **[src]**. Fields: `lang` (default
+`en-US, es-ES, fr-FR, de-DE`), `recognition` (`accurate` default, or `fast` with fewer languages),
+`framework` (`vision`, the only value Docling documents) **[doc]**. Cells are Vision's text observations
+mapped back by `scale` **[src]**. macOS only; Auto selection prefers it on Darwin **[src]**.
+
+### 10.3 KServe v2 remote OCR
+
+`KserveV2OcrOptions` (`kind="kserve_v2_ocr"`) sends crops to a KServe v2 / Triton endpoint
+([kserve_v2_ocr_model.py](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/stages/ocr/kserve_v2_ocr_model.py))
+**[src]**:
+
+- Requires `enable_remote_services=True` on the pipeline options
+  ([PR #4418](https://github.com/docling-project/docling/pull/4418)) **[src][issue]**.
+- Connection fields from `KserveV2OptionsMixin`: `url`, `model_name` (default `ocr`), `model_version`,
+  `transport` (`grpc` default, or HTTP), `headers`, `grpc_metadata`, `grpc_use_tls`,
+  `grpc_max_message_bytes` (64 MiB), `grpc_channel_args`, `use_binary_data`, `timeout` (60 s),
+  `request_parameters` **[src]**.
+- `scale` defaults to **2.0** (144 DPI), unlike the 3.0 of local engines **[src]**.
+- `lang` is not canonicalised; the first entry is sent as is (default `["english", "chinese"]`) **[src]**.
+- Image preprocessing matches a RapidOCR model graph deployed on Triton, so the reference server is
+  RapidOCR behind KServe **[src][inf]**.
+
+Use case: separate GPU OCR serving from CPU conversion workers, or share one OCR deployment across
+workers **[inf]**.
+
+### 10.4 Auto selection (`OcrAutoOptions`)
+
+`kind="auto"`. At model construction, Docling tries engines in this order and keeps the first that
+imports and accepts the language
+([auto_ocr_model.py](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/stages/ocr/auto_ocr_model.py))
+**[src]**:
+
+1. macOS: `ocrmac`.
+2. Linux: Nemotron OCR, if installed and `validate_runtime` passes.
 3. RapidOCR with ONNX Runtime.
 4. EasyOCR.
 5. RapidOCR with PyTorch.
 
-Unavailable or language-incompatible engines are skipped. Tesseract is never automatically selected.
-
-This has an important consequence: an unchanged Docling configuration can select a different OCR model on different machines.
-
-For exploratory use, `auto` is convenient. For stable JSON extraction where differences must be attributable to configuration and document content, explicitly selecting an engine is preferable.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
-
-GitHub
-
-
-
-### 6.2 RapidOCR
-
-`RapidOcrOptions` provides the most extensive set of controls for local OCR in Docling.
-
-| Option               | Default       | Meaning                                                       |
-| -------------------- | ------------- | ------------------------------------------------------------- |
-| `backend`            | `onnxruntime` | `onnxruntime`, `openvino`, `paddle`, or `torch`               |
-| `lang`               | `["ch"]`      | One PP-OCR language/model per run                             |
-| `model_size`         | `small`       | `tiny`, `small`, or `medium` for PP-OCRv6-supported languages |
-| `text_score`         | `0.5`         | Minimum confidence threshold for retained text                |
-| `use_det`            | `None`        | Use or bypass text detection; `None` inherits engine defaults |
-| `use_cls`            | `None`        | Enable text-line direction classification                     |
-| `use_rec`            | `None`        | Enable text recognition                                       |
-| `detect_orientation` | `False`       | Retry uncertain OCR regions at alternative rotations          |
-| `det_model_path`     | `None`        | Custom text detector checkpoint                               |
-| `cls_model_path`     | `None`        | Custom orientation classifier checkpoint                      |
-| `rec_model_path`     | `None`        | Custom recognition checkpoint                                 |
-| `rec_keys_path`      | `None`        | Custom character vocabulary                                   |
-| `rapidocr_params`    | `{}`          | Additional RapidOCR engine parameters                         |
-| `print_verbose`      | `False`       | Diagnostic output                                             |
-| `font_path`          | `None`        | Font used for rendering/visualization                         |
-| `rec_font_path`      | `None`        | Deprecated alternative to `font_path`                         |
-
-Model selection is more subtle than model size. The language may route to PP-OCRv6 or to older script-specific PP-OCRv5/v4 models. In the latter case, changing `model_size` does not necessarily change the recognition model. Unsupported combinations produce errors rather than silent substitutions.
-
-The main fidelity controls are `lang`, the detector/recognizer checkpoints, `text_score`, orientation handling and the common `scale` and `mode` settings. Changing `backend` primarily affects the inference implementation and available model combinations; it should not be treated as automatically introducing a substantially different independent OCR recognizer.
-
-For precision-sensitive comparison, running the same model weights on ONNX Runtime and PyTorch provides less model diversity than comparing different OCR model families.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
-
-GitHub+2
-
-
-
-Rotation handling: `use_cls` can correct the direction of individual text lines, principally through 180-degree flips. `detect_orientation=True` can retry regions at quarter-turn rotations when initial recognition is insufficiently confident. This is useful for rotated annotations and labels in otherwise normally oriented PDF pages, although it increases processing on affected regions.
-
-RapidOCR documentation: [https://docling-project.github.io/docling/concepts/OCR/](https://docling-project.github.io/docling/concepts/OCR/?utm_source=chatgpt.com)
-
-Upstream engine: [https://github.com/RapidAI/RapidOCR](https://github.com/RapidAI/RapidOCR?utm_source=chatgpt.com)
-
-### 6.3 Nemotron-OCR
-
-`NemotronOcrOptions` provides a separate recognition family with relatively few but important configuration parameters.
-
-| Option        | Default       | Effect                                                 |
-| ------------- | ------------- | ------------------------------------------------------ |
-| `lang`        | `["english"]` | English or multilingual model selection                |
-| `merge_level` | `sentence`    | Output granularity: `word`, `sentence`, or `paragraph` |
-| `batch_size`  | `8`           | Number of OCR regions processed together within a page |
-
-The documented Nemotron-OCR v2 model selection distinguishes an English recognizer from a multilingual recognizer covering Chinese, Japanese, Korean and Russian.
-
-Other Latin-script languages may be routed to the English model on a best-effort basis, but this does not imply validated accuracy for those languages.
-
-`merge_level` is especially relevant to multi-OCR reconciliation: word-level output provides smaller comparison units, whereas sentence- or paragraph-level output may make detection/recognition more efficient but can complicate alignment against native PDF text cells.
-
-Nemotron's installation requirements are substantially narrower than RapidOCR's: the documented extra targets Linux x86-64, Python 3.12 and CUDA 13.x. Its CUDA availability does not mean it runs on arbitrary Python/CUDA combinations.
-
-A different model family makes Nemotron potentially useful as an independent recognizer, but the sources do not establish that it systematically outperforms RapidOCR or Tesseract on all born-digital PDF regions.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
-
-GitHub+1
-
-
-
-### 6.4 EasyOCR
-
-`EasyOcrOptions` exposes:
-
-| Option                    | Default                    | Effect                                                 |
-| ------------------------- | -------------------------- | ------------------------------------------------------ |
-| `lang`                    | `["en", "es", "fr", "de"]` | Language set, subject to compatible recognition models |
-| `use_gpu`                 | `None`                     | Automatic GPU selection, or explicit CPU/GPU choice    |
-| `confidence_threshold`    | `0.5`                      | Filter low-confidence recognized text                  |
-| `recog_network`           | `standard`                 | Recognition model selection                            |
-| `model_storage_directory` | `None`                     | Checkpoint storage                                     |
-| `download_enabled`        | `True`                     | Permit checkpoint downloads                            |
-| `suppress_mps_warnings`   | `True`                     | macOS MPS diagnostic behavior                          |
-
-EasyOCR provides a genuinely different recognition implementation from Tesseract and RapidOCR, making it a reasonable candidate for independent validation.
-
-The language set must remain compatible with its available recognition models. Specifying several languages is not equivalent to enabling an unrestricted universal multilingual recognizer.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
-
-GitHub
-
-
-
-Documentation discrepancy: Docling's `recog_network` description mentions `craft` as a recognition option, but upstream EasyOCR treats CRAFT as a text detector, while `recog_network` controls recognition. This appears inconsistent. I would retain `recog_network="standard"` unless a different recognition network is confirmed against the installed EasyOCR version.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
-
-GitHub+1
-
-
-
-Upstream EasyOCR: [https://github.com/JaidedAI/EasyOCR](https://github.com/JaidedAI/EasyOCR?utm_source=chatgpt.com)
-
-### 6.5 Tesseract: Python bindings and CLI
-
-Docling exposes the same Tesseract OCR family through two interfaces:
-
-- `TesseractOcrOptions` uses the `tesserocr` Python bindings.
-- `TesseractCliOcrOptions` invokes the external Tesseract executable.
-
-Both expose `lang`, `path` (trained-data directory), and `psm` (page-segmentation mode). The CLI variant additionally exposes `tesseract_cmd` for selecting the executable.
-
-The default language set is `["eng", "spa", "fra", "deu"]`; the corresponding trained data must be available.
-
-Tesseract offers particularly useful recognition controls through its language models and page segmentation modes. Examples include:
-
-| `psm` | Tesseract interpretation    | Potential use                      |
-| ----- | --------------------------- | ---------------------------------- |
-| `3`   | Automatic page segmentation | General document crops             |
-| `6`   | Assume a uniform text block | A bounded paragraph or text region |
-| `7`   | Assume a single text line   | Line-level verification            |
-| `8`   | Assume a single word        | An isolated label or value         |
-| `11`  | Sparse text                 | Diagram labels or dispersed text   |
-
-These are Tesseract engine behaviors. Docling supplies regions to Tesseract according to its own OCR mode; the Tesseract segmentation setting then governs recognition within the supplied images.
-
-For multi-engine verification, the Tesseract CLI and `tesserocr` bindings should not be counted as two fully independent recognizers when they use the same Tesseract models and similar settings. Their primary differences concern process integration and deployment.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
-
-GitHub+1
-
-
-
-Tesseract: [https://github.com/tesseract-ocr/tesseract](https://github.com/tesseract-ocr/tesseract?utm_source=chatgpt.com)
-
-`tesserocr`: [https://github.com/sirfz/tesserocr](https://github.com/sirfz/tesserocr?utm_source=chatgpt.com)
-
-### 6.6 Apple Vision: `OcrMacOptions`
-
-OcrMac uses Apple's Vision framework and exposes `recognition="accurate"` or `"fast"`, `lang`, and `framework="vision"`.
-
-It can recognize multiple supported languages, and `lang=[]` delegates language choice to Vision.
-
-For macOS applications, it is a useful native alternative. It does not apply to Linux-based execution, and the precise languages supported depend on the running macOS version.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
-
-GitHub
-
-
-
-### 6.7 Remote OCR: `KserveV2OcrOptions`
-
-The KServe v2 integration sends OCR inputs to a compatible remote inference service, such as a Triton-based deployment.
-
-Its distinguishing options include `model_name`, `lang`, `scale`, and connection settings inherited from `KserveV2OptionsMixin`, covering the server address, transport, authentication-related metadata, timeouts and model-version selection.
-
-Its OCR scale defaults to `2.0` rather than the usual `3.0`.
-
-The remotely deployed model determines recognition capabilities. Docling does not validate its supported languages; it sends the first language string unchanged.
-
-Remote inference requires explicitly permitting remote services in the PDF pipeline configuration. This changes the data-handling boundary because document-derived images are transmitted to the inference server.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
-
-GitHub
-
-
-
-For structured PDFs, remote OCR is best understood as a deployment option, not a separate accuracy guarantee.
-
-## 7. External OCR engines, custom models and plugins
-
-Docling's built-in OCR choices are not the complete universe of recognizers it can use.
-
-Its plugin architecture uses `pluggy` and the `docling` package entry-point group. External OCR implementations register an `ocr_engines()` factory and implement `BaseOcrModel`, with configuration derived from `OcrOptions`.
-
-External model loading must be explicitly enabled using `PdfPipelineOptions.allow_external_plugins=True`.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
-
-Docling
-
-
-
-### 7.1 SuryaOCR
-
-The official Docling example uses the separate `docling-surya` integration, with `SuryaOcrOptions` imported from `docling_surya`.
-
-Surya is an additional OCR implementation, not one of the built-in OCR option classes in Docling 2.145.0.
-
-This can be useful as a third independent recognition family. However, the integration adds model dependencies and separate versioning, and the official example identifies GPL-related licensing considerations.
-
-Source: [https://docling-project.github.io/docling/\_generated/examples/suryaocr_with_custom_models/](https://docling-project.github.io/docling/_generated/examples/suryaocr_with_custom_models/?utm_source=chatgpt.com)&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
-
-Docling
-
-
-
-### 7.2 OnnxTR
-
-The installation documentation identifies `docling-ocr-onnxtr`, which exposes `OnnxtrOcrOptions` through the plugin system.
-
-It adds another neural OCR implementation and its own detector/recognizer configuration choices. As with Surya, the package's actual compatibility and model requirements are separate from the built-in Docling OCR engines.
-
-Source: [https://docling-project.github.io/docling/getting_started/installation/](https://docling-project.github.io/docling/getting_started/installation/?utm_source=chatgpt.com)&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
-
-Docling
-
-
-
-### 7.3 Custom RapidOCR checkpoints
-
-An additional OCR engine is not always necessary to obtain a second recognition model.
-
-RapidOCR allows substituting its detector, recognizer, classifier, and recognition vocabulary through model paths. Docling provides an official example showing this arrangement with externally downloaded ONNX checkpoints.
-
-This creates two kinds of comparison:
-
-| Comparison                                       | What changes                                | Independence            |
-| ------------------------------------------------ | ------------------------------------------- | ----------------------- |
-| Same RapidOCR model, different inference backend | Runtime implementation                      | Low model diversity     |
-| RapidOCR with different recognition checkpoints  | Recognition weights / possibly architecture | Potentially meaningful  |
-| RapidOCR versus Tesseract                        | Recognition model family                    | Substantially different |
-| RapidOCR versus Nemotron-OCR or SuryaOCR         | Recognition model family                    | Substantially different |
-
-The general objective should be complementary error behavior, not simply a larger number of invocations. Two systems that make the same mistakes add limited independent evidence.
-
-Custom-model example: [https://docling-project.github.io/docling/\_generated/examples/rapidocr_with_custom_models/](https://docling-project.github.io/docling/_generated/examples/rapidocr_with_custom_models/?utm_source=chatgpt.com)
-
-## 8. Using multiple OCR engines on structured PDFs
-
-This is the area where I would distinguish Docling's native capabilities from additional architecture.
-
-### 8.1 Three different multi-OCR strategies
-
-| Strategy                      | What it does                                                                                   | How well Docling directly supports it                                       |
-| ----------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Recovery cascade              | Use native text, then OCR missing regions, then retry failures with another recognizer         | Initial selective recovery is native; additional retries need orchestration |
-| Parallel verification         | Independently OCR text that already exists in the PDF and compare readings                     | Requires an alternative pass and custom comparison                          |
-| Evidence-based reconciliation | Select or flag competing text candidates using geometry, engine confidence and source evidence | Requires custom reconciliation logic                                        |
-
-The recovery cascade minimizes unnecessary work. Parallel verification maximizes independent evidence. Reconciliation is the crucial step that determines whether having multiple OCR results actually improves the final JSON.
-
-Simply enabling `do_ocr=True` does not perform all three.
-
-### 8.2 A useful multi-pass architecture
-
-Primary extraction with independent verification
-
-Architectural option, not a built-in Docling ensemble. Reconciliation and retained comparison evidence require additional logic.
-
-The critical principle is that an independent OCR pass should initially act as a source of evidence, not as an automatic replacement for the primary extraction.
-
-This matters especially for technical PDFs, where one wrong digit or symbol can be more consequential than several ordinary word-recognition errors.
-
-### 8.3 How to align competing OCR outputs
-
-Text arrays from different conversions should not be compared by positional index. Changing OCR mode can alter text segmentation, table reconstruction and reading order.
-
-A more robust comparison uses the available structural information:
-
-| Matching level | Alignment evidence                         | Typical comparison                             |
-| -------------- | ------------------------------------------ | ---------------------------------------------- |
-| Page           | `page_no`                                  | Restrict candidates to the same page           |
-| Region         | Bounding-box overlap and proximity         | Match corresponding text regions               |
-| Semantic item  | Heading, paragraph, table or picture label | Avoid comparing unrelated structures           |
-| Table cell     | Table region plus row/column position      | Compare individual numeric/text cells          |
-| Text span      | Normalized string and geometric sequence   | Detect substitutions, omissions and insertions |
-
-There are several limitations.
-
-OCR engines may return word boxes, line boxes or paragraph boxes, so the candidate boundaries can differ. Text normalization is useful for matching but must not erase meaningful distinctions such as decimal separators, minus signs, superscripts, or units.
-
-It is also unsafe to assume that two overlapping boxes identify the same semantic element. A superscript, table border label, or footnote marker can overlap neighboring elements without being equivalent to them.
-
-Therefore, a practical reconciliation system benefits from preserving both the original and alternative recognition strings, together with their source locations and the comparison decision.
-
-### 8.4 How agreement should be interpreted
-
-| Native PDF     | OCR A      | OCR B      | Reasonable interpretation                                       |
-| -------------- | ---------- | ---------- | --------------------------------------------------------------- |
-| `0.05`         | `0.05`     | `0.05`     | Strong corroboration, though not absolute proof                 |
-| `O.05`         | `0.05`     | `0.05`     | Native text is suspicious; visual correction candidate          |
-| `0.05`         | `O.05`     | `0.05`     | Native and one recognizer agree; OCR A may be mistaken          |
-| `0.05`         | `0.5`      | `0.05`     | High-value numerical disagreement; examine rendering            |
-| `α`            | `a`        | `α`        | Preserve the native symbol unless other evidence contradicts it |
-| No native text | `P = 12.4` | `P = 12.4` | Likely successful recovery of missing visual text               |
-| `1.25`         | `1.25`     | `1.28`     | Unresolved; do not silently select by majority                  |
-
-The final two rows illustrate a key distinction: OCR agreement can be useful when recovering otherwise absent content, but disagreements involving existing exact digital text should be interpreted more conservatively.
-
-Also, two OCR models trained on overlapping data or using similar preprocessing can make correlated errors. A 2-to-1 majority is not inherently a calibrated confidence measure.
-
-### 8.5 Multi-OCR can improve coverage and confidence, but not every kind of semantic richness
-
-Ordinary OCR primarily recovers recognized character sequences and their locations. It does not automatically recover all the information represented by the document.
-
-For example, two OCR engines reading a scientific plot may both transcribe its axis labels correctly while providing no information about the plotted series.
-
-Likewise, correctly recognizing the text inside a table does not establish correct row/column membership, merged headers or cross-page continuity.
-
-For those tasks, Docling's layout, table recognition, chart extraction and formula enrichment capabilities remain separate and complementary to OCR.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
-
-Docling+1
-
-
-
-## 9. How to leverage OCR for different structured-PDF content
-
-| Source condition                            | Appropriate Docling mechanism                     | Role of a second OCR                                                              |
-| ------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Correct embedded body text                  | Native text with PDF-aware selective OCR          | Usually unnecessary unless independent verification matters                       |
-| Embedded text with invalid Unicode mappings | `replace_broken_text_layer=True`                  | Useful for validating the replacement                                             |
-| Plausible but incorrect native characters   | Alternative `LAYOUT_REGIONS` OCR pass             | Important for detecting silent differences                                        |
-| Rasterized text inside figures              | PDF-aware selective OCR                           | Useful if the first recognizer misses labels                                      |
-| Vector-outlined lettering                   | PDF-aware shape-aware OCR                         | Useful for uncertain labels or mixed graphical text                               |
-| Rotated annotations                         | RapidOCR `detect_orientation=True`                | Alternative recognizer for difficult rotations                                    |
-| Multilingual material                       | Appropriate engine/language models                | Useful where one recognizer cannot cover all scripts                              |
-| Mathematical formulas                       | `do_formula_enrichment=True`                      | General OCR can act as a check, but is not a substitute for formula recognition   |
-| Code blocks                                 | `do_code_enrichment=True`                         | May help identify symbol and indentation errors                                   |
-| Financial or scientific tables              | TableFormer and cell matching, plus OCR as needed | Compare cell values independently of table structure                              |
-| Graphs and plots                            | Chart extraction and picture understanding        | OCR adds label transcription, not the complete data series                        |
-| Native interactive PDF forms                | `extract_form_fields=True`                        | OCR only complements visible labels; it cannot reconstruct native widget metadata |
-
-### 9.1 Mathematical and scientific notation
-
-General OCR can recover conventional text but is less suitable as the sole interpreter of dense mathematical notation.
-
-Examples include Greek symbols, subscripts, superscripts, multi-line equations, matrices, integral bounds, and distinctions such as `−` versus `-`.
-
-Docling offers `do_formula_enrichment=True`, using a specialized formula model to produce a mathematical representation. The documented model exposes configurable formula cropping and repetition controls through `code_formula_options`.
-
-The resulting `FormulaItem` is part of the structured document, rather than an independent plain-text OCR transcript.
-
-The useful composition is native text for ordinary content, specialized formula recognition for detected formulas, and optional OCR agreement checks for uncertain symbols.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
-
-Docling
-
-
-
-### 9.2 Tables and exact numeric values
-
-For born-digital tables, a particularly valuable strategy is separating table structure from cell transcription.
-
-TableFormer determines the table grid, spans and inferred header associations. Native PDF text cells supply content where available. OCR can recover missing visual values or provide an independent reading of a cell.
-
-Running another OCR engine does not automatically improve the grid. An incorrect row boundary can remain incorrect even if every cell's characters are recognized perfectly.
-
-For precision-sensitive data, a second recognizer can be applied to selected table-cell bounding boxes and compared against the existing `TableData.table_cells` values.
-
-This region-level approach is an architectural possibility; Docling does not provide a built-in automatic cell-by-cell voting facility.
-
-### 9.3 Figures and embedded graphics
-
-OCR is valuable for figure labels, legends, map annotations and text appearing inside screenshots.
-
-But the result needs semantic association. Recognizing `Pressure`, `150`, and `kPa` somewhere inside a diagram does not establish whether they belong to the same measurement, a nearby chart axis, or different graphic objects.
-
-Picture classification, description, and chart extraction can add information beyond the character sequence. These enrichments also use different models and have different reliability characteristics.
-
-Sources:
-
-[https://docling-project.github.io/docling/usage/enrichments/](https://docling-project.github.io/docling/usage/enrichments/?utm_source=chatgpt.com)
-
-[https://docling-project.github.io/docling/usage/advanced_options/](https://docling-project.github.io/docling/usage/advanced_options/?utm_source=chatgpt.com)
-
-## 10. Quality measurement and the structured JSON boundary
-
-### 10.1 Docling's confidence scores are not an ensemble verdict
-
-Docling's `ConversionResult.confidence` includes `ocr_score`, `parse_score`, `layout_score`, and an as-yet-unimplemented `table_score`.
-
-`parse_score` reflects the quality of the programmatic PDF text layer, with the documented measure emphasizing the lower-quality text cells through a 10th-percentile statistic.
-
-`ocr_score` summarizes OCR recognition quality. In the standard OCR implementation it is derived from OCR cells that survive selection and merging.
-
-Neither is a calibrated probability that a particular JSON string is correct.
-
-An important subtlety: if OCR is skipped because the PDF text layer is present, the lack of OCR disagreement is not positive verification of that text.
-
-The documentation emphasizes quality grades rather than treating raw scores as stable thresholds or guarantees.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
-
-Docling+1
-
-
-
-Source: [https://docling-project.github.io/docling/concepts/confidence_scores/](https://docling-project.github.io/docling/concepts/confidence_scores/?utm_source=chatgpt.com)
-
-### 10.2 OCR evidence is not automatically retained in document JSON
-
-A standard `DoclingDocument` stores the selected semantic content and its provenance. It does not automatically retain a full audit trail containing every native cell, every rejected OCR cell, each engine's candidate strings, and its individual confidence values.
-
-Those details belong to intermediate representations or to a separately constructed evidence model.
-
-`generate_parsed_pages=True` can preserve some intermediate PDF page data in the `ConversionResult`, but saving `result.document` does not serialize all that intermediate state.
-
-For a JSON-only system that uses several OCR passes, there are therefore two distinct representations:
-
-Canonical document JSON — the normalized `DoclingDocument`, containing the final document's typed semantic structure.
-
-Recognition evidence JSON — an additional record of engine configurations, candidate strings, locations, disagreements, and resolution decisions.
-
-If both must be in one JSON artifact, a containing application can define a wrapper with the canonical Docling JSON and its evidence records. That wrapper should not be mistaken for the native `DoclingDocument` schema.
-
-### 10.3 Quality controls worth distinguishing
-
-| Quality signal                 | What it can establish                                     | What it cannot establish                                  |
-| ------------------------------ | --------------------------------------------------------- | --------------------------------------------------------- |
-| PDF text parse score           | Detect some native-text degradation                       | Every character is correct                                |
-| OCR model confidence           | Recognition model's own confidence                        | Cross-engine calibrated correctness                       |
-| OCR engine agreement           | Corroboration between recognizers                         | Independence or factual correctness                       |
-| Bounding-box agreement         | Candidate text refers to a similar location               | Exact semantic equivalence                                |
-| Structured document validation | JSON model and reference consistency                      | Faithful extraction from the PDF                          |
-| Table-cell consistency rules   | Values satisfy declared structural constraints            | The source document actually contained those values       |
-| Visual verification            | Whether the selected text matches visible source evidence | Whether a figure's higher-level interpretation is correct |
-
-The optimal validation policy depends on the consequences of error. Numerical and symbolic fields may justify more independent checks than ordinary prose.
-
-## 11. Example: two independent Docling OCR passes
-
-This illustrates a baseline conversion that preserves native text and a separate verification conversion that deliberately OCRs text-bearing layout regions.
-
-The example assumes the relevant RapidOCR dependencies and a system Tesseract installation with English trained data are available. It is illustrative and has not been executed.
-
-```
-from docling.datamodel.base_models import InputFormat, ConversionStatusfrom docling.datamodel.pipeline_options import (    OcrMode,    PdfPipelineOptions,    RapidOcrOptions,    TesseractCliOcrOptions,)from docling.document_converter import DocumentConverter, PdfFormatOptiondef convert_pdf(source: str, ocr_options):    pipeline_options = PdfPipelineOptions(        do_ocr=True,        do_table_structure=True,        ocr_options=ocr_options,    )    converter = DocumentConverter(        format_options={            InputFormat.PDF: PdfFormatOption(                pipeline_options=pipeline_options,            ),        },    )    result = converter.convert(source, raises_on_error=False)    if result.status not in {        ConversionStatus.SUCCESS,        ConversionStatus.PARTIAL_SUCCESS,    }:        raise RuntimeError(f"PDF conversion failed: {result.status}")    return resultsource = "report.pdf"
+Tesseract is never chosen automatically. Only `mode`, `lang` and `replace_broken_text_layer` are
+forwarded; `scale`, engine fields and thresholds take the chosen engine's defaults **[src]**. The engine
+therefore depends on the machine (installed packages, OS, GPU), so the same configuration can produce
+different text on a laptop and a GPU server **[inf]**. Pin a concrete engine wherever results must be
+comparable.
+
+## 11. Plugin engines
+
+### 11.1 Mechanism
+
+OCR engines are loaded through a pluggy-based factory
+([base_factory.py#L94](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/factories/base_factory.py#L94))
+**[src]**:
+
+- A plugin package declares an entry point in the group **`docling`** whose module exposes
+  `ocr_engines()` returning `{"ocr_engines": [MyOcrModel, ...]}`; the built-ins are registered the same way
+  ([plugins/defaults.py](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/plugins/defaults.py)).
+- Each model class's options type has a unique `kind` string; passing an instance of those options as
+  `ocr_options` selects the engine.
+- External plugins load only with `allow_external_plugins=True` on the pipeline options (and the CLI
+  flag of the same name); the decision is made from entry-point metadata before importing the module
+  **[src]**.
+
+### 11.2 OnnxTR (`docling-ocr-onnxtr` 0.3.1)
+
+Wraps OnnxTR, an ONNX export of the docTR model zoo **[src][doc]**:
+
+| Field | Default |
+|---|---|
+| `lang` | `["en", "fr"]` |
+| `confidence_score` | 0.5 |
+| `objectness_score` | 0.3 |
+| `det_arch` | `fast_base` |
+| `reco_arch` | `crnn_vgg16_bn` |
+| `reco_bs` | 512 |
+| `auto_correct_orientation`, `preserve_aspect_ratio`, `symmetric_pad` | engine options |
+| `paragraph_break` | 0.035 |
+| `load_in_8_bit` | 8-bit model variants |
+| `providers`, `session_options` | ONNX Runtime execution providers and session settings |
+
+Detection architectures include `db_resnet34`, `db_resnet50`, `db_mobilenet_v3_large`, `linknet_*` and
+`fast_tiny/small/base`; recognition includes `crnn_*`, `sar_resnet31`, `master`, `vitstr_small/base`,
+`parseq` and `viptr_tiny` **[doc]**. Its cells are **words**, the finest granularity available to the
+merge **[src]**. It is the most complete alternative CPU engine available as a plugin **[inf]**.
+
+### 11.3 Surya (`docling-surya` 0.1.0)
+
+Published 2025-11-02 and not updated since **[doc]**. In the wheel **[src]**:
+
+- `SuryaOcrOptions`: `lang` (`["en"]`, ignored by the adapter), `use_gpu`, `model_storage_directory`,
+  `download_enabled`; the render scale is hard-coded to 3.
+- It calls `self.post_process_cells(all_cells, page)` without `conv_res`, but the 2.145.0 signature is
+  `post_process_cells(self, ocr_cells, page, conv_res, priority=None)`. That call should raise a
+  `TypeError` on current Docling **[inf]**; it was not run.
+- It references an undefined `ImportOcrError` on its import-failure path.
+- It targets the surya-ocr ≥0.17 API. Surya 2 (`surya-ocr` 0.23.0, released 2026-10-29) changed its output
+  to HTML with KaTeX-compatible `<math>` LaTeX, so compatibility is unknown **[doc][inf]**.
+
+Surya 2 reports 92.3% for English on its own 91-language benchmark **[doc]**. To use Surya with
+current Docling, write a small plugin against the current Surya API (11.4), or run Surya as region OCR
+(16).
+
+### 11.4 Writing an engine
+
+Illustrative sketch, not executed:
+
+```python
+from typing import ClassVar, Iterable, Literal, Type
+
+from docling.datamodel.pipeline_options import OcrOptions
+from docling.models.base_ocr_model import BaseOcrModel
+from docling_core.types.doc import BoundingBox, CoordOrigin
+from docling_core.types.doc.page import BoundingRectangle, TextCell
+
+
+class MyOcrOptions(OcrOptions):
+    kind: ClassVar[Literal["my-ocr"]] = "my-ocr"
+    lang: list[str] = ["iso:en"]
+
+
+class MyOcrModel(BaseOcrModel):
+    def __init__(self, enabled, artifacts_path, options, accelerator_options):
+        super().__init__(enabled=enabled, artifacts_path=artifacts_path,
+                         options=options, accelerator_options=accelerator_options)
+        self.engine = ...  # load the recogniser once
+
+    def __call__(self, conv_res, page_batch: Iterable):
+        for page in page_batch:
+            if not self.enabled or not page._backend.is_valid():
+                yield page
+                continue
+            cells = []
+            for rect in self.get_ocr_rects(page):          # honours OcrMode
+                if rect.area() == 0:
+                    continue
+                image = page._backend.get_page_image(scale=self.options.scale, cropbox=rect)
+                for i, (x0, y0, x1, y1, text, conf) in enumerate(self.engine.read(image)):
+                    box = BoundingBox(
+                        l=x0 / self.options.scale + rect.l, t=y0 / self.options.scale + rect.t,
+                        r=x1 / self.options.scale + rect.l, b=y1 / self.options.scale + rect.t,
+                        coord_origin=CoordOrigin.TOPLEFT,
+                    )
+                    cells.append(TextCell(index=i, text=text, orig=text, confidence=conf,
+                                          from_ocr=True,
+                                          rect=BoundingRectangle.from_bounding_box(box)))
+            self.post_process_cells(cells, page, conv_res)   # merge rules of section 4
+            yield page
+
+    @classmethod
+    def get_options_type(cls) -> Type[OcrOptions]:
+        return MyOcrOptions
+
+
+def ocr_engines():
+    return {"ocr_engines": [MyOcrModel]}
 ```
 
-Here the second `DoclingDocument` is an alternative interpretation of the PDF, not automatically a set of individual corrections to the first.
+Register `ocr_engines` under `[project.entry-points.docling]` in the plugin's packaging metadata. Emit
+**word** cells where the engine can, because the merge and the table token assembly both work better with
+fine cells (4.2, 14) **[inf]**. Engines that also need language mapping implement
+`supported_ocr_languages` and `map_ocr_language` like the built-ins **[src]**.
 
-`psm=6` asks Tesseract to treat each supplied image as a uniform block. This is a reasonable illustrative configuration for text-region crops but may not suit sparse labels, tables or mixed-format regions; a different segmentation mode can be evaluated for those cases.
+## 12. Whole-page OCR with vision-language models
 
-The two JSON outputs can be compared using the page, geometry and structure information described earlier. That comparison and any resulting corrections are intentionally not represented as a nonexistent native Docling API.
+### 12.1 What changes
 
-A separate conversion also entails a second layout, table, and document assembly pass. Where only a small number of suspicious regions need verification, using independently rendered crops with an OCR engine can avoid recomputing the entire semantic document.
+`VlmPipeline` replaces layout, OCR and table models with one model that reads the page image and writes
+markup. A `VLM_CONVERT` preset names the model, prompt, response format and inference engine
+([stage_model_specs.py](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/stage_model_specs.py))
+**[src]**. Inference engines include Hugging Face Transformers, MLX, vLLM, and OpenAI-compatible APIs such
+as Ollama, LM Studio or a remote server (the API route needs `enable_remote_services=True`) **[doc]**.
 
-## 12. Performance and deployment considerations
+### 12.2 Presets relevant to OCR in 2.145.0
 
-For structured PDFs, the main opportunity is to minimize the amount of material requiring visual recognition while retaining sufficient independent evidence.
+| Preset | Model | Response format | Boxes |
+|---|---|---|---|
+| `smoldocling` | docling-project/SmolDocling-256M-preview | DOCTAGS | Yes |
+| `granite_docling` | ibm-granite/granite-docling-258M | DOCTAGS | Yes |
+| `deepseek_ocr` | DeepSeek-OCR 3B (Ollama `deepseek-ocr:3b`) | DEEPSEEKOCR_MARKDOWN | Yes |
+| `granite_vision` | Granite Vision 2B | MARKDOWN | No |
+| `pixtral` | Pixtral 12B | MARKDOWN | No |
+| `got_ocr` | stepfun-ai/GOT-OCR-2.0-hf | MARKDOWN | No |
+| `phi4` | microsoft/Phi-4-multimodal-instruct | MARKDOWN | No |
+| `qwen` | Qwen/Qwen2.5-VL-3B-Instruct | MARKDOWN | No |
+| `nanonets_ocr2` | nanonets/Nanonets-OCR2-3B | MARKDOWN | No |
+| `nemotron_parse_v2` | nvidia/NVIDIA-Nemotron-Parse-2.0 (0.9B) | NEMOTRON_PARSE_V2 | Yes, with classes |
+| `nemotron_parse_v3_5` | nvidia/Nemotron-3.5-Parse (0.6B; tables and charts) | NEMOTRON_PARSE_V3_5 | Yes |
+| `mineru2_pro` | opendatalab/MinerU2.5-Pro-2604-1.2B (two-step) | MINERU2 | Yes |
+| `gemma_12b`, `gemma_27b` | google/gemma-3-12b-it / 27b-it | MARKDOWN | No |
+| `dolphin` | ByteDance/Dolphin | MARKDOWN | No |
+| `glm_ocr` | zai-org/GLM-OCR (0.9B) | MARKDOWN | No |
+| `falcon_ocr` | tiiuae/Falcon-OCR (0.3B) | MARKDOWN | No |
+| `lightonocr` | lightonai/LightOnOCR-2-1B | MARKDOWN | No |
+| `unlimited_ocr` | Baidu Unlimited-OCR (3.34B MoE; OpenAI-compatible API by default) | UNLIMITED_OCR_MARKDOWN | Yes |
+| `chandra_ocr2` | datalab-to/chandra-ocr-2 (5.3B) | CHANDRA_HTML | Yes |
+| `dots_ocr`, `dots_mocr` | rednote-hilab dots.ocr family (3B; vLLM by default) | DOTS_JSON | Yes |
 
-| Lever                                     | Expected effect                                 | Main tradeoff                                                         |
-| ----------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------- |
-| PDF-aware mode                            | Avoid OCR of clean native text                  | Cannot verify plausible native-text mistakes                          |
-| `replace_broken_text_layer`               | Automatically repair certain corrupted pages    | Page-wide replacement may affect otherwise correct text               |
-| Larger `scale`                            | More pixels for small characters                | Higher rasterization/inference cost; not always better recognition    |
-| RapidOCR `model_size`                     | Adjust supported PP-OCRv6 model capacity        | Larger models require more resources; no universal accuracy guarantee |
-| RapidOCR `text_score` / EasyOCR threshold | Control recognition acceptance                  | Higher thresholds risk omitting real faint text                       |
-| RapidOCR orientation retries              | Recover rotated content                         | Additional inference on uncertain regions                             |
-| OCR-stage batching                        | Improve throughput under suitable loads         | Higher memory pressure                                                |
-| Selective secondary OCR                   | Limit independent checking to uncertain regions | Requires a way to identify and align those regions                    |
-| Whole-document second pass                | Simple independent comparison                   | Repeats layout, OCR and table processing                              |
+Most presets render pages at scale 2.0 **[src]**. Merged after 2.145.0 and therefore unreleased at the
+research date: LightOnOCR-3 presets with grounding ([PR #4789](https://github.com/docling-project/docling/pull/4789))
+and Unlimited-OCR 2 ([PR #5107](https://github.com/docling-project/docling/pull/5107)) **[issue]**. A
+PaddleOCR-VL helper module exists (`utils/paddleocr_vl_utils.py`) but no preset; support is requested in
+[#2495](https://github.com/docling-project/docling/issues/2495) **[src][issue]**.
 
-Docling's pipeline also exposes `ocr_batch_size` for threaded OCR execution. This is separate from the `NemotronOcrOptions.batch_size` governing that engine's processing of multiple OCR crops within a page.
+### 12.3 Grounding, provenance and `force_backend_text`
 
-The performance effects depend on OCR engines, model sizes, page complexity, hardware and the percentage of regions actually sent to OCR. The sources do not establish a universal fastest or most accurate engine for born-digital PDFs.
+- **Grounded formats** (DOCTAGS, DEEPSEEKOCR_MARKDOWN, UNLIMITED_OCR_MARKDOWN, CHANDRA_HTML, DOTS_JSON,
+  NEMOTRON_PARSE_V2/V3_5, MINERU2, DOCLANG) yield items with bounding boxes. **MARKDOWN and HTML**
+  responses become items with zero-size, page-level provenance **[src]**.
+- **`force_backend_text`** is consumed only by `VlmPipeline`
+  ([vlm_pipeline.py#L260](https://github.com/docling-project/docling/blob/v2.145.0/docling/pipeline/vlm_pipeline.py#L260)):
+  for each predicted item box it replaces the VLM's text with the native text under that box **[src]**. It
+  therefore needs a grounded format, and it reintroduces exactly the inline-glyph gap of 4.4 inside those
+  boxes **[inf]**. `PdfPipelineOptions` also declares a `force_backend_text` field, described as bypassing
+  the layout model, but `StandardPdfPipeline` never reads it **[src]**.
 
-### Important extraction interactions
+### 12.4 Trade-offs against page-stage OCR
 
-Native PDF forms: if interactive AcroForms matter, preserve the native parser pathway and enable `extract_form_fields=True`. Full-page OCR can replace native text but cannot recover the underlying PDF widget objects. Its interaction with form extraction should be assessed separately.
+| | Page-stage OCR (standard pipeline) | Whole-page VLM |
+|---|---|---|
+| Native text | Kept exactly where present | Regenerated by the model unless `force_backend_text` |
+| Mathematics | Linear strings at best; formula enrichment for display formulas | Many models emit LaTeX inline and display math |
+| Reading order and structure | Layout model plus rules | Model output |
+| Failure mode | Missing text (selection and merge) | Hallucinated, dropped or repeated text |
+| Hardware | CPU-friendly | GPU or Apple silicon in practice for anything above ~1B parameters |
+| Confidence | Per-cell engine scores | None per token in Docling's output |
 
-`force_backend_text`: this is a native-text precedence/selection control, not another OCR engine. It should not be used as a substitute for secondary recognition or broken-text repair.
+Using a VLM as the OCR engine *inside* the standard pipeline (keeping layout and native text) is requested
+in [#2711](https://github.com/docling-project/docling/issues/2711) but not built in; a plugin engine (11.4)
+can do it **[issue][inf]**.
 
-VLM pipelines: Docling's `VlmPipeline` is a distinct document-conversion architecture, not another selectable OCR engine inside the standard OCR stage. Running a VLM alongside a conventional PDF pipeline is another form of independent interpretation, but it has different output and provenance characteristics.
+## 13. Mathematics and technical notation
 
-Image retention: preserving page and figure images in the JSON can support later verification, but increases payload size substantially. The images need not be embedded merely because OCR ran during conversion.
+### 13.1 How mathematics reaches a PDF page
 
-Sources:
+| Form in the PDF | What Docling gets natively | Which OCR route can help |
+|---|---|---|
+| Glyphs in fonts with correct ToUnicode maps | Characters, often with italics and sizes, but flattened: no fraction or script structure | None needed for characters; structure needs formula enrichment or a VLM |
+| Glyphs in fonts with broken or private-use maps | Junk or private-use characters | Broken-layer replacement (whole page, 5) or region OCR |
+| Glyphs drawn as filled paths (common from some TeX and office pipelines, and in figures) | Nothing for those glyphs | Selected clusters only (3.4); never inside native lines (4.4) |
+| Rasterised equations (images) | Nothing | Page-stage OCR (cluster touches a bitmap), formula enrichment, VLM |
 
-[https://docling-project.github.io/docling/reference/pipeline_options/](https://docling-project.github.io/docling/reference/pipeline_options/?utm_source=chatgpt.com)
+### 13.2 Page-stage engines and mathematics
 
-[https://docling-project.github.io/docling/usage/advanced_options/](https://docling-project.github.io/docling/usage/advanced_options/?utm_source=chatgpt.com)
+All page-stage engines output plain strings per line or word **[src]**. At best they produce linear text
+such as `E = mc2` or `E = mc²`; superscripts, subscripts, fractions, radicals, matrices and alignment are
+lost or garbled **[inf]**. RapidOCR's v6 dictionary covers many mathematical symbols (7.6), which helps
+operators and Greek letters but not structure **[src][inf]**. Native text has the same flattening; a
+proposal to infer super- and subscripts from glyph size and baseline is open
+([PR #4815](https://github.com/docling-project/docling/pull/4815)) **[issue]**. Mathematical content is
+also an open request ([#5097](https://github.com/docling-project/docling/issues/5097)) **[issue]**.
 
-## 13. Recommended OCR leverage for born-digital PDFs
+### 13.3 Formula enrichment
 
-For the stated scope—structured PDFs with existing text, producing structured JSON—I would distinguish three levels of processing rather than assume that more OCR is always better.
+`do_formula_enrichment=True` runs the code/formula model (`codeformulav2` by default; `granite_docling`
+alternative) on items labelled as formulas by layout, reading its own crop of the page image (scale 2.0,
+with an expansion factor around the box) and writing LaTeX to the item **[src]**. It reads pixels, so it
+works for path-drawn and rasterised formulas alike **[inf]**. Limits:
 
-| Level                              | Processing policy                                                         | Purpose                                                          |
-| ---------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| 1. Primary extraction              | Native text + `PDF_AWARE_LAYOUT_REGIONS` + broken-layer repair            | Preserve exact PDF text while recovering missing visual content  |
-| 2. Independent verification        | Different OCR model on regions with detected or consequential uncertainty | Identify silent substitutions and provide alternative candidates |
-| 3. Specialized semantic enrichment | Formula, code, table, figure and chart models                             | Recover structures and meanings that ordinary OCR cannot express |
+- It covers only regions the layout model labels as formulas; inline mathematics inside a text cluster
+  is not a separate item and is not enriched **[inf]**.
+- Formulas inside table cells are not enriched
+  ([#3828](https://github.com/docling-project/docling/issues/3828), open) **[issue]**.
+- It runs after assembly, independently of page-stage OCR; its LaTeX does not alter the cell text of
+  surrounding paragraphs **[src]**.
 
-The second level is the most relevant opportunity beyond Docling's built-in behavior. It is also where custom machinery becomes necessary, because Docling's standard OCR pipeline resolves candidate text geometrically rather than through multi-engine quality arbitration.
+### 13.4 Whole-page VLMs
 
-For normal prose, native PDF text should usually remain authoritative unless there is evidence of corruption. For critical numerical values, units, formula symbols and table cells, independent OCR can be valuable even when the native text looks valid. For text embedded in images or drawn as vectors, selective OCR is a recovery mechanism rather than merely a quality checker.
+Several presets (for example `granite_docling`, `mineru2_pro`, `chandra_ocr2`, `dots_ocr`, `glm_ocr`,
+`nanonets_ocr2`) are trained to emit LaTeX for inline and display mathematics **[doc]**. They recover the
+structure page-stage OCR loses, at the cost of regenerating native text (12.4).
 
-The guiding principle is preserve the source's exact programmatic information, use vision to recover what the source representation omits, and retain disagreements as evidence until they can be resolved.
+### 13.5 Targeting the gap
 
-### Most relevant primary references
+A design that needs inline mathematics from born-digital PDFs can combine native text with targeted
+reading **[inf]**:
 
-| Subject                                           | Direct URL                                                                                                                                                                                                              |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| OCR engines, language behavior, text-layer repair | [https://docling-project.github.io/docling/concepts/OCR/](https://docling-project.github.io/docling/concepts/OCR/?utm_source=chatgpt.com)                                                                               |
-| Full OCR options API                              | [https://docling-project.github.io/docling/reference/pipeline_options/](https://docling-project.github.io/docling/reference/pipeline_options/?utm_source=chatgpt.com)                                                   |
-| Version-specific OCR options                      | [https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py?utm_source=chatgpt.com) |
-| OCR-region selection and text-cell merging        | [https://github.com/docling-project/docling/blob/v2.145.0/docling/models/base_ocr_model.py](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/base_ocr_model.py?utm_source=chatgpt.com)           |
-| OCR plugins                                       | [https://docling-project.github.io/docling/concepts/plugins/](https://docling-project.github.io/docling/concepts/plugins/?utm_source=chatgpt.com)                                                                       |
-| Engine installation                               | [https://docling-project.github.io/docling/getting_started/installation/](https://docling-project.github.io/docling/getting_started/installation/?utm_source=chatgpt.com)                                               |
-| Custom RapidOCR checkpoints                       | [https://docling-project.github.io/docling/\_generated/examples/rapidocr_with_custom_models/](https://docling-project.github.io/docling/_generated/examples/rapidocr_with_custom_models/?utm_source=chatgpt.com)        |
-| SuryaOCR integration                              | [https://docling-project.github.io/docling/\_generated/examples/suryaocr_with_custom_models/](https://docling-project.github.io/docling/_generated/examples/suryaocr_with_custom_models/?utm_source=chatgpt.com)        |
-| Conversion confidence                             | [https://docling-project.github.io/docling/concepts/confidence_scores/](https://docling-project.github.io/docling/concepts/confidence_scores/?utm_source=chatgpt.com)                                                   |
-| Specialized enrichment models                     | [https://docling-project.github.io/docling/usage/enrichments/](https://docling-project.github.io/docling/usage/enrichments/?utm_source=chatgpt.com)                                                                     |
+1. Find candidate regions from the backend: clusters or line boxes that intersect visible shapes that are
+   not rule-like (`get_connected_shape_bounding_boxes`, `get_shape_lines`, `get_thin_shape_boxes`, or the
+   individual painted paths through docling-parse's page decoder `get_page_shapes`), or lines whose native
+   text has suspicious gaps between glyph boxes.
+2. Render those regions at a resolution suited to the reader (section 16).
+3. Read them with a formula model or a VLM for structure, or with a symbol-rich OCR recogniser for
+   linear text.
+4. Reconcile with native text in your own record (section 15.4), keeping both readings and their origin.
 
-Bottom line: The most useful multi-OCR architecture is not three recognizers competing to rewrite an entire born-digital PDF. It is a primary native-text-preserving conversion, followed by selective, independent recognition where the source is incomplete, suspicious or accuracy-critical, with the resulting evidence and decisions kept traceable in structured JSON.
+Shape boxes fuse through overlapping bounding boxes (3.4), so a page frame or background fill can merge
+everything into one box. Per-path geometry from the page decoder avoids that **[src][inf]**.
 
-# Best Docling configuration for complex PDFs with mathematical formulas
+## 14. Tables and OCR
 
-For a well-structured, born-digital PDF containing equations, tables, symbols and complex layouts, I would favor Docling's standard PDF pipeline with selective OCR, a strong layout model, and specialized formula enrichment rather than using a more powerful OCR engine indiscriminately.
+TableFormer predicts the cell grid and then fills cells with **tokens**, matched by position when
+`do_cell_matching=True` **[src]**. Tokens are assembled by `_words_and_ocr_cells`
+([table_structure_model.py#L53](https://github.com/docling-project/docling/blob/v2.145.0/docling/models/stages/table_structure/table_structure_model.py#L53))
+**[src]**:
 
-The key distinction is that ordinary OCR recognizes text; specialized formula models recognize mathematical expressions; layout and table models recover document structure. These are complementary capabilities.
+- native **words** not covered by a surviving OCR line;
+- plus OCR **words** (only engines that emit word cells) not lying on a kept native word;
+- plus OCR **lines** not covered by any OCR word.
 
-## 1. Recommended model combination
+This arrived in [PR #5022](https://github.com/docling-project/docling/pull/5022) (merged 2026-10-27) so that
+scanned forms with a few native words keep their OCR text **[issue]**. Consequences **[inf]**:
 
-| Processing stage      | Preferred configuration                       | Why                                                                |
-| --------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
-| Native PDF extraction | `docling-parse` through `StandardPdfPipeline` | Preserves programmatic text and geometry                           |
-| OCR engine            | RapidOCR, `onnxruntime`, `small`              | Flexible, efficient baseline for text missing from the PDF layer   |
-| OCR selection         | `PDF_AWARE_LAYOUT_REGIONS`                    | Avoids replacing good embedded text                                |
-| Text repair           | `replace_broken_text_layer=True`              | Recovers text from PDFs with corrupt Unicode mappings              |
-| Layout recognition    | Heron default, or Egret Large for comparison  | Recovers headings, paragraphs, figures, tables and formula regions |
-| Formula recognition   | CodeFormulaV2                                 | Converts recognized equations into LaTeX representations           |
-| Table structure       | TableFormer `ACCURATE`                        | Reconstructs rows, columns, merged cells and cell contents         |
-| Heading hierarchy     | `HeadingHierarchyOptions(enabled=True)`       | Improves the structured document tree                              |
-| Execution             | CUDA for supported model stages               | Accelerates model inference where supported                        |
+- With a line-level engine (RapidOCR, tesserocr), one OCR line can span several columns and land as one
+  token in one cell, or be split wrongly; word-level engines (Tesseract CLI, OnnxTR, Nemotron at `word`)
+  give TableFormer finer tokens.
+- In a born-digital table, native words dominate and OCR rarely contributes.
+- OCR'd text in table clusters disappearing from Markdown export was reported in
+  [#3473](https://github.com/docling-project/docling/issues/3473); related table/OCR work is open in
+  [PR #4634](https://github.com/docling-project/docling/pull/4634) **[issue]**.
 
-This is a proposed quality-oriented configuration based on the available capabilities, not a measured claim that this exact combination is globally optimal.
+## 15. Signals, scores and provenance
 
-The most important additional model is CodeFormulaV2, not a second general-purpose OCR engine. Docling's formula enrichment targets detected formula elements and produces LaTeX; it is disabled by default.&#x20;
+### 15.1 Cell-level signals
 
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+docling-core `TextCell`
+([page.py#L281](https://github.com/docling-project/docling-core/blob/v2.105.0/docling_core/types/doc/page.py#L281))
+carries `rect` (a rotatable `BoundingRectangle`), `text`, `orig`, `text_direction`, `confidence` and
+`from_ocr` **[src]**. Native cells are `PdfTextCell`
+([page.py#L364](https://github.com/docling-project/docling-core/blob/v2.105.0/docling_core/types/doc/page.py#L364)),
+which adds `rendering_mode`, `widget`, `font_key` and `font_name` and fixes `from_ocr=False`; their
+`confidence` is 1.0 **[src]**. OCR cells have `from_ocr=True` and the engine's score in `confidence`
+**[src]**.
 
-Docling+2
+Engine confidences are not comparable **[inf]**: RapidOCR reports a recognition score for the line;
+tesserocr the mean word confidence of a line; the Tesseract CLI per-word confidence; EasyOCR its own
+recogniser score after a 0.5 cut-off; Nemotron and Vision their own scales. Calibrate per engine before
+combining them.
 
+### 15.2 Conversion confidence
 
+`ConversionResult.confidence` is a `ConfidenceReport` with per-page `PageConfidenceScores`
+([base_models.py#L694](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/base_models.py#L694))
+**[src]**:
 
-## 2. Which components actually add information?
+| Score | Page value | Document value |
+|---|---|---|
+| `parse_score` | 10th percentile of per-cell `rate_text_quality` (5.2); 0 for a broken layer | 10th percentile over pages |
+| `layout_score` | From layout cluster confidences | Mean over pages |
+| `ocr_score` | Mean `confidence` of OCR cells that survived the merge; NaN when none | Mean over pages |
+| `table_score` | Not implemented (NaN) | NaN |
+| `mean_score` | NaN-mean of the four | |
+| `low_score` | 5th percentile of the four | |
 
-| Component                           | Additional information beyond PDF-native text                                                             |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| RapidOCR / Nemotron-OCR / Tesseract | Missing characters or text in raster/vector-drawn regions                                                 |
-| CodeFormulaV2                       | Mathematical syntax: fractions, exponents, subscripts, operators, matrices and other expression structure |
-| Heron / Egret layout models         | Semantic element types, bounding boxes and reading-order evidence                                         |
-| TableFormer                         | Cell boundaries, spanning cells, row/column structure and inferred header relationships                   |
-| Heading hierarchy recovery          | Relative section depth within the document                                                                |
-| Chart extraction VLM                | Inferred chart type, series, labels and numerical values                                                  |
-| Full-page document VLM              | Alternative interpretation of layout, text, equations and complex visual regions                          |
+Grades: below 0.5 `POOR`, below 0.8 `FAIR`, below 0.9 `GOOD`, otherwise `EXCELLENT` **[src]**. Caveats
+**[inf]**:
 
-For complex technical PDFs, the combination of layout detection and formula recognition can add much more useful structured information than replacing RapidOCR with a larger general-purpose OCR engine.
+- `ocr_score` ignores OCR output the merge discarded, and is NaN on pages where no OCR text survived, so
+  it says nothing about whether OCR was needed but skipped.
+- `parse_score` judges encoding damage, not completeness: a page missing all its path-drawn glyphs can
+  score 1.0.
+- A per-page confidence breakdown was the subject of
+  [#4233](https://github.com/docling-project/docling/issues/4233) (closed) **[issue]**.
 
-The limitation is that formula enrichment operates on elements identified as formulas. It cannot enrich an equation that was never detected or was flattened into ordinary paragraph text. This becomes important for inline equations and formulas inside tables, discussed below.
+### 15.3 What survives into `DoclingDocument`
 
-## 3. Performance and accuracy tradeoffs
+A document item's provenance is `ProvenanceItem(page_no, bbox, charspan)`
+([reference.py#L205](https://github.com/docling-project/docling-core/blob/v2.105.0/docling_core/types/doc/common/reference.py#L205))
+**[src]**. Nothing records whether the text came from OCR, which engine produced it, or its confidence.
+Exported JSON therefore cannot distinguish OCR text from native text **[src]**.
 
-The largest performance difference comes from which regions and models are invoked, not simply which OCR engine is chosen.
+To keep cell-level evidence, set `generate_parsed_pages=True` so that each `ConversionResult.pages[i]`
+keeps its `parsed_page` (`SegmentedPdfPage` with the merged `textline_cells`, `word_cells`, `char_cells`
+and their `from_ocr`/`confidence`), and write what you need into a side record keyed by page and box before
+discarding the result **[src][inf]**. A post-OCR hook for layout plugins is requested in
+[#4458](https://github.com/docling-project/docling/issues/4458) **[issue]**.
 
-| Option                               | Relative computational cost                  | Structural contribution                         | Assessment                                                                       |
-| ------------------------------------ | -------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------- |
-| Native text + selective RapidOCR     | Low OCR overhead when native text is good    | Recovers otherwise missing text                 | Best baseline                                                                    |
-| RapidOCR `medium` instead of `small` | Potentially higher                           | None beyond recognition                         | Worth comparing for small or difficult text; no verified universal accuracy gain |
-| Nemotron-OCR v2                      | GPU-oriented; runtime dependent              | Text recognition, with configurable granularity | Alternative recognizer, not a formula/structure model                            |
-| Egret Large instead of Heron         | Higher model cost                            | Potentially better layout detection             | Particularly worth testing for complex documents                                 |
-| CodeFormulaV2                        | Additional inference for detected formulas   | LaTeX mathematical representation               | High-value enrichment                                                            |
-| TableFormer `ACCURATE`               | More expensive than `FAST`                   | Better reconstructed table structure            | Prefer for complex tables                                                        |
-| Granite-Docling formula enrichment   | Separate VLM model                           | Alternative formula interpretation              | Useful comparative option                                                        |
-| Full-page VLM conversion             | Potentially substantial additional inference | End-to-end visual document reconstruction       | Alternative for pages the standard pipeline handles poorly                       |
+### 15.4 A side record that keeps OCR evidence
 
-The official model catalog specifically identifies `layout_egret_large` and `layout_egret_xlarge` as higher-accuracy options for complex documents, but it does not establish that every document benefits from their additional computational cost.&#x20;
+Illustrative sketch, not executed:
 
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+```python
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import OcrMode, PdfPipelineOptions, RapidOcrOptions
+from docling.document_converter import DocumentConverter, PdfFormatOption
 
-Docling+2
+options = PdfPipelineOptions(
+    do_ocr=True,
+    ocr_options=RapidOcrOptions(
+        lang=["iso:en"],
+        mode=OcrMode.PDF_AWARE_LAYOUT_REGIONS,
+        replace_broken_text_layer=True,
+    ),
+    generate_parsed_pages=True,
+)
+converter = DocumentConverter(
+    format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=options)}
+)
+result = converter.convert("report.pdf")
 
-
-
-### The most consequential formula-model options
-
-`CodeFormulaVlmOptions` has several useful controls:
-
-- `scale=2.0` — image resolution multiplier for the formula crop.
-- `expansion_factor=0.18` — default crop margin around each equation.
-- `stop_on_repetition=True` — protects against repetitive generated output.
-- `max_size` — optional maximum image dimension.
-- `engine_options` — controls the inference backend.
-
-Docling explicitly documents that a wide formula crop can include a neighboring equation number or text and cause the formula model to generate repeated filler. It demonstrates reducing `expansion_factor` to `0.08` to mitigate this.
-
-This is worth paying attention to on papers with dense, closely spaced equations. However, a crop that is too tight can omit useful parts of a formula.&#x20;
-
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
-
-Docling
-
-
-
-Source: [https://docling-project.github.io/docling/usage/enrichments/](https://docling-project.github.io/docling/usage/enrichments/?utm_source=chatgpt.com)
-
-## 4. Recommended Python configuration
-
-This configuration prioritizes the quality of the structured JSON for complex technical PDFs, assuming a compatible CUDA installation.
-
+evidence = []
+for page in result.pages:
+    scores = result.confidence.pages[page.page_no]
+    for cell in page.parsed_page.textline_cells:
+        if cell.from_ocr:
+            box = cell.rect.to_bounding_box()
+            evidence.append({
+                "page": page.page_no,
+                "bbox": box.as_tuple(),
+                "origin": box.coord_origin.value,
+                "text": cell.text,
+                "confidence": cell.confidence,
+            })
+    print(page.page_no, scores.parse_score, scores.ocr_score, scores.low_grade)
 ```
-from docling.datamodel.base_models import InputFormatfrom docling.datamodel.accelerator_options import (    AcceleratorDevice,    AcceleratorOptions,)from docling.datamodel.pipeline_options import (    PdfPipelineOptions,    RapidOcrOptions,    OcrMode,    LayoutObjectDetectionOptions,    TableStructureOptions,    TableFormerMode,    CodeFormulaVlmOptions,    HeadingHierarchyOptions,)from docling.document_converter import DocumentConverter, PdfFormatOptionoptions = PdfPipelineOptions(    # Hardware    accelerator_options=AcceleratorOptions(        device=AcceleratorDevice.CUDA,    ),    # Preserve native PDF text and recover missing regions    do_ocr=True,    ocr_options=RapidOcrOptions(        backend="onnxruntime",        lang=["iso:en"],        model_size="small",        mode=OcrMode.PDF_AWARE_LAYOUT_REGIONS,        replace_broken_text_layer=True,    ),    # Higher-capacity layout recognition    layout_options=LayoutObjectDetectionOptions.from_preset(        "layout_egret_large"
+
+### 15.5 Debugging aids
+
+- `settings.debug.visualize_ocr = True` draws OCR rectangles and resulting cells for each page **[src]**.
+- `settings.debug.profile_pipeline_timings = True` records stage timings, including an `ocr` entry, in
+  `ConversionResult.timings` **[doc]**.
+- Logs: the selector logs when a broken layer triggers full-page OCR **[src]**.
+
+## 16. Region OCR outside a full conversion
+
+Docling exposes the pieces needed to read chosen regions after (or instead of) a conversion **[src]**:
+
+| Need | Mechanism |
+|---|---|
+| Page image at a known scale | `generate_page_images=True` with `images_scale`, then `doc.pages[n].image.pil_image`; or a backend's `get_page_image(scale, cropbox)` |
+| Regions | Item provenance boxes (bottom-left origin in PDF points), cluster boxes from `ConversionResult.pages[i].predictions.layout`, or backend shape queries (13.5) |
+| Coordinate conversion | `BoundingBox.to_top_left_origin(page_height)`, then multiply by the image scale |
+| Engine | Any engine called directly, for example `rapidocr.RapidOCR` with `return_word_box=True` |
+
+Illustrative sketch, not executed:
+
+```python
+import numpy as np
+from rapidocr import RapidOCR
+
+engine = RapidOCR(params={"Global.max_side_len": 4000})
+
+
+def read_region(doc, item, scale):
+    prov = item.prov[0]
+    page = doc.pages[prov.page_no]
+    image = page.image.pil_image                          # rendered at `scale`
+    box = prov.bbox.to_top_left_origin(page.size.height)
+    crop = image.crop((box.l * scale, box.t * scale, box.r * scale, box.b * scale))
+    out = engine(np.asarray(crop), return_word_box=True)
+    return list(zip(out.txts or [], out.scores or [])), out.word_results
 ```
 
-The APIs and presets are documented for the targeted release. The exact combined configuration has not been benchmarked here. ONNX Runtime GPU acceleration also requires the CUDA execution provider to be available; merely selecting a CUDA accelerator does not guarantee that RapidOCR itself uses the GPU.&#x20;
+Rendering at a higher `images_scale` than OCR's 3.0 helps small symbols; RapidOCR's `max_side_len`
+must then be raised or the crop is shrunk again (7.4) **[inf]**. Fonts that are not embedded are rendered
+with system fallbacks, so the same PDF can render differently on different machines
+([#4995](https://github.com/docling-project/docling/issues/4995), open) **[issue]**.
 
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+## 17. Using several engines
 
-Docling+2
+Docling runs one page-stage engine per conversion **[src]**. Multi-engine designs are built around it
+**[inf]**:
 
+| Strategy | How | Value |
+|---|---|---|
+| Second reading of selected regions | Run region OCR (16) with a different engine on low-confidence cells, clusters with unaccounted shapes, or pages graded `POOR`/`FAIR` | Catches single-engine errors where they are likely |
+| Two conversions | Convert twice with different `ocr_options`, align items by provenance box | Simple, but doubles layout and table cost; layout may differ between runs |
+| Plugin engine that wraps two engines | Read each rectangle with both and emit the agreed or better-scoring text | One conversion; full control of the merge |
 
+Comparing readings needs normalisation (Unicode NFKC, whitespace, ligatures, hyphenation, quote and dash
+variants) and alignment at word or character level, with confidences calibrated per engine (15.1).
+Agreement between engines that share architecture or training data (for example two PP-OCR variants) is
+weaker evidence than agreement between unrelated engines **[inf]**. On born-digital pages, native text is a
+third, usually more reliable, witness wherever it exists **[inf]**.
 
-For faster execution, the first change I would consider is switching Egret Large back to the default Heron layout model. For higher OCR capacity, the first comparison would be RapidOCR `small` against `medium`, rather than immediately replacing all native PDF text with OCR.
+## 18. Performance, assets and determinism
 
-## 5. Two important limitations for mathematical PDFs
+### 18.1 What drives OCR cost
 
-### 5.1 Formula recognition depends on region detection
+Qualitatively **[inf]**:
 
-CodeFormulaV2 operates on document elements already classified as formulas.
+- **Selected area.** Pixel count grows with the square of `scale`; the selector (3.3) decides how much of
+  the page is read. Vector-heavy pages can send whole figures to OCR (#4489).
+- **Region count.** Each rectangle is a separate engine call (except Nemotron's batching); RapidOCR's
+  detection upscaling (7.4) makes many small regions relatively costly.
+- **Full-page mode** reads everything, but skips the native decode, which on extremely vector-dense pages
+  is itself the dominant cost (#4058).
+- **Shape queries.** The PDF-aware selector reads connected shape boxes only when a cluster has both text
+  and shapes, once per page **[src]**.
+- **Orientation passes.** RapidOCR `detect_orientation` and Tesseract OSD add extra passes per region
+  **[src]**.
 
-A formula embedded inside an ordinary paragraph may not be identified as a separate formula region. An equation that is never detected as such cannot benefit from the specialized formula stage.
+### 18.2 Threads and devices
 
-Docling's recognized equations can carry LaTeX text in the structured document. This is valuable, but it is not the same as a validated symbolic mathematical expression tree. Formula recognition can still produce mathematically incorrect LaTeX.
+`AcceleratorOptions(device, num_threads)` sets the device for all models and, for RapidOCR on ONNX
+Runtime, `intra_op_num_threads` **[src]**. The threaded pipeline runs stages concurrently, so OCR threads
+compete with layout, table and parser threads; total CPU use is the sum **[inf]**. `ocr_device`-style
+per-stage device choices are not part of `PdfPipelineOptions`; the accelerator device applies to all stages
+**[src]**.
 
-### 5.2 Formulas inside PDF table cells are a known gap
+### 18.3 Model assets and offline use
 
-This is especially significant for complex technical documents.
+| Engine | Where models come from | Offline route |
+|---|---|---|
+| RapidOCR | Bundled small v6 det/rec and classifier in the wheel; others downloaded | `docling-tools models download rapidocr ...` into `artifacts_path`; or `det/cls/rec_model_path` |
+| Tesseract | System traineddata (`tessdata`, `tessdata_best`, `tessdata_fast`) | Install traineddata; set `path` |
+| EasyOCR | Downloaded on first use | `model_storage_directory` with `download_enabled=False` |
+| Nemotron | Hugging Face download | Model directory resolution in `_resolve_model_dir`; `download_models` |
+| VLM presets | Hugging Face, Ollama or a remote server | Pre-pulled weights; `artifacts_path` |
 
-An upstream issue reports that formula enrichment does not traverse ordinary PDF `TableCell` content. Consequently, a table cell containing a complex equation can be reduced to visually ordered text instead of becoming a properly reconstructed LaTeX formula. The issue also discusses cells containing mixtures of prose and several equations.
+**[src]**
 
-That issue remained open in the retrieved upstream discussion. The existing rich-cell representation can support more complex content, but the standard PDF enrichment pipeline does not automatically populate it for all such cases.&#x20;
+### 18.4 Determinism
 
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+Sources of run-to-run or machine-to-machine variation **[issue][inf]**:
 
-GitHub
+- Timer-based batch assembly ([#4274](https://github.com/docling-project/docling/issues/4274), open).
+- Auto engine selection depends on the machine (10.4).
+- Font fallback rendering ([#4995](https://github.com/docling-project/docling/issues/4995), open).
+- GPU kernel selection, for example RapidOCR's `cudnn_conv_algo_search: EXHAUSTIVE`, can choose different
+  kernels per machine and run.
+- Thread counts can change floating-point summation order on CPU; whether that alters RapidOCR output
+  was not checked.
 
+Pinning engine, model files, `scale`, thread count and fonts removes most of these; batch timing needs
+the fix tracked in #4274.
 
+## 19. Evaluation, choosing a configuration, open issues and sources
 
-Source: [https://github.com/docling-project/docling/issues/3828](https://github.com/docling-project/docling/issues/3828?utm_source=chatgpt.com)
+### 19.1 Public benchmarks
 
-This is one reason to investigate an alternative full-document VLM pipeline when formulas are especially dense or integrated into tables.
+| Benchmark | Content | Metrics | Caveat |
+|---|---|---|---|
+| [OmniDocBench](https://arxiv.org/abs/2412.07626) (CVPR 2025) | 981 pages, 9 document types, 19 layout categories | Normalised edit distance for text and reading order; CDM, NED and BLEU for formulas; TEDS for tables | Page-level end-to-end; mixes OCR with layout and structure |
+| [olmOCR-bench](https://github.com/allenai/olmocr) | 1,403 PDFs, 7,010 unit tests: math 3,385, reading order 1,061, text absent 823, text present 721, tables 1,020 | Pass rate of unit tests | Math tests come mostly from arXiv (522 PDFs / 2,927 tests) and old scans (36 / 458); ground truth partly model-assisted |
+| PP-OCRv6 figures | PaddleOCR internal benchmark | Detection Hmean, recognition accuracy | Vendor benchmark |
+| Surya 2 | 91-language benchmark by Datalab | Accuracy | Vendor benchmark |
 
-## 6. Which alternative models deserve investigation?
+**[doc]** These rank systems on their own datasets; none transfers to a specific corpus.
+[`docling-eval`](https://github.com/docling-project/docling-eval) (1.4.2) provides dataset builders and
+evaluators for running Docling configurations against such datasets **[doc]**.
 
-Two additional Docling-supported model families stand out.
+### 19.2 Born-digital pages as free ground truth
 
-MinerU2.5-Pro uses a two-stage architecture: page-level layout detection followed by region-specific recognition, including formulas and OTSL table structures. It is a particularly relevant alternative when the standard pipeline fails to identify or reconstruct mathematical regions.
+On pages with a good native layer, the native text is ground truth for an OCR engine's reading of the
+same regions **[inf]**. Converting a sample with `LAYOUT_REGIONS` (OCR first) and comparing OCR cells
+with the native cells of a PDF-aware run, region by region, measures each engine's character error rate,
+symbol handling and spacing on the corpus's own fonts and layouts, without labelling. It does not measure
+recognition of degraded scans or of path-drawn glyphs (which have no native text by definition).
 
-Nemotron 3.5 Parse supplies another integrated document interpretation path, including native layout information, table representations and chart data. It is distinct from Nemotron-OCR, which serves the narrower text-recognition role.
+### 19.3 Choosing a configuration
 
-Both are available through Docling's VLM model catalog. They should be evaluated as alternative document parsers, not as OCR engines swapped into `RapidOcrOptions`. Their ability to produce rich structures does not guarantee better fidelity for every document, and a generative document parser may sacrifice some of the exactness available from the PDF text layer.&#x20;
+| Document population | Starting configuration | Why |
+|---|---|---|
+| Born-digital, good text layer, few images | `PDF_AWARE_LAYOUT_REGIONS`, `replace_broken_text_layer=True`, a fixed engine | OCR only where native text is absent; broken pages repaired **[inf]** |
+| Born-digital with path-drawn mathematics | As above, plus formula enrichment, plus region reading of shape-bearing lines (13.5), or a grounded VLM for affected pages | Page-stage OCR cannot insert inline glyphs (4.4) **[inf]** |
+| Vector-heavy figures and diagrams | PDF-aware, accept figure OCR cost, or lower the scale for figure clusters through a plugin | #4489 slowdown **[issue][inf]** |
+| Scans | PDF-aware reads every layout cluster of a text-less page; `FULL_PAGE` also reads text the layout model missed. Raise RapidOCR `max_side_len` for full pages | 3.2, 7.4 **[inf]** |
+| Mixed scans with old OCR layers | PDF-aware; invisible layers are treated as absent and kept as fallback | 3.4 **[src]** |
+| Rotated pages | RapidOCR `detect_orientation=True`, or Tesseract (OSD) | 7.5, 8 **[src]** |
+| Non-Latin or mixed scripts | `iso:` tags; RapidOCR v6 multilingual, Tesseract with several languages, or Nemotron multilingual for CJK and Russian | 6.2 **[doc]** |
+| Tables from scans | Word-level engine (Tesseract CLI, OnnxTR) | 14 **[inf]** |
+| GPU available, Linux | Nemotron OCR, or a grounded VLM preset | 10.1, 12 **[doc]** |
+| Reproducible batch processing | Never `OcrAutoOptions`; pin engine, models, scale, threads | 18.4 **[inf]** |
 
-[image](https://www.google.com/s2/favicons?domain=https://docling-project.github.io\&sz=32)
+### 19.4 Open issues and pull requests to watch
 
-Docling
+| Number | Topic | Status (2026-10-31) |
+|---|---|---|
+| [#4489](https://github.com/docling-project/docling/issues/4489) | PDF-aware OCR of every cluster touching a vector shape, 8 to 12 times slower | Open |
+| [#4139](https://github.com/docling-project/docling/issues/4139) | Threaded parser regresses OCR on rasterised regions | Open |
+| [#5059](https://github.com/docling-project/docling/issues/5059) | Replace only broken clusters, not whole pages | Open |
+| [#5088](https://github.com/docling-project/docling/issues/5088) | Broken-layer detection for Indian scripts | Open |
+| [#5105](https://github.com/docling-project/docling/issues/5105) | `zxx-Latn` accepted as an OCR language | Open |
+| [#4274](https://github.com/docling-project/docling/issues/4274) | Results depend on machine load | Open |
+| [#4995](https://github.com/docling-project/docling/issues/4995) | Rendering depends on system fonts | Open |
+| [#4131](https://github.com/docling-project/docling/issues/4131) | Detector input limit downscales silently | Open |
+| [#4566](https://github.com/docling-project/docling/issues/4566) | Occluded text counted as visible | Open |
+| [#3828](https://github.com/docling-project/docling/issues/3828) | Formula enrichment in table cells | Open |
+| [#4146](https://github.com/docling-project/docling/issues/4146), [PR #4148](https://github.com/docling-project/docling/pull/4148) | Tagged-PDF structure tree ingestion | Open |
+| [PR #4815](https://github.com/docling-project/docling/pull/4815) | Super/subscript from glyph size and baseline | Open |
+| [PR #4168](https://github.com/docling-project/docling/pull/4168) | RapidOCR CUDA algorithm search | Open |
+| [PR #4942](https://github.com/docling-project/docling/pull/4942) | Tesseract reliability | Open |
+| [PR #4342](https://github.com/docling-project/docling/pull/4342), [PR #4725](https://github.com/docling-project/docling/pull/4725) | EasyOCR canvas size, CUDA cache | Open |
+| [#4458](https://github.com/docling-project/docling/issues/4458) | Post-OCR hook for layout plugins | Open |
+| [#2711](https://github.com/docling-project/docling/issues/2711), [#2495](https://github.com/docling-project/docling/issues/2495) | VLM as OCR engine; PaddleOCR-VL | Open |
+| [PR #4789](https://github.com/docling-project/docling/pull/4789), [PR #5107](https://github.com/docling-project/docling/pull/5107) | LightOnOCR-3 and Unlimited-OCR 2 presets | Merged after 2.145.0 |
 
+Statuses were taken from GitHub search results on the research date; check before relying on them.
 
+### 19.5 Resource map
 
-Source: [https://docling-project.github.io/docling/usage/model_catalog/](https://docling-project.github.io/docling/usage/model_catalog/?utm_source=chatgpt.com)
-
-## 7. Practical comparison
-
-Default technical-PDF path
-
-Standard pipeline + PDF-aware RapidOCR + Egret/Heron + CodeFormulaV2 + accurate TableFormer.
-
-Primary
-
-Formula-heavy or structurally problematic pages
-
-Compare with `mineru2_pro`, particularly when formulas are inline, embedded in tables, or incorrectly classified.
-
-Alternative
-
-Critical numerical or symbolic transcription
-
-Run an independent OCR or formula recognizer on the uncertain regions and retain disagreements rather than overwriting the native text automatically.
-
-Validation
-
-The single strongest distinction is this: a better OCR engine may recover more characters, but CodeFormulaV2 and a strong layout model can recover fundamentally different information—the structure of the equation and its place in the document.
-
-For the kind of structured PDF described, I would prioritize formula enrichment and layout quality before spending additional inference on multiple general-purpose OCR engines.
+- OCR concept page: <https://docling-project.github.io/docling/concepts/OCR/>
+- Pipeline options reference: <https://docling-project.github.io/docling/reference/pipeline_options/>
+- Plugins: <https://docling-project.github.io/docling/concepts/plugins/>
+- Base OCR model (selection and merge):
+  <https://github.com/docling-project/docling/blob/v2.145.0/docling/models/base_ocr_model.py>
+- Engine adapters:
+  <https://github.com/docling-project/docling/tree/v2.145.0/docling/models/stages/ocr>
+- Text-quality heuristics:
+  <https://github.com/docling-project/docling/blob/v2.145.0/docling/utils/text_quality.py>
+- Language resolver:
+  <https://github.com/docling-project/docling/blob/v2.145.0/docling/utils/ocr_language.py>
+- VLM presets:
+  <https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/stage_model_specs.py>
+- docling-core page types:
+  <https://github.com/docling-project/docling-core/blob/v2.105.0/docling_core/types/doc/page.py>
+- RapidOCR configuration: <https://github.com/RapidAI/RapidOCR/blob/v3.10.0/python/rapidocr/config.yaml>
+- PP-OCRv6: <https://www.paddleocr.ai/>
+- Tesseract page segmentation and models: <https://tesseract-ocr.github.io/tessdoc/>
+- EasyOCR API: <https://www.jaided.ai/easyocr/documentation/>
+- Nemotron OCR v2: <https://huggingface.co/nvidia/nemotron-ocr-v2>
+- OnnxTR plugin: <https://github.com/felixdittrich92/docling-OCR-OnnxTR>
+- Surya: <https://github.com/datalab-to/surya>
+- OmniDocBench: <https://github.com/opendatalab/OmniDocBench>
+- olmOCR-bench: <https://github.com/allenai/olmocr>
+- docling-eval: <https://github.com/docling-project/docling-eval>

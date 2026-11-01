@@ -72,3 +72,55 @@ The service now runs from the stable cache environment outside the temporary wor
 service enables vLLM level1 sleep/wake so fresh native Docling conversion and Nemotron inference can
 release GPU ownership between phases. `runtime/phase-api-control.json` passed actual sleep/state/wake
 requests; the fresh composed producer journey remains a separate obligation.
+
+### Integrated publication and native consumer checkpoint — 2026-10-31
+
+Fresh composed toy preparation passed in run7/task70 through actual Standard CUDA conversion,
+GPU release/wake and true triple recognition, retaining native, organized, raw and integrated
+products. It establishes composed source capability; its waiting agent tasks are not a completed
+knowledge result.
+
+Native fixture migration preserved independent scientific, claim, citation, identity, decimal and
+attack expectations. It exposed and corrected native evidence custody, source-frame backfill,
+configured math fallback, SourceView document coverage/protocol and identity-exclusion enforcement.
+`consumers/source-fixture-migration-closeout.json` retains the exact194-case affected union and
+all failed development attempts. Forward0059 was deployed only to the owned PDF database;
+frozen0057/0058 were unchanged.
+
+The source-stable broad functional receipt
+`build/test-receipts/qualification/20261101T033536Z-3956304` passed2638 Python tests with complete
+reporting and no failed/error/skipped cases. No Rust tests were listed, establishing no Rust
+functional coverage. The first interrupted/failed broad receipt and second2527passed/95failed
+receipt remain unchanged. Passing warning-inclusive Pyrefly results precede cosmetic formatting;
+formatting does not invalidate applicable passing type/test evidence. The new0060 functional
+admission change still needs its own final-source verification.
+
+Whole-book preparation retained each actual failed/interrupted invocation. List membership,
+unconsumed syntax demand, quadratic subtree deletion, nullable ordinary-picture metadata and
+rich-cell subtree projection defects were corrected. Attempt6 then reached protected publication
+and failed on PostgreSQL's JSONB aggregate array limit before semantic guards. Exact read-only
+replay retained558,190,320 canonical bytes in `integration/raw/book-task86-prepared.json.gz`.
+There are270,447 relations occupying355,630,981 canonical bytes; the largest is25,216 bytes.
+Independent native casts confirm that selected content and occurrences fit JSONB while the complete
+relation array does not. `integration/raw/book-task86-jsonb-field-casts.json` retains the actual
+failure; no complete integrated book publication is claimed by this checkpoint.
+
+ADR-0041 selects JSON-text decomposition into existing normalized rows while retaining exact
+canonical bytea and one native Docling JSONB content value. Closed model-derived shape/cardinality,
+custody, fences, endpoint inventory, decisions and coverage remain native enforcement obligations.
+No evidence is truncated and no semantic sections are split. Actual external interfaces, five-section
+extraction, independent references/grading and completed-result/default adoption remain open.
+
+### Authorized obsolete-artifact cleanup — 2026-10-31
+
+The operator explicitly authorized removal of obsolete artifacts. The old dedicated corpus
+slow-query log was truncated only after preserving its current book failure records; it occupied
+24,443,952,307 bytes. Bind-parameter logging is now disabled for duration/error/auto-explain while
+timing/error diagnostics remain enabled; actual reload required no restart and `just ready` passed.
+`runtime/storage-log-cleanup.json` retains before/after space and the unsuccessful initial permission
+attempt. The subagent removed six old probe installations, nine dead pytest directories, stale
+links and generated docs; most package files were externally hardlinked, so its measured net gain
+was752,508,928 bytes rather than the directories'10GB apparent allocation. Exact paths/liveness,
+DB ownership/OID checks and outcomes are in `runtime/storage-cleanup-20261101T034630Z/`.
+No abandoned authenticated test databases were found. Active/prod databases, current environments,
+model weights, source inputs, raw recognition and all evidence/results were preserved.

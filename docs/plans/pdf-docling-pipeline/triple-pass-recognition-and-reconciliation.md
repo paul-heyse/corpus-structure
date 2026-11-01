@@ -1,10 +1,29 @@
 # Triple-pass recognition and integrated content selection
 
-**Status:** Planned; inference, runtime feasibility and local quality are not_run. **2026-10-31.**
+**Status:** Implemented and targeted-tested; actual full-book recognition passed. Integrated publication and independent quality assessment remain in the coordinator. **2026-10-31.**
 [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns current state and investigations.
 Consumes the [review](../../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md)
 O01/O03/O04/O05/O06 and its target at `d25fff8`. PDF-13 owns shared contracts;
 PDF-16 owns downstream migration. Native StandardPdfPipeline/RapidOCR remains one attributed route.
+
+## Implemented mechanisms — 2026-10-31
+
+The owned producer uses public union crops, finite page workers and streamed fenced retention of
+submitted images, raw text, full HTTP responses and decisions. The isolated runtime preserves the
+root full-Docling environment. Native GPU work releases its owned child before Nemotron wakes;
+retained Standard or integrated pins reuse exactly the requested product.
+
+Selection maps rich table/chart/caption/inline structures through Docling, normalizes headings once
+across the document and preserves intact sections. Sparse page/geometry candidates and RapidFuzz
+supply comparisons; the archived policy explicitly requests lexical comparison for keep/add/replace
+or unresolved alternatives. Positioned parsing and SymPy remain explicit stronger demands, avoiding
+unconsumed symbolic work during integration. Bulk typed-reference removal replaces the pinned
+library's quadratic deletion path while preserving surviving identity and validating the Docling tree.
+Coarse inherited evidence stays coarse; selected cells do not acquire invented fine boxes.
+
+[Integrated evidence](../../design_review/evidence/2026-10-31_pdf-integrated-adoption/README.md)
+retains actual recognition and bounded mapping/publication controls, original failures and recoveries.
+Whole-book integrated publication and independent knowledge/source assessment remain distinct obligations.
 
 ## Foundation and selected realization
 

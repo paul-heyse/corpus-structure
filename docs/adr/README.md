@@ -28,6 +28,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0034](0034-recorded-agent-supervision.md) | Agents execute the semantic queue through supervised or interactive MCP sessions | 2026-10-30 | [§B3](../design/DESIGN.md#section-b3) | Implemented | [ADR-0015](0015-agent-work-queue.md) |
 | [ADR-0035](0035-model-governed-analysis.md) | One interpretation authority governs prepared analytical representations | 2026-10-30 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0012](0012-math-grammar-token-keys.md) |
 | [ADR-0040](0040-forward-pdf-only-contracts.md) | Maintain the integrated PDF architecture without historical HTML compatibility | 2026-10-31 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0039](0039-integrated-pdf-products.md) |
+| [ADR-0041](0041-json-text-pdf-publication.md) | Publish large PDF companions as bounded native records | 2026-10-31 | [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 
 ## Superseded, still in the tree
 

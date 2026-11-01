@@ -1,0 +1,12 @@
+{
+  "at": "2026-11-01T04:54:49.464716+00:00",
+  "pid": 3501197,
+  "scope": "owned dedicated loopback8035 Nemotron service; stable model/env retained",
+  "command": "/home/paul/.cache/corpus-structure/nemotron-runtime-py312/bin/python /home/paul/.cache/corpus-structure/nemotron-runtime-py312/bin/vllm serve /home/paul/.cache/corpus-structure/nemotron-parse-4035ffb --served-model-name nemotron-parse --trust-remote-code --dtype bfloat16 --distributed-executor-backend uni --tensor-parallel-size 1 --data-parallel-size 1 --max-model-len 16384 --max-num-seqs 4 --max-num-batched-tokens 16384 --no-enable-prefix-caching --limit-mm-per-prompt {\"image\":1} --attention-config {\"flash_attn_version\":3} --chat-template /home/paul/.cache/corpus-structure/nemotron-parse-4035ffb/chat_template.jinja --host 127.0.0.1 --port 8035 --gpu-memory-utilization 0.72 --enable-sleep-mode ",
+  "pgid": 3501197,
+  "signal": "SIGTERM",
+  "leader_live": false,
+  "outcome": "passed",
+  "live_owned_process_group": [],
+  "endpoint_reachable": false
+}

@@ -5,11 +5,26 @@
 > source reuse and generic analytical behavior. Existing data/frozen migrations/evidence remain inert.
 
 
-**Status:** Planned extension, not delivered consumer behavior. **2026-10-31.**
+**Status:** Consumer mechanisms implemented and targeted-tested; current external/provider/reference journeys and assembled adoption remain open in the coordinator. **2026-10-31.**
 [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns package/O/I state.
 Consumes [review O07](../../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O07)
 and its target at `d25fff8`, with O02–05 evidence semantics supplied by PDF-13/15.
 PDF-10/11 retain operational adoption and assembled qualification; this is not another acceptance ledger.
+
+## Implemented consumer mechanisms — 2026-10-31
+
+One selected-product reader supplies native and integrated SourceViews, frame-v3 packets, scientific
+methods and current CLI/query/MCP consumers. Companions retain scoped decisions and input ancestry;
+paged manifests and pin-authorized 64KiB artifact reads expose retained raw evidence. Integrated JSON
+includes its companion; JSONL/Parquet carry resolvable bindings, while content-only Docling export
+explicitly declares omissions. Retained reads use the qualified archived ABI/schema rather than
+initializing models or comparing unrelated helper-file hashes. Historical HTML runtime/read/replay
+routes and direct application-only HTML dependencies are retired under ADR-0040.
+
+The coordinator and [integrated evidence](../../design_review/evidence/2026-10-31_pdf-integrated-adoption/README.md)
+retain the exact verification boundary. Controlled/component checks establish their selected behavior;
+actual external attachment/render, five-section provider extraction, independent grading and adopted
+completed-result/default selection remain PDF-10/11 obligations.
 
 ## Foundation and consumer boundary
 

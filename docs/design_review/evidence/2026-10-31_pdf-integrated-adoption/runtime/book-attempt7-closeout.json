@@ -1,0 +1,23 @@
+{
+  "run": {
+    "id": 14,
+    "status": "cancelled",
+    "sealed": false,
+    "result_realization_id": null
+  },
+  "tasks": [
+    {
+      "id": 87,
+      "status": "cancelled",
+      "stage": "ingest",
+      "unit_type": "document"
+    }
+  ],
+  "products": {
+    "recognition_observation": 3441
+  },
+  "book_attempt7_cli_exit_code": 130,
+  "outcome": "interrupted",
+  "integrated_publication": "not_committed",
+  "context": "cancelled oversized child-validation execution; prior raw observations retained"
+}

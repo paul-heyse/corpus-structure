@@ -1,7 +1,7 @@
 # Integrated PDF/Docling and Nemotron pipeline
 
-**Status:** Active; native baseline through 0055 and PDF-13 integrated foundation implemented.
-PDF-14–16 remain planned and unimplemented. Operational adoption and complete qualification remain open.
+**Status:** Active; native deployment through 0058, integrated producers/selection/readers implemented.
+Whole-book recognition passed; integrated publication, actual consumer adoption and complete qualification remain open.
 **Created/revised:** 2026-10-31.
 **Basis:** Original [PDF review](../functional_reviews/pdf-docling-pipeline_2026-10-31.md)
 at `2c333722fe9b3ad03c8004d14c5f50a1605c3f4b` and its target; added
@@ -47,10 +47,12 @@ new alignment lint, cost model, generic workflow engine or additional proof fram
 
 ## 2. Baseline and foundation assessment
 
-Current production baseline is `39eda6e`; review publication `d25fff8` changed documentation
-only. Full Docling2.145.0/core2.105.0 and requested extras are installed, native schema1.10.0 is
-bound, active HTML writers are retired and owned native storage is at 0055. Prior PP/PDF receipts
-retain their scope; none establishes Nemotron runtime or integrated-product qualification.
+The current execution baseline deploys native0059 with compiler14/core0.6.2, full
+Docling2.145.0/core2.105.0 and native schema1.10.0. Integrated producers, governed selection,
+scoped readers and forward-only consumers are implemented. Actual all-page Nemotron recognition
+and fresh composed toy publication passed; whole-book integrated publication and assembled
+consumer/evaluator adoption remain separate acceptance obligations. Prior PP/PDF receipts retain
+their original scope; no source result is relabelled as knowledge or fidelity qualification.
 
 Reuse trusted release/compiler preparation, Core metadata, original/native custody, protected
 publication, finite worker ownership, selected SourceViews and lazy scientific consumers. Material
@@ -62,9 +64,8 @@ Public NVIDIA orchestration avoids porting scheduling/cropping/merge internals. 
 necessary custody/runtime adapters; PDF-15 owns cross-provider selection. Docling content plus
 mandatory companion semantics is favored over replacing the entire content schema. Revisit that
 choice only for a required consumer distinction that cannot be faithfully or reasonably represented.
-The isolated runtime avoids root Torch/Transformers incompatibility; local Blackwell feasibility,
-geometry and source-quality benefit remain unestablished. PDF-12 investigates these before dependent
-choices are fixed. Apply FP-04/A2, CI attribution/precision/evidence rules and FP-07/A4 qualitatively;
+The isolated runtime preserves root Torch/Transformers. Actual Blackwell MTP/FA2 and coarse
+geometry/mapping controls passed; independent source-quality benefit remains unestablished. Apply FP-04/A2, CI attribution/precision/evidence rules and FP-07/A4 qualitatively;
 no new generic scheduler, broad audit, numerical cost model or alignment lint is introduced.
 
 ## 3. Confirmed rule changes
@@ -110,12 +111,12 @@ confirmations do not authorize changing grading policy, audit premises or histor
 | <a id="PDF-08"></a>PDF-08 | [Interfaces](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-08): typed CLI/MCP, placement and exports | PDF-03/05; PDF-06/07 for their views | Implemented and targeted-tested: CLI run6 reads passed; historical external reads/export passed; current external render/MCP journey not_run |
 | <a id="PDF-09"></a>PDF-09 | [Runtime](pdf-docling-pipeline/source-interfaces-and-runtime.md#PDF-09): owned conversion lifecycle and publication | PDF-02/03/04; I07 before adoption | Implemented and source-tested: retained originals, finite child lifecycle, exact conversion/enrichment reuse and scoped request authority |
 | <a id="PDF-10"></a>PDF-10 | [Adoption](pdf-docling-pipeline/adoption-and-retirement.md#PDF-10): PDF defaults, consumer cutover, HTML removal | Integrated PDF-03–09 and PDF-13–16; I08/I13 | Partial: HTML producers retired, statistics/toy inputs native PDF; completed PDF result/default selection open |
-| <a id="PDF-11"></a>PDF-11 | [Acceptance](pdf-docling-pipeline/adoption-and-retirement.md#PDF-11): actual journeys and required-union evidence | Complete selected functional scope, PDF-10 | Incomplete: source/targeted controls passed; broad receipt failed/incomplete; provider/evaluation/current external journey and final union open |
-| <a id="PDF-12"></a>PDF-12 | [Foundations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-12): successor decision and consequential feasibility | RC06/07 and current source | Decision prerequisite delivered: ADR-0039; runtime/mapping investigations open |
+| <a id="PDF-11"></a>PDF-11 | [Acceptance](pdf-docling-pipeline/adoption-and-retirement.md#PDF-11): actual journeys and required-union evidence | Complete selected functional scope, PDF-10 | Incomplete: current0059 functional baseline2638passed;0060 large-book admission correction, actual provider/evaluation/current external journeys and final-source union remain open |
+| <a id="PDF-12"></a>PDF-12 | [Foundations](pdf-docling-pipeline/foundations-and-investigations.md#PDF-12): successor decision and consequential feasibility | RC06/07 and current source | ADR-0039 delivered; isolated actual runtime, transforms and bounded mapping controls passed; corpus benefit remains separately assessed |
 | <a id="PDF-13"></a>PDF-13 | [Integrated model](pdf-docling-pipeline/integrated-document-model-and-lineage.md#PDF-13): connected contract/storage, multi-input lineage | PDF-12 decision route; I10/11 for affected final constraints | Implemented foundation; targeted verification below; provider precision remains gated |
-| <a id="PDF-14"></a>PDF-14 | [Triple recognition](pdf-docling-pipeline/triple-pass-recognition-and-reconciliation.md#PDF-14): owned public parser and retained request outcomes | I09 pins/runtime; PDF-13 observation/publication slice; I10 for grounded use | Planned; inference not_run |
-| <a id="PDF-15"></a>PDF-15 | [Integration](pdf-docling-pipeline/triple-pass-recognition-and-reconciliation.md#PDF-15): mapped rich content, correspondence and governed selection | Working PDF-13/14; I10/11 | Planned |
-| <a id="PDF-16"></a>PDF-16 | [Consumers](pdf-docling-pipeline/integrated-document-consumers.md#PDF-16): singular reader, scientific/extraction/interface/evidence migration | Agreed PDF-13 for design; working PDF-15 for acceptance | Planned |
+| <a id="PDF-14"></a>PDF-14 | [Triple recognition](pdf-docling-pipeline/triple-pass-recognition-and-reconciliation.md#PDF-14): owned public parser and retained request outcomes | I09 pins/runtime; PDF-13 observation/publication slice; I10 for grounded use | Implemented; actual full-book A/B/C recognition passed with retained primary failures and two named recoveries; assembled publication remains PDF-10/11 |
+| <a id="PDF-15"></a>PDF-15 | [Integration](pdf-docling-pipeline/triple-pass-recognition-and-reconciliation.md#PDF-15): mapped rich content, correspondence and governed selection | Working PDF-13/14; I10/11 | Implemented and targeted-tested; book admission exposed the JSONB relation-array limit, corrected via ADR-0041/forward0060 before whole-book acceptance |
+| <a id="PDF-16"></a>PDF-16 | [Consumers](pdf-docling-pipeline/integrated-document-consumers.md#PDF-16): singular reader, scientific/extraction/interface/evidence migration | Agreed PDF-13 for design; working PDF-15 for acceptance | Implemented; current external/provider/evaluator journeys remain PDF-10/11 |
 
 **Current sequence:** PDF-12 decisions/feasibility and early PDF-13 contract design can advance
 independently. Final runtime pins and transforms constrain the affected executable boundaries,
@@ -125,7 +126,7 @@ actual provider/reference journeys and qualification for this target. Do not fir
 Standard-only extraction/grading journey. Original PDF-00–09 delivery claims remain scoped to the
 baseline, with extension obligations in PDF-12–16; no prior receipt is erased or globally invalidated.
 Shared compiler/schema/native files need one integrated editing owner; package numbers are not a
-mandatory worker sequence. PDF-13 foundation is implemented; PDF-14–16 remain future production work.
+mandatory worker sequence. PDF-13–16 mechanisms are implemented. PDF-10/11 still own assembled publication, actual consumer/reference journeys, adoption and the required qualification union. See the current [integrated evidence](../design_review/evidence/2026-10-31_pdf-integrated-adoption/README.md).
 
 ## 5. Opportunity disposition
 
@@ -150,13 +151,13 @@ original PDF review. Closure requires delivered behavior; source inspection is n
 
 | Source item | Planned owner and benefit | Current disposition / completion evidence |
 |---|---|---|
-| [O01](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O01) | PDF-12/14 public true triple pass | Planned; actual parse/detect/crop responses, zero-crop and partial cases |
+| [O01](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O01) | PDF-12/14 public true triple pass | Implemented and actual all-page recognition passed; retained submitted pixels/raw/full HTTP, valid zero-C and separately identified recovery outcomes in integrated evidence |
 | [O02](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O02) | PDF-13 multi-input identity, relations and custody | Implemented and targeted-tested · PDF-13; real fenced publication, scoped ancestry/trace, native backfill and archived replay |
-| [O03](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O03) | PDF-15 governed content selection | Planned; useful selected contribution, reasons and unresolved alternatives |
-| [O04](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O04) | PDF-15/16 hierarchy/table/chart semantics | Planned; rich singular consumer input and preserved structural evidence |
-| [O05](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O05) | PDF-13/14/15 modeled outcomes, coverage and reuse | PDF-13 foundation targeted-tested; observation retention and policy-only new products verified without inference. Actual capture/reconciliation remains PDF-14/15 |
-| [O06](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O06) | PDF-12/14 isolated runtime and shared capacity | Planned; actual Blackwell provider, bounded page batches, cancellation/cleanup |
-| [O07](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O07) | PDF-16 and PDF-10/11 real evidence-aware consumers | Planned; actual external MCP/render/extraction/claim trace and adopted result |
+| [O03](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O03) | PDF-15 governed content selection | Implemented and bounded rich selection/replay controls passed; actual selected book/knowledge journey remains PDF-10/11 |
+| [O04](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O04) | PDF-15/16 hierarchy/table/chart semantics | Implemented and targeted-tested: rich tables/chart panels/captions/inline structure, coarse cell grounding, repeated occurrences and alternatives; independent corpus fidelity remains PDF-11 |
+| [O05](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O05) | PDF-13/14/15 modeled outcomes, coverage and reuse | Implemented protected raw capture, explicit failed/partial outcomes, scoped coverage and recipe-qualified replay; actual raw book inventory complete, integrated publication remains PDF-10/11 |
+| [O06](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O06) | PDF-12/14 isolated runtime and shared capacity | Implemented; actual Blackwell/MTP/FA2, finite public page workers and native→Nemotron GPU phase control passed; no throughput claim |
+| [O07](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md#O07) | PDF-16 and PDF-10/11 real evidence-aware consumers | Consumer mechanisms implemented; actual external MCP/render/extraction/claim trace and adopted result remain PDF-10/11 |
 
 ## 6. Investigation queue
 
@@ -174,11 +175,11 @@ repository records when a probe produces an accepted result. No new permanent ca
 | I06 | JSON/schema roundtrip, validation mutation, image custody and native/region address precision | Delivered: protected native JSONB and source-qualified projections; full Docling JSON reload/tree validation and lexical exports passed · PDF-02/03/08 |
 | I07 | Full-book conversion live state, cleanup, cancellation and stage capacity | Whole-book publication and final child cancellation/lease-loss controls passed; consumer adoption remains PDF-09 · PDF-09/10/11 |
 | I08 | Source inventory/defaults, independent PDF reference anchoring and concrete acceptance journey selection | Source inventory, five-section scope and independent native reference inputs delivered; actual A/B/C/provider/evaluation remain PDF-10/11 · PDF-10/11 |
-| I09 | Exact public API/package/weights/tokenizer/decoding pins, isolated runtime and sm120 attention/plugin/MTP | Open · PDF-12/14; actual startup/round trip required before runtime success |
-| I10 | Submitted-pixel, PDF CropBox/rotation and crop transform precision, including rotated OCR | Open · PDF-13/14/15 grounded constraints |
-| I11 | Mapping/merge losses, table/chart/inline structure and selection policy over real responses | Open · PDF-13/15; determine explicit dispositions and required continuation gap/remedy |
-| I12 | Bounded preparation, combined GPU lifetime, partial receipts/cancellation and replay | Open · PDF-14 and integrated source capability PDF-10/11 |
-| I13 | Concrete integrated source/section/consumer/reference scope and independent benefit challenges | Open · PDF-16/10/11; extends I08 without relabelling its earlier frames |
+| I09 | Exact public API/package/weights/tokenizer/decoding pins, isolated runtime and sm120 attention/plugin/MTP | Resolved selected runtime: pinned public source, isolated Python3.12/vLLM0.26/Torch2.11/Transformers5.14.1; actual RTX5090 MTP/FA2 and whole-book requests passed · PDF-12/14 |
+| I10 | Submitted-pixel, PDF CropBox/rotation and crop transform precision, including rotated OCR | Bounded independent CropBox/rotation/crop/normalization controls passed; mismatched frames remain unresolved, no fine glyph/cell precision claim · PDF-13/14/15 |
+| I11 | Mapping/merge losses, table/chart/inline structure and selection policy over real responses | Mapping/selection mechanisms and real-response/bounded structure controls passed; cross-page continuity is explicitly not inferred, universal fidelity unqualified · PDF-13/15 |
+| I12 | Bounded preparation, combined GPU lifetime, partial receipts/cancellation and replay | Finite workers, streaming fenced retention, exact raw replay and GPU phase control passed; actual355.6MB relation array exceeds JSONB; ADR-0041/0060 owns record admission before PDF-10/11 scale acceptance |
+| I13 | Concrete integrated source/section/consumer/reference scope and independent benefit challenges | Scope fixed before provider execution: whole-book source, five intact analysis roots, two independent full-section A/B/C references and six frozen original-PDF challenges; actual journeys remain PDF-10/11 |
 
 A known table-cell formula gap cannot disappear into a generic "unsupported" label while claiming
 supported table-math completion. Implement the selected supported enrichment route if required;
