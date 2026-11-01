@@ -3,6 +3,9 @@ _Updated 2026-11-01; relational PDF publication/readers scoped-tested; deployed 
 
 ## Current checkpoint
 
+- [Structured-data review](docs/plan_improvement_reviews/pdf-docling-structured-data_2026-11-01.md) proposes
+  Arrow payload/relational-envelope improvements and validation ownership; not adopted into plans.
+
 - [PostgreSQL leverage plan](docs/plans/postgresql-capability-leverage_2026-11-01.md): PG-00–12 design expanded with concrete library APIs, contracts, migration paths and consumer acceptance from review O01–15. Product work not started; latest-stable upgrades settled, alembic-utils excluded. Existing series unchanged.
 - New plan authoring checks and evidence limits are recorded in its adoption/validation owner; current product qualification remains with existing owners.
 
