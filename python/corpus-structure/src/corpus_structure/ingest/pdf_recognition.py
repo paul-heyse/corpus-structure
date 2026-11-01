@@ -621,6 +621,11 @@ def main() -> None:
     parser.add_argument("--worker", required=True, type=Path)
     parser.add_argument("--endpoint", default="http://127.0.0.1:8035/v1")
     parser.add_argument("--concurrency", type=int, choices=range(1, 5), default=1)
+    parser.add_argument(
+        "--continue-on-error",
+        action="store_true",
+        help="retain failed pages, finish the finite selection, then exit nonzero",
+    )
     parser.add_argument("--pages", required=True, help="inclusive range, e.g. 1-1589 or 85")
     args = parser.parse_args()
     bounds = tuple(int(x) for x in args.pages.split("-"))
@@ -634,6 +639,7 @@ def main() -> None:
     worker = RecognitionWorker(
         python=args.python, script=args.worker, endpoint=args.endpoint, receipts=args.receipts
     )
+    failures = []
     for page in worker.recognize_pages(
         source, recipe, range(bounds[0], bounds[-1] + 1), concurrency=args.concurrency
     ):
@@ -655,7 +661,13 @@ def main() -> None:
             flush=True,
         )
         if not page.succeeded:
-            raise RuntimeError(f"page {page.page_no} failed; retained at {page.directory}")
+            failures.append(page.page_no)
+            if not args.continue_on_error:
+                raise RuntimeError(f"page {page.page_no} failed; retained at {page.directory}")
+    if failures:
+        raise RuntimeError(
+            f"recognition selection completed with failed physical pages: {failures}"
+        )
 
 
 if __name__ == "__main__":
