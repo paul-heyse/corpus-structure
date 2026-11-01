@@ -230,8 +230,8 @@ consumer and operational acceptance; performance remains unmeasured until separa
 - [Docling/core document API](https://github.com/docling-project/docling-core/blob/v2.103.1/docling_core/types/doc/document.py)
   and [review O02](../../functional_reviews/pdf-docling-pipeline_2026-10-31.md#O02): native JSON,
   normalization and schema boundaries.
-- Local [LinkML](../../libraries/linkml.md), [SQLAlchemy](../../libraries/sqlalchemy.md),
-  [psycopg](../../libraries/postgresql/psycopg.md), [Alembic](../../libraries/alembic.md),
+- Local [LinkML](../../libraries/linkml.md), [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md),
+  [psycopg](../../libraries/postgresql/psycopg.md), [Alembic](../../libraries/postgresql/alembic.md),
   [Pydantic](../../libraries/pydantic.md), [JSON Schema](../../libraries/jsonschema.md) and
   [pglast](../../libraries/postgresql/pglast.md) orient the existing compiler/database mechanisms.
 - [D1](../../design/D1-knowledge-representation.md), [D2](../../design/D2-schema-and-guidelines.md),

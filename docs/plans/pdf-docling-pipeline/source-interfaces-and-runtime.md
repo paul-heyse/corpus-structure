@@ -205,7 +205,7 @@ Mechanisms come from review O06–O08 and tagged
 [standard pipeline](https://github.com/docling-project/docling/blob/v2.145.0/docling/pipeline/standard_pdf_pipeline.py),
 [backend options](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/backend_options.py),
 [pipeline options](https://github.com/docling-project/docling/blob/v2.145.0/docling/datamodel/pipeline_options.py),
-and local [SQLAlchemy](../../libraries/sqlalchemy.md), [PyArrow](../../libraries/pyarrow.md),
+and local [SQLAlchemy](../../libraries/postgresql/sqlalchemy.md), [PyArrow](../../libraries/pyarrow.md),
 [DuckDB](../../libraries/duckdb_2.md), [FastMCP](../../libraries/fastmcp.md),
 [Typer](../../libraries/typer.md), [RapidFuzz](../../libraries/rapidfuzz.md) and
 [concurrency guidance](../../libraries/Python_Concurrency_Multithreading_Multiprocessing_and_Worker_Management.md).
