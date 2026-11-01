@@ -3,7 +3,7 @@ _Updated 2026-11-01; private PDF streaming/staging implemented; whole-book publi
 
 ## Current checkpoint
 
-- [PostgreSQL leverage plan](docs/plans/postgresql-capability-leverage_2026-11-01.md): new PG-00–12 series authored from review O01–15; product work not started. Native Alembic extensions selected; alembic-utils excluded. Existing series unchanged.
+- [PostgreSQL leverage plan](docs/plans/postgresql-capability-leverage_2026-11-01.md): PG-00–12 design expanded with concrete library APIs, contracts, migration paths and consumer acceptance from review O01–15. Product work not started; latest-stable upgrades settled, alembic-utils excluded. Existing series unchanged.
 - New plan authoring checks and evidence limits are recorded in its adoption/validation owner; current product qualification remains with existing owners.
 
 - [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns package/O/I disposition.
