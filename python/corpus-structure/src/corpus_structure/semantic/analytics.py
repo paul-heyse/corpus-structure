@@ -28,6 +28,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    bindparam,
     case,
     cast,
     func,
@@ -38,6 +39,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import Select
 
+from corpus_structure.core.db.adbc_lifetime import ADBCBorrowerCancellation, owned_adbc_read
+
+from ._typed_columns import data_occurrence_columns
 from .analytical_kernels import (
     ALTERNATIVE_OF,
     DISAGREEMENTS_SQL,
@@ -554,55 +558,19 @@ def _projection_contract(
     return contract
 
 
-def _historical_capture(prepared: PreparedRelease) -> bool:
+def _projection_recipe(prepared: PreparedRelease, kind: str) -> tuple[Any, str]:
+    """Only the current admitted execution recipe prepares relational operations."""
     import json
 
     from .contracts import EXECUTION_COMPILER_VERSION, execution_payload
 
-    if str(json.loads(prepared.manifest)["profile"]["compiler_version"]) in {"10", "11"}:
-        return True
     payload = execution_payload(prepared)
-    return (
+    if (
         payload is not None
         and json.loads(payload)["inputs"]["compiler_version"] != EXECUTION_COMPILER_VERSION
-    )
-
-
-def _projection_recipe(prepared: PreparedRelease, kind: str) -> tuple[Any, str]:
-    """Historical capture retains its archived projection ABI; it admits no new work."""
-    import json
-
-    from .contracts import execution_payload
-
-    compiler = str(json.loads(prepared.manifest)["profile"]["compiler_version"])
-    if compiler not in {"10", "11"}:
-        if _historical_capture(prepared):
-            if kind != "captured":
-                raise ValueError(
-                    "historical analytical recipe supports retained capture reads only"
-                )
-            payload = execution_payload(prepared)
-            assert payload is not None
-            version = json.loads(payload)["inputs"]["compiler_version"]
-            if version not in {"1", "2", "3", "4", "5", "6", "7", "8"}:
-                raise ValueError("unsupported historical analytical recipe")
-            return _projection_contract(prepared, kind), (
-                "analytical-6" if version == "8" else "analytical-5"
-            )
-        return _projection_contract(prepared, kind), COMPILER_VERSION
-    if kind != "captured":
-        raise ValueError("historical analytical recipe supports retained capture reads only")
-    if prepared.execution_model_id is None:
-        return kind, "analytical-4"
-    model = next(
-        row
-        for row in prepared.registry_rows
-        if row.kind == "execution_model" and row.name == prepared.execution_model_id
-    )
-    contract = next(row for row in json.loads(model.body)["projections"] if row["id"] == kind)
-    if (contract["implementation"], contract["lifetime"]) != ("capture", "detached"):
-        raise ValueError("historical analytical projection recipe is unsupported")
-    return contract, "analytical-4"
+    ):
+        raise ValueError("projection requires the current execution compiler")
+    return _projection_contract(prepared, kind), COMPILER_VERSION
 
 
 def compile_projection(
@@ -636,6 +604,38 @@ def compile_projection(
         # Candidates are private cut rows supplied by from_cut, never a PostgreSQL
         # full-spine capture. Their fixed shape is CANDIDATE_SCHEMA.
         return CompiledProjection(binding, identity, profile, ())
+    with prepared._adapter_lock:
+        shapes = prepared._relational_preparations.get(identity)
+        if shapes is None:
+            shapes = _prepare_projection_shapes(profile.scale)
+            prepared._relational_preparations[identity] = shapes
+    projections = tuple(
+        Projection(
+            shape.name,
+            shape.statement.params(
+                _cs_release_id=binding.release_id, _cs_realization_id=binding.realization_id
+            ),
+            pa.schema(
+                shape.fields,
+                metadata=_metadata(binding, identity, profile.digest, shape.name),
+            ),
+            shape.output_mapping,
+        )
+        for shape in shapes
+    )
+    return CompiledProjection(binding, identity, profile, projections)
+
+
+@dataclass(frozen=True)
+class PreparedProjectionShape:
+    name: str
+    statement: Select
+    fields: tuple[pa.Field, ...]
+    output_mapping: tuple[tuple[str, str], ...]
+
+
+def _prepare_projection_shapes(scale: int) -> tuple[PreparedProjectionShape, ...]:
+    """Core shape and field order; no pin values, transactions or readers retained."""
     projections = []
     for name in SPINE:
         source = table("data." + name)
@@ -649,8 +649,14 @@ def compile_projection(
                 else column
             )
         statement = select(*columns).where(
-            source.c.release_id == binding.release_id,
-            source.c.realization_id == binding.realization_id,
+            (data_occurrence_columns.release_id if name == "occurrence" else source.c.release_id)
+            == bindparam("_cs_release_id", type_=Text),
+            (
+                data_occurrence_columns.realization_id
+                if name == "occurrence"
+                else source.c.realization_id
+            )
+            == bindparam("_cs_realization_id", type_=Text),
         )
         if name == "fact":
             qualification = func.data.canonical_json(
@@ -674,8 +680,7 @@ def compile_projection(
                 for column in source.primary_key.columns
             )
         )
-        fields = _fields(name, profile.scale)
-        schema = pa.schema(fields, metadata=_metadata(binding, identity, profile.digest, name))
+        fields = _fields(name, scale)
         derived_sources = {
             "decimal_value": "decimal_lexical",
             "decimal_rounded": "decimal_lexical",
@@ -685,14 +690,14 @@ def compile_projection(
             "float64_value": "text_value",
         }
         projections.append(
-            Projection(
+            PreparedProjectionShape(
                 name,
                 statement,
-                schema,
+                tuple(fields),
                 tuple((f.name, derived_sources.get(f.name, f.name)) for f in fields),
             )
         )
-    return CompiledProjection(binding, identity, profile, tuple(projections))
+    return tuple(projections)
 
 
 def compile_sql(statement: Select) -> str:
@@ -777,17 +782,11 @@ def normalize_relation(
 
 
 def _owned_input(prepared: PreparedRelease, family: str, **dependencies: Any):
-    """Bind current preparation; historical analytical reads keep their archived ABI."""
-    import json
-
+    """Bind the current composed analysis family when the caller supplies one."""
     from .analysis_contracts import bind_analysis_family
-    from .contracts import EXECUTION_COMPILER_VERSION, execution_payload
+    from .contracts import execution_payload
 
-    payload = execution_payload(prepared)
-    if (
-        payload is None
-        or json.loads(payload)["inputs"]["compiler_version"] != EXECUTION_COMPILER_VERSION
-    ):
+    if execution_payload(prepared) is None:
         return None
     return bind_analysis_family(prepared, family).prepare(**dependencies)
 
@@ -802,6 +801,7 @@ def load_packet(
     resident_limit_bytes: int = 512 * 1024**2,
     batch_size_hint_bytes: int = 8 * 1024**2,
     scratch_path: str | Path | None = None,
+    cancellation: ADBCBorrowerCancellation | None = None,
 ) -> AnalyticalPacket:
     """Capture all mutable relations through an imported snapshot, consuming readers once.
 
@@ -810,14 +810,13 @@ def load_packet(
     """
     from .contracts import execution_payload, require_bound_operation
 
+    if cancellation is not None:
+        cancellation.check_active()
     require_bound_operation(session.prepared, "capture_analytics")
 
     from .analysis_contracts import prepare_capture_policy
 
-    historical = _historical_capture(session.prepared)
-    modes = (
-        ("resident", "spooled") if historical else prepare_capture_policy(session.prepared).modes
-    )
+    modes = prepare_capture_policy(session.prepared).modes
     if mode not in modes or min(batch_size, resident_limit_bytes, batch_size_hint_bytes) < 1:
         raise ValueError("invalid capture mode or capacity configuration")
     compiled = compile_projection(session.prepared, session.binding)
@@ -829,6 +828,35 @@ def load_packet(
         .render_literal_value(snapshot, String())
     )
     owner = CaptureOwner(scratch_path) if mode == "spooled" else None
+
+    def annotate_failure(error: BaseException, phase):
+        from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
+        from corpus_structure.core.db.store import (
+            DatabaseOperationFailure,
+            EffectKnowledge,
+            classify_error,
+            record_operation_failure,
+        )
+
+        if isinstance(error, (adbc_manager.Error, DatabaseOperationCancelled)):
+            failure = classify_error(
+                error,
+                phase=phase,
+                effects=EffectKnowledge.NONE,
+                cancellation_requested=cancellation is not None and cancellation.requested,
+            )
+            record_operation_failure(
+                error,
+                DatabaseOperationFailure(
+                    failure,
+                    operation_id="capture_analytics",
+                    release_id=compiled.binding.release_id,
+                    realization_id=compiled.binding.realization_id,
+                ),
+            )
+
+    from corpus_structure.core.db.store import DatabasePhase
+
     try:
         connection = (
             adbc.connect(uri, db_kwargs={"adbc.postgresql.type_resolver_mode": "builtin"})
@@ -840,69 +868,63 @@ def load_packet(
             )
         )
     except BaseException as error:
+        annotate_failure(error, DatabasePhase.ACQUIRING)
         if owner:
             _cleanup_after_failure(error, owner.close)
         raise
     descriptors = {}
     budget = [0]
     try:
-        with connection as bulk:
-            try:
-                with bulk.cursor() as cursor:
-                    cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
-                    cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-                    cursor.execute("SET TRANSACTION SNAPSHOT " + snapshot_sql)
-                    cursor.adbc_statement.set_options(
-                        **{
-                            "adbc.postgresql.use_copy": "true",
-                            "adbc.postgresql.batch_size_hint_bytes": str(batch_size_hint_bytes),
-                        }
-                    )
-                    relations = {}
-                    for projection in compiled.relations:
-                        cursor.execute(compile_sql(projection.statement))
-                        with cursor.fetch_record_batch() as reader:
-
-                            def normalized(projection=projection, reader=reader):
-                                for raw in reader:
-                                    for offset in range(0, raw.num_rows, batch_size):
-                                        value = normalize_relation(
-                                            pa.Table.from_batches([raw.slice(offset, batch_size)]),
-                                            projection,
-                                            compiled.profile,
-                                        )
-                                        yield from value.to_batches(max_chunksize=batch_size)
-
-                            relations[projection.name], descriptors[projection.name] = (
-                                store_relation(
-                                    owner,
-                                    projection.name,
-                                    projection.schema,
-                                    normalized(),
-                                    tuple(
-                                        c.name
-                                        for c in table(
-                                            "data." + projection.name
-                                        ).primary_key.columns
-                                    ),
-                                    budget,
-                                    resident_limit_bytes,
-                                )
-                            )
-            finally:
-                bulk.rollback()
-        manifest = (
-            None
-            if _projection_recipe(session.prepared, "captured")[1] != "analytical-6"
-            else finish_manifest(
-                owner,
-                asdict(compiled.binding),
-                compiled.projection_id,
-                compiled.profile.digest,
-                descriptors,
+        with (
+            owned_adbc_read(connection, cancellation) as bulk,
+            bulk.cursor() as cursor,
+        ):
+            cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
+            cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            cursor.execute("SET TRANSACTION SNAPSHOT " + snapshot_sql)
+            cursor.adbc_statement.set_options(
+                **{
+                    "adbc.postgresql.use_copy": "true",
+                    "adbc.postgresql.batch_size_hint_bytes": str(batch_size_hint_bytes),
+                }
             )
+            relations = {}
+            for projection in compiled.relations:
+                if cancellation is not None:
+                    cancellation.check_active()
+                cursor.execute(compile_sql(projection.statement))
+                with cursor.fetch_record_batch() as reader:
+
+                    def normalized(projection=projection, reader=reader):
+                        for raw in reader:
+                            if cancellation is not None:
+                                cancellation.check_active()
+                            for offset in range(0, raw.num_rows, batch_size):
+                                value = normalize_relation(
+                                    pa.Table.from_batches([raw.slice(offset, batch_size)]),
+                                    projection,
+                                    compiled.profile,
+                                )
+                                yield from value.to_batches(max_chunksize=batch_size)
+
+                    relations[projection.name], descriptors[projection.name] = store_relation(
+                        owner,
+                        projection.name,
+                        projection.schema,
+                        normalized(),
+                        tuple(c.name for c in table("data." + projection.name).primary_key.columns),
+                        budget,
+                        resident_limit_bytes,
+                    )
+        manifest = finish_manifest(
+            owner,
+            asdict(compiled.binding),
+            compiled.projection_id,
+            compiled.profile.digest,
+            descriptors,
         )
     except BaseException as error:
+        annotate_failure(error, DatabasePhase.EXECUTING)
         if owner:
             _cleanup_after_failure(error, owner.close)
         raise
@@ -949,10 +971,13 @@ def capture_packet(
     resident_limit_bytes: int = 512 * 1024**2,
     batch_size_hint_bytes: int = 8 * 1024**2,
     scratch_path: str | Path | None = None,
+    cancellation: ADBCBorrowerCancellation | None = None,
 ) -> AnalyticalPacket:
     """Own both database scopes and end them before returning replayable analytical inputs."""
     from .query import read_session
 
+    if cancellation is not None:
+        cancellation.check_active()
     packet = None
     try:
         with read_session(engine, realization_id, release_id=release_id) as session:
@@ -965,6 +990,7 @@ def capture_packet(
                 resident_limit_bytes=resident_limit_bytes,
                 batch_size_hint_bytes=batch_size_hint_bytes,
                 scratch_path=scratch_path,
+                cancellation=cancellation,
             )
         return packet
     except BaseException as error:

@@ -228,6 +228,10 @@ class PreparedRelease:
         default_factory=dict, repr=False, compare=False, init=False
     )
 
+    _relational_preparations: dict[str, Any] = field(
+        default_factory=dict, repr=False, compare=False, init=False
+    )
+
     def adapter(self, class_name: str) -> TypeAdapter[BaseModel]:
         if self._adapter_loader is None:
             return self.index.adapters[class_name]

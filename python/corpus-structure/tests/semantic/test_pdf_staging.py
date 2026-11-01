@@ -398,3 +398,52 @@ def test_direct_sql_null_identity_cannot_bypass_private_fence(
             )
     with semantic_writer_engine.begin() as conn:
         assert inspect_pdf_progress(conn, build) == ()
+
+
+def test_private_encoder_failure_discards_state_and_fresh_replay_is_atomic(
+    private_build, semantic_db_engine, semantic_writer_engine, monkeypatch
+):
+    from corpus_structure.semantic.arrow_transfer import ArrowWriteProfile
+
+    build = private_build
+    factory = ArrowWriteProfile.new_encoder
+    finished = []
+
+    class FailedEncoder:
+        def __init__(self, encoder):
+            self.encoder = encoder
+
+        def write_header(self):
+            return self.encoder.write_header()
+
+        def write_batch(self, rows):
+            self.encoder.write_batch(rows)
+            raise ValueError("forced private encoder failure")
+
+        def finish(self):
+            finished.append(True)
+            raise AssertionError("failed encoder must never be finished")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            ArrowWriteProfile, "new_encoder", lambda profile: FailedEncoder(factory(profile))
+        )
+        with (
+            pytest.raises(ValueError, match="forced private encoder failure"),
+            semantic_writer_engine.begin() as conn,
+        ):
+            adopt_pdf_batch(conn, build, "encoder-replay", {"native": [native_batch(build)]})
+    assert finished == []
+    with semantic_writer_engine.begin() as conn:
+        assert inspect_pdf_progress(conn, build) == ()
+    with semantic_db_engine.connect() as conn:
+        assert (
+            conn.scalar(
+                text("SELECT count(*) FROM ops.pdf_stage_native WHERE product_id=:p"),
+                {"p": build.build_id},
+            )
+            == 0
+        )
+    with semantic_writer_engine.begin() as conn:
+        receipt = adopt_pdf_batch(conn, build, "encoder-replay", {"native": [native_batch(build)]})
+        assert receipt.row_count == 1

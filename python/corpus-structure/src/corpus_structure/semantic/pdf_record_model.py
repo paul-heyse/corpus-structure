@@ -15,6 +15,7 @@ from pydantic import ConfigDict, Field, JsonValue, TypeAdapter, create_model
 from sqlalchemy import BigInteger, Boolean, Integer, MetaData, Text
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB
 
+from .arrow_transfer import ArrowWriteProfile
 from .metadata import PHYSICAL_MODEL_ID, metadata
 
 
@@ -86,3 +87,17 @@ def record_boundary_adapter(name: str, *, model: MetaData | None = None) -> Type
         **fields,
     )
     return TypeAdapter(boundary)
+
+
+def record_write_profile(
+    name: str, *, release_id: str, model: MetaData | None = None
+) -> ArrowWriteProfile:
+    """Derive private write fields and wire types from the same physical projection."""
+    selected = metadata if model is None else model
+    return ArrowWriteProfile.prepare(
+        release_id=release_id,
+        physical_id=PHYSICAL_MODEL_ID,
+        operation="private-pdf:" + name,
+        schema=record_arrow_schema(name, model=selected),
+        wire_types=tuple(_types(c)[2].removesuffix(":utf8") for c in selected.tables[name].columns),
+    )

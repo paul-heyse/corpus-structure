@@ -349,7 +349,9 @@ def test_native_numeric_temporal_and_null_fidelity(semantic_db_engine, semantic_
 
 def test_native_malformed_copy_rolls_back(semantic_db_engine, semantic_writer_engine, monkeypatch):
     seed(semantic_db_engine)
-    original = arrow._encoder
+    from corpus_structure.semantic.arrow_transfer import ArrowWriteProfile
+
+    original = ArrowWriteProfile.new_encoder
 
     class CorruptEncoder:
         def __init__(self, inner):
@@ -366,7 +368,7 @@ def test_native_malformed_copy_rolls_back(semantic_db_engine, semantic_writer_en
 
     candidate = ArrowPublicationBatch.from_rows(batch())
     monkeypatch.setattr(
-        arrow, "_encoder", lambda name, schema: CorruptEncoder(original(name, schema))
+        ArrowWriteProfile, "new_encoder", lambda profile: CorruptEncoder(original(profile))
     )
     with pytest.raises(psycopg.errors.BadCopyFileFormat):
         publish_arrow(semantic_writer_engine, candidate)
@@ -610,8 +612,66 @@ def test_inference_retries_and_recovers_using_actual_lowered_transport(monkeypat
     monkeypatch.setattr(publication, "lookup_receipt", lookup)
     engine = create_engine("sqlite://")
     try:
-        assert inference.publish_inference(engine, result, attempts=2) == receipt
+        if lost:
+            # This fabricated no-code error occurs before commit: it proves neither
+            # connection loss nor ambiguous commit, and must not trigger receipt lookup.
+            from corpus_structure.core.db.store import (
+                DatabaseCause,
+                EffectKnowledge,
+                operation_failure,
+            )
+
+            with pytest.raises(psycopg.OperationalError) as error:
+                inference.publish_inference(engine, result, attempts=2)
+            failure = operation_failure(error.value).failure
+            assert failure.cause is DatabaseCause.UNKNOWN_OPERATIONAL
+            assert failure.effects is EffectKnowledge.ROLLED_BACK
+        else:
+            assert inference.publish_inference(engine, result, attempts=2) == receipt
     finally:
         engine.dispose()
     assert len(seen) == (1 if lost else 2)
     assert all(transport is seen[0] for transport in seen)
+
+
+def test_encoder_failure_discards_stream_and_fresh_replay_is_atomic(
+    semantic_db_engine, semantic_writer_engine, monkeypatch
+):
+    from corpus_structure.semantic.arrow_transfer import ArrowWriteProfile
+
+    seed(semantic_db_engine)
+    candidate = ArrowPublicationBatch.from_rows(batch("encoder-replay"))
+    factory = ArrowWriteProfile.new_encoder
+    finished = []
+
+    class FailedEncoder:
+        def __init__(self, encoder):
+            self.encoder = encoder
+
+        def write_header(self):
+            return self.encoder.write_header()
+
+        def write_batch(self, rows):
+            self.encoder.write_batch(rows)
+            raise ValueError("forced encoder failure after buffering")
+
+        def finish(self):
+            finished.append(True)
+            raise AssertionError("failed encoder must never be finished")
+
+    def fail_entity(profile):
+        encoder = factory(profile)
+        return FailedEncoder(encoder) if profile.operation == "publication:entity" else encoder
+
+    with monkeypatch.context() as patch:
+        patch.setattr(ArrowWriteProfile, "new_encoder", fail_entity)
+        with pytest.raises(ValueError, match="forced encoder failure"):
+            publish_arrow(semantic_writer_engine, candidate)
+    assert finished == []
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 0
+        assert conn.scalar(text("SELECT count(*) FROM data.entity")) == 0
+    assert publish_arrow(semantic_writer_engine, candidate).batch_id == "encoder-replay"
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
+        assert conn.scalar(text("SELECT count(*) FROM data.entity")) == 1

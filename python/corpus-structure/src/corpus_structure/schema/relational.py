@@ -894,3 +894,77 @@ def render(metadata: MetaData, revision: str) -> str:
         body = "".join(f"    {item},\n" for item in items)
         out += ["", f"{table.name} = Table(\n    {table.name!r},\n    metadata,\n{body})"]
     return "\n".join(out) + "\n"
+
+
+def render_typed_column_class(name: str, columns: Iterable[Column[Any]]) -> str:
+    """Render a static SQLAlchemy surface from already compiled model columns.
+
+    Also accepts columns selected for a protected function's return projection; callers
+    must supply the model-owned selection, rather than separately authored annotations.
+    """
+    if not name.isidentifier():
+        raise ModelError([f"invalid TypedColumns class name {name!r}"])
+    result = [f"class {name}(TypedColumns):"]
+    for column in columns:
+        if not column.name.isidentifier():
+            raise ModelError([f"invalid typed column name {column.name!r}"])
+        if isinstance(column.type, JSONB):
+            kind = "JsonValue"
+        elif isinstance(column.type, ARRAY):
+            kind = f"list[{column.type.item_type.python_type.__name__}]"
+        else:
+            try:
+                kind = column.type.python_type.__name__
+            except NotImplementedError as exc:
+                raise ModelError([f"unsupported typed column {column}"]) from exc
+        if column.nullable:
+            kind += " | None"
+        result.append(f"    {column.name}: Named[{kind}]")
+    if len(result) == 1:
+        result.append("    pass")
+    return "\n".join(result) + "\n"
+
+
+def render_typed_column_protocol(name: str, columns: Iterable[Column[Any]]) -> str:
+    """Narrow attribute access without ColumnCollection's dynamic-name fallback."""
+    declaration = render_typed_column_class(name, columns)
+    return declaration.replace("(TypedColumns):", "(Protocol):").replace("Named[", "Column[")
+
+
+def render_typed_columns(metadata: MetaData, names: Iterable[str], revision: str) -> str:
+    """Generate declarations and typed views of existing model-owned Core tables."""
+    out = [
+        '"""Generated model column surfaces; '
+        'python -m corpus_structure.semantic.typed_generation."""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "from datetime import date, datetime, time",
+        "from decimal import Decimal",
+        "",
+        "from typing import Protocol, cast",
+        "",
+        "from pydantic import JsonValue",
+        "from sqlalchemy import Column, Named, TypedColumns",
+        "",
+        "from .metadata import table",
+        "",
+        f"PHYSICAL_MODEL_ID = {revision!r}",
+    ]
+    for fullname in names:
+        source = metadata.tables[fullname]
+        variable = fullname.replace(".", "_")
+        class_name = "".join(part.title() for part in variable.split("_")) + "Columns"
+        out += [
+            "",
+            "",
+            render_typed_column_class(class_name, source.columns).rstrip(),
+            "",
+            "",
+            render_typed_column_protocol(class_name + "Set", source.columns).rstrip(),
+            "",
+            "",
+            f"{variable} = table({fullname!r}).with_cols({class_name})",
+            f"{variable}_columns = cast({class_name}Set, {variable}.c)",
+        ]
+    return "\n".join(out) + "\n"

@@ -12,15 +12,14 @@ from decimal import Decimal
 from hashlib import sha256
 from types import MappingProxyType
 
-import psycopg
 import pyarrow as pa
-from pgpq import ArrowToPostgresBinaryEncoder
-from pgpq.encoders import StringEncoderBuilder
-from pgpq.schema import Jsonb
-from psycopg import sql
 from sqlalchemy import Connection, Engine, text
 
+from corpus_structure.core.db.lifetime import BorrowerCancellation
+
+from .arrow_transfer import ArrowTransferError, ArrowWriteProfile, copy_arrow_stream
 from .identity import canonical_bytes
+from .metadata import PHYSICAL_MODEL_ID
 from .publication import STAGE_TYPES, PublicationBatch, PublicationReceipt, _publish
 from .query import SnapshotBinding
 
@@ -60,29 +59,20 @@ def stage_schema(name: str, *, decimals: Mapping[str, pa.DataType] | None = None
     return pa.schema(result)
 
 
-def _encoder(name: str, schema: pa.Schema) -> ArrowToPostgresBinaryEncoder:
-    encoders = {
-        f.name: StringEncoderBuilder.new_with_output(f, Jsonb())
-        if pg_type == "jsonb"
-        else ArrowToPostgresBinaryEncoder.infer_encoder(f)
-        for f, pg_type in zip(schema, STAGE_TYPES[name][1], strict=True)
-    }
-    encoder = ArrowToPostgresBinaryEncoder.new_with_encoders(schema, encoders)
-    aliases = {"bool": "boolean", "int8": "bigint"}
-    actual = tuple(
-        (
-            c.name,
-            aliases.get(str(c.data_type.ddl()).lower(), str(c.data_type.ddl()).lower()),
-            c.nullable,
-        )
-        for c in encoder.schema().columns
+def publication_write_profile(
+    name: str, schema: pa.Schema, *, release_id: str
+) -> ArrowWriteProfile:
+    decimals = {f.name: f.type for f in schema if pa.types.is_decimal(f.type)}
+    expected = stage_schema(name, decimals=decimals)
+    if not schema.equals(expected, check_metadata=True):
+        raise ArrowPublicationError(f"{name} schema must be {expected}")
+    return ArrowWriteProfile.prepare(
+        release_id=release_id,
+        physical_id=PHYSICAL_MODEL_ID,
+        operation="publication:" + name,
+        schema=expected,
+        wire_types=STAGE_TYPES[name][1],
     )
-    expected = tuple(
-        (f.name, typ, True) for f, typ in zip(schema, STAGE_TYPES[name][1], strict=True)
-    )
-    if actual != expected:
-        raise ArrowPublicationError(f"pgpq wire schema differs from protected {name}: {actual}")
-    return encoder
 
 
 @dataclass(frozen=True, init=False)
@@ -92,6 +82,7 @@ class AppendPublication:
     batch_id: str
     relations: Mapping[str, pa.Table]
     _content: bytes = field(init=False, repr=False)
+    _write_profiles: Mapping[str, ArrowWriteProfile] = field(init=False, repr=False)
 
     def __init__(
         self,
@@ -114,6 +105,7 @@ class AppendPublication:
         if unknown:
             raise ArrowPublicationError(f"unknown staging relations: {sorted(unknown)}")
         frozen = {}
+        profiles = {}
         body = {}
         for name in STAGE_TYPES:
             source = relations.get(name)
@@ -122,19 +114,24 @@ class AppendPublication:
             elif isinstance(source, pa.Table):
                 value = source
             elif isinstance(source, tuple) and source:
+                if any(
+                    not part.schema.equals(source[0].schema, check_metadata=True) for part in source
+                ):
+                    raise ArrowPublicationError(f"{name} batch schema/metadata differs")
                 value = pa.Table.from_batches(source)
             else:
                 raise ArrowPublicationError(f"{name} requires a Table or nonempty tuple of batches")
             decimals = {f.name: f.type for f in value.schema if pa.types.is_decimal(f.type)}
             expected = stage_schema(name, decimals=decimals)
-            if not value.schema.equals(expected, check_metadata=False):
+            if not value.schema.equals(expected, check_metadata=True):
                 raise ArrowPublicationError(f"{name} schema must be {expected}")
             # IPC owns immutable buffers even when input wraps mutable NumPy memory.
             sink = pa.BufferOutputStream()
             with pa.ipc.new_stream(sink, expected) as writer:
                 writer.write_table(value)
             value = pa.ipc.open_stream(pa.BufferReader(sink.getvalue().to_pybytes())).read_all()
-            _encoder(name, expected)
+            profiles[name] = publication_write_profile(name, expected, release_id=release_id)
+            profiles[name].new_encoder()
             rows = []
             for row in value.to_pylist():
                 if name == "typed_value":
@@ -168,6 +165,7 @@ class AppendPublication:
             body[name] = sorted(rows, key=canonical_bytes)
             frozen[name] = value
         object.__setattr__(self, "relations", MappingProxyType(frozen))
+        object.__setattr__(self, "_write_profiles", MappingProxyType(profiles))
         object.__setattr__(
             self, "_content", canonical_bytes([self.release_id, self.realization_id, body])
         )
@@ -418,28 +416,31 @@ ArrowPublicationBatch = AppendPublication
 
 
 def stage_arrow(
-    connection: Connection, batch: AppendPublication | SnapshotDerivedPublication
+    connection: Connection,
+    batch: AppendPublication | SnapshotDerivedPublication,
+    *,
+    cancellation: BorrowerCancellation | None = None,
 ) -> None:
     connection.execute(text("SELECT data.begin_stage()"))
-    driver = connection.connection.driver_connection
-    if not isinstance(driver, psycopg.Connection):
-        raise TypeError("publication requires the existing psycopg-backed SQLAlchemy engine")
-    with driver.cursor() as cursor:
-        for name, relation in batch.relations.items():
-            encoder = _encoder(name, relation.schema)
-            statement = sql.SQL("COPY {} ({}) FROM STDIN WITH (FORMAT BINARY)").format(
-                sql.Identifier("pg_temp", "sp_" + name),
-                sql.SQL(",").join(map(sql.Identifier, relation.column_names)),
+    owned = batch.transport if isinstance(batch, SnapshotDerivedPublication) else batch
+    for name, relation in batch.relations.items():
+        try:
+            copy_arrow_stream(
+                connection,
+                owned._write_profiles[name],
+                target=("pg_temp", "sp_" + name),
+                batches=relation.to_batches(),
+                cancellation=cancellation,
             )
-            with cursor.copy(statement) as copy:
-                copy.write(encoder.write_header())
-                for chunk in relation.to_batches():
-                    copy.write(encoder.write_batch(chunk))
-                copy.write(encoder.finish())
+        except ArrowTransferError as exc:
+            raise ArrowPublicationError(str(exc)) from exc
 
 
 def publish_arrow_on_connection(
-    connection: Connection, batch: AppendPublication | SnapshotDerivedPublication
+    connection: Connection,
+    batch: AppendPublication | SnapshotDerivedPublication,
+    *,
+    cancellation: BorrowerCancellation | None = None,
 ) -> PublicationReceipt:
     """Stage and publish without committing the SQLAlchemy-owned transaction."""
     from .contracts import require_database_operation
@@ -447,7 +448,10 @@ def publish_arrow_on_connection(
     require_database_operation(connection, batch.release_id, "publish_arrow")
     if isinstance(batch, SnapshotDerivedPublication):
         require_database_operation(connection, batch.source.release_id, batch.operation_id)
-    stage_arrow(connection, batch)
+    if cancellation is None:
+        stage_arrow(connection, batch)
+    else:
+        stage_arrow(connection, batch, cancellation=cancellation)
     function = "data.publish_batch(:r,:z,:b,:c)"
     params: dict[str, str | bytes | int | None] = {
         "r": batch.release_id,
@@ -483,6 +487,16 @@ def publish_arrow_on_connection(
 
 
 def publish_arrow(
-    engine: Engine, batch: AppendPublication | SnapshotDerivedPublication, *, attempts: int = 3
+    engine: Engine,
+    batch: AppendPublication | SnapshotDerivedPublication,
+    *,
+    attempts: int = 3,
+    cancellation: BorrowerCancellation | None = None,
 ) -> PublicationReceipt:
-    return _publish(engine, batch, publish_arrow_on_connection, attempts=attempts)
+    if cancellation is None:
+        return _publish(engine, batch, publish_arrow_on_connection, attempts=attempts)
+
+    def publish(connection: Connection, candidate):
+        return publish_arrow_on_connection(connection, candidate, cancellation=cancellation)
+
+    return _publish(engine, batch, publish, attempts=attempts, cancellation=cancellation)

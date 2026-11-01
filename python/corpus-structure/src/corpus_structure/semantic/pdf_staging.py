@@ -3,20 +3,16 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field, fields
 from typing import Any
 
-import psycopg
 import pyarrow as pa
-from pgpq import ArrowToPostgresBinaryEncoder
-from pgpq.encoders import StringEncoderBuilder
-from pgpq.schema import Jsonb
-from psycopg import sql
 from sqlalchemy import Connection, text
-from sqlalchemy.dialects.postgresql import JSONB
 
-from .metadata import metadata
-from .pdf_record_model import record_arrow_schema
+from corpus_structure.core.db.lifetime import BorrowerCancellation
+
+from .arrow_transfer import ArrowWriteProfile, copy_arrow_stream
+from .pdf_record_model import record_arrow_schema, record_write_profile
 
 STAGE_FAMILIES = {
     "header": "ops.pdf_stage_document",
@@ -52,6 +48,21 @@ class PdfBuildRef:
     source_digest: str
     recipe_digest: str
     schema_digest: str
+    _write_profiles: Mapping[str, ArrowWriteProfile] = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        from types import MappingProxyType
+
+        object.__setattr__(
+            self,
+            "_write_profiles",
+            MappingProxyType(
+                {
+                    target: record_write_profile(target, release_id=self.release_id)
+                    for target in STAGE_FAMILIES.values()
+                }
+            ),
+        )
 
     @property
     def product_id(self) -> str:
@@ -153,7 +164,7 @@ def begin_pdf_build(
     )
     if release_id is not None and row["release_id"] != release_id:
         raise ValueError("PDF build release differs from requested release")
-    return PdfBuildRef(**{key: row[key] for key in PdfBuildRef.__dataclass_fields__})
+    return PdfBuildRef(**{f.name: row[f.name] for f in fields(PdfBuildRef) if f.init})
 
 
 def adopt_pdf_batch(
@@ -161,44 +172,39 @@ def adopt_pdf_batch(
     build: PdfBuildRef,
     replay_key: str,
     relations: Mapping[str, Iterable[pa.RecordBatch] | pa.RecordBatchReader],
+    *,
+    cancellation: BorrowerCancellation | None = None,
 ) -> PdfStageReceipt:
     """COPY and adopt in the caller's transaction; never commit or hold a lease here."""
+    if cancellation is not None:
+        cancellation.check_active()
     names = [stage_relation(name) for name in relations]
     if len(set(names)) != len(names):
         raise ValueError("one input stream per stage relation")
     conn.execute(
         text("SELECT ops.prepare_pdf_stage(:build,:task,:attempt,:holder)"), _parameters(build)
     )
-    driver = conn.connection.driver_connection
-    if not isinstance(driver, psycopg.Connection):
-        raise TypeError("PDF staging requires the existing Psycopg-backed Core connection")
     count = size = 0
-    with driver.cursor() as cursor:
-        for name, batches in relations.items():
-            target = stage_relation(name)
-            schema = stage_schema(target)
-            builders = {
-                f.name: StringEncoderBuilder.new_with_output(f, Jsonb())
-                if isinstance(metadata.tables[target].c[f.name].type, JSONB)
-                else ArrowToPostgresBinaryEncoder.infer_encoder(f)
-                for f in schema
-            }
-            encoder = ArrowToPostgresBinaryEncoder.new_with_encoders(schema, builders)
-            statement = sql.SQL("COPY {} ({}) FROM STDIN (FORMAT BINARY)").format(
-                sql.Identifier("pg_temp", "ps_" + target.split(".")[1]),
-                sql.SQL(",").join(map(sql.Identifier, schema.names)),
-            )
-            with cursor.copy(statement) as copy:
-                copy.write(encoder.write_header())
-                for batch in batches:
-                    if not batch.schema.equals(schema, check_metadata=True):
-                        raise ValueError(f"private PDF wire schema differs for {target}")
-                    count += batch.num_rows
-                    size += batch.nbytes
-                    if count > MAX_BATCH_ROWS or size > MAX_BATCH_BYTES:
-                        raise ValueError("private PDF batch exceeds bounded upload profile")
-                    copy.write(encoder.write_batch(batch))
-                copy.write(encoder.finish())
+
+    def check_upload(batch: pa.RecordBatch) -> None:
+        nonlocal count, size
+        count += batch.num_rows
+        size += batch.nbytes
+        if count > MAX_BATCH_ROWS or size > MAX_BATCH_BYTES:
+            raise ValueError("private PDF batch exceeds bounded upload profile")
+
+    for name, batches in relations.items():
+        target = stage_relation(name)
+        copy_arrow_stream(
+            conn,
+            build._write_profiles[target],
+            target=("pg_temp", "ps_" + target.split(".")[1]),
+            batches=batches,
+            before_encode=check_upload,
+            cancellation=cancellation,
+        )
+    if cancellation is not None:
+        cancellation.check_active()
     params = {**_parameters(build), "key": replay_key}
     row = (
         conn.execute(
