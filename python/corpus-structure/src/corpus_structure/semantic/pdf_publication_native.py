@@ -500,22 +500,34 @@ $$;
 text,p_frozen text,",
     )
     private = private.replace(
-        "p_family text,p_filters jsonb,p_after jsonb", "p_family text,p_after jsonb"
+        "p_family text,p_filters jsonb,p_after jsonb,p_limit integer)",
+        "p_family text,p_after jsonb,p_limit integer,p_filters jsonb DEFAULT '{}'::jsonb)",
     )
     private = private.replace(
         "DECLARE published ops.pdf_published_revision;",
-        "DECLARE published ops.pdf_stage_build; p_filters jsonb:='{}'::jsonb;",
+        "DECLARE published ops.pdf_stage_build;",
     )
     private = private.replace(
         "SELECT * INTO STRICT published FROM ops.read_pdf_published_revision(p_task,p_product,p_d\
 igest);",
         "published:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);",
     )
+    # A callback needs native reconstruction and selected metadata, not the
+    # independent SQL validator's complete relational inventory. Use the same
+    # keyed reader and a bounded set of actual referenced stream identities.
+    private = private.replace(
+        "ARRAY['stream_id']::text[]", "ARRAY['stream_id','stream_ids']::text[]"
+    ).replace(
+        "(NOT p_filters ? 'stream_id' OR r.stream_id=p_filters->>'stream_id')",
+        "(NOT p_filters ? 'stream_id' OR r.stream_id=p_filters->>'stream_id') "
+        "AND (NOT p_filters ? 'stream_ids' OR r.stream_id=ANY(ARRAY(SELECT "
+        "jsonb_array_elements_text(p_filters->'stream_ids'))))",
+    )
     sql += private
     sql += """
 CREATE OR REPLACE FUNCTION ops.pdf_validation_contract(p_release text)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE item_ record; state_ bytea:=ops.pdf_identity_fold_start('pdf-validation-contract-v3');
+DECLARE item_ record; state_ bytea:=ops.pdf_identity_fold_start('pdf-validation-contract-v4');
  count_ bigint:=0; length_ bigint:=0; frame_ bytea;
 BEGIN
  FOR item_ IN SELECT input_name,content FROM sem.input WHERE release_id=p_release
@@ -528,6 +540,10 @@ BEGIN
  IF count_=0 THEN RAISE EXCEPTION 'PDF validation release dependencies missing'; END IF;
  frame_:=convert_to('pdf-projection-write-profile-v1','UTF8')
  ||decode('{pdf_projection_profile_digest}','hex');
+ state_:=ops.pdf_identity_fold_step(state_,count_,frame_);
+ count_:=count_+1; length_:=length_+octet_length(frame_);
+ frame_:=convert_to('pdf-integrated-metadata-policy-v1','UTF8')
+ ||decode('{pdf_integrated_metadata_policy_digest}','hex');
  state_:=ops.pdf_identity_fold_step(state_,count_,frame_);
  count_:=count_+1; length_:=length_+octet_length(frame_);
  RETURN encode(ops.pdf_identity_fold_finish(state_,count_,length_),'hex');
@@ -617,12 +633,12 @@ DO NOTHING;
 frozen_digest=p_frozen AND contract_digest=contract_ AND passed=p_passed) THEN
  RAISE EXCEPTION 'native callback outcome conflicts for immutable premises'; END IF;
 END $$;
-CREATE OR REPLACE FUNCTION ops.validate_pdf_build(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text,p_frozen text)
-RETURNS SETOF ops.pdf_build_validation LANGUAGE plpgsql SECURITY DEFINER SET \
-search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; stream_ record; logical_ text; contract_ text;
- prior_validation ops.pdf_build_validation;
+CREATE OR REPLACE FUNCTION ops.validate_pdf_build(p_build text,p_task bigint,p_attempt
+ bigint,p_holder text,p_frozen text)
+RETURNS SETOF ops.pdf_build_validation LANGUAGE plpgsql SECURITY DEFINER SET
+ search_path=pg_catalog,pg_temp AS $$
+DECLARE b ops.pdf_stage_build; logical_ text; contract_ text;
+ prior_validation ops.pdf_build_validation; bad_owner_ boolean; unreachable_ boolean;
 BEGIN
  PERFORM 1 FROM ops.pdf_stage_build WHERE build_id=p_build FOR NO KEY UPDATE;
  b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
@@ -635,46 +651,39 @@ BEGIN
  AND v.passed) THEN RAISE EXCEPTION 'native callback conformance outcome missing or stale'
  USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_native n WHERE n.product_id=p_build AND
- ops.pdf_native_record_shape(n.native_type,n.scalars_json,n.structure_json->'fields') IS NOT \
-TRUE) THEN
- RAISE EXCEPTION 'native schema field/required/primitive constraint differs' USING \
-ERRCODE='23514'; END IF;
+ n.revision_id=p_build AND
+ ops.pdf_native_record_shape(n.native_type,n.scalars_json,n.structure_json->'fields') IS NOT
+ TRUE) THEN
+ RAISE EXCEPTION 'native schema field/required/primitive constraint differs' USING
+ ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_native n WHERE n.product_id=p_build AND
+ n.revision_id=p_build AND
  (jsonb_typeof(n.structure_json->'fields') IS DISTINCT FROM 'object' OR
- EXISTS(SELECT FROM jsonb_each(n.structure_json->'fields') f WHERE f.value->>'kind' NOT IN \
-('object','array','map','parts')) OR
- EXISTS(SELECT FROM jsonb_object_keys(n.scalars_json) k WHERE n.structure_json->'fields' ? k))) THEN
+ EXISTS(SELECT FROM jsonb_each(n.structure_json->'fields') f WHERE f.value->>'kind' NOT IN
+ ('object','array','map','parts')) OR
+ EXISTS(SELECT FROM jsonb_object_keys(n.scalars_json) k WHERE n.structure_json->'fields' ?
+ k))) THEN
  RAISE EXCEPTION 'invalid native field decomposition' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_membership m LEFT JOIN kb.pdf_record_native n ON \
-n.product_id=p_build AND n.record_id=m.parent_id
- WHERE m.product_id=p_build AND (n.record_id IS NULL OR \
-n.structure_json->'fields'->m.field_name->>'kind' NOT IN ('array','map'))) THEN
+ IF EXISTS(SELECT FROM kb.pdf_record_membership m LEFT JOIN kb.pdf_record_native n ON
+ n.product_id=p_build AND n.revision_id=p_build AND n.record_id=m.parent_id
+ WHERE m.product_id=p_build AND m.revision_id=p_build AND (n.record_id IS NULL OR
+ n.structure_json->'fields'->m.field_name->>'kind' NOT IN ('array','map'))) THEN
  RAISE EXCEPTION 'membership outside declared collection' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_native n WHERE n.product_id=p_build AND n.scalars_json ? \
-'self_ref'
+ IF EXISTS(SELECT FROM kb.pdf_record_native n WHERE n.product_id=p_build AND
+ n.revision_id=p_build AND n.scalars_json ? 'self_ref'
  GROUP BY n.scalars_json->>'self_ref' HAVING count(*)<>1) THEN
  RAISE EXCEPTION 'native self-reference is not unique' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_native n LEFT JOIN kb.pdf_record_reference r ON \
-r.product_id=p_build AND r.source_id=n.record_id AND r.field_name='$ref'
- WHERE n.product_id=p_build AND n.native_type IN ('RefItem','FineRef') AND
- (r.reference_id IS NULL OR NOT ops.pdf_reference_bytes_equal(p_build,p_build,r.native_pointer,r.\
-native_pointer_stream_id,n.scalars_json->>'$ref',n.structure_json->'fields'->'$ref'->>'stream_id'\
-))) THEN
- RAISE EXCEPTION 'native reference index does not correspond to supplied spelling' USING \
-ERRCODE='23514'; END IF;
- IF EXISTS(WITH RECURSIVE edges AS (
- SELECT n.record_id parent_id,(f.value->>'target') child_id FROM kb.pdf_record_native n
- CROSS JOIN LATERAL jsonb_each(n.structure_json->'fields') f WHERE n.product_id=p_build AND \
-f.value->>'kind'='object'
- UNION ALL SELECT parent_id,record_id FROM kb.pdf_record_membership WHERE product_id=p_build AND \
-value_kind='record'
- ), paths AS (
- SELECT parent_id,child_id,ARRAY[parent_id,child_id] path,parent_id=child_id cyclic FROM edges
- UNION ALL SELECT p.parent_id,e.child_id,p.path||e.child_id,e.child_id=ANY(p.path) FROM paths p \
-JOIN edges e ON e.parent_id=p.child_id WHERE NOT p.cyclic
- ) SELECT FROM paths WHERE cyclic) THEN RAISE EXCEPTION 'native containment cycle' USING \
-ERRCODE='23514'; END IF;
- IF EXISTS(WITH owner_edges AS (
+ IF EXISTS(SELECT FROM kb.pdf_record_native n LEFT JOIN kb.pdf_record_reference r ON
+ r.product_id=p_build AND r.revision_id=p_build AND r.source_id=n.record_id AND
+ r.field_name='$ref'
+ WHERE n.product_id=p_build AND n.revision_id=p_build AND n.native_type IN
+ ('RefItem','FineRef') AND
+ (r.reference_id IS NULL OR NOT
+ ops.pdf_reference_bytes_equal(p_build,p_build,r.native_pointer,r.native_pointer_stream_id,
+ n.scalars_json->>'$ref',n.structure_json->'fields'->'$ref'->>'stream_id'))) THEN
+ RAISE EXCEPTION 'native reference index does not correspond to supplied spelling' USING
+ ERRCODE='23514'; END IF;
+ WITH RECURSIVE owner_edges AS MATERIALIZED (
  SELECT n.record_id parent_id,f.value->>'target' child_id FROM kb.pdf_record_native n
  CROSS JOIN LATERAL jsonb_each(n.structure_json->'fields') f
  WHERE n.product_id=p_build AND n.revision_id=p_build AND f.value->>'kind'='object'
@@ -682,124 +691,147 @@ ERRCODE='23514'; END IF;
  WHERE product_id=p_build AND revision_id=p_build AND value_kind='record'
  ), owner_counts AS (
  SELECT child_id,count(parent_id) owners FROM owner_edges GROUP BY child_id
- ) SELECT FROM kb.pdf_record_native n LEFT JOIN owner_counts owners
- ON owners.child_id=n.record_id
- WHERE n.product_id=p_build AND n.revision_id=p_build
- AND COALESCE(owners.owners,0)<>CASE WHEN n.record_id=(
+ ), reachable(record_id) AS (
  SELECT root_id FROM ops.pdf_record_document
- WHERE product_id=p_build AND revision_id=p_build) THEN 0 ELSE 1 END) THEN
+ WHERE product_id=p_build AND revision_id=p_build
+ UNION SELECT e.child_id FROM reachable r JOIN owner_edges e ON e.parent_id=r.record_id
+ ) SELECT COALESCE(bool_or(COALESCE(owners.owners,0)<>CASE WHEN n.record_id=(
+ SELECT root_id FROM ops.pdf_record_document
+ WHERE product_id=p_build AND revision_id=p_build) THEN 0 ELSE 1 END),true),
+ COALESCE(bool_or(reachable.record_id IS NULL),true) INTO bad_owner_,unreachable_
+ FROM kb.pdf_record_native n LEFT JOIN owner_counts owners ON owners.child_id=n.record_id
+ LEFT JOIN reachable ON reachable.record_id=n.record_id
+ WHERE n.product_id=p_build AND n.revision_id=p_build
+ ;
+ IF bad_owner_ THEN
  RAISE EXCEPTION 'native orphan or repeated containment owner' USING ERRCODE='23514'; END IF;
+ IF unreachable_ THEN RAISE EXCEPTION 'native containment cycle or unreachable record'
+ USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_access parent JOIN kb.pdf_record_access child ON
- child.product_id=parent.product_id AND child.parent_pointer=parent.pointer
- WHERE parent.product_id=p_build AND NOT EXISTS(SELECT FROM \
-jsonb_array_elements(COALESCE(parent.native_json->'children','[]')) c WHERE \
-c->>'$ref'=child.pointer))
- OR EXISTS(SELECT FROM kb.pdf_record_access parent CROSS JOIN LATERAL \
-jsonb_array_elements(COALESCE(parent.native_json->'children','[]')) c
- LEFT JOIN kb.pdf_record_access child ON child.product_id=p_build AND child.pointer=c->>'$ref'
- WHERE parent.product_id=p_build AND (child.pointer IS NULL OR child.parent_pointer IS DISTINCT \
-FROM parent.pointer)) THEN
+ child.product_id=parent.product_id AND child.revision_id=parent.revision_id
+ AND child.parent_pointer=parent.pointer
+ WHERE parent.product_id=p_build AND parent.revision_id=p_build AND NOT EXISTS(SELECT FROM
+ jsonb_array_elements(COALESCE(parent.native_json->'children','[]')) c WHERE
+ c->>'$ref'=child.pointer))
+ OR EXISTS(SELECT FROM kb.pdf_record_access parent CROSS JOIN LATERAL
+ jsonb_array_elements(COALESCE(parent.native_json->'children','[]')) c
+ LEFT JOIN kb.pdf_record_access child ON child.product_id=p_build AND
+ child.revision_id=p_build AND child.pointer=c->>'$ref'
+ WHERE parent.product_id=p_build AND parent.revision_id=p_build AND (child.pointer IS NULL OR
+ child.parent_pointer IS DISTINCT FROM parent.pointer)) THEN
  RAISE EXCEPTION 'native parent/child backpointer differs' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_native n CROSS JOIN LATERAL \
-jsonb_each(n.structure_json->'fields') f
- LEFT JOIN kb.pdf_record_native target ON target.product_id=p_build AND \
-target.record_id=f.value->>'target'
- WHERE n.product_id=p_build AND f.value->>'kind'='object' AND target.record_id IS NULL) THEN
+ IF EXISTS(SELECT FROM kb.pdf_record_native n CROSS JOIN LATERAL
+ jsonb_each(n.structure_json->'fields') f
+ LEFT JOIN kb.pdf_record_native target ON target.product_id=p_build AND
+ target.revision_id=p_build AND target.record_id=f.value->>'target'
+ WHERE n.product_id=p_build AND n.revision_id=p_build AND f.value->>'kind'='object' AND
+ target.record_id IS NULL) THEN
  RAISE EXCEPTION 'missing native object target' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_native n CROSS JOIN LATERAL \
-jsonb_each(n.structure_json->'fields') f
- LEFT JOIN LATERAL (SELECT count(*) count_,min(ordinal) min_,max(ordinal) max_ FROM \
-kb.pdf_record_membership m
- WHERE m.product_id=p_build AND m.revision_id=p_build
- AND m.parent_id=n.record_id AND m.field_name=f.key) members ON true
- WHERE n.product_id=p_build AND f.value->>'kind' IN ('array','map') AND
- (members.count_<>(f.value->>'length')::bigint OR (members.count_>0 AND (members.min_<>0 OR \
-members.max_<>members.count_-1)))) THEN
+ IF EXISTS(WITH member_counts AS (
+ SELECT parent_id,field_name,count(*) count_,min(ordinal) min_,max(ordinal) max_
+ FROM kb.pdf_record_membership WHERE product_id=p_build AND revision_id=p_build
+ GROUP BY parent_id,field_name
+ ) SELECT FROM kb.pdf_record_native n CROSS JOIN LATERAL
+ jsonb_each(n.structure_json->'fields') f LEFT JOIN member_counts members
+ ON members.parent_id=n.record_id AND members.field_name=f.key
+ WHERE n.product_id=p_build AND n.revision_id=p_build AND f.value->>'kind' IN ('array','map')
+ AND
+ (COALESCE(members.count_,0)<>(f.value->>'length')::bigint OR
+ (members.count_>0 AND (members.min_<>0 OR members.max_<>members.count_-1)))) THEN
  RAISE EXCEPTION 'native ordered membership incomplete' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_native n LEFT JOIN ops.pdf_artifact_stream a ON \
-a.product_id=p_build AND a.stream_id=n.native_address_stream_id
- WHERE n.product_id=p_build GROUP BY COALESCE(a.byte_length,octet_length(convert_to(n.native_addr\
-ess,'UTF8'))),
- COALESCE(a.byte_root,encode(ops.pdf_identity_byte_root(convert_to(n.native_address,'UTF8')),'hex\
-')) HAVING count(*)>1) THEN
- RAISE EXCEPTION 'duplicate native address including overflow representation' USING \
-ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_membership m LEFT JOIN ops.pdf_artifact_stream s ON \
-s.product_id=p_build AND s.stream_id=m.member_key_stream_id
- WHERE m.product_id=p_build AND (m.member_key IS NOT NULL OR m.member_key_stream_id IS NOT NULL)
- GROUP BY m.parent_id,m.field_name,COALESCE(s.byte_length,octet_length(convert_to(m.member_key,'U\
-TF8'))),
- COALESCE(s.byte_root,encode(ops.pdf_identity_byte_root(convert_to(m.member_key,'UTF8')),'hex')) \
-HAVING count(*)>1) THEN
- RAISE EXCEPTION 'duplicate native map key including overflow representation' USING \
-ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM kb.pdf_record_native n LEFT JOIN ops.pdf_artifact_stream a ON
+ a.product_id=p_build AND a.revision_id=p_build AND a.stream_id=n.native_address_stream_id
+ WHERE n.product_id=p_build AND n.revision_id=p_build GROUP BY
+ COALESCE(a.byte_length,octet_length(convert_to(n.native_address,'UTF8'))),
+ COALESCE(a.byte_root,encode(ops.pdf_identity_byte_root(convert_to(n.native_address,'UTF8')),
+ 'hex')) HAVING count(*)>1) THEN
+ RAISE EXCEPTION 'duplicate native address including overflow representation' USING
+ ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM kb.pdf_record_membership m LEFT JOIN ops.pdf_artifact_stream s ON
+ s.product_id=p_build AND s.revision_id=p_build AND s.stream_id=m.member_key_stream_id
+ WHERE m.product_id=p_build AND m.revision_id=p_build AND (m.member_key IS NOT NULL OR
+ m.member_key_stream_id IS NOT NULL)
+ GROUP BY
+ m.parent_id,m.field_name,COALESCE(s.byte_length,octet_length(convert_to(m.member_key,'UTF8'))),
+ COALESCE(s.byte_root,encode(ops.pdf_identity_byte_root(convert_to(m.member_key,'UTF8')),
+ 'hex')) HAVING count(*)>1) THEN
+ RAISE EXCEPTION 'duplicate native map key including overflow representation' USING
+ ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_reference r LEFT JOIN kb.pdf_record_native n
- ON n.product_id=p_build AND n.record_id=r.target_id WHERE r.product_id=p_build AND
- (n.record_id IS NULL OR (r.native_pointer IS NOT NULL AND r.field_name NOT IN \
-('source_cell_id','target_cell_id') AND NOT ops.pdf_reference_bytes_equal(p_build,p_build,n.nativ\
-e_address,n.native_address_stream_id,r.native_pointer,r.native_pointer_stream_id)))) THEN
+ ON n.product_id=p_build AND n.revision_id=p_build AND n.record_id=r.target_id WHERE
+ r.product_id=p_build AND r.revision_id=p_build AND
+ (n.record_id IS NULL OR (r.native_pointer IS NOT NULL AND r.field_name NOT IN
+ ('source_cell_id','target_cell_id') AND NOT
+ ops.pdf_reference_bytes_equal(p_build,p_build,n.native_address,n.native_address_stream_id,
+ r.native_pointer,r.native_pointer_stream_id)))) THEN
  RAISE EXCEPTION 'native reference/address target differs' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_companion c LEFT JOIN ops.pdf_product input_ ON
- input_.task_id=(c.body->>'task_id')::bigint AND input_.product_key=c.body->>'product_key' AND \
-input_.content_digest=c.body->>'content_digest'
- LEFT JOIN ops.task task_ ON task_.id=input_.task_id LEFT JOIN ops.run run_ ON run_.id=task_.run_id
- WHERE c.product_id=p_build AND c.family='input' AND
+ input_.task_id=(c.body->>'task_id')::bigint AND input_.product_key=c.body->>'product_key' AND
+ input_.content_digest=c.body->>'content_digest'
+ LEFT JOIN ops.task task_ ON task_.id=input_.task_id LEFT JOIN ops.run run_ ON
+ run_.id=task_.run_id
+ WHERE c.product_id=p_build AND c.revision_id=p_build AND c.family='input' AND
  (input_.task_id IS NULL OR input_.artifact_digest IS DISTINCT FROM b.source_digest OR
  run_.project_id IS DISTINCT FROM (SELECT project_id FROM ops.run WHERE id=b.run_id))) THEN
- RAISE EXCEPTION 'PDF input outside exact admitted source/project custody' USING \
-ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_companion c CROSS JOIN LATERAL \
-jsonb_array_elements(COALESCE(c.body->'supports','[]')) support
- WHERE c.product_id=p_build AND c.family='coverage' AND NOT EXISTS(SELECT FROM \
-kb.pdf_record_companion i
- WHERE i.product_id=p_build AND i.family='input' AND i.local_id=support->>'input_index')) THEN
+ RAISE EXCEPTION 'PDF input outside exact admitted source/project custody' USING
+ ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM kb.pdf_record_companion c CROSS JOIN LATERAL
+ jsonb_array_elements(COALESCE(c.body->'supports','[]')) support
+ WHERE c.product_id=p_build AND c.revision_id=p_build AND c.family='coverage' AND NOT
+ EXISTS(SELECT FROM kb.pdf_record_companion i
+ WHERE i.product_id=p_build AND i.revision_id=p_build AND i.family='input' AND
+ i.local_id=support->>'input_index')) THEN
  RAISE EXCEPTION 'coverage support references missing input' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_companion o LEFT JOIN kb.pdf_record_access a ON
- a.product_id=p_build AND a.pointer=o.body->>'pointer' WHERE o.product_id=p_build AND \
-o.family='occurrence'
- AND o.body->>'address_space' IN ('native_item','selected_item','native_cell') AND (a.pointer IS \
-NULL OR
+ a.product_id=p_build AND a.revision_id=p_build AND a.pointer=o.body->>'pointer' WHERE
+ o.product_id=p_build AND o.revision_id=p_build AND o.family='occurrence'
+ AND o.body->>'address_space' IN ('native_item','selected_item','native_cell') AND (a.pointer
+ IS NULL OR
  (o.body ? 'cell_index' AND (o.body->>'cell_index')::bigint>=GREATEST(
  jsonb_array_length(COALESCE(a.native_json->'data'->'table_cells','[]')),
- jsonb_array_length(COALESCE(a.native_json->'meta'->'tabular_chart'->'chart_data'->'table_cells',\
-'[]')))))) THEN
- RAISE EXCEPTION 'companion occurrence outside native item/cell inventory' USING \
-ERRCODE='23514'; END IF;
+ jsonb_array_length(COALESCE(a.native_json->'meta'->'tabular_chart'->'chart_data'\
+->'table_cells','[]')))))) THEN
+ RAISE EXCEPTION 'companion occurrence outside native item/cell inventory' USING
+ ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_endpoint e WHERE e.product_id=p_build AND
- ((e.target_task_id=0 AND NOT EXISTS(SELECT FROM kb.pdf_record_companion o WHERE \
-o.product_id=p_build AND o.family='occurrence' AND o.local_id=e.occurrence_id)) OR
- (e.target_task_id<>0 AND NOT EXISTS(SELECT FROM ops.pdf_product p WHERE \
-p.task_id=e.target_task_id AND p.product_key=e.target_product_key AND \
-p.content_digest=e.target_content_digest AND (EXISTS(SELECT FROM kb.pdf_occurrence o WHERE \
-o.task_id=p.task_id AND o.product_key=p.product_key AND o.occurrence_id=e.occurrence_id) OR \
-EXISTS(SELECT FROM ops.pdf_published_revision pr JOIN kb.pdf_record_companion c ON \
-c.product_id=pr.build_id WHERE pr.task_id=p.task_id AND pr.product_key=p.product_key AND \
-pr.logical_digest=p.content_digest AND c.family='occurrence' AND \
-c.local_id=e.occurrence_id)))))) THEN
- RAISE EXCEPTION 'companion endpoint outside admitted occurrence inventory' USING \
-ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_companion c WHERE c.product_id=p_build AND \
-c.family='native_metadata'
- AND (c.body ? 'value' OR NOT EXISTS(SELECT FROM kb.pdf_record_companion_field f WHERE \
-f.product_id=c.product_id AND f.revision_id=c.revision_id
- AND f.family=c.family AND f.local_id=c.local_id AND f.field_name='value'))) THEN RAISE \
-EXCEPTION 'metadata value has no governed byte field'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_companion_field f JOIN kb.pdf_record_companion c \
-USING(product_id,revision_id,family,local_id)
- JOIN ops.pdf_artifact_stream a USING(product_id,revision_id,stream_id) WHERE f.product_id=p_build
- AND (c.body ? f.field_name OR a.encoding_profile IS DISTINCT FROM CASE WHEN \
-f.field_name='value' THEN CASE WHEN c.body->>'kind'='{pdf_payload_family}' THEN \
-'{pdf_payload_profile}' ELSE 'pdf-companion-json-field-v1' END ELSE 'pdf-record-scalar-v1:s' END))
+ e.revision_id=p_build AND
+ ((e.target_task_id=0 AND NOT EXISTS(SELECT FROM kb.pdf_record_companion o WHERE
+ o.product_id=p_build AND o.revision_id=p_build AND o.family='occurrence' AND
+ o.local_id=e.occurrence_id)) OR
+ (e.target_task_id<>0 AND NOT EXISTS(SELECT FROM ops.pdf_product p WHERE
+ p.task_id=e.target_task_id AND p.product_key=e.target_product_key AND
+ p.content_digest=e.target_content_digest AND (EXISTS(SELECT FROM kb.pdf_occurrence o WHERE
+ o.task_id=p.task_id AND o.product_key=p.product_key AND o.occurrence_id=e.occurrence_id) OR
+ EXISTS(SELECT FROM ops.pdf_published_revision pr JOIN kb.pdf_record_companion c ON
+ c.product_id=pr.build_id AND c.revision_id=pr.build_id
+ WHERE pr.task_id=p.task_id AND pr.product_key=p.product_key AND
+ pr.logical_digest=p.content_digest AND c.family='occurrence' AND
+ c.local_id=e.occurrence_id)))))) THEN
+ RAISE EXCEPTION 'companion endpoint outside admitted occurrence inventory' USING
+ ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM kb.pdf_record_companion c WHERE c.product_id=p_build AND
+ c.revision_id=p_build AND c.family='native_metadata'
+ AND (c.body ? 'value' OR NOT EXISTS(SELECT FROM kb.pdf_record_companion_field f WHERE
+ f.product_id=c.product_id AND f.revision_id=c.revision_id
+ AND f.family=c.family AND f.local_id=c.local_id AND f.field_name='value'))) THEN RAISE
+ EXCEPTION 'metadata value has no governed byte field'; END IF;
+ IF EXISTS(SELECT FROM kb.pdf_record_companion_field f JOIN kb.pdf_record_companion c
+ USING(product_id,revision_id,family,local_id)
+ JOIN ops.pdf_artifact_stream a USING(product_id,revision_id,stream_id) WHERE
+ f.product_id=p_build AND f.revision_id=p_build
+ AND (c.body ? f.field_name OR a.encoding_profile IS DISTINCT FROM CASE WHEN
+ f.field_name='value' THEN CASE WHEN c.body->>'kind'='{pdf_payload_family}' THEN
+ '{pdf_payload_profile}' ELSE 'pdf-companion-json-field-v1' END ELSE 'pdf-record-scalar-v1:s'
+ END))
  THEN RAISE EXCEPTION 'invalid final companion field'; END IF;
- FOR stream_ IN SELECT stream_id FROM ops.pdf_artifact_stream WHERE product_id=p_build LOOP
- PERFORM ops.pdf_identity_verify_artifact(p_build,p_build,stream_.stream_id); END LOOP;
- IF EXISTS(SELECT FROM kb.pdf_record_native n WHERE n.product_id=p_build AND n.native_type IN
- ('TextItem','ListItem','SectionHeaderItem','FormulaItem','CodeItem','GroupItem','ListGroup','Pic\
-tureItem','TableItem')
- AND n.scalars_json ? 'self_ref' AND NOT EXISTS(SELECT FROM kb.pdf_record_access a WHERE \
-a.product_id=p_build
- AND a.pointer=n.scalars_json->>'self_ref')) THEN RAISE EXCEPTION 'native access inventory \
-incomplete' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM kb.pdf_record_native n WHERE n.product_id=p_build AND
+ n.revision_id=p_build AND n.native_type IN
+ ('TextItem','ListItem','SectionHeaderItem','FormulaItem','CodeItem','GroupItem','ListGroup',
+ 'PictureItem','TableItem')
+ AND n.scalars_json ? 'self_ref' AND NOT EXISTS(SELECT FROM kb.pdf_record_access a WHERE
+ a.product_id=p_build AND a.revision_id=p_build
+ AND a.pointer=n.scalars_json->>'self_ref')) THEN RAISE EXCEPTION
+ 'native access inventory incomplete' USING ERRCODE='23514'; END IF;
  PERFORM ops.pdf_check_access_correspondence(p_build);
  logical_:=ops.pdf_record_logical_identity(p_build,p_build);
  PERFORM ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
@@ -867,7 +899,7 @@ encode(sha256(content),'hex')=b.schema_digest
 END $$;
 """
     from .native_shapes import record_shape_guards
-    from .pdf_contracts import trusted_pdf_context
+    from .pdf_contracts import integrated_metadata_policy, trusted_pdf_context
 
     context = trusted_pdf_context()
     from hashlib import sha256
@@ -883,6 +915,9 @@ END $$;
     policy = context.boundary.validate_json("PdfProjectionWriteProfile", policy_source)
     levels = sorted(set(policy.model_dump(mode="json")["allowed_isolation"]))
     policy_digest = sha256(canonical_bytes({"allowed_isolation": levels})).hexdigest()
+    metadata_policy_digest = sha256(
+        canonical_bytes(integrated_metadata_policy(context))
+    ).hexdigest()
     sql = (
         sql.replace(
             "{pdf_projection_isolation_array}",
@@ -893,6 +928,7 @@ END $$;
             _quote("PDF projection admission requires " + ", ".join(levels).upper()),
         )
         .replace("{pdf_projection_profile_digest}", policy_digest)
+        .replace("{pdf_integrated_metadata_policy_digest}", metadata_policy_digest)
     )
     companion_guards = []
     for family, cls in [
@@ -1131,7 +1167,7 @@ corpus_sem_writer,corpus_sem_reader;
         "freeze_pdf_build(text,bigint,bigint,text,text)",
         "adopt_pdf_companion(text,bigint,bigint,text,text,text,jsonb,text,bigint,jsonb)",
         "prepare_pdf_build(text,bigint,bigint,text,text)",
-        "read_pdf_frozen_rows(text,bigint,bigint,text,text,text,jsonb,integer)",
+        "read_pdf_frozen_rows(text,bigint,bigint,text,text,text,jsonb,integer,jsonb)",
         "adopt_pdf_access(text,bigint,bigint,text,text,text,jsonb)",
         "adopt_pdf_access_batch(text,bigint,bigint,text,text,jsonb)",
         "record_pdf_native_validation(text,bigint,bigint,text,text,boolean)",

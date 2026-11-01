@@ -22,6 +22,29 @@ types:
     base: bool
     uri: xsd:boolean
 classes:
+  PdfIntegratedMetadataPolicy:
+    description: Integration preserves original-page payloads and emits fresh current-graph health; parent assessments remain under their qualified input product.
+    attributes:
+      inherited_metadata_kinds:
+        range: string
+        required: true
+        multivalued: true
+      generated_metadata_kinds:
+        range: string
+        required: true
+        multivalued: true
+      formula_outcome:
+        range: PdfRecognitionOutcome
+        required: true
+      inline_coverage:
+        range: PdfCoverage
+        required: true
+      cell_coverage:
+        range: PdfCoverage
+        required: true
+      allow_scoped_coverage:
+        range: boolean
+        required: true
   PdfProjectionWriteProfile:
     description: Native projection-write admission requires a fresh statement snapshot after the build fence.
     attributes:

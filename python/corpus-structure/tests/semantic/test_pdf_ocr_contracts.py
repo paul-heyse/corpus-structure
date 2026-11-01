@@ -12,7 +12,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
-from corpus_structure.semantic.pdf_ocr_contracts import validate_pdf_ocr_pages
+from corpus_structure.semantic.pdf_ocr_contracts import (
+    validate_pdf_ocr_pages,
+    validate_pdf_page_payloads,
+)
 
 from .test_operations import setup
 
@@ -170,6 +173,33 @@ def test_partial_inventory_preserves_native_output_and_old_pages_remain_accepted
     before = deepcopy(old)
     validate_pdf_ocr_pages(old)
     assert old == before
+
+
+@pytest.mark.parametrize("validate", [validate_pdf_ocr_pages, validate_pdf_page_payloads])
+def test_complete_scope_requires_all_descendant_pages_but_not_an_unrelated_page(validate):
+    product = example()
+    product["items"][1].update(parent_pointer="#/groups/1", section_pointer="#/groups/1")
+    product["items"].extend(
+        [
+            dict(pointer="#/groups/1", parent_pointer="#/groups/0", section_pointer="#/groups/1"),
+            dict(pointer="#/texts/1", parent_pointer="#/body"),
+        ]
+    )
+    product["document"]["pages"]["2"] = {"size": {"width": 200, "height": 300}}
+    product["document"]["texts"].append(
+        dict(self_ref="#/texts/1", label="text", text="outside scope", children=[])
+    )
+    product["regions"].append(dict(pointer="#/texts/1", page_no=2))
+    product["recognition_coverage"][0]["membership"] = "descendants"
+    direct = deepcopy(product["recognition_coverage"][0])
+    direct.update(section_pointer="#/groups/1", membership="direct")
+    product["recognition_coverage"].append(direct)
+    before = deepcopy(product)
+    validate(product)
+    assert product == before
+    product["items"][-1].update(parent_pointer="#/groups/1", section_pointer="#/groups/1")
+    with pytest.raises(ValueError, match="native vector inventory"):
+        validate(product)
 
 
 def test_word_shape_does_not_admit_rotation_or_unbounded_confidence():

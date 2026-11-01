@@ -319,6 +319,20 @@ def independent_integrated(native_source):
     )
 
 
+def test_materialized_integrated_content_enforces_released_metadata_affinity(
+    independent_integrated, native_source, pdf13_context
+):
+    # Valid native runtime metadata remains input-qualified after integration. The
+    # outer product owns kind; its content envelope deliberately has no kind field.
+    independent_integrated["content"]["runtime_report"] = {
+        "packages": [],
+        "bindings": [],
+        "effective_options": "{}",
+    }
+    with pytest.raises(ValueError, match="qualified input graph"):
+        prepare(independent_integrated, native_source, context=pdf13_context)
+
+
 def test_retained_observation_preserves_partial_and_no_response(native_source, pdf13_context):
     partial = observation(native_source, outcome="partial")
     product = prepare(partial, native_source, context=pdf13_context)

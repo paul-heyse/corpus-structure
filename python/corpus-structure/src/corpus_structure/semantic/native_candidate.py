@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from pathlib import Path
 
@@ -19,6 +19,8 @@ from .companion_projection_native import companion_projection_definitions
 from .metadata import SCHEMAS, metadata
 from .native_objects import (
     NativeAuthoringError,
+    NativeDefinition,
+    NativeIdentity,
     NativeObject,
     definition_from_sql,
     prepare_native_authoring,
@@ -68,6 +70,9 @@ _PDF_PAYLOAD_FUNCTIONS = frozenset(
         "seal_pdf_build",
         "pdf_validation_contract",
         "pdf_projection_contract",
+        "pdf_check_access_correspondence",
+        "pdf_identity_stream_scalar",
+        "pdf_identity_ascii_string",
         "pdf_identity_companion_scalar",
         "pdf_record_logical_identity",
         "read_pdf_record_rows",
@@ -158,8 +163,15 @@ def series_native_definitions(connection, *, include_selected=True):
     )
     from .pdf_staging_native import stage_native_sql
 
+    access_sql = Path(__file__).with_name("sql") / "pdf_record_access_correspondence.sql"
     payload_sql = (
-        stage_native_sql() + "\n" + publication_sql() + "\n" + pdf_record_logical_identity_sql()
+        stage_native_sql()
+        + "\n"
+        + publication_sql()
+        + "\n"
+        + pdf_record_logical_identity_sql()
+        + "\n"
+        + access_sql.read_text()
     )
     definitions = [
         _shape_definition(connection, _native_shape_guard(), source="native-record-shape:forward"),
@@ -251,8 +263,16 @@ def _admission_definitions(connection, sql, *, source):
     return tuple(definitions)
 
 
-def candidate_admission_sql(connection, products, native_objects):
-    from .migrations import ALEMBIC_DIR
+def candidate_admission_sql(
+    connection,
+    products,
+    native_objects,
+    *,
+    retire=frozenset(),
+    predecessor=None,
+    predecessor_state: Path | None = None,
+    predecessor_source=None,
+):
     from .native_products import current_authoring_provenance
     from .source_view_native import native_admission_sql
 
@@ -263,11 +283,16 @@ def candidate_admission_sql(connection, products, native_objects):
         for item in native_objects
         if (item.identity.schema, item.identity.name) != ("data", "execution_contract_descriptor")
     )
+    source = predecessor_source or _predecessor_source(
+        connection, predecessor=predecessor, predecessor_state=predecessor_state
+    )
+    desired = {item.identity for item in selected}
     return native_admission_sql(
         definition_sql(products),
-        base_admission=ALEMBIC_DIR.joinpath("versions/semantic_0065_admission.sql").read_text(),
+        base_admission=source.admission,
         authoring_provenance=current_authoring_provenance(),
         native_objects=selected,
+        retire=retire | (source.retirements - desired),
     )
 
 
@@ -275,6 +300,10 @@ def load_native_state(path: Path, *, digest: str | None = None) -> tuple[NativeO
     content = path.read_bytes()
     if digest is not None and sha256(content).hexdigest() != digest:
         raise NativeAuthoringError(f"{path.name}: native predecessor state digest differs")
+    return _parse_native_state(content, path)[0]
+
+
+def _parse_native_state(content: bytes, path: Path):
     try:
         payload = json.loads(content)
         if payload["version"] != 1 or not isinstance(payload["desired"], list):
@@ -282,17 +311,24 @@ def load_native_state(path: Path, *, digest: str | None = None) -> tuple[NativeO
         objects = tuple(NativeObject.from_payload(value) for value in payload["desired"])
         if len({item.identity for item in objects}) != len(objects):
             raise ValueError("duplicate native identity")
-        return objects
+        if "operations" in payload and not isinstance(payload["operations"], list):
+            raise ValueError("native operations must be a list")
+        return objects, payload
     except (KeyError, TypeError, ValueError) as error:
         raise NativeAuthoringError(
             f"{path.name}: invalid frozen native predecessor state: {error}"
         ) from error
 
 
-def current_native_state(connection, explicit: Path | None = None):
-    """Read the current revision's declared immutable desired state, never live adoption."""
-    if explicit is not None:
-        return load_native_state(explicit)
+def _read_revision_artifact(path: Path, digest: str) -> bytes:
+    content = path.read_bytes()
+    if sha256(content).hexdigest() != digest:
+        raise NativeAuthoringError(f"{path.name}: frozen revision artifact digest differs")
+    return content
+
+
+def _current_revision_artifact(connection, filename_attribute: str, digest_attribute: str):
+    """Locate only declared, hash-bound predecessor source, never a live descriptor."""
     from alembic.script import ScriptDirectory
 
     from .migrations import alembic_config, current_revision
@@ -305,17 +341,106 @@ def current_native_state(connection, explicit: Path | None = None):
     script = ScriptDirectory.from_config(alembic_config()).get_revision(revision)
     if script is None:
         raise NativeAuthoringError("native authoring requires a declared current revision")
-    filename = getattr(script.module, "NATIVE_STATE_FILE", None)
-    digest = getattr(script.module, "NATIVE_STATE_SHA256", None)
+    filename = getattr(script.module, filename_attribute, None)
+    digest = getattr(script.module, digest_attribute, None)
     if (
         not isinstance(filename, str)
         or Path(filename).name != filename
         or not isinstance(digest, str)
     ):
         raise NativeAuthoringError(
-            "current revision lacks frozen native state; select --predecessor-state explicitly"
+            "current revision lacks frozen native artifact: " + filename_attribute
         )
-    return load_native_state(Path(script.path).parent / filename, digest=digest)
+    return Path(script.path).parent / filename, digest
+
+
+def current_native_state(connection, explicit: Path | None = None):
+    """Read the current revision's declared immutable desired state, never live adoption."""
+    if explicit is not None:
+        return load_native_state(explicit)
+    source = _current_revision_artifact(connection, "NATIVE_STATE_FILE", "NATIVE_STATE_SHA256")
+    return None if source is None else load_native_state(source[0], digest=source[1])
+
+
+@dataclass(frozen=True)
+class _PredecessorSource:
+    objects: tuple[NativeObject | NativeDefinition, ...] | None
+    admission: str
+    retirements: frozenset[NativeIdentity] = frozenset()
+
+    def permits_backfill(self, identity: NativeIdentity) -> bool:
+        if identity in self.retirements:
+            return False
+        if identity.kind != "function":
+            return True
+        from .source_view_native import _admission_descriptor
+
+        return identity.qualified in {
+            item["signature"] for item in _admission_descriptor(self.admission)["functions"]
+        }
+
+
+def _predecessor_source(connection, *, predecessor=None, predecessor_state=None):
+    """Keep transitions and admission on one declared predecessor authority."""
+    from .migrations import ALEMBIC_DIR
+    from .source_view_native import _admission_descriptor
+
+    if predecessor is not None and predecessor_state is not None:
+        raise NativeAuthoringError(
+            "select source predecessors or a frozen predecessor state, not both"
+        )
+    state = None
+    if predecessor is not None:
+        objects = tuple(predecessor)
+        admission = None
+    elif predecessor_state is not None:
+        objects, state = _parse_native_state(predecessor_state.read_bytes(), predecessor_state)
+        admission = None
+    else:
+        state_source = _current_revision_artifact(
+            connection, "NATIVE_STATE_FILE", "NATIVE_STATE_SHA256"
+        )
+        if state_source is None:
+            return _PredecessorSource(
+                None, ALEMBIC_DIR.joinpath("versions/semantic_0065_admission.sql").read_text()
+            )
+        content = _read_revision_artifact(*state_source)
+        objects, state = _parse_native_state(content, state_source[0])
+        admission_source = _current_revision_artifact(
+            connection, "NATIVE_ADMISSION_FILE", "NATIVE_ADMISSION_SHA256"
+        )
+        if admission_source is None:
+            raise NativeAuthoringError("native predecessor admission source is absent")
+        admission = _read_revision_artifact(*admission_source).decode()
+    declared_admission = tuple(
+        item
+        for item in objects
+        if (item.identity.schema, item.identity.name)
+        in {("data", "execution_contract_descriptor"), ("data", "require_execution_release")}
+    )
+    if len(declared_admission) != 2:
+        raise NativeAuthoringError(
+            "explicit native predecessor must include its descriptor and enforcing guard"
+        )
+    state_admission = "\n".join(
+        statement.rstrip(";\n") + ";"
+        for item in declared_admission
+        for statement in (item.statements if isinstance(item, NativeObject) else item.install_sql)
+    )
+    if admission is not None and (
+        _admission_descriptor(admission) != _admission_descriptor(state_admission)
+    ):
+        raise NativeAuthoringError("frozen native state and admission descriptor differ")
+    retirements = (
+        frozenset()
+        if state is None
+        else frozenset(
+            NativeIdentity.from_payload(item["before"]["identity"])
+            for item in state.get("operations", ())
+            if item["after"] is None and item["before"] is not None
+        )
+    )
+    return _PredecessorSource(objects, admission or state_admission, retirements)
 
 
 def prepare_series_candidate(
@@ -330,16 +455,11 @@ def prepare_series_candidate(
     owned_authoring=False,
 ):
     """Produce ordinary and selected native operations together; no revision/file is written."""
-    from .migrations import ALEMBIC_DIR
-
     products = series_native_definitions(connection, include_selected=include_selected)
-    if predecessor is not None and predecessor_state is not None:
-        raise NativeAuthoringError(
-            "select source predecessors or a frozen predecessor state, not both"
-        )
-    frozen_before = (
-        current_native_state(connection, predecessor_state) if predecessor is None else None
+    source = _predecessor_source(
+        connection, predecessor=predecessor, predecessor_state=predecessor_state
     )
+    frozen_before = source.objects
     if frozen_before is not None:
         product_predecessor = tuple(
             item
@@ -351,15 +471,16 @@ def prepare_series_candidate(
             }
         )
     else:
-        product_predecessor = (
-            series_predecessor_definitions(connection) if predecessor is None else predecessor
-        )
+        product_predecessor = series_predecessor_definitions(connection)
     if frozen_before is not None:
         known = {item.identity for item in product_predecessor}
+        desired = {item.identity for item in products}
         newly_managed = tuple(
             item
             for item in series_predecessor_definitions(connection)
             if item.identity not in known
+            and item.identity in desired
+            and source.permits_backfill(item.identity)
         )
         if newly_managed:
             # Normalization uses frozen declarations, never adoption of deployed
@@ -386,7 +507,7 @@ def prepare_series_candidate(
         if frozen_before is not None
         else _admission_definitions(
             connection,
-            ALEMBIC_DIR.joinpath("versions/semantic_0065_admission.sql").read_text(),
+            source.admission,
             source="semantic_0065_admission.sql",
         )
     )
@@ -394,7 +515,13 @@ def prepare_series_candidate(
         raise NativeAuthoringError(
             "frozen native state must include its descriptor and enforcing guard"
         )
-    first_admission = candidate_admission_sql(connection, products, product_authoring.desired)
+    first_admission = candidate_admission_sql(
+        connection,
+        products,
+        product_authoring.desired,
+        retire=retire,
+        predecessor_source=source,
+    )
     guard_definition = next(
         item
         for item in _admission_definitions(
@@ -412,7 +539,11 @@ def prepare_series_candidate(
         owned_authoring=owned_authoring,
     )
     admission = candidate_admission_sql(
-        connection, products, (*product_authoring.desired, *guard_authoring.desired)
+        connection,
+        products,
+        (*product_authoring.desired, *guard_authoring.desired),
+        retire=retire,
+        predecessor_source=source,
     )
     admission_after = _admission_definitions(
         connection, admission, source="native-admission:forward"

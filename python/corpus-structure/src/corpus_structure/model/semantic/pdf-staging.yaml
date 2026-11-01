@@ -12,6 +12,7 @@ annotations:
   pds:upload_size_semantics: max_bytes bounds Arrow transfer buffers; max_native_bytes bounds typed native logical extents with null bitmap and varlena headers, independent of JSON hex rendering and TOAST compression
   pds:upload_profile: '{"max_rows":65536,"max_bytes":8388608,"max_native_bytes":8388608,"max_replay_key_bytes":1024}'
   pds:projection_write_profile: '{"allowed_isolation":["read committed"],"rationale":"Projection adoption requires a fresh statement snapshot after the build lock so finalized validation membership cannot be missed."}'
+  pds:integrated_metadata_policy: '{"inherited_metadata_kinds":["inline_candidate_pages"],"generated_metadata_kinds":["formula_outcomes"],"formula_outcome":"unknown","inline_coverage":"unknown","cell_coverage":"unknown","allow_scoped_coverage":false}'
   pds:publication_identity_profile: pdf-record-sha256-fold-v1
   pds:publication_record_profile: '{"id": "pdf-publication-records-v2", "fold": "pdf-record-sha256-fold-v1",
     "companion": {"family": "companion/<family>", "key": "local_id", "fields": ["body", "ordinal"], "native_metadata_suffix": ["value"], "occurrence_suffix": ["text"], "body":

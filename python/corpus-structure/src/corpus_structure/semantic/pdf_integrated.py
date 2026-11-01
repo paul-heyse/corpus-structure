@@ -121,7 +121,12 @@ def prepare_integrated_pdf_product(
         if native_schema is None:
             raise ValueError("integrated Docling content requires its retained native schema")
         native = prepare_pdf_product(
-            content, original, native_schema, recipe_bytes, context=context
+            content,
+            original,
+            native_schema,
+            recipe_bytes,
+            context=context,
+            publication_kind="integrated" if supplied.get("kind") == "integrated" else "native",
         )
         supplied["content"] = native.values()
         document = supplied["content"].pop("document")

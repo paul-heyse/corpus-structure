@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterator, Mapping
+from collections.abc import Collection, Iterator, Mapping
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -25,11 +25,16 @@ class FrozenPayloadStore:
     def __init__(self, path: Path):
         self.db = sqlite3.connect(path)
         self.db.executescript("""
-        CREATE TABLE entry(family TEXT, key TEXT, body TEXT, PRIMARY KEY(family,key));
+        CREATE TABLE entry(family TEXT, key TEXT, body TEXT, companion_family TEXT,
+                           metadata_kind TEXT, page_no INTEGER, PRIMARY KEY(family,key));
+        CREATE INDEX companion_kind ON entry(family,companion_family,metadata_kind,key);
+        CREATE INDEX companion_page ON entry(family,companion_family,metadata_kind,page_no,key);
         CREATE TABLE part(stream TEXT, ordinal INTEGER, body BLOB, PRIMARY KEY(stream,ordinal));
         CREATE TABLE page(number INTEGER PRIMARY KEY, local TEXT UNIQUE);
         """)
         self.schemas: dict[str, Any] = {}
+        self.publication_kind = "native"
+        self.integrated_metadata_policy: dict[str, Any] | None = None
 
     def close(self) -> None:
         self.db.close()
@@ -39,6 +44,10 @@ class FrozenPayloadStore:
             from .pdf_payloads import schema_load
 
             self.schemas = schema_load(json.dumps(row["schemas"]))
+            self.publication_kind = row.get("publication_kind", "native")
+            if self.publication_kind not in {"native", "integrated"}:
+                raise ValueError("unsupported frozen publication kind")
+            self.integrated_metadata_policy = row.get("integrated_metadata_policy")
         elif family == "artifact_part":
             self.db.execute(
                 "INSERT INTO part VALUES(?,?,?)",
@@ -57,7 +66,18 @@ class FrozenPayloadStore:
                     + ":"
                     + str(row.get("ordinal", ""))
                 )
-            self.db.execute("INSERT INTO entry VALUES(?,?,?)", (family, key, json.dumps(row)))
+            body = row.get("body", {}) if family == "companion" else {}
+            self.db.execute(
+                "INSERT INTO entry VALUES(?,?,?,?,?,?)",
+                (
+                    family,
+                    key,
+                    json.dumps(row),
+                    row["family"] if family == "companion" else None,
+                    body.get("kind"),
+                    body.get("page_no"),
+                ),
+            )
 
     def parts(self, stream: str) -> Iterator[bytes]:
         for (body,) in self.db.execute(
@@ -74,21 +94,63 @@ class FrozenPayloadStore:
         if raw is None:
             raise ValueError("frozen metadata stream is missing")
         descriptor = json.loads(raw[0])
-        length, root = byte_root(self.parts(stream))
+        chunks = []
+
+        def consume():
+            for chunk in self.parts(stream):
+                chunks.append(chunk)
+                yield chunk
+
+        length, root = byte_root(consume())
         if (length, root.hex()) != (descriptor["byte_length"], descriptor["byte_root"]):
             raise ValueError("frozen metadata bytes differ from their descriptor")
-        return descriptor, b"".join(self.parts(stream))
+        return descriptor, b"".join(chunks)
 
-    def companions(self, family: str) -> Iterator[dict[str, Any]]:
+    def _selection(self, family: str, kind: str | None, page_nos: Collection[int] | None):
+        where = "family='companion' AND companion_family=?"
+        parameters: list[Any] = [family]
+        if kind is not None:
+            where += " AND metadata_kind=?"
+            parameters.append(kind)
+        if page_nos is not None:
+            if not page_nos:
+                where += " AND 0"
+            else:
+                where += " AND page_no IN (" + ",".join("?" for _ in page_nos) + ")"
+                parameters.extend(page_nos)
+        return where, parameters
+
+    def companions(
+        self, family: str, *, kind: str | None = None, page_nos: Collection[int] | None = None
+    ) -> Iterator[dict[str, Any]]:
+        where, parameters = self._selection(family, kind, page_nos)
         for (raw,) in self.db.execute(
-            "SELECT body FROM entry WHERE family='companion' ORDER BY key"
+            "SELECT body FROM entry WHERE " + where + " ORDER BY key", parameters
         ):
-            row = json.loads(raw)
-            if row["family"] == family:
-                yield row
+            yield json.loads(raw)
+
+    def has_companions(self, family: str, *, kind: str | None = None) -> bool:
+        where, parameters = self._selection(family, kind, None)
+        return bool(
+            self.db.execute(
+                "SELECT EXISTS(SELECT 1 FROM entry WHERE " + where + ")", parameters
+            ).fetchone()[0]
+        )
+
+    def _prepare(self, kind: str):
+        from .pdf_payloads import FAMILY, prepare_payload_schema, prepare_schema_validator
+
+        schema = self.schemas[kind]
+        return (
+            prepare_payload_schema(schema) if kind == FAMILY else None,
+            prepare_schema_validator(schema) if kind != FAMILY else None,
+        )
 
     def value(self, row: Mapping[str, Any]) -> Any:
-        from .pdf_payloads import PROFILE, prepare_payload_schema, prepare_schema_validator
+        return self._value(row, self._prepare(row["body"]["kind"]))
+
+    def _value(self, row: Mapping[str, Any], prepared) -> Any:
+        from .pdf_payloads import PROFILE
 
         body = row["body"]
         key = json.dumps([row["family"], row["local_id"], "value"])
@@ -100,9 +162,10 @@ class FrozenPayloadStore:
         field = json.loads(raw[0])
         descriptor, payload = self.stream(field["stream_id"])
         kind = body["kind"]
-        schema = self.schemas[kind]
+        codec, validator = prepared
         if descriptor["encoding_profile"] == PROFILE:
-            codec = prepare_payload_schema(schema)
+            if codec is None:
+                raise ValueError("frozen page locator differs from payload")
             value = codec.decode(
                 payload,
                 schema_digest=body["payload_schema_digest"],
@@ -115,10 +178,12 @@ class FrozenPayloadStore:
             ):
                 raise ValueError("frozen page locator differs from payload")
         elif descriptor["encoding_profile"] == "pdf-companion-json-field-v1":
+            if validator is None:
+                raise ValueError("unsupported frozen page metadata encoding")
             value = json.loads(payload)
+            validator.validate(value)
         else:
             raise ValueError("unsupported frozen metadata encoding")
-        prepare_schema_validator(schema).validate(value)
         if isinstance(value, dict):
             pointer = next(
                 (
@@ -138,54 +203,54 @@ class FrozenPayloadStore:
         return value
 
     def values(self, kind: str) -> Iterator[Any]:
-        for row in self.companions("native_metadata"):
-            if row["body"]["kind"] == kind:
-                yield self.value(row)
+        prepared = self._prepare(kind)
+        for row in self.companions("native_metadata", kind=kind):
+            yield self._value(row, prepared)
 
     def validate(self, document: Mapping[str, Any], projection: Path) -> None:
-        from .pdf_ocr_contracts import validate_pdf_inline_reports, validate_pdf_ocr_pages
+        from .pdf_contracts import validate_pdf_report_metadata
+        from .pdf_ocr_contracts import validate_pdf_page_payloads
+        from .pdf_payloads import FAMILY
 
-        store = self
-        # Validate every retained metadata class, not only the columnar family.
+        # Preparation and decoded reuse belong only to this exact frozen invocation.
+        # Page payloads are never accumulated: their locators index immutable bytes.
+        prepared = {}
+
+        def decode(row):
+            kind = row["body"]["kind"]
+            if kind not in prepared:
+                prepared[kind] = self._prepare(kind)
+            return self._value(row, prepared[kind])
+
+        needed = {
+            "cell_reports",
+            "inline_alignment_reports",
+            "recognition_coverage",
+            "formula_outcomes",
+            "runtime_report",
+        }
+        metadata = {kind: [] for kind in needed}
+        self.db.execute("DELETE FROM page")
         for row in self.companions("native_metadata"):
-            value = self.value(row)
-            if row["body"]["kind"] == "inline_candidate_pages":
-                self.db.execute("INSERT INTO page VALUES(?,?)", (value["page_no"], json.dumps(row)))
+            kind = row["body"]["kind"]
+            if kind == FAMILY:
+                try:
+                    self.db.execute(
+                        "INSERT INTO page VALUES(?,?)",
+                        (row["body"]["page_no"], json.dumps(row)),
+                    )
+                except sqlite3.IntegrityError as error:
+                    raise ValueError(
+                        "inline candidate page is duplicate or outside native scope"
+                    ) from error
+            else:
+                value = decode(row)
+                if kind in metadata:
+                    metadata[kind].append(value)
 
-        class Values:
-            def __init__(self, kind):
-                self.kind = kind
-
-            def __iter__(self):
-                return store.values(self.kind)
-
-            def __bool__(self):
-                return any(
-                    row["body"]["kind"] == self.kind for row in store.companions("native_metadata")
-                )
-
-        class Pages(Mapping):
-            def __init__(self):
-                self.last_number = None
-                self.last_value = None
-
-            def __getitem__(self, number):
-                if number == self.last_number:
-                    return self.last_value
-                raw = store.db.execute(
-                    "SELECT local FROM page WHERE number=?", (number,)
-                ).fetchone()
-                if raw is None:
-                    raise KeyError(number)
-                value = store.value(json.loads(raw[0]))
-                self.last_number, self.last_value = number, value
-                return value
-
-            def __iter__(self):
-                return (row[0] for row in store.db.execute("SELECT number FROM page"))
-
-            def __len__(self):
-                return store.db.execute("SELECT count(*) FROM page").fetchone()[0]
+        def pages():
+            for (raw,) in self.db.execute("SELECT local FROM page ORDER BY number"):
+                yield decode(json.loads(raw))
 
         items, regions = [], []
         with projection.open() as source:
@@ -197,6 +262,14 @@ class FrozenPayloadStore:
         if len(health) != 1:
             raise ValueError("native health/source scope is absent or ambiguous")
         product = dict(
+            kind=self.publication_kind,
+            metadata_kinds=frozenset(
+                row[0]
+                for row in self.db.execute(
+                    "SELECT DISTINCT metadata_kind FROM entry "
+                    "WHERE family='companion' AND companion_family='native_metadata'"
+                )
+            ),
             document=document,
             items=items,
             regions=regions,
@@ -204,19 +277,20 @@ class FrozenPayloadStore:
             source_scope=health[0]["source_scope"],
             page_start=health[0].get("page_start"),
             page_end=health[0].get("page_end"),
-            cell_reports=Values("cell_reports"),
-            inline_candidate_pages=Values("inline_candidate_pages"),
-            inline_alignment_reports=Values("inline_alignment_reports"),
-            recognition_coverage=Values("recognition_coverage"),
+            cell_reports=metadata["cell_reports"],
+            inline_candidate_pages=pages(),
+            inline_alignment_reports=metadata["inline_alignment_reports"],
+            recognition_coverage=metadata["recognition_coverage"],
         )
-        product["health"]["formula_outcomes"] = Values("formula_outcomes")
-        runtime = list(self.values("runtime_report"))
+        product["health"]["formula_outcomes"] = metadata["formula_outcomes"]
+        runtime = metadata["runtime_report"]
         if len(runtime) > 1:
             raise ValueError("native runtime metadata is ambiguous")
         if runtime:
             product["runtime_report"] = runtime[0]
-        inputs = list(self.companions("input"))
-        structural = [r["body"] for r in inputs if r["body"].get("role") == "structural"]
+        structural = [
+            r["body"] for r in self.companions("input") if r["body"].get("role") == "structural"
+        ]
         if len(structural) == 1:
             parent = structural[0]
             product.update(
@@ -224,8 +298,5 @@ class FrozenPayloadStore:
                 parent_product_key=parent["product_key"],
                 parent_digest=parent["content_digest"],
             )
-        from .pdf_contracts import validate_pdf_report_metadata
-
-        validate_pdf_report_metadata(product)
-        validate_pdf_ocr_pages(product)
-        validate_pdf_inline_reports(product, page_lookup=Pages())
+        validate_pdf_report_metadata(product, integrated_policy=self.integrated_metadata_policy)
+        validate_pdf_page_payloads(product)

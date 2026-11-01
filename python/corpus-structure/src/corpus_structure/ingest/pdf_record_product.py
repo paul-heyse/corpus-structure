@@ -27,42 +27,14 @@ def native_publication_draft(
     document = load_snapshot(selected)
     nodes = native_nodes(document)
     if health is None:
-        outcomes = {}
-        for row in (*conversion.formula_outcomes, *extra_outcomes):
-            if row.item_ref not in nodes or str(nodes[row.item_ref].label) != "formula":
-                raise ValueError("formula health names missing native occurrence")
-            if row.item_ref in outcomes:
-                raise ValueError("duplicate native formula outcome")
-            outcomes[row.item_ref] = row
-        for pointer, node in nodes.items():
-            if str(node.label) == "formula" and pointer not in outcomes:
-                from .pdf_health import FormulaOutcome
+        from .pdf import native_conversion_health
 
-                outcomes[pointer] = FormulaOutcome(
-                    pointer, "unknown", "no attributable inference outcome"
-                )
-        display = [
-            p
-            for p, n in nodes.items()
-            if str(n.label) == "formula"
-            and (n.parent is None or str(nodes[n.parent.cref].label) not in {"table", "inline"})
-        ]
-        health = {
-            "conversion": conversion.conversion_status,
-            "display_coverage": "complete"
-            if conversion.conversion_status == "success"
-            and all(outcomes[p].outcome == "succeeded" for p in display)
-            else "partial",
-            "inline_coverage": "unknown",
-            "cell_coverage": "unknown",
-            "issues": list(conversion.errors),
-            "formula_outcomes": [
-                dict(
-                    pointer=r.item_ref, outcome=r.outcome, **({"error": r.error} if r.error else {})
-                )
-                for r in outcomes.values()
-            ],
-        }
+        health = native_conversion_health(
+            nodes,
+            conversion.conversion_status,
+            conversion.errors,
+            (*conversion.formula_outcomes, *extra_outcomes),
+        )
     captured = dict(metadata or {})
     if "inline_candidate_pages" not in captured:
         candidates = as_candidate_source(conversion.inline_candidates)

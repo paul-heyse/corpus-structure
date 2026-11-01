@@ -24,6 +24,9 @@ CREATE OR REPLACE FUNCTION ops.pdf_identity_ascii_string(p_text text)
 RETURNS text LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE out_ text:='"'; c_ text; n_ integer; i_ integer;
 BEGIN
+ -- PostgreSQL's JSON encoder already has exactly the required spelling for
+ -- printable ASCII identifiers. Keep ensure_ascii handling below for all other text.
+ IF p_text COLLATE "C" !~ '[^ -~]' THEN RETURN to_jsonb(p_text)::text; END IF;
  FOR i_ IN 1..char_length(p_text) LOOP
   c_:=substr(p_text,i_,1); n_:=ascii(c_);
   IF n_=34 THEN out_:=out_||chr(92)||'"';
@@ -51,7 +54,8 @@ DECLARE stream_ ops.pdf_artifact_stream; kind_ text;
 BEGIN
  SELECT * INTO STRICT stream_ FROM ops.pdf_artifact_stream
  WHERE product_id=p_product AND revision_id=p_revision AND stream_id=p_stream;
- PERFORM ops.pdf_identity_verify_artifact(p_product,p_revision,p_stream);
+ -- Descriptor algebra only: the complete identity entry verifies every immutable
+ -- stream once before evaluating any record, including shared/unreferenced streams.
  IF stream_.encoding_profile IN ('pdf-record-native-json-v1','pdf-companion-json-field-v1') THEN kind_:='y';
  ELSIF stream_.encoding_profile ~ '^pdf-record-scalar-v1:[anbifsyd]$' THEN
   kind_:=right(stream_.encoding_profile,1);
@@ -80,7 +84,6 @@ BEGIN
    END IF;
    -- Physical custody is frozen separately; this digest is trusted only after the
    -- released validation callback recomputes it from decoded typed page values.
-   PERFORM ops.pdf_identity_verify_artifact(p_product,p_revision,field_.stream_id);
    RETURN convert_to('y','UTF8')||int8send(32::bigint)||
     sha256(convert_to('pdf-ocr-candidate-logical-v1','UTF8')||
      decode(p_body->>'payload_logical_digest','hex'));
@@ -105,11 +108,17 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.pdf_record_logical_identity(p_product text,p_revision text)
 RETURNS text LANGUAGE plpgsql STABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE header_ ops.pdf_record_document; row_ record; node_ kb.pdf_record_native;
- member_ kb.pdf_record_membership; field_ text; descriptor_ jsonb;
+ member_ kb.pdf_record_membership; stream_ record; field_ text; descriptor_ jsonb;
  names_ text[]; values_ bytea[]; frame_ bytea; key_ text; key_scalar_ bytea;
  state_ bytea:=ops.pdf_identity_fold_start('records'); count_ bigint:=0; length_ bigint:=0;
 BEGIN
  SELECT * INTO STRICT header_ FROM ops.pdf_record_document WHERE product_id=p_product AND revision_id=p_revision;
+ -- This is the self-validating entry point. Private scalar helpers consume only
+ -- the descriptors covered by this complete pass, never a caller-supplied bypass.
+ FOR stream_ IN SELECT stream_id FROM ops.pdf_artifact_stream
+ WHERE product_id=p_product AND revision_id=p_revision LOOP
+  PERFORM ops.pdf_identity_verify_artifact(p_product,p_revision,stream_.stream_id);
+ END LOOP;
  frame_:=ops.pdf_identity_record_frame(header_.native_schema_digest,'@context','@context',
  ARRAY['protocol','release','source'],ARRAY[
  ops.pdf_identity_scalar('s',convert_to('pdf-record-sha256-fold-v1','UTF8')),

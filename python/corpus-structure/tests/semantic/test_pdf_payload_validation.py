@@ -181,11 +181,15 @@ def test_false_complete_coverage_fails_over_captured_page_inventory(tmp_path):
         "\n".join(
             json.dumps(dict(family=family, body=body))
             for family, body in [
-                ("access", dict(pointer="#/groups/0", section_pointer="#/groups/0")),
+                (
+                    "access",
+                    dict(pointer="#/groups/0", label="section", section_pointer="#/groups/0"),
+                ),
                 (
                     "access",
                     dict(
                         pointer="#/texts/0",
+                        label="text",
                         parent_pointer="#/groups/0",
                         section_pointer="#/groups/0",
                     ),
@@ -196,6 +200,247 @@ def test_false_complete_coverage_fails_over_captured_page_inventory(tmp_path):
     )
     try:
         with pytest.raises(ValueError, match="complete word inventory"):
+            store.validate(document, projection)
+    finally:
+        store.close()
+
+
+def test_family_kind_page_and_exists_selectors_do_not_decode_unrelated_rows(tmp_path):
+    store, row, _, _ = captured(tmp_path, inventory())
+    try:
+        for family, local, body in (
+            ("occurrence", "unrelated", {}),
+            ("native_metadata", "runtime:9", {"kind": "runtime_report"}),
+            ("native_metadata", "page:2", {"kind": "inline_candidate_pages", "page_no": 2}),
+        ):
+            store.add("companion", dict(family=family, local_id=local, body=body))
+            # A selector for the real page must not even parse these payloads.
+            store.db.execute(
+                "UPDATE entry SET body='not JSON' WHERE family='companion' AND key=?",
+                (json.dumps([family, local]),),
+            )
+        assert list(
+            store.companions("native_metadata", kind="inline_candidate_pages", page_nos=[1])
+        ) == [row]
+        assert list(store.companions("native_metadata", page_nos=[])) == []
+        assert store.has_companions("native_metadata", kind="runtime_report")
+        assert not store.has_companions("coverage")
+        where, parameters = store._selection("native_metadata", "inline_candidate_pages", [1])
+        plan = store.db.execute(
+            "EXPLAIN QUERY PLAN SELECT body FROM entry WHERE " + where, parameters
+        ).fetchall()
+        assert any("SEARCH entry USING INDEX" in detail for *_, detail in plan)
+    finally:
+        store.close()
+
+
+def test_stream_verifies_and_consumes_actual_parts_once_with_canonical_blocking(
+    tmp_path, monkeypatch
+):
+    store = FrozenPayloadStore(tmp_path / "parts.sqlite")
+    payload = bytes(range(256)) * 800
+    chunks = [payload[:13], payload[13:70001], payload[70001:]]
+    length, root = byte_root((payload,))
+    store.add(
+        "artifact_stream", dict(stream_id="fragmented", byte_length=length, byte_root=root.hex())
+    )
+    for ordinal, chunk in enumerate(chunks):
+        store.add("artifact_part", dict(stream_id="fragmented", ordinal=ordinal, body=chunk.hex()))
+    original = store.parts
+    calls = []
+
+    def parts(stream):
+        calls.append(stream)
+        yield from original(stream)
+
+    monkeypatch.setattr(store, "parts", parts)
+    try:
+        descriptor, actual = store.stream("fragmented")
+        assert actual == payload and descriptor["byte_root"] == root.hex()
+        assert calls == ["fragmented"]
+    finally:
+        store.close()
+
+
+def add_report(store, index):
+    value = dict(
+        page_no=1,
+        candidate_index=index,
+        item_pointers=["#/texts/0"],
+        outcome="unresolved",
+        basis="unmatched-native-text",
+        detail="Independent unresolved word",
+    )
+    payload = json.dumps(value).encode()
+    length, root = byte_root((payload,))
+    local = f"inline:{index}"
+    store.add(
+        "companion",
+        dict(
+            family="native_metadata",
+            local_id=local,
+            ordinal=index,
+            body=dict(kind="inline_alignment_reports", ordinal=index),
+        ),
+    )
+    store.add(
+        "companion_field",
+        dict(family="native_metadata", local_id=local, field_name="value", stream_id=local),
+    )
+    store.add(
+        "artifact_stream",
+        dict(
+            stream_id=local,
+            byte_length=length,
+            byte_root=root.hex(),
+            encoding_profile="pdf-companion-json-field-v1",
+        ),
+    )
+    store.add("artifact_part", dict(stream_id=local, ordinal=0, body=payload.hex()))
+
+
+def test_frozen_page_decodes_once_across_multiple_original_candidate_reports(tmp_path, monkeypatch):
+    from corpus_structure.semantic.pdf_payloads import PreparedPayloadFamily
+
+    page = inventory()
+    page["candidates"].append(deepcopy(page["candidates"][0]))
+    store, _, document, projection = captured(tmp_path, page)
+    for index in (0, 1):
+        add_report(store, index)
+    store.add(
+        "companion",
+        dict(
+            family="input",
+            local_id="0",
+            body=dict(role="structural", task_id=12, product_key="native", content_digest="a" * 64),
+        ),
+    )
+    projection.write_text(
+        "\n".join(
+            json.dumps(dict(family=family, body=body))
+            for family, body in (
+                ("access", dict(pointer="#/texts/0", label="text", content_layer="body")),
+                (
+                    "region",
+                    dict(
+                        pointer="#/texts/0",
+                        page_no=1,
+                        left=26,
+                        top=40,
+                        right=66,
+                        bottom=60,
+                        origin="top_left",
+                    ),
+                ),
+            )
+        )
+    )
+    original = PreparedPayloadFamily.decode
+    calls = []
+
+    def decode(self, *args, **kwargs):
+        calls.append(kwargs["logical_digest"])
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(PreparedPayloadFamily, "decode", decode)
+    try:
+        store.validate(document, projection)
+        assert len(calls) == 1
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize("defect", ["schema", "logical", "locator", "bytes", "encoding"])
+def test_a_previous_success_never_authorizes_changed_frozen_payload(tmp_path, defect):
+    store, row, document, projection = captured(tmp_path, inventory())
+    try:
+        store.validate(document, projection)
+        if defect == "bytes":
+            store.db.execute("UPDATE part SET body=? WHERE stream='page'", (b"changed",))
+        elif defect == "encoding":
+            (raw,) = store.db.execute(
+                "SELECT body FROM entry WHERE family='artifact_stream' AND key='page'"
+            ).fetchone()
+            descriptor = json.loads(raw)
+            descriptor["encoding_profile"] = "pdf-companion-json-field-v1"
+            store.db.execute(
+                "UPDATE entry SET body=? WHERE family='artifact_stream' AND key='page'",
+                (json.dumps(descriptor),),
+            )
+        else:
+            field = {
+                "schema": "payload_schema_digest",
+                "logical": "payload_logical_digest",
+                "locator": "page_no",
+            }[defect]
+            row["body"][field] = 2 if defect == "locator" else "0" * 64
+            store.db.execute(
+                "UPDATE entry SET body=? WHERE family='companion' AND key=?",
+                (json.dumps(row), json.dumps(["native_metadata", "page:0"])),
+            )
+        with pytest.raises(ValueError):
+            store.validate(document, projection)
+    finally:
+        store.close()
+
+
+def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used(
+    tmp_path, monkeypatch
+):
+    from corpus_structure.semantic import pdf_contracts
+    from corpus_structure.semantic.pdf_payloads import schema_dump
+
+    store, _, document, projection = captured(tmp_path, inventory())
+    policy = pdf_contracts.integrated_metadata_policy()
+    store.add(
+        "validation_contract",
+        json.loads(
+            schema_dump(
+                dict(
+                    schemas=store.schemas,
+                    publication_kind="integrated",
+                    integrated_metadata_policy=policy,
+                )
+            )
+        ),
+    )
+
+    def no_installed_policy():
+        raise AssertionError("the exact captured publication policy must be reused")
+
+    monkeypatch.setattr(pdf_contracts, "integrated_metadata_policy", no_installed_policy)
+    try:
+        store.validate(document, projection)
+        payload = b'{"effective_options":"{}"}'
+        length, root = byte_root((payload,))
+        store.add(
+            "companion",
+            dict(
+                family="native_metadata",
+                local_id="runtime:0",
+                body=dict(kind="runtime_report", ordinal=0),
+            ),
+        )
+        store.add(
+            "companion_field",
+            dict(
+                family="native_metadata",
+                local_id="runtime:0",
+                field_name="value",
+                stream_id="runtime",
+            ),
+        )
+        store.add(
+            "artifact_stream",
+            dict(
+                stream_id="runtime",
+                byte_length=length,
+                byte_root=root.hex(),
+                encoding_profile="pdf-companion-json-field-v1",
+            ),
+        )
+        store.add("artifact_part", dict(stream_id="runtime", ordinal=0, body=payload.hex()))
+        with pytest.raises(ValueError, match="qualified input graph"):
             store.validate(document, projection)
     finally:
         store.close()

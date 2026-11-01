@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from jsonschema.validators import validator_for
 from sqlalchemy import Connection, select, text
@@ -35,6 +35,7 @@ class PreparedPdfContext:
     boundary: PreparedRelease
     execution: ExecutionModelProducts
     contract_digest: str
+    staging: SourceArtifact | None = field(default=None, repr=False)
 
     @property
     def native_schema_digest(self) -> str:
@@ -52,7 +53,7 @@ def _boundary(bundle: SourceBundle) -> PreparedRelease:
 
 
 def prepare_pdf_context(
-    prepared: PreparedRelease, execution_schema: SourceBundle
+    prepared: PreparedRelease, execution_schema: SourceBundle, staging: SourceArtifact | None = None
 ) -> PreparedPdfContext:
     from .contracts import bound_execution_model, execution_payload
 
@@ -69,11 +70,19 @@ def prepare_pdf_context(
     source = next((s for s in execution_schema.sources if s.name == "pdf_products"), None)
     if source is None:
         raise ValueError("archived release has no native PDF contract")
+    if staging is None and "pdf/staging-model.yaml" in dict(execution.implementation_digests):
+        raise ValueError("archived PDF staging policy custody is incomplete")
+    if (
+        staging is not None
+        and dict(execution.implementation_digests).get(staging.name) != staging.digest
+    ):
+        raise ValueError("PDF staging policy differs from archived execution binding")
     return PreparedPdfContext(
         prepared.release_id,
         _boundary(execution_schema),
         execution,
         source.digest,
+        staging,
     )
 
 
@@ -88,6 +97,24 @@ def trusted_pdf_context() -> PreparedPdfContext:
         _boundary(inputs.schema),
         compile_execution_model(inputs),
         source.digest,
+        next(s for s in inputs.implementations if s.name == "pdf/staging-model.yaml"),
+    )
+
+
+def integrated_metadata_policy(
+    context: PreparedPdfContext | None = None,
+) -> dict[str, Any]:
+    """Read the single released policy for metadata crossing an integration boundary."""
+    import yaml
+
+    context = trusted_pdf_context() if context is None else context
+    if context.staging is None:
+        raise ValueError("integrated metadata policy requires a fresh current release")
+    source = yaml.safe_load(context.staging.content)["annotations"][
+        "pds:integrated_metadata_policy"
+    ]
+    return context.boundary.validate_json("PdfIntegratedMetadataPolicy", source).model_dump(
+        mode="json"
     )
 
 
@@ -114,6 +141,13 @@ def pdf_context_for_release(conn: Connection, prepared: PreparedRelease) -> Prep
         raise ValueError("producing task has no archived execution binding")
     manifest = json.loads(payload)["inputs"]["schema"]
     names = ["execution/schema/" + s["name"] for s in manifest["sources"]]
+    staging_name = "execution/implementation/pdf/staging-model.yaml"
+    has_staging = any(
+        item["name"] == "pdf/staging-model.yaml"
+        for item in json.loads(payload)["inputs"]["implementations"]
+    )
+    if has_staging:
+        names.append(staging_name)
     rows = conn.execute(
         select(inputs.c.input_name, inputs.c.content).where(
             inputs.c.release_id == release_id,
@@ -131,7 +165,11 @@ def pdf_context_for_release(conn: Connection, prepared: PreparedRelease) -> Prep
             for s in manifest["sources"]
         ),
     )
-    return prepare_pdf_context(prepared, bundle)
+    return prepare_pdf_context(
+        prepared,
+        bundle,
+        SourceArtifact("pdf/staging-model.yaml", retained[staging_name]) if has_staging else None,
+    )
 
 
 def pdf_context_for_run(conn: Connection, run_id: int) -> PreparedPdfContext:
@@ -207,7 +245,9 @@ class PreparedPdfProduct:
         return json.loads(self.payload)
 
 
-def validate_pdf_report_metadata(value: Mapping[str, Any]) -> None:
+def validate_pdf_report_metadata(
+    value: Mapping[str, Any], *, integrated_policy: Mapping[str, Any] | None = None
+) -> None:
     """Shared native report/coverage semantics for drafts and frozen payloads."""
     document = value["document"]
     health = value["health"]
@@ -228,7 +268,39 @@ def validate_pdf_report_metadata(value: Mapping[str, Any]) -> None:
     parent = [value.get(k) for k in ("parent_task_id", "parent_product_key", "parent_digest")]
     if any(v is not None for v in parent) and not all(v is not None for v in parent):
         raise ValueError("derived document requires complete parent product identity")
-    pointers = {item["pointer"] for item in value["items"]}
+    labels = {item["pointer"]: item["label"] for item in value["items"]}
+    pointers = labels.keys()
+    metadata_policy = None
+    if value.get("kind") == "integrated":
+        metadata_policy = (
+            integrated_metadata_policy() if integrated_policy is None else integrated_policy
+        )
+        allowed = set(metadata_policy["inherited_metadata_kinds"]) | set(
+            metadata_policy["generated_metadata_kinds"]
+        )
+        kinds = set(value.get("metadata_kinds", ()))
+        kinds.update(
+            kind
+            for kind in (
+                "runtime_report",
+                "derivation_mappings",
+                "cell_reports",
+                "inline_alignment_reports",
+                "recognition_coverage",
+            )
+            if value.get(kind)
+        )
+        if kinds - allowed:
+            raise ValueError("integration metadata belongs to a qualified input graph")
+        if any(
+            health.get(universe + "_coverage") != metadata_policy[universe + "_coverage"]
+            or health.get(universe + "_scope")
+            or health.get(universe + "_membership")
+            for universe in ("inline", "cell")
+        ):
+            raise ValueError("integration cannot inherit input graph recognition coverage")
+        if not metadata_policy["allow_scoped_coverage"] and value.get("recognition_coverage"):
+            raise ValueError("integration requires fresh scoped recognition assessment")
     outcomes = {}
     for outcome in health.get("formula_outcomes", ()):
         pointer = outcome["pointer"]
@@ -236,7 +308,15 @@ def validate_pdf_report_metadata(value: Mapping[str, Any]) -> None:
             raise ValueError("duplicate formula recognition outcome")
         if pointer not in pointers:
             raise ValueError("formula recognition outcome has no native occurrence")
+        if labels[pointer] != "formula":
+            raise ValueError("formula recognition outcome names a non-formula occurrence")
+        if metadata_policy is not None and outcome["outcome"] != metadata_policy["formula_outcome"]:
+            raise ValueError("integration cannot inherit an input formula assessment")
         outcomes[pointer] = outcome["outcome"]
+    if metadata_policy is not None and outcomes.keys() != {
+        pointer for pointer, label in labels.items() if label == "formula"
+    }:
+        raise ValueError("integration requires fresh outcomes for its current formula inventory")
     if health.get("display_coverage") == "complete":
 
         def display_item(item):
@@ -327,6 +407,7 @@ def prepare_pdf_product(
     recipe_bytes: bytes,
     *,
     context: PreparedPdfContext | None = None,
+    publication_kind: Literal["native", "integrated"] = "native",
 ) -> PreparedPdfProduct:
     context = trusted_pdf_context() if context is None else context
     context.execution.require_operation("prepare_native_document")
@@ -440,7 +521,12 @@ def prepare_pdf_product(
             region["origin"] == "bottom_left" and region["top"] < region["bottom"]
         ):
             raise ValueError("region coordinate origin contradicts vertical bounds")
-    validate_pdf_report_metadata(value)
+    validate_pdf_report_metadata(
+        {**value, "kind": publication_kind},
+        integrated_policy=integrated_metadata_policy(context)
+        if publication_kind == "integrated"
+        else None,
+    )
     from .pdf_ocr_contracts import validate_pdf_inline_reports, validate_pdf_ocr_pages
 
     validate_pdf_ocr_pages(value)

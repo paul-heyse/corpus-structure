@@ -15,13 +15,21 @@ from .test_pdf_record_reader import NativeRows, native
 @pytest.fixture
 def access_database(semantic_bare_engine):
     value = native()
-    value["pages"] = {"1": {"size": {"width": 100.0, "height": 100.0}, "page_no": 1}}
+    value["pages"] = {
+        "1": {"size": {"width": 100.0, "height": 100.0}, "page_no": 1},
+        "2": {"size": {"width": 200.0, "height": 300.0}, "page_no": 2},
+    }
     value["texts"][0]["prov"] = [
         {
             "page_no": 1,
             "bbox": {"l": -0.0, "t": 20.0, "r": 30.0, "b": 40.0, "coord_origin": "TOPLEFT"},
             "charspan": [0, 9],
-        }
+        },
+        {
+            "page_no": 2,
+            "bbox": {"l": 10.0, "t": 30.0, "r": 40.0, "b": 50.0, "coord_origin": "TOPLEFT"},
+            "charspan": [0, 9],
+        },
     ]
     value["body"]["meta"] = {"vendor": {"z": 1, "a": [True, None]}}
     lowered = NativeRows(value)
@@ -146,6 +154,10 @@ def access_database(semantic_bare_engine):
             "INSERT INTO kb.pdf_record_region "
             "VALUES('b','b','#/texts/0',0,1,100,100,0,20,30,40,'top_left')"
         )
+        conn.exec_driver_sql(
+            "INSERT INTO kb.pdf_record_region "
+            "VALUES('b','b','#/texts/0',1,2,200,300,10,30,40,50,'top_left')"
+        )
         sql_dir = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
         conn.exec_driver_sql(
             (sql_dir / "pdf_record_identity.sql").read_text(),
@@ -194,10 +206,26 @@ def test_native_projection_correspondence_accepts_actual_values(access_database)
         "UPDATE kb.pdf_record_region SET top=21",
         "UPDATE kb.pdf_record_region SET page_width=101",
         "DELETE FROM kb.pdf_record_region",
+        "UPDATE kb.pdf_record_region SET revision_id='other' WHERE region_index=1",
+        "UPDATE kb.pdf_record_access SET revision_id='other' WHERE pointer='#/texts/0'",
     ],
 )
 def test_native_projection_refuses_independent_deviation(access_database, change):
     with access_database.begin() as conn:
         conn.exec_driver_sql(change)
     with access_database.connect() as conn, pytest.raises(DBAPIError, match="native access"):
+        conn.execute(text("SELECT ops.pdf_check_access_correspondence('b')"))
+
+
+def test_projection_lookups_use_complete_revision_keys(access_database):
+    with access_database.begin() as conn:
+        conn.exec_driver_sql(
+            "INSERT INTO kb.pdf_record_native SELECT product_id,'other',record_id,"
+            "native_type,native_address,'{}'::jsonb,'{}'::jsonb FROM kb.pdf_record_native"
+        )
+        conn.exec_driver_sql(
+            "INSERT INTO kb.pdf_record_membership SELECT product_id,'other',parent_id,"
+            "field_name,ordinal,value_kind,record_id,scalar_json,stream_id,member_key,"
+            "member_key_stream_id FROM kb.pdf_record_membership"
+        )
         conn.execute(text("SELECT ops.pdf_check_access_correspondence('b')"))

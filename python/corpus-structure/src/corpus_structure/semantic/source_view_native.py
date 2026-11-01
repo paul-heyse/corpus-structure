@@ -207,6 +207,7 @@ def native_admission_sql(
     base_admission=None,
     authoring_provenance: NativeAuthoringProvenance | None = None,
     native_objects=(),
+    retire=(),
 ):
     from hashlib import sha256
 
@@ -237,6 +238,12 @@ def native_admission_sql(
     update_function_inventory(
         functions, sql.replace("__MIGRATION_OWNER__", "corpus_migration_owner")
     )
+    desired_identities = {item.identity for item in native_objects}
+    for identity in retire:
+        if identity in desired_identities:
+            raise ValueError("retired native identity remains desired: " + identity.qualified)
+        if identity.kind == "function":
+            functions.pop(identity.qualified, None)
     required_signature = "data.require_execution_release(text)"
     functions[required_signature] = next(
         item

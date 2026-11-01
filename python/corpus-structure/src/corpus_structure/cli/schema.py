@@ -330,7 +330,10 @@ def native_candidate_(
                 )
                 compile(python_source, "native_candidate.py", "exec")
                 admission = candidate_admission_sql(
-                    conn, series_native_definitions(conn), authoring.desired
+                    conn,
+                    series_native_definitions(conn),
+                    authoring.desired,
+                    predecessor_state=predecessor_state,
                 )
                 products = {
                     "native_candidate.py": python_source.encode(),

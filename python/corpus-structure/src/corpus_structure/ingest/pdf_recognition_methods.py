@@ -29,6 +29,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.pdf_integrated import normalize_pdf_integration_policy
 from corpus_structure.semantic.product_reference import ProductReference
 
+from .pdf import native_conversion_health
 from .pdf_capacity import native_before_nemotron
 from .pdf_health import error_summary
 from .pdf_hierarchy import load_snapshot, native_nodes
@@ -389,6 +390,11 @@ class IngestPdfIntegrated:
                         context=ctx.reader.pdf_context(),
                     ) as selected,
                 ):
+                    # Reconciliation creates a new pointer inventory. Input assessments remain
+                    # accessible through its qualified input pin; even a surviving pointer spelling
+                    # does not make an old formula outcome attributable to this output occurrence.
+                    nodes = native_nodes(selected.document)
+                    health = native_conversion_health(nodes, "success", ())
                     draft = PdfRecordPublicationDraft(
                         document=selected.document,
                         product_key="integrated",
@@ -396,7 +402,7 @@ class IngestPdfIntegrated:
                         original=native.original,
                         schema_bytes=native.schema_bytes,
                         recipe_bytes=self.original_recipe(cfg),
-                        health=values["health"],
+                        health=health,
                         companions={
                             **{
                                 family: selected.journal.collection(family)
@@ -410,14 +416,13 @@ class IngestPdfIntegrated:
                             },
                             "health": (
                                 {
-                                    "health": values["health"],
+                                    "health": health,
                                     "source_scope": "whole_document",
                                 },
                                 selected.health,
                             ),
                         },
                         metadata={
-                            "recognition_coverage": values.get("recognition_coverage", ()),
                             "inline_candidate_pages": (
                                 candidate_source.encoded(number)
                                 for number in candidate_source.page_nos
@@ -425,7 +430,6 @@ class IngestPdfIntegrated:
                         },
                     )
                     reference = ctx.retain_pdf_records(unit.ref, draft)
-                    nodes = native_nodes(selected.document)
                     # No native serialization is required by a projection of this owned graph.
                     snapshot = NativeSnapshot(
                         b"", reference.content_digest, str(selected.document.version)
@@ -434,11 +438,10 @@ class IngestPdfIntegrated:
                         unit.ref.unit_id,
                         reference,
                         snapshot,
-                        values["health"],
+                        health,
                         _select_sections(nodes, cfg, scope=ctx.run.options.get("scope")),
                         cfg.membership,
                         consumer_release,
-                        recognition_coverage=values.get("recognition_coverage", ()),
                         document=selected.document,
                         node_index=nodes,
                     )

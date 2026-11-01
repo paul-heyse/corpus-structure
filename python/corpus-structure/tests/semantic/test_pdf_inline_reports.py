@@ -10,7 +10,10 @@ from pydantic import create_model
 from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.pdf_ocr_contracts import validate_pdf_inline_reports
+from corpus_structure.semantic.pdf_ocr_contracts import (
+    validate_pdf_inline_reports,
+    validate_pdf_page_payloads,
+)
 
 from .test_operations import setup
 
@@ -98,6 +101,24 @@ def test_unresolved_report_has_no_fabricated_range_and_does_not_mutate_native():
         "basis",
         "detail",
     }
+
+
+def test_fused_page_pass_preserves_all_merged_regions_and_original_candidate_indices():
+    product = example()
+    matching = deepcopy(product["regions"][0])
+    product["regions"][0].update(left=0, top=0, right=10, bottom=10)
+    product["regions"].append(matching)
+    page = product["inline_candidate_pages"][0]
+    page["candidates"].append(deepcopy(page["candidates"][0]))
+    second = deepcopy(product["inline_alignment_reports"][0])
+    second["candidate_index"] = 1
+    product["inline_alignment_reports"].append(second)
+    before = deepcopy(product)
+    validate_pdf_page_payloads(product)
+    assert product == before
+    product["regions"].pop()
+    with pytest.raises(ValueError, match="page geometry"):
+        validate_pdf_page_payloads(product)
 
 
 @pytest.mark.parametrize(

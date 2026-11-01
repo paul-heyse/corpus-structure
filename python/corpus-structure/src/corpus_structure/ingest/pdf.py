@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from importlib.metadata import version
@@ -673,6 +673,53 @@ def apply_cells(
     return tuple(stage.outcomes[start:]), tuple(mappings)
 
 
+def native_conversion_health(
+    nodes: Mapping[str, Any],
+    conversion_status: str,
+    errors: Iterable[str],
+    outcomes: Iterable[FormulaOutcome] = (),
+    *,
+    ordered_pointers: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    """Assess only this graph; input product reports retain their own identity."""
+    health_by_pointer: dict[str, FormulaOutcome] = {}
+    for outcome in outcomes:
+        if outcome.item_ref not in nodes or str(nodes[outcome.item_ref].label) != "formula":
+            raise ValueError("formula health names a missing or non-formula occurrence")
+        if outcome.item_ref in health_by_pointer:
+            raise ValueError("duplicate formula health occurrence")
+        health_by_pointer[outcome.item_ref] = outcome
+    for pointer in nodes if ordered_pointers is None else ordered_pointers:
+        if str(nodes[pointer].label) == "formula" and pointer not in health_by_pointer:
+            health_by_pointer[pointer] = FormulaOutcome(
+                pointer, "unknown", "no attributable inference outcome"
+            )
+    display_pointers = (
+        pointer
+        for pointer, item in nodes.items()
+        if str(item.label) == "formula"
+        and (item.parent is None or str(nodes[item.parent.cref].label) not in {"table", "inline"})
+    )
+    display_complete = conversion_status == "success" and all(
+        health_by_pointer[pointer].outcome == "succeeded" for pointer in display_pointers
+    )
+    return {
+        "conversion": conversion_status,
+        "display_coverage": "complete" if display_complete else "partial",
+        "inline_coverage": "unknown",
+        "cell_coverage": "unknown",
+        "issues": list(errors),
+        "formula_outcomes": [
+            {
+                "pointer": outcome.item_ref,
+                "outcome": outcome.outcome,
+                **({"error": outcome.error} if outcome.error else {}),
+            }
+            for outcome in health_by_pointer.values()
+        ],
+    }
+
+
 def publication_payload(
     conversion: PdfConversion,
     *,
@@ -720,26 +767,8 @@ def publication_payload(
                 "additional formula health is not qualified by the source/derived documents"
             )
         outcomes.extend(enrichment.outcomes)
-    health_by_pointer: dict[str, FormulaOutcome] = {}
-    for outcome in outcomes:
-        if outcome.item_ref not in nodes or str(nodes[outcome.item_ref].label) != "formula":
-            raise ValueError("formula health names a missing or non-formula occurrence")
-        if outcome.item_ref in health_by_pointer:
-            raise ValueError("duplicate formula health occurrence")
-        health_by_pointer[outcome.item_ref] = outcome
-    for pointer in order:
-        if str(nodes[pointer].label) == "formula" and pointer not in health_by_pointer:
-            health_by_pointer[pointer] = FormulaOutcome(
-                pointer, "unknown", "no attributable inference outcome"
-            )
-    display_pointers = [
-        pointer
-        for pointer, item in nodes.items()
-        if str(item.label) == "formula"
-        and (item.parent is None or str(nodes[item.parent.cref].label) not in {"table", "inline"})
-    ]
-    display_complete = conversion.conversion_status == "success" and all(
-        health_by_pointer[pointer].outcome == "succeeded" for pointer in display_pointers
+    health = native_conversion_health(
+        nodes, conversion.conversion_status, conversion.errors, outcomes, ordered_pointers=order
     )
     items: list[dict[str, Any]] = []
     regions: list[dict[str, Any]] = []
@@ -799,21 +828,7 @@ def publication_payload(
         "native_schema_version": selected.schema_version,
         "document": json.loads(selected.payload),
         "derivation_mappings": list(enrichment.mappings) if enrichment is not None else [],
-        "health": {
-            "conversion": conversion.conversion_status,
-            "display_coverage": "complete" if display_complete else "partial",
-            "inline_coverage": "unknown",
-            "cell_coverage": "unknown",
-            "issues": list(conversion.errors),
-            "formula_outcomes": [
-                {
-                    "pointer": outcome.item_ref,
-                    "outcome": outcome.outcome,
-                    **({"error": outcome.error} if outcome.error else {}),
-                }
-                for outcome in health_by_pointer.values()
-            ],
-        },
+        "health": health,
         "items": items,
         "regions": regions,
     }

@@ -231,6 +231,30 @@ def complete_fixture():
     }
 
 
+def test_decoded_reconstruction_preserves_json_looking_strings_null_and_binary64():
+    expected = complete_fixture()
+    expected["texts"][0]["text"] = "null"
+    records = Records().lower(expected)
+    decoded = []
+    for row in records.rows:
+        body = dict(row.values)
+        for field in ("scalars_json", "structure_json", "scalar_json"):
+            if field in body and body[field] is not None:
+                body[field] = json.loads(body[field])
+        decoded.append(NativeRow(row.kind, body))
+    records.rows = decoded
+    actual = reconstruct_native_document(
+        records,
+        occurrence_id("#", "DoclingDocument"),
+        scalar_profiles=records.profiles,
+        json_fields="decoded",
+    )
+    assert actual == expected
+    assert actual["texts"][0]["text"] == "null"
+    assert actual["origin"]["uri"] is None
+    assert math.copysign(1.0, actual["texts"][0]["prov"][0]["bbox"]["l"]) == -1.0
+
+
 def test_total_field_categories_rich_cells_parallel_links_and_exact_order():
     expected = complete_fixture()
     records = Records().lower(expected)

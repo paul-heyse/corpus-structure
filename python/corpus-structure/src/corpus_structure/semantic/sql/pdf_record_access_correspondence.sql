@@ -75,7 +75,7 @@ BEGIN
 
  IF EXISTS(WITH RECURSIVE projected(record_id,value) AS (
   SELECT n.record_id,a.native_json FROM kb.pdf_record_access a JOIN kb.pdf_record_native n
-  ON n.product_id=p_build AND n.revision_id=p_build AND n.native_address=a.pointer WHERE a.product_id=p_build
+  ON n.product_id=p_build AND n.revision_id=p_build AND n.native_address=a.pointer WHERE a.product_id=p_build AND a.revision_id=p_build
   UNION ALL
   SELECT child.record_id,child.value FROM projected w JOIN kb.pdf_record_native n
   ON n.product_id=p_build AND n.revision_id=p_build AND n.record_id=w.record_id
@@ -115,47 +115,59 @@ BEGIN
  RAISE EXCEPTION 'native access JSON differs from frozen record fields/members/scalars' USING ERRCODE='23514'; END IF;
 
  IF EXISTS(WITH RECURSIVE ancestry(pointer,owner,depth) AS (
-  SELECT pointer,pointer,0 FROM kb.pdf_record_access WHERE product_id=p_build
+  SELECT pointer,pointer,0 FROM kb.pdf_record_access WHERE product_id=p_build AND revision_id=p_build
   UNION ALL SELECT a.pointer,parent.pointer,a.depth+1 FROM ancestry a JOIN kb.pdf_record_access child
-  ON child.product_id=p_build AND child.pointer=a.owner JOIN kb.pdf_record_access parent
-  ON parent.product_id=p_build AND parent.pointer=child.parent_pointer
+  ON child.product_id=p_build AND child.revision_id=p_build AND child.pointer=a.owner JOIN kb.pdf_record_access parent
+  ON parent.product_id=p_build AND parent.revision_id=p_build AND parent.pointer=child.parent_pointer
  ) CYCLE owner SET cycle_ USING path_, nearest AS (
  SELECT DISTINCT ON (n.pointer) n.pointer,n.owner FROM ancestry n JOIN kb.pdf_record_access section
  ON section.product_id=p_build AND section.revision_id=p_build AND section.pointer=n.owner
  WHERE section.label IN ('section','chapter') ORDER BY n.pointer,n.depth
  ), cycles AS (SELECT DISTINCT pointer FROM ancestry WHERE cycle_)
  SELECT FROM kb.pdf_record_access a LEFT JOIN nearest n ON n.pointer=a.pointer
- LEFT JOIN cycles c ON c.pointer=a.pointer WHERE a.product_id=p_build AND
+ LEFT JOIN cycles c ON c.pointer=a.pointer WHERE a.product_id=p_build AND a.revision_id=p_build AND
  (c.pointer IS NOT NULL OR a.section_pointer IS DISTINCT FROM n.owner)) THEN
  RAISE EXCEPTION 'native access section owner differs from native ancestry' USING ERRCODE='23514'; END IF;
 
  IF EXISTS(WITH RECURSIVE roots(pointer,path) AS (
   SELECT target.scalars_json->>'self_ref',ARRAY[CASE f.key WHEN 'body' THEN 0 ELSE 1 END]::bigint[]
-  FROM ops.pdf_record_document h JOIN kb.pdf_record_native root ON root.product_id=p_build AND root.record_id=h.root_id
+  FROM ops.pdf_record_document h JOIN kb.pdf_record_native root ON root.product_id=p_build AND root.revision_id=p_build AND root.record_id=h.root_id
   CROSS JOIN LATERAL jsonb_each(root.structure_json->'fields') f JOIN kb.pdf_record_native target
-  ON target.product_id=p_build AND target.record_id=f.value->>'target' WHERE h.product_id=p_build AND f.key IN ('body','furniture')
+  ON target.product_id=p_build AND target.revision_id=p_build AND target.record_id=f.value->>'target' WHERE h.product_id=p_build AND h.revision_id=p_build AND f.key IN ('body','furniture')
  ), traversal(pointer,path) AS (
  SELECT pointer,path FROM roots UNION ALL
  SELECT c.value->>'$ref',t.path||(c.ordinality-1) FROM traversal t JOIN kb.pdf_record_access a
- ON a.product_id=p_build AND a.pointer=t.pointer CROSS JOIN LATERAL jsonb_array_elements(COALESCE(a.native_json->'children','[]')) WITH ORDINALITY c
+ ON a.product_id=p_build AND a.revision_id=p_build AND a.pointer=t.pointer CROSS JOIN LATERAL jsonb_array_elements(COALESCE(a.native_json->'children','[]')) WITH ORDINALITY c
  ) CYCLE pointer SET cycle_ USING cycle_path_
  SELECT FROM (SELECT a.pointer,a.ordinal,row_number() OVER(ORDER BY CASE WHEN t.pointer IS NULL THEN 1 ELSE 0 END,t.path,a.pointer COLLATE "C")-1 expected,t.cycle_
- FROM kb.pdf_record_access a LEFT JOIN traversal t ON t.pointer=a.pointer WHERE a.product_id=p_build) ordered
+ FROM kb.pdf_record_access a LEFT JOIN traversal t ON t.pointer=a.pointer WHERE a.product_id=p_build AND a.revision_id=p_build) ordered
  WHERE ordinal<>expected OR cycle_) THEN
  RAISE EXCEPTION 'native access order differs from native containment traversal' USING ERRCODE='23514'; END IF;
 
- IF EXISTS(SELECT FROM kb.pdf_record_access a WHERE a.product_id=p_build AND
- (SELECT count(*) FROM kb.pdf_record_region r WHERE r.product_id=p_build AND r.revision_id=p_build AND r.pointer=a.pointer)<>jsonb_array_length(COALESCE(a.native_json->'prov','[]'))) OR
- EXISTS(SELECT FROM kb.pdf_record_region r LEFT JOIN kb.pdf_record_access a ON a.product_id=p_build AND a.pointer=r.pointer
+ IF EXISTS(WITH region_counts AS (
+ SELECT pointer,count(*) count_ FROM kb.pdf_record_region
+ WHERE product_id=p_build AND revision_id=p_build GROUP BY pointer
+ ) SELECT FROM kb.pdf_record_access a LEFT JOIN region_counts counts ON counts.pointer=a.pointer
+ WHERE a.product_id=p_build AND a.revision_id=p_build AND
+ COALESCE(counts.count_,0)<>jsonb_array_length(COALESCE(a.native_json->'prov','[]'))) OR
+ EXISTS(WITH page_sizes AS MATERIALIZED (
+ SELECT pages.member_key,page_size.scalars_json AS dimensions
+ FROM ops.pdf_record_document h JOIN kb.pdf_record_membership pages
+ ON pages.product_id=p_build AND pages.revision_id=p_build
+ AND pages.parent_id=h.root_id AND pages.field_name='pages'
+ LEFT JOIN kb.pdf_record_native page ON page.product_id=p_build AND page.revision_id=p_build
+ AND page.record_id=pages.record_id
+ LEFT JOIN kb.pdf_record_native page_size ON page_size.product_id=p_build
+ AND page_size.revision_id=p_build
+ AND page_size.record_id=page.structure_json->'fields'->'size'->>'target'
+ WHERE h.product_id=p_build AND h.revision_id=p_build
+ ) SELECT FROM kb.pdf_record_region r LEFT JOIN kb.pdf_record_access a ON a.product_id=p_build AND a.revision_id=p_build AND a.pointer=r.pointer
  LEFT JOIN LATERAL (SELECT a.native_json->'prov'->r.region_index::integer value) prov ON true
- LEFT JOIN ops.pdf_record_document h ON h.product_id=p_build AND h.revision_id=p_build
- LEFT JOIN kb.pdf_record_membership pages ON pages.product_id=p_build AND pages.revision_id=p_build AND pages.parent_id=h.root_id AND pages.field_name='pages' AND pages.member_key=r.page_no::text
- LEFT JOIN kb.pdf_record_native page ON page.product_id=p_build AND page.record_id=pages.record_id
- LEFT JOIN kb.pdf_record_native size ON size.product_id=p_build AND size.record_id=page.structure_json->'fields'->'size'->>'target'
+ LEFT JOIN page_sizes size ON size.member_key=r.page_no::text
  WHERE r.product_id=p_build AND (r.revision_id<>p_build OR a.pointer IS NULL OR prov.value IS NULL OR
  (prov.value->>'page_no')::bigint IS DISTINCT FROM r.page_no OR
- ops.pdf_projection_scalar_matches(to_jsonb(r.page_width),size.scalars_json->'width') IS NOT TRUE OR
- ops.pdf_projection_scalar_matches(to_jsonb(r.page_height),size.scalars_json->'height') IS NOT TRUE OR
+ ops.pdf_projection_scalar_matches(to_jsonb(r.page_width),size.dimensions->'width') IS NOT TRUE OR
+ ops.pdf_projection_scalar_matches(to_jsonb(r.page_height),size.dimensions->'height') IS NOT TRUE OR
  to_jsonb(r.left) IS DISTINCT FROM prov.value->'bbox'->'l' OR to_jsonb(r.top) IS DISTINCT FROM prov.value->'bbox'->'t' OR
  to_jsonb(r.right) IS DISTINCT FROM prov.value->'bbox'->'r' OR to_jsonb(r.bottom) IS DISTINCT FROM prov.value->'bbox'->'b' OR
  r.origin IS DISTINCT FROM CASE prov.value->'bbox'->>'coord_origin' WHEN 'TOPLEFT' THEN 'top_left' WHEN 'BOTTOMLEFT' THEN 'bottom_left' END)) THEN

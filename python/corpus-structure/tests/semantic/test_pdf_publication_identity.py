@@ -18,7 +18,14 @@ def test_publication_inline_and_key_spelling(semantic_db_engine):
     with semantic_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
-        for value in ('quoted"\\\n', "\u03b1😀\x7f", "", "a/b~c"):
+        for value in (
+            'quoted"\\\n',
+            "\u03b1😀\x7f",
+            "",
+            "a/b~c",
+            'quoted"\\path/segment',
+            "".join(chr(code) for code in range(32, 127)),
+        ):
             actual = conn.execute(
                 text("SELECT ops.pdf_identity_ascii_string(:v)"), {"v": value}
             ).scalar_one()
@@ -158,3 +165,129 @@ def test_actual_record_cursor_matches_independent_logical_fields(semantic_db_eng
         assert actual == expected.pin().logical_digest
         # Operational allocations are not identity-bearing.
         assert execute("SELECT ops.pdf_record_logical_identity('p','r')").scalar_one() == actual
+
+
+@pytest.mark.parametrize("defect", [None, "referenced-bytes", "unused-bytes", "unused-order"])
+def test_complete_identity_verifies_shared_and_unreferenced_streams(
+    semantic_db_engine, private_build, defect
+):
+    from hashlib import sha256
+
+    from corpus_structure.semantic.pdf_record_identity import (
+        LogicalIdentity,
+        ScalarDescriptor,
+        byte_root,
+    )
+
+    build = private_build
+    schema = "f" * 64
+    shared, unused = b"stable scalar", b"spare bytes"
+    length, root = byte_root((shared,))
+    scalar = ScalarDescriptor(b"s", length, root)
+    expected = LogicalIdentity(schema, build.release_id, build.source_digest)
+    expected.add_record(
+        "document",
+        "root",
+        (
+            ("mapping_profile", "pdf-native-records-v1"),
+            ("contract_version", "pdf-native-records-v1"),
+            ("native_schema_digest", schema),
+            ("root_id", "root"),
+        ),
+    )
+    expected.add_record(
+        "native",
+        "root",
+        (("native_type", "TextItem"), ("family", "node"), ("a/value", scalar), ("b/value", scalar)),
+    )
+    expected.add_record(
+        "publication", "root", (("kind", "native"), ("recipe_digest", build.recipe_digest))
+    )
+    with semantic_db_engine.begin() as conn:
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+        conn.exec_driver_sql(
+            pdf_record_logical_identity_sql(), execution_options={"no_parameters": True}
+        )
+        params = dict(
+            p=build.build_id, release=build.release_id, source=build.source_digest, schema=schema
+        )
+        conn.execute(
+            text("INSERT INTO ops.pdf_frozen_build VALUES (:p,:digest,'native')"),
+            params | {"digest": "0" * 64},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO ops.pdf_record_document VALUES (:p,:p,:release,:source,"
+                "'pdf-native-records-v1','pdf-native-records-v1',:schema,'root')"
+            ),
+            params,
+        )
+        conn.execute(
+            text(
+                "INSERT INTO kb.pdf_record_native(product_id,revision_id,record_id,"
+                "native_type,family,native_address,scalars_json,structure_json) VALUES "
+                "(:p,:p,'root','TextItem','node','#','{}',CAST(:structure AS jsonb))"
+            ),
+            params
+            | {
+                "structure": json.dumps(
+                    {
+                        "fields": {
+                            field: {"kind": "parts", "stream_id": "shared"} for field in ("a", "b")
+                        }
+                    }
+                )
+            },
+        )
+        for stream, content in (("shared", shared), ("unused", unused)):
+            size, stream_root = byte_root((content,))
+            body = (
+                b"broken scalar"
+                if defect == "referenced-bytes" and stream == "shared"
+                else b"spare byte!"
+                if defect == "unused-bytes" and stream == "unused"
+                else content
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO ops.pdf_artifact_stream VALUES "
+                    "(:p,:p,:stream,:size,:sha,:root,'pdf-record-scalar-v1:s')"
+                ),
+                params
+                | dict(
+                    stream=stream,
+                    size=size,
+                    sha=sha256(content).hexdigest(),
+                    root=stream_root.hex(),
+                ),
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO ops.pdf_artifact_part VALUES "
+                    "(:p,:p,:stream,:ordinal,0,:size,:body,:sha)"
+                ),
+                params
+                | dict(
+                    stream=stream,
+                    ordinal=int(defect == "unused-order" and stream == "unused"),
+                    size=size,
+                    body=body,
+                    sha=sha256(body).hexdigest(),
+                ),
+            )
+        with conn.begin_nested() as savepoint:
+            if defect is not None:
+                with pytest.raises(
+                    DBAPIError,
+                    match=(
+                        r"artifact (actual bytes/ordinal/offset/length/digest|"
+                        r"verified inventory/root) differs"
+                    ),
+                ):
+                    conn.execute(text("SELECT ops.pdf_record_logical_identity(:p,:p)"), params)
+                savepoint.rollback()
+            else:
+                actual = conn.execute(
+                    text("SELECT ops.pdf_record_logical_identity(:p,:p)"), params
+                ).scalar_one()
+                assert actual == expected.pin().logical_digest

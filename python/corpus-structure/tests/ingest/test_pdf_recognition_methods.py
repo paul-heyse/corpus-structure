@@ -108,6 +108,7 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
         parent=section,
         prov=ProvenanceItem(page_no=1, bbox=BoundingBox(l=10, t=10, r=50, b=20), charspan=(0, 11)),
     )
+    formula = document.add_text(label=DocItemLabel.FORMULA, text="x+1", parent=section)
     original = b"%PDF-independent-fixture"
     values = publication_payload(
         PdfConversion(
@@ -118,6 +119,18 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
         section_refs=frozenset({section.self_ref}),
     )
     values.pop("inline_candidate_pages", None)
+    # These assessments are correct for the input only. Reusing pointer spellings in
+    # the reconciled output must not transfer either formula or scoped completeness.
+    values["health"]["formula_outcomes"] = [{"pointer": formula.self_ref, "outcome": "succeeded"}]
+    values["health"]["display_coverage"] = "complete"
+    values["recognition_coverage"] = [
+        {
+            "section_pointer": section.self_ref,
+            "membership": "descendants",
+            "universe": "inline",
+            "coverage": "complete",
+        }
+    ]
     reference = ProductReference(12, "organized", "c" * 64)
     observed = []
     captures = []
@@ -167,6 +180,16 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
         context.boundary.validate_json("PdfProductHealth", json.dumps(integration_health))
         assert integration_health["source_fidelity"] == "unassessed"
         assert "integration_health" not in native_health
+        assert draft.health["display_coverage"] == "partial"
+        assert draft.health["formula_outcomes"] == [
+            {
+                "pointer": formula.self_ref,
+                "outcome": "unknown",
+                "error": "no attributable inference outcome",
+            }
+        ]
+        assert "recognition_coverage" not in draft.metadata
+        assert values["health"]["formula_outcomes"][0]["outcome"] == "succeeded"
         coverage = list(draft.companions["coverage"])
         assert coverage and all(row["outcome"] == "unknown" for row in coverage)
         observed.append(candidates[0])

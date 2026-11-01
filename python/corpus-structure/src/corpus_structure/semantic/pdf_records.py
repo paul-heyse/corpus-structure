@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 from jsonschema.validators import validator_for
 from referencing import Registry, Resource
@@ -557,6 +557,7 @@ def reconstruct_native_document(
     scalar_profiles: Mapping[str, str],
     mapping: NativeSchemaMapping | None = None,
     native_type: str = "DoclingDocument",
+    json_fields: Literal["text", "decoded"] = "text",
 ) -> dict[str, Any]:
     """Explicit whole-value reconstruction, distinct from ordinary selective record reads.
 
@@ -564,7 +565,14 @@ def reconstruct_native_document(
     The caller requests hydration here; no Docling native model or repairs are invoked.
     """
     mapping = prepare_native_schema_mapping() if mapping is None else mapping
+    if json_fields not in {"text", "decoded"}:
+        raise ValueError("unsupported native record JSON representation")
     active: set[str] = set()
+
+    def field_value(value: Any) -> Any:
+        # The frozen capture already contains decoded JSONB values. Its adapter
+        # selects that representation explicitly; strings remain native strings.
+        return value if json_fields == "decoded" or value is None else json.loads(value)
 
     def scalar(stream: str):
         return _decode_scalar(reader.scalar(stream), scalar_profiles[stream])
@@ -577,9 +585,9 @@ def reconstruct_native_document(
         if record_id == root_id and row["native_type"] != native_type:
             raise NativeMappingError(record_id, "requested native root class differs")
         result = {
-            key: _parse_inline(value) for key, value in json.loads(row["scalars_json"]).items()
+            key: _parse_inline(value) for key, value in field_value(row["scalars_json"]).items()
         }
-        structure = json.loads(row["structure_json"])
+        structure = field_value(row["structure_json"])
         schema = mapping.schema
         try:
             for component in (
@@ -631,7 +639,7 @@ def reconstruct_native_document(
                     if value_kind == "record":
                         value = record(member["record_id"])
                     elif value_kind == "scalar":
-                        value = _parse_inline(json.loads(member["scalar_json"]))
+                        value = _parse_inline(field_value(member["scalar_json"]))
                     elif value_kind == "parts":
                         value = scalar(member["stream_id"])
                     else:

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import multiprocessing
 import tempfile
-from collections.abc import Callable, Generator, Iterable, Mapping
+from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -319,13 +319,29 @@ _FAMILIES = (
     "header",
     "native",
     "membership",
-    "reference",
     "artifact_stream",
     "artifact_part",
     "companion",
-    "endpoint",
     "companion_field",
 )
+
+
+def _native_validation_streams(family: str, row: Mapping[str, Any]) -> Iterable[str]:
+    """Actual scalar dependencies of the callback's reconstruction and metadata view."""
+    if family == "native":
+        structure = row["structure_json"]
+        for descriptor in structure["fields"].values():
+            if descriptor["kind"] == "parts":
+                yield descriptor["stream_id"]
+        if "extensions" in structure:
+            yield structure["extensions"]["stream_id"]
+    elif family == "membership":
+        if row["value_kind"] == "parts":
+            yield row["stream_id"]
+        if row.get("member_key_stream_id") is not None:
+            yield row["member_key_stream_id"]
+    elif family == "companion_field":
+        yield row["stream_id"]
 
 
 def _native_validation_child(capture: str, projection: str, result: Any) -> None:
@@ -348,7 +364,7 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
                 ):
                     value = json.loads(body)
                     store.add(family, value)
-                    if family in {"header", "native", "membership", "reference"}:
+                    if family in {"header", "native", "membership"}:
                         rows[family].append(value)
         natives = {r["record_id"]: r for r in rows["native"]}
         members: dict[tuple[str, str], list[dict[str, Any]]] = {}
@@ -359,27 +375,20 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
 
         class Reader:
             def record(self, record_id):
-                row = dict(natives[record_id])
-                for key in ("scalars_json", "structure_json"):
-                    row[key] = json.dumps(row[key])
-                return row
+                return natives[record_id]
 
             def members(self, parent_id, field_name):
-                for member in members.get((parent_id, field_name), ()):
-                    row = dict(member)
-                    if row.get("scalar_json") is not None:
-                        row["scalar_json"] = json.dumps(row["scalar_json"])
-                    yield {k: v for k, v in row.items() if v is not None}
+                yield from members.get((parent_id, field_name), ())
 
             def scalar(self, stream_id):
                 yield from store.parts(stream_id)
 
-        profiles = {
-            json.loads(raw)["stream_id"]: json.loads(raw)["encoding_profile"]
-            for (raw,) in store.db.execute("SELECT body FROM entry WHERE family='artifact_stream'")
-        }
+        profiles = {}
+        for (raw,) in store.db.execute("SELECT body FROM entry WHERE family='artifact_stream'"):
+            descriptor = json.loads(raw)
+            profiles[descriptor["stream_id"]] = descriptor["encoding_profile"]
         document = reconstruct_native_document(
-            Reader(), rows["header"][0]["root_id"], scalar_profiles=profiles
+            Reader(), rows["header"][0]["root_id"], scalar_profiles=profiles, json_fields="decoded"
         )
         validate_native_callbacks(document)
         # Source access is a derived, per-item projection, never the content authority.
@@ -406,24 +415,42 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
         walk(document["furniture"]["self_ref"])
         order.extend(sorted(set(nodes) - seen))
         sections = {p for p, n in nodes.items() if n.get("label") in ("section", "chapter")}
+        owners: dict[str, str | None] = {}
+
+        def section_owner(pointer: str) -> str | None:
+            path = []
+            visited = set()
+            current = pointer
+            while current not in owners:
+                if current in visited:
+                    raise ValueError("cyclic source section ancestry")
+                visited.add(current)
+                path.append(current)
+                if current in sections:
+                    owner = current
+                    break
+                parent = nodes[current].get("parent", {}).get("$ref")
+                if parent is None:
+                    owner = None
+                    break
+                current = parent
+            else:
+                owner = owners[current]
+            for node_pointer in path:
+                owners[node_pointer] = owner
+            return owner
+
         # Organized section groups use section/chapter labels; keep the native labels.
         with Path(projection).open("w") as out:
             for ordinal, pointer in enumerate(order):
                 node = nodes[pointer]
                 parent = node.get("parent", {}).get("$ref")
-                owner = pointer
-                visited = set()
-                while owner not in sections and nodes[owner].get("parent"):
-                    if owner in visited:
-                        raise ValueError("cyclic source section ancestry")
-                    visited.add(owner)
-                    owner = nodes[owner]["parent"]["$ref"]
                 row = dict(
                     pointer=pointer,
                     ordinal=ordinal,
                     label=node.get("label", "unspecified"),
                     parent_pointer=parent,
-                    section_pointer=owner if owner in sections else None,
+                    section_pointer=section_owner(pointer),
                     content_layer=node.get("content_layer", "body"),
                     text=node.get("text"),
                     native_json=node,
@@ -612,7 +639,7 @@ def validate_pdf_build(
             pa.OSFile(str(capture), "wb") as sink,
             pa.ipc.new_file(sink, _CAPTURE_SCHEMA) as writer,
         ):
-            from .pdf_contracts import pdf_context_for_task
+            from .pdf_contracts import integrated_metadata_policy, pdf_context_for_task
             from .pdf_payload_validation import metadata_classes
             from .pdf_payloads import schema_dump
 
@@ -627,13 +654,41 @@ def validate_pdf_build(
                     [
                         pa.array(["validation_contract"]),
                         pa.array(
-                            [schema_dump({"schemas": schemas}).decode()], type=pa.large_string()
+                            [
+                                schema_dump(
+                                    {
+                                        "schemas": schemas,
+                                        "publication_kind": frozen.kind,
+                                        "integrated_metadata_policy": integrated_metadata_policy(
+                                            context
+                                        )
+                                        if frozen.kind == "integrated"
+                                        else None,
+                                    }
+                                ).decode()
+                            ],
+                            type=pa.large_string(),
                         ),
                     ],
                     schema=_CAPTURE_SCHEMA,
                 )
             )
-            for family in _FAMILIES:
+            required_streams: set[str] = set()
+
+            def write_rows(family: str, values: Sequence[Mapping[str, Any]]) -> None:
+                for row in values:
+                    required_streams.update(_native_validation_streams(family, row))
+                writer.write_batch(
+                    pa.RecordBatch.from_arrays(
+                        [
+                            pa.array([family] * len(values)),
+                            pa.array([json.dumps(r) for r in values], type=pa.large_string()),
+                        ],
+                        schema=_CAPTURE_SCHEMA,
+                    )
+                )
+
+            def capture_rows(family: str, filters: Mapping[str, Any] | None = None) -> None:
                 after = None
                 while True:
                     check_active()
@@ -643,13 +698,16 @@ def validate_pdf_build(
                         values = (
                             conn.execute(
                                 text(
-                                    "SELECT * FROM \
-ops.read_pdf_frozen_rows(:build,:task,:attempt,:holder,:frozen,:family,CAST(:after AS jsonb),256)"
+                                    "SELECT * FROM ops.read_pdf_frozen_rows"
+                                    "(:build,:task,:attempt,:holder,:frozen,:family,"
+                                    "CAST(:after AS jsonb),:limit,CAST(:filters AS jsonb))"
                                 ),
                                 {
                                     **params,
                                     "family": family,
                                     "after": json.dumps(after) if after is not None else None,
+                                    "limit": 64 if family == "artifact_part" else 1000,
+                                    "filters": json.dumps(dict(filters or {})),
                                 },
                             )
                             .scalars()
@@ -660,15 +718,31 @@ ops.read_pdf_frozen_rows(:build,:task,:attempt,:holder,:frozen,:family,CAST(:aft
                     after = values[-1]["_cursor"]
                     for row in values:
                         row.pop("_cursor", None)
-                    writer.write_batch(
-                        pa.RecordBatch.from_arrays(
-                            [
-                                pa.array([family] * len(values)),
-                                pa.array([json.dumps(r) for r in values], type=pa.large_string()),
-                            ],
-                            schema=_CAPTURE_SCHEMA,
-                        )
-                    )
+                    write_rows(family, values)
+                    if family == "companion":
+                        fields = [
+                            {
+                                "product_id": row["product_id"],
+                                "revision_id": row["revision_id"],
+                                "family": row["family"],
+                                "local_id": row["local_id"],
+                                **descriptor,
+                            }
+                            for row in values
+                            for descriptor in row.get("_fields", ())
+                        ]
+                        if fields:
+                            write_rows("companion_field", fields)
+
+            for family in ("header", "native", "membership"):
+                capture_rows(family)
+            for family in ("health", "input", "native_metadata"):
+                capture_rows("companion", {"family": family})
+            stream_ids = sorted(required_streams)
+            for start in range(0, len(stream_ids), 512):
+                filters = {"stream_ids": stream_ids[start : start + 512]}
+                capture_rows("artifact_stream", filters)
+                capture_rows("artifact_part", filters)
         _run_native_validation(capture, projection, check_active)
         with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
             conn.execute(
