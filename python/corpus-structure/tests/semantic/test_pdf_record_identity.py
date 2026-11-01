@@ -8,7 +8,6 @@ import struct
 from dataclasses import replace
 from decimal import Decimal
 from hashlib import sha256
-from pathlib import Path
 from typing import cast
 
 import pytest
@@ -245,9 +244,8 @@ def test_artifact_retry_conflicts_and_corruption_refuse() -> None:
 
 
 def test_postgresql_independent_primitive_and_record_parity(semantic_db_engine: Engine) -> None:
-    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/pdf_record_identity.sql"
     with semantic_db_engine.begin() as conn:
-        conn.exec_driver_sql(sql.read_text(), execution_options={"no_parameters": True})
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         for value, kind, payload, root in _VECTORS:
             native = conn.execute(
                 text("SELECT ops.pdf_identity_scalar(:kind,:payload)"),
@@ -327,9 +325,8 @@ def test_retained_correspondence_accepts_short_reads():
 
 
 def test_native_record_frame_rejects_fabricated_scalar_lengths(semantic_db_engine):
-    sql = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/pdf_record_identity.sql"
     with semantic_db_engine.begin() as conn:
-        conn.exec_driver_sql(sql.read_text(), execution_options={"no_parameters": True})
+        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         for tag, length in [(b"a", 1), (b"n", 1), (b"b", 0), (b"f", 1)]:
             bad = tag + length.to_bytes(8, "big") + bytes(32)
             with pytest.raises(DBAPIError), conn.begin_nested():
