@@ -126,8 +126,9 @@ Apply FP-01–07 and applicable profile semantics qualitatively, especially auth
 **Merged and qualified, 2026-11-01.** Execution ran in the separate
 `work/postgresql-capability-leverage` worktree from `0878ba1b`. Main's documentation changes
 through `72970e40` were integrated before fast-forward merge at `7b39e1b0`; the completion
-handoff is `b853a345`. All 11 pre-existing dirty library documents were preserved. Production
-and selected test bytes match the qualified source at `c5394eaa`.
+handoff is `b853a345`. All 11 pre-existing dirty library documents were preserved. The merged PG production/test snapshot matched qualified source `c5394eaa`. Subsequent or
+concurrent PDF-27/28 production changes are outside this completion record and require their
+own qualification.
 
 The private PostgreSQL18 instance used port55434, a private socket, extension-only
 `cs_pg_template`, bootstrap-only `pgpl_bootstrap`, ordinary CREATEDB maintenance `paul` and

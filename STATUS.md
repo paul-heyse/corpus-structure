@@ -8,7 +8,9 @@ _Updated2026-11-01; PostgreSQL capability series implemented and targeted Tested
   five supporting plans now describe actual APIs/ownership and completed verification, with
   illustrative extensions separated from delivered behavior. Plans remain retained.
 - Merged into main at `7b39e1b0`; the original11 uncommitted library documents are preserved.
-  Main documentation through `72970e40` is integrated; no incoming production changes existed.
+  Main documentation through `72970e40` was integrated before merge; incoming changes were
+  documentation-only at that boundary. Concurrent PDF payload production edits now exist and
+  remain outside the PostgreSQL qualification snapshot.
 - SQLAlchemy2.1.6/Alembic1.20.1 are exactly pinned. Current execution compiler18 and ten-object
   native head `semantic_pg_20261101` are frozen/admitted; old migrations remain unchanged.
   The exact upstream callable-default defect retains its narrow adapter. Alembic Utils is excluded.
@@ -32,7 +34,8 @@ _Updated2026-11-01; PostgreSQL capability series implemented and targeted Tested
   the exact `scripts/test_receipts.py run --python-only -- ...` command/selection/source.
 - **passed:** `uv run ruff check .`, `uv run pyrefly check --min-severity warn --summary=none`,
   `just deps`, `just ready` and root `just turn-end`; main readiness also passed after merge,
-  with production/test source unchanged after qualification.
+  for the merged PG snapshot matching `c5394eaa`; subsequent PDF working-tree changes are
+  separately owned and are not covered by that receipt.
 - **failed/interrupted:** broad attempt `20261101T131200Z-2640716` retained36failed/2615passed/
   9skipped before normal SIGINT/fixture teardown. No broad acceptance credit. The operator
   requires complete PG scope/targeted tests, not a green pre-existing PDF/repository baseline.
