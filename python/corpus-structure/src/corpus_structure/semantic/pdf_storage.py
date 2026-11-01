@@ -79,12 +79,18 @@ def read_pdf_observations(
     context.execution.require_operation("read_pdf_product")
     states = context.execution.lifecycle("task").states
     terminal = {
-        value.value for state in states if state.terminal
-        for value in state.values if value.dimension == "status"
+        value.value
+        for state in states
+        if state.terminal
+        for value in state.values
+        if value.dimension == "status"
     }
     nonterminal = {
-        value.value for state in states if not state.terminal
-        for value in state.values if value.dimension == "status"
+        value.value
+        for state in states
+        if not state.terminal
+        for value in state.values
+        if value.dimension == "status"
     }
     if task.status not in terminal - nonterminal or task.finished_at is None:
         raise ValueError("recognition catalog requires a finished source task")
@@ -100,27 +106,35 @@ def read_pdf_observations(
         except (KeyError, ValueError, TypeError) as error:
             raise ValueError("invalid recognition catalog continuation") from error
     products = table("ops.pdf_product")
-    rows = conn.execute(
-        select(
-            products.c.kind, products.c.task_id,
-            products.c.product_key, products.c.content_digest,
+    rows = (
+        conn.execute(
+            select(
+                products.c.kind,
+                products.c.task_id,
+                products.c.product_key,
+                products.c.content_digest,
+            )
+            .where(
+                products.c.task_id == request.task_id,
+                products.c.kind == request.kind,
+                products.c.product_key > after,
+            )
+            .order_by(products.c.product_key)
+            .limit(request.limit + 1)
         )
-        .where(
-            products.c.task_id == request.task_id,
-            products.c.kind == request.kind,
-            products.c.product_key > after,
-        )
-        .order_by(products.c.product_key)
-        .limit(request.limit + 1)
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     more = len(rows) > request.limit
-    pins = tuple(PdfObservationPin.model_validate(row) for row in rows[:request.limit])
+    pins = tuple(PdfObservationPin.model_validate(row) for row in rows[: request.limit])
     continuation = (
         base64.urlsafe_b64encode(
-            json.dumps({"selection": request.selection_digest(), "after": pins[-1].product_key})
-            .encode()
+            json.dumps(
+                {"selection": request.selection_digest(), "after": pins[-1].product_key}
+            ).encode()
         ).decode()
-        if more else None
+        if more
+        else None
     )
     return PdfObservationPage(selection=request, products=pins, next_cursor=continuation)
 

@@ -77,8 +77,10 @@ def _join_leaves(parts: list[str]) -> str:
     for part in parts:
         if not part:
             continue
-        if previous is not None and previous.kind == "word" and part[0] in (
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+        if (
+            previous is not None
+            and previous.kind == "word"
+            and part[0] in ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
         ):
             out.append(" ")
             previous = None

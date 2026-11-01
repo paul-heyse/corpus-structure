@@ -62,10 +62,16 @@ def _json_object(value: str, label: str) -> dict[str, Any]:
 
 def normalize_pdf_integration_policy(value: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Canonical version-1 defaults shared by configuration, recipe and selection."""
-    policy = dict(value) if value else {
-        "policy_id": "pdf-integration-v1", "conflict_action": "replace",
-        "unmatched_action": "add", "specialized_crop_precedence": True,
-    }
+    policy = (
+        dict(value)
+        if value
+        else {
+            "policy_id": "pdf-integration-v1",
+            "conflict_action": "replace",
+            "unmatched_action": "add",
+            "specialized_crop_precedence": True,
+        }
+    )
     policy.setdefault("comparison_demand", "lexical")
     if policy["comparison_demand"] != "lexical":
         raise ValueError("pdf-integration-v1 supports only lexical comparison demand")

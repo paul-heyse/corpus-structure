@@ -544,7 +544,10 @@ def select_pdf_integration(
     from docling.utils.vlm_utils import normalize_section_header_levels
     from docling_core.types.doc import DoclingDocument
 
-    from corpus_structure.semantic.pdf_integrated import normalize_pdf_integration_policy, prepare_integrated_pdf_product
+    from corpus_structure.semantic.pdf_integrated import (
+        normalize_pdf_integration_policy,
+        prepare_integrated_pdf_product,
+    )
 
     from .pdf import PdfConversion, publication_payload
     from .pdf_hierarchy import native_nodes, snapshot
@@ -709,7 +712,11 @@ def select_pdf_integration(
                     mathematical=False,
                     context=context,
                 )
-                evidence["comparison_requests"] = {"lexical": "requested", "positioned_syntax": "not_requested", "symbolic": "not_requested"}
+                evidence["comparison_requests"] = {
+                    "lexical": "requested",
+                    "positioned_syntax": "not_requested",
+                    "symbolic": "not_requested",
+                }
                 evidence["comparison"] = comparison
                 if _family(incoming) in {"table", "chart"}:
                     evidence["comparison"] = {k: v for k, v in comparison.items() if k != "opcodes"}
