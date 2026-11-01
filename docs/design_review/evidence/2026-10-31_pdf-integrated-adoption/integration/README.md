@@ -71,3 +71,75 @@ Migration `0057` remains byte-identical to the deployed `5fb11cd` baseline. The 
 view and admission update is the forward `0058` migration. Historical `0047`–`0056` files remain
 unchanged. The generalized HTML representation/product runtime and its producer-specific tests
 were retired; current text/TeX/math kernels and native PDF reuse remain.
+
+## Bulk removal correction
+
+**Tested — 2026-10-31 (America/New_York); archived 2026-11-01T03:04Z.**
+Worker baseline `62eddf0` replaces the selected graph's single public deletion call. Actual book
+retry 3 repeatedly sampled inside Docling 2.105.0's `ref in refs` linear membership scan after
+six minutes; reference renumbering also sums all deleted indices for each surviving reference.
+Context7 and the exact pinned public API exposed no arbitrary-node filter alternative:
+`filter` supports page selection and rebuilds objects, while range deletion delegates to the
+same deletion implementation. The coordinator authorized a typed bulk adapter for this workload.
+
+The adapter expands containment subtrees once, builds surviving per-collection ranks, and updates
+public typed `RefItem` edges and `NodeItem.self_ref` fields. It preserves surviving object identities,
+pages, text and geometry. Dead list references disappear; the public optional graph-cell reference
+becomes `None`. Required scalar references into removed subtrees refuse before mutation. Public
+document and tree validation run afterward. The helper is an archived implementation input; this
+correction changes no schema, read ABI or frozen migration.
+
+**passed:** 32 focused functional controls, including five exact-output comparisons with public
+deletion, independent expected references and identity checks, rich cells, captions, footnotes,
+lists, repeated/shared references, optional scalar references, pages and rotated tables. Independent
+controls also require references to removed descendants to disappear: upstream's list cleanup uses
+only the requested roots and can accidentally rebind such references to another surviving item.
+The combined run includes the existing mapped-rich-document PostgreSQL publication control.
+
+```sh
+env -u BASH_ENV PYTHONPATH=python/corpus-structure/src .venv/bin/python -m pytest \
+  python/corpus-structure/tests/semantic/test_pdf_bulk_remove.py \
+  python/corpus-structure/tests/semantic/test_pdf_reconciliation.py \
+  -o addopts='' -q --disable-warnings --tb=short
+```
+
+[Functional output](raw/bulk-removal-controls.log), [scoped Pyrefly output](raw/bulk-removal-types.log)
+and [new-file Ruff output](raw/bulk-removal-lint.log) all passed. These bounded results do not
+establish whole-book publication, runtime improvement measurements or assembled qualification.
+
+## Frozen forward-product reproduction
+
+**Tested — 2026-10-31 (America/New_York); archived 2026-11-01T03:10Z.**
+Worker baseline `3a1ad58` corrects native generator authoring inputs. The coordinator's broad run
+found that current source changes altered only the deployed 0058 admission descriptor's
+`model_id` and release `inputs` fingerprints; generated function SQL and all enforcement fields
+still matched. The old generator implicitly substituted today's Python release provenance for
+the immutable revision's original authoring event.
+
+Head reproduction now explicitly reads those two authoring fields from the recorded 0058
+admission witness. The predecessor 0057 witness is never substituted. SQL bodies, privileges,
+tables, triggers, physical checks, ABIs, effects and every other enforcement field still derive
+from current owners. New candidate derivation through `ci schema derive` explicitly acquires
+current release provenance instead. Deployed 0057 and 0058 files and the runtime descriptor
+hash remain unchanged; no new deployment guard or migration is needed.
+
+**passed:** all 15 native-closure controls, including the unchanged exact frozen-byte oracle,
+database admission and drift refusals, and new counterfactual controls. A changed current SQL
+function or physical constraint changes generated products; an unsupported current effect
+refuses generation. A current candidate's full descriptor equals the recorded descriptor with
+its two authoring fields explicitly replaced by current values. No fields are dropped from
+the frozen-byte comparison. **passed:** four actual schema-CLI controls, including the current
+reconciliation artifact name and explicit current candidate provenance.
+
+```sh
+env -u BASH_ENV PYTHONPATH=python/corpus-structure/src .venv/bin/python -m pytest \
+  python/corpus-structure/tests/semantic/test_native_closure.py \
+  -o addopts='' -q --disable-warnings --tb=short
+env -u BASH_ENV PYTHONPATH=python/corpus-structure/src .venv/bin/python -m pytest \
+  python/corpus-structure/tests/semantic/test_schema_product_cli.py \
+  -o addopts='' -q --disable-warnings --tb=short
+```
+
+[Closure output](raw/forward-provenance-controls.log), [CLI output](raw/forward-provenance-cli.log)
+and [scoped Pyrefly output](raw/forward-provenance-types.log) all passed. The coordinator owns
+final-source formatting, assembled qualification, migration receipts and whole-book publication.
