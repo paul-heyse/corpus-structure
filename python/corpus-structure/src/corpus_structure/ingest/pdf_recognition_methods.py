@@ -267,6 +267,7 @@ class IngestPdfIntegrated:
                     receipts=ctx.settings.nemotron_receipts,
                     timeout_seconds=ctx.settings.nemotron_timeout_seconds,
                 )
+                ctx.reader.pdf_context().execution.require_operation("recognize_pdf_observation")
                 observations = []
                 failures = []
                 recovery = cfg.recovery_policy
