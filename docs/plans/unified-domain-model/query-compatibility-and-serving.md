@@ -1,0 +1,130 @@
+# Query implementation compatibility and serving
+
+**Status:** Planned; UM-04 is not implemented by this document. **Created:** 2026-11-01.
+**Target:** Proposed. Source [R02 / DA-028](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R02)
+is the highest-consequence current correction. The [coordinator](../unified-domain-model_2026-11-01.md)
+owns current disposition and assembled completion. Existing plans and frozen products are unchanged.
+
+**Planning snapshot:** committed source/review `370f0643` plus the specifically inspected dirty
+PDF/model/native seams. The PDF series is still completing and may change those seams. This plan
+does not continuously absorb that work or own its acceptance. A later update will reconcile the
+then-current PDF snapshot as a discrete step before dependent execution.
+
+## Baseline and preserved boundary
+
+`semantic/regeneration.py:109–125` archives `operation/queries.py`, while `cli/query.py:25–46`
+loads the selected run's current `DOMAINS / domain` plugin. `serve/registry.py:51–76` hashes current
+path/bytes for module caching. That identity does not establish agreement with the producing release.
+Current named-query continuations carry run, release/realization/revision, query version, parameters,
+projection and arithmetic identity (`serve/journey.py:117–145`). Data pinning is useful but incomplete
+when answer-affecting implementation meaning can change independently.
+
+Preserve the current `DomainQuery` protocol's name/version, Pydantic parameter/result models,
+`rows` and `scope`, positioned pagination and shared read-only snapshot owner. The selected change
+adds an admitted implementation compatibility binding; it does not execute arbitrary archived Python
+or retain an unlimited collection of historical environments.
+
+## UM-04 — Bound trusted query implementation
+
+A query's trusted installed implementation declares an immutable implementation identity and a
+meaning-contract revision, its exact parameter/result schema projection, supported producing-query
+contract identities, required runtime/operation capabilities, and source provenance. The producing
+release archives the query contract identity and the implementation identity under which it was
+admitted. Byte changes are detected from the implementation's explicit code bundle; source files
+that affect query meaning are included by the owner rather than discovered through arbitrary imports.
+
+The default support rule is exact identity. A current implementation may declare compatibility with
+a prior producing contract only through an explicit trusted compatibility entry with independent
+behavioral evidence for that contract. Editing a file while keeping the handwritten query version
+unchanged cannot grant compatibility. A cosmetic/source-only change may retain meaning through
+such a reviewed entry, but its producing and executing implementation provenance remain distinct.
+No permissive wildcard, path-only identity or implicit current-byte fallback is allowed.
+
+Resolve this binding before loading a query for execution. Module caching may continue to hash path
+and bytes, but registry construction for a run also requires the admitted binding. The generic query
+set follows the same rule wherever its meaning affects an answer; pack-local plugins are not the
+only possible implementation dependency. Reject missing, ambiguous, unsupported or incompatible
+bindings with a structured unavailable/incompatible-query outcome and explicit reselection/rebuild
+advice. A retained compatible implementation may serve an old result when already supported, but
+installing or executing an arbitrary archived body is not the recovery path.
+
+Do not reinterpret a frozen release to add the new binding. Newly admitted releases carry the new
+product. For existing archives without a query binding, support only an explicitly trusted historical
+adapter whose known contract/provenance is qualified; otherwise refuse that named-query route.
+Existing primitive data access can remain supported under its own read contract. Refusal is not a
+claim that the retained data is corrupt or that all historical reads are unavailable.
+
+## Journey and public behavior
+
+Resolve the query binding once inside the actual read/snapshot entry path and pass the bound query
+to parameter validation, scope selection, row production and pagination. The continuation carries
+the query meaning-contract and implementation compatibility identity in addition to existing pins.
+A continuation issued by a prior token format remains accepted only through its declared supported
+reader; never silently treat a missing implementation identity as the current one.
+
+Follow-up explanation and evidence requests receive the same producing query contract and binding.
+Where their own implementation meaning can affect the answer, they also resolve their trusted
+compatibility requirement. Selecting a newer active model or editing a plugin cannot rebind an
+already issued journey. An explicitly new query is a new operation with its own disclosed contract.
+
+Preserve existing parameter normalization, exact predicates, coverage/knowledge outcomes and
+projection universe. A code-compatibility pass does not establish data freshness, complete coverage
+or evidence closure; those current checks remain. Continued data-revision and parameter mismatches
+retain their existing modeled distinctions. Do not collapse programming/infrastructure failures
+into an ordinary incompatibility outcome.
+
+## Concrete library composition
+
+| Mechanism | Selected responsibility and limit |
+|---|---|
+| Pydantic 2.14.1 parameter/result models and reusable `TypeAdapter`/schema projection | Validate actual caller input/output against the admitted query contract. Validation/serialization schemas and custom executable semantics are not interchangeable; include the relevant runtime contract. |
+| Existing immutable release products and normalized execution bindings | Supply producing model/query and capability identity. Query implementation compatibility is a separate declared contract, not inferred from matching data schema or the active project release. |
+| SQLAlchemy 2.1.6 existing repeatable-read/read-only snapshot owner | Bind the selected completed result and its evidence consistently while the query runs. Snapshot pinning does not pin code; no second connection/transaction owner is introduced by this package. |
+| Existing structured continuation/refusal machinery | Carry and classify the additional binding dimension. Keep unsupported token, stale query, wrong parameters, data-revision mismatch and implementation incompatibility distinct. |
+
+Library evidence: [Pydantic boundary account](../../library_leverage/libraries/unified-model-boundaries_2026-11-01.md)
+and [PostgreSQL account](../../library_leverage/libraries/unified-model-postgresql_2026-11-01.md).
+Source entry points are [query registry](../../../python/corpus-structure/src/corpus_structure/serve/registry.py),
+[named journey](../../../python/corpus-structure/src/corpus_structure/serve/journey.py) and
+[query protocol](../../../python/corpus-structure/src/corpus_structure/serve/protocol.py).
+No library reflection or AST analysis proves compatibility of arbitrary changed Python behavior.
+
+## Delivery, migration and dependency boundary
+
+UM-04 consumes existing release archive, query protocol and snapshot/continuation mechanisms. It can
+begin independently of UM-01/02 and of wholesale typed API/native-body generation. Its early shared
+contract supplies implementation/query identity to typed serving adapters and O02 impact analysis.
+Actual consumer migration includes CLI named queries, query discovery/schema description where it
+selects run-specific implementations, serving/pagination, explanation/evidence follow-ups and any
+MCP route exposing those named answers. Inventory the actual callers before closing this scope;
+a representative CLI fixture alone does not establish the complete journey union.
+
+Add producing/reader compatibility products before switching execution. Migrate each caller with
+its release-aware registry opener and retire direct live-pack registry construction for run-bound
+execution in the same slice. Keep filesystem-only shell completion side-effect free; it may list
+installed capabilities but cannot imply run compatibility. Preserve frozen migrations/evidence.
+Any stored continuation/product change uses the native evolution and supported-reader routes.
+
+## Execution investigation and acceptance
+
+**UM-I04 — Query compatibility closure.** Inventory answer-affecting query implementation bundles,
+helper/runtime requirements and currently supported historic contract/token formats. Produce the
+finite compatibility set and independent examples for any non-exact support entry. If a historical
+contract cannot be established, the selected outcome is an honest route-specific refusal, not
+arbitrary archived-code execution or a new all-history environment framework.
+
+Create a completed-run query and continuation, edit the installed plugin without bumping its name
+or version, and request the original query/continuation/explanation. Require compatibility refusal
+before executing changed query logic. Then exercise an explicitly compatible implementation with
+independent expected rows and evidence. Test a source-only change both without and with its explicit
+compatibility entry. Cover wrong parameters, wrong data revision, unsupported token reader, missing
+binding, ambiguous compatibility and unrelated infrastructure failure.
+
+After activating a newer release, the supported old-run answer retains its original model, result
+and query contract. Current query discovery may show a new capability without changing that old
+journey. Compare an incompatible result shape and a semantically changed query with identical shape:
+matching Pydantic fields is not sufficient to accept either as equivalent meaning.
+
+These are planned controls, not results. No tests or probes ran while authoring this document.
+The [integration owner](integration-adoption-and-qualification.md) assembles actual CLI/MCP/native
+journeys and final-source evidence, preserving scoped failures and unavailable required obligations.
