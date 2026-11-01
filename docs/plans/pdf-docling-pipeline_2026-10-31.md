@@ -1,6 +1,6 @@
 # Integrated PDF/Docling and Nemotron pipeline
 
-**Status:** Active;0060 deployed/0061 undeployed; baseline integrated mechanisms implemented; PDF-17–19 structural foundation implemented; PDF-20 onward planned.
+**Status:** Active;0060 deployed/0061–0063 undeployed; baseline integrated mechanisms implemented; PDF-17–19 structural foundation implemented; PDF-20 onward planned.
 Whole-book recognition passed; integrated publication, actual consumer adoption and complete qualification remain open.
 **Created:** 2026-10-31. **Revised:** 2026-11-01.
 **Basis:** Original [PDF review](../functional_reviews/pdf-docling-pipeline_2026-10-31.md)
@@ -8,10 +8,27 @@ at `2c333722fe9b3ad03c8004d14c5f50a1605c3f4b` and its target; added
 [triple-pass review](../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md) and
 [integrated target](../functional_reviews/docling-nemotron-triple-pass_2026-10-31_target-model.md)
 at `d25fff8`. This coordinator alone owns package state, source-qualified opportunity dispositions
-and investigations I01–I19. Supporting documents own technical explanations, not duplicate queues.
+and investigations I01–I20. Supporting documents own technical explanations, not duplicate queues.
 New planning basis: [streaming/storage review](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md)
 and [target](../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`;
 O01–O06 selected for planning, O07 conditional. No new implementation is established by this amendment.
+
+## Library improvement planning basis — 2026-11-01
+
+Consume [streaming improvement review](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md)
+at `5d7a72c4`. The operator approved this plan integration on2026-11-01. Existing PDF-20–25 owners
+absorb the amendments; no new plan series, workflow engine or generic resource framework is added.
+The source review's I01–I11 references are qualified by review path, distinct from this coordinator's
+I01–I20 investigation IDs. The disposition table below is the sole scheduled-status owner.
+
+Required additions strengthen native finalization inputs, release-owned configuration, owned
+seekable source/crop lifetime, record/batch handoffs, completion/diagnostic semantics and selected
+views. Public scheduler adoption is an investigation outcome, not a promised available seam.
+Additional code/picture/table recognizers and serving caches remain conditional; native guarded
+multipass substitution and broader input/service changes remain unselected. No new rule change
+is selected: ADR-0042, mandatory true triple pass/alternatives, intact sections, atomic publication
+and independent automated grading remain the target. A contrary investigation outcome needs an
+explicit decision before dependent scope changes. Plan authoring is not production delivery.
 
 ## Current operator correction — 2026-10-31
 
@@ -66,7 +83,7 @@ no strict bounded-memory claim follows until I14 establishes the exact producer 
 ## 2. Baseline and foundation assessment
 
 The deployed execution baseline remains native0060/compiler14/core0.6.2; source now contains
-ABI15, relational compiler3 and undeployed0062/0063 private foundations. Full
+ABI15, relational compiler3/core0.6.3 and undeployed0062/0063 private foundations. Full
 Docling2.145.0/core2.105.0 and native schema1.10.0. Integrated producers, governed selection,
 scoped readers and forward-only consumers are implemented. Actual all-page Nemotron recognition
 and fresh composed toy publication passed; whole-book integrated publication and assembled
@@ -169,6 +186,12 @@ migration and PDF-10/11 actual adoption/qualification. Interface readiness is no
 acceptance. Independent investigation/design slices may proceed together; shared model/compiler
 surfaces retain one integrated editing owner. PDF-26 remains conditional on I19.
 
+Resolve I14's native finalization boundary and I20's scheduler/custody choice early, while PDF-20
+can implement agreed source/replay and wire contracts. Working producers, frozen validation and
+actual readers must converge before PDF-25/10/11 assembled acceptance. No optional recognizer,
+serving-cache experiment or progressive scope blocks the initial required union. Record actual
+limits where native global objects remain; a page iterator or protective refusal is insufficient.
+
 Do not qualify an obsolete monolithic book route merely before implementing its successor.
 Preserve0061's corrected child semantics in forward guards and all frozen SQL/receipts unchanged.
 PDF-00–16 delivery remains scoped to the baseline; only affected new guarantees need fresh evidence.
@@ -221,6 +244,25 @@ Plan authoring closes none of these capabilities.
 | [O06](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O06) | PDF-24 pinned selective consumers/full exports | Planned; actual consumers and lossless native/integrated streaming exports |
 | [O07](../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O07) | I19/PDF-26 early section consumption | Conditional; explicit closure/value outcome before activation; not required for atomic completion |
 
+### Library improvement recommendations — at `5d7a72c4`
+
+References here name the improvement review, not similarly numbered coordinator investigations.
+All scheduled work remains **Planned**; PDF-17–19 implementation receipts are unchanged.
+
+| Source recommendation | Owning packages / investigation | Current disposition and closure |
+|---|---|---|
+| [I01](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I01) parser/queue/consumer capacity | PDF-22/23; PDF-20/24 consumers; I18 | Planned: separate effective controls under one recipe; downstream capacity and last-borrower lifetime; no new arbitrary numeric limits |
+| [I02](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I02) compact native finalization | PDF-22; I14 | Planned: retained heading/list lines, bookmarks and native assembly semantics; differential and independent controls plus retained-book working-set assessment |
+| [I03](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I03) public scheduling and custody | PDF-23; I20; PDF-20 receipt contract | Investigate public bounded-group pipeline first; select only with receipt/image/concurrency/cancellation contract, otherwise completion-driven finite pages |
+| [I04](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I04) native Docling multipass | Conditional choices; PDF-23 | Substitution deferred: current guarded merge/failure/sampling/evidence contract differs; revisit on suitable hooks or separately selected narrower semantics |
+| [I05](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I05) owned source/replay capabilities | PDF-20/22/23/25 | Planned: immutable digest-bound seekable source, bounded IPC descriptors, verified replay and consumer-coordinated retirement |
+| [I06](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I06) model-bound batches/selective readers | PDF-20/21/23/24 | Planned: generated wire profile, same-session COPY/adoption and snapshot-bound reads, no mandatory whole-table/envelope reconstruction |
+| [I07](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I07) enrichment lifetime/richer content | PDF-22/23; PDF-24 consumers | Shared lifetime/type foundation planned; extra recognizers conditional on selected consumer/precision gap, never eager baseline work |
+| [I08](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I08) transformations/complete views | PDF-23/24 | Planned: qualify native APIs against current bulk/pointer-preserving operations; preserve nested content, identity, precision and no read repair |
+| [I09](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I09) completion/diagnostics | PDF-20/21/23/24 | Planned: modeled raw/partial/failure/usage states, bounded page metadata and demanded diagnostics; progress is not admission/confidence |
+| [I10](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I10) image/serving cache reuse | PDF-23; conditional runtime choices | Conditional: actual plugin/API support and avoided-work comparison; stable content/frame/processor keys and retained-byte fallback |
+| [I11](../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I11) table-matching source correction | PDF-22/23 comparison premises; I15/I18 | Corrected planning premise: disabled matching uses backend text, not independent visual transcription; retain matching baseline pending actual deficiency |
+
 ## 6. Investigation queue
 
 PDF-01 explains original investigations; PDF-12 explains added methods and decision consequences; this is the sole mutable investigation state.
@@ -242,12 +284,13 @@ repository records when a probe produces an accepted result. No new permanent ca
 | I11 | Mapping/merge losses, table/chart/inline structure and selection policy over real responses | Mapping/selection mechanisms and real-response/bounded structure controls passed; cross-page continuity is explicitly not inferred, universal fidelity unqualified · PDF-13/15 |
 | I12 | Bounded preparation, combined GPU lifetime, partial receipts/cancellation and replay | Partial: finite workers, raw replay and GPU phase controls passed;0060 passes the oversized aggregate cast, but attempt7 cancelled during correlated child validation.0061 shared set join has bounded controls only; deployment/whole-book publication remain PDF-10/11 obligations |
 | I13 | Concrete integrated source/section/consumer/reference scope and independent benefit challenges | Scope fixed before provider execution: whole-book source, five intact analysis roots, two independent full-section A/B/C references and six frozen original-PDF challenges; actual journeys remain PDF-10/11 |
-| I14 | Streaming review I01: exact native assembly/enrichment and remaining global state | Partial · PDF-17 source inspection identified global assembly/enrichment; PDF-22 exact adapter/runtime outcome remains open; no strict streaming claim |
+| I14 | Streaming review I01: exact native assembly/enrichment and remaining global state | Partial · PDF-17 source inspection identified global assembly/enrichment; PDF-22 exact adapter/runtime outcome remains open; use retain_parsed_lines/assign_heading_levels with bookmark/list promotion and retained assembly inputs; no strict streaming claim |
 | I15 | Streaming review I02: total native schema lowering/reconstruction and oversized leaves | Foundation resolved · PDF-18 schema/codec and callback placement tested; frozen-union enforcement remains PDF-21 |
 | I16 | Streaming review I03: independent native byte/record correspondence and batch-independent logical identity | Foundation resolved · PDF-19 bounded protocol/SQL parity/part replay tested; actual staged/native export correspondence remains PDF-20/21/24 |
 | I17 | Streaming review I04: immutable freeze/validate/seal under cancellation, concurrency and lease change | Contract slice resolved · PDF-17; actual private append/freeze/seal remains PDF-20/21 |
-| I18 | Streaming review I05: Arrow/pgpq/PostgreSQL/ADBC type and resource/operator profiles | Foundation type/constraint slice tested · PDF-18/19; live COPY/reader/spill/resource composition remains PDF-20/23/24 |
+| I18 | Streaming review I05: Arrow/pgpq/PostgreSQL/ADBC type and resource/operator profiles | Foundation type/constraint slice tested · PDF-18/19; live COPY/reader/spill/resource composition remains PDF-20/23/24; include prefetch/queue/scan readahead, exact JSON/overflow profiles and source/crop/buffer lifetimes |
 | I19 | Streaming review I06: progressive section dependency closure and useful early consumer | Open investigation · PDF-17/26; optional capability, not a blocker for atomic-document acceptance |
+| I20 | Improvement review I03: public pipelined scheduler versus completion-driven pages under exact receipt/crop/cancellation contracts | Planned · PDF-23; investigate bounded prepared groups first, select a concurrency-safe observation seam or completion-driven finite page route; bind image recipe and preserve strict failed/partial/zero-C evidence |
 
 A known table-cell formula gap cannot disappear into a generic "unsupported" label while claiming
 supported table-math completion. Implement the selected supported enrichment route if required;
@@ -267,6 +310,10 @@ pipeline requires an explicit revised decision, not an unrecorded fallback.
 | TableFormer V2 preview | Not baseline | Actual V1 structural limitation with evidence warranting comparison. |
 | Native forms/raw glyph inventory | Deferred | Supported input/consumer requiring information absent from selected model. |
 | New graph engine, Docling Serve/Jobkit/MCP | Not selected | Concrete operation cannot be served reasonably by current Core/native/local ownership. |
+| Native Docling multipass substitution | Deferred | Required raw/image/HTTP/alternatives and failure hooks, or separately selected narrower contract; review I04 / PDF-23. |
+| Additional code/picture/table/chart enrichment | Conditional | Selected technical-content consumer or demonstrated unresolved gap; PDF-22 lifetime/model first, PDF-23 comparison and PDF-24 real consumer migration. |
+| Prepared-image/vLLM processor caching | Conditional | Exact Nemotron plugin support, recipe-qualified media identity, eviction/replay behavior and representative avoided work; PDF-23 / review I10. |
+| Remote NIM/client, non-PDF intake, ASR, PII/translation and TikZ execution | Separate/deferred | Explicit workflow/value and required semantic/lifecycle decision; no automatic expansion of this series. |
 
 ## 8. Completion and current execution boundary
 
@@ -348,6 +395,17 @@ not credited by document creation or silently duplicated in PDF-25. Defaults rem
 `corpus_parsing_20261030` / `parsing-pipeline`; no audit-premise or grading-policy change is included.
 
 ## Plan-authoring verification — 2026-11-01
+
+**Improvement integration, passed:** focused foundation/contract assessment and independent
+coherence check; existing publisher discovery/staging, mdBook build and target resolution across
+all10 changed plan/status pages (`build/pdf-improvement-plan-links.log`). Review I01–I11 each have
+an explicit coordinator disposition, new I20 is unique and PDF-17–26 anchors remain intact.
+No production source, migration, dependency or library-reference draft changed. Product/type/provider
+and performance checks are **not_run** for this documentation-only amendment. Full `just docs-check`
+was not rerun; its historical failures below are not new results. Optional models/caches and PDF-26
+remain outside the initial required union. Plan completion does not establish their implementation.
+
+**Earlier plan creation receipt (retained scope):**
 
 **passed:** focused foundation/source assessment and independent obligation/dependency review;
 existing publisher target resolution across all14 PDF/discovery plan pages, unique PDF-17–26

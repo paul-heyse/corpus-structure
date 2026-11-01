@@ -1,5 +1,13 @@
 # Mathematical interpretation and domain consumers
 
+> **Library improvement integration — 2026-11-01:** [review](../../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md) at `5d7a72c4`
+> is incorporated into the [coordinator](../pdf-docling-pipeline_2026-10-31.md) and PDF-20–25 targets.
+> The [streaming owner](streaming-processing-and-arrow.md) owns new source/crop lifetime and scheduler
+> contracts; [publication](staged-publication-and-validation.md) and [consumer](integrated-document-consumers.md)
+> packages own their integration. Delivered mechanisms and dated receipts below retain their scope.
+> Already implemented public parser delegation, input release and inline/rich-cell handling are
+> foundations to preserve, not new feature claims. Extra recognizers and caches remain conditional.
+
 > **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
 > document records, versioned identity, bounded Arrow transport, private staging and atomic seal.
 > See the [coordinator](../pdf-docling-pipeline_2026-10-31.md),
@@ -184,7 +192,7 @@ re-anchored. PDF-11 owns the assembled provider journey and required evidence un
 Concrete library mechanisms and version-sensitive limits are retained from review O04/O05,
 [SymPy parsing](https://docs.sympy.org/latest/modules/parsing.html), the local
 [SymPy overview](../../libraries/Sympy.md), [spaCy overview](../../libraries/spacy.md),
-and [Docling OCR technical-PDF guidance](../../libraries/docling_ocr.md).
+and [Docling OCR technical-PDF guidance](../../libraries/primary_intake/docling_ocr.md).
 I03/I05 resolve remaining native API/coverage uncertainty before dependent claims. These packages
 are planned work, not proof of parser fidelity or a measured efficiency gain. No inference,
 product test, grading run or dependency change was performed to author this document.

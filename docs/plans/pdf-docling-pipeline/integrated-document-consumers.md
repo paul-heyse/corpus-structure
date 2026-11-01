@@ -134,6 +134,50 @@ Reuse existing ADBC exported/imported snapshot capture and `fetch_record_batch`,
 
 **Completion:** independent item/cell/reference/precision expectations, wrong-pin/staging refusal, stable continuations, native reload/tree validation on representative reconstructed content, exact archived-byte exports and complete streamed companion inventories. Actual external stdio MCP attachment/render/export and real scientific/extraction/reference consumers belong to PDF-11's assembled union, not component-test inference. No compatibility for retired HTML output is reintroduced.
 
+### PDF-24 library improvement integration — I06/I07/I08/I09
+
+Consume [review I06–I09](../../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md#I06) at `5d7a72c4`; the coordinator owns scheduled disposition.
+Use the same model-bound records for item/cell/formula/relation and source/frame context. A small
+query must not hydrate the whole native document to call a convenient serializer or profiler.
+Use native `iterate_items(root=..., with_groups=..., included_content_layers=...,
+traverse_pictures=...)` on already demanded bounded native values; record-backed views preserve
+equivalent declared traversal, multiplicity and order. Include picture-nested OCR, furniture and
+groups when the view's semantics require them. HybridChunker's default picture exclusion is not
+a reason to adopt chunking or silently omit recognized content.
+
+Native `replace_item`, `delete_items`, table row operations and `validate_tree`/`validate_document`
+are candidates where they actually handle required relationships. Compare with current indexed
+bulk removal and pointer-preserving hierarchy organization; do not replace them with repeated
+whole-document copying. `filter`, `concatenate` and subtree insertion can readdress objects.
+Transformations must preserve source-qualified old citations and publish explicit new mappings;
+structural validity alone cannot preserve identity or prevent normalization on read. Existing
+PDF-18 callback-refusal semantics remain required.
+
+Keep serializers' selected layers and companion omissions explicit. Retained raw responses,
+recognized text/structure, normalized or postprocessed output, descriptions and derived summaries
+are separately attributed. A chart value or code language is not automatically a knowledge claim.
+If optional enrichment is selected, migrate its real packet/frame/evidence consumers with its
+producer, rather than exposing a result only through a new local diagnostic. Existing mathematical
+methods remain lazy; requested output scope must not discard necessary scientific input context.
+
+Use ADBC exported/imported snapshots and `fetch_record_batch` for the existing columnar capture
+route; for Core row queries where capture adds no value, use a closed streaming `Result` with
+`execution_options(yield_per=...)` on the owning connection. Neither route inherits another
+connection's transaction implicitly. Continuations bind immutable product/selection/release and
+projection; iteration cancellation closes cursor/reader and retains backing files through the
+last borrower. No new reader engine or double pooling is selected.
+
+Counts and coverage diagnostics derive from records. `DocumentProfiler.profile_document` is an
+explicit hydrated diagnostic, not a required reader stage; collection distribution arrays still
+consume memory. Native page/reading-order visualizations are demanded artifacts. Progress events
+may arrive late/out of order and cannot commit records or change authoritative completion.
+
+**Additional completion:** nested picture OCR, missing referenced image versus absent picture,
+body/furniture/group selection, rich cell/header/caption context, repeated references, ambiguous
+transformation mapping and old citations after successor publication have independent expected
+membership/precision. Exercise slow/abandoned reads, wrong snapshots, late callbacks and selected
+export omissions. Actual external MCP/render and extraction/grading remain PDF-11 obligations.
+
 <a id="PDF-26"></a>
 ## PDF-26 — Conditional progressive sealed scopes
 

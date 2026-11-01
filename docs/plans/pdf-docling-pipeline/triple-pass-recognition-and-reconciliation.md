@@ -1,5 +1,13 @@
 # Triple-pass recognition and integrated content selection
 
+> **Library improvement integration — 2026-11-01:** [review](../../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md) at `5d7a72c4`
+> is incorporated into the [coordinator](../pdf-docling-pipeline_2026-10-31.md) and PDF-20–25 targets.
+> The [streaming owner](streaming-processing-and-arrow.md) owns new source/crop lifetime and scheduler
+> contracts; [publication](staged-publication-and-validation.md) and [consumer](integrated-document-consumers.md)
+> packages own their integration. Delivered mechanisms and dated receipts below retain their scope.
+> Already implemented public parser delegation, input release and inline/rich-cell handling are
+> foundations to preserve, not new feature claims. Extra recognizers and caches remain conditional.
+
 > **Structural target revision — 2026-11-01:** PDF-17–25 extend this series with lossless relational
 > document records, versioned identity, bounded Arrow transport, private staging and atomic seal.
 > See the [coordinator](../pdf-docling-pipeline_2026-10-31.md),

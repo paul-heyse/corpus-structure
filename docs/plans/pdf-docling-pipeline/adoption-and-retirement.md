@@ -201,6 +201,41 @@ Use the retained1589-page book and exact prepared witness for staging, freeze, n
 
 PDF-10/11 then regenerate exact selected SourceViews/consumer frames, run actual external CLI/MCP/render/export, five intact-section extraction, independent two-section A/B/C references and the six frozen original-PDF challenges, evaluator-only registration and automated grading. No human grading or all-book extraction is introduced. Reuse recognition when identities permit; demonstrate explicit retained-integrated reuse and resumed replay. Finalized completed knowledge and coherent default selection follow actual acceptance, not merely structural admission.
 
+### Improvement amendment: recipe, custody and consumer cutover
+
+[Review I01–I11](../../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md) at `5d7a72c4` extends PDF-25/10/11 acceptance through their existing
+owners; it does not reopen completed foundations or require optional models/caches. Migrate source
+capabilities, replay descriptors, stage-outcome relations, crop/render recipes and compatible
+reader/projection versions together. Forward migrations remain frozen once committed; preserve
+0062/0063 as well as older revisions. Carry current compiler/core source versus deployed versions
+truthfully rather than relabeling the0060 deployment.
+
+Pure storage lowering reuses immutable recognition under its original bindings. New image bytes,
+crop expansion, sampling, model/processor or interpretation changes create new recipes and need
+fresh affected producer evidence. In particular, default batch JPEG and current JPEG95-then-PNG
+submission cannot be silently equated. Old exact-byte artifacts and historical digests remain
+resolvable; a successful new scheduler is not proof that old and new predictions match.
+
+Retire old whole-PDF byte IPC, whole-`PdfConversion` output and required canonical publication
+containers only after owned-source producer, bounded replay, protected admission and all actual
+read/export consumers work together. Keep unrelated generic analytical/historical PDF users working
+under their own contracts. Remove replaced adapters, hooks or frozen-table constructors only from
+the consumers actually migrated. Cleanup never deletes retained source/failed evidence to make a
+new path appear successful.
+
+Include cross-page bookmark/list promotion and attachments, exact crop frames, out-of-order
+completion, stalled downstream writes, simultaneous crop receipt correlation, failed B/C and valid
+zero-C, delayed enrichment, missing picture artifacts, wrong continuation/snapshot and interrupted
+source/spool replay in affected controls. Native differential comparisons establish preservation;
+independent expected examples and isolated automated source grading establish different claims.
+The review's table-matching source correction is a planning premise, not a quality measurement.
+
+I14 must settle native finalization's actual remaining working set and I20 must record its chosen
+scheduler/custody route before assembled acceptance. Unavailable producer obligations stay open;
+protective refusal alone does not establish normal-book feasibility. Conditional PDF-26, new code/
+picture/table recognizers and serving caches are not added to the initial required union. If later
+selected, their consumer/recipe/evidence scope must be added before claiming delivery.
+
 At complete required functional scope run the declared final-source union via `just test-all`, applicable hygiene and coherent warning-inclusive type checks, preserving original failed/interrupted receipts. Targeted controls apply during implementation; no integrated campaign per package. Cosmetic lint/format does not invalidate applicable type/test passes. Measure representative end-to-end resource/runtime behavior before quantitative efficiency claims; no invented performance threshold is a completion substitute. Progressive PDF-26 remains outside this initial required union.
 
 Retire the old full-envelope/native-JSONB requirement from new writes only after new producer, validator, reader, export and replay paths work together. Existing archived PDF identities/bytes remain resolvable; no historical HTML runtime compatibility, database purge or evidence deletion is scheduled. Carry enduring mechanisms and support limits into D1–D8 and leave owning plan rows truthful about implemented, tested and measured scope.

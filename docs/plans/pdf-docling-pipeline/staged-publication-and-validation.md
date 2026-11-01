@@ -2,6 +2,12 @@
 
 **Status:** Planned, 2026-11-01. [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns PDF-20/21 and I17/I18 state. Consumes [review O02/O04/O05](../../functional_reviews/pdf-streaming-and-storage_2026-11-01.md#O02) and [target §§2–4/6](../../functional_reviews/pdf-streaming-and-storage_2026-11-01_target-model.md) at `1c6fc710`; schema/identity owners are [PDF-18/19](relational-document-model-and-identity.md).
 
+## Improvement integration — review I05/I06/I09
+
+[Library improvement review](../../plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md) at `5d7a72c4` refines this target. PDF-18/19 remain
+implemented foundations; the source/replay, request-outcome and live admission obligations below
+are planned PDF-20/21 integration, not claims covered by the prior394-test receipt.
+
 ## Result and existing strengths
 
 Persist useful document progress without holding a whole-book transaction or making partial content authoritative. PostgreSQL retains independent instance enforcement, immutable input custody and final visibility; the model governs the lifecycle. Extend existing task/attempt/holder fences and protected native functions rather than adding another lease owner or workflow engine.
@@ -24,6 +30,32 @@ Temporary tables are not durable cross-session progress. Define atomic adoption 
 Reuse `capture_storage.py::store_relation` and its incremental `ParquetWriter.write_batch` ownership where suitable. IPC file `new_file/open_file` plus `memory_map` is appropriate for exact seekable Arrow replay; Parquet provides compression/projection with decoding allocations. Do not persist both without distinct consumers. Backing-file deletion follows the last borrower and existing failure-evidence rules.
 
 ADBC `fetch_record_batch`/existing exported-snapshot reads remain useful to PDF-24. ADBC ingestion on its own connection cannot silently share Psycopg's transaction/temp tables. Keep SQLAlchemy pooling as the publication owner; psycopg-pool is only justified for a separately owned traffic path, not layered around the same session.
+
+### Source/replay admission and bounded evidence
+
+Bind the producer's owned seekable source and replay descriptor to actual original digest,
+source/frame recipe, release and attempt. PDF-22 owns native source/crop lifetime; PDF-20 adopts
+actual records/artifact parts into durable private custody before a producer may discard required
+replay input. File paths and claimed checksums alone are not custody. Do not serialize live backend,
+Docling or connection handles across IPC or hold a connection while waiting for inference.
+
+Derive exact schemas from `record_arrow_schema`; keep field order, nullability, presence/scalar
+profiles, JSON wire metadata and overflow-stream references. Retire `AppendPublication`'s required
+full-table IPC freeze, `read_all`, `to_pylist`, global sort and canonical-body construction from this
+new write path. Reuse only the suitable scratch COPY/adoption components. Do not remove the older
+mechanism from unrelated consumers before their replacement is integrated.
+
+Request/page/stage/crop outcomes and optional provider metadata use fixed modeled relations or
+bounded extension/parts under declared contracts. Missing usage is unavailable, not zero or success;
+failed/partial/unrequested and valid zero-C are different. A growing page metadata map must not
+reintroduce the JSONB limit. Exact raw output precedes cleanup/rendering. Shape validation, content
+identity and independent native correspondence remain different obligations.
+
+I14's assembly inputs and I20's receipt identifiers are early contract dependencies; working
+producer acceptance is later. Scratch adoption has independent expectations for source replacement,
+incorrect replay/recipe pins, failed-stage artifacts, changed duplicate uploads and disconnect.
+Keep one SQLAlchemy transaction owner and a checked Psycopg driver for COPY; no second pool or
+ADBC writer is introduced merely for streaming.
 
 **Completion:** typed COPY controls check exact wire profiles and independent expected rows, including empty/reordered batches and large individual values. Exercise duplicate/conflicting retry, failed scratch adoption, cross-project artifacts, stale holder, disconnect and bounded replay. Verify no staging read path bypasses visibility. Product output is private progress, not published document or completed knowledge.
 
@@ -50,6 +82,23 @@ Use indexed FK/unique/CHECK and set-based validation, including0061's child-targ
 Use existing pglast AST authoring and Alembic forward SQL/admission products. Current descriptor helper, body CHECKs, function inventory and native constraints must derive from their current semantic owners. Counterfactual changes to a governing declaration must change the realized guard/descriptor, without depending on stale frozen bodies. Never modify frozen0057–0061 or copy the duplicate physical-contract snapshot insertion into a new revision.
 
 Cancellation/lease loss fences new work and drains owned producers/COPY/validation resources. Explicit resume/adopt verifies a frozen inventory across attempts; implicit mixture is forbidden. Cleanup removes only authenticated private staging after retention obligations are met. Preserve fixed protected-function search paths and restrict raw-table privileges and functions so ordinary reads cannot bypass publication by knowing an ID. Diagnostics name the revision, record/native address, violated invariant and existing resume/remap/rebuild action.
+
+### Frozen interpretation and validation coverage
+
+Freeze also fixes request-outcome inventories, transformation recipes and native-address mappings.
+A successful detector/crop request does not establish full page coverage; a partial producer cannot
+satisfy complete publication by omitting its failed stage. A declared successful recovery may satisfy its
+qualified coverage contract while preserving the primary failure and distinct recovery recipe.
+Native validation must consume the same
+release-bound distinctions as readers and diagnostics. Protect actual bytes and record/artifact
+correspondence independently of client folds. Existing PDF-19 primitives are not a complete
+server-side correspondence proof for newly submitted arbitrary segmented streams.
+
+Model enrichment as a pre-freeze transformation or a successor product with qualified source
+relations. Reject silent validation repair. Ensure page metadata, native references and deferred
+internal targets close without giant aggregates. Late callbacks or stale attempts cannot amend the
+frozen union. Preserve public visibility and acyclicity rules while allowing legitimate ordinary
+cross-reference cycles.
 
 **Completion:** concurrent append/freeze, process crash/restart before and after freeze, stale validation owner, cancellation at each phase, missing/cross-product targets, contradictory backpointers, legitimate cross-reference cycles, missing decisions, wrong coverage, corruption and ambiguous commit have independent expectations. No partial completed document becomes visible. Valid independently committed inputs remain reusable after later failure. Final publication and reads are tested together; the coordinator/PDF-11 own assembled qualification, not each batch/package.
 
