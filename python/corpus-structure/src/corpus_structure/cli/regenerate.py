@@ -45,6 +45,15 @@ def regenerate(
             help="Exact retained native product pin JSON; reuse conversion as this run's input.",
         ),
     ] = None,
+    integrated_source: Annotated[
+        Path | None,
+        typer.Option(
+            exists=True,
+            dir_okay=False,
+            readable=True,
+            help="Exact retained integrated product pin JSON; reuse selected content as input.",
+        ),
+    ] = None,
     resume_run: Annotated[
         int | None,
         typer.Option(help="Resume this existing run; never create replacement occurrences."),
@@ -118,21 +127,26 @@ def regenerate(
     ):
         if Path(domain).name != domain:
             raise SemanticRefusal("domain must name a declared pack")
-        native_product = None
-        if native_source is not None:
-            if resume_run is not None:
-                raise SemanticRefusal("a resumed run retains its original native input binding")
-            from corpus_structure.semantic.product_reference import ProductReference
-            from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+        if native_source is not None and integrated_source is not None:
+            raise SemanticRefusal("native-source and integrated-source are mutually exclusive")
+        if resume_run is not None and (native_source is not None or integrated_source is not None):
+            raise SemanticRefusal("a resumed run retains its original source input binding")
+        from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+        from corpus_structure.semantic.product_reference import ProductReference
 
-            boundary = trusted_pdf_context().boundary
+        def product_pin(path: Path | None, role: str) -> ProductReference | None:
+            if path is None:
+                return None
             try:
-                pin = boundary.validate_json(
-                    "PdfProductReference", native_source.read_bytes()
+                pin = trusted_pdf_context().boundary.validate_json(
+                    "PdfProductReference", path.read_bytes()
                 ).model_dump(mode="python")
-                native_product = ProductReference(**pin)
+                return ProductReference(**pin)
             except (ValueError, OSError) as error:
-                raise SemanticRefusal("invalid native source product pin: " + str(error)) from error
+                raise SemanticRefusal(f"invalid {role} source product pin: {error}") from error
+
+        native_product = product_pin(native_source, "native")
+        integrated_product = product_pin(integrated_source, "integrated")
         if resume_run is None:
             bundle, deps, profile, prepared = prepare_pack(DOMAINS / domain)
             source_id = f"source:{project}:{prepared.release_id}"
@@ -184,6 +198,7 @@ def regenerate(
                     slice=slice,
                     scope=scope,
                     native_product=native_product,
+                    integrated_product=integrated_product,
                 )
                 run_id = run.run_id
             else:
@@ -234,18 +249,18 @@ def regenerate(
                     .one()
                 )
                 token = ActivationToken(selected["active_release_id"], selected["generation"])
+                if token.release_id != prepared.release_id:
+                    token = activate_release(
+                        conn,
+                        project,
+                        prepared.release_id,
+                        expected_parent=token.release_id,
+                        expected_generation=token.generation,
+                        sql_admissions=analyzed,
+                    )
                 if selected["selected_result_run_id"] == run_id:
                     generation = token.generation
                 else:
-                    if resume_run is None or token.release_id is None:
-                        token = activate_release(
-                            conn,
-                            project,
-                            prepared.release_id,
-                            expected_parent=token.release_id,
-                            expected_generation=token.generation,
-                            sql_admissions=analyzed,
-                        )
                     generation = select_completed_result(conn, project, run_id, token.generation)
         emit(
             RegenerationReport(

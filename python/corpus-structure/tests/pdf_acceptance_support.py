@@ -64,6 +64,12 @@ class NoInferenceWorker(PdfWorker):
 
 def install_no_inference_boundary(monkeypatch, directory: Path) -> None:
     """Only acquisition is doubled; child compute, original backend and custody stay real."""
+    def forbidden_recognition(*args, **kwargs):
+        raise AssertionError("controlled retained-input acceptance forbids recognition inference")
+
+    monkeypatch.setattr(
+        "corpus_structure.ingest.pdf_recognition_methods.RecognitionWorker", forbidden_recognition
+    )
     directory.mkdir(parents=True, exist_ok=True)
     assets = PreparedPdfAssets(directory, b'{"fixture":"no-model-assets"}', (), ())
     monkeypatch.setattr(
@@ -125,8 +131,10 @@ def retained_document(original: bytes, sections) -> PdfConversion:
     )
 
 
-def seed_retained_product(settings, *, domain, corpus, domains, conversion):
-    """Acquire a native pin through actual admitted, claimed, restricted writer publication."""
+def seed_retained_integrated_product(
+    settings, *, domain, corpus, domains, conversion, observation, raw_response, artifacts
+):
+    """Publish controlled native/layout evidence and its exact selected integrated product."""
     from sqlalchemy import select
 
     from corpus_structure.orchestrate.project import init_bound_project
@@ -247,6 +255,56 @@ def seed_retained_product(settings, *, domain, corpus, domains, conversion):
                 holder="controlled-native-fixture",
                 product=product,
             )
+            from corpus_structure.ingest.pdf_reconciliation import select_pdf_integration
+            from corpus_structure.semantic.pdf_integrated import (
+                prepare_integrated_pdf_product,
+                store_integrated_pdf_product,
+            )
+
+            context = pdf_context_for_task(conn, task)
+            evidence = prepare_integrated_pdf_product(
+                observation, original, conversion.recipe, artifacts=artifacts, context=context
+            )
+            store_integrated_pdf_product(
+                conn,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="controlled-native-fixture",
+                product=evidence,
+            )
+            selected = select_pdf_integration(
+                product.values(),
+                {
+                    "task_id": task,
+                    "product_key": "controlled-native",
+                    "content_digest": product.digest,
+                    "role": "structural",
+                },
+                [
+                    (
+                        {
+                            "task_id": task,
+                            "product_key": observation["product_key"],
+                            "content_digest": evidence.digest,
+                            "role": "recognition",
+                        },
+                        evidence.values(),
+                        raw_response,
+                    )
+                ],
+                original,
+                conversion.recipe,
+                schema,
+                context=context,
+                product_key="controlled-integrated",
+            )
+            store_integrated_pdf_product(
+                conn,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="controlled-native-fixture",
+                product=selected,
+            )
             complete_task(
                 conn,
                 task_id=task,
@@ -256,4 +314,8 @@ def seed_retained_product(settings, *, domain, corpus, domains, conversion):
                 observations=[],
                 outcome="empty",
             )
-    return {"task_id": task, "product_key": "controlled-native", "content_digest": product.digest}
+    return {
+        "task_id": task,
+        "product_key": "controlled-integrated",
+        "content_digest": selected.digest,
+    }
