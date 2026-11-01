@@ -18,8 +18,8 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 
-NATIVE_PREDECESSOR = "semantic_0061"
-NATIVE_REVISION = "semantic_0062"
+NATIVE_PREDECESSOR = "semantic_0062"
+NATIVE_REVISION = "semantic_0063"
 
 
 def selected_fact_query():
@@ -571,20 +571,18 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     def stream(node: Any) -> str:
         return RawStream()(node)
 
-    for raw in parse_sql(
+    from .native_function_signatures import function_signature, remove_output_signature_aliases
+
+    statements = parse_sql(
         (kernels + edge_sql).replace("__MIGRATION_OWNER__", "corpus_migration_owner")
-    ):
+    )
+    remove_output_signature_aliases(functions, statements)
+    for raw in statements:
         stmt = raw.stmt
         if isinstance(stmt, ast.CreateFunctionStmt):
             if stmt.returnType is None:
                 raise ValueError("native function requires explicit return type")
-            name = ".".join(part.sval for part in stmt.funcname or ())
-            signature = (
-                name
-                + "("
-                + ",".join(stream(parameter.argType) for parameter in stmt.parameters or ())
-                + ")"
-            )
+            signature = function_signature(stmt)
             options = {option.defname: option.arg for option in stmt.options or ()}
             body = options["as"][0].sval
             previous = functions.get(signature, {})

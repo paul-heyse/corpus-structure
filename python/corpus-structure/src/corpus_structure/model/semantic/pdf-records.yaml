@@ -80,7 +80,9 @@ classes:
   PdfRecordReference:
     description: >-
       Each native reference occurrence is independent and revision qualified. The exact original
-      pointer is retained. Frozen-union resolution fills target_id against this revision's address
+      pointer or GraphLink integer cell identifier is retained. The field_name discriminator
+      source_cell_id/target_cell_id denotes graph-cell identity; other fields denote native
+      document pointers. Frozen-union resolution fills target_id against this revision's address
       projection; unresolved or ambiguous targets cannot be published.
     attributes:
       product_id: {required: true}

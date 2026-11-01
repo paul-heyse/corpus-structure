@@ -4417,6 +4417,7 @@ classes:
         ~ ''^[0-9a-f]{64}$''", "source_digest ~ ''^[0-9a-f]{64}$''"]'
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"},
         {"columns": ["source_digest"], "target": "kb.source_artifact.artifact_digest"}]'
+      ph:read_roles: '[]'
   pdf_record_native:
     is_a: PdfNativeRecord
     in_subset:
@@ -4441,6 +4442,7 @@ classes:
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"},
         {"columns": ["product_id", "revision_id", "native_address_stream_id"], "target":
         "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
+      ph:read_roles: '[]'
   pdf_record_membership:
     is_a: PdfRecordMembership
     in_subset:
@@ -4465,6 +4467,7 @@ classes:
         {"columns": ["product_id", "revision_id", "stream_id"], "target": "ops.pdf_artifact_stream.product_id,revision_id,stream_id"},
         {"columns": ["product_id", "revision_id", "member_key_stream_id"], "target":
         "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
+      ph:read_roles: '[]'
   pdf_record_reference:
     is_a: PdfRecordReference
     in_subset:
@@ -4477,13 +4480,16 @@ classes:
         - reference_id
     annotations:
       ph:immutability: immutable
-      ph:checks: '["reference_id <> ''''", "native_pointer LIKE ''#%''", "(native_pointer
-        IS NULL) <> (native_pointer_stream_id IS NULL)"]'
+      ph:checks: '["reference_id <> ''''", "(field_name IN (''source_cell_id'',''target_cell_id'')
+        AND native_pointer ~ ''^-?[0-9]+$'') OR (field_name NOT IN (''source_cell_id'',''target_cell_id'')
+        AND native_pointer LIKE ''#%'')", "(native_pointer IS NULL) <> (native_pointer_stream_id
+        IS NULL)"]'
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"},
         {"columns": ["product_id", "revision_id", "source_id"], "target": "kb.pdf_record_native.product_id,revision_id,record_id"},
         {"columns": ["product_id", "revision_id", "target_id"], "target": "kb.pdf_record_native.product_id,revision_id,record_id"},
         {"columns": ["product_id", "revision_id", "native_pointer_stream_id"], "target":
         "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
+      ph:read_roles: '[]'
   pdf_artifact_stream:
     is_a: PdfArtifactStream
     in_subset:
@@ -4499,6 +4505,7 @@ classes:
       ph:checks: '["stream_id <> ''''", "serialization_sha256 ~ ''^[0-9a-f]{64}$''",
         "byte_root ~ ''^[0-9a-f]{64}$''", "encoding_profile <> ''''"]'
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"}]'
+      ph:read_roles: '[]'
   pdf_artifact_part:
     is_a: PdfArtifactPart
     in_subset:
@@ -4516,3 +4523,4 @@ classes:
         <= 65536", "sha256_digest = encode(sha256(body),''hex'')"]'
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "stream_id"], "target":
         "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
+      ph:read_roles: '[]'

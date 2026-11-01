@@ -213,18 +213,16 @@ def native_admission_sql(
     from pglast.stream import RawStream
 
     from .identity import canonical_bytes
+    from .native_function_signatures import function_signature, remove_output_signature_aliases
     from .native_products import consolidation_products
 
-    admission = (
-        consolidation_products(model)[-1].content.decode()
-        if base_admission is None
-        else base_admission
-    )
+    current_admission = consolidation_products(model)[-1].content.decode()
+    admission = current_admission if base_admission is None else base_admission
     descriptor = _admission_descriptor(admission)
     if base_admission is not None:
         # Retain the frozen native inventory, while refreshing model-owned deployment
         # identity and CHECK receipt inputs for the forward physical model.
-        current = _admission_descriptor(consolidation_products(model)[-1].content.decode())
+        current = _admission_descriptor(current_admission)
         descriptor.update(
             {
                 key: value
@@ -239,15 +237,12 @@ def native_admission_sql(
     from copy import copy
 
     functions = {item["signature"]: item for item in descriptor["functions"]}
-    for raw in parse_sql(sql.replace("__MIGRATION_OWNER__", "corpus_migration_owner")):
+    statements = parse_sql(sql.replace("__MIGRATION_OWNER__", "corpus_migration_owner"))
+    remove_output_signature_aliases(functions, statements)
+    for raw in statements:
         stmt = raw.stmt
         if isinstance(stmt, ast.CreateFunctionStmt):
-            signature = (
-                ".".join(part.sval for part in stmt.funcname or ())
-                + "("
-                + ",".join(RawStream()(parameter.argType) for parameter in stmt.parameters or ())
-                + ")"
-            )
+            signature = function_signature(stmt)
             options = {option.defname: option.arg for option in stmt.options or ()}
             previous = functions.get(signature, {})
             if stmt.returnType is None:
@@ -293,6 +288,12 @@ def native_admission_sql(
                         else:
                             roles.discard(grantee.rolename)
                 functions[signature]["execute_roles"] = sorted(roles)
+    required_signature = "data.require_execution_release(text)"
+    functions[required_signature] = next(
+        item
+        for item in _admission_descriptor(current_admission)["functions"]
+        if item["signature"] == required_signature
+    )
     descriptor["functions"] = sorted(functions.values(), key=lambda item: item["signature"])
     tables = {item["relation"]: item for item in descriptor["tables"]}
     for name in extra_relations:
@@ -316,6 +317,15 @@ def native_admission_sql(
             )
         tables[name] = dict(
             relation=name,
+            read_roles=relation.info.get(
+                "read_roles",
+                [
+                    "corpus_sem_writer",
+                    "corpus_sem_reader",
+                    "corpus_sem_admitter",
+                    "corpus_sem_evaluator",
+                ],
+            ),
             owner="corpus_sem_publisher",
             columns=columns,
             primary_key=[c.name for c in relation.primary_key.columns],
@@ -358,7 +368,7 @@ def native_admission_sql(
         )
     descriptor["tables"] = sorted(tables.values(), key=lambda item: item["relation"])
     encoded = canonical_bytes(descriptor).decode().replace("'", "''")
-    _, separator, required = admission.partition("$descriptor$;")
+    _, separator, required = current_admission.partition("$descriptor$;")
     if not separator:
         raise ValueError("missing native descriptor boundary")
     admission = (

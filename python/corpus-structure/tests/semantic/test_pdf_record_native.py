@@ -150,7 +150,7 @@ def test_private_native_foundations_and_constraints(semantic_db_engine):
         _verify_deployment_functions(conn)
         assert (
             conn.execute(text("SELECT version_num FROM semantic_alembic_version")).scalar_one()
-            == "semantic_0062"
+            == "semantic_0063"
         )
         assert (
             conn.execute(
@@ -375,3 +375,166 @@ def test_artifact_native_verifier_reads_actual_parts(semantic_db_engine):
                     conn.execute(
                         verify, {"p": "artifact", "s": stream_id, "admitted": b"different"}
                     ).one()
+
+
+@pytest.mark.parametrize(
+    ("declaration", "expected"),
+    [
+        ("a text, OUT b bigint", "sample(text)"),
+        ("INOUT a text, OUT b bigint", "sample(text)"),
+        ("VARIADIC a text[]", "sample(text[])"),
+        ("a text", "sample(text)"),
+    ],
+)
+def test_function_identity_uses_only_input_bearing_arguments(declaration, expected):
+    from pglast import parse_sql
+
+    from corpus_structure.semantic.native_function_signatures import function_signature
+
+    result = "TABLE(x bigint,y bytea)" if declaration == "a text" else "record"
+    statement = parse_sql(
+        f"CREATE FUNCTION sample({declaration}) RETURNS {result} LANGUAGE sql AS $$SELECT 1$$"
+    )[0].stmt
+    assert function_signature(statement) == expected
+
+
+def test_output_alias_retirement_preserves_declared_overloads():
+    from pglast import parse_sql
+
+    from corpus_structure.semantic.native_function_signatures import remove_output_signature_aliases
+
+    statement = (
+        "CREATE FUNCTION sample(a text) RETURNS TABLE(x bigint,y bytea) "
+        "LANGUAGE sql AS $$SELECT 1$$;"
+    )
+    functions = {"sample(text,bigint,bytea)": {}, "other(bigint)": {}}
+    remove_output_signature_aliases(functions, parse_sql(statement))
+    assert set(functions) == {"other(bigint)"}
+    functions["sample(text,bigint,bytea)"] = {}
+    overload = (
+        "CREATE FUNCTION sample(a text,x bigint,y bytea) RETURNS record "
+        "LANGUAGE sql AS $$SELECT 1$$;"
+    )
+    remove_output_signature_aliases(functions, parse_sql(statement + overload))
+    assert "sample(text,bigint,bytea)" in functions
+
+
+def test_table_return_descriptor_and_model_owned_read_roles(monkeypatch):
+    from corpus_structure.semantic.native_products import forward_products
+    from corpus_structure.semantic.source_view_native import _admission_descriptor
+
+    before = forward_products()[-1].content.decode()
+    descriptor = _admission_descriptor(before)
+    functions = {item["signature"]: item for item in descriptor["functions"]}
+    signature = "ops.pdf_identity_verify_artifact(text,text,text,bytea)"
+    assert functions[signature]["result"] == "pg_catalog.record"
+    assert functions[signature]["setof"] is True
+    assert signature[:-1] + ",bigint,bytea,boolean)" not in functions
+    relation = record_tables()["kb.pdf_record_reference"]
+    assert (
+        next(t for t in descriptor["tables"] if t["relation"] == relation.fullname)["read_roles"]
+        == []
+    )
+    monkeypatch.setitem(relation.info, "read_roles", ["corpus_sem_reader"])
+    after = forward_products()[-1].content.decode()
+    assert before != after
+    assert (
+        "GRANT SELECT ON kb.pdf_record_reference TO corpus_sem_reader"
+        in forward_products()[0].content.decode()
+    )
+    assert next(
+        t for t in _admission_descriptor(after)["tables"] if t["relation"] == relation.fullname
+    )["read_roles"] == ["corpus_sem_reader"]
+
+
+def test_actual_native_release_guard_after_activation(semantic_db_engine, admitter):
+    from uuid import uuid4
+
+    from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
+    from corpus_structure.semantic.composed import composed_dependencies
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.releases import activate_release, persist_release
+
+    from .test_execution_release import _bundle
+
+    bundle = _bundle()
+    dependencies = composed_dependencies(ResolvedDependencies())
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, dependencies, profile)
+    project = str(uuid4())
+    with semantic_db_engine.begin() as conn:
+        conn.execute(insert(table("data.project")), dict(project_id=project))
+    with admitter.begin() as conn:
+        persist_release(conn, bundle, dependencies, profile, prepared)
+        activate_release(
+            conn, project, prepared.release_id, expected_parent=None, expected_generation=0
+        )
+        conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
+    with semantic_db_engine.begin() as conn:
+        conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
+        conn.execute(text("GRANT SELECT ON kb.pdf_record_reference TO corpus_sem_reader"))
+    with (
+        admitter.begin() as conn,
+        pytest.raises(DBAPIError, match="native source frame projection differs"),
+    ):
+        conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
+    with semantic_db_engine.begin() as conn:
+        conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
+        conn.execute(text("REVOKE SELECT ON kb.pdf_record_reference FROM corpus_sem_reader"))
+        conn.execute(
+            text("GRANT SELECT(native_pointer) ON kb.pdf_record_reference TO corpus_sem_reader")
+        )
+    with (
+        admitter.begin() as conn,
+        pytest.raises(DBAPIError, match="native source frame projection differs"),
+    ):
+        conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
+
+
+def test_graph_cell_identifiers_survive_native_relational_lowering(semantic_db_engine):
+    from hashlib import sha256
+
+    from corpus_structure.semantic.pdf_records import iter_native_records
+
+    tables = record_tables()
+    binding = header_binding(semantic_db_engine)
+    rows = list(
+        iter_native_records(
+            {"label": "to_value", "source_cell_id": 10, "target_cell_id": 20},
+            native_type="GraphLink",
+            product_id="graph",
+            revision_id="r",
+            release_id=binding["release_id"],
+            source_digest=binding["source_digest"],
+            record_id_for=lambda address, kind: sha256((address + kind).encode()).hexdigest(),
+            write_scalar=lambda *args: None,
+        )
+    )
+    with semantic_db_engine.begin() as conn:
+        conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
+        conn.execute(
+            insert(tables["ops.pdf_record_document"]),
+            dict(
+                product_id="graph",
+                revision_id="r",
+                root_id=next(r.values["record_id"] for r in rows if r.kind == "native"),
+                native_schema_digest="c" * 64,
+                contract_version="pdf-native-records-v1",
+                **binding,
+            ),
+        )
+        for kind, relation in (
+            ("native", "kb.pdf_record_native"),
+            ("reference", "kb.pdf_record_reference"),
+        ):
+            for row in rows:
+                if row.kind == kind:
+                    values = row.physical_values()
+                    record_boundary_adapter(relation).validate_python(values)
+                    conn.execute(insert(tables[relation]), values)
+        assert conn.execute(
+            text(
+                "SELECT native_pointer FROM kb.pdf_record_reference "
+                "WHERE product_id='graph' ORDER BY field_name"
+            )
+        ).scalars().all() == ["10", "20"]
