@@ -12,7 +12,7 @@ A failed check exits with code 1, its reason and D3 §13's instruction on stderr
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 from pydantic import BaseModel
@@ -20,6 +20,7 @@ from rich.console import RenderableType
 from rich.table import Table
 
 from corpus_structure.cli.output import JsonOpt, emit, state
+from corpus_structure.serve.database_description import DescriptionDepth
 
 db_app = typer.Typer(help="Create or migrate the database.", no_args_is_help=True)
 
@@ -227,6 +228,42 @@ def check_contract(
             ),
             json=json_,
         )
+
+
+@db_app.command("describe")
+def describe(
+    ctx: typer.Context,
+    schemas: Annotated[list[str], typer.Option("--schema")],
+    relations: Annotated[list[str] | None, typer.Option("--relation")] = None,
+    depth: Annotated[DescriptionDepth, typer.Option("--depth")] = DescriptionDepth.COLUMNS,
+    estimates: Annotated[bool, typer.Option("--estimates")] = False,
+    query: Annotated[str | None, typer.Option("--query")] = None,
+    release: Annotated[str | None, typer.Option("--release")] = None,
+    max_objects: int = 1000,
+    max_columns: int = 10000,
+    max_bytes: int = 4 * 1024 * 1024,
+    json_: JsonOpt = False,
+) -> None:
+    """Describe literal visible objects or an admitted parameter-free SELECT's output."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.serve.database_description import (
+        DatabaseDescriptionRequest,
+        describe_database,
+    )
+
+    with failure_boundary(json_, expected=(ValueError,)):
+        request = DatabaseDescriptionRequest(
+            schemas=tuple(schemas),
+            relations=tuple(relations or ()),
+            depth=depth,
+            estimates=estimates,
+            query=query,
+            release_id=release,
+            max_objects=max_objects,
+            max_columns=max_columns,
+            max_bytes=max_bytes,
+        )
+        emit(describe_database(request, state(ctx).settings()), json=json_)
 
 
 def register(app: typer.Typer) -> None:
