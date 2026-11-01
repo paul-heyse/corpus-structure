@@ -1,10 +1,10 @@
 ---
 id: ADR-0038
 title: Use PDF-native Docling products under governed domain contracts
-status: accepted
+status: superseded
 date: 2026-10-31
 supersedes: [ADR-0036, ADR-0037]
-superseded-by: null
+superseded-by: ADR-0039
 design: [§B4, §B5]
 evidence: Proposed
 revisit: A required PDF capability cannot preserve source-qualified relationships or honest recognition health through StandardPdfPipeline, or an actual intact section exceeds a required consumer's capacity.

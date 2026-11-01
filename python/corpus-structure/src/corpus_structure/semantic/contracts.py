@@ -54,6 +54,8 @@ def approved_implementations() -> Mapping[str, Any]:
         operations,
         parsing_products,
         pdf_contracts,
+        pdf_integrated,
+        pdf_storage,
         prepare,
         proposals,
         publication,
@@ -95,6 +97,9 @@ def approved_implementations() -> Mapping[str, Any]:
             "retain_pdf_original": pdf_contracts.store_pdf_original,
             "prepare_native_document": pdf_contracts.prepare_pdf_product,
             "publish_native_document": pdf_contracts.store_pdf_product,
+            "prepare_integrated_pdf": pdf_integrated.prepare_integrated_pdf_product,
+            "publish_integrated_pdf": pdf_integrated.store_integrated_pdf_product,
+            "read_pdf_product": pdf_storage.read_pdf_product,
             "prepare_parsing_product": parsing_products.prepare_parsing_product,
             "publish_parsing_product": parsing_products.store_parsing_product,
             "read_parsing_product": parsing_products.read_parsing_product,
@@ -852,6 +857,10 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact(
             "pdf/contracts.py", root.joinpath("semantic", "pdf_contracts.py").read_bytes()
         ),
+        SourceArtifact(
+            "pdf/integrated.py", root.joinpath("semantic", "pdf_integrated.py").read_bytes()
+        ),
+        SourceArtifact("pdf/storage.py", root.joinpath("semantic", "pdf_storage.py").read_bytes()),
         SourceArtifact("grammar/grammar.py", math.joinpath("grammar.py").read_bytes()),
         SourceArtifact("grammar/extension.lark", math.joinpath("extension.lark").read_bytes()),
         SourceArtifact("grammar/prepared.py", math.joinpath("prepared.py").read_bytes()),
@@ -1371,6 +1380,11 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         )
     if any(source.name == "pdf_products" for source in inputs.schema.sources):
         required_implementations.update({"pdf/contracts.py", "pdf/docling-validation.schema.json"})
+    if any(
+        operation["id"] in {"prepare_integrated_pdf", "publish_integrated_pdf", "read_pdf_product"}
+        for operation in data["operations"]
+    ):
+        required_implementations.update({"pdf/integrated.py", "pdf/storage.py"})
     if set(names) != required_implementations or len(names) != len(set(names)):
         _fail(
             "analysis_implementation_inputs",

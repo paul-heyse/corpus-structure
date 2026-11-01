@@ -112,7 +112,9 @@ changes in that index-only revision.
 [PP-09/10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
 own assembled acceptance and fresh operational adoption.
 
-> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
+**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** A PDF-scoped product identity with typed bodies supports direct immutable input relations across native, recognition and integrated products. Qualified foreign keys and fenced atomic publication establish custody; only already published inputs are admitted before new identities. Historical payloads remain unchanged; bounded lineage reads traverse direct inputs.
+
+> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
 
 ## Current task authority and historical storage
 

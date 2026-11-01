@@ -27,6 +27,124 @@ types:
     base: bool
     uri: xsd:boolean
 enums:
+  PdfTransformStatus:
+    permissible_values:
+      unknown: {}
+      coarse: {}
+  PdfNormalization:
+    permissible_values:
+      none: {}
+      normalized: {}
+      clipped: {}
+      inherited: {}
+      unknown: {}
+  PdfUsageAvailability:
+    permissible_values:
+      available: {}
+      unavailable: {}
+  PdfMappingOutcome:
+    permissible_values:
+      unknown: {}
+      coarse: {}
+      partial: {}
+      unsupported: {}
+  PdfSourceFidelity:
+    permissible_values:
+      unassessed: {}
+      unknown: {}
+      conflict: {}
+  PdfProductKind:
+    permissible_values:
+      native: {}
+      recognition_observation: {}
+      integrated: {}
+  PdfInputRole:
+    permissible_values:
+      structural: {}
+      recognition: {}
+      alternative: {}
+      policy_input: {}
+  PdfOccurrenceKind:
+    permissible_values:
+      item: {}
+      cell: {}
+      formula: {}
+      chart: {}
+      text: {}
+      region: {}
+  PdfAddressSpace:
+    permissible_values:
+      native_item: {}
+      native_cell: {}
+      pdf_points: {}
+      submitted_pixels: {}
+      normalized_raw: {}
+      raw_response: {}
+      recognized_text: {}
+      selected_item: {}
+      analytical_projection: {}
+  PdfPrecision:
+    permissible_values:
+      unknown: {}
+      coarse: {}
+      inherited: {}
+      block: {}
+      item: {}
+      cell: {}
+      word: {}
+      glyph: {}
+  PdfRelationKind:
+    permissible_values:
+      correspondence: {}
+      decision: {}
+  PdfCorrespondenceOutcome:
+    permissible_values:
+      matched: {}
+      ambiguous: {}
+      unmatched: {}
+      unresolved: {}
+  PdfDecisionDisposition:
+    permissible_values:
+      selected: {}
+      added: {}
+      replaced: {}
+      retained_alternative: {}
+      rejected: {}
+      unresolved: {}
+  PdfEndpointRole:
+    permissible_values:
+      input: {}
+      output: {}
+      alternative: {}
+      evidence: {}
+  PdfPassRole:
+    permissible_values:
+      A: {}
+      B: {}
+      C: {}
+      native: {}
+  PdfObservationOutcome:
+    permissible_values:
+      succeeded: {}
+      partial: {}
+      failed: {}
+      unknown: {}
+      unsupported: {}
+  PdfComparisonFamily:
+    permissible_values:
+      text: {}
+      order: {}
+      grid: {}
+      mathematical: {}
+      geometry: {}
+  PdfCoverageOutcome:
+    permissible_values:
+      complete: {}
+      partial: {}
+      capped: {}
+      unrequested: {}
+      unknown: {}
+      unsupported: {}
   PdfCoverage:
     permissible_values:
       complete: {}
@@ -899,3 +1017,473 @@ classes:
       outcome: {range: string, required: true, equals_string: unresolved, slot_uri: 'pdf:PdfInlineAlignmentReport_outcome'}
       basis: {range: PdfInlineAlignmentBasis, required: true, slot_uri: 'pdf:PdfInlineAlignmentReport_basis'}
       detail: {range: PdfString, required: true, slot_uri: 'pdf:PdfInlineAlignmentReport_detail'}
+
+  PdfProductInput:
+    attributes:
+      role:
+        range: PdfInputRole
+        required: true
+        slot_uri: pdf:PdfProductInput_role
+      task_id:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pdf:PdfProductInput_task_id
+      product_key:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductInput_product_key
+      content_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfProductInput_content_digest
+    description: A direct already-published input, pinned independently of a structural base.
+  PdfProductOccurrence:
+    attributes:
+      occurrence_id:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductOccurrence_occurrence_id
+      kind:
+        range: PdfOccurrenceKind
+        required: true
+        slot_uri: pdf:PdfProductOccurrence_kind
+      address_space:
+        range: PdfAddressSpace
+        required: true
+        slot_uri: pdf:PdfProductOccurrence_address_space
+      precision:
+        range: PdfPrecision
+        required: true
+        slot_uri: pdf:PdfProductOccurrence_precision
+      pointer:
+        range: PdfPointer
+        required: false
+        slot_uri: pdf:PdfProductOccurrence_pointer
+      region_index: {range: PdfInteger, minimum_value: 0, slot_uri: pdf:PdfProductOccurrence_region_index}
+      cell_index:
+        range: PdfInteger
+        minimum_value: 0
+        slot_uri: pdf:PdfProductOccurrence_cell_index
+      page_no:
+        range: PdfInteger
+        minimum_value: 1
+        slot_uri: pdf:PdfProductOccurrence_page_no
+      text:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfProductOccurrence_text
+      start:
+        range: PdfInteger
+        minimum_value: 0
+        slot_uri: pdf:PdfProductOccurrence_start
+      end:
+        range: PdfInteger
+        minimum_value: 0
+        slot_uri: pdf:PdfProductOccurrence_end
+      region:
+        range: PdfOccurrenceRegion
+        required: false
+        inlined: true
+        slot_uri: pdf:PdfProductOccurrence_region
+    description: Product-qualified occurrence; equality of spelling never identifies an occurrence. Region JSON is
+      a declared coordinate witness, never promoted to finer precision.
+  PdfRelationEndpoint:
+    attributes:
+      role:
+        range: PdfEndpointRole
+        required: true
+        slot_uri: pdf:PdfRelationEndpoint_role
+      occurrence_id:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfRelationEndpoint_occurrence_id
+      input_index:
+        range: PdfInteger
+        minimum_value: 0
+        slot_uri: pdf:PdfRelationEndpoint_input_index
+    description: Absent input_index means the output product; otherwise the exact envelope input at that index.
+  PdfProductRelation:
+    attributes:
+      relation_id:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductRelation_relation_id
+      kind:
+        range: PdfRelationKind
+        required: true
+        slot_uri: pdf:PdfProductRelation_kind
+      outcome:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductRelation_outcome
+      comparison:
+        range: PdfComparisonFamily
+        required: true
+        slot_uri: pdf:PdfProductRelation_comparison
+      policy:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductRelation_policy
+      evidence:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductRelation_evidence
+      endpoints:
+        range: PdfRelationEndpoint
+        required: true
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        minimum_cardinality: 1
+        slot_uri: pdf:PdfProductRelation_endpoints
+    description: Independent relationship identity and ordered typed endpoint set; correspondence and selection outcomes
+      remain distinct.
+  PdfProductCoverage:
+    attributes:
+      coverage_id:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductCoverage_coverage_id
+      scope:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductCoverage_scope
+      family:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductCoverage_family
+      discovery_policy:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductCoverage_discovery_policy
+      outcome:
+        range: PdfCoverageOutcome
+        required: true
+        slot_uri: pdf:PdfProductCoverage_outcome
+      detail:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductCoverage_detail
+      supports:
+        range: PdfCoverageSupport
+        required: false
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfProductCoverage_supports
+    description: Coverage is a scoped result independent of execution success and schema admission.
+  PdfRecognitionBinding:
+    attributes:
+      provider:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfRecognitionBinding_provider
+      package_identity:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfRecognitionBinding_package_identity
+      source_identity:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfRecognitionBinding_source_identity
+      weights_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfRecognitionBinding_weights_digest
+      tokenizer_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfRecognitionBinding_tokenizer_digest
+      prompt_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfRecognitionBinding_prompt_digest
+      decoding_json:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfRecognitionBinding_decoding_json
+      seed:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfRecognitionBinding_seed
+      render_policy:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfRecognitionBinding_render_policy
+      crop_policy:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfRecognitionBinding_crop_policy
+      merge_policy:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfRecognitionBinding_merge_policy
+    description: Effective served identities and settings. Endpoint location alone cannot identify a recognizer.
+  PdfSubmittedImage:
+    attributes:
+      artifact_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfSubmittedImage_artifact_digest
+      page_no:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pdf:PdfSubmittedImage_page_no
+      width:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pdf:PdfSubmittedImage_width
+      height:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        slot_uri: pdf:PdfSubmittedImage_height
+      encoding:
+        range: string
+        required: true
+        equals_string: png
+        slot_uri: pdf:PdfSubmittedImage_encoding
+      transform:
+        range: PdfImageTransform
+        required: true
+        inlined: true
+        slot_uri: pdf:PdfSubmittedImage_transform
+      precision:
+        range: PdfPrecision
+        required: true
+        slot_uri: pdf:PdfSubmittedImage_precision
+    description: Exact submitted bytes and declared transform. Fine provider geometry remains unadmitted until I10/I11
+      establish trustworthy mapping.
+  PdfRecognitionObservation:
+    attributes:
+      binding:
+        range: PdfRecognitionBinding
+        required: true
+        inlined: true
+        slot_uri: pdf:PdfRecognitionObservation_binding
+      image:
+        range: PdfSubmittedImage
+        required: true
+        inlined: true
+        slot_uri: pdf:PdfRecognitionObservation_image
+      pass_role:
+        range: PdfPassRole
+        required: true
+        slot_uri: pdf:PdfRecognitionObservation_pass_role
+      raw_response_digest:
+        range: PdfDigest
+        required: false
+        slot_uri: pdf:PdfRecognitionObservation_raw_response_digest
+      finish_reason:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfRecognitionObservation_finish_reason
+      usage_json:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfRecognitionObservation_usage_json
+      outcome:
+        range: PdfObservationOutcome
+        required: true
+        slot_uri: pdf:PdfRecognitionObservation_outcome
+      usage_availability:
+        range: PdfUsageAvailability
+        required: true
+        slot_uri: pdf:PdfRecognitionObservation_usage_availability
+      diagnostic:
+        range: PdfString
+        required: false
+        slot_uri: pdf:PdfRecognitionObservation_diagnostic
+    description: Raw response and image artifacts survive partial or failed recognition; no second scheduler.
+  PdfIntegratedProduct:
+    attributes:
+      version:
+        range: PdfInteger
+        required: true
+        minimum_value: 1
+        maximum_value: 1
+        slot_uri: pdf:PdfIntegratedProduct_version
+      kind:
+        range: PdfProductKind
+        required: true
+        slot_uri: pdf:PdfIntegratedProduct_kind
+      product_key:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfIntegratedProduct_product_key
+      artifact_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfIntegratedProduct_artifact_digest
+      recipe_digest:
+        range: PdfDigest
+        required: true
+        slot_uri: pdf:PdfIntegratedProduct_recipe_digest
+      inputs:
+        range: PdfProductInput
+        required: false
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfIntegratedProduct_inputs
+      occurrences:
+        range: PdfProductOccurrence
+        required: false
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfIntegratedProduct_occurrences
+      relations:
+        range: PdfProductRelation
+        required: false
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfIntegratedProduct_relations
+      coverage:
+        range: PdfProductCoverage
+        required: true
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: pdf:PdfIntegratedProduct_coverage
+      health:
+        range: PdfProductHealth
+        required: true
+        inlined: true
+        slot_uri: pdf:PdfIntegratedProduct_health
+      observation:
+        range: PdfRecognitionObservation
+        inlined: true
+        slot_uri: pdf:PdfIntegratedProduct_observation
+      content:
+        range: PdfNativeEnvelope
+        inlined: true
+        slot_uri: pdf:PdfIntegratedProduct_content
+    description: Common product bundle for retained observations and integrated Docling content plus mandatory companion
+      relations. Native bodies retain their historical wire representation.
+
+  PdfImageTransform:
+    description: Declared PDF TOPLEFT points to submitted pixel affine witness. Unknown has no fabricated parameters;
+      coarse retains the actual render/crop transform without admitting fine correspondence before I10/I11.
+    attributes:
+      status:
+        range: PdfTransformStatus
+        required: true
+        slot_uri: pdf:PdfImageTransform_status
+      normalization:
+        range: PdfNormalization
+        required: true
+        slot_uri: pdf:PdfImageTransform_normalization
+      source_space:
+        range: string
+        required: true
+        equals_string: pdf_points
+        slot_uri: pdf:PdfImageTransform_source_space
+      target_space:
+        range: string
+        required: true
+        equals_string: submitted_pixels
+        slot_uri: pdf:PdfImageTransform_target_space
+      page_width:
+        range: PdfNumber
+        minimum_value: 0
+        slot_uri: pdf:PdfImageTransform_page_width
+      page_height:
+        range: PdfNumber
+        minimum_value: 0
+        slot_uri: pdf:PdfImageTransform_page_height
+      page_rotation:
+        range: PdfInteger
+        minimum_value: 0
+        maximum_value: 270
+        slot_uri: pdf:PdfImageTransform_page_rotation
+      crop_left:
+        range: PdfNumber
+        required: false
+        slot_uri: pdf:PdfImageTransform_crop_left
+      crop_top:
+        range: PdfNumber
+        required: false
+        slot_uri: pdf:PdfImageTransform_crop_top
+      crop_right:
+        range: PdfNumber
+        required: false
+        slot_uri: pdf:PdfImageTransform_crop_right
+      crop_bottom:
+        range: PdfNumber
+        required: false
+        slot_uri: pdf:PdfImageTransform_crop_bottom
+      affine:
+        range: PdfNumber
+        required: false
+        multivalued: true
+        maximum_cardinality: 6
+        slot_uri: pdf:PdfImageTransform_affine
+
+  PdfOccurrenceRegion:
+    description: Typed geometry witness in one declared frame; normalization and precision remain explicit and cannot
+      confer finer text custody.
+    attributes:
+      address_space:
+        range: PdfAddressSpace
+        required: true
+        slot_uri: pdf:PdfOccurrenceRegion_address_space
+      precision:
+        range: PdfPrecision
+        required: true
+        slot_uri: pdf:PdfOccurrenceRegion_precision
+      normalization:
+        range: PdfNormalization
+        required: true
+        slot_uri: pdf:PdfOccurrenceRegion_normalization
+      origin:
+        range: PdfCoordinateOrigin
+        required: true
+        slot_uri: pdf:PdfOccurrenceRegion_origin
+      left:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfOccurrenceRegion_left
+      top:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfOccurrenceRegion_top
+      right:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfOccurrenceRegion_right
+      bottom:
+        range: PdfNumber
+        required: true
+        slot_uri: pdf:PdfOccurrenceRegion_bottom
+
+  PdfProductHealth:
+    description: Execution completion, mapping loss and unassessed source fidelity are independent from structural
+      admission and scope coverage.
+    attributes:
+      execution_outcome:
+        range: PdfObservationOutcome
+        required: true
+        slot_uri: pdf:PdfProductHealth_execution_outcome
+      mapping_outcome:
+        range: PdfMappingOutcome
+        required: true
+        slot_uri: pdf:PdfProductHealth_mapping_outcome
+      source_fidelity:
+        range: PdfSourceFidelity
+        required: true
+        slot_uri: pdf:PdfProductHealth_source_fidelity
+      validation_report:
+        range: PdfString
+        required: true
+        slot_uri: pdf:PdfProductHealth_validation_report
+
+  PdfCoverageSupport:
+    description: An exact input coverage record supporting this scope/family claim; partial observations never confer complete coverage.
+    attributes:
+      input_index: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: 'pdf:PdfCoverageSupport_input_index'}
+      coverage_id: {range: PdfString, required: true, slot_uri: 'pdf:PdfCoverageSupport_coverage_id'}

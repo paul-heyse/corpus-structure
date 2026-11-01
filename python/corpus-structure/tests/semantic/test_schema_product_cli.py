@@ -12,7 +12,7 @@ def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
     target = tmp_path / "candidate"
     derived = cli("schema", "derive", "--out", str(target), "--json")
     assert derived.exit_code == 0, derived.output
-    assert (target / f"native/{NATIVE_REVISION}_parsing.sql").is_file()
+    assert (target / f"native/{NATIVE_REVISION}_pdf_products.sql").is_file()
     assert (target / f"native/review/{NATIVE_REVISION}_kernels.sql").is_file()
     assert (target / "native/bootstrap/data.fact.sql").is_file()
     authoring = json.loads((target / "native/authoring.json").read_bytes())

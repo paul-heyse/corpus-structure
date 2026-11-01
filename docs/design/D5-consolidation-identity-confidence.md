@@ -53,7 +53,9 @@ build and dependencies even when renditions are content-identical. PP-06/PP-10 o
 scope/binding, quote placement and affected consumers; this target establishes no new binding,
 scientific equivalence, confidence or evidence-grading policy.
 
-> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
+**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** Claims trace through selected occurrences, integration decisions and multiple attributed provider inputs to original PDF evidence. Agreement between passes of the same model is not independent corroboration; recognized chart values remain inferred observations until consolidation establishes a claim.
+
+> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
 
 ## Shared scientific evidence and analytical inputs
 

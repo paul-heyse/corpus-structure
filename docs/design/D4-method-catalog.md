@@ -96,7 +96,9 @@ restrictions precede native cancellation. Timeouts retain failed attempt state
 and serialization does not retry the failed operation. [PP-05–PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution)
 own assembled consumer acceptance, independently from these implementation claims.
 
-> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
+**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** The selected target composes StandardPdfPipeline/RapidOCR with public Nemotron3.5 parse/detect/crop orchestration, then governed integration before downstream methods. PDF-14/15 implement recognition and selection; PDF-13 record/publication primitives do not claim those producers exist.
+
+> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
 
 **Implemented; targeted controls Tested, 2026-10-31.** Native M09/M11 behavior revision 8
 retains formal SymPy equality/inequality nodes with `evaluate=False`, including chains. Explicit

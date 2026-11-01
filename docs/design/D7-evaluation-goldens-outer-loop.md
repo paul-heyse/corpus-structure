@@ -61,7 +61,9 @@ or segmentation receives new rendition/anchor identities under D1; existing fram
 and staleness rules continue to apply. PP-06/PP-10 own boundary migration and actual acceptance;
 this decision supplies no new grades, changed evidence policy or qualification claim.
 
-> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
+**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** Independent reference-author passes A/B/C are distinct from Nemotron parse/detect/crop roles. Frames bind the exact integrated selection and qualified evidence inputs; historical grades/frames are not rewritten. Actual independent grading and provider quality remain PDF-10/11 obligations.
+
+> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
 
 ## 1. The problem and the answer
 

@@ -1,6 +1,6 @@
 # Integrated document model and multi-input lineage
 
-**Status:** Planned extension; no implementation or provider qualification claimed. **2026-10-31.**
+**Status:** Implemented foundation; targeted verification recorded below. Provider qualification is not claimed. **2026-10-31.**
 [Coordinator](../pdf-docling-pipeline_2026-10-31.md) owns state, investigations and acceptance.
 Consumes the [review](../../functional_reviews/docling-nemotron-triple-pass_2026-10-31.md)
 and [target](../../functional_reviews/docling-nemotron-triple-pass_2026-10-31_target-model.md)
@@ -9,16 +9,16 @@ feasibility; this document owns PDF-13's connected contract/storage foundation.
 
 ## Target and foundation assessment
 
-**Proposed implementation of the confirmed target.** Publish one integrated document contract:
+**Implemented foundation of the confirmed target; integrated producer/consumer adoption remains PDF-14–16.** Publish one integrated document contract:
 DoclingDocument content plus mandatory application-owned relations for provenance, alternatives,
 selection and coverage. Neither plain native JSON nor two documents merged independently by each
 consumer meets this contract. Nemotron contributions may replace native content under a declared
 policy; Docling remains the content schema owner, not an infallible recognition authority.
 
 The current `pdf-products.yaml`, `semantic/pdf_contracts.py`, prepared execution bindings,
-SQLAlchemy Core metadata and fenced native publication are suitable foundations. Current
-`ops.native_document_product` has one parent triplet and `selected_native_ancestry()` traverses
-only that chain. Extend them structurally: a reconciled product consumes multiple qualified inputs.
+SQLAlchemy Core metadata and fenced native publication are suitable foundations. The predecessor
+`ops.native_document_product` has one parent triplet. Native 0056 adds shared PDF identity and direct
+input relations; ancestry traverses those inputs while preserving the native body and payload.
 An optional structural base parent cannot stand for all provenance. Reuse existing typed parsing
 relationship patterns where useful without reviving retired HTML adapters.
 
@@ -117,3 +117,29 @@ Changing a reconciliation policy should reuse raw observations and the same cont
 recognizer supplies attributed observations through the same input-role structure; it must not
 require consumer-specific source switching. Physical SQL/COPY/JSON layout follows actual access
 and transport needs, not one table or transaction per conceptual distinction.
+
+## Execution checkpoint — 2026-10-31
+
+ADR-0039 records the confirmed integrated target and supersedes ADR-0038. The implemented common
+`ops.pdf_product` identity supports native, recognition-observation and integrated products;
+forward0056 backfills native identities/structural edges without rewriting old payloads. Typed
+companion relations and protected publication enforce source/project custody, prior-only immutable
+inputs, endpoint/decision inventory, supported precision, attributed coverage and exact replay.
+Partial published inputs remain usable without being relabelled complete.
+
+`semantic/pdf_integrated.py` supplies model-governed preparation/publication; common archived context
+is separate from native schema admission. `semantic/pdf_storage.py` supplies bounded reads and trace,
+including compact provider/image/raw-response descriptors. Native readers refuse integrated bodies
+explicitly. Relation endpoints are bounded before hydration; submitted original bytes are validated
+but not retransmitted during each observation publication. Integration/storage implementations are
+archived release inputs. Future recognition/matching/integration algorithms remain unbound.
+
+Supported submitted-image admission currently validates PNG bytes/dimensions. Provider frame precision
+remains coarse/unknown pending I10/I11; this is not proof of arbitrary Nemotron/PDF coordinate mapping.
+No Nemotron runtime, operational database upgrade/default cutover, all-consumer migration or corpus
+fidelity claim follows. Existing operational0055 and its retained products remain unchanged.
+
+Verification receipts and final focused outcomes are recorded in the coordinator. Original failed
+attempts remain in `build/test-receipts/pdf13/`; a repaired rerun does not relabel those invocations.
+PDF-14 consumes the published observation contract; PDF-15 implements actual mapping/selection;
+PDF-16 migrates real consumers and PDF-11 owns assembled qualification.

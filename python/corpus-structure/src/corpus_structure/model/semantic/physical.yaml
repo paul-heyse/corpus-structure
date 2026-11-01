@@ -4116,3 +4116,267 @@ classes:
       ph:foreign_keys: '[{"columns":["task_id","product_key","page_no","candidate_index"],"target":"kb.native_document_inline_alignment_report.task_id,product_key,page_no,candidate_index"},{"columns":["task_id","product_key","item_pointer"],"target":"kb.native_document_item.task_id,product_key,pointer"}]'
       ph:checks: '[]'
       ph:indexes: '[["task_id","product_key","item_pointer","page_no","candidate_index"]]'
+
+  pdf_product:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      artifact_digest:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      contract_digest:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+      unique_0:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - content_digest
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.source_build.task_id,release_id"},
+        {"columns": ["artifact_digest"], "target": "kb.source_artifact.artifact_digest"}]'
+      ph:checks: '["kind IN (''native'',''recognition_observation'',''integrated'')", "product_key <> ''''", "content_digest
+        ~ ''^[0-9a-f]{64}$''", "contract_digest ~ ''^[0-9a-f]{64}$''"]'
+  pdf_product_body:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      payload:
+        range: bytes
+        required: true
+      descriptor:
+        range: json_payload
+        required: true
+      recipe_digest:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+    annotations:
+      ph:immutability: immutable
+      ph:checks: "[\"descriptor = convert_from(payload,'UTF8')::jsonb - ARRAY['content','occurrences','relations','coverage','inputs']\"]"
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"},
+        {"columns": ["recipe_digest"], "target": "kb.source_artifact.artifact_digest"}]'
+  pdf_product_input:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      input_index:
+        range: integer
+        required: true
+      role:
+        range: string
+        required: true
+      input_task_id:
+        range: integer
+        required: true
+      input_product_key:
+        range: string
+        required: true
+      input_content_digest:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - input_index
+      unique_0:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - role
+        - input_task_id
+        - input_product_key
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"},
+        {"columns": ["input_task_id", "input_product_key", "input_content_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"}]'
+      ph:checks: '["input_index >= 0", "role IN (''structural'',''recognition'',''alternative'',''policy_input'')",
+        "task_id <> input_task_id OR product_key <> input_product_key"]'
+      ph:indexes: '[["input_task_id", "input_product_key", "task_id", "product_key"]]'
+  pdf_occurrence:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      occurrence_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      address_space:
+        range: string
+        required: true
+      precision:
+        range: string
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - occurrence_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"}]'
+      ph:checks: '["occurrence_id <> ''''", "kind IN (''item'',''cell'',''formula'',''chart'',''text'',''region'')",
+        "precision IN (''unknown'',''coarse'',''inherited'',''block'',''item'',''cell'',''word'',''glyph'')"]'
+  pdf_relation:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      relation_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - relation_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"}]'
+      ph:checks: '["relation_id <> ''''", "kind IN (''correspondence'',''decision'')"]'
+  pdf_relation_endpoint:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      relation_id:
+        range: string
+        required: true
+      endpoint_index:
+        range: integer
+        required: true
+      role:
+        range: string
+        required: true
+      target_task_id:
+        range: integer
+        required: true
+      target_product_key:
+        range: string
+        required: true
+      target_content_digest:
+        range: string
+        required: true
+      occurrence_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - relation_id
+        - endpoint_index
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "relation_id"], "target": "kb.pdf_relation.task_id,product_key,relation_id"},
+        {"columns": ["target_task_id", "target_product_key", "target_content_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"},
+        {"columns": ["target_task_id", "target_product_key", "occurrence_id"], "target": "kb.pdf_occurrence.task_id,product_key,occurrence_id"}]'
+      ph:checks: '["endpoint_index >= 0", "role IN (''input'',''output'',''alternative'',''evidence'')"]'
+      ph:indexes: '[["target_task_id", "target_product_key", "occurrence_id", "task_id", "product_key"]]'
+  pdf_product_coverage:
+    in_subset:
+    - kb
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      coverage_id:
+        range: string
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - coverage_id
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"}]'
+      ph:checks: '["coverage_id <> ''''"]'
+
+  pdf_product_artifact:
+    in_subset: [ops]
+    attributes:
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      artifact_digest: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [task_id, product_key, artifact_digest]}
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns":["task_id","product_key"],"target":"ops.pdf_product.task_id,product_key"},{"columns":["artifact_digest"],"target":"kb.source_artifact.artifact_digest"}]'

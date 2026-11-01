@@ -496,3 +496,27 @@ SUPPORTED_EFFECT_VERSIONS = {
     "seal_source_production": "1",
     "source_execution": "1",
 }
+
+# Companion bundles share the existing task/publication lifecycle.
+SUPPORTED_EFFECTS.update(
+    {
+        "prepare_integrated_pdf": {
+            "effects": (),
+            "implementation": "prepare_integrated_pdf",
+            "transitions": {},
+            "version": "1",
+        },
+        "publish_integrated_pdf": {
+            "effects": ("atomic_native_publication", "preserve_original_normalized_distinction"),
+            "implementation": "publish_integrated_pdf",
+            "transitions": {},
+            "version": "1",
+        },
+        "read_pdf_product": {
+            "effects": (),
+            "implementation": "read_pdf_product",
+            "transitions": {},
+            "version": "1",
+        },
+    }
+)

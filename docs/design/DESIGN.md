@@ -237,7 +237,14 @@ instance integrity; existing protected publication remains the only ordinary wri
 Original bytes survive conversion failure, and derived hierarchy/corrections never mutate the
 native conversion. [D3](D3-database.md#parsing-product-custody) owns the target realization.
 
-> Decision: ADR-0038
+**Accepted integrated target (2026-10-31).** Select one document contract after Docling/RapidOCR
+and true Nemotron triple pass: Docling content with mandatory typed input lineage, correspondence,
+selection and coverage. Governed replacement preserves original observations. PDF-scoped identity
+and immutable direct-input relations connect raw recognition and document products; downstream
+consumers do not independently merge providers. PDF-13–16 own implementation; provider success,
+operational adoption and qualification do not follow from accepting the target.
+
+> Decision: ADR-0039
 
 **Retained HTML implementation boundary.**
 
@@ -262,9 +269,9 @@ structure and syntax requests do not implicitly construct symbolic values. Exist
 publication and archived read authority govern the layers; PP-05–PP-10 own implementation and
 qualification. Method/output versions migrate with their consumers.
 
-> Decision: ADR-0038
+> Decision: ADR-0039
 
-> Decision: ADR-0038
+> Decision: ADR-0039
 
 **Proposed accepted target (2026-10-30).** Analytical ownership and preparation contracts use existing release-scoped rows and immutable products; physical capture may be resident or detached spooled under one snapshot/custody contract.
 
@@ -340,7 +347,8 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 **Accepted PDF target; Proposed implementation (2026-10-31).** One admitted application semantic
 release governs interpretation-changing behavior and cross-product relationships. It binds the
 versioned native Docling schema rather than re-authoring it. New ingestion is PDF-only through
-StandardPdfPipeline with OCR, formula/table recognition and heading hierarchy. Sections and
+StandardPdfPipeline/RapidOCR plus Nemotron3.5 true triple-pass interpretation and governed integrated
+selection. The content graph preserves formula/table recognition and heading hierarchy. Sections and
 subsections remain intact; no section chunking is planned. PDF geometry, recognized LaTeX and
 derived text spans are distinct qualified representations; recognition is not exact original
 TeX recovery or mathematical truth. Rich native items/relations reach actual packet/frame,
@@ -354,7 +362,7 @@ owns the concepts and D2–D8 their realization. The
 [PDF coordinator](../plans/pdf-docling-pipeline_2026-10-31.md) owns implementation and qualification;
 accepted target does not establish conversion, deployment or performance/fidelity benefits.
 
-> Decision: ADR-0038
+> Decision: ADR-0039
 
 **Retained HTML implementation boundary.**
 
@@ -377,7 +385,7 @@ protected native consumers are implemented. The [parsing coordinator](../plans/p
 owns required-union qualification and fresh operational adoption; these claims do not imply
 universal grammar support or exact attribution of every repaired HTML node.
 
-> Decision: ADR-0038
+> Decision: ADR-0039
 
 **Implemented (2026-10-30).** One admitted interpretation authority governs distinct qualified physical frontends and model-bound context, demand, result and dependency projections. Source declarations are prepared independently of downstream resolution, and each native stage consumes its admitted capability contract.
 

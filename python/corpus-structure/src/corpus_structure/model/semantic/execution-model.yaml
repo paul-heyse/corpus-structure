@@ -2920,6 +2920,38 @@ concepts:
     required: true
     multivalued: false
   relationships: []
+- id: PdfIntegratedProduct
+  family: interpretation
+  scope: run
+  meaning: Immutable multi-input observation or integrated Docling companion bundle
+  identity: Producing task/product key/digest and archived release contract
+  attributes:
+  - {name: content_digest, range: text, required: true, multivalued: false}
+  relationships: []
+- id: PreparedIntegratedPdfProduct
+  family: interpretation
+  scope: run
+  meaning: Validated canonical bundle and all retained artifacts
+  identity: Producing task/product key/digest and archived release contract
+  attributes:
+  - {name: content_digest, range: text, required: true, multivalued: false}
+  relationships: []
+- id: PdfProductReference
+  family: interpretation
+  scope: run
+  meaning: Exact immutable task/key/digest pin
+  identity: Producing task/product key/digest and archived release contract
+  attributes:
+  - {name: content_digest, range: text, required: true, multivalued: false}
+  relationships: []
+- id: PdfProductReadResult
+  family: interpretation
+  scope: run
+  meaning: Bounded selected product projections and qualified lineage
+  identity: Producing task/product key/digest and archived release contract
+  attributes:
+  - {name: content_digest, range: text, required: true, multivalued: false}
+  relationships: []
 relationships:
 - id: bundle_contains
   kind: ownership
@@ -7629,6 +7661,168 @@ operations:
   transitions: []
   projections: []
   implementation: publish_pdf_region_artifact
+- id: prepare_integrated_pdf
+  inputs:
+  - PdfIntegratedProduct
+  - SourceArtifact
+  results:
+  - PreparedIntegratedPdfProduct
+  applicability: []
+  universe: Exact original and all immutable already-published qualified inputs; no forward references or ambient
+    latest selection
+  effects: []
+  outcomes:
+  - complete
+  - partial
+  - unknown
+  - unsupported
+  - failed
+  outcome_domain: source_coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  - source_representation
+  - adapter_revision
+  precision: Address spaces, source coverage, structural admission and recognition outcomes remain independent;
+    I10/I11 fine provider geometry unadmitted
+  transitions: []
+  projections: []
+  implementation: prepare_integrated_pdf
+- id: publish_integrated_pdf
+  inputs:
+  - TaskInvocation
+  - PreparedIntegratedPdfProduct
+  results:
+  - PdfProductReference
+  applicability: []
+  universe: Exact original and all immutable already-published qualified inputs; no forward references or ambient
+    latest selection
+  effects:
+  - atomic_native_publication
+  - preserve_original_normalized_distinction
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  - source_representation
+  - adapter_revision
+  precision: Address spaces, source coverage, structural admission and recognition outcomes remain independent;
+    I10/I11 fine provider geometry unadmitted
+  transitions: []
+  projections: []
+  implementation: publish_integrated_pdf
+- id: read_pdf_product
+  inputs:
+  - PdfProductReference
+  results:
+  - PdfProductReadResult
+  applicability: []
+  universe: Exact original and all immutable already-published qualified inputs; no forward references or ambient
+    latest selection
+  effects: []
+  outcomes:
+  - complete
+  - partial
+  - unknown
+  - unsupported
+  - failed
+  outcome_domain: source_coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  - source_representation
+  - adapter_revision
+  precision: Address spaces, source coverage, structural admission and recognition outcomes remain independent;
+    I10/I11 fine provider geometry unadmitted
+  transitions: []
+  projections: []
+  implementation: read_pdf_product
+- id: recognize_pdf_observation
+  inputs:
+  - PdfIntegratedProduct
+  results:
+  - PdfIntegratedProduct
+  applicability: []
+  universe: Future recognizer and mapping runtime; declared but unbound and unsupported
+  effects: []
+  outcomes:
+  - unsupported
+  outcome_domain: source_coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: No inference, precision mapping or matching implementation admitted by this foundation
+  transitions: []
+  projections: []
+- id: map_pdf_observation
+  inputs:
+  - PdfIntegratedProduct
+  results:
+  - PdfIntegratedProduct
+  applicability: []
+  universe: Future recognizer and mapping runtime; declared but unbound and unsupported
+  effects: []
+  outcomes:
+  - unsupported
+  outcome_domain: source_coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: No inference, precision mapping or matching implementation admitted by this foundation
+  transitions: []
+  projections: []
+- id: compare_pdf_occurrences
+  inputs:
+  - PdfIntegratedProduct
+  results:
+  - PdfIntegratedProduct
+  applicability: []
+  universe: Future recognizer and mapping runtime; declared but unbound and unsupported
+  effects: []
+  outcomes:
+  - unsupported
+  outcome_domain: source_coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: No inference, precision mapping or matching implementation admitted by this foundation
+  transitions: []
+  projections: []
+- id: select_pdf_integration
+  inputs:
+  - PdfIntegratedProduct
+  results:
+  - PdfIntegratedProduct
+  applicability: []
+  universe: Future recognizer and mapping runtime; declared but unbound and unsupported
+  effects: []
+  outcomes:
+  - unsupported
+  outcome_domain: source_coverage
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: No inference, precision mapping or matching implementation admitted by this foundation
+  transitions: []
+  projections: []
 implementations:
 - id: convert_pdf
   owner: ingest.pdf
@@ -8608,6 +8802,52 @@ implementations:
   effects: []
   required_capabilities: []
 
+- id: prepare_integrated_pdf
+  owner: semantic.pdf_integrated
+  symbol: prepare_integrated_pdf_product
+  version: '1'
+  placement: pure
+  input_concepts:
+  - PdfIntegratedProduct
+  - SourceArtifact
+  result_concepts:
+  - PreparedIntegratedPdfProduct
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: publish_integrated_pdf
+  owner: semantic.pdf_integrated
+  symbol: store_integrated_pdf_product
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - PreparedIntegratedPdfProduct
+  result_concepts:
+  - PdfProductReference
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_native_publication
+  - preserve_original_normalized_distinction
+  required_capabilities: []
+- id: read_pdf_product
+  owner: semantic.pdf_storage
+  symbol: read_pdf_product
+  version: '1'
+  placement: core
+  input_concepts:
+  - PdfProductReference
+  result_concepts:
+  - PdfProductReadResult
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
 projections:
 - id: occurrence
   sources:

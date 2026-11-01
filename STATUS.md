@@ -1,11 +1,11 @@
 # Status
-_Updated 2026-10-31; implementation integrated, PDF qualification incomplete._
+_Updated 2026-10-31; PDF-13 foundation delivered, assembled PDF qualification incomplete._
 
 ## Current checkpoint
 
-- **Planned target:** [PDF-12–16](docs/plans/pdf-docling-pipeline_2026-10-31.md#PDF-12)
-  integrate true Nemotron triple pass with Docling/RapidOCR into one document contract.
-  Both rule changes are confirmed; successor ADR, runtime feasibility and implementation remain open.
+- **Implemented:** [PDF-13 foundation](docs/plans/pdf-docling-pipeline/integrated-document-model-and-lineage.md)
+  adds typed integrated products, immutable multi-input lineage, forward0056 and bounded trace.
+  ADR-0039 records the integrated target; actual producers/consumer adoption remain PDF-14–16.
 
 - [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns package/O/I disposition
   and remaining acceptance. All implementation worktrees are integrated and removed.
@@ -28,8 +28,9 @@ _Updated 2026-10-31; implementation integrated, PDF qualification incomplete._
 
 ## Verification — 2026-10-31
 
-- **passed:** review/plan documentation publication/link check (`just docs-check`); independent
-  static review. New model inference and product tests are not_run for documentation authoring.
+- **passed:** PDF-13 new suite32 (six real PostgreSQL) and final native/archive/execution/authoring/migration79;
+  global `just types`, independent review, Ruff and docs checks. Failed attempts retained in `build/test-receipts/pdf13/`.
+- Documentation/maintenance outcomes are recorded with the coordinator's PDF-13 receipt.
 
 - **passed:** global warning-inclusive `just types`; no suppressions added. Focused native,
   reuse, scope, legacy conformance/model and controlled PDF CLI lifecycle checks passed.
@@ -49,9 +50,8 @@ _Updated 2026-10-31; implementation integrated, PDF qualification incomplete._
 
 ## Next
 
-Begin PDF-12 successor decision and focused runtime/geometry/mapping investigations alongside
-PDF-13 integrated-model agreement. Then deliver PDF-14–16 and retarget PDF-10/11 acceptance to
-that product: new compatible consumer/reference frames, real external MCP/render, independent
-reference authors and five-section extraction/grading, replay, completed-result/default selection
-and the required qualification union. Reuse compatible retained native products and receipts;
-run6 frames are not integrated-product evidence. Library drafts remain untouched.
+Resolve PDF-12 runtime/geometry/mapping investigations, then implement PDF-14–16 using the
+PDF-13 foundation. Operational deployment remains0055; forward0056 was tested in isolation.
+PDF-10/11 still own actual external MCP/render, independent reference authors, five-section
+extraction/grading, completed-result/default selection and the required qualification union.
+Reuse compatible native products; run6 frames are not integrated-product evidence.

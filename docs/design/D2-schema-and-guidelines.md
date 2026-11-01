@@ -164,7 +164,9 @@ assessment adapters are bound under profile 6. Macro-event selection uses discri
 metadata rather than explanatory value strings. Unsupported required recipes refuse before effects. [Execution and evidence](../plans/parsing-pipeline_2026-10-30.md#pp0004-execution)
 retain independent invalid-input and native enforcement results.
 
-> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
+**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** Docling owns the embedded content schema; LinkML and trusted execution contracts own the integrated envelope, input roles, occurrence relations, outcomes, lifecycle and effects. Recognition receipts are typed products, not malformed Docling documents; future unqualified operations remain unsupported.
+
+> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
 
 ## 1. Principles
 

@@ -35,7 +35,15 @@ class PreparedPdfContext:
     boundary: PreparedRelease
     execution: ExecutionModelProducts
     contract_digest: str
-    native_schema_digest: str
+
+    @property
+    def native_schema_digest(self) -> str:
+        digest = dict(self.execution.implementation_digests).get(
+            "pdf/docling-validation.schema.json"
+        )
+        if digest is None:
+            raise ValueError("archived PDF contract has no admitted native schema")
+        return digest
 
 
 @lru_cache(maxsize=16)
@@ -49,7 +57,6 @@ def prepare_pdf_context(
     from .contracts import bound_execution_model, execution_payload
 
     execution = bound_execution_model(prepared)
-    execution.require_operation("publish_native_document")
     payload = execution_payload(prepared)
     if payload is None:
         raise ValueError("native PDF contract requires archived execution inputs")
@@ -67,7 +74,6 @@ def prepare_pdf_context(
         _boundary(execution_schema),
         execution,
         source.digest,
-        dict(execution.implementation_digests)["pdf/docling-validation.schema.json"],
     )
 
 
@@ -82,11 +88,6 @@ def trusted_pdf_context() -> PreparedPdfContext:
         _boundary(inputs.schema),
         compile_execution_model(inputs),
         source.digest,
-        next(
-            s.digest
-            for s in inputs.implementations
-            if s.name == "pdf/docling-validation.schema.json"
-        ),
     )
 
 

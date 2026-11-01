@@ -168,7 +168,9 @@ full source coverage rows are not copied into every prompt. Unknown coverage giv
 nonblocking diagnostic rather than an assertion that relevant context is absent. CLI/MCP transport, provider
 and adoption evidence belong to [PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution).
 
-> Decision: [ADR-0038](../adr/0038-pdf-native-docling-products.md)
+**Accepted integrated target; implementation tracked in PDF-13–16 (2026-10-31).** The target reader returns one integrated content/companion contract and bounded multi-input evidence traces. Legacy readers must not silently drop mandatory evidence. PDF-13 supplies admitted primitives; PDF-16 migrates CLI/MCP, source frames, packets and exports without inference on retained reads.
+
+> Decision: [ADR-0039](../adr/0039-integrated-pdf-products.md)
 
 ## 1. Surfaces
 
