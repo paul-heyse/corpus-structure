@@ -114,7 +114,29 @@ own assembled acceptance and fresh operational adoption.
 
 **Implemented; protected publication scoped Tested (2026-10-31).** A common PDF product identity and typed bodies support immutable direct inputs across native, recognition and integrated products. Qualified foreign keys and fenced publication admit already retained inputs; streamed native and recognition products survive a later producer failure. Common selected-document projections serve both retained native and integrated content, with indexed occurrence pointers, qualified chart cells and bounded multi-input lineage/artifact reads. Historical rows and frozen migrations remain inert. The PDF coordinator owns current deployment and assembled acceptance.
 
+**Implemented; native controls Tested (2026-10-31).** Forward0059 admits identity-exclusion
+evidence through the canonical native source-address resolver, preserving exact observation,
+primary/supporting roles, locators and evidence multiplicities. It requires no fabricated spans.
+Public evidence custody exposes the actual SourceView/address when rendition/span coordinates
+are absent. Frozen0057/0058 remain unchanged. Coverage lifts SourceView units through their modeled
+document relation and archives the actual agent protocol from its shared owner. The coordinator
+owns the exact deployed head and complete qualification boundary.
+
 > Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
+
+### Large integrated companion publication
+
+**Accepted target; Proposed implementation (2026-10-31).** Canonical PDF artifact bytes and
+one native DoclingDocument remain distinct from normalized companion rows. PostgreSQL JSON text
+allows the protected publisher to decompose large relation/occurrence arrays into independently
+validated JSONB records without constructing an oversized aggregate JSONB value. The same trusted
+model generates closed shape/type/cardinality checks; fences, exact byte custody, input/endpoint
+relations, decisions and coverage remain independently enforced by PostgreSQL. Descriptor checks
+and selected-content views narrow only bounded content/records. Cache header/content before row
+loops rather than repeatedly reparse the full wire document. The PDF coordinator owns delivery
+and exact book/consumer qualification; current failed casts are retained evidence.
+
+> Decision: [ADR-0041](../adr/0041-json-text-pdf-publication.md)
 
 ## Current task authority and historical storage
 
@@ -1881,7 +1903,7 @@ runtime reports, per-section/membership recognition coverage and table-cell repo
 coverage and selected-view coverage remain different claims. Native evidence aliases are exact
 retained projection pieces; SQL checks their complete inventory and source custody. SourceView
 observations carry their actual unit ID through the shared completion boundary. The owned PDF
-database is migrated through 0055. The full original's native and organized products are retained;
+database is migrated through0059. The full original's native and organized products are retained;
 complete consumer acceptance is separately owned by the PDF coordinator.
 
 **Implemented; targeted native controls Tested, 2026-10-31.** 0051 admits qualified native
@@ -1902,7 +1924,7 @@ bounded projections rather than decode the book. SourceView role participates in
 construction. Exact enrichment recipe, scoped policy/coverage and existing-view custody allow
 consumer projection reuse while preserving the original native producer and runtime provenance.
 
-System/core 0.6.1 defines positive legacy enum bases for historical table projections. Current
+System/core0.6.2 defines positive legacy enum bases for historical table projections. Current
 public enums inherit those members and add SourceView. Historical D3 CHECKs/migrations retain
 their original sets; native semantic metadata retains SourceView. Native implementation/schema/
 catalog/physical digests and current public enum sets were verified unchanged by this separation.

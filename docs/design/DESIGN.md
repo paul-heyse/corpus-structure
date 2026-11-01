@@ -251,6 +251,15 @@ and inert databases/frozen migration/evidence records. No destructive data clean
 
 > Decision: ADR-0040
 
+**Accepted large-companion realization; Proposed implementation (2026-10-31).** Retain exact
+canonical artifact bytea and native Docling JSONB, while admitting wide companion arrays as
+model-validated records into their existing PostgreSQL relations. Parse wire JSON text before
+narrowing bounded records/content to JSONB; preserve independent native custody and integrity
+without materializing an oversized aggregate relation array. D3 owns the physical mechanism;
+the PDF coordinator owns delivery and qualification.
+
+> Decision: ADR-0041
+
 **Retained HTML implementation boundary.**
 
 The following source/layered guarantees describe the installed HTML route and its dated evidence,
