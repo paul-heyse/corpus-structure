@@ -870,7 +870,9 @@ def select_pdf_integration(
                         for key in keys(nbox):
                             buckets[key].append(n)
     if removed:
-        doc.delete_items(node_items=removed)
+        from .pdf_bulk_remove import remove_pdf_subtrees
+
+        remove_pdf_subtrees(doc, removed)
     # Cross-block references are rebound through qualified imported identities only.
     # A source-local #/texts/0 must never resolve accidentally against an unrelated target.
     final_before_validation = native_nodes(doc)
