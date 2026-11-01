@@ -119,11 +119,14 @@ BEGIN
   UNION ALL SELECT a.pointer,parent.pointer,a.depth+1 FROM ancestry a JOIN kb.pdf_record_access child
   ON child.product_id=p_build AND child.pointer=a.owner JOIN kb.pdf_record_access parent
   ON parent.product_id=p_build AND parent.pointer=child.parent_pointer
- ) CYCLE owner SET cycle_ USING path_
- SELECT FROM kb.pdf_record_access a WHERE a.product_id=p_build AND
- (EXISTS(SELECT FROM ancestry c WHERE c.pointer=a.pointer AND c.cycle_) OR
- a.section_pointer IS DISTINCT FROM (SELECT n.owner FROM ancestry n JOIN kb.pdf_record_access section
- ON section.product_id=p_build AND section.pointer=n.owner WHERE n.pointer=a.pointer AND section.label IN ('section','chapter') ORDER BY n.depth LIMIT 1))) THEN
+ ) CYCLE owner SET cycle_ USING path_, nearest AS (
+ SELECT DISTINCT ON (n.pointer) n.pointer,n.owner FROM ancestry n JOIN kb.pdf_record_access section
+ ON section.product_id=p_build AND section.revision_id=p_build AND section.pointer=n.owner
+ WHERE section.label IN ('section','chapter') ORDER BY n.pointer,n.depth
+ ), cycles AS (SELECT DISTINCT pointer FROM ancestry WHERE cycle_)
+ SELECT FROM kb.pdf_record_access a LEFT JOIN nearest n ON n.pointer=a.pointer
+ LEFT JOIN cycles c ON c.pointer=a.pointer WHERE a.product_id=p_build AND
+ (c.pointer IS NOT NULL OR a.section_pointer IS DISTINCT FROM n.owner)) THEN
  RAISE EXCEPTION 'native access section owner differs from native ancestry' USING ERRCODE='23514'; END IF;
 
  IF EXISTS(WITH RECURSIVE roots(pointer,path) AS (
@@ -142,7 +145,7 @@ BEGIN
  RAISE EXCEPTION 'native access order differs from native containment traversal' USING ERRCODE='23514'; END IF;
 
  IF EXISTS(SELECT FROM kb.pdf_record_access a WHERE a.product_id=p_build AND
- (SELECT count(*) FROM kb.pdf_record_region r WHERE r.product_id=p_build AND r.pointer=a.pointer)<>jsonb_array_length(COALESCE(a.native_json->'prov','[]'))) OR
+ (SELECT count(*) FROM kb.pdf_record_region r WHERE r.product_id=p_build AND r.revision_id=p_build AND r.pointer=a.pointer)<>jsonb_array_length(COALESCE(a.native_json->'prov','[]'))) OR
  EXISTS(SELECT FROM kb.pdf_record_region r LEFT JOIN kb.pdf_record_access a ON a.product_id=p_build AND a.pointer=r.pointer
  LEFT JOIN LATERAL (SELECT a.native_json->'prov'->r.region_index::integer value) prov ON true
  LEFT JOIN ops.pdf_record_document h ON h.product_id=p_build AND h.revision_id=p_build

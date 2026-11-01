@@ -210,7 +210,10 @@ def read_native_items(
             query = query.where(
                 item.c.pointer.in_(
                     native_descendant_pointers(
-                        task_id=task_id, product_key=product_key, section_pointer=section_pointer, conn=conn
+                        task_id=task_id,
+                        product_key=product_key,
+                        section_pointer=section_pointer,
+                        conn=conn,
                     )
                 )
             )
@@ -221,7 +224,9 @@ def read_native_items(
     ]
 
 
-def native_descendant_pointers(*, task_id: int, product_key: str, section_pointer: str, conn: Connection | None = None):
+def native_descendant_pointers(
+    *, task_id: int, product_key: str, section_pointer: str, conn: Connection | None = None
+):
     """An indexed containment selection, preserving native ordinals in its caller."""
     from .pdf_record_reader import published_native_table
 
@@ -306,12 +311,23 @@ def read_native_regions(
 def _pdf_product_identity(conn: Connection, task_id: int, product_key: str, content_digest: str):
     from .pdf_record_reader import published_record_reader
     from .product_reference import ProductReference
-    record_reader = published_record_reader(conn, ProductReference(task_id, product_key, content_digest))
+
+    record_reader = published_record_reader(
+        conn, ProductReference(task_id, product_key, content_digest)
+    )
     if record_reader is not None:
         product = table("ops.pdf_product")
-        row = conn.execute(select(product).where(product.c.task_id == task_id,
-                           product.c.product_key == product_key,
-                           product.c.content_digest == content_digest)).mappings().one()
+        row = (
+            conn.execute(
+                select(product).where(
+                    product.c.task_id == task_id,
+                    product.c.product_key == product_key,
+                    product.c.content_digest == content_digest,
+                )
+            )
+            .mappings()
+            .one()
+        )
         return dict(row)
     product = table("ops.pdf_product")
     identity = (
@@ -400,16 +416,21 @@ def _pdf_descriptors(conn: Connection, pins: list[tuple[int, str, str]]) -> list
     """Compact per-product context; payload and native document columns are never selected."""
     from .pdf_record_reader import published_record_reader
     from .product_reference import ProductReference
+
     current: list[dict[str, Any]] = []
     archived = []
     for task, key, digest in pins:
-        reader = published_record_reader(conn, ProductReference(task,key,digest))
+        reader = published_record_reader(conn, ProductReference(task, key, digest))
         if reader is None:
-            archived.append((task,key,digest))
+            archived.append((task, key, digest))
         else:
-            identity = _pdf_product_identity(conn,task,key,digest)
-            current.append(dict(identity,descriptor=dict(version=2,kind=identity["kind"],
-                                                         revision=reader.revision)))
+            identity = _pdf_product_identity(conn, task, key, digest)
+            current.append(
+                dict(
+                    identity,
+                    descriptor=dict(version=2, kind=identity["kind"], revision=reader.revision),
+                )
+            )
     if not archived:
         return current
     pins = archived
@@ -453,7 +474,7 @@ def _pdf_descriptors(conn: Connection, pins: list[tuple[int, str, str]]) -> list
         value: dict[str, Any] = {column.key: row[column.key] for column in products.columns}
         value["descriptor"] = row["descriptor"]
         current.append(value)
-    return sorted(current,key=lambda r:(r["task_id"],r["product_key"]))
+    return sorted(current, key=lambda r: (r["task_id"], r["product_key"]))
 
 
 def read_pdf_product(
@@ -480,36 +501,70 @@ def read_pdf_product(
         raise ValueError("PDF read limit must be 1..1000 and row budget 1..10000")
     from .pdf_record_reader import published_record_reader
     from .product_reference import ProductReference
-    record_reader = published_record_reader(conn, ProductReference(task_id, product_key, content_digest))
+
+    record_reader = published_record_reader(
+        conn, ProductReference(task_id, product_key, content_digest)
+    )
     if record_reader is not None:
         identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
         selected = []
         if occurrence_id is not None:
-            selected = list(record_reader.iter_rows("companion", {"family":"occurrence", "local_id":occurrence_id}))
+            selected = list(
+                record_reader.iter_rows(
+                    "companion", {"family": "occurrence", "local_id": occurrence_id}
+                )
+            )
             if not selected:
                 raise NativeDocumentUnavailable("PDF occurrence is unavailable under exact pin")
         elif pointers is None:
-            prior = record_reader._one("companion", {"family":"occurrence","local_id":after}) if after else None
-            rows = record_reader.iter_rows("companion", {"family":"occurrence"},
-                                          after=["occurrence", prior["ordinal"], after] if prior is not None else None)
+            prior = (
+                record_reader._one("companion", {"family": "occurrence", "local_id": after})
+                if after
+                else None
+            )
+            rows = record_reader.iter_rows(
+                "companion",
+                {"family": "occurrence"},
+                after=["occurrence", prior["ordinal"], after] if prior is not None else None,
+            )
             from itertools import islice
+
             selected = list(islice(rows, limit))
-        chosen = list(pointers) if pointers is not None else [r["body"].get("pointer") for r in selected if r["body"].get("pointer") is not None]
-        context = record_reader.source_context(chosen, section_pointer or "#/body", row_budget=row_budget)
-        count = sum(len(context[name]) for name in ("occurrences","relations","inputs","coverage","mapping_reports"))
+        chosen = (
+            list(pointers)
+            if pointers is not None
+            else [
+                r["body"].get("pointer") for r in selected if r["body"].get("pointer") is not None
+            ]
+        )
+        context = record_reader.source_context(
+            chosen, section_pointer or "#/body", row_budget=row_budget
+        )
+        count = sum(
+            len(context[name])
+            for name in ("occurrences", "relations", "inputs", "coverage", "mapping_reports")
+        )
         count += sum(len(r["endpoints"]) for r in context["relations"])
         if count > row_budget:
             raise ValueError("PDF mandatory companion exceeds requested row budget")
-        result = dict(context, identity=identity,
-                      cursor=selected[-1]["local_id"] if len(selected) == limit else None,
-                      manifest={"collections":["inputs","coverage","relations","mapping_reports"],"paged":True})
+        result = dict(
+            context,
+            identity=identity,
+            cursor=selected[-1]["local_id"] if len(selected) == limit else None,
+            manifest={
+                "collections": ["inputs", "coverage", "relations", "mapping_reports"],
+                "paged": True,
+            },
+        )
         if include_body:
-            from io import BytesIO
             import json
+            from io import BytesIO
+
             if identity["kind"] == "native":
                 result["body"] = record_reader.native_product_values()
             else:
-                sink = BytesIO(); record_reader.write_integrated_json(sink)
+                sink = BytesIO()
+                record_reader.write_integrated_json(sink)
                 result["body"] = json.loads(sink.getvalue())["product"]
         return result
     identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
@@ -702,42 +757,79 @@ def trace_pdf_occurrence(
         raise ValueError("PDF trace limit must be 1..10000")
     from .pdf_record_reader import published_record_reader
     from .product_reference import ProductReference
-    record_reader = published_record_reader(conn, ProductReference(task_id,product_key,content_digest))
+
+    record_reader = published_record_reader(
+        conn, ProductReference(task_id, product_key, content_digest)
+    )
     if record_reader is not None:
-        pending = [(task_id,product_key,content_digest,occurrence_id)]
+        pending = [(task_id, product_key, content_digest, occurrence_id)]
         visited = set()
         nodes = []
         while pending:
-            task,key,digest,occurrence = pending.pop()
-            pin = (task,key,digest,occurrence)
+            task, key, digest, occurrence = pending.pop()
+            pin = (task, key, digest, occurrence)
             if pin in visited:
                 continue
             visited.add(pin)
-            reader = published_record_reader(conn,ProductReference(task,key,digest))
+            reader = published_record_reader(conn, ProductReference(task, key, digest))
             if reader is None:
-                branch = trace_pdf_occurrence(conn,task_id=task,product_key=key,content_digest=digest,
-                                              occurrence_id=occurrence,limit=limit-len(nodes))
+                branch = trace_pdf_occurrence(
+                    conn,
+                    task_id=task,
+                    product_key=key,
+                    content_digest=digest,
+                    occurrence_id=occurrence,
+                    limit=limit - len(nodes),
+                )
                 for node in branch["nodes"]:
-                    identity = (node["task_id"],node["product_key"],node["content_digest"],node["occurrence_id"])
-                    if identity not in {(n["task_id"],n["product_key"],n["content_digest"],n["occurrence_id"]) for n in nodes}:
+                    identity = (
+                        node["task_id"],
+                        node["product_key"],
+                        node["content_digest"],
+                        node["occurrence_id"],
+                    )
+                    if identity not in {
+                        (n["task_id"], n["product_key"], n["content_digest"], n["occurrence_id"])
+                        for n in nodes
+                    }:
                         nodes.append(node)
             else:
-                row = reader._one("companion", {"family":"occurrence","local_id":occurrence})
-                identity = _pdf_product_identity(conn,task,key,digest)
-                nodes.append(dict(task_id=task,product_key=key,content_digest=digest,
-                                  occurrence_id=occurrence,body=row["body"],kind=identity["kind"],
-                                  artifact_digest=reader.revision["source_digest"]))
+                row = reader._one("companion", {"family": "occurrence", "local_id": occurrence})
+                identity = _pdf_product_identity(conn, task, key, digest)
+                nodes.append(
+                    dict(
+                        task_id=task,
+                        product_key=key,
+                        content_digest=digest,
+                        occurrence_id=occurrence,
+                        body=row["body"],
+                        kind=identity["kind"],
+                        artifact_digest=reader.revision["source_digest"],
+                    )
+                )
                 pointer = row["body"].get("pointer")
-                context = reader.source_context([pointer] if pointer is not None else [],"#/body",
-                                                row_budget=limit)
+                context = reader.source_context(
+                    [pointer] if pointer is not None else [], "#/body", row_budget=limit
+                )
                 for relation in context["relations"]:
-                    if any(e["role"]=="output" and e["occurrence_id"]==occurrence for e in relation["endpoints"]):
-                        pending.extend((e["target_task_id"],e["target_product_key"],e["target_content_digest"],e["occurrence_id"])
-                                       for e in relation["endpoints"] if e["role"]!="output")
-            if len(nodes)>limit:
+                    if any(
+                        e["role"] == "output" and e["occurrence_id"] == occurrence
+                        for e in relation["endpoints"]
+                    ):
+                        pending.extend(
+                            (
+                                e["target_task_id"],
+                                e["target_product_key"],
+                                e["target_content_digest"],
+                                e["occurrence_id"],
+                            )
+                            for e in relation["endpoints"]
+                            if e["role"] != "output"
+                        )
+            if len(nodes) > limit:
                 raise ValueError("PDF trace exceeds requested node limit")
-        pins=sorted({(n["task_id"],n["product_key"],n["content_digest"]) for n in nodes})
-        return dict(nodes=nodes,products=_pdf_descriptors(conn,pins),complete=True)
+        pins = sorted({(n["task_id"], n["product_key"], n["content_digest"]) for n in nodes})
+        return dict(nodes=nodes, products=_pdf_descriptors(conn, pins), complete=True)
     _pdf_product_identity(conn, task_id, product_key, content_digest)
     occurrences, endpoints, products = map(
         table, ("kb.pdf_occurrence", "kb.pdf_relation_endpoint", "ops.pdf_product")
@@ -828,21 +920,45 @@ def read_pdf_manifest(
         raise ValueError("PDF manifest limit must be 1..1000")
     from .pdf_record_reader import published_record_reader
     from .product_reference import ProductReference
-    record_reader = published_record_reader(conn, ProductReference(task_id, product_key, content_digest))
+
+    record_reader = published_record_reader(
+        conn, ProductReference(task_id, product_key, content_digest)
+    )
     if record_reader is not None:
         from itertools import islice
-        families = {"inputs":"input", "coverage":"coverage", "relations":"relation", "mapping_reports":"mapping_report"}
+
+        families = {
+            "inputs": "input",
+            "coverage": "coverage",
+            "relations": "relation",
+            "mapping_reports": "mapping_report",
+        }
         if collection not in families:
             raise ValueError("unknown PDF manifest collection")
         family = families[collection]
-        prior = record_reader._one("companion", {"family":family,"local_id":after}) if after else None
-        rows = list(islice(record_reader.iter_rows("companion", {"family":family},
-                           after=[family,prior["ordinal"],after] if prior is not None else None), limit+1))
-        more = len(rows)>limit
-        rows=rows[:limit]
-        return dict(identity=_pdf_product_identity(conn,task_id,product_key,content_digest),
-                    collection=collection, rows=[r["body"] for r in rows],
-                    cursor=rows[-1]["local_id"] if more else None)
+        prior = (
+            record_reader._one("companion", {"family": family, "local_id": after})
+            if after
+            else None
+        )
+        rows = list(
+            islice(
+                record_reader.iter_rows(
+                    "companion",
+                    {"family": family},
+                    after=[family, prior["ordinal"], after] if prior is not None else None,
+                ),
+                limit + 1,
+            )
+        )
+        more = len(rows) > limit
+        rows = rows[:limit]
+        return dict(
+            identity=_pdf_product_identity(conn, task_id, product_key, content_digest),
+            collection=collection,
+            rows=[r["body"] for r in rows],
+            cursor=rows[-1]["local_id"] if more else None,
+        )
     identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
     choices = {
         "inputs": ("ops.pdf_product_input", "input_index"),
@@ -887,14 +1003,17 @@ def integrated_source_context(
     """Selected source's mandatory companion, assembled from bounded occurrence pages."""
     from .pdf_record_reader import published_record_reader
     from .product_reference import ProductReference
-    record_reader = published_record_reader(conn, ProductReference(task_id, product_key, content_digest))
+
+    record_reader = published_record_reader(
+        conn, ProductReference(task_id, product_key, content_digest)
+    )
     if record_reader is not None:
         if membership not in {"direct", "descendants"}:
             raise ValueError("source membership is not qualified")
-        identity = _pdf_product_identity(conn,task_id,product_key,content_digest)
+        identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
         if identity["kind"] == "native":
             return None
-        return record_reader.source_context(pointers,section_pointer)
+        return record_reader.source_context(pointers, section_pointer)
     identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
     if identity["kind"] == "native":
         return None
