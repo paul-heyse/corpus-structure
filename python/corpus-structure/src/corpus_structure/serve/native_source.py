@@ -348,7 +348,13 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
             if not isinstance(native, dict):
                 raise ValueError("native item object unavailable")
             if request.view == "cell":
-                cells = native.get("data", {}).get("table_cells", [])
+                chart = native.get("meta", {}).get("tabular_chart")
+                is_chart = isinstance(chart, dict)
+                cells = (
+                    chart.get("chart_data", {}).get("table_cells", [])
+                    if is_chart
+                    else native.get("data", {}).get("table_cells", [])
+                )
                 if request.cell_index is None or request.cell_index >= len(cells):
                     raise ValueError("table cell index unavailable")
                 reports = table("kb.native_document_cell_report")
@@ -370,6 +376,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                         cell_index=request.cell_index,
                         cell=cells[request.cell_index],
                         recognition=None if report is None else dict(report),
+                        source_field="chart_cell_text" if is_chart else "cell_text",
                     )
                 ]
             elif request.view == "formula":
@@ -419,7 +426,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
         **pin,
         pointers=[request.pointer]
         if request.pointer is not None
-        else [str(r["pointer"]) for r in rows if isinstance(r.get("pointer"), str)],
+        else [pointer for row in rows if isinstance(pointer := row.get("pointer"), str)],
         section_pointer=request.section_pointer or "#/body",
         membership=request.membership or "direct",
     )

@@ -197,7 +197,9 @@ class ProjectedPiece:
     end: int
     kind: Literal["native_text", "synthetic_separator"]
     cell_index: int | None = None
-    source_field: str | None = None
+    source_field: Literal["text", "orig", "cell_text", "chart_title", "chart_cell_text"] | None = (
+        None
+    )
 
     def to_wire(self) -> dict[str, Any]:
         value: dict[str, Any] = dict(start=self.start, end=self.end, kind=self.kind)
@@ -240,7 +242,9 @@ def project_section(
         value: str,
         ref: str,
         cell_index: int | None = None,
-        source_field: str = "text",
+        source_field: Literal[
+            "text", "orig", "cell_text", "chart_title", "chart_cell_text"
+        ] = "text",
         separator: bool = True,
     ) -> None:
         nonlocal position
@@ -277,6 +281,12 @@ def project_section(
                     append(cell.text, node.self_ref, index, "cell_text")
             # Rich-cell formula children are represented by the cell above, not duplicated.
             return
+        chart = getattr(getattr(node, "meta", None), "tabular_chart", None)
+        if chart is not None:
+            if chart.title:
+                append(chart.title, node.self_ref, source_field="chart_title")
+            for index, cell in enumerate(chart.chart_data.table_cells):
+                append(cell.text, node.self_ref, index, "chart_cell_text")
         if hasattr(node, "text"):
             append(node.text, node.self_ref, separator=separator)
         for index, child in enumerate(node.children):

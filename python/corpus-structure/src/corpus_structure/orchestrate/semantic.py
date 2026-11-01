@@ -545,6 +545,33 @@ def run_source_methods(
 
                                 with maintained_claims(engine, claimed, holder) as check_active:
 
+                                    def retain_native_pdf(
+                                        ref,
+                                        product,
+                                        *,
+                                        claimed_tasks=tuple(claimed),
+                                        active=check_active,
+                                    ):
+                                        from corpus_structure.semantic.pdf_contracts import (
+                                            store_pdf_product,
+                                        )
+                                        from corpus_structure.semantic.product_reference import (
+                                            ProductReference,
+                                        )
+
+                                        task = _retained_claim(ref, claimed_tasks, active)
+                                        with engine.begin() as publication_conn:
+                                            digest = store_pdf_product(
+                                                publication_conn,
+                                                task_id=task.task_id,
+                                                attempt=task.attempt,
+                                                holder=holder,
+                                                product=product,
+                                            )
+                                        return ProductReference(
+                                            task.task_id, product.values()["product_key"], digest
+                                        )
+
                                     def retain_integrated_pdf(
                                         ref,
                                         product,
@@ -559,18 +586,7 @@ def run_source_methods(
                                             ProductReference,
                                         )
 
-                                        active()
-                                        matches = [
-                                            task
-                                            for task in claimed_tasks
-                                            if (task.unit_type, task.unit_id, task.unit_key)
-                                            == (str(ref.unit_type), ref.unit_id, ref.unit_key)
-                                        ]
-                                        if len(matches) != 1:
-                                            raise OperationConflict(
-                                                "integrated publication is outside the claimed unit"
-                                            )
-                                        task = matches[0]
+                                        task = _retained_claim(ref, claimed_tasks, active)
                                         with engine.begin() as publication_conn:
                                             digest = store_integrated_pdf_product(
                                                 publication_conn,
@@ -592,6 +608,7 @@ def run_source_methods(
                                             method_settings,
                                             logging.getLogger(method.name),
                                             check_active=check_active,
+                                            retain_native_pdf=retain_native_pdf,
                                             retain_integrated_pdf=retain_integrated_pdf,
                                         ),
                                     )
@@ -651,6 +668,19 @@ def run_source_methods(
         except BaseException as cleanup_error:
             exc.add_note(f"source run cleanup failed: {cleanup_error}")
         raise
+
+
+def _retained_claim(ref, claimed_tasks, active):
+    active()
+    matches = [
+        task
+        for task in claimed_tasks
+        if (task.unit_type, task.unit_id, task.unit_key)
+        == (str(ref.unit_type), ref.unit_id, ref.unit_key)
+    ]
+    if len(matches) != 1:
+        raise OperationConflict("PDF publication is outside the claimed unit")
+    return matches[0]
 
 
 def _unit(conn: Any, view: Any, ref: Any) -> UnitView:

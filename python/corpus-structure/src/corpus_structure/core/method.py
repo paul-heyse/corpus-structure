@@ -606,6 +606,10 @@ def _unleased_operation() -> None:
     """Standalone method kernels have no external task lease to maintain."""
 
 
+def _unowned_native_publication(ref: UnitRef, product: PreparedPdfProduct) -> ProductReference:
+    raise RuntimeError("native publication requires an owned task fence")
+
+
 def _unowned_integrated_publication(
     ref: UnitRef, product: PreparedIntegratedPdfProduct
 ) -> ProductReference:
@@ -623,6 +627,9 @@ class MethodContext:
     settings: MethodSettings
     logger: logging.Logger
     check_active: Callable[[], None] = _unleased_operation
+    retain_native_pdf: Callable[[UnitRef, PreparedPdfProduct], ProductReference] = (
+        _unowned_native_publication
+    )
     retain_integrated_pdf: Callable[[UnitRef, PreparedIntegratedPdfProduct], ProductReference] = (
         _unowned_integrated_publication
     )
