@@ -39,6 +39,40 @@ Decisive sources are cited in the refreshed finding bodies and the
 must inspect a decisive current manifestation before relying on any inherited diagnosis.
 Plans retain scheduled disposition; this refresh does not close plan obligations.
 
+<a id="sql-authoring-refresh"></a>
+
+## SQL-authoring followup — UM-20261101-r3
+
+**Source-inspected 2026-11-01 at `f999ffcb`, continuing the same engagement.**
+Core 3.3, heuristics 1.0 and profile 1.4 remain unchanged. New operator target: ordinary
+callers express typed domain operations; model-derived implementation layers minimize maintained
+SQL, including native bodies and model-embedded expressions. SQL text alone is not a principle
+violation; this added target changes the alternatives to investigate.
+
+Reconciled surfaces: `schema/relational.py:906–977`, `semantic/typed_generation.py:10–25`,
+`operations.py:280–320`, `companion_projection.py:116–155`,
+`model/semantic/companion-projections.yaml:18–70`, `native_objects.py:98–186`,
+`native_products.py:91–131,252–335`, `routines.py:17–123`, `inference.py:59–160`,
+`alembic_native.py:21–187`, `arrow_transfer.py:134–171`, `analytics.py:860–908` and
+`serve/companion_export.py:73–168` (paths otherwise relative to the product package).
+
+Findings: domain APIs and generated static/Arrow/DDL products are implemented strengths.
+Function invocation parameters and mapping-based result reconstruction remain separately authored;
+companion `cp:sql` remains authored despite model-derived return types. Native deployment custody
+is structured, but `NativeDefinition.sql` and PL/pgSQL templates remain SQL-authoring inputs.
+These are demonstrated authoring/typing boundaries, not newly established runtime failures.
+DA-027 remains unresolved for invariant/guard correspondence; no claim of complete new native
+body verification or a new defect merely from textual SQL is made. DA-031/032's older broad
+absence claims cannot substitute for the actual current Core/Alembic implementation.
+
+Concurrent dirty model contracts/PDF-staging, native_candidate, PDF contract/validator/native
+publication, SQL correspondence/identity, tests and evidence were inspected only where cited.
+They remain in-progress context, not accepted deployments or fresh qualification. Other prior
+findings retain r2/October scope. Current libraries were checked against declared/installed
+versions; SQLGlot is not currently integrated. No native/catalog/provider journey, product test,
+probe or benchmark was run. The revised principal review owns alternatives and proposed targets;
+existing plans continue to own accepted execution/disposition.
+
 <a id="baseline"></a>
 
 ## Baseline
