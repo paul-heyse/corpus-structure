@@ -39,8 +39,8 @@ classes:
       revision_id: {required: true}
       release_id: {required: true}
       source_digest: {required: true}
-      mapping_profile: {required: true}
-      contract_version: {required: true}
+      mapping_profile: {required: true, equals_string: pdf-native-records-v1}
+      contract_version: {required: true, equals_string: pdf-native-records-v1}
       native_schema_digest: {required: true}
       root_id: {required: true}
   PdfNativeRecord:

@@ -8,6 +8,7 @@ prefixes:
   ph: https://corpus-structure.org/physical/
 imports:
 - linkml:types
+- pdf-records
 default_range: string
 subsets:
   sem: {}
@@ -4399,3 +4400,119 @@ classes:
       ph:foreign_keys: '[{"columns":["task_id","product_key","input_index"],"target":"ops.pdf_product_input.task_id,product_key,input_index"}]'
       ph:checks: '["report_index >= 0", "input_index >= 0"]'
       ph:indexes: '[["task_id", "product_key", "input_index", "report_index"]]'
+
+  # PDF-18 private record foundations; inherited fields are owned by pdf-records.yaml.
+  pdf_record_document:
+    is_a: PdfRecordDocument
+    in_subset:
+    - ops
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+    annotations:
+      ph:immutability: immutable
+      ph:checks: '["product_id <> ''''", "revision_id <> ''''", "native_schema_digest
+        ~ ''^[0-9a-f]{64}$''", "source_digest ~ ''^[0-9a-f]{64}$''"]'
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"},
+        {"columns": ["source_digest"], "target": "kb.source_artifact.artifact_digest"}]'
+  pdf_record_native:
+    is_a: PdfNativeRecord
+    in_subset:
+    - kb
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - record_id
+      unique_0:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - native_address
+    annotations:
+      ph:immutability: immutable
+      ph:checks: '["record_id <> ''''", "native_type <> ''''", "jsonb_typeof(scalars_json)
+        = ''object''", "jsonb_typeof(structure_json) = ''object''", "octet_length(convert_to(scalars_json::text,''UTF8''))
+        <= 65536", "octet_length(convert_to(structure_json::text,''UTF8'')) <= 65536",
+        "(native_address IS NULL) <> (native_address_stream_id IS NULL)"]'
+      ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"},
+        {"columns": ["product_id", "revision_id", "native_address_stream_id"], "target":
+        "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
+  pdf_record_membership:
+    is_a: PdfRecordMembership
+    in_subset:
+    - kb
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - parent_id
+        - field_name
+        - ordinal
+    annotations:
+      ph:immutability: immutable
+      ph:checks: '["octet_length(convert_to(scalar_json::text,''UTF8'')) <= 65536",
+        "(value_kind = ''record'') = (record_id IS NOT NULL)", "(value_kind = ''parts'')
+        = (stream_id IS NOT NULL)", "value_kind = ''scalar'' OR scalar_json IS NULL",
+        "member_key IS NULL OR member_key_stream_id IS NULL"]'
+      ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"},
+        {"columns": ["product_id", "revision_id", "parent_id"], "target": "kb.pdf_record_native.product_id,revision_id,record_id"},
+        {"columns": ["product_id", "revision_id", "record_id"], "target": "kb.pdf_record_native.product_id,revision_id,record_id"},
+        {"columns": ["product_id", "revision_id", "stream_id"], "target": "ops.pdf_artifact_stream.product_id,revision_id,stream_id"},
+        {"columns": ["product_id", "revision_id", "member_key_stream_id"], "target":
+        "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
+  pdf_record_reference:
+    is_a: PdfRecordReference
+    in_subset:
+    - kb
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - reference_id
+    annotations:
+      ph:immutability: immutable
+      ph:checks: '["reference_id <> ''''", "native_pointer LIKE ''#%''", "(native_pointer
+        IS NULL) <> (native_pointer_stream_id IS NULL)"]'
+      ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"},
+        {"columns": ["product_id", "revision_id", "source_id"], "target": "kb.pdf_record_native.product_id,revision_id,record_id"},
+        {"columns": ["product_id", "revision_id", "target_id"], "target": "kb.pdf_record_native.product_id,revision_id,record_id"},
+        {"columns": ["product_id", "revision_id", "native_pointer_stream_id"], "target":
+        "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
+  pdf_artifact_stream:
+    is_a: PdfArtifactStream
+    in_subset:
+    - ops
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - stream_id
+    annotations:
+      ph:immutability: immutable
+      ph:checks: '["stream_id <> ''''", "serialization_sha256 ~ ''^[0-9a-f]{64}$''",
+        "byte_root ~ ''^[0-9a-f]{64}$''", "encoding_profile <> ''''"]'
+      ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"}]'
+  pdf_artifact_part:
+    is_a: PdfArtifactPart
+    in_subset:
+    - ops
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - product_id
+        - revision_id
+        - stream_id
+        - ordinal
+    annotations:
+      ph:immutability: immutable
+      ph:checks: '["byte_length = octet_length(body)", "byte_length > 0", "byte_length
+        <= 65536", "sha256_digest = encode(sha256(body),''hex'')"]'
+      ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "stream_id"], "target":
+        "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'

@@ -623,12 +623,16 @@ def _compile_physical(view: View) -> MetaData:
             typ: TypeEngine[Any]
             if sql_type is not None:
                 typ = physical_types[str(sql_type)]()
+            elif view.get_enum(rng) is not None:
+                typ = Text()
             elif rng == "integer":
                 typ = BigInteger()
             elif rng == "boolean":
                 typ = Boolean()
             elif rng == "string":
                 typ = Text()
+            elif declared is not None and str(declared.uri) in URI_TYPES:
+                typ = URI_TYPES[str(declared.uri)]()
             else:
                 raise ModelError([f"{name}.{slot.name}: unsupported physical range {rng}"])
             default = ci_annotations(slot).get("ph:default")
@@ -643,9 +647,41 @@ def _compile_physical(view: View) -> MetaData:
                     ),
                     nullable=not slot.required,
                     server_default=text(default) if default is not None else None,
+                    info={
+                        "minimum": slot.minimum_value,
+                        "maximum": slot.maximum_value,
+                        "pattern": slot.pattern,
+                        "enum": (str(slot.equals_string),)
+                        if slot.equals_string is not None
+                        else tuple(m.text for m in expand_enum(view, rng))
+                        if view.get_enum(rng) is not None
+                        else (),
+                    },
                 )
             )
         table = Table(str(name), md, *columns, schema=subsets[0], info={"model_class": str(name)})
+        for slot in view.class_induced_slots(name):
+            if slot.equals_string is not None:
+                sql = str(slot.name) + " = " + quote(str(slot.equals_string))
+                table.append_constraint(
+                    CheckConstraint(sql, name=check_name(table.name, str(slot.name), sql))
+                )
+            if view.get_enum(str(slot.range)) is not None:
+                sql = in_check(str(slot.name), (m.text for m in expand_enum(view, str(slot.range))))
+                table.append_constraint(
+                    CheckConstraint(sql, name=check_name(table.name, str(slot.name), sql))
+                )
+            for bound, operator in ((slot.minimum_value, ">="), (slot.maximum_value, "<=")):
+                if bound is not None:
+                    sql = f"{slot.name} {operator} {bound}"
+                    table.append_constraint(
+                        CheckConstraint(sql, name=check_name(table.name, str(slot.name), sql))
+                    )
+            if slot.pattern:
+                sql = str(slot.name) + " ~ " + quote(str(slot.pattern))
+                table.append_constraint(
+                    CheckConstraint(sql, name=check_name(table.name, str(slot.name), sql))
+                )
         for key_name, key in cls.unique_keys.items():
             constraint = PrimaryKeyConstraint if key_name == "primary_key" else UniqueConstraint
             table.append_constraint(constraint(*map(str, key.unique_key_slots)))

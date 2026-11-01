@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "14"
+EXECUTION_COMPILER_VERSION = "15"
 
 
 @lru_cache(maxsize=1)
@@ -674,6 +674,7 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
         "10",
         "11",
         "12",
+        "14",
     }:
         # Retained immutable reader ABI, without allowing historical writes/activation.
         if name not in {
@@ -748,6 +749,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "11",
         "12",
         "13",
+        "14",
         EXECUTION_COMPILER_VERSION,
     }:
         _fail(
@@ -765,6 +767,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "11",
         "12",
         "13",
+        "14",
         EXECUTION_COMPILER_VERSION,
     }:
         effect_versions["schedule_pending_or_reused_or_skipped"] = "1"
@@ -861,6 +864,20 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact(
             "pdf/docling-validation.schema.json",
             root.joinpath("model", "semantic", "docling-validation.schema.json").read_bytes(),
+        ),
+        SourceArtifact(
+            "pdf/record-model.yaml",
+            root.joinpath("model", "semantic", "pdf-records.yaml").read_bytes(),
+        ),
+        *(
+            SourceArtifact(name, root.joinpath(*path.split("/")).read_bytes())
+            for name, path in (
+                ("pdf/record-physical.yaml", "model/semantic/physical.yaml"),
+                ("pdf/record-relational.py", "schema/relational.py"),
+                ("pdf/record-boundaries.py", "semantic/pdf_record_model.py"),
+                ("pdf/records.py", "semantic/pdf_records.py"),
+                ("pdf/record-identity.py", "semantic/pdf_record_identity.py"),
+            )
         ),
         SourceArtifact(
             "pdf/contracts.py", root.joinpath("semantic", "pdf_contracts.py").read_bytes()
@@ -1380,6 +1397,12 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "transformer/transform.py",
         "transformer/native_context.py",
         "libraries.json",
+        "pdf/record-model.yaml",
+        "pdf/record-physical.yaml",
+        "pdf/record-relational.py",
+        "pdf/record-boundaries.py",
+        "pdf/records.py",
+        "pdf/record-identity.py",
     }
     if any(profile.get("version") == "6" for profile in data["analysis_profiles"]):
         required_implementations.update(

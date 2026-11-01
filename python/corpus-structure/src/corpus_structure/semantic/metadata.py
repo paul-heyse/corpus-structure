@@ -7,18 +7,47 @@ this MetaData and never creates a table. Migration, publication and queries shar
 from __future__ import annotations
 
 import re
+import struct
 from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType
 
+import yaml
 from linkml_runtime.utils.schemaview import SchemaView
 from sqlalchemy import MetaData, Table
 
 from corpus_structure.schema.relational import compile_metadata
 
 PHYSICAL_MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "physical.yaml"
-PHYSICAL_MODEL_ID = "physical:" + sha256(PHYSICAL_MODEL.read_bytes()).hexdigest()
+
+
+def physical_model_id(root: Path) -> str:
+    """Identify the named trusted local import closure with unambiguous framing."""
+    sources = {}
+
+    def visit(path: Path):
+        name = path.relative_to(root.parent).as_posix()
+        if name in sources:
+            return
+        content = path.read_bytes()
+        sources[name] = content
+        for imported in yaml.safe_load(content).get("imports", ()):
+            if ":" not in imported:  # package-owned linkml:types is toolchain input
+                visit(path.parent / (imported + ".yaml"))
+
+    visit(root)
+    digest = sha256(b"corpus-physical-sources-1\0")
+    for name, content in sorted(sources.items()):
+        encoded = name.encode()
+        digest.update(struct.pack(">Q", len(encoded)))
+        digest.update(encoded)
+        digest.update(struct.pack(">Q", len(content)))
+        digest.update(content)
+    return "physical:" + digest.hexdigest()
+
+
+PHYSICAL_MODEL_ID = physical_model_id(PHYSICAL_MODEL)
 metadata = compile_metadata(SchemaView(str(PHYSICAL_MODEL)), target="semantic")
 metadata.info["physical_model_id"] = PHYSICAL_MODEL_ID
 tables = MappingProxyType(dict(metadata.tables))

@@ -26,7 +26,18 @@ from referencing.jsonschema import DRAFT202012
 
 from .pdf_record_identity import ScalarDescriptor, canonical_scalar, scalar_payload
 
-CONTRACT_VERSION = "pdf-native-records-v1"
+
+@lru_cache(maxsize=1)
+def _record_model() -> Mapping[str, Any]:
+    import yaml
+
+    source = files("corpus_structure").joinpath("model", "semantic", "pdf-records.yaml")
+    return yaml.safe_load(source.read_bytes())
+
+
+_HEADER_FIELDS = _record_model()["classes"]["PdfRecordDocument"]["attributes"]
+CONTRACT_VERSION = str(_HEADER_FIELDS["contract_version"]["equals_string"])
+MAPPING_PROFILE = str(_HEADER_FIELDS["mapping_profile"]["equals_string"])
 MAX_RECORD_BYTES = 65_536
 # JSONB renders whitespace and escapes; leave room for its physical projection.
 INLINE_SCALAR_BYTES = 512
@@ -114,11 +125,7 @@ class NativeSchemaMapping:
 @lru_cache(maxsize=1)
 def native_validation_contract() -> Mapping[str, Any]:
     """Read the semantic owner's placement and opaque-extension interpretation contract."""
-    import yaml
-
-    source = files("corpus_structure").joinpath("model", "semantic", "pdf-records.yaml")
-    model = yaml.safe_load(source.read_bytes())
-    return json.loads(model["annotations"]["pdr:native_validation_contract"])
+    return json.loads(_record_model()["annotations"]["pdr:native_validation_contract"])
 
 
 @lru_cache(maxsize=1)
@@ -513,7 +520,7 @@ def iter_native_records(
                 **common,
                 "release_id": release_id,
                 "source_digest": source_digest,
-                "mapping_profile": CONTRACT_VERSION,
+                "mapping_profile": MAPPING_PROFILE,
                 "contract_version": CONTRACT_VERSION,
                 "native_schema_digest": mapping.digest,
                 "root_id": root,
