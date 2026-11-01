@@ -674,3 +674,31 @@
     judgment_carry_over: null
     compiled_artifacts: []
     source_profiles: []
+- label: 0.6.3
+  content_hash: 7ea9c4171581faef5eaa39c71dff048917bc69244d77cc4a725bd3b06e99da2d
+  key_scheme: 1
+  compilers:
+    corpus_structure.schema.generate: '1'
+    corpus_structure.schema.interchange: '1'
+    corpus_structure.schema.relational: '3'
+    linkml-runtime: 1.12.1
+  parent: df024758c4f4ff0f3c1969f151f967ddf711e75f1e0e9d8efc8ab0272b1cd52d
+  change_record:
+    from_revision: df024758c4f4ff0f3c1969f151f967ddf711e75f1e0e9d8efc8ab0272b1cd52d
+    to_revision: 7ea9c4171581faef5eaa39c71dff048917bc69244d77cc4a725bd3b06e99da2d
+    changes:
+    - element: core
+      change: changed
+      aspect: version
+      compatibility_class: descriptive
+      reason: 'Record relational compiler 3: induced physical constraints and model-owned private read
+        roles for PDF-18; semantic classes and key scheme are unchanged.'
+      authorized_by: Operator-approved PDF-17–19 execution, 2026-11-01; ADR-0042
+      decision: null
+      upcaster: null
+    name_map: {}
+    alembic_revision: '0063'
+    key_consequences: null
+    judgment_carry_over: null
+    compiled_artifacts: []
+    source_profiles: []

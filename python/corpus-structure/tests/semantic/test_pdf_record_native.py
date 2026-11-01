@@ -395,6 +395,9 @@ def test_function_identity_uses_only_input_bearing_arguments(declaration, expect
     statement = parse_sql(
         f"CREATE FUNCTION sample({declaration}) RETURNS {result} LANGUAGE sql AS $$SELECT 1$$"
     )[0].stmt
+    from pglast import ast
+
+    assert isinstance(statement, ast.CreateFunctionStmt)
     assert function_signature(statement) == expected
 
 
@@ -498,6 +501,10 @@ def test_graph_cell_identifiers_survive_native_relational_lowering(semantic_db_e
 
     tables = record_tables()
     binding = header_binding(semantic_db_engine)
+
+    def refuse_external_scalar(stream_id: str, encoding_profile: str, chunks: object):
+        raise AssertionError("unexpected external scalar")
+
     rows = list(
         iter_native_records(
             {"label": "to_value", "source_cell_id": 10, "target_cell_id": 20},
@@ -507,7 +514,7 @@ def test_graph_cell_identifiers_survive_native_relational_lowering(semantic_db_e
             release_id=binding["release_id"],
             source_digest=binding["source_digest"],
             record_id_for=lambda address, kind: sha256((address + kind).encode()).hexdigest(),
-            write_scalar=lambda *args: None,
+            write_scalar=refuse_external_scalar,
         )
     )
     with semantic_db_engine.begin() as conn:

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/df024758c4f4/citation_frame.json",
+  "$id": "https://corpus-structure.dev/schemas/7ea9c4171581/citation_frame.json",
   "$defs": {
     "FrameEntry": {
       "additionalProperties": false,

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/df024758c4f4/intervention_target.json",
+  "$id": "https://corpus-structure.dev/schemas/7ea9c4171581/intervention_target.json",
   "$defs": {
     "InterventionTargetKind": {
       "description": "What an intervention acts on (InterventionTarget.kind, D3 §6.3). Lifecycle: static.",
