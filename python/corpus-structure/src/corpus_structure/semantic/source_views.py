@@ -127,10 +127,13 @@ def load_source_view(
     projection = row["projection"]
     pointers = tuple(dict.fromkeys([*projection["items"], *projection["ancestors"]]))
     # One set-shaped query transfers only selected native values, never the book JSON.
+    from .pdf_record_reader import published_native_table
+
+    items_relation = published_native_table(conn)
     values = conn.execute(
         text(
             "SELECT refs.pointer,i.native_json AS item\n        FROM "
-            "kb.native_document_item i JOIN unnest(CAST(:pointers AS text[])) WITH "
+            + items_relation.fullname + " i JOIN unnest(CAST(:pointers AS text[])) WITH "
             "ORDINALITY refs(pointer,position) ON refs.pointer=i.pointer\n        "
             "WHERE i.task_id=:task AND i.product_key=:key ORDER BY refs.position"
         ),
