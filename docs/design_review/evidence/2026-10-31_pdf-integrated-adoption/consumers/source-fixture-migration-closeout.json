@@ -1,0 +1,416 @@
+{
+  "version": 1,
+  "recorded_at": "2026-11-01T03:40:11.628491+00:00",
+  "fixture_commits": [
+    "25b18faba781a460971e6af6d7c86658e7743702",
+    "288f8b6016f17bef1cddb3bcbdbf740b3fa5b1ca"
+  ],
+  "scope": "Meaningful current agent/domain/evidence/scientific/reference/serving/cancellation controls migrated to real authored PDF inputs and pinned native SourceViews. No provider inference or full qualification claim.",
+  "preserved": [
+    "independent authored claims and exact decimals",
+    "scientific and alternative-group expectations",
+    "evidence roles and custody attacks",
+    "reference snapshots and cancellation semantics",
+    "frozen trace inputs and independently authored outside-cut expectations"
+  ],
+  "retired_obligation": "HTML/MathJax acquisition of source macros is retired; native cut tests retain configured fallback/constants. Actual supplied-macro precedence remains tested by the generic TeX primitive in the required union.",
+  "frozen_sampling_policy": "fixtures/trace/archived-slices.yaml copies only trace/core12 declarations with historical source provenance; active configuration remains PDF-only.",
+  "required_union": {
+    "command": [
+      "uv",
+      "run",
+      "pytest",
+      "python/corpus-structure/tests/semantic/test_agent_resubmission.py",
+      "python/corpus-structure/tests/semantic/test_domain_operations.py",
+      "python/corpus-structure/tests/semantic/test_metric_contracts.py",
+      "python/corpus-structure/tests/semantic/test_evaluation_boundaries.py",
+      "python/corpus-structure/tests/semantic/test_reference_evaluation.py",
+      "python/corpus-structure/tests/semantic/test_statement_anchors.py",
+      "python/corpus-structure/tests/semantic/test_occurrence_context.py",
+      "python/corpus-structure/tests/semantic/test_source_frame_admission.py",
+      "python/corpus-structure/tests/semantic/test_read_contracts.py",
+      "python/corpus-structure/tests/semantic/test_identity_exclusions.py",
+      "python/corpus-structure/tests/semantic/test_identity_exclusions_native.py",
+      "python/corpus-structure/tests/semantic/test_identity_exclusion_reads.py",
+      "python/corpus-structure/tests/semantic/test_serving.py",
+      "python/corpus-structure/tests/semantic/test_runtime_entrypoints.py",
+      "python/corpus-structure/tests/semantic/test_semantic_mcp.py",
+      "python/corpus-structure/tests/semantic/test_known_reference_mcp.py",
+      "python/corpus-structure/tests/semantic/test_composed_journey.py",
+      "python/corpus-structure/tests/semantic/test_statistics_cut.py",
+      "python/corpus-structure/tests/semantic/test_trace_reference_fixture.py",
+      "python/corpus-structure/tests/semantic/test_source_routing.py",
+      "python/corpus-structure/tests/semantic/test_operations.py",
+      "python/corpus-structure/tests/semantic/test_cli_failures.py",
+      "python/corpus-structure/tests/semantic/test_schema_product_cli.py",
+      "python/corpus-structure/tests/semantic/test_pdf_native_consumer_journey.py",
+      "python/corpus-structure/tests/acceptance/test_regeneration.py",
+      "python/corpus-structure/tests/core/test_tex.py::test_page_macros_over_the_fallback",
+      "-q",
+      "--junitxml=build/pdf-source-fixture-affected-union.xml"
+    ],
+    "outcome": "passed",
+    "exit_code": 0,
+    "tests": 194,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "receipt": "pdf-source-fixture-affected-union.xml",
+    "scope_note": "One final required union; overlapping developmental runs are not added to its count."
+  },
+  "diagnostics": [
+    {
+      "command": [
+        "uv",
+        "run",
+        "pyrefly",
+        "check",
+        "python/corpus-structure/tests/pdf_acceptance_support.py",
+        "python/corpus-structure/tests/semantic/test_agent_resubmission.py",
+        "python/corpus-structure/tests/semantic/test_domain_operations.py",
+        "python/corpus-structure/tests/semantic/test_evaluation_boundaries.py",
+        "python/corpus-structure/tests/semantic/test_identity_exclusions.py",
+        "python/corpus-structure/tests/semantic/test_identity_exclusions_native.py",
+        "python/corpus-structure/tests/semantic/test_known_reference_mcp.py",
+        "python/corpus-structure/tests/semantic/test_metric_contracts.py",
+        "python/corpus-structure/tests/semantic/test_occurrence_context.py",
+        "python/corpus-structure/tests/semantic/test_operations.py",
+        "python/corpus-structure/tests/semantic/test_read_contracts.py",
+        "python/corpus-structure/tests/semantic/test_reference_evaluation.py",
+        "python/corpus-structure/tests/semantic/test_semantic_mcp.py",
+        "python/corpus-structure/tests/semantic/test_serving.py",
+        "python/corpus-structure/tests/semantic/test_source_frame_admission.py",
+        "python/corpus-structure/tests/semantic/test_statement_anchors.py",
+        "python/corpus-structure/tests/semantic/test_statistics_cut.py",
+        "python/corpus-structure/tests/semantic/test_trace_reference_fixture.py"
+      ],
+      "exit_code": 0,
+      "receipt": "build/pdf-source-fixture-affected-types.log"
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "ruff",
+        "check",
+        "python/corpus-structure/tests/pdf_acceptance_support.py",
+        "python/corpus-structure/tests/semantic/test_agent_resubmission.py",
+        "python/corpus-structure/tests/semantic/test_domain_operations.py",
+        "python/corpus-structure/tests/semantic/test_evaluation_boundaries.py",
+        "python/corpus-structure/tests/semantic/test_identity_exclusions.py",
+        "python/corpus-structure/tests/semantic/test_identity_exclusions_native.py",
+        "python/corpus-structure/tests/semantic/test_known_reference_mcp.py",
+        "python/corpus-structure/tests/semantic/test_metric_contracts.py",
+        "python/corpus-structure/tests/semantic/test_occurrence_context.py",
+        "python/corpus-structure/tests/semantic/test_operations.py",
+        "python/corpus-structure/tests/semantic/test_read_contracts.py",
+        "python/corpus-structure/tests/semantic/test_reference_evaluation.py",
+        "python/corpus-structure/tests/semantic/test_semantic_mcp.py",
+        "python/corpus-structure/tests/semantic/test_serving.py",
+        "python/corpus-structure/tests/semantic/test_source_frame_admission.py",
+        "python/corpus-structure/tests/semantic/test_statement_anchors.py",
+        "python/corpus-structure/tests/semantic/test_statistics_cut.py",
+        "python/corpus-structure/tests/semantic/test_trace_reference_fixture.py"
+      ],
+      "exit_code": 0,
+      "receipt": "build/pdf-source-fixture-affected-lint.log"
+    }
+  ],
+  "developmental_suites": [
+    {
+      "receipt": "pdf-native-source-macro-primitive.xml",
+      "outcome": "passed",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-find-excerpt-diagnostic.xml",
+      "outcome": "failed",
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-fixture-affected-union.xml",
+      "outcome": "passed",
+      "tests": 194,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-fixture-downstream-initial.xml",
+      "outcome": "failed",
+      "tests": 72,
+      "failures": 7,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-fixture-inline-closed.xml",
+      "outcome": "failed",
+      "tests": 30,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-fixture-inline-initial.xml",
+      "outcome": "failed",
+      "tests": 30,
+      "failures": 4,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-fixture-inline-qualified.xml",
+      "outcome": "passed",
+      "tests": 30,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-fixture-migration-basic.xml",
+      "outcome": "failed",
+      "tests": 8,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-fixture-migration-final.xml",
+      "outcome": "failed",
+      "tests": 120,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-fixture-migration-initial.xml",
+      "outcome": "failed",
+      "tests": 5,
+      "failures": 5,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-fixture-migration-union-initial.xml",
+      "outcome": "failed",
+      "tests": 46,
+      "failures": 8,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-fixture-new-callers-fixed.xml",
+      "outcome": "failed",
+      "tests": 7,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-fixture-other-callers.xml",
+      "outcome": "failed",
+      "tests": 24,
+      "failures": 8,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "pdf-source-frame-native-helper-closed.xml",
+      "outcome": "passed",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "archive": {
+    "path": "source-fixture-migration-control-receipts.tar.gz",
+    "bytes": 83531,
+    "sha256": "1e5ff82ab16904077d0443ed794406f3d87cf843c6845e27e62c7e0a619c1648",
+    "members": [
+      {
+        "path": "pdf-native-source-macro-primitive.xml",
+        "bytes": 386,
+        "sha256": "d044e09c0f8f92cb47ad271d90c01d627f03455483b25a9e0b64cd306ba45ab1"
+      },
+      {
+        "path": "pdf-source-find-excerpt-diagnostic.log",
+        "bytes": 10441,
+        "sha256": "2d533ec80733d69dc77e77193c69fcf00a2fe8ab16e164c71acc2f42859a246c"
+      },
+      {
+        "path": "pdf-source-find-excerpt-diagnostic.xml",
+        "bytes": 6909,
+        "sha256": "40c4ab2ca814ad081cb0408ff8618372af4a9a6f1086caab9d04b7514e6040bf"
+      },
+      {
+        "path": "pdf-source-fixture-affected-diagnostics.json",
+        "bytes": 2993,
+        "sha256": "40b955a86114506adfd7557b2950ee90c2c79f7740b7fec01ffc4e1cb3c185b1"
+      },
+      {
+        "path": "pdf-source-fixture-affected-lint.log",
+        "bytes": 19,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      {
+        "path": "pdf-source-fixture-affected-types.log",
+        "bytes": 15,
+        "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+      },
+      {
+        "path": "pdf-source-fixture-affected-union.log",
+        "bytes": 1466,
+        "sha256": "b1482a58e269a7334c8d3a4bfa1bf7305d026fb955765525b26af3d22f515a13"
+      },
+      {
+        "path": "pdf-source-fixture-affected-union.xml",
+        "bytes": 33736,
+        "sha256": "3b35f20b01805ffda311bff12da86791ebcc31c6ee512d7108004c4a2c3ee6fe"
+      },
+      {
+        "path": "pdf-source-fixture-downstream-initial.log",
+        "bytes": 48374,
+        "sha256": "3e4909a4293948d4da6eb4e526c186a809bd5e93b0b3dbb68ac4b894a054125b"
+      },
+      {
+        "path": "pdf-source-fixture-downstream-initial.xml",
+        "bytes": 60218,
+        "sha256": "dbfe5bd1c58a340b2648ae1cc4d10f61de473405010678c745aaafec639e8750"
+      },
+      {
+        "path": "pdf-source-fixture-inline-closed.log",
+        "bytes": 13504,
+        "sha256": "efac24a41513cd21d7278d8a2473f9187f512a4c9fc22548b91a57d2e7ce580a"
+      },
+      {
+        "path": "pdf-source-fixture-inline-closed.xml",
+        "bytes": 13974,
+        "sha256": "02387c5f632db36ec9b8009287807a83de226265d1070b3a9becc88ca8f3bb7c"
+      },
+      {
+        "path": "pdf-source-fixture-inline-initial.log",
+        "bytes": 41002,
+        "sha256": "b1309201ab0f85ee8bd754eb5d7155c1daac99f9fca33a263ea233d299bc7c41"
+      },
+      {
+        "path": "pdf-source-fixture-inline-initial.xml",
+        "bytes": 40729,
+        "sha256": "e4fa88ca3a8e792ced5efe2fa197efea5000dc534a1aa19df3c70fc29009d95e"
+      },
+      {
+        "path": "pdf-source-fixture-inline-lint-closed.log",
+        "bytes": 19,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      {
+        "path": "pdf-source-fixture-inline-qualified.log",
+        "bytes": 1422,
+        "sha256": "1cb28dab45822b5eaff1aa0b31f6f68485520ad9d3929ff4aa55422c41c909a3"
+      },
+      {
+        "path": "pdf-source-fixture-inline-qualified.xml",
+        "bytes": 5064,
+        "sha256": "0a68b2da7a10204f5e1e194bee0d48f63fef2b6b25ee8e78c6a279752c773b22"
+      },
+      {
+        "path": "pdf-source-fixture-inline-types-closed.log",
+        "bytes": 15,
+        "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+      },
+      {
+        "path": "pdf-source-fixture-migration-basic.xml",
+        "bytes": 8933,
+        "sha256": "f18216e496bee1a6c368c0d6189ab7e574cbfdae0867e63a746f555fc134b0fe"
+      },
+      {
+        "path": "pdf-source-fixture-migration-final.log",
+        "bytes": 6600,
+        "sha256": "bf0c8f2b8e64a829b5a527953861325a569145824ebae34d62b661bc663a0bf7"
+      },
+      {
+        "path": "pdf-source-fixture-migration-final.xml",
+        "bytes": 26169,
+        "sha256": "f544c81bd11c2cfc594ca18522381db4e605c096390e0c91815811275b638270"
+      },
+      {
+        "path": "pdf-source-fixture-migration-initial.xml",
+        "bytes": 15558,
+        "sha256": "b3d68a19a635c6265cf87e7dd02e820e8f7561a14696796b8a3edd205ab2b292"
+      },
+      {
+        "path": "pdf-source-fixture-migration-lint-closed.log",
+        "bytes": 19,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      {
+        "path": "pdf-source-fixture-migration-lint-completed.log",
+        "bytes": 19,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      {
+        "path": "pdf-source-fixture-migration-lint-final.log",
+        "bytes": 453,
+        "sha256": "8b9b61d53f5e2e44f08c1cb565699dc29c24758f1201a67bbccfaa76b2ccd860"
+      },
+      {
+        "path": "pdf-source-fixture-migration-types-closed.log",
+        "bytes": 15,
+        "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+      },
+      {
+        "path": "pdf-source-fixture-migration-types-final.log",
+        "bytes": 15,
+        "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+      },
+      {
+        "path": "pdf-source-fixture-migration-union-initial.log",
+        "bytes": 59842,
+        "sha256": "741bc992a65f8a9e60fd01847e8e9b951f60afcba1cd9356aa8778f5807ee443"
+      },
+      {
+        "path": "pdf-source-fixture-migration-union-initial.xml",
+        "bytes": 66658,
+        "sha256": "c9a899b3da8b80cf1fce69b488df9edade361a62672acd326f4efec6371ccd73"
+      },
+      {
+        "path": "pdf-source-fixture-new-callers-fixed.log",
+        "bytes": 4782,
+        "sha256": "b6530394cde5f2edf114fe319e8e884d22fe7e651948fdc481427bb4187057f7"
+      },
+      {
+        "path": "pdf-source-fixture-new-callers-fixed.xml",
+        "bytes": 4420,
+        "sha256": "48c09f57c49eb1dcd44dfbefd1a8f1228d5fd5b03b63230ae5fd6cc8b3512833"
+      },
+      {
+        "path": "pdf-source-fixture-other-callers.log",
+        "bytes": 51160,
+        "sha256": "1f21f6dc0d0484d30b2c32a188e78c6e86c457c9d5cc58274a4e78e08cacc76a"
+      },
+      {
+        "path": "pdf-source-fixture-other-callers.xml",
+        "bytes": 52283,
+        "sha256": "8a0c59e41f22f9c1164ad1ec18bdeec3902654944ce6e439cbaa3afa0ae071bf"
+      },
+      {
+        "path": "pdf-source-frame-native-helper-closed.log",
+        "bytes": 1596,
+        "sha256": "2e3d5634d133e28ab42397ec9781e32b94b58409459bc5861364a75eb2b8fff4"
+      },
+      {
+        "path": "pdf-source-frame-native-helper-closed.xml",
+        "bytes": 515,
+        "sha256": "f1994595ba3cf94ce408558be4934c2c08e212d8a4637eda0a0b10b310d09bd8"
+      }
+    ],
+    "member_hashes_verified": true
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "after-batch.json": {
+    "bytes": 182,
+    "sha256": "06f2fcca1e5a2609c4862ea984591e4e82e058654701bea84520129930ec1b33"
+  },
+  "catalog-after.json": {
+    "bytes": 5264,
+    "sha256": "040e61444e12db01085963fd49bed7ed447ba40a292d179bdbb9823f4e9e335f"
+  },
+  "deletion-plan.json": {
+    "bytes": 37404,
+    "sha256": "646ec0af65bb93a50cd28b678bcebd7e02b07c2c4e5c49577795f11e0a3dc017"
+  },
+  "deletion-results.json": {
+    "bytes": 4940,
+    "sha256": "1e8d7282ac17d0fba08d3b52383ef9eda75911a336fd8213e1cc199b15eeddb6"
+  },
+  "generated-site-deletion.json": {
+    "bytes": 517,
+    "sha256": "127fe278b0e7b5b9d4862f6f176fe9b4a9f7ba2286adf923ef2c0acbf43f54db"
+  },
+  "inventory-before.json": {
+    "bytes": 10350,
+    "sha256": "544edac1071bb8dac421d5344922751227e5f91a9dc138cfc6a4e73645623347"
+  },
+  "verification.json": {
+    "bytes": 4706,
+    "sha256": "e12527b388dae939d8406b16526e0e8a159079c4e6d20b7f15e7dc3753086780"
+  }
+}

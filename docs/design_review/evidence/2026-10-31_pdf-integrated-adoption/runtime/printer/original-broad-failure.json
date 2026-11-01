@@ -1,0 +1,247 @@
+{
+  "original_receipt": "/home/paul/corpus-structure/build/test-receipts/qualification/20261101T021249Z-3571681/reportlog.jsonl",
+  "record": {
+    "location": [
+      "python/corpus-structure/tests/math/test_property.py",
+      95,
+      "test_generated_layer"
+    ],
+    "keywords": {
+      "test_generated_layer": 1,
+      "test_property.py": 1,
+      "filterwarnings": 1,
+      "math": 1,
+      "tests": 1,
+      "corpus-structure": 1,
+      "python": 1,
+      "": 1
+    },
+    "outcome": "failed",
+    "longrepr": {
+      "reprcrash": {
+        "path": "/home/paul/corpus-structure/python/corpus-structure/tests/math/test_property.py",
+        "lineno": 109,
+        "message": "AssertionError: ('(\\\\#,\\\\#)\\\\text{\\\\}', '(\\\\#,\\\\#)\\\\text{\\\\} ', '(\\\\#,\\\\#)\\\\text{\\\\}')\nassert False\nFailing test case: check(\n    latex='(\\\\#,\\\\#)\\\\text{\\\\}',\n)\n\nYou can reproduce this test case by temporarily adding @reproduce_failure('6.170.12', b'AXicc2RwZHQEYgZHJkcGIAASUBYYgCQZGBpjICIAYCsD8Q==') as a decorator on your test function"
+      },
+      "reprtraceback": {
+        "reprentries": [
+          {
+            "type": "ReprEntry",
+            "data": {
+              "lines": [
+                "    def test_generated_layer(env: Any) -> None:",
+                "        strategy, macros = _strategy(env)",
+                "        counts = {\"generated\": 0, \"read\": 0}",
+                "    ",
+                "        @settings(suppress_health_check=list(HealthCheck), deadline=None)",
+                "        @given(strategy)",
+                "        def check(latex: str) -> None:",
+                "            counts[\"generated\"] += 1",
+                "            result = G.parse(latex, \"any_value\", macros)",
+                "            if result.tree is None:",
+                "                return",
+                "            counts[\"read\"] += 1",
+                "            ok, printed, token = agrees(result, latex)",
+                "            assert ok, (latex, printed, token)",
+                "    ",
+                ">       check()"
+              ],
+              "reprfuncargs": {
+                "args": [
+                  [
+                    "env",
+                    "MathEnv(macros={'\\\\R': MacroDef(nargs=0, default=None, body='\\\\mathbb{R}'), '\\\\N': MacroDef(nargs=0, default=None, bod...e/tests/math/data'), index=PosixPath('/home/paul/corpus-structure/docs/statistics_corpus/index/siegrist_sections.tsv'))"
+                  ]
+                ]
+              },
+              "reprlocals": null,
+              "reprfileloc": {
+                "path": "python/corpus-structure/tests/math/test_property.py",
+                "lineno": 111,
+                "message": ""
+              },
+              "style": "long"
+            }
+          },
+          {
+            "type": "ReprEntry",
+            "data": {
+              "lines": [
+                "    @given(strategy)",
+                "               ^^^"
+              ],
+              "reprfuncargs": null,
+              "reprlocals": null,
+              "reprfileloc": {
+                "path": "python/corpus-structure/tests/math/test_property.py",
+                "lineno": 101,
+                "message": "in check"
+              },
+              "style": "short"
+            }
+          },
+          {
+            "type": "ReprEntry",
+            "data": {
+              "lines": [
+                "    @settings(suppress_health_check=list(HealthCheck), deadline=None)",
+                "    @given(strategy)",
+                "    def check(latex: str) -> None:",
+                "        counts[\"generated\"] += 1",
+                "        result = G.parse(latex, \"any_value\", macros)",
+                "        if result.tree is None:",
+                "            return",
+                "        counts[\"read\"] += 1",
+                "        ok, printed, token = agrees(result, latex)",
+                ">       assert ok, (latex, printed, token)",
+                "E       AssertionError: ('(\\\\#,\\\\#)\\\\text{\\\\}', '(\\\\#,\\\\#)\\\\text{\\\\} ', '(\\\\#,\\\\#)\\\\text{\\\\}')",
+                "E       assert False",
+                "E       Failing test case: check(",
+                "E           latex='(\\\\#,\\\\#)\\\\text{\\\\}',",
+                "E       )",
+                "E       ",
+                "E       You can reproduce this test case by temporarily adding @reproduce_failure('6.170.12', b'AXicc2RwZHQEYgZHJkcGIAASUBYYgCQZGBpjICIAYCsD8Q==') as a decorator on your test function"
+              ],
+              "reprfuncargs": {
+                "args": [
+                  [
+                    "latex",
+                    "'(\\\\#,\\\\#)\\\\text{\\\\}'"
+                  ]
+                ]
+              },
+              "reprlocals": null,
+              "reprfileloc": {
+                "path": "python/corpus-structure/tests/math/test_property.py",
+                "lineno": 109,
+                "message": "AssertionError"
+              },
+              "style": "long"
+            }
+          }
+        ],
+        "extraline": null,
+        "style": "long"
+      },
+      "sections": [],
+      "chain": [
+        [
+          {
+            "reprentries": [
+              {
+                "type": "ReprEntry",
+                "data": {
+                  "lines": [
+                    "    def test_generated_layer(env: Any) -> None:",
+                    "        strategy, macros = _strategy(env)",
+                    "        counts = {\"generated\": 0, \"read\": 0}",
+                    "    ",
+                    "        @settings(suppress_health_check=list(HealthCheck), deadline=None)",
+                    "        @given(strategy)",
+                    "        def check(latex: str) -> None:",
+                    "            counts[\"generated\"] += 1",
+                    "            result = G.parse(latex, \"any_value\", macros)",
+                    "            if result.tree is None:",
+                    "                return",
+                    "            counts[\"read\"] += 1",
+                    "            ok, printed, token = agrees(result, latex)",
+                    "            assert ok, (latex, printed, token)",
+                    "    ",
+                    ">       check()"
+                  ],
+                  "reprfuncargs": {
+                    "args": [
+                      [
+                        "env",
+                        "MathEnv(macros={'\\\\R': MacroDef(nargs=0, default=None, body='\\\\mathbb{R}'), '\\\\N': MacroDef(nargs=0, default=None, bod...e/tests/math/data'), index=PosixPath('/home/paul/corpus-structure/docs/statistics_corpus/index/siegrist_sections.tsv'))"
+                      ]
+                    ]
+                  },
+                  "reprlocals": null,
+                  "reprfileloc": {
+                    "path": "python/corpus-structure/tests/math/test_property.py",
+                    "lineno": 111,
+                    "message": ""
+                  },
+                  "style": "long"
+                }
+              },
+              {
+                "type": "ReprEntry",
+                "data": {
+                  "lines": [
+                    "    @given(strategy)",
+                    "               ^^^"
+                  ],
+                  "reprfuncargs": null,
+                  "reprlocals": null,
+                  "reprfileloc": {
+                    "path": "python/corpus-structure/tests/math/test_property.py",
+                    "lineno": 101,
+                    "message": "in check"
+                  },
+                  "style": "short"
+                }
+              },
+              {
+                "type": "ReprEntry",
+                "data": {
+                  "lines": [
+                    "    @settings(suppress_health_check=list(HealthCheck), deadline=None)",
+                    "    @given(strategy)",
+                    "    def check(latex: str) -> None:",
+                    "        counts[\"generated\"] += 1",
+                    "        result = G.parse(latex, \"any_value\", macros)",
+                    "        if result.tree is None:",
+                    "            return",
+                    "        counts[\"read\"] += 1",
+                    "        ok, printed, token = agrees(result, latex)",
+                    ">       assert ok, (latex, printed, token)",
+                    "E       AssertionError: ('(\\\\#,\\\\#)\\\\text{\\\\}', '(\\\\#,\\\\#)\\\\text{\\\\} ', '(\\\\#,\\\\#)\\\\text{\\\\}')",
+                    "E       assert False",
+                    "E       Failing test case: check(",
+                    "E           latex='(\\\\#,\\\\#)\\\\text{\\\\}',",
+                    "E       )",
+                    "E       ",
+                    "E       You can reproduce this test case by temporarily adding @reproduce_failure('6.170.12', b'AXicc2RwZHQEYgZHJkcGIAASUBYYgCQZGBpjICIAYCsD8Q==') as a decorator on your test function"
+                  ],
+                  "reprfuncargs": {
+                    "args": [
+                      [
+                        "latex",
+                        "'(\\\\#,\\\\#)\\\\text{\\\\}'"
+                      ]
+                    ]
+                  },
+                  "reprlocals": null,
+                  "reprfileloc": {
+                    "path": "python/corpus-structure/tests/math/test_property.py",
+                    "lineno": 109,
+                    "message": "AssertionError"
+                  },
+                  "style": "long"
+                }
+              }
+            ],
+            "extraline": null,
+            "style": "long"
+          },
+          {
+            "path": "/home/paul/corpus-structure/python/corpus-structure/tests/math/test_property.py",
+            "lineno": 109,
+            "message": "AssertionError: ('(\\\\#,\\\\#)\\\\text{\\\\}', '(\\\\#,\\\\#)\\\\text{\\\\} ', '(\\\\#,\\\\#)\\\\text{\\\\}')\nassert False\nFailing test case: check(\n    latex='(\\\\#,\\\\#)\\\\text{\\\\}',\n)\n\nYou can reproduce this test case by temporarily adding @reproduce_failure('6.170.12', b'AXicc2RwZHQEYgZHJkcGIAASUBYYgCQZGBpjICIAYCsD8Q==') as a decorator on your test function"
+          },
+          null
+        ]
+      ]
+    },
+    "when": "call",
+    "user_properties": [],
+    "sections": [],
+    "duration": 57.613485513982596,
+    "start": 1793499634.6089947,
+    "stop": 1793499692.2224796,
+    "nodeid": "python/corpus-structure/tests/math/test_property.py::test_generated_layer",
+    "$report_type": "TestReport"
+  }
+}

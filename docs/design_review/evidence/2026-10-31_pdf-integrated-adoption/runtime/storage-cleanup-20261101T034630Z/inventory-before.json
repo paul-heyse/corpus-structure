@@ -1,0 +1,365 @@
+{
+  "at": "20261101T034630Z",
+  "path": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/storage-cleanup-20261101T034630Z",
+  "filesystem": {
+    "block_size": 4096,
+    "free_bytes": 39357984768,
+    "used_bytes": 1907372199936
+  },
+  "scratch_candidates": [
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-517",
+      "uid": 1000,
+      "mtime": 1793303447.4809942,
+      "locks": [
+        {
+          "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-517/.lock",
+          "value": "708452",
+          "pid": 708452,
+          "alive": false
+        }
+      ],
+      "allocated_bytes": 21356544
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-601",
+      "uid": 1000,
+      "mtime": 1793322573.0577781,
+      "locks": [
+        {
+          "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-601/.lock",
+          "value": "2538458",
+          "pid": 2538458,
+          "alive": false
+        }
+      ],
+      "allocated_bytes": 22593536
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-641",
+      "uid": 1000,
+      "mtime": 1793357110.04091,
+      "locks": [
+        {
+          "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-641/.lock",
+          "value": "161762",
+          "pid": 161762,
+          "alive": false
+        }
+      ],
+      "allocated_bytes": 22872064
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-712",
+      "uid": 1000,
+      "mtime": 1793485664.5789168,
+      "locks": [
+        {
+          "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-712/.lock",
+          "value": "2596271",
+          "pid": 2596271,
+          "alive": false
+        }
+      ],
+      "allocated_bytes": 23105536
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-737",
+      "uid": 1000,
+      "mtime": 1793500023.6378193,
+      "locks": [
+        {
+          "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-737/.lock",
+          "value": "3571907",
+          "pid": 3571907,
+          "alive": false
+        }
+      ],
+      "allocated_bytes": 131252224
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-756",
+      "uid": 1000,
+      "mtime": 1793503965.0734367,
+      "locks": [],
+      "allocated_bytes": 12210176
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-757",
+      "uid": 1000,
+      "mtime": 1793504330.448753,
+      "locks": [],
+      "allocated_bytes": 14168064
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-758",
+      "uid": 1000,
+      "mtime": 1793504760.8658247,
+      "locks": [
+        {
+          "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-758/.lock",
+          "value": "3956498",
+          "pid": 3956498,
+          "alive": true
+        }
+      ],
+      "allocated_bytes": 124350464
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-current",
+      "symlink": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-758"
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest-of-paul/pytest-0",
+      "uid": 1000,
+      "mtime": 1793167913.0637326,
+      "locks": [],
+      "allocated_bytes": 3792896
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest-of-paul/pytest-1",
+      "uid": 1000,
+      "mtime": 1793167918.5832126,
+      "locks": [],
+      "allocated_bytes": 3792896
+    },
+    {
+      "path": "/home/paul/corpus-structure/build/tmp/pytest-of-paul/pytest-current",
+      "symlink": "/home/paul/corpus-structure/build/tmp/pytest-of-paul/pytest-1"
+    },
+    {
+      "path": "/tmp/pytest-of-paul/pytest-5417",
+      "uid": 0,
+      "mtime": 1793354664.3001337,
+      "locks": [],
+      "allocated_bytes": 36864
+    }
+  ],
+  "active_references": [
+    {
+      "pid": 3956302,
+      "paths": [
+        "/home/paul/corpus-structure/build/pdf-final-qualification.log"
+      ]
+    },
+    {
+      "pid": 3956304,
+      "paths": [
+        "/home/paul/corpus-structure/build/pdf-final-qualification.log"
+      ]
+    },
+    {
+      "pid": 3956309,
+      "paths": [
+        "/home/paul/corpus-structure/build/pdf-final-qualification.log",
+        "/home/paul/corpus-structure/build/test-receipts/qualification/20261101T033536Z-3956304/pytest.stderr",
+        "/home/paul/corpus-structure/build/test-receipts/qualification/20261101T033536Z-3956304/pytest.stdout"
+      ]
+    },
+    {
+      "pid": 3956498,
+      "paths": [
+        "/home/paul/corpus-structure/build/test-receipts/qualification/20261101T033536Z-3956304/events-controller-3956498.jsonl",
+        "/home/paul/corpus-structure/build/test-receipts/qualification/20261101T033536Z-3956304/pytest.stderr",
+        "/home/paul/corpus-structure/build/test-receipts/qualification/20261101T033536Z-3956304/pytest.stdout",
+        "/home/paul/corpus-structure/build/test-receipts/qualification/20261101T033536Z-3956304/reportlog.jsonl"
+      ]
+    }
+  ],
+  "unreadable_process_fd_pids": [
+    "2348",
+    "100102",
+    "1297824",
+    "2188992",
+    "3934758",
+    "3998684"
+  ],
+  "postgres": {
+    "databases": [
+      {
+        "oid": "12603339",
+        "datname": "ci_test_3956498",
+        "owner": "paul",
+        "datistemplate": false,
+        "bytes": 11253439,
+        "comment": "corpus-structure owned database 694c9442821445c2997e80d1f3c25a7f oid 12603339"
+      },
+      {
+        "oid": "16388",
+        "datname": "corpus",
+        "owner": "paul",
+        "datistemplate": false,
+        "bytes": 8312511,
+        "comment": null
+      },
+      {
+        "oid": "10265035",
+        "datname": "corpus_efficiency_20261030",
+        "owner": "paul",
+        "datistemplate": false,
+        "bytes": 65312447,
+        "comment": "corpus-structure owned database 018c272db7cb42379356b124b6357b11 oid 10265035"
+      },
+      {
+        "oid": "10832950",
+        "datname": "corpus_parsing_20261030",
+        "owner": "paul",
+        "datistemplate": false,
+        "bytes": 162526911,
+        "comment": "corpus-structure owned database 9d9c7da2fb9a427dbfb54b13f3fc6094 oid 10832950"
+      },
+      {
+        "oid": "11056216",
+        "datname": "corpus_pdf_20261031",
+        "owner": "paul",
+        "datistemplate": false,
+        "bytes": 2393052863,
+        "comment": "corpus-structure owned database e893ff3a9a1544b8b817ebc3f7bf51aa oid 11056216"
+      },
+      {
+        "oid": "4739581",
+        "datname": "corpus_semantic",
+        "owner": "paul",
+        "datistemplate": false,
+        "bytes": 43767487,
+        "comment": null
+      },
+      {
+        "oid": "9810533",
+        "datname": "corpus_semantic_pivot_20261030",
+        "owner": "paul",
+        "datistemplate": false,
+        "bytes": 41809599,
+        "comment": "corpus-structure owned database a90d202610304312abcde31009aa0010 oid 9810533"
+      },
+      {
+        "oid": "12589962",
+        "datname": "cs_sem_head_3956498_cff24afbc9c1",
+        "owner": "paul",
+        "datistemplate": false,
+        "bytes": 31823551,
+        "comment": "corpus-structure owned database 23d8a364f873478f8da7dc85eb769846 oid 12589962"
+      },
+      {
+        "oid": "1083750",
+        "datname": "cs_semantic_20261029_0f70052",
+        "owner": "paul",
+        "datistemplate": false,
+        "bytes": 10835647,
+        "comment": null
+      },
+      {
+        "oid": "16389",
+        "datname": "cs_template",
+        "owner": "paul",
+        "datistemplate": true,
+        "bytes": 8255167,
+        "comment": null
+      },
+      {
+        "oid": "4635800",
+        "datname": "cs_tpl_db03e532aab8acb1",
+        "owner": "paul",
+        "datistemplate": false,
+        "bytes": 11187903,
+        "comment": "corpus-structure test template, last used 2026-11-01T03:36:51.111268+00:00"
+      },
+      {
+        "oid": "5",
+        "datname": "postgres",
+        "owner": "postgres",
+        "datistemplate": false,
+        "bytes": 7919295,
+        "comment": "default administrative connection database"
+      },
+      {
+        "oid": "4",
+        "datname": "template0",
+        "owner": "postgres",
+        "datistemplate": true,
+        "bytes": 7911103,
+        "comment": "unmodifiable empty database"
+      },
+      {
+        "oid": "1",
+        "datname": "template1",
+        "owner": "postgres",
+        "datistemplate": true,
+        "bytes": 7943871,
+        "comment": "default template for new databases"
+      }
+    ],
+    "activity": [
+      {
+        "datname": "corpus_efficiency_20261030",
+        "pid": 736886,
+        "usename": "corpus_sem_writer",
+        "application_name": "ci-mcp-semantic",
+        "state": null
+      },
+      {
+        "datname": "postgres",
+        "pid": 3961781,
+        "usename": "paul",
+        "application_name": "",
+        "state": "idle"
+      },
+      {
+        "datname": "postgres",
+        "pid": 3972667,
+        "usename": "paul",
+        "application_name": "",
+        "state": "idle"
+      },
+      {
+        "datname": "postgres",
+        "pid": 3972672,
+        "usename": "paul",
+        "application_name": "",
+        "state": "idle"
+      },
+      {
+        "datname": "postgres",
+        "pid": 4029377,
+        "usename": "paul",
+        "application_name": "psql",
+        "state": "active"
+      },
+      {
+        "datname": null,
+        "pid": 2495,
+        "usename": null,
+        "application_name": "",
+        "state": null
+      },
+      {
+        "datname": null,
+        "pid": 2496,
+        "usename": null,
+        "application_name": "",
+        "state": null
+      },
+      {
+        "datname": null,
+        "pid": 2500,
+        "usename": null,
+        "application_name": "",
+        "state": null
+      },
+      {
+        "datname": null,
+        "pid": 2501,
+        "usename": null,
+        "application_name": "",
+        "state": null
+      },
+      {
+        "datname": null,
+        "pid": 2502,
+        "usename": "postgres",
+        "application_name": "",
+        "state": null
+      }
+    ]
+  }
+}

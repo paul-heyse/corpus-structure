@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-31",
+  "scope": "PDF12/I09/I10/I12/PDF14 runtime and bounded independent PDF15 implementation review",
+  "baseline": "98b3ac5",
+  "owned_commits": [
+    "cb074cd",
+    "ecd3e87",
+    "c512bc5",
+    "d42ba0c",
+    "206ac98",
+    "42eaf96",
+    "c30394e",
+    "0e7bcc1"
+  ],
+  "integration_state": "All owned production changes cherry-picked to main; remaining diff is root formatting and ignored-env policy only.",
+  "checks": [
+    {
+      "outcome": "passed",
+      "command": "python -m pytest python/corpus-structure/tests/ingest/test_pdf_capacity.py python/corpus-structure/tests/ingest/test_pdf_recognition.py python/corpus-structure/tests/ingest/test_pdf_recognition_methods.py -q",
+      "result": "18 passed on main; real isolated public parser against scripted HTTP, no mocked provider qualification claim"
+    },
+    {
+      "outcome": "passed",
+      "command": "python -m pytest python/corpus-structure/tests/semantic/test_pdf_reconciliation.py -k \"caption or failed_observation_without_raw_bytes\" -q",
+      "result": "2 passed, 13 deselected on main"
+    },
+    {
+      "outcome": "passed",
+      "command": "pyrefly check python/corpus-structure/src/corpus_structure/ingest/pdf_recognition_methods.py python/corpus-structure/src/corpus_structure/ingest/pdf_capacity.py",
+      "result": "0 errors on assembled main source"
+    },
+    {
+      "outcome": "passed",
+      "command": "python docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/phase-fresh-control.py",
+      "result": "Actual sleep -> Standard toy CUDA success -> native child close -> wake -> 3 real A/B pages; no DB publication claim"
+    },
+    {
+      "outcome": "passed",
+      "command": "python docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/review_kernel_control.py",
+      "result": "Independent native paragraph/list section order and clipped 1.2 overshoot controls passed"
+    },
+    {
+      "outcome": "passed",
+      "command": "map_pdf_observation actual retained page85/596/614 requests + independent Table/Caption control",
+      "result": "8 real request mappings admitted; caption linked; no source-fidelity/benefit claim"
+    },
+    {
+      "outcome": "not_run",
+      "command": "complete whole-book and knowledge/provider qualification",
+      "result": "Coordinator owns assembled union and actual publication acceptance"
+    }
+  ],
+  "preserved_failures": [
+    "pages/*/1ae6*/page-00226/attempt-00001 greedy integral repetition cap",
+    "pages/*/bf645*/page-00226/attempt-00001 sampled integral repetition cap",
+    "review-kernel-initial.json",
+    "review-caption-control.json"
+  ],
+  "qualified_recovery": "pages/*/6609*/page-00226/attempt-00001; repetition penalty1.3, same model/MTP/greedy settings; separate recipe and typed maximum-one recovery policy",
+  "review_result": "Three substantive defects found and corrected by integration owner: coordinate units/clipping, section placement/order, cross-block captions and qualified reference relocation. Failed observation without raw now evidence-only. No unresolved findings in bounded reviewed scope.",
+  "scratch_archive": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/worker-control-scratch.tar.gz",
+  "scratch_archive_sha256": "520b1047328eddb865ae5852c39462ad36a168dcf2f6baf681a612ce5f673221",
+  "persistent_runtime": "/home/paul/.cache/corpus-structure/nemotron-runtime-py312",
+  "persistent_model": "/home/paul/.cache/corpus-structure/nemotron-parse-4035ffb",
+  "service": "Coordinator-owned awake phase-enabled stable service; current authoritative PID/config in service-stable-phase.json",
+  "owned_running_processes": []
+}

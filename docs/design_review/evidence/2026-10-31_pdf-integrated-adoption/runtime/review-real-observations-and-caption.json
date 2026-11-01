@@ -1,0 +1,835 @@
+{
+  "outcome": "passed",
+  "real_observations": [
+    {
+      "page": 85,
+      "role": "A",
+      "texts": 102,
+      "tables": 1,
+      "pictures": 2,
+      "origins": 123,
+      "dispositions": [
+        {
+          "occurrence_id": "block-0",
+          "label": "Picture",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-1",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-2",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-3",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-4",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-5",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-6",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-7",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-8",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-9",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-10",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-11",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-12",
+          "label": "Caption",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-13",
+          "label": "Table",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-14",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-15",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-16",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-17",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-18",
+          "label": "Formula",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-19",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-20",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-21",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-22",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-23",
+          "label": "Formula",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-24",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-25",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-26",
+          "label": "Picture",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-27",
+          "label": "Page-footer",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "page": 85,
+      "role": "B",
+      "texts": 0,
+      "tables": 0,
+      "pictures": 0,
+      "origins": 0,
+      "dispositions": [
+        {
+          "outcome": "evidence_only",
+          "reason": "layout_pass"
+        }
+      ]
+    },
+    {
+      "page": 85,
+      "role": "C",
+      "texts": 4,
+      "tables": 1,
+      "pictures": 0,
+      "origins": 9,
+      "dispositions": [
+        {
+          "occurrence_id": "block-0",
+          "label": "Table",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "page": 596,
+      "role": "A",
+      "texts": 114,
+      "tables": 0,
+      "pictures": 2,
+      "origins": 146,
+      "dispositions": [
+        {
+          "occurrence_id": "block-0",
+          "label": "Page-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-1",
+          "label": "Picture",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-2",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-3",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-4",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-5",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-6",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-7",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-8",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-9",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-10",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-11",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-12",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-13",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-14",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-15",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-16",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-17",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-18",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-19",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-20",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-21",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-22",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-23",
+          "label": "Formula",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-24",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-25",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-26",
+          "label": "Formula",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-27",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-28",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-29",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-30",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-31",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-32",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-33",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-34",
+          "label": "Picture",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-35",
+          "label": "Page-footer",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "page": 596,
+      "role": "B",
+      "texts": 0,
+      "tables": 0,
+      "pictures": 0,
+      "origins": 0,
+      "dispositions": [
+        {
+          "outcome": "evidence_only",
+          "reason": "layout_pass"
+        }
+      ]
+    },
+    {
+      "page": 614,
+      "role": "A",
+      "texts": 50,
+      "tables": 0,
+      "pictures": 3,
+      "origins": 61,
+      "dispositions": [
+        {
+          "occurrence_id": "block-0",
+          "label": "Picture",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-1",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-2",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-3",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-4",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-5",
+          "label": "Section-header",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-6",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-7",
+          "label": "Formula",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-8",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-9",
+          "label": "List-item",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-10",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-11",
+          "label": "Formula",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-12",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-13",
+          "label": "Formula",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-14",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-15",
+          "label": "Formula",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-16",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-17",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-18",
+          "label": "Formula",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-19",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-20",
+          "label": "Chart",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-21",
+          "label": "Caption",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-22",
+          "label": "Text",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-23",
+          "label": "Formula",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-24",
+          "label": "Picture",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        },
+        {
+          "occurrence_id": "block-25",
+          "label": "Page-footer",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "page": 614,
+      "role": "B",
+      "texts": 0,
+      "tables": 0,
+      "pictures": 0,
+      "origins": 0,
+      "dispositions": [
+        {
+          "outcome": "evidence_only",
+          "reason": "layout_pass"
+        }
+      ]
+    },
+    {
+      "page": 614,
+      "role": "C",
+      "texts": 0,
+      "tables": 0,
+      "pictures": 1,
+      "origins": 1,
+      "dispositions": [
+        {
+          "occurrence_id": "block-0",
+          "label": "Chart",
+          "outcome": "mapped",
+          "coordinate_scale": 1.0,
+          "coordinate_frame": "content_normalized",
+          "normalization": "none"
+        }
+      ]
+    }
+  ],
+  "independent_caption": "Table 1: observed values",
+  "scope": "real retainedraw mapping+independentcaptionassociation withactualtrustedoperation/nativevalidators; no sourcefidelity orDBpublication claim"
+}

@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-31",
+  "outcome": "passed",
+  "scope": "sleep -> actual CUDA Standard toy -> close child -> wake -> real triple; no database publication claim",
+  "events": [
+    {
+      "stage": "before_sleep",
+      "gpu_memory_mib": "25692"
+    },
+    {
+      "stage": "sleep_acknowledged",
+      "gpu_memory_mib": "2693"
+    },
+    {
+      "stage": "standard_finished",
+      "status": "success",
+      "pid": 3505822,
+      "gpu_memory_mib": "4707",
+      "runtime": {
+        "layout.engine": "TransformersObjectDetectionEngine",
+        "layout.device": "cuda:0",
+        "table.device": "cuda:0",
+        "formula.engine": "TransformersVlmEngine",
+        "formula.device": "cuda:0",
+        "ocr.det.providers": "not_executed",
+        "ocr.cls.providers": "not_executed",
+        "ocr.rec.providers": "not_executed"
+      },
+      "pages": 3
+    },
+    {
+      "stage": "native_child_closed",
+      "pid": null,
+      "gpu_memory_mib": "2689"
+    },
+    {
+      "stage": "wake_acknowledged",
+      "gpu_memory_mib": "25687"
+    },
+    {
+      "stage": "triple_finished",
+      "page": 1,
+      "outcome": "succeeded",
+      "requests": 2,
+      "directory": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/toy-pages/9345f3af5cd7b4dbfb0482346a4fd8370619b915171f5ace37d76a73a2271ee9/1ae6edde387a15354e3ffc75085ef514272cf7e9bcdaa6f891d31e69b350efd1/page-00001/attempt-00001"
+    },
+    {
+      "stage": "triple_finished",
+      "page": 2,
+      "outcome": "succeeded",
+      "requests": 2,
+      "directory": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/toy-pages/9345f3af5cd7b4dbfb0482346a4fd8370619b915171f5ace37d76a73a2271ee9/1ae6edde387a15354e3ffc75085ef514272cf7e9bcdaa6f891d31e69b350efd1/page-00002/attempt-00001"
+    },
+    {
+      "stage": "triple_finished",
+      "page": 3,
+      "outcome": "succeeded",
+      "requests": 2,
+      "directory": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/toy-pages/9345f3af5cd7b4dbfb0482346a4fd8370619b915171f5ace37d76a73a2271ee9/1ae6edde387a15354e3ffc75085ef514272cf7e9bcdaa6f891d31e69b350efd1/page-00003/attempt-00001"
+    }
+  ]
+}

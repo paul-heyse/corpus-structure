@@ -1,0 +1,116 @@
+{
+  "at": "2026-11-01T03:50:02.060799+00:00",
+  "outcome": "passed",
+  "scope": "bounded obsolete repository build installations/generated docs/dead pytest scratch; catalog liveness review on dedicated PostgreSQL18/corpus5434",
+  "deleted_paths": [
+    "/home/paul/corpus-structure/build/evidence-envs/pdf-docling-foundations",
+    "/home/paul/corpus-structure/build/spike-xgrammar-venv",
+    "/home/paul/corpus-structure/build/spike-venv",
+    "/home/paul/corpus-structure/build/probe-venv",
+    "/home/paul/corpus-structure/build/probe-datalog-venv",
+    "/home/paul/corpus-structure/build/sp09-historical/ad4593f/.venv",
+    "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-517",
+    "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-601",
+    "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-641",
+    "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-712",
+    "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-737",
+    "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-756",
+    "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-757",
+    "/home/paul/corpus-structure/build/tmp/pytest-of-paul/pytest-0",
+    "/home/paul/corpus-structure/build/tmp/pytest-of-paul/pytest-1",
+    "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-31_pdf-docling-foundations/.venv",
+    "/home/paul/corpus-structure/build/tmp/pytest-of-paul/pytest-current",
+    "/home/paul/corpus-structure/build/docs",
+    "/home/paul/corpus-structure/build/evidence-envs",
+    "/home/paul/corpus-structure/build/tmp/pytest-of-paul"
+  ],
+  "database_drops": [],
+  "database_drop_disposition": "none eligible; no abandoned authenticated test clones existed; current PID3956498 test clone/head/template protected",
+  "protected_database_oid_verification": {
+    "ci_test_3956498": {
+      "oid_before": "12603339",
+      "oid_after": "12603339"
+    },
+    "corpus": {
+      "oid_before": "16388",
+      "oid_after": "16388"
+    },
+    "corpus_efficiency_20261030": {
+      "oid_before": "10265035",
+      "oid_after": "10265035"
+    },
+    "corpus_parsing_20261030": {
+      "oid_before": "10832950",
+      "oid_after": "10832950"
+    },
+    "corpus_pdf_20261031": {
+      "oid_before": "11056216",
+      "oid_after": "11056216"
+    },
+    "corpus_semantic": {
+      "oid_before": "4739581",
+      "oid_after": "4739581"
+    },
+    "corpus_semantic_pivot_20261030": {
+      "oid_before": "9810533",
+      "oid_after": "9810533"
+    },
+    "cs_sem_head_3956498_cff24afbc9c1": {
+      "oid_before": "12589962",
+      "oid_after": "12589962"
+    },
+    "cs_semantic_20261029_0f70052": {
+      "oid_before": "1083750",
+      "oid_after": "1083750"
+    },
+    "cs_template": {
+      "oid_before": "16389",
+      "oid_after": "16389"
+    },
+    "cs_tpl_db03e532aab8acb1": {
+      "oid_before": "4635800",
+      "oid_after": "4635800"
+    },
+    "postgres": {
+      "oid_before": "5",
+      "oid_after": "5"
+    },
+    "template0": {
+      "oid_before": "4",
+      "oid_after": "4"
+    },
+    "template1": {
+      "oid_before": "1",
+      "oid_after": "1"
+    }
+  },
+  "filesystem": {
+    "free_before_initial_inventory_bytes": 39357984768,
+    "free_before_own_deletion_batch_after_root_log_cleanup_bytes": 39331786752,
+    "free_after_bytes": 40084295680,
+    "observed_net_free_gain_own_batch_bytes": 752508928,
+    "note": "Other qualification processes continued writing; root separately reclaimed24443952307bytes from its authorized PGlog, not attributed to this batch."
+  },
+  "inode_accounting": {
+    "unique_file_inodes": 98349,
+    "candidate_files_allocated_bytes": 10331480064,
+    "all_hardlinks_inside_candidates_allocated_bytes": 662073344,
+    "externally_hardlinked_allocated_bytes": 9669406720
+  },
+  "remaining_build_allocated_bytes": 791965696,
+  "preserved_uncertain": [
+    "root-owned /tmp/pytest-of-paul/pytest-5417 (no authenticated corpus ownership)",
+    "/tmp unrelated project artifacts",
+    "historical/source/evidence/checkouts and export results referenced by retained receipts",
+    "all global uv caches and shared package hardlinks outside deleted candidate installations",
+    "opaque unstamped historical database cs_semantic_20261029_0f70052"
+  ],
+  "preserved_active": [
+    "pytest758 +current symlink and all qualification receipts",
+    "corpus_pdf_20261031 and all operational/historical production databases/templates",
+    "main .venv, stable Nemo3.12env, model weights and service PID3501197",
+    "integration task86 replay evidence and its raw outputs",
+    "all frozen migrations/plans/evidence and user library drafts"
+  ],
+  "cleanup_errors": []
+}

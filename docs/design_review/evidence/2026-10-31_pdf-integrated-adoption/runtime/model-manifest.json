@@ -1,0 +1,13 @@
+{
+  "revision": "4035ffb1d8f8bafcdb867dfaf6f7514f101464f9",
+  "root": "/home/paul/.cache/corpus-structure/nemotron-parse-4035ffb",
+  "artifacts": {
+    "model.safetensors": "81dd7609c589f3694ce75520c25af5010953231358de6aec4d03e8c6aac787e9",
+    "tokenizer.json": "34f566e728995769d971fc2707596bfb92c83298d357bc6ec29a7a1d3d12a74a",
+    "tokenizer_config.json": "701dad9bcc5f964a6fa020e7d5018c71efc93aad79d471cfca541b9bb4f6d012",
+    "config.json": "bff3460ae530573ad2e276627be86cab1b6859754b76e8b196410f17e7f0b7d5",
+    "preprocessor_config.json": "16d54d73fc265b31f3771caf39770dc85213cae7594823ba7a6ac3f085315ada",
+    "chat_template.jinja": "86e90f392a2779c96c96b5848248981a05750e7a11e0380b092a8c35e2c3e32f",
+    "processor_config.json": "b3e2ff2cc94f3d9412f179acf06d8bc5543305ec27966617977b3bd47fee9e5e"
+  }
+}

@@ -1,0 +1,27 @@
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Ambiguous attribute: id https://corpus-structure.dev/execution/id
+Abstract class 'MathematicalExpression' has only 1 direct child ('ExpressionValue'). The covering axiom makes them equivalent (MathematicalExpression ≡ ExpressionValue). Use --skip-abstract-class-as-unionof-subclasses to suppress.
+Loading weights:   0%|          | 0/770 [00:00<?, ?it/s]Loading weights: 100%|██████████| 770/770 [00:00<00:00, 31399.68it/s]
+/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/transformers/configuration_utils.py:723: FutureWarning: `rope_scaling` is deprecated and will be removed in a future version. Set `rope_parameters` instead, with `rope_type` and `rope_theta` included.
+  warnings.warn(
+Loading weights:   0%|          | 0/471 [00:00<?, ?it/s]Loading weights: 100%|██████████| 471/471 [00:00<00:00, 11272.31it/s]
+[transformers] The tied weights mapping and config for this model specifies to tie model.text_model.embed_tokens.weight to lm_head.weight, but both are present in the checkpoints with different values, so we will NOT tie them. You should update the config with `tie_word_embeddings=False` to silence this warning.
+semantic run 7; resume with --resume-run 7

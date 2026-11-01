@@ -1,0 +1,29 @@
+{
+  "expected_caption": "Table 1: observed values",
+  "mapped_captions": [],
+  "whole_provider_captions": [
+    "#/texts/0"
+  ],
+  "mapped_texts": [
+    "Table 1: observed values"
+  ],
+  "dispositions": [
+    {
+      "occurrence_id": "block-0",
+      "label": "Table",
+      "outcome": "mapped",
+      "coordinate_scale": 1.0,
+      "coordinate_frame": "content_normalized",
+      "normalization": "none"
+    },
+    {
+      "occurrence_id": "block-1",
+      "label": "Caption",
+      "outcome": "mapped",
+      "coordinate_scale": 1.0,
+      "coordinate_frame": "content_normalized",
+      "normalization": "none"
+    }
+  ],
+  "scope": "functional mapper correspondence; operation guard stub, no publication claim"
+}

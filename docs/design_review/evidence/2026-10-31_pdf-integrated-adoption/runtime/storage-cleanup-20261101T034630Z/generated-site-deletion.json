@@ -1,0 +1,12 @@
+{
+  "path": "/home/paul/corpus-structure/build/docs",
+  "kind": "generated-offline-documentation-output",
+  "before_allocated_bytes": 30355456,
+  "authority": "docs/publishing.md explicitly documents deletion of ignored build/docs to reset generated output; no preview server or process references",
+  "at": "2026-11-01T03:49:27.922436+00:00",
+  "outcome": "deleted",
+  "empty_parents_removed": [
+    "/home/paul/corpus-structure/build/evidence-envs",
+    "/home/paul/corpus-structure/build/tmp/pytest-of-paul"
+  ]
+}

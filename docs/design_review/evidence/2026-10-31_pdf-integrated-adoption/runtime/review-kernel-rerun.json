@@ -1,0 +1,30 @@
+{
+  "paragraph": {
+    "section_projection": "one\nmiddle\nthree",
+    "passed": true
+  },
+  "list": {
+    "section_projection": "one\nmiddle\nthree",
+    "passed": true
+  },
+  "overshoot": {
+    "bbox": {
+      "l": 20.0,
+      "t": 30.0,
+      "r": 200.0,
+      "b": 60.0,
+      "coord_origin": "TOPLEFT"
+    },
+    "dispositions": [
+      {
+        "occurrence_id": "block-0",
+        "label": "Text",
+        "outcome": "mapped",
+        "coordinate_scale": 1.0,
+        "coordinate_frame": "content_normalized",
+        "normalization": "clipped"
+      }
+    ],
+    "passed": true
+  }
+}

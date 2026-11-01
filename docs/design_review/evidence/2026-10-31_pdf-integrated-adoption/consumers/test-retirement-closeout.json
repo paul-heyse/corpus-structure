@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "recorded_at": "2026-11-01T02:35:19.645644+00:00",
+  "commit": "6cb5981638a6f21e5d55fc4edd495558b90feeee",
+  "scope": "Test-only retirement of historical D3 writer qualification and alignment of current native/integrated PDF controls. Bounded nonprovider checks only; no broad/provider qualification claim.",
+  "preserved": [
+    "frozen migrations",
+    "generic store/extension/CLI database/ownership tests",
+    "current semantic admission/migration/invariant tests",
+    "pure schema/interchange compiler tests"
+  ],
+  "archive": {
+    "path": "test-retirement-control-receipts.tar.gz",
+    "bytes": 4223,
+    "sha256": "02e94b3aa5e8fc02a051bea51ef55622d375e5d067e7e4e3e488579a2c54d828",
+    "members": [
+      {
+        "path": "pdf-test-retirement-initial.xml",
+        "bytes": 24287,
+        "sha256": "3c42240556c810b2d88718a0ec5dec55f180ab018a09b80d2760652caef16be7"
+      },
+      {
+        "path": "pdf-test-retirement-final.xml",
+        "bytes": 24287,
+        "sha256": "5c63f70ba553553dd6a55b4c62272a49dee5ca7b97aab0b9b4616e71c7f10d69"
+      },
+      {
+        "path": "pdf-test-retirement-types-final.log",
+        "bytes": 15,
+        "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+      },
+      {
+        "path": "pdf-test-retirement-lint-final.log",
+        "bytes": 19,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      }
+    ],
+    "member_hashes_verified": true
+  },
+  "checks": [
+    {
+      "command": "uv run pytest tests/test_native_retained_reads.py tests/test_native_run_scope.py tests/test_pdf_runtime.py python/corpus-structure/tests/schema/test_change.py python/corpus-structure/tests/schema/test_model.py python/corpus-structure/tests/schema/test_interchange.py python/corpus-structure/tests/db/test_pool_write.py -q --junitxml=build/pdf-test-retirement-initial.xml",
+      "outcome": "passed",
+      "tests": 147,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "receipt": "pdf-test-retirement-initial.xml"
+    },
+    {
+      "command": "uv run pytest tests/test_native_retained_reads.py tests/test_native_run_scope.py tests/test_pdf_runtime.py python/corpus-structure/tests/schema/test_change.py python/corpus-structure/tests/schema/test_model.py python/corpus-structure/tests/schema/test_interchange.py python/corpus-structure/tests/db/test_pool_write.py -q --junitxml=build/pdf-test-retirement-final.xml",
+      "outcome": "passed",
+      "tests": 147,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "receipt": "pdf-test-retirement-final.xml"
+    },
+    {
+      "command": "uv run pyrefly check tests/test_native_retained_reads.py tests/test_native_run_scope.py tests/test_pdf_runtime.py python/corpus-structure/tests/schema/test_change.py python/corpus-structure/tests/schema/test_model.py python/corpus-structure/tests/db/test_pool_write.py",
+      "outcome": "passed",
+      "exit_code": 0,
+      "receipt": "pdf-test-retirement-types-final.log"
+    },
+    {
+      "command": "uv run ruff check tests/test_native_retained_reads.py tests/test_native_run_scope.py tests/test_pdf_runtime.py python/corpus-structure/tests/schema/test_change.py python/corpus-structure/tests/schema/test_model.py python/corpus-structure/tests/db/test_pool_write.py",
+      "outcome": "passed",
+      "exit_code": 0,
+      "receipt": "pdf-test-retirement-lint-final.log"
+    }
+  ]
+}

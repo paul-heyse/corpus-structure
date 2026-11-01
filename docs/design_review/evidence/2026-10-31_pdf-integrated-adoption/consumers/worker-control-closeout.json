@@ -1,0 +1,79 @@
+{
+  "date": "2026-10-31",
+  "worker_checkout": "/home/paul/corpus-structure-pdf-consumers",
+  "source_revision": "4251939f55b1a25df6d80aae881500bbbde7eb4e",
+  "archive": "worker-control-receipts.tar.gz",
+  "archive_bytes": 21750,
+  "archive_sha256": "4a71dccbf885f30609a09030c3502881837b74189b68bddd48e69844ae3b35c2",
+  "scope": "PDF16 consumer controls: SourceView/frame/CLI, source-only in-process MCP find and inspection, bounded artifact reads, chart projection, subprocess output retention and isolation.",
+  "limits": [
+    "Earlier failed and prerequisite-blocked receipts are preserved; their failure is not acceptance.",
+    "Latest pdf-source-search-artifacts-final.xml covers the actual source-only in-process MCP find->inspection journey and 111231-byte artifact reconstruction over two 64KiB SQL pages with wrong pin/digest refusals.",
+    "The fake-provider subprocess controls do not qualify an actual extraction provider.",
+    "External host stdio attachment, whole-book extraction, independent grading and assembled qualification belong to the root; no GPU/model inference was executed by this worker."
+  ],
+  "latest_native_command": "PYTHONPATH=python/corpus-structure/src .venv/bin/python -m pytest python/corpus-structure/tests/semantic/test_source_search.py --junitxml=build/test-receipts/pdf-source-search-artifacts-final.xml",
+  "latest_static_outcome": "passed: scoped ruff and pyrefly --min-severity=warn on native_source.py, cli/source.py and test_source_search.py; 0 diagnostics.",
+  "files": [
+    {
+      "path": "build/test-receipts/pdf-consumers-final-focused.xml",
+      "bytes": 37044,
+      "sha256": "166cee33af51363c60066e3f90f74fe63a60b0d37055e58e8367cb9ee1307390",
+      "tests": 38,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "outcome": "failed"
+    },
+    {
+      "path": "build/test-receipts/pdf-consumers-find-chart-raw.xml",
+      "bytes": 39716,
+      "sha256": "9f53dc0dd08168d1627130b511b5d730717bc0c21f62c47e53c7b5af4ebee534",
+      "tests": 14,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "outcome": "failed"
+    },
+    {
+      "path": "build/test-receipts/pdf-consumers-focused.xml",
+      "bytes": 3665,
+      "sha256": "80187832d2056677ab58aefb0550883c9f0044254c3eef6f414de5f85506d361",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "outcome": "passed"
+    },
+    {
+      "path": "build/test-receipts/pdf-source-search-artifacts-deployed.xml",
+      "bytes": 15091,
+      "sha256": "cfea976f26ecb354b0d4f3c48b5b69ccea852137f5fcf774c1f45de62cc0410a",
+      "tests": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "outcome": "failed"
+    },
+    {
+      "path": "build/test-receipts/pdf-source-search-artifacts-final.xml",
+      "bytes": 609,
+      "sha256": "010341a77f41d437663e2239585488340bd99defc799067ea90ded7e2cd7de98",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "outcome": "passed"
+    },
+    {
+      "path": "build/test-receipts/pdf-source-search-artifacts.xml",
+      "bytes": 28014,
+      "sha256": "57deba45c7c9079ca8040140be44869cc101a73ba6334353bfe6f0f4b6896d05",
+      "tests": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "outcome": "failed"
+    }
+  ]
+}

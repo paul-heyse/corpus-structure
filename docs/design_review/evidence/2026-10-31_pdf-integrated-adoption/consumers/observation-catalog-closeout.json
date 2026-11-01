@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "recorded_at": "2026-11-01T02:44:39.266550+00:00",
+  "commit": "fedf6e5e061af6e27dfbf0b3c1d394407f1fac5b",
+  "scope": "Bounded nonprovider CLI/read controls: a real closed failed source task retains recognition observations; exact discovery pins read their diagnostic companion and raw artifact. Default Docling listing unchanged. No provider or whole-book qualification claim.",
+  "command": "ci source native-products RUN --observations --task TASK [--limit 1..1000] [--cursor CURSOR] --json",
+  "controls": [
+    "typed limit and run/task/kind shape",
+    "open source task refusal",
+    "stable two-page catalog and exact digests",
+    "wrong run/project/task refusal",
+    "cross-task and malformed cursor refusal",
+    "default Docling list unchanged",
+    "failed observation companion and retained raw response retrieval"
+  ],
+  "archive": {
+    "path": "observation-catalog-control-receipts.tar.gz",
+    "bytes": 950,
+    "sha256": "e294cba2965bfeab132bfe18978c2cf2435ca2da5acf62fc387445826c40a880",
+    "members": [
+      {
+        "path": "pdf-observation-catalog-initial.xml",
+        "bytes": 1312,
+        "sha256": "0be9751d148198c14b226222b78a130b630fd8a355ff5bedd7b963184eea7045"
+      },
+      {
+        "path": "pdf-observation-catalog-final.xml",
+        "bytes": 1878,
+        "sha256": "c782422eaf27b4838ef045348503cbd6f2d0e3c53e410b73d7040b889bd55592"
+      },
+      {
+        "path": "pdf-observation-catalog-types-final.log",
+        "bytes": 15,
+        "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+      },
+      {
+        "path": "pdf-observation-catalog-lint-final.log",
+        "bytes": 19,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      }
+    ],
+    "member_hashes_verified": true
+  },
+  "checks": [
+    {
+      "command": "uv run pytest python/corpus-structure/tests/semantic/test_pdf_observation_catalog.py -q --junitxml=build/pdf-observation-catalog-initial.xml",
+      "outcome": "passed",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "receipt": "pdf-observation-catalog-initial.xml"
+    },
+    {
+      "command": "uv run pytest python/corpus-structure/tests/semantic/test_pdf_observation_catalog.py tests/test_native_source_api.py -q --junitxml=build/pdf-observation-catalog-final.xml",
+      "outcome": "passed",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "receipt": "pdf-observation-catalog-final.xml"
+    },
+    {
+      "command": "uv run pyrefly check python/corpus-structure/src/corpus_structure/cli/source.py python/corpus-structure/src/corpus_structure/semantic/pdf_storage.py python/corpus-structure/tests/semantic/test_pdf_observation_catalog.py",
+      "outcome": "passed",
+      "exit_code": 0,
+      "receipt": "pdf-observation-catalog-types-final.log"
+    },
+    {
+      "command": "uv run ruff check python/corpus-structure/src/corpus_structure/cli/source.py python/corpus-structure/src/corpus_structure/semantic/pdf_storage.py python/corpus-structure/tests/semantic/test_pdf_observation_catalog.py",
+      "outcome": "passed",
+      "exit_code": 0,
+      "receipt": "pdf-observation-catalog-lint-final.log"
+    }
+  ]
+}

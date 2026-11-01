@@ -1,0 +1,217 @@
+{
+  "databases": [
+    {
+      "oid": "12603339",
+      "datname": "ci_test_3956498",
+      "owner": "paul",
+      "datistemplate": false,
+      "bytes": 11253439,
+      "comment": "corpus-structure owned database 694c9442821445c2997e80d1f3c25a7f oid 12603339"
+    },
+    {
+      "oid": "16388",
+      "datname": "corpus",
+      "owner": "paul",
+      "datistemplate": false,
+      "bytes": 8151567,
+      "comment": null
+    },
+    {
+      "oid": "10265035",
+      "datname": "corpus_efficiency_20261030",
+      "owner": "paul",
+      "datistemplate": false,
+      "bytes": 65151503,
+      "comment": "corpus-structure owned database 018c272db7cb42379356b124b6357b11 oid 10265035"
+    },
+    {
+      "oid": "10832950",
+      "datname": "corpus_parsing_20261030",
+      "owner": "paul",
+      "datistemplate": false,
+      "bytes": 162365967,
+      "comment": "corpus-structure owned database 9d9c7da2fb9a427dbfb54b13f3fc6094 oid 10832950"
+    },
+    {
+      "oid": "11056216",
+      "datname": "corpus_pdf_20261031",
+      "owner": "paul",
+      "datistemplate": false,
+      "bytes": 2393052863,
+      "comment": "corpus-structure owned database e893ff3a9a1544b8b817ebc3f7bf51aa oid 11056216"
+    },
+    {
+      "oid": "4739581",
+      "datname": "corpus_semantic",
+      "owner": "paul",
+      "datistemplate": false,
+      "bytes": 43767487,
+      "comment": null
+    },
+    {
+      "oid": "9810533",
+      "datname": "corpus_semantic_pivot_20261030",
+      "owner": "paul",
+      "datistemplate": false,
+      "bytes": 41809599,
+      "comment": "corpus-structure owned database a90d202610304312abcde31009aa0010 oid 9810533"
+    },
+    {
+      "oid": "12589962",
+      "datname": "cs_sem_head_3956498_cff24afbc9c1",
+      "owner": "paul",
+      "datistemplate": false,
+      "bytes": 31823551,
+      "comment": "corpus-structure owned database 23d8a364f873478f8da7dc85eb769846 oid 12589962"
+    },
+    {
+      "oid": "12633255",
+      "datname": "cs_sem_test_3956498_f3459fa9da53",
+      "owner": "paul",
+      "datistemplate": false,
+      "bytes": 36017855,
+      "comment": "corpus-structure owned database 3933b93f615044f6a095d18894990bc4 oid 12633255"
+    },
+    {
+      "oid": "1083750",
+      "datname": "cs_semantic_20261029_0f70052",
+      "owner": "paul",
+      "datistemplate": false,
+      "bytes": 10835647,
+      "comment": null
+    },
+    {
+      "oid": "16389",
+      "datname": "cs_template",
+      "owner": "paul",
+      "datistemplate": true,
+      "bytes": 8255167,
+      "comment": null
+    },
+    {
+      "oid": "4635800",
+      "datname": "cs_tpl_db03e532aab8acb1",
+      "owner": "paul",
+      "datistemplate": false,
+      "bytes": 11187903,
+      "comment": "corpus-structure test template, last used 2026-11-01T03:36:51.111268+00:00"
+    },
+    {
+      "oid": "5",
+      "datname": "postgres",
+      "owner": "postgres",
+      "datistemplate": false,
+      "bytes": 7919295,
+      "comment": "default administrative connection database"
+    },
+    {
+      "oid": "4",
+      "datname": "template0",
+      "owner": "postgres",
+      "datistemplate": true,
+      "bytes": 7750159,
+      "comment": "unmodifiable empty database"
+    },
+    {
+      "oid": "1",
+      "datname": "template1",
+      "owner": "postgres",
+      "datistemplate": true,
+      "bytes": 7943871,
+      "comment": "default template for new databases"
+    }
+  ],
+  "activity": [
+    {
+      "datname": "corpus_efficiency_20261030",
+      "pid": 736886,
+      "usename": "corpus_sem_writer",
+      "application_name": "ci-mcp-semantic",
+      "state": null
+    },
+    {
+      "datname": "corpus_pdf_20261031",
+      "pid": 4053635,
+      "usename": "corpus_sem_reader",
+      "application_name": "",
+      "state": null
+    },
+    {
+      "datname": "cs_sem_test_3956498_f3459fa9da53",
+      "pid": 4055287,
+      "usename": "corpus_sem_writer",
+      "application_name": "",
+      "state": null
+    },
+    {
+      "datname": "postgres",
+      "pid": 3961781,
+      "usename": "paul",
+      "application_name": "",
+      "state": "idle"
+    },
+    {
+      "datname": "postgres",
+      "pid": 3972667,
+      "usename": "paul",
+      "application_name": "",
+      "state": "idle"
+    },
+    {
+      "datname": "postgres",
+      "pid": 3972672,
+      "usename": "paul",
+      "application_name": "",
+      "state": "idle"
+    },
+    {
+      "datname": "postgres",
+      "pid": 4055011,
+      "usename": "paul",
+      "application_name": "",
+      "state": "idle"
+    },
+    {
+      "datname": "postgres",
+      "pid": 4055293,
+      "usename": "paul",
+      "application_name": "psql",
+      "state": "active"
+    },
+    {
+      "datname": null,
+      "pid": 2495,
+      "usename": null,
+      "application_name": "",
+      "state": null
+    },
+    {
+      "datname": null,
+      "pid": 2496,
+      "usename": null,
+      "application_name": "",
+      "state": null
+    },
+    {
+      "datname": null,
+      "pid": 2500,
+      "usename": null,
+      "application_name": "",
+      "state": null
+    },
+    {
+      "datname": null,
+      "pid": 2501,
+      "usename": null,
+      "application_name": "",
+      "state": null
+    },
+    {
+      "datname": null,
+      "pid": 2502,
+      "usename": "postgres",
+      "application_name": "",
+      "state": null
+    }
+  ]
+}

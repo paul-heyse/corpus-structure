@@ -1,0 +1,132 @@
+[
+  {
+    "path": "/home/paul/corpus-structure/build/evidence-envs/pdf-docling-foundations",
+    "kind": "obsolete-probe-environment",
+    "before_allocated_bytes": 7536189440,
+    "started": "2026-11-01T03:48:44.000244+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:44.270151+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/spike-xgrammar-venv",
+    "kind": "obsolete-probe-environment",
+    "before_allocated_bytes": 1018785792,
+    "started": "2026-11-01T03:48:44.270279+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:44.467649+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/spike-venv",
+    "kind": "obsolete-probe-environment",
+    "before_allocated_bytes": 2407911424,
+    "started": "2026-11-01T03:48:44.467821+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:44.735226+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/probe-venv",
+    "kind": "obsolete-probe-environment",
+    "before_allocated_bytes": 509014016,
+    "started": "2026-11-01T03:48:44.735377+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:44.855297+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/probe-datalog-venv",
+    "kind": "obsolete-probe-environment",
+    "before_allocated_bytes": 182824960,
+    "started": "2026-11-01T03:48:44.855442+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:44.970852+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/sp09-historical/ad4593f/.venv",
+    "kind": "obsolete-probe-environment",
+    "before_allocated_bytes": 1209237504,
+    "started": "2026-11-01T03:48:44.970992+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:45.189258+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-517",
+    "kind": "abandoned-pytest-scratch",
+    "before_allocated_bytes": 21356544,
+    "started": "2026-11-01T03:48:45.189423+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:45.280337+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-601",
+    "kind": "abandoned-pytest-scratch",
+    "before_allocated_bytes": 22593536,
+    "started": "2026-11-01T03:48:45.280472+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:45.371080+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-641",
+    "kind": "abandoned-pytest-scratch",
+    "before_allocated_bytes": 22872064,
+    "started": "2026-11-01T03:48:45.371220+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:45.463938+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-712",
+    "kind": "abandoned-pytest-scratch",
+    "before_allocated_bytes": 23105536,
+    "started": "2026-11-01T03:48:45.464070+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:45.556673+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-737",
+    "kind": "abandoned-pytest-scratch",
+    "before_allocated_bytes": 131252224,
+    "started": "2026-11-01T03:48:45.556796+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:45.657164+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-756",
+    "kind": "abandoned-pytest-scratch",
+    "before_allocated_bytes": 12210176,
+    "started": "2026-11-01T03:48:45.657315+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:45.740869+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/tmp/pytest/pytest-of-paul/pytest-757",
+    "kind": "abandoned-pytest-scratch",
+    "before_allocated_bytes": 14168064,
+    "started": "2026-11-01T03:48:45.741007+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:45.827916+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/tmp/pytest-of-paul/pytest-0",
+    "kind": "abandoned-pytest-scratch",
+    "before_allocated_bytes": 3792896,
+    "started": "2026-11-01T03:48:45.828052+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:45.912582+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/tmp/pytest-of-paul/pytest-1",
+    "kind": "abandoned-pytest-scratch",
+    "before_allocated_bytes": 3792896,
+    "started": "2026-11-01T03:48:45.912713+00:00",
+    "outcome": "deleted",
+    "finished": "2026-11-01T03:48:45.998468+00:00"
+  },
+  {
+    "path": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-31_pdf-docling-foundations/.venv",
+    "outcome": "deleted-obsolete-environment-symlink",
+    "target": "/home/paul/corpus-structure/build/evidence-envs/pdf-docling-foundations"
+  },
+  {
+    "path": "/home/paul/corpus-structure/build/tmp/pytest-of-paul/pytest-current",
+    "outcome": "deleted-stale-scratch-symlink",
+    "target": "/home/paul/corpus-structure/build/tmp/pytest-of-paul/pytest-1"
+  }
+]

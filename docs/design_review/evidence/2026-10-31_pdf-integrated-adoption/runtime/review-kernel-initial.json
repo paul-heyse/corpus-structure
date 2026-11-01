@@ -1,0 +1,54 @@
+{
+  "paragraph": {
+    "native_text_collection": [
+      [
+        "one",
+        "#/groups/0"
+      ],
+      [
+        "three",
+        "#/groups/0"
+      ],
+      [
+        "middle",
+        "#/groups/0"
+      ]
+    ],
+    "section_projection": "one\nthree\nmiddle"
+  },
+  "list": {
+    "native_text_collection": [
+      [
+        "one",
+        "#/groups/1"
+      ],
+      [
+        "three",
+        "#/groups/0"
+      ],
+      [
+        "middle",
+        "#/body"
+      ]
+    ],
+    "section_projection": "one\nthree"
+  },
+  "overshoot": {
+    "bbox": {
+      "l": 0.02,
+      "t": 0.030000000000000002,
+      "r": 0.24,
+      "b": 0.060000000000000005,
+      "coord_origin": "TOPLEFT"
+    },
+    "dispositions": [
+      {
+        "occurrence_id": "block-0",
+        "label": "Text",
+        "outcome": "mapped",
+        "coordinate_scale": 1000.0,
+        "normalization": "normalized"
+      }
+    ]
+  }
+}

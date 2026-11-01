@@ -1,0 +1,38 @@
+{
+  "outcome": "passed",
+  "scope": "actual dedicated local service level1 sleep and complete wake",
+  "calls": [
+    {
+      "path": "/sleep?level=1&mode=wait",
+      "method": "POST",
+      "status": 200,
+      "response": null,
+      "elapsed_seconds": 0.33080124855041504
+    },
+    {
+      "path": "/is_sleeping",
+      "method": "GET",
+      "status": 200,
+      "response": {
+        "is_sleeping": true
+      },
+      "elapsed_seconds": 0.0008714199066162109
+    },
+    {
+      "path": "/wake_up",
+      "method": "POST",
+      "status": 200,
+      "response": null,
+      "elapsed_seconds": 0.044722795486450195
+    },
+    {
+      "path": "/is_sleeping",
+      "method": "GET",
+      "status": 200,
+      "response": {
+        "is_sleeping": false
+      },
+      "elapsed_seconds": 0.0008180141448974609
+    }
+  ]
+}

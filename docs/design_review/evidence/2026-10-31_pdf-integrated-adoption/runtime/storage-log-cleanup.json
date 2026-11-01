@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-11-01T03:46:30.357363+00:00",
+  "outcome": "passed",
+  "action": "truncate obsolete dedicated 18/corpus slow-query log after retaining current failed book records",
+  "path": "/var/log/postgresql/postgresql-18-corpus.log",
+  "prior_bytes": 24443952307,
+  "remaining_bytes": 0,
+  "free_bytes_before": 14913273856,
+  "free_bytes_after": 39358001152,
+  "free_bytes_delta": 24444727296,
+  "retained_current_error": "integration/raw/book-task86-pg-error.txt",
+  "preserved": [
+    "all database contents",
+    "PG WAL",
+    "current qualification and provider receipts",
+    "main and unrelated cluster logs"
+  ],
+  "prior_attempt": "root truncate permission denied; postgres-owned truncate succeeded"
+}

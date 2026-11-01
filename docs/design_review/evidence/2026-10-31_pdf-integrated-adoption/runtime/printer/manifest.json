@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-01",
+  "baseline": "b2da2f6",
+  "commit": "35cf165",
+  "scope": "Math tree printer only; token key authority and grammar unchanged",
+  "source_sha256": {
+    "python/corpus-structure/src/corpus_structure/methods/math/printer.py": "05a92f2ec0e798ed23946ee1b4d65b5936152b605b60be9949ddbaf45fe6ad40",
+    "python/corpus-structure/src/corpus_structure/methods/math/grammar.py": "61fe9f305fbf9570c686045962f65425d158fc6949bd1a93f9671fb3cbe60c4e",
+    "python/corpus-structure/src/corpus_structure/methods/math/_tree.py": "c5d2c5078c723a0f74f80d6ecd99aceb9912ff029382da72d12fa59d6ff88a0d",
+    "python/corpus-structure/src/corpus_structure/core/tex.py": "46a89447d6a7e518748297431f7993c065b5c6d8e7dbe99a748c588168ef73cb",
+    "python/corpus-structure/tests/math/test_property.py": "4995c55a2c461a939fc907f479cb2c152cddca53791c6478c36d6383a209f670"
+  },
+  "checks": [
+    {
+      "outcome": "passed",
+      "command": "PYTHONPATH=/home/paul/corpus-structure-pdf-math/python/corpus-structure/src /home/paul/corpus-structure/.venv/bin/python -m pytest python/corpus-structure/tests/math/test_property.py -k \"printer_agrees or opaque_text_mode\" -q --override-ini addopts=",
+      "result": "21 passed, 2 deselected",
+      "receipts": [
+        "regression.log",
+        "regression.junit.xml"
+      ]
+    },
+    {
+      "outcome": "passed",
+      "command": "PYTHONPATH=/home/paul/corpus-structure-pdf-math/python/corpus-structure/src /home/paul/corpus-structure/.venv/bin/python -m pytest python/corpus-structure/tests/math/test_property.py -q --override-ini addopts=",
+      "result": "23 passed; unchanged corpus and Hypothesis generation",
+      "receipts": [
+        "property.log",
+        "property.junit.xml"
+      ]
+    },
+    {
+      "outcome": "passed",
+      "command": "PYTHONPATH=/home/paul/corpus-structure-pdf-math/python/corpus-structure/src /home/paul/corpus-structure/.venv/bin/pyrefly check python/corpus-structure/src/corpus_structure/methods/math/printer.py python/corpus-structure/tests/math/test_property.py",
+      "result": "0 errors",
+      "receipts": [
+        "types.log"
+      ]
+    },
+    {
+      "outcome": "passed",
+      "command": "/home/paul/corpus-structure/.venv/bin/ruff check python/corpus-structure/src/corpus_structure/methods/math/printer.py python/corpus-structure/tests/math/test_property.py",
+      "result": "All checks passed",
+      "receipts": [
+        "ruff.log"
+      ]
+    }
+  ],
+  "preserved_failure": "original-broad-failure.json copied from unmodified qualification20261101T021249Z-3571681/reportlog.jsonl",
+  "caller_impact": "Only tests/math/test_property.py calls print_tree. Production formula keys and symbol names use core.tex and _tree.form; no serving/inference/extraction behavior or existing product custody changed. Reassess printer property tests and final broad result; no native model/integration/provider rerun needed solely for this patch.",
+  "receipt_sha256": {
+    "regression.log": "534ee3cce57a7f77d60322481264549d9ad8e8f63515365f596a9b7046ae7286",
+    "ruff.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "regression.junit.xml": "ac3c24abfc8d8145aed3f8638b624848fca8fdf3f74390873991a24bcce1a79b",
+    "types.log": "15194b544acddec5edc4940bae862b90aeffc9788122ee9e0e1987275c07b0cb",
+    "property.log": "c732f411d2b7f9537268676338cb82151a67df9c4dd5307e88945fe5dfa117b4",
+    "property.junit.xml": "31d912aaf3d42c65ae82c1412e36910ec4f481607a3750468b3e7910af66a335",
+    "original-broad-failure.json": "52425a9b23a60a03132e4ee671d4640f8dff668036b78a34d939be66bcba1715"
+  }
+}

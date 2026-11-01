@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-31",
+  "scope": "Three disjoint real pages under bounded3 controllers while prior serial job held at most1; not a throughput measurement",
+  "pages": [
+    {
+      "page": 1080,
+      "directory": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/pages/e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9/1ae6edde387a15354e3ffc75085ef514272cf7e9bcdaa6f891d31e69b350efd1/page-01080/attempt-00001",
+      "physical_page_concurrency": 3,
+      "outcome": "succeeded",
+      "requests": 2,
+      "input_mtime_ns": 1793496175060731692,
+      "result_mtime_ns": 1793496176695767343,
+      "recipe_digest": "1ae6edde387a15354e3ffc75085ef514272cf7e9bcdaa6f891d31e69b350efd1"
+    },
+    {
+      "page": 1081,
+      "directory": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/pages/e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9/1ae6edde387a15354e3ffc75085ef514272cf7e9bcdaa6f891d31e69b350efd1/page-01081/attempt-00001",
+      "physical_page_concurrency": 3,
+      "outcome": "succeeded",
+      "requests": 2,
+      "input_mtime_ns": 1793496175109793989,
+      "result_mtime_ns": 1793496176869446568,
+      "recipe_digest": "1ae6edde387a15354e3ffc75085ef514272cf7e9bcdaa6f891d31e69b350efd1"
+    },
+    {
+      "page": 1082,
+      "directory": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-31_pdf-integrated-adoption/runtime/pages/e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9/1ae6edde387a15354e3ffc75085ef514272cf7e9bcdaa6f891d31e69b350efd1/page-01082/attempt-00001",
+      "physical_page_concurrency": 3,
+      "outcome": "succeeded",
+      "requests": 2,
+      "input_mtime_ns": 1793496175159668200,
+      "result_mtime_ns": 1793496176816792794,
+      "recipe_digest": "1ae6edde387a15354e3ffc75085ef514272cf7e9bcdaa6f891d31e69b350efd1"
+    }
+  ],
+  "controller_intervals_overlap": true
+}
