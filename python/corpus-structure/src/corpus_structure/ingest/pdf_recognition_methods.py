@@ -6,7 +6,7 @@ from collections.abc import Iterable, Sequence
 from hashlib import sha256
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.core.method import (
     Digest,
@@ -25,6 +25,7 @@ from corpus_structure.core.vocab import (
     TaskUnitType,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.product_reference import ProductReference
 
 from .pdf_health import error_summary
 from .pdf_hierarchy import load_snapshot, native_nodes
@@ -74,6 +75,7 @@ class PdfIntegratedIngestConfig(PdfIngestConfig):
     render_scale: float = Field(default=2.0, gt=0)
     max_regions: int = Field(default=80, ge=1)
     recognition_pages: tuple[int, ...] = ()
+    integrated_product: ProductReference | None = None
     recovery_policy: PdfRecognitionRecoveryPolicy | None = Field(
         default_factory=PdfRecognitionRecoveryPolicy
     )
@@ -93,6 +95,12 @@ class PdfIntegratedIngestConfig(PdfIngestConfig):
             render_scale=self.render_scale,
             max_regions=self.max_regions,
         )
+
+    @model_validator(mode="after")
+    def _one_source_role(self) -> PdfIntegratedIngestConfig:
+        if self.native_product is not None and self.integrated_product is not None:
+            raise ValueError("select either a Standard input or a retained integrated input")
+        return self
 
 
 def _retain_page(
@@ -139,6 +147,19 @@ class IngestPdfIntegrated:
         self._selector.close()
 
     def original_recipe(self, cfg: PdfIntegratedIngestConfig) -> bytes:
+        if cfg.integrated_product is not None:
+            return canonical_bytes(
+                {
+                    "recipe_id": "retained-integrated-pdf-adoption-v1",
+                    "integrated_product": cfg.integrated_product.values(),
+                    "section_policy": {
+                        "rule_id": cfg.section_rule,
+                        "numbered_pattern": cfg.section_pattern,
+                        "organizational_pattern": cfg.organizational_heading_pattern,
+                        "local_heading_pattern": cfg.local_heading_pattern,
+                    },
+                }
+            )
         return canonical_bytes(
             {
                 "recipe_id": "pdf-integrated-source-v1",
@@ -177,18 +198,50 @@ class IngestPdfIntegrated:
     def run(
         self, units: Sequence[UnitView], cfg: PdfIntegratedIngestConfig, ctx: MethodContext
     ) -> Sequence[UnitResult]:
-        from corpus_structure.semantic.pdf_integrated import PreparedPdfOriginal
-
-        from .pdf_reconciliation import select_pdf_integration
-
-        if cfg.native_product is None:
-            raise ValueError("integrated PDF ingestion requires an exact retained Standard product")
+        if cfg.native_product is None and cfg.integrated_product is None:
+            raise ValueError("integrated PDF ingestion requires an exact retained product role")
         consumer_release = _consumer_release(ctx)
         outputs = []
         for unit in units:
             if unit.ref.unit_id is None:
                 raise ValueError("integrated PDF unit requires retained original document id")
             try:
+                if cfg.integrated_product is not None:
+                    # The reader checks the integrated role and exact original/project custody
+                    # before returning the selected content body under the producing archive.
+                    retained = ctx.reader.native_document(cfg.integrated_product)
+                    content = retained.values()
+                    if (
+                        content.get("source_scope") != "whole_document"
+                        or content["health"]["conversion"] != "success"
+                    ):
+                        raise ValueError("retained integrated source is not a whole PDF product")
+                    snapshot = _snapshot_from_values(content)
+                    document = load_snapshot(snapshot)
+                    nodes = native_nodes(document)
+                    drafts = _drafts(
+                        unit.ref.unit_id,
+                        cfg.integrated_product,
+                        snapshot,
+                        content["health"],
+                        _select_sections(nodes, cfg, scope=ctx.run.options.get("scope")),
+                        cfg.membership,
+                        consumer_release,
+                        recognition_coverage=content.get("recognition_coverage", ()),
+                        document=document,
+                        node_index=nodes,
+                    )
+                    outputs.append(
+                        UnitResult(
+                            ref=unit.ref, outcome=ObservationOutcome.EMPTY, source_views=drafts
+                        )
+                    )
+                    continue
+                assert cfg.native_product is not None
+                from corpus_structure.semantic.pdf_integrated import PreparedPdfOriginal
+
+                from .pdf_reconciliation import select_pdf_integration
+
                 native = ctx.reader.native_document(cfg.native_product)
                 values = native.values()
                 if (
