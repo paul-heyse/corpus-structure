@@ -1,0 +1,17 @@
+EE.......                                                                [100%]
+==================================== ERRORS ====================================
+_ ERROR at setup of test_child_target_backpointer_multi_parent_and_leafs_in_both_publishers _
+../corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py:1935: in _exec_single_context
+    self.dialect.do_execute_no_params(
+../corpus-structure/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py:1195: in do_execute_no_params
+    cursor.execute(statement)
+../corpus-structure/.venv/lib/python3.14/site-packages/psycopg/cursor.py:117: in execute
+    raise ex.with_traceback(None)
+E   psycopg.errors.UniqueViolation: duplicate key value violates unique constraint "pk_physical_contract"
+E   DETAIL:  Key (physical_id)=(physical:ef4413f9402f31109d71a40ef480cbdeb504097346dfc7eee324e77dc8a6c46f) already exists.
+
+E   (Background on this error at: https://sqlalche.me/e/21/gkpj)
+=========================== short test summary info ============================
+ERROR python/corpus-structure/tests/semantic/test_native_child_edge_guard.py::test_child_target_backpointer_multi_parent_and_leafs_in_both_publishers
+ERROR python/corpus-structure/tests/semantic/test_native_child_edge_guard.py::test_child_integrity_generic_plan_is_global_not_correlated
+7 passed, 10 deselected, 2 warnings, 2 errors in 26.36s

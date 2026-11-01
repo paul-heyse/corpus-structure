@@ -429,6 +429,35 @@ def test_forward_reproduction_still_detects_current_function_change(monkeypatch)
     assert function["body_sha256"] == sha256(body.encode()).hexdigest()
 
 
+def test_forward_reproduction_still_detects_current_descriptor_helper_change(monkeypatch):
+    from hashlib import sha256
+    from pathlib import Path
+
+    from corpus_structure.semantic.native_products import forward_products, function_bodies
+
+    original = Path.read_text
+
+    def changed_helper(path, *args, **kwargs):
+        content = original(path, *args, **kwargs)
+        if path.name == "pdf_descriptor.sql":
+            assert "RETURN result;" in content
+            return content.replace("RETURN result;", "RETURN result || '{}'::jsonb;")
+        return content
+
+    before = forward_products()
+    monkeypatch.setattr(Path, "read_text", changed_helper)
+    after = forward_products()
+    assert before[0].content != after[0].content and before[-1].content != after[-1].content
+    body = function_bodies(after[0].content.decode())["ops.pdf_product_descriptor"]
+    assert "RETURN result || '{}'::jsonb;" in body
+    function = next(
+        f
+        for f in _forward_descriptor(after[-1])["functions"]
+        if f["signature"] == "ops.pdf_product_descriptor(bytea)"
+    )
+    assert function["body_sha256"] == sha256(body.encode()).hexdigest()
+
+
 def test_forward_reproduction_refuses_unsupported_current_effect(monkeypatch):
     from corpus_structure.semantic.effect_support import SUPPORTED_EFFECTS
     from corpus_structure.semantic.native_products import forward_products
@@ -441,21 +470,30 @@ def test_forward_reproduction_refuses_unsupported_current_effect(monkeypatch):
         forward_products()
 
 
-def test_forward_reproduction_still_detects_current_constraint_change():
+@pytest.mark.parametrize(
+    ("relation_name", "expression"),
+    [
+        ("kb.native_document_item", "ordinal >= 2"),
+        ("ops.pdf_product_body", "octet_length(payload) >= 2"),
+    ],
+)
+def test_forward_reproduction_still_detects_current_constraint_change(relation_name, expression):
     from sqlalchemy import CheckConstraint
 
     from corpus_structure.semantic.metadata import metadata
     from corpus_structure.semantic.native_products import forward_products
 
     before = forward_products()
-    relation = metadata.tables["kb.native_document_item"]
-    constraint = CheckConstraint("ordinal >= 2", name="counterfactual_reproduction")
+    relation = metadata.tables[relation_name]
+    constraint = CheckConstraint(expression, name="counterfactual_reproduction")
     relation.append_constraint(constraint)
     try:
         after = forward_products()
     finally:
         relation.constraints.remove(constraint)
     assert before[-1].content != after[-1].content
+    if relation_name == "ops.pdf_product_body":
+        assert "counterfactual_reproduction" in after[0].content.decode()
     assert (
         _forward_descriptor(before[-1])["physical_checks_source_digest"]
         != _forward_descriptor(after[-1])["physical_checks_source_digest"]

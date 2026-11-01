@@ -425,9 +425,15 @@ def json_pdf_products(model=None, *, authoring_provenance=None):
 
 def native_edge_products(model=None, *, authoring_provenance=None):
     """0061 checks the same native child edges once as a document-wide relation."""
-    sql = native_exclusion_products(model, authoring_provenance=authoring_provenance)[
+    # Reuse current helper/CHECK/functions, without reinserting 0060's immutable
+    # physical-contract snapshot under the same identity.
+    complete = json_pdf_products(model, authoring_provenance=authoring_provenance)[
         0
     ].content.decode()
+    sql, separator, _ = complete.partition("\nDO $reference$")
+    if not separator:
+        raise ValueError("JSON PDF realization lacks its physical-contract boundary")
+    sql = sql.rstrip() + "\n"
     previous = ALEMBIC_DIR.joinpath("versions/semantic_0060_admission.sql").read_text()
     admission = native_admission_sql(
         sql, model, base_admission=previous, authoring_provenance=authoring_provenance

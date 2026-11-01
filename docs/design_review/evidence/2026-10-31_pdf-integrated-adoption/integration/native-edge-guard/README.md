@@ -34,3 +34,24 @@ Not run: production deployment, full-book publication, integrated qualification.
 Production remains on 0060. The coordinator owns deployment and broad qualification.
 No worker inference, service or production database mutation occurred, and all
 owned checks completed before closeout.
+
+
+## Current helper/CHECK reproduction followup
+
+Tested 2026-11-01. The 0061 realization also derives the current descriptor helper
+and model-owned body CHECK from the JSON publication authoring path. Its existing
+physical-contract snapshot insertion is excluded because 0060 already installed
+that immutable identity; no snapshot or frozen migration is rewritten. The first
+verbatim composition attempt failed two fixture setups with duplicate physical
+identity; the adjacent scoped failure excerpt retains that result. The corrected
+composition passed the same command above: **9 passed, 10 deselected, 2 warnings**.
+
+The added independent counterfactual changes descriptor-helper source and verifies
+both generated function body and admission body digest change. A second extends
+the constraint counterfactual to the actual pdf_product_body relation, checking its
+CHECK appears in generated enforcement SQL as well as changing descriptor closure.
+Final warning-inclusive scoped typing reports 0 diagnostics; Ruff and format
+passed. The descriptor SHA above remains unchanged: the effective current helper
+and CHECK match deployed0060, now re-derived rather than inherited only from it.
+The final newline normalization receives an additional exact reproduction check.
+All deployment/full-book limitations above remain unchanged.

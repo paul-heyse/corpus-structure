@@ -1,4 +1,27 @@
 SET LOCAL ROLE corpus_sem_publisher;
+-- Exact compact descriptor from canonical wire bytes, without a whole-envelope JSONB value.
+CREATE OR REPLACE FUNCTION ops.pdf_product_descriptor(p_payload bytea) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $descriptor$
+DECLARE result jsonb:='{}'; content_metadata jsonb:='{}'; field_name text; field_value json;
+BEGIN
+ FOR field_name,field_value IN SELECT key,value FROM json_each(convert_from(p_payload,'UTF8')::json) LOOP
+  IF field_name='content' THEN
+   SELECT COALESCE(jsonb_object_agg(key,value::jsonb),'{}'::jsonb) INTO content_metadata
+    FROM json_each(field_value) WHERE key IN ('schema_digest','recipe_digest','health');
+  ELSIF field_name<>ALL(ARRAY['occurrences','relations','coverage','inputs','mapping_reports']) THEN
+   result:=result||jsonb_build_object(field_name,field_value::jsonb);
+  END IF;
+ END LOOP;
+ IF result->>'kind'='integrated' THEN
+  result:=result||jsonb_build_object('content_metadata',content_metadata);
+ END IF;
+ RETURN result;
+END $descriptor$;
+ALTER FUNCTION ops.pdf_product_descriptor(bytea) OWNER TO corpus_sem_publisher;
+REVOKE ALL ON FUNCTION ops.pdf_product_descriptor(bytea) FROM PUBLIC;
+DO $checks$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint WHERE conrelid='ops.pdf_product_body'::regclass AND contype='c' LOOP EXECUTE format('ALTER TABLE ops.pdf_product_body DROP CONSTRAINT %I',n); END LOOP; END $checks$;
+ALTER TABLE ops.pdf_product_body ADD CONSTRAINT ck_pdf_product_body_physical_acbf4a8f01 CHECK (descriptor = ops.pdf_product_descriptor(payload));
+SET LOCAL ROLE corpus_sem_publisher;
 CREATE OR REPLACE VIEW ops.pdf_selected_product AS SELECT task_id, product_key, content_digest, release_id, contract_digest, schema_digest, recipe_digest, parent_task_id, parent_product_key, parent_digest, native_json, health, payload FROM ops.native_document_product UNION ALL SELECT p.task_id, p.product_key, p.content_digest, p.release_id, p.contract_digest, body.descriptor -> 'content_metadata' ->> 'schema_digest', body.descriptor -> 'content_metadata' ->> 'recipe_digest', CAST(NULL AS bigint), CAST(NULL AS text), CAST(NULL AS text), b.content -> 'document', body.descriptor -> 'content_metadata' -> 'health', body.payload FROM ops.pdf_product AS p INNER JOIN ops.pdf_product_body AS body USING (task_id, product_key) CROSS JOIN LATERAL (SELECT CAST(CAST(convert_from(body.payload, 'UTF8') AS pg_catalog.json) -> 'content' AS jsonb) AS content) AS b WHERE p.kind = 'integrated';
 CREATE OR REPLACE FUNCTION ops.integrated_source_context(p_task bigint, p_key text, p_digest text, p_pointers text[], p_section text, p_membership text) RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'pg_catalog', 'pg_temp' AS $$
  WITH selected AS (
