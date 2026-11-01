@@ -30,6 +30,11 @@ are not the selected production path or a second authority for semantic executio
 
 ## Parsing demand and product lifecycle
 
+**Accepted relational target (2026-11-01); implementation/qualification remains package-scoped.** Private append/freeze/validate/seal use the existing task attempt and holder, with immutable validation premises and atomic visibility. No inference holds publication locks. Foundation declarations do not advertise unimplemented staging operations; progressive scopes remain conditional.
+
+> Decision: ADR-0042
+
+
 **Implemented PDF lifecycle; targeted controls Tested (2026-10-31).** Existing operation/task/attempt
 ownership drives conversion and downstream demands. One original, conversion, page, section and
 item are distinct semantic units, not a requirement for one task/transaction apiece. Reuse successful

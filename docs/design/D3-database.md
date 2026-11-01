@@ -124,25 +124,29 @@ owns the exact deployed head and complete qualification boundary.
 
 > Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 
-### Large integrated companion publication
+### Relational document realization and publication
 
-**Implemented through0060; bounded controls Tested (2026-11-01).** Canonical PDF artifact bytes and
-one native DoclingDocument remain distinct from normalized companion rows. PostgreSQL JSON text
-allows the protected publisher to decompose large relation/occurrence arrays into independently
-validated JSONB records without constructing an oversized aggregate JSONB value. The same trusted
-model generates closed shape/type/cardinality checks; fences, exact byte custody, input/endpoint
-relations, decisions and coverage remain independently enforced by PostgreSQL. Descriptor checks
-and selected-content views narrow only bounded content/records. Cache header/content before row
-loops rather than repeatedly reparse the full wire document. The PDF coordinator owns delivery
-and exact book/consumer qualification; current failed casts are retained evidence. Actual book
-attempt7 passed the aggregate cast but was cancelled during native child validation, with no
-integrated product committed. The committed, undeployed0061 guard expands child edges once and
-checks targets/backpointers through a document-wide join, shared by native and integrated
-publication. Its current descriptor helper and body CHECK are derived from the same authoring
-path; frozen0057–0060 remain unchanged. Bounded guard/reproduction controls passed; no book-scale
-runtime or publication success is claimed.
+**Accepted target (2026-11-01); foundation implementation is tracked in PDF-17–19.**
+Fixed model-governed document records, ordered collections, qualified references/native addresses,
+provenance and artifact parts replace mandatory full native JSONB/canonical-envelope transport.
+Bounded JSON retains native extension detail; oversized individual values use lossless byte parts.
+The same model drives boundary types, Arrow schemas, Core metadata and native constraints. Exact
+raw byte custody, logical record identity and native export serialization are separate contracts;
+historical pins are not rewritten. Public reads select immutable published revisions only.
 
-> Decision: [ADR-0041](../adr/0041-json-text-pdf-publication.md)
+Private append, freeze, frozen-union validation and final seal reuse existing task/attempt fences.
+Membership cannot change under validation; seal rechecks owner, run/task/input/contract premises.
+Native closure still covers inventories, tree/backpointers/order, frames, occurrences/cells,
+inputs/artifacts, independent relation endpoints, decisions and coverage. Acyclicity applies to
+containment/product dependencies, not every cross-reference. Hash claims alone are insufficient.
+
+0060 JSON-text decomposition remains the deployed baseline.0061's set-shaped child guard is
+committed/undeployed and remains frozen; its semantics carry forward in new native guards.
+No live migration, whole-book publication or completed consumer adoption follows from this target.
+[PDF-20/21](../plans/pdf-docling-pipeline/staged-publication-and-validation.md) own durable staging/seal;
+PDF-24/25 own shared consumer/export migration and operational handoff. The coordinator owns evidence.
+
+> Decision: [ADR-0042](../adr/0042-relational-pdf-document-records.md)
 
 ## Current task authority and historical storage
 

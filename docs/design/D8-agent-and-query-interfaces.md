@@ -78,6 +78,11 @@ until their applicable current-source results are recorded in the owning plan.
 
 ## Source-product query and explanation boundary
 
+**Accepted relational target (2026-11-01); implementation/qualification remains package-scoped.** Record/membership/artifact reads bind immutable qualified pins and bounded bytes as well as rows. Logical content and exact export/raw byte identities are separate; archived content_digest retains its canonical-envelope SHA-256 meaning. PDF-24 owns public CLI/MCP migration; no provisional document is served as complete.
+
+> Decision: ADR-0042
+
+
 **Accepted PDF target; Proposed implementation (2026-10-31).** Version source APIs and
 packet/native-frame contracts to expose pinned section ancestry, item/table-cell/formula evidence,
 PDF regions and recognition/scope health. Bind the actual supplied context into packet identity;

@@ -18,6 +18,11 @@ type on real Siegrist text.
 
 ## Semantic source and qualification profile
 
+**Accepted relational target (2026-11-01); implementation/qualification remains package-scoped.** Records preserve one logical integrated document, native fields/presence/order, qualified occurrences, independent evidence relations and truthful precision/coverage. Logical IDs and native positional addresses are distinct; equal text never merges occurrences.
+
+> Decision: ADR-0042
+
+
 **Implemented, 2026-10-29; package acceptance remains scoped by
 [SP-06/SP-07](../plans/semantic-model-pivot/domain-operations.md).** The opt-in
 `model/semantic/core.yaml` declares mathematical expressions, source-bound macro environments,

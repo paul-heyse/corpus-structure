@@ -1,10 +1,10 @@
 ---
 id: ADR-0041
 title: Publish large PDF companions as bounded native records
-status: accepted
+status: superseded
 date: 2026-10-31
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0042
 design: [§B4]
 evidence: Proposed
 revisit: A required canonical artifact approaches PostgreSQL's bytea limit, or an individual native content value exceeds JSONB representation limits.

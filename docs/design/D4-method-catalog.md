@@ -13,6 +13,11 @@ realization** subsection directly; anything that changes a contract goes in a
 
 ## Parsing operations and versioned method adoption
 
+**Accepted relational target (2026-11-01); implementation/qualification remains package-scoped.** Page-local extraction and typed record preparation are separated from required global reading-order/heading/enrichment. Normalization is explicit before identity; retained reads do not mutate geometry or lists. PDF-22 still owns the actual bounded producer adapter.
+
+> Decision: ADR-0042
+
+
 **Accepted PDF target; Proposed implementation (2026-10-31).** New ingestion accepts PDF only
 and uses StandardPdfPipeline with explicit OCR, layout/table recognition, formula enrichment and
 heading hierarchy. Full Docling with the operator-selected extras supplies available capabilities;

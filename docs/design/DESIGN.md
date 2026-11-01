@@ -251,15 +251,17 @@ and inert databases/frozen migration/evidence records. No destructive data clean
 
 > Decision: ADR-0040
 
-**Implemented through0060; bounded controls Tested (2026-11-01).** Retain exact
-canonical artifact bytea and native Docling JSONB, while admitting wide companion arrays as
-model-validated records into their existing PostgreSQL relations. Parse wire JSON text before
-narrowing bounded records/content to JSONB; preserve independent native custody and integrity
-without materializing an oversized aggregate relation array. D3 owns the physical mechanism;
-the PDF coordinator owns delivery and qualification.0061's shared child-edge join is committed
-and focused-tested but undeployed; whole-book publication and assembled adoption remain incomplete.
+**Accepted relational streaming target (2026-11-01); implementation maturity is owned by the PDF coordinator.**
+One logical Docling content graph plus mandatory companions is realized through lossless typed
+records, ordered membership, qualified native addresses and bounded artifact parts. Docling owns
+native content; the semantic release owns lowerings, identity and behavior; PostgreSQL owns
+instance custody and enforcement. Private append/freeze/validation precedes atomic publication.
+Logical identity and exact byte/serialization identities remain distinct; historical SHA-256
+content_digest pins retain their original meaning. A named bounded fold cannot impersonate them.
+0060 remains deployed and0061 committed/undeployed; new foundation does not establish book-scale
+publication, streaming producer integration or adopted consumer qualification.
 
-> Decision: ADR-0041
+> Decision: ADR-0042
 
 **Retained HTML implementation boundary.**
 
