@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "arrow.validation-boundary",
+  "title": "Arrow structural validation and exact nested IPC boundary",
+  "group": "pdf-docling-pipeline",
+  "package": "PDF-20",
+  "finalized": "2026-11-01",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does installed Arrow26 structural validation enforce non-nullability/domain field metadata, and can selected IPC values preserve exact metadata and text?",
+  "answers": [
+    "pdf-docling-structured-data I04"
+  ],
+  "method": "Construct invalid required-field/range examples under explicit Arrow schemas, run full batch validation, then round-trip NUL text and negative zero through zstd IPC while comparing schema metadata. This is a bounded library observation, not product qualification.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-01_pdf-structured-data/arrow_validation_boundary.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "arrow_validation_boundary.py",
+      "role": "executed-probe-source",
+      "sha256": "91a251f6402ac0a6a6ef0536d8a5200ae44f7204ff3431a504835dcab3c7b91b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/arrow-validation-boundary.txt",
+      "role": "actual-probe-output",
+      "sha256": "e7017dec9de6538aed73d53680530a421f15b2cd66a8a68690180d05a453c722"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "nonnullable null accepted by full validation",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "domain metadata bound not enforced",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "selected IPC schema metadata retained",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Installed Arrow26 accepted nulls despite nonnullable field declarations and did not enforce a confidence bound stored only in metadata. The selected zstd IPC roundtrip preserved schema metadata, NUL text and negative zero. These observations require an explicit domain-validation boundary; they are not a general fidelity, performance or production-validation result.",
+  "consumed_by": [
+    "pdf-docling-structured-data review"
+  ]
+}

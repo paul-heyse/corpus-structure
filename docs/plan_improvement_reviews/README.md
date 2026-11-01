@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [PDF structured data — Arrow payloads and PostgreSQL responsibilities](pdf-docling-structured-data_2026-11-01.md):
+  proposed hybrid placement, Pydantic/Arrow contracts, validation boundaries and general PDF
+  pipeline improvements; one bounded library probe, no adopted plan or production changes.
+
 - [Semantic-model pivot — library-focused improvement review](semantic-model-pivot_2026-10-29.md):
   proposed coordinated amendments, current CBO-001–025 judgments and CA-01–CA-11 coverage,
   including improvements to completed capabilities.
