@@ -599,6 +599,44 @@ def run_source_methods(
                                             task.task_id, product.values()["product_key"], digest
                                         )
 
+                                    def retain_pdf_records(
+                                        ref, product, *, claimed_tasks=tuple(claimed),
+                                        active=check_active,
+                                    ):
+                                        from pathlib import Path
+                                        from corpus_structure.orchestrate.pdf_streaming import (
+                                            publish_pdf_record_draft,
+                                        )
+                                        from corpus_structure.semantic.product_reference import (
+                                            ProductReference,
+                                        )
+
+                                        task = _retained_claim(ref, claimed_tasks, active)
+                                        published = publish_pdf_record_draft(
+                                            engine, task, holder, product,
+                                            directory=Path("build/pdf-publication"),
+                                            check_active=active,
+                                        )
+                                        return ProductReference(
+                                            published.task_id, published.product_key,
+                                            published.logical_digest,
+                                        )
+
+                                    def produce_pdf_records(
+                                        ref, request, *, claimed_tasks=tuple(claimed),
+                                        active=check_active,
+                                    ):
+                                        from pathlib import Path
+                                        from corpus_structure.orchestrate.pdf_streaming import produce_published_pdf_records
+                                        from corpus_structure.semantic.product_reference import ProductReference
+                                        task = _retained_claim(ref, claimed_tasks, active)
+                                        published = produce_published_pdf_records(
+                                            engine, task, holder, request,
+                                            directory=Path("build/pdf-production"), check_active=active,
+                                        )
+                                        return ProductReference(published.task_id, published.product_key,
+                                                                published.logical_digest)
+
                                     results = method.run(
                                         units,
                                         config.config,
@@ -608,6 +646,8 @@ def run_source_methods(
                                             method_settings,
                                             logging.getLogger(method.name),
                                             check_active=check_active,
+                                            retain_pdf_records=retain_pdf_records,
+                                            produce_pdf_records=produce_pdf_records,
                                             retain_native_pdf=retain_native_pdf,
                                             retain_integrated_pdf=retain_integrated_pdf,
                                         ),

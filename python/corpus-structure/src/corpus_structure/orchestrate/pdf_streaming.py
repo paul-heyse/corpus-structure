@@ -20,6 +20,8 @@ from corpus_structure.semantic.claim_lifetime import maintained_claims
 from corpus_structure.semantic.operation_results import ClaimedTask
 
 if TYPE_CHECKING:
+    from corpus_structure.core.method import PdfRecordPublicationDraft, PdfRecordProducerRequest
+    from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
@@ -239,6 +241,17 @@ def run_private_native_pdf_build(
                                     )
                                 if on_adopted is not None:
                                     on_adopted(receipt)
+                        if candidates.exists():
+                            from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
+                            with candidates.open() as candidate_file:
+                                candidate_value = json.load(candidate_file)
+                            with engine.begin() as connection:
+                                adopt_pdf_companion_batch(
+                                    connection, build, "native_metadata", ({
+                                        "kind": "inline_candidate_pages", "ordinal": number,
+                                        "value": candidate_value,
+                                    },), replay_key=f"page:{number}:candidate-metadata",
+                                )
                         return
                     if replay.family not in STAGE_FAMILIES:
                         raise ValueError("unknown private PDF replay family")
@@ -254,7 +267,7 @@ def run_private_native_pdf_build(
                     finally:
                         batches.close()
 
-                worker.stream(
+                reply = worker.stream(
                     owner.reference,
                     spool_root=replay_root / "pages",
                     record_root=replay_root / "records",
@@ -269,6 +282,34 @@ def run_private_native_pdf_build(
                     if observation_replay
                     else None,
                 )
+                if reply.conversion_status != "success":
+                    raise RuntimeError("native streaming conversion did not complete: " + "; ".join(reply.errors))
+                from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
+                with engine.begin() as connection:
+                    adopt_pdf_companion_batch(connection, build, "health", ({
+                        "health": {"conversion": reply.conversion_status,
+                                   "display_coverage": "unknown", "inline_coverage": "unknown",
+                                   "cell_coverage": "unknown", "issues": list(reply.errors)},
+                        "source_scope": "whole_document",
+                    },), replay_key="native:health")
+                import json
+                completion = replay_root / "records" / "completion.jsonl"
+                if completion.exists():
+                    with completion.open() as completion_file:
+                        for ordinal, line in enumerate(completion_file):
+                            value = json.loads(line)
+                            if value.get("kind") != "formula":
+                                continue
+                            body = {"pointer": value["item_ref"], "outcome": value["outcome"]}
+                            if value.get("error"):
+                                body["error"] = value["error"]
+                            with engine.begin() as connection:
+                                adopt_pdf_companion_batch(
+                                    connection, build, "native_metadata", ({
+                                        "kind": "formula_outcomes", "ordinal": ordinal,
+                                        "value": body,
+                                    },), replay_key=f"native:formula:{ordinal}",
+                                )
                 check_active()
             finally:
                 # Stop native borrowers before ending claim maintenance or source custody.
@@ -315,3 +356,253 @@ def replay_private_pdf_build(
             batches.close()
         check_active()
     return resumed
+
+
+def publish_pdf_record_draft(
+    engine: Engine,
+    claim: ClaimedTask,
+    holder: str,
+    draft: PdfRecordPublicationDraft,
+    *,
+    directory: Path,
+    check_active: Callable[[], None],
+) -> PublishedPdfDocumentRef:
+    """Publish the actual method result through private rows and frozen validation.
+
+    Called by the existing leased method owner. Conversion/selection has finished;
+    no connection is retained while lowering or executing native validation. A
+    failure leaves authenticated private progress and original custody available.
+    """
+    import json
+    from hashlib import sha256
+    from uuid import uuid4
+
+    from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
+    from corpus_structure.semantic.pdf_publication import (
+        adopt_pdf_companion_batch,
+        retain_pdf_stage_recipe,
+        freeze_pdf_build,
+        prepare_pdf_build,
+        seal_pdf_build,
+        validate_pdf_build,
+    )
+    from corpus_structure.semantic.pdf_staging import (
+        MAX_BATCH_BYTES,
+        adopt_pdf_batch,
+        begin_pdf_build,
+    )
+
+    check_active()
+    source_digest = sha256(draft.original).hexdigest()
+    recipe_digest = sha256(draft.recipe_bytes).hexdigest()
+    schema_digest = sha256(draft.schema_bytes).hexdigest()
+    with engine.begin() as connection:
+        retain_pdf_stage_recipe(
+            connection, task_id=claim.task_id, attempt=claim.attempt, holder=holder,
+            recipe_bytes=draft.recipe_bytes,
+        )
+        build = begin_pdf_build(
+            connection, task_id=claim.task_id, attempt=claim.attempt, holder=holder,
+            source_digest=source_digest, recipe_digest=recipe_digest,
+            schema_digest=schema_digest, replay_key="product:" + draft.product_key,
+        )
+    owner = directory / build.build_id / uuid4().hex
+    owner.mkdir(parents=True)
+    spool = PdfStreamSpool(owner / "pages", check_active=check_active)
+    streamed = StreamingPdfResult(
+        draft.document, spool, str(draft.health.get("conversion", "success")),
+        (), draft.recipe_bytes, (),
+    )
+
+    def adopt(replay: PdfReplayRef) -> None:
+        batches = ipc_replay_batches((replay,), check_active)
+        try:
+            for batch in batches:
+                check_active()
+                with engine.begin() as connection:
+                    adopt_pdf_batch(connection, build, batch.replay_key, batch.relations)
+        finally:
+            batches.close()
+
+    streamed.write_record_batches(
+        owner / "records", build_id=build.build_id, release_id=build.release_id,
+        source_digest=source_digest, on_batch=adopt,
+    )
+    companions = dict(draft.companions)
+    native_health = dict(draft.health)
+    captured_metadata = dict(draft.metadata)
+    if "formula_outcomes" in native_health:
+        captured_metadata.setdefault("formula_outcomes", native_health.pop("formula_outcomes"))
+    if captured_metadata:
+        def metadata_rows():
+            for kind, values in captured_metadata.items():
+                rows = (values,) if isinstance(values, Mapping) else values
+                for ordinal, value in enumerate(rows):
+                    yield {"kind": kind, "ordinal": ordinal, "value": value}
+        from itertools import chain
+        companions["native_metadata"] = chain(companions.get("native_metadata", ()), metadata_rows())
+    if "health" in companions:
+        health_rows = companions["health"]
+        def bounded_health_rows():
+            for row in health_rows:
+                body = dict(row)
+                if "health" in body:
+                    body["health"] = {k:v for k,v in body["health"].items() if k != "formula_outcomes"}
+                yield body
+        companions["health"] = bounded_health_rows()
+    companions.setdefault("health", ({
+        "source_scope": draft.source_scope, "health": native_health,
+    },))
+    for family, records in companions.items():
+        pending: list[Mapping[str, Any]] = []
+        size = 0
+        ordinal = 0
+        delivered = 0
+
+        def flush(family=family, pending=pending) -> None:
+            nonlocal size, ordinal, delivered
+            if not pending:
+                return
+            check_active()
+            with engine.begin() as connection:
+                adopt_pdf_companion_batch(
+                    connection, build, family, pending,
+                    replay_key=f"companion:{family}:{ordinal}", start_ordinal=delivered,
+                )
+            ordinal += 1
+            delivered += len(pending)
+            pending.clear()
+            size = 0
+
+        for row in records:
+            row_size = len(json.dumps(row, ensure_ascii=False, allow_nan=False).encode())
+            if pending and size + row_size > MAX_BATCH_BYTES // 2:
+                flush()
+            pending.append(row)
+            size += row_size
+        flush()
+    if draft.retained_serialization is not None:
+        _adopt_retained_serialization(engine, build, draft.retained_serialization, check_active)
+    check_active()
+    with engine.begin() as connection:
+        frozen = freeze_pdf_build(connection, build)
+    with engine.begin() as connection:
+        prepare_pdf_build(connection, frozen)
+    validate_pdf_build(engine, frozen, check_active=check_active)
+    check_active()
+    with engine.begin() as connection:
+        return seal_pdf_build(connection, frozen, product_key=draft.product_key)
+
+
+def produce_published_pdf_records(
+    engine: Engine, claim: ClaimedTask, holder: str, request: PdfRecordProducerRequest, *,
+    directory: Path, check_active: Callable[[], None],
+) -> PublishedPdfDocumentRef:
+    """Actual finite page producer followed by frozen publication, never graph IPC."""
+    from hashlib import sha256
+    from uuid import uuid4
+    from corpus_structure.semantic.pdf_publication import (
+        freeze_pdf_build, prepare_pdf_build, validate_pdf_build, seal_pdf_build,
+        retain_pdf_stage_recipe,
+    )
+    directory = directory / uuid4().hex
+    directory.mkdir(parents=True)
+    original = directory / "submitted.pdf"
+    with original.open("xb") as stream:
+        stream.write(request.original)
+    with engine.begin() as connection:
+        retain_pdf_stage_recipe(
+            connection, task_id=claim.task_id, attempt=claim.attempt, holder=holder,
+            recipe_bytes=request.recipe.to_bytes(),
+        )
+    build = run_private_native_pdf_build(
+        engine, claim, holder, original=original, recipe=request.recipe, assets=request.assets,
+        directory=directory / "producer", source_digest=sha256(request.original).hexdigest(),
+        schema_digest=sha256(request.schema_bytes).hexdigest(), replay_key="product:native",
+    )
+    check_active()
+    with engine.begin() as connection:
+        frozen = freeze_pdf_build(connection, build)
+    with engine.begin() as connection:
+        prepare_pdf_build(connection, frozen)
+    validate_pdf_build(engine, frozen, check_active=check_active)
+    check_active()
+    with engine.begin() as connection:
+        return seal_pdf_build(connection, frozen, product_key="native")
+
+
+def migrate_retained_pdf_envelope(
+    engine: Engine, claim: ClaimedTask, holder: str, *, path: Path,
+    expected_sha256: str, original: bytes, schema_bytes: bytes, recipe_bytes: bytes,
+    directory: Path, product_key: str = "integrated",
+) -> PublishedPdfDocumentRef:
+    """Explicit qualified storage derivation; never repeats source inference.
+
+    The existing task must already represent this migration/adoption recipe.
+    Retained bytes are checked while decoding, before the new build is frozen.
+    This writes only private/admitted products for that task, not defaults or a
+    completed knowledge result. Original historical products remain unchanged.
+    """
+    from uuid import uuid4
+    from corpus_structure.ingest.pdf_retained_stream import retained_pdf_draft
+
+    owner = directory / uuid4().hex
+    owner.mkdir(parents=True)
+    with maintained_claims(engine, [claim], holder) as check_active:
+        with retained_pdf_draft(
+            path, expected_sha256=expected_sha256, product_key=product_key,
+            original=original, schema_bytes=schema_bytes, recipe_bytes=recipe_bytes,
+            directory=owner / "companions",
+        ) as draft:
+            return publish_pdf_record_draft(
+                engine, claim, holder, draft, directory=owner / "publication",
+                check_active=check_active,
+            )
+
+
+def _adopt_retained_serialization(engine, build, retained, check_active):
+    import gzip
+    from hashlib import sha256
+    from corpus_structure.semantic.pdf_record_identity import IdentityFold, emit_parts
+    from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, stage_schema
+
+    stream_id = "retained/envelope"
+    common = {"product_id": build.build_id, "revision_id": build.build_id, "stream_id": stream_id}
+    digest = sha256()
+    fold = IdentityFold("bytes")
+    opener = gzip.open if retained.compression == "gzip" else open
+    with opener(retained.path, "rb") as source:
+        def chunks():
+            while block := source.read(65536):
+                yield block
+        pending = []
+        index = 0
+        for part in emit_parts(stream_id, chunks()):
+            digest.update(part.body)
+            fold.add(part.body)
+            pending.append({**common, "ordinal": part.ordinal, "byte_offset": part.offset,
+                            "byte_length": part.byte_length, "body": part.body,
+                            "sha256_digest": part.sha256_digest})
+            if len(pending) == 64:
+                check_active()
+                with engine.begin() as connection:
+                    adopt_pdf_batch(connection, build, f"retained:parts:{index}", {
+                        "artifact_part": (pa.RecordBatch.from_pylist(pending, schema=stage_schema("artifact_part")),),
+                    })
+                index += 1
+                pending.clear()
+        if pending:
+            with engine.begin() as connection:
+                adopt_pdf_batch(connection, build, f"retained:parts:{index}", {
+                    "artifact_part": (pa.RecordBatch.from_pylist(pending, schema=stage_schema("artifact_part")),),
+                })
+    if digest.hexdigest() != retained.serialization_sha256:
+        raise ValueError("retained bytes changed during storage adoption")
+    check_active()
+    row = {**common, "byte_length": fold.byte_length, "byte_root": fold.digest().hex(),
+           "serialization_sha256": digest.hexdigest(),
+           "encoding_profile": "retained-pdf-envelope-json-v1"}
+    with engine.begin() as connection:
+        adopt_pdf_batch(connection, build, "retained:stream", {
+            "artifact_stream": (pa.RecordBatch.from_pylist([row], schema=stage_schema("artifact_stream")),),
+        })

@@ -19,6 +19,7 @@ from .pdf_reconciliation import _PrivateSelection, _select_pdf_integration
 _NAMES = frozenset(
     {
         "input",
+        "native_metadata",
         "coverage",
         "rejected",
         "mapping_report",
