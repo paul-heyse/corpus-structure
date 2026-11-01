@@ -27,6 +27,7 @@ from corpus_structure.core.vocab import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 
+from .pdf_capacity import native_before_nemotron
 from .pdf_health import error_summary
 from .pdf_hierarchy import load_snapshot, native_nodes
 from .pdf_methods import (
@@ -76,6 +77,9 @@ class PdfIntegratedIngestConfig(PdfIngestConfig):
     max_regions: int = Field(default=80, ge=1)
     recognition_pages: tuple[int, ...] = ()
     integrated_product: ProductReference | None = None
+    gpu_phase_policy: Literal["native-before-nemotron-sleep-level1-v1"] = (
+        "native-before-nemotron-sleep-level1-v1"
+    )
     recovery_policy: PdfRecognitionRecoveryPolicy | None = Field(
         default_factory=PdfRecognitionRecoveryPolicy
     )
@@ -165,6 +169,12 @@ class IngestPdfIntegrated:
                 "recipe_id": "pdf-integrated-source-v1",
                 "recognition": cfg.recognition_recipe().digest,
                 "native_product": cfg.native_product.values() if cfg.native_product else None,
+                "structural_recipe": (
+                    sha256(self._selector.original_recipe(cfg)).hexdigest()
+                    if cfg.native_product is None
+                    else None
+                ),
+                "gpu_phase_policy": cfg.gpu_phase_policy,
                 "integration_policy": cfg.integration_policy,
                 "recognition_pages": cfg.recognition_pages,
                 "recovery_policy": (
@@ -198,8 +208,6 @@ class IngestPdfIntegrated:
     def run(
         self, units: Sequence[UnitView], cfg: PdfIntegratedIngestConfig, ctx: MethodContext
     ) -> Sequence[UnitResult]:
-        if cfg.native_product is None and cfg.integrated_product is None:
-            raise ValueError("integrated PDF ingestion requires an exact retained product role")
         consumer_release = _consumer_release(ctx)
         outputs = []
         for unit in units:
@@ -237,12 +245,32 @@ class IngestPdfIntegrated:
                         )
                     )
                     continue
-                assert cfg.native_product is not None
                 from corpus_structure.semantic.pdf_integrated import PreparedPdfOriginal
 
                 from .pdf_reconciliation import select_pdf_integration
 
-                native = ctx.reader.native_document(cfg.native_product)
+                native_reference = cfg.native_product
+                if native_reference is None:
+                    # This is the declared Standard producer phase of the combined pipeline.
+                    # Its real recipe/parent products are published before Nemotron requests.
+                    with native_before_nemotron(
+                        ctx.settings.nemotron_endpoint, check_active=ctx.check_active
+                    ):
+                        try:
+                            standard = self._selector.run([unit], cfg, ctx)[0]
+                        finally:
+                            self._selector.close()
+                        native = None
+                        for captured in standard.native_products:
+                            reference = ctx.retain_native_pdf(unit.ref, captured)
+                            if captured.values()["product_key"] == "organized":
+                                native, native_reference = captured, reference
+                        if standard.outcome == ObservationOutcome.FAILED:
+                            raise RuntimeError(standard.error or "Standard PDF phase failed")
+                        if native is None or native_reference is None:
+                            raise RuntimeError("Standard PDF phase returned no organized source")
+                else:
+                    native = ctx.reader.native_document(native_reference)
                 values = native.values()
                 if (
                     values.get("source_scope") != "whole_document"
@@ -318,7 +346,7 @@ class IngestPdfIntegrated:
                 ctx.check_active()
                 selected = select_pdf_integration(
                     values,
-                    cfg.native_product.values(),
+                    native_reference.values(),
                     observations,
                     native.original,
                     self.original_recipe(cfg),
@@ -355,6 +383,9 @@ class IngestPdfIntegrated:
                 )
             except Exception as error:
                 summary = error_summary(error)
+                notes = getattr(error, "__notes__", ())
+                if notes:
+                    summary = (summary + "; " + "; ".join(notes))[:1800]
                 ctx.logger.warning("ingest.pdf_integrated %s: %s", unit.ref.unit_key, summary)
                 outputs.append(
                     UnitResult(ref=unit.ref, outcome=ObservationOutcome.FAILED, error=summary)

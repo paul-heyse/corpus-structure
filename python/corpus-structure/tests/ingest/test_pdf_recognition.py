@@ -157,6 +157,8 @@ def owner(tmp_path, endpoint):
     root = Path(__file__).resolve().parents[4]
     runtime = root / "services/nemotron-parse/.venv/bin/python"
     if not runtime.exists():
+        runtime = Path.home() / ".cache/corpus-structure/nemotron-runtime-py312/bin/python"
+    if not runtime.exists():
         pytest.skip("isolated public Nemotron parser environment unavailable")
     return RecognitionWorker(
         python=runtime,
