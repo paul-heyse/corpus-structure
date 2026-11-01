@@ -11,7 +11,7 @@ from pydantic import BaseModel, JsonValue
 from sqlalchemy import Connection, Engine, text
 
 from corpus_structure.core.vocab import TaskStatus
-from corpus_structure.semantic.parsing_products import ProductReference
+from corpus_structure.semantic.product_reference import ProductReference
 
 
 class CommandError(ValueError):

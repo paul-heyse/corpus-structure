@@ -45,7 +45,7 @@ from corpus_structure.semantic.operations import (
     record_method,
     register_document,
 )
-from corpus_structure.semantic.parsing_products import ProductReference
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.pdf_contracts import (
     prepare_pdf_product,
     store_pdf_original,

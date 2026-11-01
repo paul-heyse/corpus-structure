@@ -1,79 +1,15 @@
-"""Finite implementation admission for the existing parsing operation/relationship model.
-
-The catalog owns role semantics. This module states the independently implemented profile;
-runtime and native consumers read the admitted catalog instead of restating its roles.
-"""
-
+"""Finite supported native PDF, text and mathematical adapter bindings."""
 from __future__ import annotations
-
 from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
-    from .contracts import ExecutionModelProducts, RelationshipDefinition
+    from .contracts import ExecutionModelProducts
 
-PARSING_RELATION_KINDS = (
-    "contains",
-    "structural_parent",
-    "reference",
-    "binds",
-    "derived_from",
-    "sequence",
-    "attribute_of",
-    "text_of",
-)
-FUTURE_PARSING_OPERATIONS = (
-    "prepare_parsing_text",
-    "interpret_parsing_math",
-    "assess_parsing_math",
-)
-
-
-def parsing_relationships(model: ExecutionModelProducts) -> dict[str, RelationshipDefinition]:
-    return {
-        kind: next(r for r in model.relationships if r.id == "parsing_" + kind)
-        for kind in PARSING_RELATION_KINDS
-    }
-
-
-def validate_parsing_contracts(model: ExecutionModelProducts) -> None:
+def validate_native_adapters(model: ExecutionModelProducts) -> None:
     """Refuse a declaration outside the actual bounded endpoint implementation."""
     from .contracts import _fail
 
-    support = {
-        "contains": ("parent", "child"),
-        "structural_parent": ("parent", "child"),
-        "reference": ("source", "target"),
-        "binds": ("invocation", "definition"),
-        "derived_from": ("target", "source"),
-        "sequence": ("source", "target"),
-        "attribute_of": ("attribute", "owner"),
-        "text_of": ("text", "owner"),
-    }
-    for kind, relation in parsing_relationships(model).items():
-        expected_concept = (
-            "ParsingNode"
-            if kind in {"contains", "structural_parent", "attribute_of", "text_of"}
-            else "ParsingOccurrence"
-        )
-        if (
-            tuple(e.role for e in relation.endpoints) != support[kind]
-            or any(
-                e.minimum != 1 or e.maximum != 1 or e.unresolved or e.concept != expected_concept
-                for e in relation.endpoints
-            )
-            or relation.multiplicity != "sequence"
-            or relation.reference_scope != "execution"
-            or relation.identity_kind != "occurrence"
-            or relation.identity_context != ("release", "build", "relationship_id")
-        ):
-            _fail(
-                "unsupported_parsing_relationship",
-                "relationships/" + relation.id,
-                "qualify endpoint support and native enforcement before changing "
-                "this relationship profile",
-            )
     # Future declarations express required distinctions without advertising a producer.
-    for name in FUTURE_PARSING_OPERATIONS:
+    for name in ("prepare_parsing_text", "interpret_parsing_math", "assess_parsing_math"):
         model.operation(name)
     for name in ("convert_pdf", "organize_pdf", "project_pdf_source", "publish_source_view", "read_source_view"):
         model.require_operation(name)

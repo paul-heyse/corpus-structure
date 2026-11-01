@@ -122,7 +122,7 @@ def regenerate(
         if native_source is not None:
             if resume_run is not None:
                 raise SemanticRefusal("a resumed run retains its original native input binding")
-            from corpus_structure.semantic.parsing_products import ProductReference
+            from corpus_structure.semantic.product_reference import ProductReference
             from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 
             boundary = trusted_pdf_context().boundary

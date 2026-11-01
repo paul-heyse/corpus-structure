@@ -2420,56 +2420,6 @@ concepts:
     required: true
     multivalued: false
   relationships: []
-- id: ParsingProduct
-  family: source
-  scope: run
-  meaning: ParsingProduct with representation-qualified custody under the parsing
-    product contract
-  identity: Producing build/product and explicit occurrence identifier; never a display
-    label
-  attributes:
-  - name: recipe
-    range: text
-    required: true
-    multivalued: false
-  - name: artifact_digest
-    range: text
-    required: true
-    multivalued: false
-  - name: lifecycle
-    range: text
-    required: true
-    multivalued: false
-  - name: semantic_state
-    range: text
-    required: true
-    multivalued: false
-  - name: provenance_state
-    range: text
-    required: true
-    multivalued: false
-  - name: representations
-    range: ParsingRepresentation
-    required: true
-    multivalued: true
-  - name: components
-    range: ParsingComponent
-    required: false
-    multivalued: true
-  - name: nodes
-    range: ParsingNode
-    required: false
-    multivalued: true
-  - name: relationships
-    range: ParsingRelationship
-    required: false
-    multivalued: true
-  - name: mappings
-    range: ParsingMapping
-    required: false
-    multivalued: true
-  relationships:
-  - parsing_product_representation
 - id: PreparedParsingProduct
   family: source
   scope: run
@@ -2491,317 +2441,40 @@ concepts:
     required: true
     multivalued: false
   relationships: []
-- id: ParsingRepresentation
+- id: PreparedMathInput
   family: source
   scope: run
-  meaning: ParsingRepresentation with representation-qualified custody under the parsing
-    product contract
-  identity: Producing build/product and explicit occurrence identifier; never a display
-    label
+  meaning: Positioned mathematical spelling and explicit prepared source interpretation context
+  identity: Qualified selected source occurrence, spelling and context digest
   attributes:
-  - name: representation_id
-    range: text
-    required: true
-    multivalued: false
-  - name: kind
-    range: text
-    required: true
-    multivalued: false
-  - name: unit
-    range: text
-    required: true
-    multivalued: false
-  - name: extent_length
-    range: integer
-    required: true
-    multivalued: false
-  - name: text_content
-    range: text
-    required: false
-    multivalued: false
-  - name: partition_state
-    range: text
-    required: true
-    multivalued: false
-  - name: recognition_state
-    range: text
-    required: true
-    multivalued: false
-  - name: encoding
-    range: text
-    required: false
-    multivalued: false
-  - name: decoder
-    range: text
-    required: false
-    multivalued: false
-  - name: newline_policy
-    range: text
-    required: false
-    multivalued: false
-  relationships:
-  - parsing_product_representation
-  - parsing_representation_component
-- id: ParsingComponent
-  family: source
-  scope: run
-  meaning: ParsingComponent with representation-qualified custody under the parsing
-    product contract
-  identity: Producing build/product and explicit occurrence identifier; never a display
-    label
-  attributes:
-  - name: component_id
-    range: text
-    required: true
-    multivalued: false
-  - name: ordinal
-    range: integer
-    required: true
-    multivalued: false
-  - name: category
-    range: text
-    required: true
-    multivalued: false
-  relationships:
-  - parsing_representation_component
-- id: ParsingNode
-  family: source
-  scope: run
-  meaning: ParsingNode with representation-qualified custody under the parsing product
-    contract
-  identity: Producing build/product and explicit occurrence identifier; never a display
-    label
-  attributes:
-  - name: node_id
-    range: text
-    required: true
-    multivalued: false
-  - name: kind
-    range: text
-    required: true
-    multivalued: false
-  - name: representation_id
-    range: text
-    required: false
-    multivalued: false
-  - name: unit
-    range: text
-    required: false
-    multivalued: false
-  - name: start_offset
-    range: integer
-    required: false
-    multivalued: false
-  - name: end_offset
-    range: integer
-    required: false
-    multivalued: false
-  - name: origin
-    range: text
-    required: true
-    multivalued: false
-  - name: origin_reason
-    range: text
-    required: false
-    multivalued: false
-  - name: name
-    range: text
-    required: false
-    multivalued: false
-  - name: value
-    range: text
-    required: false
-    multivalued: false
-  - name: attribute_ordinal
-    range: integer
-    required: false
-    multivalued: false
-  - name: attribute_outcome
-    range: text
-    required: false
-    multivalued: false
-  - name: syntax_kind
-    range: text
-    required: false
-    multivalued: false
-  - name: upstream_role
-    range: text
-    required: false
-    multivalued: false
-  - name: grammar_revision
-    range: text
-    required: false
-    multivalued: false
-  relationships:
-  - parsing_contains
-  - parsing_structural_parent
-- id: ParsingOccurrence
-  family: source
-  scope: run
-  meaning: ParsingOccurrence with representation-qualified custody under the parsing
-    product contract
-  identity: Producing build/product and explicit occurrence identifier; never a display
-    label
-  attributes:
-  - name: occurrence_id
-    range: text
-    required: true
-    multivalued: false
-  relationships:
-  - parsing_reference
-  - parsing_binds
-  - parsing_derived_from
-  - parsing_sequence
-  - parsing_interpretation_inputs
-  - parsing_unresolved_reference
-- id: ParsingRelationship
-  family: source
-  scope: run
-  meaning: ParsingRelationship with representation-qualified custody under the parsing
-    product contract
-  identity: Producing build/product and explicit occurrence identifier; never a display
-    label
-  attributes:
-  - name: relationship_id
-    range: text
-    required: true
-    multivalued: false
-  - name: kind
-    range: text
-    required: true
-    multivalued: false
+  - {name: latex, range: text, required: true, multivalued: false}
+  - {name: context_digest, range: text, required: true, multivalued: false}
   relationships: []
-- id: ParsingMapping
-  family: source
-  scope: run
-  meaning: ParsingMapping with representation-qualified custody under the parsing
-    product contract
-  identity: Producing build/product and explicit occurrence identifier; never a display
-    label
-  attributes:
-  - name: mapping_id
-    range: text
-    required: true
-    multivalued: false
-  - name: operation
-    range: text
-    required: true
-    multivalued: false
-  - name: reason
-    range: text
-    required: true
-    multivalued: false
-  - name: fidelity
-    range: text
-    required: true
-    multivalued: false
-  relationships: []
-- id: ParsingInterpretation
+- id: MathInterpretation
   family: interpretation
   scope: run
-  meaning: ParsingInterpretation with representation-qualified custody under the parsing
-    product contract
-  identity: Producing build/product and explicit occurrence identifier; never a display
-    label
+  meaning: Positioned mathematical syntax and interpretation result under explicit source context
+  identity: Qualified source occurrence, prepared context and algorithm revision
   attributes:
-  - name: interpretation_id
-    range: text
-    required: true
-    multivalued: false
-  - name: product_id
-    range: text
-    required: true
-    multivalued: false
-  - name: occurrence_ids
-    range: text
-    required: true
-    multivalued: true
-  - name: context_digest
-    range: text
-    required: true
-    multivalued: false
-  - name: declaration_digest
-    range: text
-    required: true
-    multivalued: false
-  - name: assumption_digest
-    range: text
-    required: true
-    multivalued: false
-  - name: adapter_id
-    range: text
-    required: true
-    multivalued: false
-  - name: semantic_state
-    range: text
-    required: true
-    multivalued: false
-  - name: coverage
-    range: text
-    required: true
-    multivalued: false
-  - name: alternative_group
-    range: text
-    required: false
-    multivalued: false
-  relationships:
-  - parsing_interpretation_inputs
-  - parsing_assessment_inputs
-- id: ParsingAssessment
+  - {name: latex, range: text, required: true, multivalued: false}
+  - {name: status, range: text, required: true, multivalued: false}
+  relationships: []
+
+- id: MathAssessment
   family: interpretation
   scope: run
-  meaning: ParsingAssessment with representation-qualified custody under the parsing
-    product contract
-  identity: Producing build/product and explicit occurrence identifier; never a display
-    label
+  meaning: Scientific question result with coverage and explicit definedness conditions
+  identity: Qualified source occurrence, prepared context and algorithm revision
   attributes:
-  - name: assessment_id
-    range: text
-    required: true
-    multivalued: false
-  - name: product_id
-    range: text
-    required: true
-    multivalued: false
-  - name: interpretation_ids
-    range: text
-    required: true
-    multivalued: true
-  - name: question
-    range: text
-    required: true
-    multivalued: false
-  - name: conditions_digest
-    range: text
-    required: true
-    multivalued: false
-  - name: algorithm_revision
-    range: text
-    required: true
-    multivalued: false
-  - name: policy_id
-    range: text
-    required: true
-    multivalued: false
-  - name: outcome
-    range: text
-    required: true
-    multivalued: false
-  - name: coverage
-    range: text
-    required: true
-    multivalued: false
-  - name: evidence_ids
-    range: text
-    required: true
-    multivalued: true
-  relationships:
-  - parsing_assessment_inputs
+  - {name: question, range: text, required: true, multivalued: false}
+  - {name: outcome, range: text, required: true, multivalued: false}
+  - {name: coverage, range: text, required: true, multivalued: false}
+  relationships: []
+
 - id: ParsingAdapterSupport
   family: source
   scope: run
-  meaning: ParsingAdapterSupport with representation-qualified custody under the parsing
-    product contract
+  meaning: Finite native PDF, positioned text and mathematical producer support
   identity: Producing build/product and explicit occurrence identifier; never a display
     label
   attributes:
@@ -2841,53 +2514,14 @@ concepts:
     range: text
     required: true
     multivalued: true
-  relationships:
-  - parsing_interpretation_inputs
-- id: ParsingUnresolvedReference
-  family: source
-  scope: run
-  meaning: ParsingUnresolvedReference with representation-qualified custody under
-    the parsing product contract
-  identity: Producing build/product and explicit occurrence identifier; never a display
-    label
-  attributes:
-  - name: reference_id
-    range: text
-    required: true
-    multivalued: false
-  - name: product_id
-    range: text
-    required: true
-    multivalued: false
-  - name: source_occurrence_id
-    range: text
-    required: true
-    multivalued: false
-  - name: target_hint
-    range: text
-    required: true
-    multivalued: false
-  - name: reason
-    range: text
-    required: true
-    multivalued: false
   relationships: []
-- id: ParsingTextProduct
-  family: source
+- id: TextCapture
+  family: interpretation
   scope: run
-  meaning: ParsingTextProduct with representation-qualified custody under the parsing
-    product contract
-  identity: Producing build/product and explicit occurrence identifier; never a display
-    label
+  meaning: Immutable lexical partition and positioned syntax of selected native source text
+  identity: Qualified source occurrence, prepared context and algorithm revision
   attributes:
-  - name: product_id
-    range: text
-    required: true
-    multivalued: false
-  - name: representation_id
-    range: text
-    required: true
-    multivalued: false
+  - {name: text, range: text, required: true, multivalued: false}
   relationships: []
 
 - id: PdfNativeEnvelope
@@ -4986,403 +4620,6 @@ relationships:
   reference_scope: execution
   invariants:
   - selected_result_binding
-- id: parsing_text_of
-  kind: ownership
-  direction: directed
-  endpoints:
-  - role: text
-    concept: ParsingNode
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  - role: owner
-    concept: ParsingNode
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  cardinality_scope: per native final text slot in producing build
-  identity_kind: occurrence
-  identity_roles:
-  - text
-  - owner
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: parsing_contains
-  kind: containment
-  direction: directed
-  endpoints:
-  - role: parent
-    concept: ParsingNode
-    minimum: 1
-    maximum: 1
-    ordered: false
-    unresolved: false
-  - role: child
-    concept: ParsingNode
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  cardinality_scope: per relationship occurrence in the pinned producing build
-  identity_kind: occurrence
-  identity_roles:
-  - parent
-  - child
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: parsing_structural_parent
-  kind: containment
-  direction: directed
-  endpoints:
-  - role: parent
-    concept: ParsingNode
-    minimum: 1
-    maximum: 1
-    ordered: false
-    unresolved: false
-  - role: child
-    concept: ParsingNode
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  cardinality_scope: per relationship occurrence in the pinned producing build
-  identity_kind: occurrence
-  identity_roles:
-  - parent
-  - child
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: parsing_reference
-  kind: reference
-  direction: directed
-  endpoints:
-  - role: source
-    concept: ParsingOccurrence
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  - role: target
-    concept: ParsingOccurrence
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  cardinality_scope: per relationship occurrence in the pinned producing build
-  identity_kind: occurrence
-  identity_roles:
-  - source
-  - target
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: parsing_binds
-  kind: dependency
-  direction: directed
-  endpoints:
-  - role: invocation
-    concept: ParsingOccurrence
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  - role: definition
-    concept: ParsingOccurrence
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  cardinality_scope: per relationship occurrence in the pinned producing build
-  identity_kind: occurrence
-  identity_roles:
-  - invocation
-  - definition
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: parsing_derived_from
-  kind: dependency
-  direction: directed
-  endpoints:
-  - role: target
-    concept: ParsingOccurrence
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  - role: source
-    concept: ParsingOccurrence
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  cardinality_scope: per relationship occurrence in the pinned producing build
-  identity_kind: occurrence
-  identity_roles:
-  - target
-  - source
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: parsing_sequence
-  kind: dependency
-  direction: directed
-  endpoints:
-  - role: source
-    concept: ParsingOccurrence
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  - role: target
-    concept: ParsingOccurrence
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  cardinality_scope: per relationship occurrence in the pinned producing build
-  identity_kind: occurrence
-  identity_roles:
-  - source
-  - target
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: parsing_product_representation
-  kind: ownership
-  direction: directed
-  endpoints:
-  - role: product
-    concept: ParsingProduct
-    minimum: 1
-    maximum: 1
-    ordered: false
-    unresolved: false
-  - role: representation
-    concept: ParsingRepresentation
-    minimum: 1
-    ordered: true
-    unresolved: false
-  cardinality_scope: per relationship occurrence in the pinned producing build
-  identity_kind: occurrence
-  identity_roles:
-  - product
-  - representation
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: parsing_representation_component
-  kind: ownership
-  direction: directed
-  endpoints:
-  - role: representation
-    concept: ParsingRepresentation
-    minimum: 1
-    maximum: 1
-    ordered: false
-    unresolved: false
-  - role: component
-    concept: ParsingComponent
-    minimum: 0
-    ordered: true
-    unresolved: false
-  cardinality_scope: per relationship occurrence in the pinned producing build
-  identity_kind: occurrence
-  identity_roles:
-  - representation
-  - component
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: parsing_interpretation_inputs
-  kind: dependency
-  direction: nary
-  endpoints:
-  - role: interpretation
-    concept: ParsingInterpretation
-    minimum: 1
-    maximum: 1
-    ordered: false
-    unresolved: false
-  - role: source
-    concept: ParsingOccurrence
-    minimum: 1
-    ordered: true
-    unresolved: false
-  - role: adapter
-    concept: ParsingAdapterSupport
-    minimum: 1
-    maximum: 1
-    ordered: false
-    unresolved: false
-  cardinality_scope: per relationship occurrence in the pinned producing build
-  identity_kind: occurrence
-  identity_roles:
-  - interpretation
-  - source
-  - adapter
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: parsing_assessment_inputs
-  kind: dependency
-  direction: directed
-  endpoints:
-  - role: assessment
-    concept: ParsingAssessment
-    minimum: 1
-    maximum: 1
-    ordered: false
-    unresolved: false
-  - role: interpretation
-    concept: ParsingInterpretation
-    minimum: 1
-    ordered: true
-    unresolved: false
-  cardinality_scope: per relationship occurrence in the pinned producing build
-  identity_kind: occurrence
-  identity_roles:
-  - assessment
-  - interpretation
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: parsing_unresolved_reference
-  kind: reference
-  direction: directed
-  endpoints:
-  - role: source
-    concept: ParsingOccurrence
-    minimum: 1
-    maximum: 1
-    ordered: false
-    unresolved: false
-  - role: target
-    concept: ParsingOccurrence
-    minimum: 0
-    maximum: 1
-    ordered: false
-    unresolved: true
-    unresolved_concept: ParsingUnresolvedReference
-  cardinality_scope: per relationship occurrence in the pinned producing build
-  identity_kind: occurrence
-  identity_roles:
-  - source
-  - target
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-
-- id: parsing_attribute_of
-  kind: ownership
-  direction: directed
-  endpoints:
-  - role: attribute
-    concept: ParsingNode
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  - role: owner
-    concept: ParsingNode
-    minimum: 1
-    maximum: 1
-    ordered: true
-    unresolved: false
-  cardinality_scope: per attribute occurrence in the producing build
-  identity_kind: occurrence
-  identity_roles:
-  - attribute
-  - owner
-  identity_context:
-  - release
-  - build
-  - relationship_id
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-
-
 invariants:
 - id: identity_exclusions
   meaning: Eligible source exclusions retain exact evidence and endpoints; no admitted
@@ -7249,98 +6486,12 @@ operations:
   transitions: []
   projections: []
   implementation: publish_native_document
-- id: prepare_parsing_product
-  inputs:
-  - ParsingProduct
-  - SourceArtifact
-  results:
-  - PreparedParsingProduct
-  applicability: []
-  universe: Pinned source representations and declared required scope; no ambient
-    latest build
-  effects: []
-  outcomes:
-  - complete
-  - partial
-  - unknown
-  - unsupported
-  - failed
-  outcome_domain: source_coverage
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  - source_representation
-  - adapter_revision
-  precision: Exact representation-qualified extents; mapping coverage and semantic
-    outcome remain independent
-  transitions: []
-  projections: []
-  implementation: prepare_parsing_product
-- id: publish_parsing_product
-  inputs:
-  - TaskInvocation
-  - PreparedParsingProduct
-  results:
-  - ParsingProduct
-  applicability: []
-  universe: Pinned source representations and declared required scope; no ambient
-    latest build
-  effects:
-  - atomic_native_publication
-  - preserve_original_normalized_distinction
-  outcomes:
-  - applied
-  - replay
-  - conflict
-  outcome_domain: transaction
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  - source_representation
-  - adapter_revision
-  precision: Exact representation-qualified extents; mapping coverage and semantic
-    outcome remain independent
-  transitions: []
-  projections: []
-  implementation: publish_parsing_product
-- id: read_parsing_product
-  inputs:
-  - RenditionBuild
-  results:
-  - ParsingProduct
-  applicability: []
-  universe: Pinned source representations and declared required scope; no ambient
-    latest build
-  effects: []
-  outcomes:
-  - source_ready
-  - missing
-  - invalid
-  - unsupported
-  outcome_domain: read
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  - source_representation
-  - adapter_revision
-  precision: Exact representation-qualified extents; mapping coverage and semantic
-    outcome remain independent
-  transitions: []
-  projections: []
-  implementation: read_parsing_product
 - id: prepare_parsing_text
   inputs:
-  - ParsingRepresentation
-  - ParsingComponent
+  - SourceView
   - ParsingAdapterSupport
   results:
-  - ParsingTextProduct
+  - TextCapture
   applicability: []
   universe: Pinned source representations and declared required scope; no ambient
     latest build
@@ -7366,10 +6517,10 @@ operations:
   implementation: prepare_parsing_text
 - id: interpret_parsing_math
   inputs:
-  - ParsingNode
+  - PreparedMathInput
   - ParsingAdapterSupport
   results:
-  - ParsingInterpretation
+  - MathInterpretation
   applicability: []
   universe: Pinned source representations and declared required scope; no ambient
     latest build
@@ -7395,10 +6546,10 @@ operations:
   implementation: interpret_parsing_math
 - id: assess_parsing_math
   inputs:
-  - ParsingInterpretation
+  - PreparedMathInput
   - ParsingAdapterSupport
   results:
-  - ParsingAssessment
+  - MathAssessment
   applicability: []
   universe: Pinned source representations and declared required scope; no ambient
     latest build
@@ -8717,64 +7868,16 @@ implementations:
   - atomic_native_publication
   - preserve_original_normalized_distinction
   required_capabilities: []
-- id: prepare_parsing_product
-  owner: semantic.parsing_products
-  symbol: prepare_parsing_product
-  version: '1'
-  placement: pure
-  input_concepts:
-  - ParsingProduct
-  - SourceArtifact
-  result_concepts:
-  - PreparedParsingProduct
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: []
-  required_capabilities: []
-- id: publish_parsing_product
-  owner: semantic.parsing_products
-  symbol: store_parsing_product
-  version: '1'
-  placement: core
-  input_concepts:
-  - TaskInvocation
-  - PreparedParsingProduct
-  result_concepts:
-  - ParsingProduct
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects:
-  - atomic_native_publication
-  - preserve_original_normalized_distinction
-  required_capabilities: []
-- id: read_parsing_product
-  owner: semantic.parsing_products
-  symbol: read_parsing_product
-  version: '1'
-  placement: core
-  input_concepts:
-  - RenditionBuild
-  result_concepts:
-  - ParsingProduct
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: []
-  required_capabilities: []
-
 - id: prepare_parsing_text
   owner: core.text_structure
   symbol: capture_text
   version: '1'
   placement: pure
   input_concepts:
-  - ParsingRepresentation
-  - ParsingComponent
+  - SourceView
   - ParsingAdapterSupport
   result_concepts:
-  - ParsingTextProduct
+  - TextCapture
   features:
   - typed_bound_inputs
   - explicit_outcomes
@@ -8786,10 +7889,10 @@ implementations:
   version: '1'
   placement: pure
   input_concepts:
-  - ParsingNode
+  - PreparedMathInput
   - ParsingAdapterSupport
   result_concepts:
-  - ParsingInterpretation
+  - MathInterpretation
   features:
   - typed_bound_inputs
   - explicit_outcomes
@@ -8801,10 +7904,10 @@ implementations:
   version: '1'
   placement: pure
   input_concepts:
-  - ParsingInterpretation
+  - PreparedMathInput
   - ParsingAdapterSupport
   result_concepts:
-  - ParsingAssessment
+  - MathAssessment
   features:
   - typed_bound_inputs
   - explicit_outcomes

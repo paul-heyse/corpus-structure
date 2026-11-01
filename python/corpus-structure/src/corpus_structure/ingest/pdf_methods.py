@@ -33,7 +33,7 @@ from corpus_structure.core.vocab import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.parsing_products import ProductReference
+from corpus_structure.semantic.product_reference import ProductReference
 
 from .pdf import PdfConversion, PdfRecipe, publication_payload
 from .pdf_assets import PreparedPdfAssets, prepare_pdf_assets

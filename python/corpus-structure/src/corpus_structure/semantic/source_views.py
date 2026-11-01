@@ -14,7 +14,7 @@ from corpus_structure.core.method import SourceViewDraft, SourceViewRef
 
 from .identity import canonical_bytes
 from .metadata import table
-from .parsing_products import ProductReference
+from .product_reference import ProductReference
 
 if TYPE_CHECKING:
     from corpus_structure.ingest.sentences import SentenceConfig, TextLayout

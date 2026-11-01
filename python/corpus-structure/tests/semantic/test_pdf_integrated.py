@@ -468,18 +468,11 @@ def test_invalid_recognition_refuses(native_source, pdf13_context, change):
         prepare(value, native_source, context=pdf13_context)
 
 
-def test_future_runtime_operations_are_declared_but_unbound(pdf13_context):
-    from corpus_structure.semantic.types import PreparationError
-
-    for operation in (
-        "recognize_pdf_observation",
-        "map_pdf_observation",
-        "compare_pdf_occurrences",
-        "select_pdf_integration",
-    ):
-        assert pdf13_context.execution.operation(operation).outcomes == ("unsupported",)
-        with pytest.raises(PreparationError):
-            pdf13_context.execution.require_operation(operation)
+def test_reconciliation_operations_are_qualified(pdf13_context):
+    for operation in ("map_pdf_observation", "compare_pdf_occurrences", "select_pdf_integration"):
+        bound = pdf13_context.execution.require_operation(operation)
+        assert bound.implementation == operation
+        assert "partial" in bound.outcomes
 
 
 @pytest.fixture
@@ -643,10 +636,9 @@ def test_selected_cell_traces_two_observations_original_and_policy_reuse(
         )
         assert native["body"] == db.native.values()
         assert native["identity"]["content_digest"] == sha256(db.native.payload).hexdigest()
-        with pytest.raises(NativeDocumentUnavailable):
-            read_native_items(
-                conn, task_id=db.job.task, product_key="selected", content_digest=product.digest
-            )
+        assert read_native_items(
+            conn, task_id=db.job.task, product_key="selected", content_digest=product.digest
+        )
         assert {
             o["occurrence_id"] for o in native["occurrences"]
         } == ITEM_IDS | CELL_IDS | REGION_IDS

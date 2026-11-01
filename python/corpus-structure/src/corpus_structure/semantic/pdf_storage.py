@@ -371,7 +371,7 @@ def read_pdf_product(
             coverage.c.product_key == product_key,
             coverage.c.body["scope"].astext.in_(scopes),
         ).order_by(coverage.c.coverage_id)
-    ) if rows else []
+    ) if rows or identity["kind"] == "recognition_observation" else []
     relevant_pins = {
         (e["target_task_id"], e["target_product_key"], e["target_content_digest"])
         for e in endpoint_rows if e["role"] != "output"

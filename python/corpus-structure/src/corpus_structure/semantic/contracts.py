@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "13"
+EXECUTION_COMPILER_VERSION = "14"
 
 
 @lru_cache(maxsize=1)
@@ -54,7 +54,6 @@ def approved_implementations() -> Mapping[str, Any]:
         observations,
         ontology,
         operations,
-        parsing_products,
         pdf_contracts,
         pdf_integrated,
         pdf_storage,
@@ -105,9 +104,6 @@ def approved_implementations() -> Mapping[str, Any]:
             "prepare_integrated_pdf": pdf_integrated.prepare_integrated_pdf_product,
             "publish_integrated_pdf": pdf_integrated.store_integrated_pdf_product,
             "read_pdf_product": pdf_storage.read_pdf_product,
-            "prepare_parsing_product": parsing_products.prepare_parsing_product,
-            "publish_parsing_product": parsing_products.store_parsing_product,
-            "read_parsing_product": parsing_products.read_parsing_product,
             "convert_pdf": PdfConverter.convert_bytes,
             "enrich_pdf_math": EnrichPdfMath.run,
             "organize_pdf": organize,
@@ -691,8 +687,6 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
             "graph_project",
             "graph_validate",
             "read_original",
-            "read_rendition",
-            "read_parsing_product",
         }:
             _fail("unsupported_execution_abi", name, "historical execution products are read-only")
         operation = next((o for o in data["operations"] if o["id"] == name), None)
@@ -784,7 +778,7 @@ def trusted_execution_inputs() -> ExecutionModelInputs:
                 SourceArtifact("contracts", root.joinpath("contracts.yaml").read_bytes()),
                 SourceArtifact("semantic_reference", root.joinpath("reference.yaml").read_bytes()),
                 SourceArtifact(
-                    "parsing_products", root.joinpath("parsing-products.yaml").read_bytes()
+                    "native_adapters", root.joinpath("native-adapters.yaml").read_bytes()
                 ),
                 SourceArtifact("pdf_products", root.joinpath("pdf-products.yaml").read_bytes()),
             ),
@@ -810,9 +804,9 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
             for name, path in (
                 ("text/sentences.py", "ingest/sentences.py"),
                 ("text/structure.py", "core/text_structure.py"),
-                ("text/products.py", "ingest/text_product.py"),
                 ("text/tex.py", "core/tex.py"),
                 ("text/macros.py", "ingest/macros.py"),
+                ("parsing/native_adapters.py", "semantic/native_adapter_contracts.py"),
                 ("capture/analytics.py", "semantic/analytics.py"),
                 ("invocation/scheduler.py", "orchestrate/semantic.py"),
                 ("invocation/automated.py", "intervene/automated.py"),
@@ -839,10 +833,6 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("alignment/semantic_alignment.py", "evaluate/semantic_alignment.py"),
                 ("alignment/preparation.py", "evaluate/alignment_preparation.py"),
                 ("text/layouts.py", "semantic/text_layouts.py"),
-                ("parsing/products.py", "semantic/parsing_products.py"),
-                ("parsing/contracts.py", "semantic/parsing_contracts.py"),
-                ("parsing/queries.py", "semantic/parsing_queries.py"),
-                ("parsing/requests.py", "semantic/parsing_requests.py"),
                 ("ingest/methods.py", "ingest/methods.py"),
                 ("pdf/converter.py", "ingest/pdf.py"),
                 ("pdf/worker.py", "ingest/pdf_worker.py"),
@@ -880,7 +870,6 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact(
             "transformer/native_context.py", math.joinpath("native_context.py").read_bytes()
         ),
-        SourceArtifact("transformer/products.py", math.joinpath("products.py").read_bytes()),
         SourceArtifact(
             "text/model.json",
             canonical_bytes(
@@ -1210,10 +1199,10 @@ def _validate(
         for edge in operation.transitions:
             if t[edge].operation != operation.id:
                 _fail("operation_transition", operation.id, edge)
-    if not reader_only and any(concept.id == "ParsingProduct" for concept in products.concepts):
-        from .parsing_contracts import validate_parsing_contracts
+    if not reader_only and products.parsing_adapters:
+        from .native_adapter_contracts import validate_native_adapters
 
-        validate_parsing_contracts(products)
+        validate_native_adapters(products)
     for projection in products.projections:
         _refs(projection.sources, c, projection.id)
         _refs(projection.relationships, r, projection.id)
@@ -1325,7 +1314,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "invocation/server.py",
         "text/sentences.py",
         "text/structure.py",
-        "text/products.py",
+        "parsing/native_adapters.py",
         "capture/analytics.py",
         "capture/storage.py",
         "publication/arrow.py",
@@ -1353,9 +1342,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "placement/cascade.py",
         "alignment/preparation.py",
         "text/layouts.py",
-        "parsing/products.py",
-        "parsing/contracts.py",
-        "parsing/queries.py",
         "ingest/methods.py",
         "text/model.json",
         "grammar/grammar.py",
@@ -1365,7 +1351,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "grammar/shipped.lark",
         "transformer/transform.py",
         "transformer/native_context.py",
-        "transformer/products.py",
         "libraries.json",
     }
     if any(profile.get("version") == "6" for profile in data["analysis_profiles"]):
@@ -1376,7 +1361,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
                 "grammar/methods.py",
                 "text/tex.py",
                 "text/macros.py",
-                "parsing/requests.py",
                 "invocation/method.py",
                 "invocation/operations.py",
             }

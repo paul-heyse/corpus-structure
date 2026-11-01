@@ -38,7 +38,7 @@ from corpus_structure.methods.llm.agent_opus import AgentOpus
 from corpus_structure.methods.math import methods as math_methods
 from corpus_structure.orchestrate.registry import MethodRegistry, load_methods
 from corpus_structure.orchestrate.runner import Graph, PassReport, Step
-from corpus_structure.semantic.parsing_products import ProductReference
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.validate.runner import RulesMethod
 
 M01, M02 = "ingest.pdf_integrated", "profile.segments"

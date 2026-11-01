@@ -1520,3 +1520,12 @@ classes:
       raw_start: {range: PdfInteger, required: false, minimum_value: 0, slot_uri: pdf:PdfMappingDisposition_raw_start}
       coordinate_scale: {range: PdfNumber, required: false, minimum_value: 1, slot_uri: pdf:PdfMappingDisposition_coordinate_scale}
       normalization: {range: PdfNormalization, required: false, slot_uri: pdf:PdfMappingDisposition_normalization}
+
+  PdfRecognitionRecoveryPolicy:
+    description: One attributed repetition recovery variant; failed observations remain immutable inputs.
+    attributes:
+      policy_id: {range: string, required: true, equals_string: length-repetition-recovery-v1, slot_uri: pdf:PdfRecognitionRecoveryPolicy_policy_id}
+      eligible_finish_reason: {range: string, required: true, equals_string: length, slot_uri: pdf:PdfRecognitionRecoveryPolicy_eligible_finish_reason}
+      min_identical_character_run: {range: PdfInteger, required: true, minimum_value: 64, slot_uri: pdf:PdfRecognitionRecoveryPolicy_min_identical_character_run}
+      max_attempts: {range: PdfInteger, required: true, minimum_value: 1, maximum_value: 1, slot_uri: pdf:PdfRecognitionRecoveryPolicy_max_attempts}
+      permitted_recipe_id: {range: string, required: true, equals_string: nemotron-public-triple-union-repetition-recovery-v1, slot_uri: pdf:PdfRecognitionRecoveryPolicy_permitted_recipe_id}

@@ -12,7 +12,7 @@ from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.method import SourceViewRef
 from corpus_structure.semantic.native_requests import NativeRequestResult
-from corpus_structure.semantic.parsing_products import ProductReference
+from corpus_structure.semantic.product_reference import ProductReference
 
 
 @dataclass

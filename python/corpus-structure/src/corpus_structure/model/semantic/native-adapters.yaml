@@ -1,0 +1,68 @@
+id: https://corpus-structure.dev/semantic/native-adapters
+name: native_adapters
+prefixes:
+  pp: https://corpus-structure.dev/parsing/
+  execution: https://corpus-structure.dev/execution/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: pp
+default_range: ParsingString
+types:
+  ParsingString:
+    base: str
+    uri: xsd:string
+enums:
+  ProvenanceUniverse:
+    permissible_values:
+      canonical_output: {}
+  MappingFidelity:
+    permissible_values:
+      transformed: {}
+      exact: &id001 {}
+      synthetic: *id001
+      excluded: *id001
+      unknown: *id001
+classes:
+  ParsingAdapterSupport:
+    attributes:
+      provenance_universe:
+        range: ProvenanceUniverse
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_provenance_universe
+      adapter_id:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_adapter_id
+      implementation_revision:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_implementation_revision
+      frontend_revision:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_frontend_revision
+      grammar_revision:
+        range: ParsingString
+        required: false
+        slot_uri: pp:ParsingAdapterSupport_grammar_revision
+      coordinate_fidelity:
+        range: MappingFidelity
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_coordinate_fidelity
+      repair_policy:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_repair_policy
+      ambiguity_policy:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_ambiguity_policy
+      lifetime:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_lifetime
+      capabilities:
+        range: ParsingString
+        required: true
+        slot_uri: pp:ParsingAdapterSupport_capabilities
+        multivalued: true
+        minimum_cardinality: 1

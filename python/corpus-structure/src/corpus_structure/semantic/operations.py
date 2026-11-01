@@ -774,37 +774,6 @@ def complete_unit_result(
             raise OperationConflict("terminal rendition build artifact differs")
         if read_rendition(conn, rendition_id, prepared=prepared) != result.rendition:
             raise OperationConflict("terminal rendition result differs from published content")
-    if task["status"] != "running":
-        parsing = table("ops.parsing_product")
-        retained_parsing = conn.execute(
-            select(parsing.c.product_digest).where(parsing.c.task_id == task_id)
-        ).scalar_one_or_none()
-        if (retained_parsing is None) != (result.parsing_product is None):
-            raise OperationConflict("terminal parsing product presence differs")
-    if result.parsing_product is not None:
-        from .parsing_products import store_parsing_product
-
-        store_parsing_product(
-            conn, task_id=task_id, attempt=attempt, holder=holder, product=result.parsing_product
-        )
-    if result.parsing_products is not None:
-        from .parsing_products import store_layered_products
-
-        if task["status"] != "running":
-            products_table = table("ops.parsing_layer_product")
-            retained = dict(
-                conn.execute(
-                    select(products_table.c.product_key, products_table.c.content_digest).where(
-                        products_table.c.task_id == task_id, products_table.c.kind != "source"
-                    )
-                ).all()
-            )
-            proposed = {p.product_key: p.digest for p in result.parsing_products.products}
-            if retained != proposed:
-                raise OperationConflict("terminal parsing product set differs")
-        store_layered_products(
-            conn, task_id=task_id, attempt=attempt, holder=holder, products=result.parsing_products
-        )
     if result.native_products:
         from .pdf_contracts import store_pdf_product
 
@@ -1109,7 +1078,7 @@ class BoundReader:
         )
 
     def native_product_reference(self, document_id: int, product_key: str, digest: str):
-        from .parsing_products import ProductReference
+        from .product_reference import ProductReference
 
         if document_id not in self.source_tasks:
             raise OperationConflict("native product requires real claimed source task")
@@ -1189,85 +1158,6 @@ class BoundReader:
         if any(document < 1 or task < 1 for document, task in tasks.items()):
             raise ValueError("source task binding requires real document/task identities")
         self.source_tasks = dict(tasks)
-
-    def source_product_reference(self, document_id: int, content_digest: str):
-        from .parsing_products import ProductReference
-
-        if document_id not in self.source_tasks:
-            raise OperationConflict(
-                "source product task identity has not been bound for this batch"
-            )
-        return ProductReference(self.source_tasks[document_id], "source", content_digest)
-
-    def parsing_fallback_macros(self):
-        """The exact archived run configuration, never today's pack defaults.
-
-        The structured artifact is derived from the immutable invocation input; its field
-        reference does not pretend to be a literal offset in a YAML file.
-        """
-        import json
-        from types import MappingProxyType
-
-        from corpus_structure.core.evidence import MacroDef
-
-        cached = getattr(self, "_parsing_fallback", None)
-        if cached is not None:
-            return cached
-        binding = binding_of(self.conn, self.run_id)
-        archived = json.loads(binding.dependencies)
-        sections = []
-        for operation in archived.get("operations", {}).values():
-            section = operation.get("parameters", {}).get("math")
-            if section is not None:
-                sections.append(section.get("macros", {}))
-        if sections and any(section != sections[0] for section in sections[1:]):
-            raise OperationConflict(
-                "source capture has competing fallback macro contexts; select one "
-                "admitted configuration"
-            )
-        macros = sections[0] if sections else {}
-        reference = f"run:{self.run_id}:dependencies:{binding.dependency_digest}:math"
-        self._parsing_fallback = (
-            reference,
-            MappingProxyType({name: MacroDef(body=body) for name, body in macros.items()}),
-        )
-        return self._parsing_fallback
-
-    def prepare_layered_product(self, payload):
-        from .parsing_products import parsing_context_for_release, prepare_layered_product
-
-        context = getattr(self, "_parsing_context", None)
-        if context is None:
-            context = parsing_context_for_release(self.conn, self.prepared)
-            self._parsing_context = context
-        return prepare_layered_product(payload, context=context)
-
-    def prepare_parsing_product(self, payload, original):
-        from .parsing_products import parsing_context_for_release, prepare_parsing_product
-
-        context = getattr(self, "_parsing_context", None)
-        if context is None:
-            context = parsing_context_for_release(self.conn, self.prepared)
-            self._parsing_context = context
-        return prepare_parsing_product(payload, original, context=context)
-
-    def require_parsing_operations(self, names: Sequence[str]) -> None:
-        from .parsing_products import parsing_context_for_release
-
-        context = getattr(self, "_parsing_context", None)
-        if context is None:
-            context = parsing_context_for_release(self.conn, self.prepared)
-            self._parsing_context = context
-        for name in names:
-            context.execution.require_operation(name)
-
-    def layered_products(self, rendition_id: int, **selection):
-        """Common immutable product selection for the run and its reused producers."""
-        from .parsing_products import select_layered_products
-
-        return select_layered_products(
-            self.conn, run_id=self.run_id, rendition_id=rendition_id, **selection
-        )
 
     def segments(self, rendition_id: int) -> Mapping[str, int]:
         s = table("kb.segment")

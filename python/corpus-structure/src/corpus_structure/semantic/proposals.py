@@ -24,7 +24,7 @@ from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
 
 if TYPE_CHECKING:
-    from .parsing_products import ProductReference
+    from .product_reference import ProductReference
 
 
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "agent.yaml"
@@ -297,7 +297,7 @@ def native_statement_source(frame: NativeProposalFrame, anchor: str) -> NativeFr
 
 
 def native_frame_from_dict(raw: Mapping[str, Any]) -> NativeProposalFrame:
-    from .parsing_products import ProductReference
+    from .product_reference import ProductReference
 
     def source(value):
         fields = dict(value)
