@@ -11,6 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from pydantic_core import to_jsonable_python
 from sqlalchemy import Connection, select, text
 
+from corpus_structure.semantic.pdf_record_reader import published_native_table, published_record_reader
+from corpus_structure.semantic.product_reference import ProductReference
+
 
 class NativeSourceRequest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -260,7 +263,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
             )
         ]
     elif request.view == "sections":
-        item = table("kb.native_document_item")
+        item = published_native_table(conn)
         if request.section_pointer is None:
             scope = []
         elif request.membership == "descendants":
@@ -271,7 +274,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                     native_descendant_pointers(
                         task_id=request.task_id,
                         product_key=request.product_key,
-                        section_pointer=request.section_pointer,
+                        section_pointer=request.section_pointer, conn=conn,
                     )
                 ),
                 item.c.pointer != request.section_pointer,
@@ -353,7 +356,7 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
                 ]
         else:
             # Transfer only the selected native object, not its containing document.
-            item = table("kb.native_document_item")
+            item = published_native_table(conn)
             native = conn.execute(
                 select(item.c.native_json).where(
                     item.c.task_id == request.task_id,
@@ -398,23 +401,31 @@ def inspect_native_source(conn: Connection, request: NativeSourceRequest) -> Nat
             elif request.view == "formula":
                 if native.get("label") != "formula":
                     raise ValueError("native pointer is not a formula")
-                health = conn.execute(
-                    text(
-                        "SELECT outcome.value FROM ops.pdf_selected_product p\n"
-                        "                    CROSS JOIN LATERAL "
-                        "jsonb_array_elements(COALESCE(p.health->'formula_outcomes"
-                        "','[]'::jsonb)) outcome(value)\n"
-                        "                    WHERE p.task_id=:task AND "
-                        "p.product_key=:key AND p.content_digest=:digest AND "
-                        "outcome.value->>'pointer'=:pointer LIMIT 1"
-                    ),
-                    dict(
-                        task=request.task_id,
-                        key=request.product_key,
-                        digest=request.content_digest,
-                        pointer=request.pointer,
-                    ),
-                ).scalar_one_or_none() or {"outcome": "unknown"}
+                record_reader = published_record_reader(conn,ProductReference(request.task_id,
+                                                        request.product_key,request.content_digest))
+                if record_reader is not None:
+                    outcomes = list(record_reader.native_metadata("formula_outcomes",pointer=request.pointer))
+                    if len(outcomes)>1:
+                        raise ValueError("formula outcome metadata is ambiguous")
+                    health = outcomes[0] if outcomes else {"outcome":"unknown"}
+                else:
+                    health = conn.execute(
+                        text(
+                            "SELECT outcome.value FROM ops.pdf_selected_product p\n"
+                            "                    CROSS JOIN LATERAL "
+                            "jsonb_array_elements(COALESCE(p.health->'formula_outcomes"
+                            "','[]'::jsonb)) outcome(value)\n"
+                            "                    WHERE p.task_id=:task AND "
+                            "p.product_key=:key AND p.content_digest=:digest AND "
+                            "outcome.value->>'pointer'=:pointer LIMIT 1"
+                        ),
+                        dict(
+                            task=request.task_id,
+                            key=request.product_key,
+                            digest=request.content_digest,
+                            pointer=request.pointer,
+                        ),
+                    ).scalar_one_or_none() or {"outcome": "unknown"}
                 rows = [
                     dict(
                         pointer=request.pointer,
@@ -564,7 +575,7 @@ def _inspect_companion(
         elif request.section_pointer is not None:
             from corpus_structure.semantic.pdf_storage import native_descendant_pointers
 
-            item = table("kb.native_document_item")
+            item = published_native_table(conn)
             query = select(item.c.pointer).where(
                 item.c.task_id == request.task_id, item.c.product_key == request.product_key
             )
@@ -574,7 +585,7 @@ def _inspect_companion(
                         native_descendant_pointers(
                             task_id=request.task_id,
                             product_key=request.product_key,
-                            section_pointer=request.section_pointer,
+                            section_pointer=request.section_pointer, conn=conn,
                         )
                     )
                 )
@@ -719,6 +730,26 @@ def export_native_source(
         inspect_native_source(conn, request.model_copy(update={"view": "products", "limit": 1}))
         from corpus_structure.semantic.metadata import table
 
+        record_reader = published_record_reader(conn, ProductReference(
+            request.task_id, request.product_key, request.content_digest))
+        if record_reader is not None:
+            temporary = destination.with_name(destination.name + ".partial")
+            try:
+                with temporary.open("xb") as sink:
+                    receipt = (record_reader.write_integrated_json(sink, binding=binding)
+                               if format == "integrated-json" else record_reader.write_native_json(sink))
+                manifest = destination.with_name(destination.name + ".manifest.json")
+                with manifest.open("x", encoding="utf-8") as stream:
+                    json.dump(dict(binding, byte_length=receipt.byte_length,
+                                   serialization_sha256=receipt.serialization_sha256,
+                                   logical_digest=request.content_digest,
+                                   projection="integrated-document" if format == "integrated-json" else "docling-content-only",
+                                   omissions=[] if format == "integrated-json" else ["mandatory evidence companions"]), stream)
+                    stream.write("\n")
+                os.link(temporary, destination)
+            finally:
+                temporary.unlink(missing_ok=True)
+            return
         products = table("ops.pdf_selected_product")
         native = conn.execute(
             select(products.c.native_json.cast(Text)).where(
@@ -781,7 +812,7 @@ def export_native_source(
     from corpus_structure.schema.interchange import _sql_arrow
     from corpus_structure.semantic.metadata import table
 
-    relation = table("kb.native_document_item")
+    relation = published_native_table(conn)
     derivation = table("kb.native_document_derivation")
     products, builds = table("ops.pdf_selected_product"), table("ops.source_build")
     source = conn.execute(
@@ -880,7 +911,7 @@ def export_native_source(
             selected = request
             while True:
                 pointers = [row["pointer"] for row in response.rows]
-                region = table("kb.native_document_region")
+                region = published_native_table(conn, "region")
                 by_pointer = defaultdict(list)
                 for r in conn.execute(
                     select(region).where(

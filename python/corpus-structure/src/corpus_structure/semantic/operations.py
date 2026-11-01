@@ -1097,6 +1097,14 @@ class BoundReader:
                 )
             ).all()
         )
+        if row["payload"] is None:
+            from .pdf_record_reader import PublishedPdfReader
+            values = PublishedPdfReader(self.conn, reference).native_product_values()
+            return PreparedPdfProduct(
+                canonical_bytes(values), bytes(contents[row["original_digest"]]),
+                bytes(contents[row["schema_digest"]]), bytes(contents[row["recipe_digest"]]),
+                row["contract_digest"],
+            )
         payload = bytes(row["payload"])
         values = json.loads(payload)
         if values.get("kind") == "integrated":
