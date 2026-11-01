@@ -3,8 +3,8 @@ _Updated 2026-11-01; private PDF streaming/staging implemented; whole-book publi
 
 ## Current checkpoint
 
-- [PostgreSQL capability review](docs/functional_reviews/postgresql-capability-leverage_2026-11-01.md): two-pass audit integrated; O01–O15 Proposed, O12 mechanism selection unresolved. Latest-stable upgrades settled; breaking target changes permitted. PDF plan revision remains separate.
-- Review/audit links/anchors and `just turn-end` passed (2026-11-01); `just docs-check` failed on ADR-0043 §B4 link. Maintenance is not a lint/product pass; see audit for moving-source limits.
+- [PostgreSQL leverage plan](docs/plans/postgresql-capability-leverage_2026-11-01.md): new PG-00–12 series authored from review O01–15; product work not started. Native Alembic extensions selected; alembic-utils excluded. Existing series unchanged.
+- New plan authoring checks and evidence limits are recorded in its adoption/validation owner; current product qualification remains with existing owners.
 
 - [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns package/O/I disposition.
   PDF-13–16 implement one Docling content graph with mandatory multi-input lineage, governed
