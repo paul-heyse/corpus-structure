@@ -1,0 +1,114 @@
+id: https://corpus-structure.dev/semantic/pdf-records
+name: pdf_records
+prefixes:
+  pdr: https://corpus-structure.dev/pdf-records/
+  xsd: http://www.w3.org/2001/XMLSchema#
+  ph: https://corpus-structure.org/physical/
+default_prefix: pdr
+annotations:
+  pdr:native_validation_contract: >-
+    {"docling_core_version":"2.105.0",
+     "record_enforcement":["retained JSON Schema primitive/union/cardinality constraints","declared-field totality","finite JSON values","scalar kind/binary64/presence fidelity"],
+     "pre_identity_normalizations_refused":["DoclingDocument.transform_to_content_layer","DoclingDocument.check_version_is_compatible","DoclingDocument.validate_document bbox clamp","DoclingDocument.validate_misplaced_list_items","PictureItem/TableItem._migrate_annotations_to_meta","TableCell.from_dict_format","GroupItem legacy label normalization","native field/URL/numeric coercions"],
+     "native_oracle_obligations":["DocumentOrigin.parse_hex_string/validate_mimetype","ImageRef.validate_mimetype","metadata custom field namespace and UniqueList validators","TrackSource.check_order","GraphData.validate_links","TableData._validate_grid_size","DoclingDocument._validate_unique_refs","DoclingDocument._validate_total_table_cells","DoclingDocument.validate_document tree/backpointer/frame constraints","DoclingDocument._validate_field_items"],
+     "oracle_enforcement":"explicit bounded validate_native_callbacks on private supplied-state copy",
+     "frozen_union_enforcement":"required by PDF20/21; not supplied by local shape lowering or bounded native oracle",
+     "opaque_extension_profile":"pdf-record-native-json-v1: encountered object order is retained and identity-bearing; no unordered JSON canonicality claim"}
+default_range: PdfRecordString
+types:
+  PdfRecordString: {base: str, uri: 'xsd:string'}
+  PdfRecordJson:
+    base: str
+    uri: xsd:string
+    annotations: {ph:sql_type: jsonb}
+  PdfRecordInteger: {base: int, uri: 'xsd:long'}
+  PdfRecordBytes:
+    base: str
+    uri: xsd:string
+    annotations: {ph:sql_type: bytea}
+enums:
+  PdfNativeRecordFamily:
+    permissible_values: {header: {}, node: {}, page: {}, provenance: {}, table: {}, cell: {}, detail: {}, reference: {}}
+  PdfMembershipValueKind:
+    permissible_values: {record: {}, scalar: {}, parts: {}}
+classes:
+  PdfRecordDocument:
+    description: Qualified immutable native document revision; inventory and native content remain rows.
+    attributes:
+      product_id: {required: true}
+      revision_id: {required: true}
+      release_id: {required: true}
+      source_digest: {required: true}
+      mapping_profile: {required: true}
+      contract_version: {required: true}
+      native_schema_digest: {required: true}
+      root_id: {required: true}
+  PdfNativeRecord:
+    description: >-
+      One object admitted by the retained native schema. Scalar fields and finite structure
+      descriptors preserve presence separately from null and defaults. Arrays/maps use ordered
+      membership rows; oversized scalars and explicitly extensible native detail use artifact parts.
+      NativeArray is the only synthetic record, for native nested arrays; its schema path is retained
+      in structure_json. Neither native addresses nor transport order allocate logical identity.
+    attributes:
+      product_id: {required: true}
+      revision_id: {required: true}
+      record_id: {required: true}
+      native_type: {required: true}
+      family: {range: PdfNativeRecordFamily, required: true}
+      native_address: {}
+      native_address_stream_id: {}
+      scalars_json: {range: PdfRecordJson, required: true}
+      structure_json: {range: PdfRecordJson, required: true}
+  PdfRecordMembership:
+    description: >-
+      Ordered member of one schema-declared native array/map. An object member references a typed
+      native record; primitive members preserve their JSON type. Empty collections have a structure
+      descriptor and zero members. Map member keys are exact; ordinals retain original map order.
+    attributes:
+      product_id: {required: true}
+      revision_id: {required: true}
+      parent_id: {required: true}
+      field_name: {required: true}
+      ordinal: {range: PdfRecordInteger, required: true, minimum_value: 0}
+      member_key: {}
+      member_key_stream_id: {}
+      value_kind: {range: PdfMembershipValueKind, required: true}
+      record_id: {}
+      scalar_json: {range: PdfRecordJson}
+      stream_id: {}
+  PdfRecordReference:
+    description: >-
+      Each native reference occurrence is independent and revision qualified. The exact original
+      pointer is retained. Frozen-union resolution fills target_id against this revision's address
+      projection; unresolved or ambiguous targets cannot be published.
+    attributes:
+      product_id: {required: true}
+      revision_id: {required: true}
+      reference_id: {required: true}
+      source_id: {required: true}
+      field_name: {required: true}
+      native_pointer: {}
+      native_pointer_stream_id: {}
+      target_id: {}
+  PdfArtifactStream:
+    description: Exact bytes of one owned scalar, opaque extension, original or serialization stream.
+    attributes:
+      product_id: {required: true}
+      revision_id: {required: true}
+      stream_id: {required: true}
+      byte_length: {range: PdfRecordInteger, required: true, minimum_value: 0}
+      serialization_sha256: {required: true}
+      byte_root: {required: true}
+      encoding_profile: {required: true}
+  PdfArtifactPart:
+    description: Ordered bounded exact bytes; offsets and inventory are verified by the artifact codec.
+    attributes:
+      product_id: {required: true}
+      revision_id: {required: true}
+      stream_id: {required: true}
+      ordinal: {range: PdfRecordInteger, required: true, minimum_value: 0}
+      byte_offset: {range: PdfRecordInteger, required: true, minimum_value: 0}
+      byte_length: {range: PdfRecordInteger, required: true, minimum_value: 0}
+      body: {range: PdfRecordBytes, required: true}
+      sha256_digest: {required: true}
