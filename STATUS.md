@@ -40,11 +40,12 @@ _Updated 2026-11-01; PostgreSQL leverage execution worktree; functional scope im
   Pyrefly and `just ready` (`build/pg-final-{ruff,types,ready}.log`). Failed attempts are retained.
 - Earlier current typed union failures were repaired and scoped reruns passed; no credit is
   transferred from an interrupted run or from the acknowledged mid-run determinant change.
-- **not_run:** final-source `just test-all` and applicable `just hygiene`; scope is not complete.
-  Prior component passes establish no whole-series completion or measured performance benefit.
+- **in progress:** final targeted PostgreSQL functional/native union and relevant hygiene.
+  The broad run was interrupted normally; its pre-existing/out-of-scope failures are retained, not repaired as a migration gate. Prior component passes establish no whole-series completion or measured performance benefit.
 
 ## Next
 
-Run final-source `just test-all` and applicable `just hygiene`, repair failures, and reconcile
-completion in the coordinator/checkpoint. Keep the worktree and receipts for later
+Finish directly affected contract-test migration, run the final targeted PostgreSQL union and
+relevant hygiene, then reconcile completion in the coordinator/checkpoint. A wholly green
+repository suite is not required (operator,2026-11-01); existing PDF baseline failures remain external. Keep the worktree and receipts for later
 operator-authorized main integration; never push.

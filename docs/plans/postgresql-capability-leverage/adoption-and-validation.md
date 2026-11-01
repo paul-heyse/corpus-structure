@@ -22,9 +22,19 @@ Design-phase execution constraint (operator, 2026-11-01): all data can be regene
 
 ## PG-12 — Final-source qualification
 
+**Execution scope clarification (operator,2026-11-01):** the concurrent PDF baseline was not
+fully passing when its implementation paused for review. Completion of this series requires
+its complete functional scope and targeted tests of its changed responsibilities and actual
+consumers. A wholly green repository suite is not a migration prerequisite. Do not repair
+unrelated existing PDF, historical-reader, corpus-fixture or host-provisioning tests to obtain
+that result. Preserve the interrupted broad run and its failures without acceptance credit;
+qualify the selected PostgreSQL scope with an explicitly identified final-source native union.
+The final receipt/selection is recorded in the coordinator, not in a second execution register.
+
+
 During implementation use targeted compile/type/functional checks and real provider cases for the changed capability. Run substantial typing/lint diagnostics at coherent endpoints, not every edit. Root final maintenance precedes qualification; later source/harness/configuration changes require affected evidence reassessment.
 
-After all functional scope is implemented, run the repository's final `just test-all` and applicable `just hygiene` routes for the same source/context, or account explicitly for the required union through its native receipts. Preserve actual PostgreSQL/ADBC/provider outcomes, independent expected values and unavailable obligations. Tests with mocked providers do not qualify live interoperability. Rust results, if applicable, record `rustc --version`; zero listed Rust tests establish no Rust coverage.
+After all functional scope is implemented, account for the required targeted union through its native receipts and relevant hygiene checks for the same source/context. `just test-all` and `just hygiene` remain available broad routes, but a full-repository pass is not required by the clarified execution scope. Preserve actual PostgreSQL/ADBC/provider outcomes, independent expected values and unavailable obligations. Tests with mocked providers do not qualify live interoperability. Rust results, if applicable, record `rustc --version`; zero listed Rust tests establish no Rust coverage.
 
 Required scope includes:
 
@@ -119,4 +129,4 @@ For PG-07 exercise the installed PostgreSQL metadata implementation through the 
 
 For PG-10 run native ordered selection → streamed JSONL sink → incremental source/packet input preparation. Verify that the consumer can resolve the selected formula/table and required evidence without materializing the full native document. The test can use a small deliberately rich published fixture; it does not require restarting whole-book inference. If a supported MCP surface is changed, include actual attachment/use for that changed contract; the selected CLI/service delivery alone does not imply an MCP change.
 
-After all functional packages and own adoption finish, run final-source `just turn-end`, the applicable required functional/provider/nonfunctional union (`just test-all` is the broad route), and applicable `just hygiene`. Scope-controlled authoring checks below are not credit toward those product obligations. Retain failures/interruption and name missing external prerequisites. A performance measurement is required only for a numerical claim made by this implementation; the planned structural benefits remain Proposed until actual migrated behavior establishes them.
+After all functional packages and own adoption finish, run final-source `just turn-end`, the applicable targeted functional/provider/nonfunctional union and relevant hygiene checks (`just test-all`/`just hygiene` remain broad routes). Scope-controlled authoring checks below are not credit toward those product obligations. Retain failures/interruption and name missing external prerequisites. A performance measurement is required only for a numerical claim made by this implementation; the planned structural benefits remain Proposed until actual migrated behavior establishes them.
