@@ -9,6 +9,7 @@ import base64
 import json
 import threading
 import time
+from contextlib import suppress
 from dataclasses import replace
 from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -125,7 +126,9 @@ def endpoint():
             }
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(json.dumps(response).encode())
+            # The cancellation control deliberately closes a live request.
+            with suppress(BrokenPipeError):
+                self.wfile.write(json.dumps(response).encode())
 
         def log_message(self, *args):
             pass
@@ -250,3 +253,46 @@ def test_cancellation_terminates_owned_process_retains_admitted_request(tmp_path
     assert worker.last_page is not None and not worker.last_page.succeeded
     assert (worker.last_page.directory / "interrupted.json").exists()
     assert len(list(tmp_path.glob("**/input.json"))) == 1
+
+
+def test_bounded_parallel_pages_keep_order_independent_handles_and_parent_cancellation(
+    tmp_path, endpoint
+):
+    url, requests, replies = endpoint
+    raw = "<x_0.1><y_0.2>text<x_0.8><y_0.3><class_Text>"
+    replies.extend([raw] * 8)
+    worker = owner(tmp_path, url)
+    source = PreparedRecognitionSource.prepare(landmark_pdf())
+    recipe = NemotronRecipe("1" * 64, "2" * 64, render_scale=1)
+    parent = threading.get_ident()
+
+    def check():
+        assert threading.get_ident() == parent
+
+    results = list(
+        worker.recognize_pages(source, recipe, [4, 3, 2, 1], concurrency=4, check_active=check)
+    )
+    assert [page.page_no for page in results] == [4, 3, 2, 1]
+    assert all(page.succeeded for page in results)
+    assert len(requests) == 8
+    assert all(
+        json.loads((page.directory / "input.json").read_bytes())["physical_page_concurrency"] == 4
+        for page in results
+    )
+
+    replies.extend([1.0] * 4)
+
+    def cancel():
+        assert threading.get_ident() == parent
+        if len(list(tmp_path.glob("**/attempt-00002/request-000.json"))) >= 2:
+            raise InterruptedError("parent lease lost")
+
+    with pytest.raises(InterruptedError, match="parent lease lost"):
+        list(
+            worker.recognize_pages(
+                source, recipe, [1, 2, 3, 4], concurrency=4, check_active=cancel, reuse=False
+            )
+        )
+    admitted = list(tmp_path.glob("**/attempt-00002/input.json"))
+    assert len(admitted) <= 4
+    assert len(list(tmp_path.glob("**/attempt-00002/interrupted.json"))) == len(admitted)

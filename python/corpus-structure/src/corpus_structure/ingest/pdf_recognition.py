@@ -9,11 +9,14 @@ import os
 import re
 import signal
 import subprocess
+from collections import deque
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
+from threading import Event, Lock
 from typing import Any
 
 from ..semantic.identity import canonical_bytes
@@ -32,6 +35,9 @@ _BLOCK = re.compile(
     re.DOTALL,
 )
 _CLASS = re.compile(r"<class_[^>]+>")
+# PDFium forbids overlapping C API calls even on independent document handles. The
+# short render/open/close sections serialize; isolated parser/HTTP work can overlap.
+_PDFIUM_LOCK = Lock()
 
 
 @dataclass(frozen=True, slots=True)
@@ -284,6 +290,71 @@ class RecognitionWorker:
         self.endpoint, self.receipts, self.timeout_seconds = endpoint, receipts, timeout_seconds
         self._process: subprocess.Popen[bytes] | None = None
         self.last_page: RecognitionPage | None = None
+        self._physical_page_concurrency = 1
+
+    def _parallel_pages(
+        self,
+        source: PreparedRecognitionSource,
+        recipe: NemotronRecipe,
+        page_numbers: Sequence[int],
+        *,
+        concurrency: int,
+        check_active: Callable[[], None] | None,
+        reuse: bool,
+    ) -> Iterator[RecognitionPage]:
+        cancelled = Event()
+        pages = iter(page_numbers)
+
+        def active() -> None:
+            if cancelled.is_set():
+                raise InterruptedError("owning recognition batch cancelled")
+
+        def recognize(page_no: int) -> RecognitionPage:
+            worker = RecognitionWorker(
+                python=self.python,
+                script=self.script,
+                endpoint=self.endpoint,
+                receipts=self.receipts,
+                timeout_seconds=self.timeout_seconds,
+            )
+            worker._physical_page_concurrency = concurrency
+            return next(
+                worker.recognize_pages(source, recipe, [page_no], check_active=active, reuse=reuse)
+            )
+
+        pending: deque[Future[RecognitionPage]] = deque()
+        if check_active is not None:
+            check_active()
+        with ThreadPoolExecutor(
+            max_workers=concurrency, thread_name_prefix="pdf-recognition"
+        ) as pool:
+            try:
+                for _ in range(concurrency):
+                    page_no = next(pages, None)
+                    if page_no is None:
+                        break
+                    pending.append(pool.submit(recognize, page_no))
+                while pending:
+                    if check_active is not None:
+                        check_active()
+                    try:
+                        page = pending[0].result(timeout=0.2)
+                    except TimeoutError:
+                        continue
+                    pending.popleft()
+                    self.last_page = page
+                    yield page
+                    if check_active is not None:
+                        check_active()
+                    page_no = next(pages, None)
+                    if page_no is not None:
+                        pending.append(pool.submit(recognize, page_no))
+            finally:
+                cancelled.set()
+                # Settlement is bounded by each worker's existing terminate/kill lifetime.
+                # All independent teardown obligations run before parent cancellation exits.
+                for future in pending:
+                    future.cancel()
 
     def _stop(self) -> None:
         process = self._process
@@ -306,17 +377,34 @@ class RecognitionWorker:
         *,
         check_active: Callable[[], None] | None = None,
         reuse: bool = True,
+        concurrency: int = 1,
     ) -> Iterator[RecognitionPage]:
         import pypdfium2
 
+        if not 1 <= concurrency <= 4:
+            raise ValueError("page concurrency must be between one and four")
+        if len(set(page_numbers)) != len(page_numbers):
+            raise ValueError("recognition pages must have distinct physical identities")
         if self._process is not None:
             raise RuntimeError("recognition worker already has an owned request")
-        document = pypdfium2.PdfDocument(source.original)
+        if concurrency > 1:
+            yield from self._parallel_pages(
+                source,
+                recipe,
+                page_numbers,
+                concurrency=concurrency,
+                check_active=check_active,
+                reuse=reuse,
+            )
+            return
+        with _PDFIUM_LOCK:
+            document = pypdfium2.PdfDocument(source.original)
+            page_count = len(document)
         try:
             for page_no in page_numbers:
                 if check_active is not None:
                     check_active()
-                if not 1 <= page_no <= len(document):
+                if not 1 <= page_no <= page_count:
                     raise ValueError("recognition page outside retained source")
                 parent = self.receipts / source.digest / recipe.digest / f"page-{page_no:05d}"
                 parent.mkdir(parents=True, exist_ok=True)
@@ -342,7 +430,10 @@ class RecognitionWorker:
                 attempt = len(list(parent.glob("attempt-*"))) + 1
                 directory = parent / f"attempt-{attempt:05d}"
                 directory.mkdir()
-                image, transform = render_recognition_page(document, page_no, recipe.render_scale)
+                with _PDFIUM_LOCK:
+                    image, transform = render_recognition_page(
+                        document, page_no, recipe.render_scale
+                    )
                 image_path = directory / "page.png"
                 image_path.write_bytes(image)
                 del image
@@ -357,6 +448,7 @@ class RecognitionWorker:
                     transform=transform,
                     recipe_digest=recipe.digest,
                     source_digest=source.digest,
+                    physical_page_concurrency=self._physical_page_concurrency,
                 )
                 input_path = directory / "input.json"
                 input_path.write_bytes(canonical_bytes(request))
@@ -402,7 +494,8 @@ class RecognitionWorker:
                 yield self.last_page
         finally:
             self._stop()
-            document.close()
+            with _PDFIUM_LOCK:
+                document.close()
 
 
 def recognition_observation_values(
@@ -527,6 +620,7 @@ def main() -> None:
     parser.add_argument("--python", required=True, type=Path)
     parser.add_argument("--worker", required=True, type=Path)
     parser.add_argument("--endpoint", default="http://127.0.0.1:8035/v1")
+    parser.add_argument("--concurrency", type=int, choices=range(1, 5), default=1)
     parser.add_argument("--pages", required=True, help="inclusive range, e.g. 1-1589 or 85")
     args = parser.parse_args()
     bounds = tuple(int(x) for x in args.pages.split("-"))
@@ -540,7 +634,9 @@ def main() -> None:
     worker = RecognitionWorker(
         python=args.python, script=args.worker, endpoint=args.endpoint, receipts=args.receipts
     )
-    for page in worker.recognize_pages(source, recipe, range(bounds[0], bounds[-1] + 1)):
+    for page in worker.recognize_pages(
+        source, recipe, range(bounds[0], bounds[-1] + 1), concurrency=args.concurrency
+    ):
         for row, raw, _ in page.requests():
             values = recognition_observation_values(page, row, raw, source=source, recipe=recipe)
             (page.directory / f"observation-{row['ordinal']:03d}.json").write_bytes(
