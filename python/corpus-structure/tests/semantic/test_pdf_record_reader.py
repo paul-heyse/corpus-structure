@@ -255,11 +255,15 @@ def test_context_refuses_budget_without_truncating_evidence():
         context_reader().source_context(["#/texts/0"], "#/body", row_budget=3)
 
 
-def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine):
+@pytest.mark.parametrize("large", [False, True])
+def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
     from sqlalchemy import event, text
     from corpus_structure.semantic.pdf_record_reader_native import pdf_native_export_sql
     value = native()
     value["pages"] = {"1":{"size":{"width":-0.0,"height":100.0},"page_no":1}}
+    if large:
+        value["texts"][0]["text"] = 'α\\"\n' * 100_000
+        value["body"]["meta"] = {"vendor":{"empty":[],"large":"Ω"*100_000}}
     lowered = NativeRows(value)
     with semantic_bare_engine.begin() as conn:
         for ddl in (
@@ -290,7 +294,14 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine):
         def called(conn,cursor,statement,parameters,context,executemany):
             queries.append(statement)
         event.listen(conn,"before_cursor_execute",called)
-        reader=PublishedPdfReader(conn, ProductReference(42,"integrated","f"*64),revision=lowered.revision)
+        class ScalarReader(PublishedPdfReader):
+            # A scalar replay owner exercises formatter boundaries independently of
+            # server artifact admission (which has its separate native controls).
+            def scalar(self, stream_id):
+                yield from lowered.scalar(stream_id)
+            def _profile(self, stream_id):
+                return lowered._profile(stream_id)
+        reader=ScalarReader(conn, ProductReference(42,"integrated","f"*64),revision=lowered.revision)
         sink=io.BytesIO()
         receipt=reader.write_native_json(sink)
         assert json.loads(sink.getvalue()) == value
