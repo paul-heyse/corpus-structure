@@ -1903,7 +1903,7 @@ invalidate reuse conservatively; they confer no semantic identity, authorization
 Cold opening verifies complete inputs/artifacts/products and refuses a changed header before
 caching. Unfinalized archives remain fully checked and uncached. Explicit verification,
 persistence/replay, activation, run start/resumption and resource principal checks remain distinct.
-Historical analytical-4/5 and compiler-8 analytical-6 read recipes preserve their own meanings.
+Archived bytes retain their original meaning; opening a current archive does not reinterpret an obsolete execution product. The current plan owns the supported execution scope.
 
 > Decision: [ADR-0031](../adr/0031-semantic-execution-closure.md), [ADR-0035](../adr/0035-model-governed-analysis.md)
 
@@ -1963,3 +1963,40 @@ System/core0.6.2 defines positive legacy enum bases for historical table project
 public enums inherit those members and add SourceView. Historical D3 CHECKs/migrations retain
 their original sets; native semantic metadata retains SourceView. Native implementation/schema/
 catalog/physical digests and current public enum sets were verified unchanged by this separation.
+
+
+## PostgreSQL capability realization
+
+**Implemented; scoped Tested,2026-11-01; combined qualification remains open.** The
+[PostgreSQL capability plan](../plans/postgresql-capability-leverage_2026-11-01.md) owns PG-00–12
+acceptance. SQLAlchemy2.1.6/Alembic1.20.1 are exactly pinned. The reproduced callable-default
+comparison defect still needs the narrow `semantic/alembic_defaults.py` adapter; unrelated
+upstream fixes do not establish its retirement condition. Alembic Utils is excluded.
+
+`semantic/alembic_native.py` registers native comparison, frozen operations, rendering and
+caller-Connection execution through Alembic's extension APIs. `native_objects.py` owns explicit
+managed identity/property comparison and independent catalog admission; pglast source facts
+preserve overloaded input signatures and distinguish OUT/TABLE results. Frozen operation inputs
+include declared before/after state, owner/ACL effects and dependency order. Candidate authoring
+is restricted to an explicitly owned disposable database and rolls back its changes. `ci schema
+native-candidate` emits reviewable candidate artifacts without editing revision history; source
+preview generation is separate. Committed revisions execute byte-bound payloads, rather than
+calling mutable generators. The new head `semantic_pg_20261101` supplies the current projections
+and compiler18 admission. A head marker alone does not establish native admission.
+
+`companion-projections.yaml` derives four protected input/relation/coverage/mapping-report
+functions, their static Core columns and directional Arrow schemas from existing model fields.
+Six-part published pins are checked natively. Prepared Core shapes retain named binds and final
+logical-key ordering; per-call values and physical sessions remain invocation-owned. Generated
+`TypedColumns` plus narrowed static column protocols expose wrong fields to Pyrefly. Existing
+analytics stores reusable relational preparation on its prepared release, while the two Arrow
+writers share `ArrowWriteProfile` facts and create fresh pgpq encoders for each COPY. Publication
+keeps the caller's same-session Core/Psycopg transaction; ADBC owns separate analytical reads.
+
+`core/db/store.py` distinguishes native cause, operation phase and known effects. Publication
+settlement uses the original immutable receipt identity when commit acknowledgement is uncertain.
+Queue pressure, acquisition timeout, closure and cancellation have distinct meanings; missing
+SQLSTATE does not establish a disconnect. Borrower-scoped cancellation remains registered through
+transaction settlement, with renewal deadlines and actual child/iterator cleanup at their owners.
+ADBC has its own cancellation handle and independently attempts rollback and physical close while
+preserving the primary exception. These mechanisms do not claim a hard end-to-end cleanup deadline.

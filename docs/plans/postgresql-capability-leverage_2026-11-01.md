@@ -1,6 +1,6 @@
 # PostgreSQL capability leverage
 
-**Status:** Planned; owns PG-00–PG-12 and investigations PG-I01–PG-I03. No product implementation is established by these documents.
+**Status:** In execution on `work/postgresql-capability-leverage`; owns PG-00–PG-12 and investigations PG-I01–PG-I03. Implementation and scoped verification are recorded below; combined qualification remains open.
 **Created/revised:** 2026-11-01. **Target claims:** Proposed unless explicitly source-inspected below.
 **Basis:** [integrated review O01–O15](../functional_reviews/postgresql-capability-leverage_2026-11-01.md) at `09d3125e1570df7c94ca357962107155cfdb939b`. Its audit explains rationale, not a second execution queue. This coordinator is the sole package/investigation/source-disposition owner for this series. The expanded implementation design below refines the initial investigation questions without changing their IDs.
 
@@ -43,23 +43,23 @@ The model owns semantic fields, scope, invariants and domain operations. A prepa
 
 ## Packages and dependencies
 
-All rows start **planned**, not implemented. Supporting owners explain behavior and closure; this table alone owns execution state.
+Execution baseline `0878ba1b` (2026-11-01), isolated worktree and private PostgreSQL18 socket/port55434. Supporting owners explain behavior and closure; this table owns current package state. Local checks below are not full qualification.
 
-| Package | Inputs | Delivered capability / verification boundary |
-|---|---|---|
-| <a id="PG-00"></a>PG-00 | Current baseline and standing upgrade direction | Refresh affected baseline, update exact dependency family deliberately, retire reproduced obsolete adapters; affected regression union and `just ready` |
-| <a id="PG-01"></a>PG-01 | PG-00 library realization | Verify native Alembic extension PG-I01 on one protected object family; selected mechanism and exact residual gap, not blanket product qualification |
-| <a id="PG-02"></a>PG-02 | Cause/effect contract can be designed immediately; runtime checks after PG-00 | One phase-aware outcome route used by store/publication/refusals, with correct retry/receipt/refusal behavior |
-| <a id="PG-03"></a>PG-03 | Current model and existing projection consumers | Prepared typed relational shapes and directional profiles used by analytics and one published-family operation |
-| <a id="PG-04"></a>PG-04 | Working PG-02/03 for integration; PG-I02 current route resolved | Shared transfer preparation, preserved row COPY and integrated Arrow transfer with exact profile checks |
-| <a id="PG-05"></a>PG-05 | PG-02 outcome semantics; existing resource owners | Owned cancellation/settlement, bounded admission settings and structured native diagnostics used by actual operations |
-| <a id="PG-06"></a>PG-06 | Working PG-03/04 plus published-pin baseline | Typed input/relation/coverage/mapping-report batches, Parquet sink and pinned DuckDB comparison consumed end to end |
-| <a id="PG-07"></a>PG-07 | Description contract; PG-03 only for model/query linkage | `ci db describe` structured physical/query description, optional estimates with clear provenance |
-| <a id="PG-08"></a>PG-08 | PG-01 decision and current generated native products | Selected lifecycle delegation for new forward products, independent admission, own schema transitions |
-| <a id="PG-09"></a>PG-09 | PG-01 object-boundary decision; active SQL consumers | Reusable source-qualified syntax facts and diagnostics; no historical-generator cleanup for its own sake |
-| <a id="PG-10"></a>PG-10 | PG-I03 selection contract; working PG-05 and published source baseline | Streamed selected-source package for an intact section with required context and explicit omissions |
-| <a id="PG-11"></a>PG-11 | Each changed producer plus its actual consumer | This series' migration/activation/retirement, no parallel paths left without a concrete reader |
-| <a id="PG-12"></a>PG-12 | All selected functional scope including PG-11 | Final-source functional/provider/nonfunctional union for this series and honest benefit accounting |
+| Package | Inputs | Delivered capability / verification boundary | State |
+|---|---|---|---|
+| <a id="PG-00"></a>PG-00 | Current baseline and standing upgrade direction | Refresh affected baseline, update exact dependency family deliberately, retire reproduced obsolete adapters; affected regression union and `just ready` | SQLAlchemy2.1.6/Alembic1.20.1 and ready passed; exact upstream default defect reproduced, narrow adapter retained |
+| <a id="PG-01"></a>PG-01 | PG-00 library realization | Verify native Alembic extension PG-I01 on one protected object family; selected mechanism and exact residual gap, not blanket product qualification | Implemented; representative native lifecycle controls passed; final-source rerun pending |
+| <a id="PG-02"></a>PG-02 | Cause/effect contract can be designed immediately; runtime checks after PG-00 | One phase-aware outcome route used by store/publication/refusals, with correct retry/receipt/refusal behavior | Implemented across Store/publication/refusals/CLI; scoped pure/native controls passed |
+| <a id="PG-03"></a>PG-03 | Current model and existing projection consumers | Prepared typed relational shapes and directional profiles used by analytics and one published-family operation | Implemented typed consumers and release-scoped preparation; current endpoint passed; final-source union pending |
+| <a id="PG-04"></a>PG-04 | Working PG-02/03 for integration; PG-I02 current route resolved | Shared transfer preparation, preserved row COPY and integrated Arrow transfer with exact profile checks | Both Arrow writers integrated; exact-profile and fresh-encoder controls passed |
+| <a id="PG-05"></a>PG-05 | PG-02 outcome semantics; existing resource owners | Owned cancellation/settlement, bounded admission settings and structured native diagnostics used by actual operations | Existing PDF/renewal/read owners integrated; native lifecycle and protected-COPY cancellation passed; final-source rerun pending |
+| <a id="PG-06"></a>PG-06 | Working PG-03/04 plus published-pin baseline | Typed input/relation/coverage/mapping-report batches, Parquet sink and pinned DuckDB comparison consumed end to end | Implemented; final 13-case native/CLI endpoint passed, including four families and qualified inventories/comparison |
+| <a id="PG-07"></a>PG-07 | Description contract; PG-03 only for model/query linkage | `ci db describe` structured physical/query description, optional estimates with clear provenance | Implemented service/CLI; three current native checks passed, including literal filters, query admission, bounds and statistics |
+| <a id="PG-08"></a>PG-08 | PG-01 decision and current generated native products | Selected lifecycle delegation for new forward products, independent admission, own schema transitions | Implemented candidate authoring/frozen operations and managed native families; fresh-head controls passed |
+| <a id="PG-09"></a>PG-09 | PG-01 object-boundary decision; active SQL consumers | Reusable source-qualified syntax facts and diagnostics; no historical-generator cleanup for its own sake | Implemented immutable source facts/private mutable ASTs across current consumers; scoped controls passed |
+| <a id="PG-10"></a>PG-10 | PG-I03 selection contract; working PG-05 and published source baseline | Streamed selected-source package for an intact section with required context and explicit omissions | Implemented; nested/ancestor recognition coverage repaired; rich actual service/CLI and offline scientific input case passed |
+| <a id="PG-11"></a>PG-11 | Each changed producer plus its actual consumer | This series' migration/activation/retirement, no parallel paths left without a concrete reader | Final ten-object head/provenance frozen; all seven adoption checks passed, including fresh current18 data and recurring authoring |
+| <a id="PG-12"></a>PG-12 | All selected functional scope including PG-11 | Final-source functional/provider/nonfunctional union for this series and honest benefit accounting | Functional scope implemented; final-source full functional/hygiene qualification starting |
 
 PG-00 and PG-01 do not serialize all design work. PG-02/03 shared contracts, PG-07 report design and PG-10 selection design can progress independently. PG-06 does not wait for object-lifecycle replacement if the existing native authoring route already supplies its independently enforced projection. Shared editing surfaces still need a single integration owner. No package is a fixed agent roster.
 
@@ -105,9 +105,17 @@ Operator directions (2026-11-01): create this independent series; plan O13–15 
 
 Apply FP-01–07 and applicable profile semantics qualitatively, especially authority, non-circular validation, exact versus approximate values, evidence reachability and workload fit. Compare necessary work, preparation, copies, transaction duration and recovery, not source-line counts. No quantitative benefit is claimed. The series is complete only with all required capabilities, affected consumers, own migrations/retirement and final-source qualification; a decision or probe is not implementation. [Adoption/validation](postgresql-capability-leverage/adoption-and-validation.md) defines the union and reporting.
 
-## Current authoring checkpoint
+## Current execution checkpoint
 
-Documents only. All PG packages remain planned; implementation and required runtime checks are **not_run**. Library capability evidence and current-code inspection informed the design; they are not qualification. Authoring validation receipts are recorded in the adoption/validation owner. Next execution work is PG-00, with PG-02/03 contract design and PG-01 preparation able to proceed on their actual prerequisites.
+**Design-phase execution constraint (operator, 2026-11-01):** all data is regenerable. This is permission to prioritize the target during the current design phase, not a permanent product compatibility policy or an architectural decision. Compiler18 is the current execution contract. Fresh current creation and regenerated-data journeys replace historical-reader and retained-data upgrade obligations. Reject obsolete execution products with a regeneration requirement. Frozen migrations, plans and receipts remain as history without ongoing compatibility support. This boundary does not authorize changing the main database.
+
+**2026-11-01:** execution is isolated in `/home/paul/corpus-structure-postgresql-capability-leverage`, branch `work/postgresql-capability-leverage`, initially based on main `0878ba1b`, with committed main documentation changes through `524c5a73` integrated (branch merge `977eb8b1`). No merge to main is authorized until the operator explicitly gives the go-ahead. Seven dirty PostgreSQL references were copied as read-only research inputs to ignored `build/reference-inputs`, with hashes; main's documentation remains untouched.
+
+Private PostgreSQL18 uses `build/pg/data`, private socket `build/pg/socket`, port55434 (`max_locks_per_transaction=1024` for disposable native fixture construction), extension-only `cs_pg_template`, bootstrap-only `pgpl_bootstrap`, ordinary CREATEDB maintenance `paul`, and restricted semantic principals. All purpose URLs are local `.envrc.local` selections. Installed host extension binaries are read-only. Never run the managed-cluster provisioning/start/stop recipes for this instance. Recreate this environment explicitly from the recorded plan-execution approach; main's data and runtime environments are not shared.
+
+Dependency commit `3a0365a4` moves SQLAlchemy2.1.6/Alembic1.20.1, with the other five libraries already current; `just ready` passed. The inherited frozen baseline is semantic_0065. New head `semantic_pg_20261101` freezes this series’ native operations and compiler18 admission; its final provenance was refreshed after settled-source maintenance. Fresh creation, current native protection and regenerated data are the adoption boundary; no existing frozen revision is edited.
+
+All implementation slices are committed through `2f5e01a6`; final ten-object native adoption seven-case and native/companion CLI thirteen-case endpoints passed. Root whole-tree Ruff, Pyrefly and `just ready` passed after maintenance. Focused failed attempts and reruns remain in `build/pg-*.log`. Targeted typing/runtime/native results do not establish final-source qualification. Incoming committed main changes will be merged into this branch and their affected contracts/evidence reassessed. Main stays untouched by this execution.
 
 ## Expanded implementation design and shared contracts
 
@@ -138,11 +146,11 @@ These are information ownership boundaries, not a requirement for a new class/mo
 
 ### Investigation disposition after design expansion
 
-PG-I01 remains a bounded **runtime integration obligation**, not an open choice of lifecycle dependency. The selected chain is native Alembic Plugin comparison → custom operation payload → renderer/frozen history → implementation on the caller Connection → independent native admission. PG-01 exercises the representative family, its security properties and rollback before PG-08 migrates current forward families. A mismatch must identify the exact residual API/catalog/property defect; it does not reopen Alembic Utils adoption.
+PG-I01’s selected lifecycle mechanism is **implemented and scoped Tested**, not an open choice of lifecycle dependency. Final-source integrated qualification remains pending. The selected chain is native Alembic Plugin comparison → custom operation payload → renderer/frozen history → implementation on the caller Connection → independent native admission. PG-01 exercises the representative family, its security properties and rollback before PG-08 migrates current forward families. A mismatch must identify the exact residual API/catalog/property defect; it does not reopen Alembic Utils adoption.
 
 PG-I02 is **design-resolved for current scope**: resident SQL moves inside PostgreSQL; both integrated Arrow writers retain same-session Core/Psycopg/pgpq ownership; Python domain rows retain typed row COPY. No new standalone Arrow import is selected. A complete ADBC-owned ingest is reconsidered only if a concrete newly required input operation warrants it. It is not a required parallel implementation or an unconditional feasibility spike.
 
-PG-I03's selection and context contract is developed in the consumer owner as **Proposed design**. PG-10 must exercise that contract against the current scientific/source input-preparation consumer, including outside references, repeated occurrences and unknown geometry. Failure of that revealing case requires revising the owned context rule before completing PG-10; it is not grounds to omit selected-source delivery or hide the case as unknown future scope. Design selection, implemented query and verified consumer remain different states.
+PG-I03’s selection and context contract is implemented with a revealing native formula/table consumer. Independent implementation review identified missing scoped recognition coverage and nested-section coverage; their repairs passed the rich native/CLI case and independent focused reassessment. Final-source combined qualification remains pending. PG-10 must exercise that contract against the current scientific/source input-preparation consumer, including outside references, repeated occurrences and unknown geometry. Failure of that revealing case requires revising the owned context rule before completing PG-10; it is not grounds to omit selected-source delivery or hide the case as unknown future scope. Design selection, implemented query and verified consumer remain different states.
 
 ### Practical execution route
 
@@ -158,4 +166,4 @@ A new modeled companion field updates generated static/native/Arrow forms and th
 
 Batch movement avoids JSON/dict/hex reconstruction for analytical consumers, while server-native set operations avoid exporting rows only to reinsert them. Preparation removes repeated stable work but introduces bounded retention/invalidation responsibilities. Snapshot capture holds read resources only through export, not local analysis. Cancellation and rollback preserve honest effect knowledge even when network loss prevents a hard cleanup deadline. These qualitative tradeoffs apply FP-04/05/07 and the efficient-architecture heuristics without a new cost model, telemetry framework or benchmark requirement.
 
-All packages remain **planned**. The expansion changes design detail and resolves authoring choices; it establishes no library integration, database deployment, product acceptance or measured benefit. The next product execution is PG-00, with the nondependent contract work described above ready to proceed alongside it.
+Package state is recorded in the current package table and execution checkpoint. The expanded target explains the design; focused implementation checks do not establish combined final-source qualification or measured benefits.

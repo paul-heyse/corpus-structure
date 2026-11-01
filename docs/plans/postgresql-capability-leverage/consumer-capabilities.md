@@ -203,7 +203,7 @@ access; the result reports privileges only if actually observed.
 ### Query-schema admission and lifetime
 
 Reuse `semantic/authored_sql.py::admit_sql` and its syntax/catalog/role checks on the fresh
-restricted admission connection it requires. Its current supported subset requires exactly one
+restricted reader execution login it requires. Its current supported subset requires exactly one
 SELECT, qualified known relations and approved functions/types/operators; it rejects SELECT INTO,
 row locks, modifying CTEs and unapproved function calls. Preserve that subset for v1 rather than
 make this command an arbitrary PostgreSQL expression evaluator. Existing source-qualified error

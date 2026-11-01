@@ -552,6 +552,38 @@ kernels. The public preparation function defers compiler acquisition until calle
 constructed once on demand. FastMCP retains its existing typed schemas and lifespan-owned settings,
 engines and principal checks; active packet reuse retains attempt/source/hash fencing. No custom
 command/plugin discovery or settings/cache service is introduced. The current defaults select
-the freshly completed parsing-pipeline target; retained historical readers stay explicit.
+the current parsing target; its owning plan records the supported execution scope.
 
 > Decision: [ADR-0034](../adr/0034-recorded-agent-supervision.md), [ADR-0035](../adr/0035-model-governed-analysis.md)
+
+
+## PostgreSQL capability consumers
+
+**Implemented; scoped Tested,2026-11-01; final qualification remains with
+[PG-12](../plans/postgresql-capability-leverage_2026-11-01.md#PG-12).** These additions share
+services with their Typer commands. No new MCP contract or external-attachment claim follows.
+
+`ci source companion-export` accepts an exact published project/run/release/task/product/digest
+pin and a fresh destination. Protected typed functions feed one snapshot through ADBC batches
+into Parquet. File schemas bind the pin, physical model, projection and family; the manifest binds
+schema, logical rows and serialization bytes. Readers close before atomic no-replace publication
+and detached DuckDB analysis. `companion-inventory` reports repeated input uses, distinct relation
+occurrences, qualified endpoint counts, own/external product targets and scoped coverage/mapping
+outcomes. `companion-compare` checks comparability before multiset differences; it does not infer
+cross-product occurrence equivalence from local IDs. Empty, unrequested and unknown are distinct.
+
+`ci db describe` reports bounded physical observations under the actual restricted reader, with
+literal name filtering and explicit unsupported/unavailable estimates. ADBC supplies hierarchy,
+Arrow types and supported statistics; SQLAlchemy Inspector supplies exact columns/constraints.
+A parameter-free admitted SELECT may supply prospective query-output shape within read-only
+ownership. Physical observations and estimates never become inferred domain declarations.
+
+`ci source native-export --format selected-source-v1` exports one intact native section under
+`section-source-context-v1`. The current record hierarchy selects members, preserving original
+addresses, ordering, complete incident relation endpoints and declared direct context. Outside
+references and omitted artifact bodies remain explicit. Ordered JSONL and its completion receipt
+publish atomically. `SelectedSourceReader` verifies the stream into an operation-owned disk index
+and prepares actual formula inputs using a caller-supplied admitted interpretation context;
+missing context/artifacts or required outside values remain explicit input requirements. The
+fragment is not represented as a complete DoclingDocument, and full-book inference is unnecessary
+for this consumer's qualification.

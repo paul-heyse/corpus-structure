@@ -301,7 +301,7 @@ Concurrent indexes need a separate deployment transaction/restart contract and m
 on failure; autocommit commits earlier work. Prefer transactional alteration/rebuild without a
 continued-writer requirement. None of this completes former PDF adoption/final validation.
 
-**Completion evidence:** fresh and supported retained baselines reach the intended managed state;
+**Completion evidence:** fresh databases reach the intended current managed state; data is regenerated and retained historical baselines require no compatibility support;
 incompatible candidates refuse; no-change comparison does not oscillate; frozen before/after
 payloads remain executable. Exercise changed body, return/configuration, grant, trigger condition
 and explicit retirement against independent expected outcomes. Challenge dependent ordering with
