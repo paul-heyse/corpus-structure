@@ -57,4 +57,4 @@ _Updated 2026-11-01; integrated PDF mechanisms implemented; whole-book publicati
 Continue the [structural streaming extension](docs/plans/pdf-docling-pipeline/relational-document-model-and-identity.md):
 ADR-0042 and PDF-17–19 foundations implemented; begin PDF-20 live staging next. Acceptance still requires current external
 journeys, five-section extraction, independent references and automated grading before default cutover.
-All owned tasks/processes are concluded and worktrees removed. Defaults still target the historical deployment.
+[Streaming improvement review](docs/plan_improvement_reviews/pdf-docling-streaming-improvements_2026-11-01.md) is Proposed; plan revision is separate. Defaults remain unchanged.

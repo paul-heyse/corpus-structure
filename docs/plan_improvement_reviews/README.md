@@ -44,3 +44,7 @@ performs no review and changes no implementation plan.
 - [Semantic-model pivot — library-focused improvement review](semantic-model-pivot_2026-10-29.md):
   proposed coordinated amendments, current CBO-001–025 judgments and CA-01–CA-11 coverage,
   including improvements to completed capabilities.
+
+- [PDF/Docling streaming improvements](pdf-docling-streaming-improvements_2026-11-01.md):
+  functional-extension-focused proposals for native finalization, scheduling, custody, typed transfer
+  and richer selective content; no accepted plan changes.
