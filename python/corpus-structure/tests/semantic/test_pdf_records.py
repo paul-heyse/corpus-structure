@@ -331,7 +331,7 @@ def test_reconstruction_inventory_and_containment_tampering_refuse():
     records = Records().lower({"name": "x"})
     row = records.record(occurrence_id("#", "DoclingDocument"))
     row["native_type"] = "TableCell"
-    with pytest.raises(NativeMappingError, match="type differs"):
+    with pytest.raises(NativeMappingError, match="requested native root class differs"):
         records.reconstruct()
 
 
