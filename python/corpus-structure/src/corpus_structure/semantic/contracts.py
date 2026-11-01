@@ -760,7 +760,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
     from .effect_support import SUPPORTED_EFFECT_VERSIONS
 
     effect_versions = dict(SUPPORTED_EFFECT_VERSIONS)
-    if data["inputs"]["compiler_version"] not in {"9", "10", "11", "12", "13"}:
+    if data["inputs"]["compiler_version"] not in {"9", "10", "11", "12", "13", EXECUTION_COMPILER_VERSION}:
         effect_versions["schedule_pending_or_reused_or_skipped"] = "1"
     return _normalize(
         {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}},

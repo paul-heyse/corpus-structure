@@ -196,6 +196,7 @@ enums:
       trace: {}
       companion: {}
       manifest: {}
+      artifact: {}
   PdfRecognitionUniverse:
     permissible_values: {display: {}, inline: {}, cell: {}}
   PdfRecognitionPolicy:
@@ -713,6 +714,7 @@ classes:
         slot_uri: pdf:PdfNativeReadRequest_limit
       occurrence_id: {range: PdfString, required: false, slot_uri: pdf:PdfNativeReadRequest_occurrence_id}
       collection: {range: PdfManifestCollection, required: false, slot_uri: pdf:PdfNativeReadRequest_collection}
+      artifact_digest: {range: PdfDigest, required: false, slot_uri: pdf:PdfNativeReadRequest_artifact_digest}
   PdfDomainRule:
     attributes:
       rule_id:

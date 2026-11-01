@@ -69,7 +69,7 @@ def _repair_copied_references(original, copied, source, target):
                     cell.ref=type(ref)(cref=relocated[ref.cref])
         for name in ('captions','references','footnotes'):
             if hasattr(new,name):
-                setattr(new,name,[type(ref)(cref=relocated.get(ref.cref,ref.cref)) for ref in getattr(old,name)])
+                setattr(new,name,[type(ref)(cref=relocated[ref.cref]) for ref in getattr(old,name) if ref.cref in relocated])
     return pairs
 
 
@@ -108,11 +108,13 @@ def map_pdf_observation(observation: Mapping[str, Any], raw_response: bytes, *, 
     """
     _context(context, 'map_pdf_observation')
     from docling.utils.nemotron_parse_v3_5_utils import parse_nemotron_parse_v3_5
-    from docling_core.types.doc import DoclingDocument, Size
+    from docling_core.types.doc import DoclingDocument, Size, DocItemLabel
+    from docling.utils.vlm_utils import link_adjacent_captions
     from .pdf_hierarchy import native_nodes
 
     body = observation['observation']
-    if body.get('raw_response_digest') != sha256(raw_response).hexdigest():
+    missing_failure_raw=body.get('raw_response_digest') is None and body['outcome'] in {'failed','unknown','unsupported'} and not raw_response
+    if not missing_failure_raw and body.get('raw_response_digest') != sha256(raw_response).hexdigest():
         raise ValueError('mapping raw response differs from retained observation')
     image = body['image']; transform = image['transform']
     result = DoclingDocument(name='Retained NVIDIA observations')
@@ -131,8 +133,11 @@ def map_pdf_observation(observation: Mapping[str, Any], raw_response: bytes, *, 
     def inverse(x,y):
         return ((d*(x-e)-c*(y-f))/determinant,(-b*(x-e)+a*(y-f))/determinant)
     raw = raw_response.decode('utf-8'); start = 0
+    block_starts=[]; caption_owners={}
     declared = {o['occurrence_id'] for o in observation.get('occurrences', ())}
     for ordinal, match in enumerate(_CLASS.finditer(raw)):
+        block_starts.append(len(result.body.children))
+        if match.group(1)=='Caption':caption_owners[ordinal]={DocItemLabel.TABLE,DocItemLabel.PICTURE}
         segment = raw[start:match.end()]; start=match.end(); identity=f'block-{ordinal}'
         disposition: dict[str, Any] = {'occurrence_id':identity,'label':match.group(1),'outcome':'mapped'}
         if identity not in declared:
@@ -187,6 +192,7 @@ def map_pdf_observation(observation: Mapping[str, Any], raw_response: bytes, *, 
             disposition.update(outcome='unsupported',reason=type(error).__name__+': '+str(error))
         dispositions.append(disposition)
     if raw[start:].strip(): dispositions.append({'outcome':'dropped','reason':'unterminated_raw_tail','raw_start':start})
+    link_adjacent_captions(result,block_starts,caption_owners)
     _validate_native(result)
     return MappedObservation(result, origins, tuple(dispositions), observation)
 
@@ -271,7 +277,7 @@ def select_pdf_integration(native_product: Mapping[str,Any], structural_pin: Map
         raise ValueError('policy action is inapplicable to its governed situation')
     doc=DoclingDocument.model_validate(native_product['document']); nodes=native_nodes(doc)
     origins={id(n):_Origin(0,p) for p,n in nodes.items()}
-    inputs=[{**structural_pin,'role':'structural'}]; coverage=[]; rejected=[]; removed=[]; mapping_partial=False; mapping_reports=[]; correspondences=[]
+    inputs=[{**structural_pin,'role':'structural'}]; coverage=[]; rejected=[]; removed=[]; mapping_partial=False; mapping_reports=[]; correspondences=[]; imported_nodes={}; deferred_references=[]
     # Grid buckets bound correspondence to intersecting page regions, not an all-item matrix.
     # Rebuild a page index only for each affected page, preserving native document lifetime.
     mapped_inputs=[]
@@ -382,7 +388,13 @@ def select_pdf_integration(native_product: Mapping[str,Any], structural_pin: Map
                 doc.insert_node_items(node_items=[incoming],doc=mapped.document,sibling=anchor,after=after)
                 evidence['placement']={'parent':parent.self_ref,'neighbor':anchor.self_ref,'after':after,'basis':'native_section_and_same_page_reading_geometry'}
             copied_root=parent.children[position].resolve(doc)
-            copied=[new for old,new in _repair_copied_references(incoming,copied_root,mapped.document,doc)]
+            pairs=_repair_copied_references(incoming,copied_root,mapped.document,doc)
+            copied=[new for old,new in pairs]
+            for old,new in pairs:
+                imported_nodes[(index,old.self_ref)]=new
+                for name in ('captions','references','footnotes'):
+                    for ref in getattr(old,name,()):
+                        deferred_references.append((new,name,index,ref.cref,mapped.origins.get(ref.cref)))
             for n in copied:origins[id(n)]=_Origin(index,source,disposition,list(alternative),evidence)
             if chosen is not None: removed.append(chosen)
             # Maintain sparse local index after replacing; old references are removed.
@@ -396,6 +408,28 @@ def select_pdf_integration(native_product: Mapping[str,Any], structural_pin: Map
                         candidates.append(n)
                         for key in keys(nbox):buckets[key].append(n)
     if removed: doc.delete_items(node_items=removed)
+    # Cross-block references are rebound through qualified imported identities only.
+    # A source-local #/texts/0 must never resolve accidentally against an unrelated target.
+    final_before_validation=native_nodes(doc)
+    retained_ids={id(n) for n in final_before_validation.values()}
+    alternatives_by_source=defaultdict(list)
+    for n in final_before_validation.values():
+        origin=origins[id(n)]
+        alternatives_by_source[(origin.input_index,origin.occurrence_id)].append(n)
+        for key in origin.alternatives:alternatives_by_source[key].append(n)
+    for owner,name,index,source_pointer,raw_id in deferred_references:
+        if id(owner) not in retained_ids:continue
+        target=imported_nodes.get((index,source_pointer))
+        if target is None or id(target) not in retained_ids:
+            candidates=alternatives_by_source.get((index,raw_id),[])
+            if name=='captions':candidates=[n for n in candidates if str(n.label)=='caption']
+            target=candidates[0] if len(candidates)==1 else None
+        if target is None:
+            mapping_reports.append({'input_index':index,'occurrence_id':origins[id(owner)].occurrence_id,'outcome':'unresolved','reason':name+'_target_not_selected_or_ambiguous'})
+            mapping_partial=True
+            continue
+        refs=getattr(owner,name)
+        if not any(ref.cref==target.self_ref for ref in refs):refs.append(target.get_ref())
     normalize_section_header_levels(doc)
     _validate_native(doc)
     selected=snapshot(doc)

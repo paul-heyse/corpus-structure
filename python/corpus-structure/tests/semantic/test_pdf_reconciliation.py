@@ -161,3 +161,25 @@ def test_chart_values_have_individually_attributed_coarse_parent_witnesses(nativ
     for cell in cells:
         decision=next(r for r in result['relations'] if r['relation_id']=='decision:'+cell['occurrence_id'])
         assert decision['endpoints'][0]['occurrence_id']=='block-0'
+
+
+def test_caption_association_is_relocated_across_raw_blocks_and_existing_items(native_source):
+    raw=(rb'<x_0.05><y_0.333333>\begin{tabular}{cc}1 & 2\end{tabular}<x_0.55><y_0.4><class_Table>'
+         rb'<x_0.05><y_0.41>Table 1: Generated values<x_0.55><y_0.44><class_Caption>')
+    mapped=map_pdf_observation(recognized(native_source,raw),raw)
+    assert mapped.document.tables[0].captions[0].resolve(mapped.document).text=='Table 1: Generated values'
+    selected=integrate(native_source,raw)
+    from docling_core.types.doc import DoclingDocument
+    doc=DoclingDocument.model_validate(selected['content']['document'])
+    assert doc.tables[0].captions[0].resolve(doc).text=='Table 1: Generated values'
+    assert doc.tables[0].captions[0].cref!='#/texts/0'
+
+
+def test_failed_observation_without_raw_bytes_is_evidence_only(native_source):
+    obs=recognized(native_source,b'')
+    obs['observation'].update(outcome='failed',diagnostic='HTTP provider unavailable')
+    del obs['observation']['raw_response_digest']
+    result=map_pdf_observation(obs,b'')
+    assert result.dispositions[0]['outcome']=='evidence_only'
+    assert result.dispositions[0]['reason']=='failed'
+    assert result.document.body.children==[]

@@ -558,3 +558,40 @@ def integrated_source_context(conn: Connection, *, task_id: int, product_key: st
     if result is None:
         raise NativeDocumentUnavailable("integrated source companion is unavailable")
     return result
+
+
+def read_pdf_artifact(conn: Connection, *, task_id: int, product_key: str,
+                      content_digest: str, artifact_digest: str,
+                      offset: int = 0) -> dict[str, Any]:
+    """Read a fixed byte page from the exact product's retained input custody."""
+    if isinstance(offset, bool) or offset < 0:
+        raise ValueError("PDF artifact offset must be a nonnegative byte offset")
+    if len(artifact_digest) != 64 or any(c not in '0123456789abcdef' for c in artifact_digest):
+        raise ValueError("PDF artifact requires its SHA-256 digest")
+    _pdf_product_identity(conn, task_id, product_key, content_digest)
+    from sqlalchemy import func, literal, tuple_
+    inputs, custody, artifacts = map(table, (
+        'ops.pdf_product_input', 'ops.pdf_product_artifact', 'kb.source_artifact'))
+    pins = select(literal(task_id).label('task_id'), literal(product_key).label('product_key'),
+                  literal(content_digest).label('content_digest')).cte('artifact_input_custody', recursive=True)
+    pins = pins.union(select(inputs.c.input_task_id, inputs.c.input_product_key,
+                             inputs.c.input_content_digest).join(pins,
+        (inputs.c.task_id == pins.c.task_id) & (inputs.c.product_key == pins.c.product_key)))
+    member = select(custody.c.artifact_digest).where(
+        tuple_(custody.c.task_id, custody.c.product_key).in_(select(pins.c.task_id, pins.c.product_key)),
+        custody.c.artifact_digest == artifact_digest,
+    )
+    row = conn.execute(select(
+        func.octet_length(artifacts.c.content).label('total_bytes'),
+        func.substring(artifacts.c.content, offset + 1, 65536).label('content'),
+    ).where(artifacts.c.artifact_digest == artifact_digest,
+            artifacts.c.artifact_digest.in_(member))).mappings().one_or_none()
+    if row is None:
+        raise NativeDocumentUnavailable("artifact is outside the exact PDF input custody")
+    if offset > row['total_bytes']:
+        raise ValueError("PDF artifact offset exceeds retained byte length")
+    content = bytes(row['content'])
+    next_offset = offset + len(content)
+    return {'artifact_digest': artifact_digest, 'total_bytes': row['total_bytes'],
+            'offset': offset, 'content': content,
+            'next_offset': next_offset if next_offset < row['total_bytes'] else None}
