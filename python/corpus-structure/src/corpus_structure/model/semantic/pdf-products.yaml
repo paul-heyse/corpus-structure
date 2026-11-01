@@ -1518,6 +1518,7 @@ classes:
       label: {range: PdfString, required: false, slot_uri: pdf:PdfMappingDisposition_label}
       reason: {range: PdfString, required: false, slot_uri: pdf:PdfMappingDisposition_reason}
       raw_start: {range: PdfInteger, required: false, minimum_value: 0, slot_uri: pdf:PdfMappingDisposition_raw_start}
+      coordinate_frame: {range: PdfString, required: false, slot_uri: pdf:PdfMappingDisposition_coordinate_frame}
       coordinate_scale: {range: PdfNumber, required: false, minimum_value: 1, slot_uri: pdf:PdfMappingDisposition_coordinate_scale}
       normalization: {range: PdfNormalization, required: false, slot_uri: pdf:PdfMappingDisposition_normalization}
 

@@ -256,8 +256,6 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     )
     kernels += "\n" + transport
     kernels += "\n" + source.joinpath("execution_projection.sql").read_text()
-    kernels += "\n" + layered_parsing_publication_sql()
-    kernels += "\n" + parsing_publication_sql()
     kernels += (
         "\nSET LOCAL ROLE __MIGRATION_OWNER__;\n"
         + source.joinpath("execution_guards.sql").read_text()

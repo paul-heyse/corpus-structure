@@ -9,7 +9,7 @@ BEGIN
  IF archived_abi IS DISTINCT FROM data.execution_contract_descriptor()->>'execution_abi'
  AND operation NOT IN ('reload','open_read','query','explain','compile_projection',
   'capture_analytics','open_analysis','close_analysis','graph_project','graph_validate',
-  'read_original','read_rendition','read_parsing_product') THEN
+  'read_original','read_native_source','read_source_view','read_pdf_product') THEN
   RAISE EXCEPTION 'historical execution ABI is read-only: %',archived_abi USING ERRCODE='23514'; END IF;
  supported:=data.execution_contract_descriptor()->'supported_effects'->operation;
  IF supported IS NULL OR NOT EXISTS(SELECT FROM sem.execution_operation o WHERE o.release_id=r AND o.operation_id=operation

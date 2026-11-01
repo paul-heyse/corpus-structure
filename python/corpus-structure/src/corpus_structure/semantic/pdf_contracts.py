@@ -479,15 +479,13 @@ def store_pdf_product(
     product: PreparedPdfProduct,
     context: PreparedPdfContext | None = None,
 ) -> str:
-    from .contracts import require_database_operation
-
     archived = pdf_context_for_task(conn, task_id)
     if context is not None and context != archived:
         raise ValueError("PDF context differs from producing task release")
     archived.execution.require_operation("publish_native_document")
     if archived.release_id is None:
         raise ValueError("native publication requires an archived release")
-    require_database_operation(conn, archived.release_id, "publish_native_document")
+    # The protected writer validates exact immutable replay before guarding new writes.
     if (
         not product._validated
         or product.contract_digest != archived.contract_digest

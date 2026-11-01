@@ -43,6 +43,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.orchestrate import project, semantic
 
     from corpus_structure.ingest import pdf_reconciliation
+    from corpus_structure.ingest.pdf_recognition import RecognitionWorker
 
     from . import (
         analytics,
@@ -98,6 +99,7 @@ def approved_implementations() -> Mapping[str, Any]:
             "retain_pdf_original": pdf_contracts.store_pdf_original,
             "prepare_native_document": pdf_contracts.prepare_pdf_product,
             "publish_native_document": pdf_contracts.store_pdf_product,
+            "recognize_pdf_observation": RecognitionWorker.recognize_pages,
             "map_pdf_observation": pdf_reconciliation.map_pdf_observation,
             "compare_pdf_occurrences": pdf_reconciliation.compare_pdf_occurrences,
             "select_pdf_integration": pdf_reconciliation.select_pdf_integration,
@@ -687,6 +689,9 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
             "graph_project",
             "graph_validate",
             "read_original",
+            "read_native_source",
+            "read_source_view",
+            "read_pdf_product",
         }:
             _fail("unsupported_execution_abi", name, "historical execution products are read-only")
         operation = next((o for o in data["operations"] if o["id"] == name), None)
@@ -744,6 +749,7 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
         "11",
         "12",
         "13",
+        EXECUTION_COMPILER_VERSION,
     }:
         _fail(
             "unsupported_execution_abi", model_id, "execution product has no supported compiler ABI"
@@ -854,6 +860,8 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact(
             "pdf/integrated.py", root.joinpath("semantic", "pdf_integrated.py").read_bytes()
         ),
+        SourceArtifact("pdf/recognition.py", root.joinpath("ingest", "pdf_recognition.py").read_bytes()),
+        SourceArtifact("pdf/recognition_methods.py", root.joinpath("ingest", "pdf_recognition_methods.py").read_bytes()),
         SourceArtifact("pdf/reconciliation.py", root.joinpath("ingest", "pdf_reconciliation.py").read_bytes()),
         SourceArtifact("pdf/storage.py", root.joinpath("semantic", "pdf_storage.py").read_bytes()),
         SourceArtifact("grammar/grammar.py", math.joinpath("grammar.py").read_bytes()),
@@ -1371,7 +1379,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         operation["id"] in {"prepare_integrated_pdf", "publish_integrated_pdf", "read_pdf_product"}
         for operation in data["operations"]
     ):
-        required_implementations.update({"pdf/integrated.py", "pdf/storage.py", "pdf/reconciliation.py"})
+        required_implementations.update({"pdf/integrated.py", "pdf/storage.py", "pdf/reconciliation.py", "pdf/recognition.py", "pdf/recognition_methods.py"})
     if set(names) != required_implementations or len(names) != len(set(names)):
         _fail(
             "analysis_implementation_inputs",

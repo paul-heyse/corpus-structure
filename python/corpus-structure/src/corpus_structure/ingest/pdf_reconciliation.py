@@ -38,6 +38,17 @@ def _context(context, operation):
     return context
 
 
+def _validate_native(document: Any) -> None:
+    # Upstream's decorator is annotated as a Pydantic descriptor. Resolve its actual
+    # callable here, as at the native publication boundary.
+    validate = document.validate_document
+    if not callable(validate):
+        raise TypeError("native Docling document validator is not callable")
+    validate()
+    if not document.validate_tree(document.body):
+        raise ValueError("native Docling tree is invalid")
+
+
 def _walk(node, document):
     yield node
     for ref in node.children:
@@ -131,11 +142,23 @@ def map_pdf_observation(observation: Mapping[str, Any], raw_response: bytes, *, 
             disposition.update(outcome='unsupported',reason='malformed_coordinates' if len(coords)<2 else 'unknown_label')
             dispositions.append(disposition); continue
         values=[float(v) for m in (coords[0],coords[-1]) for v in m.groups()]
-        scale=1000.0 if max(values)>1 else 1.0
-        normalized=[v/scale for v in values]
-        disposition['coordinate_scale']=scale
-        disposition['normalization']='clipped' if any(v<0 or v>1 for v in normalized) else 'normalized' if scale!=1 else 'none'
+        # Pinned public geometry.model_bbox_to_image_norm: normalized overshoot through
+        # 1.5 is clipped; 1.5..1000 is quantized; larger coordinates are submitted pixels.
+        maximum=max(abs(v) for v in values)
+        if maximum>1000:
+            normalized=[v/(image['width'] if i%2==0 else image['height']) for i,v in enumerate(values)]
+            disposition['coordinate_frame']='submitted_pixels'
+        else:
+            scale=1000.0 if maximum>1.5 else 1.0
+            normalized=[v/scale for v in values]
+            disposition['coordinate_scale']=scale
+            disposition['coordinate_frame']='quantized_1000' if scale==1000 else 'content_normalized'
+        disposition['normalization']='clipped' if any(v<0 or v>1 for v in normalized) else 'normalized' if maximum>1.5 else 'none'
         normalized=[min(1,max(0,v)) for v in normalized]
+        if normalized[0]>normalized[2] or normalized[1]>normalized[3]:
+            disposition['reason']='corner_order_normalized'
+            disposition['normalization']='normalized'
+        normalized=[min(normalized[0],normalized[2]),min(normalized[1],normalized[3]),max(normalized[0],normalized[2]),max(normalized[1],normalized[3])]
         count=0
         def replace_coord(m):
             nonlocal count
@@ -164,7 +187,7 @@ def map_pdf_observation(observation: Mapping[str, Any], raw_response: bytes, *, 
             disposition.update(outcome='unsupported',reason=type(error).__name__+': '+str(error))
         dispositions.append(disposition)
     if raw[start:].strip(): dispositions.append({'outcome':'dropped','reason':'unterminated_raw_tail','raw_start':start})
-    result.validate_document(); result.validate_tree(result.body)
+    _validate_native(result)
     return MappedObservation(result, origins, tuple(dispositions), observation)
 
 
@@ -204,10 +227,10 @@ class _Origin:
 
 def _selected_occurrences(document, origins):
     from .pdf_hierarchy import native_nodes
-    nodes=native_nodes(document); rows=[]
+    nodes=native_nodes(document); rows: list[dict[str, Any]]=[]
     for pointer,node in nodes.items():
         label=str(node.label)
-        row={'occurrence_id':pointer,'kind':'formula' if label=='formula' else 'chart' if label=='picture' and getattr(node,'meta',None) and getattr(node.meta,'tabular_chart',None) else 'item','address_space':'selected_item','precision':'item','pointer':pointer}
+        row: dict[str, Any]={'occurrence_id':pointer,'kind':'formula' if label=='formula' else 'chart' if label=='picture' and getattr(node,'meta',None) and getattr(node.meta,'tabular_chart',None) else 'item','address_space':'selected_item','precision':'item','pointer':pointer}
         if hasattr(node,'text'): row['text']=node.text
         anchor=node
         while not getattr(anchor,'prov',()) and anchor.parent is not None:
@@ -221,7 +244,7 @@ def _selected_occurrences(document, origins):
         rows.append(row)
         if label=='table':
             for i,cell in enumerate(node.data.table_cells):
-                entry={'occurrence_id':f'{pointer}/data/table_cells/{i}','pointer':pointer,'cell_index':i,'kind':'cell','address_space':'native_cell','precision':'coarse' if origins[id(node)].input_index else 'cell','text':cell.text}
+                entry: dict[str, Any]={'occurrence_id':f'{pointer}/data/table_cells/{i}','pointer':pointer,'cell_index':i,'kind':'cell','address_space':'native_cell','precision':'coarse' if origins[id(node)].input_index else 'cell','text':cell.text}
                 if row.get('region'):
                     entry.update(page_no=row['page_no'],grounding_pointer=pointer,region={**row['region'],'precision':'inherited','normalization':'inherited'},precision='inherited')
                 rows.append(entry)
@@ -262,7 +285,7 @@ def select_pdf_integration(native_product: Mapping[str,Any], structural_pin: Map
     by_page=defaultdict(list)
     for n in nodes.values():
         box=_box(n,doc)
-        if box is None or str(n.label) in {'section','list','inline','unspecified'}:continue
+        if box is None or str(n.label) in {'section','list','unspecified'}:continue
         if n.parent and str(n.parent.resolve(doc).label) in {'inline','table','list_item'}:continue
         by_page[box[0]].append(n)
     for index,observation,raw in mapped_inputs:
@@ -329,11 +352,33 @@ def select_pdf_integration(native_product: Mapping[str,Any], structural_pin: Map
                 position=parent.children.index(chosen.get_ref())
                 doc.insert_node_items(node_items=[incoming],doc=mapped.document,sibling=chosen,after=False)
             else:
-                nearest=min(candidates,key=lambda n:abs(_box(n,doc)[2]-t)) if candidates else None
-                parent=nearest.parent.resolve(doc) if nearest is not None and nearest.parent is not None else doc.body
-                if str(parent.label)=='list': parent=doc.body
-                position=len(parent.children)
-                doc.add_node_items(node_items=[incoming],doc=mapped.document,parent=parent)
+                positions=[(n,nbox) for n in candidates if (nbox:=_box(n,doc)) is not None]
+                # Choose neighboring content in the same column. Its existing containment
+                # supplies section meaning; geometric proximity never creates a new section.
+                same_column=[(n,nbox) for n,nbox in positions if min(r,nbox[3])>max(l,nbox[1])]
+                positions=same_column or positions
+                preceding=[(n,nbox) for n,nbox in positions if nbox[2]<=t]
+                following=[(n,nbox) for n,nbox in positions if nbox[2]>t]
+                if preceding:
+                    nearest=max(preceding,key=lambda pair:(pair[1][2],pair[1][1]))[0]
+                elif following:
+                    nearest=min(following,key=lambda pair:(pair[1][2],pair[1][1]))[0]
+                else:
+                    rejected.append((index,source,'unresolved',{**evidence,'reason':'no_qualified_native_page_placement'}))
+                    continue
+                anchor=nearest
+                parent=anchor.parent.resolve(doc) if anchor.parent is not None else doc.body
+                while str(parent.label) not in {'section','chapter'} and parent is not doc.body:
+                    anchor=parent
+                    parent=anchor.parent.resolve(doc) if anchor.parent is not None else doc.body
+                anchor_box=_box(anchor,doc)
+                if anchor_box is not None and str(anchor.label)=='list' and anchor_box[2]<t<anchor_box[4]:
+                    rejected.append((index,source,'unresolved',{**evidence,'reason':'list_internal_containment_unqualified'}))
+                    continue
+                after=anchor_box is None or (anchor_box[2],anchor_box[1]) <= (t,l)
+                position=parent.children.index(anchor.get_ref())+(1 if after else 0)
+                doc.insert_node_items(node_items=[incoming],doc=mapped.document,sibling=anchor,after=after)
+                evidence['placement']={'parent':parent.self_ref,'neighbor':anchor.self_ref,'after':after,'basis':'native_section_and_same_page_reading_geometry'}
             copied_root=parent.children[position].resolve(doc)
             copied=[new for old,new in _repair_copied_references(incoming,copied_root,mapped.document,doc)]
             for n in copied:origins[id(n)]=_Origin(index,source,disposition,list(alternative),evidence)
@@ -350,7 +395,7 @@ def select_pdf_integration(native_product: Mapping[str,Any], structural_pin: Map
                         for key in keys(nbox):buckets[key].append(n)
     if removed: doc.delete_items(node_items=removed)
     normalize_section_header_levels(doc)
-    doc.validate_document();doc.validate_tree(doc.body)
+    _validate_native(doc)
     selected=snapshot(doc)
     conversion=PdfConversion(native_product['artifact_digest'],recipe_bytes,selected,'success',(),(),(),None)
     section_refs=frozenset(p for p,n in native_nodes(doc).items() if str(n.label)=='section')

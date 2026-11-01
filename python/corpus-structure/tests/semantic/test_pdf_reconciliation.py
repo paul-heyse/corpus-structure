@@ -109,3 +109,42 @@ def test_text_syntax_and_symbolic_comparison_are_distinct():
     assert 'syntax' in syntax and 'equivalent' not in syntax
     symbolic=compare_pdf_occurrences('x+1','1+x',mathematical=True,symbolic=True)
     assert symbolic['equivalent'] is True
+
+
+@pytest.mark.parametrize(('coords','image_size','affine','expected','frame'),[
+    ('0.1,0.1,1.2,0.2',(200,300),[1.,0.,0.,1.,0.,0.],(20.,30.,200.,60.),'content_normalized'),
+    ('100,100,900,200',(200,300),[1.,0.,0.,1.,0.,0.],(20.,30.,180.,60.),'quantized_1000'),
+    ('100,150,1100,2400',(2000,3000),[10.,0.,0.,10.,0.,0.],(10.,15.,110.,240.),'submitted_pixels'),
+])
+def test_vendor_coordinate_units_and_clipping_are_attributed(native_source,coords,image_size,affine,expected,frame):
+    l,t,r,b=coords.split(',')
+    raw=f'<x_{l}><y_{t}>units<x_{r}><y_{b}><class_Text>'.encode()
+    obs=recognized(native_source,raw)
+    obs['observation']['image'].update(width=image_size[0],height=image_size[1])
+    obs['observation']['image']['transform']['affine']=affine
+    mapped=map_pdf_observation(obs,raw)
+    box=mapped.document.texts[0].prov[0].bbox
+    assert (box.l,box.t,box.r,box.b)==expected
+    assert mapped.dispositions[0]['coordinate_frame']==frame
+    if frame=='content_normalized':assert mapped.dispositions[0]['normalization']=='clipped'
+
+
+def test_added_paragraph_preserves_native_section_and_reading_order(native_source):
+    from docling_core.types.doc import DoclingDocument,GroupLabel
+    from corpus_structure.ingest.pdf import PdfConversion,publication_payload
+    from corpus_structure.ingest.pdf_hierarchy import snapshot
+    doc=DoclingDocument.model_validate(native_source.payload['document'])
+    original=list(doc.body.children)
+    section=doc.add_group(label=GroupLabel.SECTION,name='Native section')
+    doc.body.children=[section.get_ref()]
+    section.children=original
+    for ref in original:ref.resolve(doc).parent=section.get_ref()
+    native_source.payload=publication_payload(PdfConversion(sha256(native_source.original).hexdigest(),native_source.recipe,snapshot(doc),'success',(),(),(),None),product_key='native',schema_digest=sha256(native_source.schema).hexdigest(),section_refs=frozenset({section.self_ref}),include_application_metadata=False)
+    raw=b'<x_0.05><y_0.23>middle<x_0.3><y_0.26><class_Text>'
+    result=integrate(native_source,raw)
+    selected=DoclingDocument.model_validate(result['content']['document'])
+    added=next(n for n in selected.texts if n.text=='middle')
+    assert added.parent.cref==section.self_ref
+    children=[r.resolve(selected) for r in selected.groups[0].children]
+    assert [getattr(n,'text',str(n.label)) for n in children]==['equal','equal','middle','table']
+    assert result['content']['items'][next(i for i,r in enumerate(result['content']['items']) if r['pointer']==added.self_ref)]['section_pointer']==section.self_ref

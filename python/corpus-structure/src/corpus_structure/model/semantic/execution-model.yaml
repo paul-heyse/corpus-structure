@@ -2554,6 +2554,30 @@ concepts:
     required: true
     multivalued: false
   relationships: []
+- id: PreparedRecognitionSource
+  family: source
+  scope: run
+  meaning: Once-hashed immutable original PDF custody shared by finite page recognition
+  identity: Qualified original, physical page and exact recipe
+  attributes:
+  - {name: digest, range: text, required: true, multivalued: false}
+  relationships: []
+- id: PdfRecognitionRecipe
+  family: source
+  scope: run
+  meaning: Effective pinned NVIDIA triple-pass recipe including decoding, render/crop and named recovery policy
+  identity: Qualified original, physical page and exact recipe
+  attributes:
+  - {name: recipe_digest, range: text, required: true, multivalued: false}
+  relationships: []
+- id: PdfRecognitionPage
+  family: source
+  scope: run
+  meaning: Retained actual request sequence and public merge/crop decisions for one physical page
+  identity: Qualified original, physical page and exact recipe
+  attributes:
+  - {name: page_no, range: integer, required: true, multivalued: false}
+  relationships: []
 - id: PdfIntegratedProduct
   family: interpretation
   scope: run
@@ -6900,23 +6924,32 @@ operations:
   implementation: read_pdf_product
 - id: recognize_pdf_observation
   inputs:
-  - PdfIntegratedProduct
+  - PreparedRecognitionSource
+  - PdfRecognitionRecipe
   results:
-  - PdfIntegratedProduct
+  - PdfRecognitionPage
   applicability: []
-  universe: Future recognizer and mapping runtime; declared but unbound and unsupported
-  effects: []
+  universe: Explicit finite page selection from immutable PDF original, exact model/tokenizer/package pins and effective recipe; DB-free owned worker
+  effects:
+  - external_model_requests
+  - retain_recognition_artifacts
   outcomes:
+  - complete
+  - partial
+  - unknown
   - unsupported
+  - failed
   outcome_domain: source_coverage
   dependencies:
   - semantic_release
   - execution_model
   - input_binding
   - implementation_version
-  precision: No inference, precision mapping or matching implementation admitted by this foundation
+  precision: Actual A/B/C requests retain submitted image bytes, raw native tokens and failure/cancellation evidence; completion never establishes source absence
   transitions: []
   projections: []
+  implementation: recognize_pdf_observation
+
 - id: map_pdf_observation
   inputs:
   - PdfIntegratedProduct
@@ -8001,6 +8034,23 @@ implementations:
   - typed_bound_inputs
   - explicit_outcomes
   effects: []
+  required_capabilities: []
+- id: recognize_pdf_observation
+  owner: ingest.pdf_recognition
+  symbol: RecognitionWorker.recognize_pages
+  version: '1'
+  placement: core
+  input_concepts:
+  - PreparedRecognitionSource
+  - PdfRecognitionRecipe
+  result_concepts:
+  - PdfRecognitionPage
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - external_model_requests
+  - retain_recognition_artifacts
   required_capabilities: []
 projections:
 - id: occurrence
@@ -9630,6 +9680,12 @@ effect_definitions:
 - id: atomic_attempt_holder_deadline_change
   version: "1"
   meaning: atomic attempt holder deadline change
+- id: external_model_requests
+  version: '1'
+  meaning: Owned finite external model requests with cancellation and retained failure evidence
+- id: retain_recognition_artifacts
+  version: '1'
+  meaning: Exact submitted images, raw provider responses and public union/crop decisions retained for replay
 - id: atomic_native_publication
   version: "1"
   meaning: atomic native publication
