@@ -514,7 +514,9 @@ def run_source_methods(
                                 from corpus_structure.methods.math.methods import MathReadingsBatch
 
                                 view.reader.math_readings_batch = MathReadingsBatch()
-                            for method, config, claimed in work:
+                        for method, config, claimed in work:
+                            with engine.connect() as conn:
+                                view.reader.conn = conn
                                 view.reader.bind_source_tasks(
                                     {
                                         int(
@@ -539,121 +541,126 @@ def run_source_methods(
                                     )
                                     for t in claimed
                                 ]
-                                from corpus_structure.semantic.claim_lifetime import (
-                                    maintained_claims,
-                                )
+                            from dataclasses import replace
+                            from .source_reader import ScopedSourceReader
 
-                                with maintained_claims(engine, claimed, holder) as check_active:
+                            scoped_reader = ScopedSourceReader(engine, view.reader)
+                            method_view = replace(view, reader=scoped_reader)
+                            units = [replace(unit, run=method_view) for unit in units]
+                            from corpus_structure.semantic.claim_lifetime import (
+                                maintained_claims,
+                            )
 
-                                    def retain_native_pdf(
-                                        ref,
-                                        product,
-                                        *,
-                                        claimed_tasks=tuple(claimed),
-                                        active=check_active,
-                                    ):
-                                        from corpus_structure.semantic.pdf_contracts import (
-                                            store_pdf_product,
-                                        )
-                                        from corpus_structure.semantic.product_reference import (
-                                            ProductReference,
-                                        )
+                            with maintained_claims(engine, claimed, holder) as check_active:
 
-                                        task = _retained_claim(ref, claimed_tasks, active)
-                                        with engine.begin() as publication_conn:
-                                            digest = store_pdf_product(
-                                                publication_conn,
-                                                task_id=task.task_id,
-                                                attempt=task.attempt,
-                                                holder=holder,
-                                                product=product,
-                                            )
-                                        return ProductReference(
-                                            task.task_id, product.values()["product_key"], digest
-                                        )
-
-                                    def retain_integrated_pdf(
-                                        ref,
-                                        product,
-                                        *,
-                                        claimed_tasks=tuple(claimed),
-                                        active=check_active,
-                                    ):
-                                        from corpus_structure.semantic.pdf_integrated import (
-                                            store_integrated_pdf_product,
-                                        )
-                                        from corpus_structure.semantic.product_reference import (
-                                            ProductReference,
-                                        )
-
-                                        task = _retained_claim(ref, claimed_tasks, active)
-                                        with engine.begin() as publication_conn:
-                                            digest = store_integrated_pdf_product(
-                                                publication_conn,
-                                                task_id=task.task_id,
-                                                attempt=task.attempt,
-                                                holder=holder,
-                                                product=product,
-                                            )
-                                        return ProductReference(
-                                            task.task_id, product.values()["product_key"], digest
-                                        )
-
-                                    def retain_pdf_records(
-                                        ref, product, *, claimed_tasks=tuple(claimed),
-                                        active=check_active,
-                                    ):
-                                        from pathlib import Path
-                                        from corpus_structure.orchestrate.pdf_streaming import (
-                                            publish_pdf_record_draft,
-                                        )
-                                        from corpus_structure.semantic.product_reference import (
-                                            ProductReference,
-                                        )
-
-                                        task = _retained_claim(ref, claimed_tasks, active)
-                                        published = publish_pdf_record_draft(
-                                            engine, task, holder, product,
-                                            directory=Path("build/pdf-publication"),
-                                            check_active=active,
-                                        )
-                                        return ProductReference(
-                                            published.task_id, published.product_key,
-                                            published.logical_digest,
-                                        )
-
-                                    def produce_pdf_records(
-                                        ref, request, *, claimed_tasks=tuple(claimed),
-                                        active=check_active,
-                                    ):
-                                        from pathlib import Path
-                                        from corpus_structure.orchestrate.pdf_streaming import produce_published_pdf_records
-                                        from corpus_structure.semantic.product_reference import ProductReference
-                                        task = _retained_claim(ref, claimed_tasks, active)
-                                        published = produce_published_pdf_records(
-                                            engine, task, holder, request,
-                                            directory=Path("build/pdf-production"), check_active=active,
-                                        )
-                                        return ProductReference(published.task_id, published.product_key,
-                                                                published.logical_digest)
-
-                                    results = method.run(
-                                        units,
-                                        config.config,
-                                        MethodContext(
-                                            view,
-                                            view.reader,
-                                            method_settings,
-                                            logging.getLogger(method.name),
-                                            check_active=check_active,
-                                            retain_pdf_records=retain_pdf_records,
-                                            produce_pdf_records=produce_pdf_records,
-                                            retain_native_pdf=retain_native_pdf,
-                                            retain_integrated_pdf=retain_integrated_pdf,
-                                        ),
+                                def retain_native_pdf(
+                                    ref,
+                                    product,
+                                    *,
+                                    claimed_tasks=tuple(claimed),
+                                    active=check_active,
+                                ):
+                                    from corpus_structure.semantic.pdf_contracts import (
+                                        store_pdf_product,
                                     )
-                                completed.append((method, config, claimed, results))
-                            conn.rollback()
+                                    from corpus_structure.semantic.product_reference import (
+                                        ProductReference,
+                                    )
+
+                                    task = _retained_claim(ref, claimed_tasks, active)
+                                    with engine.begin() as publication_conn:
+                                        digest = store_pdf_product(
+                                            publication_conn,
+                                            task_id=task.task_id,
+                                            attempt=task.attempt,
+                                            holder=holder,
+                                            product=product,
+                                        )
+                                    return ProductReference(
+                                        task.task_id, product.values()["product_key"], digest
+                                    )
+
+                                def retain_integrated_pdf(
+                                    ref,
+                                    product,
+                                    *,
+                                    claimed_tasks=tuple(claimed),
+                                    active=check_active,
+                                ):
+                                    from corpus_structure.semantic.pdf_integrated import (
+                                        store_integrated_pdf_product,
+                                    )
+                                    from corpus_structure.semantic.product_reference import (
+                                        ProductReference,
+                                    )
+
+                                    task = _retained_claim(ref, claimed_tasks, active)
+                                    with engine.begin() as publication_conn:
+                                        digest = store_integrated_pdf_product(
+                                            publication_conn,
+                                            task_id=task.task_id,
+                                            attempt=task.attempt,
+                                            holder=holder,
+                                            product=product,
+                                        )
+                                    return ProductReference(
+                                        task.task_id, product.values()["product_key"], digest
+                                    )
+
+                                def retain_pdf_records(
+                                    ref, product, *, claimed_tasks=tuple(claimed),
+                                    active=check_active,
+                                ):
+                                    from pathlib import Path
+                                    from corpus_structure.orchestrate.pdf_streaming import (
+                                        publish_pdf_record_draft,
+                                    )
+                                    from corpus_structure.semantic.product_reference import (
+                                        ProductReference,
+                                    )
+
+                                    task = _retained_claim(ref, claimed_tasks, active)
+                                    published = publish_pdf_record_draft(
+                                        engine, task, holder, product,
+                                        directory=Path("build/pdf-publication"),
+                                        check_active=active,
+                                    )
+                                    return ProductReference(
+                                        published.task_id, published.product_key,
+                                        published.logical_digest,
+                                    )
+
+                                def produce_pdf_records(
+                                    ref, request, *, claimed_tasks=tuple(claimed),
+                                    active=check_active,
+                                ):
+                                    from pathlib import Path
+                                    from corpus_structure.orchestrate.pdf_streaming import produce_published_pdf_records
+                                    from corpus_structure.semantic.product_reference import ProductReference
+                                    task = _retained_claim(ref, claimed_tasks, active)
+                                    published = produce_published_pdf_records(
+                                        engine, task, holder, request,
+                                        directory=Path("build/pdf-production"), check_active=active,
+                                    )
+                                    return ProductReference(published.task_id, published.product_key,
+                                                            published.logical_digest)
+
+                                results = method.run(
+                                    units,
+                                    config.config,
+                                    MethodContext(
+                                        method_view,
+                                        scoped_reader,
+                                        method_settings,
+                                        logging.getLogger(method.name),
+                                        check_active=check_active,
+                                        retain_pdf_records=retain_pdf_records,
+                                        produce_pdf_records=produce_pdf_records,
+                                        retain_native_pdf=retain_native_pdf,
+                                        retain_integrated_pdf=retain_integrated_pdf,
+                                    ),
+                                )
+                            completed.append((method, config, claimed, results))
                         for method, config, claimed, results in completed:
                             for task, result in zip(claimed, results, strict=True):
                                 with engine.begin() as conn:
