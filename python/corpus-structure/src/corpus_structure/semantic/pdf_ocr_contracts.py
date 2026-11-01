@@ -25,7 +25,14 @@ def validate_pdf_ocr_pages(product: Mapping[str, Any]) -> None:
         number = page["page_no"]
         if number in pages or str(number) not in document.get("pages", {}):
             raise ValueError("inline candidate page is duplicate or outside native scope")
-        pages[number] = page
+        pages[number] = {
+            key: page[key]
+            for key in ("has_words", "has_vectors", "native_text_quality")
+            if key in page
+        }
+        pages[number]["ocr_regions"] = [
+            {"outcome": region["outcome"]} for region in page.get("ocr_regions", ())
+        ]
         size = document["pages"][str(number)]["size"]
         words = {}
         region_indices = set()
@@ -193,7 +200,9 @@ def validate_pdf_ocr_pages(product: Mapping[str, Any]) -> None:
                 raise ValueError("complete OCR discovery policy lacks complete word inventory")
 
 
-def validate_pdf_inline_reports(product: Mapping[str, Any]) -> None:
+def validate_pdf_inline_reports(
+    product: Mapping[str, Any], *, page_lookup: Mapping[int, Any] | None = None
+) -> None:
     """Keep unresolved source correspondence explicit, without inventing text offsets."""
     reports = product.get("inline_alignment_reports", ())
     if not reports:
@@ -203,7 +212,11 @@ def validate_pdf_inline_reports(product: Mapping[str, Any]) -> None:
         for key in ("parent_task_id", "parent_product_key", "parent_digest")
     ):
         raise ValueError("inline alignment report requires its original parent product")
-    pages = {page["page_no"]: page for page in product.get("inline_candidate_pages", ())}
+    pages = (
+        page_lookup
+        if page_lookup is not None
+        else {page["page_no"]: page for page in product.get("inline_candidate_pages", ())}
+    )
     items = {item["pointer"]: item for item in product["items"]}
     seen = set()
     unresolved = set()

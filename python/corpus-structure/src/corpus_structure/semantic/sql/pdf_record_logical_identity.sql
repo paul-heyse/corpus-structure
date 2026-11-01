@@ -1,4 +1,4 @@
--- pdf-publication-records-v1 over the pdf-record-sha256-fold-v1 algorithm.
+-- pdf-publication-records-v2 over the pdf-record-sha256-fold-v1 algorithm.
 -- Only bounded per-record arrays are constructed; the ordered relation cursor spills normally.
 CREATE OR REPLACE FUNCTION ops.pdf_identity_inline(p_value jsonb)
 RETURNS bytea LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
@@ -70,6 +70,21 @@ BEGIN
   IF p_body ? p_field THEN RAISE EXCEPTION 'companion field has competing inline and external values' USING ERRCODE='23514'; END IF;
   SELECT * INTO STRICT stream_ FROM ops.pdf_artifact_stream WHERE product_id=p_product
    AND revision_id=p_revision AND stream_id=field_.stream_id;
+  IF p_field='value' AND p_family='native_metadata' AND
+   p_body->>'kind'='{pdf_payload_family}' THEN
+   IF field_.scalar_kind<>'y' OR stream_.encoding_profile<>'{pdf_payload_profile}'
+    OR p_body->>'payload_codec' IS DISTINCT FROM stream_.encoding_profile
+    OR COALESCE(p_body->>'payload_logical_digest','') !~ '^[0-9a-f]{64}$'
+    OR COALESCE(p_body->>'payload_schema_digest','') !~ '^[0-9a-f]{64}$' THEN
+    RAISE EXCEPTION 'structured companion identity profile differs' USING ERRCODE='23514';
+   END IF;
+   -- Physical custody is frozen separately; this digest is trusted only after the
+   -- released validation callback recomputes it from decoded typed page values.
+   PERFORM ops.pdf_identity_verify_artifact(p_product,p_revision,field_.stream_id);
+   RETURN convert_to('y','UTF8')||int8send(32::bigint)||
+    sha256(convert_to('pdf-ocr-candidate-logical-v1','UTF8')||
+     decode(p_body->>'payload_logical_digest','hex'));
+  END IF;
   IF (p_field='value' AND (p_family<>'native_metadata' OR field_.scalar_kind<>'y'
     OR stream_.encoding_profile<>'pdf-companion-json-field-v1'))
    OR (p_field='text' AND (p_family<>'occurrence' OR field_.scalar_kind<>'s'
@@ -168,7 +183,7 @@ BEGIN
     names_:=array_append(names_,'value'); values_:=array_append(values_,CASE WHEN member_.value_kind='scalar' THEN ops.pdf_identity_inline(member_.scalar_json) ELSE ops.pdf_identity_stream_scalar(p_product,p_revision,member_.stream_id) END);
    END IF;
   ELSIF left(row_.family,10)='companion/' THEN
-   names_:=ARRAY['body','ordinal']; SELECT ARRAY[ops.pdf_identity_scalar('s',convert_to(data.canonical_json(CASE WHEN c.family='native_metadata' THEN c.body-'value' WHEN c.family='occurrence' THEN c.body-'text' ELSE c.body END),'UTF8')),ops.pdf_identity_scalar('i',convert_to(c.ordinal::text,'UTF8'))] INTO values_ FROM kb.pdf_record_companion c
+   names_:=ARRAY['body','ordinal']; SELECT ARRAY[ops.pdf_identity_scalar('s',convert_to(data.canonical_json(CASE WHEN c.family='native_metadata' AND c.body->>'kind'='{pdf_payload_family}' THEN c.body-ARRAY['value','payload_codec','payload_schema_digest'] WHEN c.family='native_metadata' THEN c.body-'value' WHEN c.family='occurrence' THEN c.body-'text' ELSE c.body END),'UTF8')),ops.pdf_identity_scalar('i',convert_to(c.ordinal::text,'UTF8'))] INTO values_ FROM kb.pdf_record_companion c
     WHERE c.product_id=p_product AND c.revision_id=p_revision AND c.family=substr(row_.family,11) AND c.local_id=row_.key;
    IF row_.family IN ('companion/native_metadata','companion/occurrence') THEN
     field_:=CASE WHEN row_.family='companion/native_metadata' THEN 'value' ELSE 'text' END;

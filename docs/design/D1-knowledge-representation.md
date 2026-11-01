@@ -18,9 +18,15 @@ type on real Siegrist text.
 
 ## Semantic source and qualification profile
 
+**Accepted payload placement (2026-11-01).** Model-derived page IPC preserves OCR/candidate interiors and typed logical identity; PostgreSQL retains queryable relations, locators and custody. Exact original/raw evidence remains retained; current products can be rebuilt without mandatory historical runtime/layout support.
+
+> Decision: ADR-0045
+
+
+
 **Accepted relational target (2026-11-01); implementation/qualification remains package-scoped.** Records preserve one logical integrated document, native fields/presence/order, qualified occurrences, independent evidence relations and truthful precision/coverage. Logical IDs and native positional addresses are distinct; equal text never merges occurrences.
 
-> Decision: ADR-0042
+> Decision: ADR-0045
 
 
 **Implemented, 2026-10-29; package acceptance remains scoped by

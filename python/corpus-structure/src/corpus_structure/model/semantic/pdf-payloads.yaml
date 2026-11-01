@@ -1,0 +1,16 @@
+id: https://corpus-structure.dev/semantic/pdf-payloads
+name: pdf_payloads
+prefixes:
+  pdp: https://corpus-structure.dev/pdf-payloads/
+annotations:
+  pdp:family: inline_candidate_pages
+  pdp:logical_class: PdfInlineCandidatePage
+  pdp:logical_schema_owner: pdf-products.yaml
+  pdp:codec: pdf-ocr-candidate-ipc-v1
+  pdp:retrieval_unit: one source-qualified page
+  pdp:representation: nested Arrow struct/list; per-object supplied-field bitmap; signed64 integer and binary64 tagged numeric values
+  pdp:validation: released JSON Schema plus strict primitive/finite checks; OCR/report cross-field and required-set semantics remain the publication validator's responsibility
+  pdp:logical_identity: pdf-page-logical-v1; canonical typed logical content and schema binding, independent of IPC compression/framing
+  pdp:logical_identity_profile: pdf-page-logical-v1
+  pdp:physical_custody: existing artifact streams/parts and exact byte roots
+  pdp:projection: page_no and declared schema/codec/logical-digest locators; no independent editable payload authority

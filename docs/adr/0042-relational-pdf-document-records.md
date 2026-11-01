@@ -1,10 +1,10 @@
 ---
 id: ADR-0042
 title: Realize PDF documents as lossless records with versioned streaming identity
-status: accepted
+status: superseded
 date: 2026-11-01
 supersedes: [ADR-0041]
-superseded-by: null
+superseded-by: ADR-0045
 design: [§B4]
 evidence: Proposed
 revisit: A supported native field or required independent correspondence cannot be represented without full-document materialization, or a consumer requires an unimplemented stream digest algorithm.

@@ -1,51 +1,51 @@
 # Status
-_Updated2026-11-01; PostgreSQL capability series implemented and targeted Tested; merged into main._
+_Updated2026-11-01; PDF-27/28 implemented and targeted Tested; shared-book adoption remains open._
 
 ## Current checkpoint
 
-- [PostgreSQL coordinator](docs/plans/postgresql-capability-leverage_2026-11-01.md) records
-  completed PG-00–PG-12/O01–O15 and all three investigation dispositions. The coordinator and
-  five supporting plans now describe actual APIs/ownership and completed verification, with
-  illustrative extensions separated from delivered behavior. Plans remain retained.
-- Merged into main at `7b39e1b0`; the original11 uncommitted library documents are preserved.
-  Main documentation through `72970e40` was integrated before merge; incoming changes were
-  documentation-only at that boundary. Concurrent PDF payload production edits now exist and
-  remain outside the PostgreSQL qualification snapshot.
-- SQLAlchemy2.1.6/Alembic1.20.1 are exactly pinned. Current execution compiler18 and ten-object
-  native head `semantic_pg_20261101` are frozen/admitted; old migrations remain unchanged.
-  The exact upstream callable-default defect retains its narrow adapter. Alembic Utils is excluded.
-- Design-phase guidance permits breaking target changes and regenerated data, with no historical
-  reader/retained-layout obligation. This is temporary execution guidance, not a permanent policy.
-- New native authoring, typed transfer, borrower/outcome handling, companion Parquet/DuckDB,
-  scoped database description and selected-source scientific preparation are delivered.
-  Comparison and nested/ancestor coverage findings were corrected and independently reassessed.
-- Private validation PostgreSQL18 on socket/port55434 is stopped. The merged worktree/branch are removed. Receipt/candidate inputs are
-  retained in `build/postgresql-capability-leverage`; qualification directories keep standard paths.
-- [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) integrates the PG/Arrow review:
-  PDF-27/28 and RC12 current-product rebuilding/cutover remain its scope. Shared deployed book
-  `corpus_pdf_20261031` remains0060/compiler14/core0.6.2; no shared database migration occurred.
-  Existing PDF/logging unfinished scope is not imported into this PostgreSQL series.
+- The [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns PDF-00–28 and
+  investigation disposition. [PDF-27/28](docs/plans/pdf-docling-pipeline/structured-payload-model-and-validation.md)
+  now delivers model-derived nested page IPC, typed logical identity, selected-page owning Arrow
+  readers and candidate/OCR inventory kernels using existing transactional artifact custody.
+- Frozen validation checks actual stored OCR/candidate/report bytes against captured release
+  schemas and shared source/health/coverage rules, alongside native callbacks. Complete admitted
+  dependencies and finalized access/region membership bind the result consumed by seal.
+  Build-row locking closes finalization races while preserving independent task heartbeats.
+- ADR-0045 supersedes affected ADR-0042/0044 placement clauses and preserves their surviving
+  fidelity/relationship/evidence obligations. Compiler19 archives payload model/codec/validator.
+  Current native head `semantic_pdf_20261101` (0067) preserves all ten prior managed objects
+  within23 objects/18 native transitions; frozen historical migrations remain unchanged.
+- SQL NUMERIC projections retain exact Decimal/Core boundaries, separated from Arrow uploads
+  by model declarations. Native Docling global state is still explicitly materialized; report
+  families without columnar consumers retain exact JSON. Broader native replacement is conditional.
+- The [PostgreSQL coordinator](docs/plans/postgresql-capability-leverage_2026-11-01.md) retains
+  completed PG-00–12/O01–15 and its separate319-case receipt `pg-series-final-c5394eaa`.
+  The merged implementation supplies these PDF prerequisites; that older receipt does not
+  qualify subsequent PDF changes. SQLAlchemy2.1.6/Alembic1.20.1 pins are unchanged.
+- Shared book `corpus_pdf_20261031` remains0060/compiler14/core0.6.2; no shared upgrade occurred.
+  Owned disposable authoring/test databases were disposed; no auxiliary worktrees remain.
+  Private validation PostgreSQL on55434 remains stopped. Raw evidence and receipts are retained.
 
 ## Verification
 
-- **passed (2026-11-01):** final319-case union,32 affected test files,0failures/errors/skips,
- 89.560s. Actual private PostgreSQL/ADBC/pgpq/Parquet/DuckDB and public CLI cases are included.
-  Receipt: `build/test-receipts/qualification/pg-series-final-c5394eaa`; `invocation.json` records
-  the exact `scripts/test_receipts.py run --python-only -- ...` command/selection/source.
-- **passed:** `uv run ruff check .`, `uv run pyrefly check --min-severity warn --summary=none`,
-  `just deps`, `just ready` and root `just turn-end`; main readiness also passed after merge,
-  for the merged PG snapshot matching `c5394eaa`; subsequent PDF working-tree changes are
-  separately owned and are not covered by that receipt.
-- **failed/interrupted:** broad attempt `20261101T131200Z-2640716` retained36failed/2615passed/
-  9skipped before normal SIGINT/fixture teardown. No broad acceptance credit. The operator
-  requires complete PG scope/targeted tests, not a green pre-existing PDF/repository baseline.
-- **failed:** `just docs-check` has pre-existing/out-of-scope publication targets;0errors in
-  this series’ changed plan/architecture documents. No blanket documentation pass is claimed.
-- **passed:** documentation closeout resolved 89 local references/20 anchors across all six plan
-  documents. No production/test change or product requalification was needed.
-- No quantitative performance, hard cleanup deadline or Rust functional coverage is claimed.
+- **passed (2026-11-01):**283-case targeted functional union across20 files. Receipt
+  `build/test-receipts/qualification/pdf-payloads-final-20261101` has282passed/1stale assertion;
+  that sole test was corrected and passed in `pdf-payloads-final-native-control-20261101`.
+  No production change followed the final union. Exact `scripts/test_receipts.py run --python-only`
+  commands/selections are in each `invocation.json`; overlapping cases are not added.
+- **passed:** `uv run pyrefly check --min-severity warn --summary=none` (zero errors/warnings),
+  `uv run ruff check .`, `just model check`, `just adr-lint`, `git diff --check`, root `just turn-end`.
+- **failed, retained:** first `pdf-payloads-20261101` attempt279passed/4failed (stale assertions
+  and native provenance before final source freeze); all four obligations subsequently passed.
+  Earlier interrupted repository/PG records keep their original scope in the PG coordinator.
+- **failed:** `just docs-check` on existing moved-library/retired-profile links elsewhere;
+  no changed package plan/architecture/ADR page errors. No blanket publication pass is claimed.
+- **not_run:** whole-book rebuild/inference, external provider/evaluator journeys, default adoption,
+  Rust tests or whole-repository qualification. No measured speed/memory benefit is claimed.
 
 ## Next
 
-Continue PDF-27/28 and RC12 rebuilding/cutover under the PDF coordinator, with the shared PG
-capabilities available as implemented dependencies. Other plans retain their own completion scope.
+PDF-25 owns current-realization book rebuild/publication from compatible retained evidence through
+0067; PDF-10/11 own actual consumer/default adoption and complete provider/evaluator qualification.
+I24 quantitative comparison, I25 effective-options/image lifetime and conditional consumers retain
+explicit owners/triggers in the PDF coordinator. No historical reader/layout obligation is added.

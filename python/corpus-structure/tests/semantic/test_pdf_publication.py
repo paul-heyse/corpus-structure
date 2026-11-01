@@ -2,7 +2,7 @@
 
 import pyarrow as pa
 import pytest
-from docling_core.types.doc import DocItemLabel, DoclingDocument
+from docling_core.types.doc import DocItemLabel, DoclingDocument, Size
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -22,6 +22,7 @@ from .test_pdf_staging import private_build as private_build
 
 def stage_complete_native(engine, build, directory):
     document = DoclingDocument(name="frozen fixture")
+    document.add_page(page_no=1, size=Size(width=200, height=300))
     document.add_text(label=DocItemLabel.TEXT, text="independent expected text")
     result = StreamingPdfResult(
         document, PdfStreamSpool(directory / "pages"), "success", (), b"{}", ()
@@ -111,6 +112,7 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
     private_build, semantic_writer_engine, semantic_reader_engine, semantic_db_engine, tmp_path
 ):
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.pdf_payloads import prepare_payload_family
 
     build = private_build
     stage_complete_native(semantic_writer_engine, build, tmp_path)
@@ -121,8 +123,8 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
         top=1.5,
         right=2.0,
         bottom=3.0,
-        origin="top_left",
-        basis="native-font",
+        origin="TOPLEFT",
+        basis="native-math-font-v1",
     )
     value = dict(page_no=1, has_words=True, has_chars=True, candidates=[candidate] * 1000)
     original = canonical_bytes(value)
@@ -176,7 +178,9 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
                 dict(build=build.build_id, stream=stream),
             ).scalars()
         )
-        assert actual == original
+        codec = prepare_payload_family()
+        assert actual != original
+        assert codec.decode(actual, logical_digest=body["payload_logical_digest"]) == value
         assert "value" not in body and len(str(body)) < 1024
         length, root = byte_root((actual,))
         assert (expected_length, expected_root) == (length, root.hex())
@@ -185,7 +189,9 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
 def test_metadata_parts_do_not_replace_semantic_schema_validation(
     private_build, semantic_writer_engine
 ):
-    with pytest.raises(DBAPIError), semantic_writer_engine.begin() as conn:
+    from corpus_structure.semantic.pdf_payloads import PayloadContractError
+
+    with pytest.raises(PayloadContractError), semantic_writer_engine.begin() as conn:
         adopt_pdf_companion_batch(
             conn,
             private_build,

@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import codecs
 import json
-from collections.abc import Callable, Generator, Iterator, Mapping
+from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
 from contextlib import closing, contextmanager, nullcontext
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
 from typing import Any, BinaryIO
 
+import pyarrow as pa
+import pyarrow.compute as pc
 from sqlalchemy import Connection, text
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
@@ -27,6 +29,16 @@ from corpus_structure.core.db.store import (
 )
 
 from .product_reference import ProductReference
+
+_METADATA_PROJECTIONS = (
+    "pointer",
+    "outcome",
+    "has_diagnostic",
+    "page_no",
+    "payload_schema_digest",
+    "payload_codec",
+    "payload_logical_digest",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,12 +297,94 @@ class PublishedPdfReader:
             result[pointer] = self.hydrate(row["record_id"], native_type=row["native_type"])
         return result
 
-    def native_metadata(self, kind, *, pointer=None):
-        filters = {"family": "native_metadata", "kind": kind}
+    def _metadata_rows(self, kind: str, *, pointer=None, page_nos: Sequence[int] | None = None):
+        filters: dict[str, Any] = {"family": "native_metadata", "kind": kind}
         if pointer is not None:
             filters["pointer"] = pointer
-        for row in self.iter_rows("companion", filters):
+        if page_nos is not None:
+            if any(type(number) is not int or number < 1 for number in page_nos):
+                raise ValueError("payload page selectors require positive integer page numbers")
+            if not page_nos:
+                return
+            filters["page_nos"] = sorted(set(page_nos))
+        yield from self.iter_rows("companion", filters)
+
+    def _payload_context(self):
+        """Prepare once from the producing release, independent of installed current schemas."""
+        if not hasattr(self, "_prepared_payload_context"):
+            from .pdf_contracts import pdf_context_for_release
+            from .releases import open_release
+
+            with self._read_scope():
+                self._prepared_payload_context = pdf_context_for_release(
+                    self.conn, open_release(self.conn, self.revision["release_id"])
+                )
+        return self._prepared_payload_context
+
+    def native_metadata(self, kind, *, pointer=None, page_nos: Sequence[int] | None = None):
+        """Materialize only selected metadata pages, preserving the logical Python contract."""
+        for row in self._metadata_rows(kind, pointer=pointer, page_nos=page_nos):
             yield self.decode_companion_row(row)["value"]
+
+    def iter_payload_batches(
+        self,
+        kind: str = "inline_candidate_pages",
+        *,
+        page_nos: Sequence[int] | None = None,
+        columns: Sequence[str] | None = None,
+        context=None,
+    ) -> Iterator[pa.RecordBatch]:
+        """Yield owned selected-page batches after closing each artifact result page."""
+        from .pdf_payloads import FAMILY, PROFILE, page_payload_batches
+
+        if kind != FAMILY:
+            raise ValueError("metadata family has no declared Arrow payload realization")
+        for row in self._metadata_rows(kind, page_nos=page_nos):
+            body = row["body"]
+            fields = row.get("_fields", ())
+            if len(fields) != 1 or fields[0]["field_name"] != "value":
+                raise ValueError("page payload requires exactly one external value")
+            field = fields[0]
+            if body.get("payload_codec") != PROFILE or field["encoding_profile"] != PROFILE:
+                raise ValueError("page payload encoding profile differs from envelope")
+            payload = b"".join(self.scalar(field["stream_id"]))
+            yield from page_payload_batches(
+                payload,
+                context if context is not None else self._payload_context(),
+                schema_digest=body["payload_schema_digest"],
+                logical_digest=body["payload_logical_digest"],
+                columns=columns,
+            )
+
+    def candidate_inventory(self, *, page_nos: Sequence[int] | None = None, context=None):
+        """Project page inventory through Arrow kernels without hydrating candidate/OCR objects."""
+        for batch in self.iter_payload_batches(
+            page_nos=page_nos, columns=("page_no", "candidates", "ocr_regions"), context=context
+        ):
+            candidates = pc.call_function("list_value_length", [batch.column("candidates")])
+            regions = batch.column("ocr_regions")
+            region_count = pc.call_function("list_value_length", [regions])
+            # Each payload is exactly one page; nested word inventory stays in columnar arrays.
+            lines = pc.call_function(
+                "list_flatten",
+                [
+                    pc.call_function(
+                        "struct_field",
+                        [pc.call_function("list_flatten", [regions])],
+                        options=pc.StructFieldOptions("lines"),
+                    )
+                ],
+            )
+            words = pc.call_function(
+                "list_flatten",
+                [pc.call_function("struct_field", [lines], options=pc.StructFieldOptions("words"))],
+            )
+            yield {
+                "page_no": batch.column("page_no")[0].as_py(),
+                "candidate_count": candidates[0].as_py() or 0,
+                "ocr_region_count": region_count[0].as_py() or 0,
+                "ocr_word_count": len(words),
+            }
 
     def native_product_values(self):
         """Explicit materialization for native transformations; never a small read."""
@@ -354,14 +448,26 @@ class PublishedPdfReader:
         """Materialize one requested field from exact bytes, retaining JSON float bits."""
         body = dict(row["body"])
         if row.get("family") == "native_metadata":
-            for projection in ("pointer", "outcome", "has_diagnostic"):
+            for projection in _METADATA_PROJECTIONS:
                 body.pop(projection, None)
         for field in row.get("_fields", ()):
             name, kind = field["field_name"], field["scalar_kind"]
             if name in body:
                 raise ValueError("companion field has both inline and external values")
             payload = b"".join(self.scalar(field["stream_id"]))
-            if kind == "y":
+            from .pdf_payloads import PROFILE, decode_page_payload
+
+            profile = field["encoding_profile"]
+            if profile == PROFILE:
+                if row["body"].get("payload_codec") != PROFILE:
+                    raise ValueError("page payload encoding profile differs from envelope")
+                body[name] = decode_page_payload(
+                    payload,
+                    self._payload_context(),
+                    schema_digest=row["body"]["payload_schema_digest"],
+                    logical_digest=row["body"]["payload_logical_digest"],
+                )
+            elif kind == "y":
                 body[name] = json.loads(payload)
             elif kind == "s":
                 body[name] = payload.decode("utf-8")
@@ -405,6 +511,7 @@ class PublishedPdfReader:
         owns_events = events is None
         events = self.iter_companion_export_events(family) if owns_events else events
         pending = None
+        envelope = {}
         first_row = True
         first_field = True
         try:
@@ -418,9 +525,10 @@ class PublishedPdfReader:
                     if not first_row:
                         yield b","
                     first_row = False
-                    body = dict(event["body"])
+                    envelope = event["body"]
+                    body = dict(envelope)
                     if family == "native_metadata":
-                        for projection in ("pointer", "outcome", "has_diagnostic"):
+                        for projection in _METADATA_PROJECTIONS:
                             body.pop(projection, None)
                     encoded = encode(body)
                     yield b"{" + encoded[1:-1]
@@ -460,7 +568,20 @@ class PublishedPdfReader:
                         release_id=self.revision["release_id"],
                         source_digest=self.revision["source_digest"],
                     )
-                    if field["scalar_kind"] == "y":
+                    from .pdf_payloads import PROFILE, decode_page_payload
+
+                    if field["encoding_profile"] == PROFILE:
+                        if envelope.get("payload_codec") != PROFILE:
+                            raise ValueError("page payload encoding profile differs from envelope")
+                        yield encode(
+                            decode_page_payload(
+                                b"".join(chunks),
+                                self._payload_context(),
+                                schema_digest=envelope["payload_schema_digest"],
+                                logical_digest=envelope["payload_logical_digest"],
+                            )
+                        )
+                    elif field["scalar_kind"] == "y":
                         yield from chunks
                     elif field["scalar_kind"] == "s":
                         yield b'"'

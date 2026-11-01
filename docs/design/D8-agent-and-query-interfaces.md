@@ -32,6 +32,12 @@ proposals below do not establish additional implemented profiles.
 
 ## Shared semantic read boundary
 
+**Accepted selected-page boundary (2026-11-01).** Payload locators select requested page numbers before decoding; owned Arrow batches support columnar candidate/OCR inventories. Native whole-document transformation and logical JSON exports remain explicit materialization/serialization operations, preserving one authority and qualified evidence. Current-realization rebuild replaces historical reader/layout compatibility obligations.
+
+> Decision: ADR-0045
+
+
+
 **Implemented, 2026-10-29; scoped verification belongs to [SP-I05](../plans/semantic-model-pivot/release-and-consumer-consolidation.md#SP-I05).**
 Public semantic snapshot binders select realization/completed-result identity in one read-only
 REPEATABLE READ transaction. Selection, value/entity/context loading and strict batched hydration
@@ -87,7 +93,7 @@ exact diagnostics through qualified companion references. A source reader borrow
 per operation; concurrent analysis workers do not share a checked-out connection. These component
 controls do not establish current external attachment or full-book adoption; PDF-24/25/10/11 own them.
 
-> Decision: ADR-0042
+> Decision: ADR-0045
 
 
 **Accepted PDF target; Proposed implementation (2026-10-31).** Version source APIs and

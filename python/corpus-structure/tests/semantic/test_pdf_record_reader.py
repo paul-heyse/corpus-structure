@@ -472,7 +472,7 @@ def test_explicit_native_hydration_uses_flat_health_contract():
                     "display_coverage": "partial",
                 }
 
-        def native_metadata(self, kind, *, pointer=None):
+        def native_metadata(self, kind, *, pointer=None, page_nos=None):
             if kind == "formula_outcomes":
                 yield {"pointer": "#/texts/0", "outcome": "failed"}
 

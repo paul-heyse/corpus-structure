@@ -146,7 +146,7 @@ No live migration, whole-book publication or completed consumer adoption follows
 [PDF-20/21](../plans/pdf-docling-pipeline/staged-publication-and-validation.md) own durable staging/seal;
 PDF-24/25 own shared consumer/export migration and operational handoff. The coordinator owns evidence.
 
-> Decision: [ADR-0042](../adr/0042-relational-pdf-document-records.md)
+> Decision: [ADR-0045](../adr/0045-structured-pdf-payload-validation.md)
 
 **Accepted target (2026-11-01):** New segmented streams use independently verified actual parts,
 lengths and canonical byte folds. Conventional serialization SHA-256 is optional, separately
@@ -156,6 +156,15 @@ exports are generated from admitted records rather than required as publication 
 > Decision: [ADR-0043](../adr/0043-segmented-artifact-byte-identity.md)
 
 ### Native PDF metadata validation
+
+**Accepted target,2026-11-01; implementation qualification remains PDF-27/28.** Selected page
+OCR/candidate interiors use model-derived Arrow IPC and exact frozen runtime semantic validation;
+PostgreSQL retains custody and required relational enforcement. Typed logical identity is checked
+against actual bytes at that boundary. Other exact JSON metadata retains applicable native checks.
+The existing validation-derived projection phase and result/seal premises govern completeness.
+RC12 rebuilds current products from compatible retained evidence without mandatory old readers.
+The following paragraph records the earlier scoped JSON mechanism, which remains for JSON families.
+
 
 **Implemented; scoped native controls Tested (2026-11-01).** Exact metadata JSON remains in verified
 byte fields. Native admission validates it with `pg_jsonschema`0.3.4 using JSON Schema generated
@@ -171,7 +180,7 @@ then use the existing dedicated-cluster provisioning route. An existing owned ap
 also needs `CREATE EXTENSION pg_jsonschema VERSION '0.3.4'` as its provisioner. Earlier frozen
 migrations remain unchanged. The PDF coordinator owns deployment and qualification state.
 
-> Decision: [ADR-0044](../adr/0044-native-pdf-metadata-jsonschema.md)
+> Decision: [ADR-0045](../adr/0045-structured-pdf-payload-validation.md)
 
 ## Current task authority and historical storage
 

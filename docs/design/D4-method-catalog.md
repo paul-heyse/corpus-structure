@@ -13,9 +13,15 @@ realization** subsection directly; anything that changes a contract goes in a
 
 ## Parsing operations and versioned method adoption
 
+**Accepted frozen validation (2026-11-01).** The existing finite child validates actual persisted page/report payloads and complete metadata semantics against captured release contracts, alongside native callbacks. Derived access/region outputs and admitted validator dependencies bind the final publication result; native graph materialization remains explicit.
+
+> Decision: ADR-0045
+
+
+
 **Accepted relational target (2026-11-01); implementation/qualification remains package-scoped.** Page-local extraction and typed record preparation are separated from required global reading-order/heading/enrichment. Normalization is explicit before identity; retained reads do not mutate geometry or lists. PDF-22 still owns the actual bounded producer adapter.
 
-> Decision: ADR-0042
+> Decision: ADR-0045
 
 
 **Accepted PDF target; Proposed implementation (2026-10-31).** New ingestion accepts PDF only

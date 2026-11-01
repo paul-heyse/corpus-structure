@@ -2,7 +2,7 @@
 
 SQLAlchemy owns sessions and transactions. A finite DB-free child receives an
 owned capture of the actual frozen union; its callback result does not replace
-PostgreSQL's independent value, graph and byte enforcement.
+PostgreSQL's independent custody, relational and exact-byte enforcement.
 """
 
 from __future__ import annotations
@@ -177,6 +177,7 @@ def adopt_pdf_companion_batch(
         byte_count = 0
         chunk += 1
 
+    codec = None
     for ordinal, record in enumerate(records, start=start_ordinal):
         if cancellation is not None:
             cancellation.check_active()
@@ -209,7 +210,21 @@ def adopt_pdf_companion_batch(
             if body["kind"] == "formula_outcomes" and isinstance(value, Mapping):
                 body["outcome"] = value.get("outcome")
                 body["has_diagnostic"] = "error" in value
-            payloads.append(("value", canonical_bytes(value), "pdf-companion-json-field-v1"))
+            if body["kind"] == "inline_candidate_pages":
+                from .pdf_contracts import pdf_context_for_task
+                from .pdf_payloads import PROFILE, prepare_payload_family
+
+                if codec is None:
+                    codec = prepare_payload_family(pdf_context_for_task(conn, build.task_id))
+                body.update(
+                    page_no=value["page_no"],
+                    payload_schema_digest=codec.schema_digest,
+                    payload_codec=PROFILE,
+                    payload_logical_digest=codec.logical_digest(value),
+                )
+                payloads.append(("value", codec.encode(value), PROFILE))
+            else:
+                payloads.append(("value", canonical_bytes(value), "pdf-companion-json-field-v1"))
         if (
             family == "occurrence"
             and isinstance(body.get("text"), str)
@@ -288,14 +303,18 @@ _FAMILIES = (
     "artifact_part",
     "companion",
     "endpoint",
+    "companion_field",
 )
 
 
 def _native_validation_child(capture: str, projection: str, result: Any) -> None:
     """One explicitly materialized native oracle, no database handles or credentials."""
+    store = None
     try:
+        from .pdf_payload_validation import FrozenPayloadStore
         from .pdf_records import reconstruct_native_document, validate_native_callbacks
 
+        store = FrozenPayloadStore(Path(projection).with_suffix(".sqlite"))
         rows: dict[str, list[dict[str, Any]]] = {name: [] for name in _FAMILIES}
         with pa.memory_map(capture, "r") as source:
             reader = pa.ipc.open_file(source)
@@ -306,17 +325,15 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
                     batch.column("body").to_pylist(),
                     strict=True,
                 ):
-                    rows[family].append(json.loads(body))
+                    value = json.loads(body)
+                    store.add(family, value)
+                    if family in {"header", "native", "membership", "reference"}:
+                        rows[family].append(value)
         natives = {r["record_id"]: r for r in rows["native"]}
         members: dict[tuple[str, str], list[dict[str, Any]]] = {}
         for row in rows["membership"]:
             members.setdefault((row["parent_id"], row["field_name"]), []).append(row)
-        parts: dict[str, list[dict[str, Any]]] = {}
-        for row in rows["artifact_part"]:
-            parts.setdefault(row["stream_id"], []).append(row)
         for values in members.values():
-            values.sort(key=lambda r: r["ordinal"])
-        for values in parts.values():
             values.sort(key=lambda r: r["ordinal"])
 
         class Reader:
@@ -334,10 +351,12 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
                     yield {k: v for k, v in row.items() if v is not None}
 
             def scalar(self, stream_id):
-                for part in parts.get(stream_id, ()):
-                    yield bytes.fromhex(part["body"].removeprefix("\\x"))
+                yield from store.parts(stream_id)
 
-        profiles = {r["stream_id"]: r["encoding_profile"] for r in rows["artifact_stream"]}
+        profiles = {
+            json.loads(raw)["stream_id"]: json.loads(raw)["encoding_profile"]
+            for (raw,) in store.db.execute("SELECT body FROM entry WHERE family='artifact_stream'")
+        }
         document = reconstruct_native_document(
             Reader(), rows["header"][0]["root_id"], scalar_profiles=profiles
         )
@@ -410,10 +429,13 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
                         origin="top_left" if box["coord_origin"] == "TOPLEFT" else "bottom_left",
                     )
                     out.write(json.dumps({"family": "region", "body": region}) + "\n")
+        store.validate(document, Path(projection))
         result.send((True, None))
     except BaseException as error:
         result.send((False, f"{type(error).__name__}: {error}"))
     finally:
+        if store is not None:
+            store.close()
         result.close()
 
 
@@ -569,7 +591,28 @@ def validate_pdf_build(
             pa.OSFile(str(capture), "wb") as sink,
             pa.ipc.new_file(sink, _CAPTURE_SCHEMA) as writer,
         ):
-            for family in ("header", "native", "membership", "artifact_stream", "artifact_part"):
+            from .pdf_contracts import pdf_context_for_task
+            from .pdf_payload_validation import metadata_classes
+            from .pdf_payloads import schema_dump
+
+            with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
+                context = pdf_context_for_task(conn, frozen.build.task_id)
+                schemas = {
+                    kind: context.boundary.json_schema(cls)
+                    for kind, cls in metadata_classes().items()
+                }
+            writer.write_batch(
+                pa.RecordBatch.from_arrays(
+                    [
+                        pa.array(["validation_contract"]),
+                        pa.array(
+                            [schema_dump({"schemas": schemas}).decode()], type=pa.large_string()
+                        ),
+                    ],
+                    schema=_CAPTURE_SCHEMA,
+                )
+            )
+            for family in _FAMILIES:
                 after = None
                 while True:
                     check_active()

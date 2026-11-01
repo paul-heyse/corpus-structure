@@ -140,6 +140,14 @@ class ScalarDescriptor:
         return self.kind + _length(self.byte_length) + self.byte_root
 
 
+def structured_payload_scalar(logical_digest: str) -> ScalarDescriptor:
+    """Identity of validated typed OCR values, independently of their IPC bytes."""
+    if len(logical_digest) != 64 or any(c not in "0123456789abcdef" for c in logical_digest):
+        raise ValueError("structured payload logical digest must be lowercase SHA-256")
+    root = sha256(b"pdf-ocr-candidate-logical-v1" + bytes.fromhex(logical_digest)).digest()
+    return ScalarDescriptor(b"y", 32, root)
+
+
 def scalar_payload(value: Scalar) -> tuple[bytes, bytes]:
     """Exact scalar payload vocabulary, with no Unicode or numeric rounding."""
     if value is ABSENT:

@@ -207,6 +207,119 @@ class PreparedPdfProduct:
         return json.loads(self.payload)
 
 
+def validate_pdf_report_metadata(value: Mapping[str, Any]) -> None:
+    """Shared native report/coverage semantics for drafts and frozen payloads."""
+    document = value["document"]
+    health = value["health"]
+    if value["source_scope"] == "page_range":
+        if (
+            value.get("page_start") is None
+            or value.get("page_end") is None
+            or value["page_start"] > value["page_end"]
+        ):
+            raise ValueError("page-range source requires ordered physical page bounds")
+        if any(
+            not value["page_start"] <= int(page) <= value["page_end"]
+            for page in document.get("pages", {})
+        ):
+            raise ValueError("native page lies outside declared source scope")
+    elif value.get("page_start") is not None or value.get("page_end") is not None:
+        raise ValueError("whole-document scope cannot carry page-range bounds")
+    parent = [value.get(k) for k in ("parent_task_id", "parent_product_key", "parent_digest")]
+    if any(v is not None for v in parent) and not all(v is not None for v in parent):
+        raise ValueError("derived document requires complete parent product identity")
+    pointers = {item["pointer"] for item in value["items"]}
+    outcomes = {}
+    for outcome in health.get("formula_outcomes", ()):
+        pointer = outcome["pointer"]
+        if pointer in outcomes:
+            raise ValueError("duplicate formula recognition outcome")
+        if pointer not in pointers:
+            raise ValueError("formula recognition outcome has no native occurrence")
+        outcomes[pointer] = outcome["outcome"]
+    if health.get("display_coverage") == "complete":
+
+        def display_item(item):
+            if item["label"] != "formula":
+                return False
+            parent = item.get("parent_pointer")
+            label = resolve_native_pointer(document, parent).get("label") if parent else None
+            return label not in {"table", "inline"}
+
+        if any(
+            display_item(item) and outcomes.get(item["pointer"]) != "succeeded"
+            for item in value["items"]
+        ):
+            raise ValueError("complete formula coverage lacks attributable recognition")
+    for universe, policy in (("inline", "candidate_policy"), ("cell", "cells_policy")):
+        if health.get(universe + "_coverage") == "complete" and (
+            not health.get(universe + "_scope")
+            or health.get(universe + "_membership") not in {"direct", "descendants"}
+            or not health.get(policy)
+        ):
+            raise ValueError(
+                "complete recognition coverage requires its named scope, membership and "
+                "candidate policy"
+            )
+        for pointer in health.get(universe + "_scope", ()):
+            if resolve_native_pointer(document, pointer).get("label") not in {"section", "chapter"}:
+                raise ValueError("recognition coverage scope is not a native section")
+    coverage = set()
+    for row in value.get("recognition_coverage", ()):
+        key = row["section_pointer"], row["membership"], row["universe"]
+        if key in coverage:
+            raise ValueError("duplicate scoped recognition coverage")
+        coverage.add(key)
+        if resolve_native_pointer(document, row["section_pointer"]).get("label") not in {
+            "section",
+            "chapter",
+        }:
+            raise ValueError("recognition coverage row requires a native section")
+    if coverage and any(
+        health.get(universe + "_coverage") != "unknown" for universe in ("inline", "cell")
+    ):
+        raise ValueError("scoped row coverage cannot masquerade as a global native summary")
+    reports = set()
+    for report in value.get("cell_reports", ()):
+        key = report["table_pointer"], report["cell_index"]
+        if key in reports:
+            raise ValueError("duplicate native cell report")
+        reports.add(key)
+        table = resolve_native_pointer(document, report["table_pointer"])
+        cells = table.get("data", {}).get("table_cells", ())
+        if (
+            table.get("label") != "table"
+            or not 0 <= report["cell_index"] < len(cells)
+            or str(report["page_no"]) not in document.get("pages", {})
+        ):
+            raise ValueError("cell report is outside its native table/cell/page")
+        if not any(p["page_no"] == report["page_no"] for p in table.get("prov", ())):
+            raise ValueError("cell report page differs from its native table")
+        if report["classification"] == "prose" and (
+            report["outcome"] != "not_requested" or report.get("formula_pointer") is not None
+        ):
+            raise ValueError("prose cell report cannot claim native formula recognition")
+        if report["classification"] == "math" and report["outcome"] == "succeeded":
+            pointer = report.get("formula_pointer")
+            if (
+                pointer is None
+                or (cells[report["cell_index"]].get("ref") or {}).get("$ref") != pointer
+                or resolve_native_pointer(document, pointer).get("label") != "formula"
+                or outcomes.get(pointer) != "succeeded"
+            ):
+                raise ValueError("successful math cell lacks qualified rich formula recognition")
+    runtime = value.get("runtime_report")
+    if runtime is not None:
+        if not isinstance(json.loads(runtime["effective_options"]), dict):
+            raise ValueError("native effective options must be an upstream option object")
+        if "confidence" in runtime and not isinstance(json.loads(runtime["confidence"]), dict):
+            raise ValueError("native confidence must be its upstream report object")
+        for runtime_field in ("packages", "bindings"):
+            names = [row["name"] for row in runtime.get(runtime_field, ())]
+            if len(names) != len(set(names)):
+                raise ValueError("native runtime report repeats a named binding")
+
+
 def prepare_pdf_product(
     payload: Mapping[str, Any],
     original: bytes,
@@ -261,23 +374,6 @@ def prepare_pdf_product(
 
     if document.get("version") != value["native_schema_version"]:
         raise ValueError("native schema version differs from document")
-    if value["source_scope"] == "page_range":
-        if (
-            value.get("page_start") is None
-            or value.get("page_end") is None
-            or value["page_start"] > value["page_end"]
-        ):
-            raise ValueError("page-range source requires ordered physical page bounds")
-        if any(
-            not value["page_start"] <= int(page) <= value["page_end"]
-            for page in document.get("pages", {})
-        ):
-            raise ValueError("native page lies outside declared source scope")
-    elif value.get("page_start") is not None or value.get("page_end") is not None:
-        raise ValueError("whole-document scope cannot carry page-range bounds")
-    parent = [value.get(k) for k in ("parent_task_id", "parent_product_key", "parent_digest")]
-    if any(v is not None for v in parent) and not all(v is not None for v in parent):
-        raise ValueError("derived document requires complete parent product identity")
     pointers, ordinals = set(), set()
     for item in value["items"]:
         pointer = item["pointer"]
@@ -303,24 +399,6 @@ def prepare_pdf_product(
             raise ValueError("native parent is missing from item projection")
         if item.get("section_pointer") is not None and item["section_pointer"] not in pointers:
             raise ValueError("section is missing from item projection")
-    outcomes = value["health"].get("formula_outcomes", [])
-    if len({o["pointer"] for o in outcomes}) != len(outcomes):
-        raise ValueError("duplicate formula recognition outcome")
-    for outcome in outcomes:
-        if outcome["pointer"] not in pointers:
-            raise ValueError("formula recognition outcome has no native occurrence")
-    if value["health"]["display_coverage"] == "complete":
-        successful = {o["pointer"] for o in outcomes if o["outcome"] == "succeeded"}
-
-        def display_item(item):
-            if item["label"] != "formula":
-                return False
-            parent = item.get("parent_pointer")
-            label = resolve_native_pointer(document, parent).get("label") if parent else None
-            return label not in {"table", "inline"}
-
-        if any(display_item(i) and i["pointer"] not in successful for i in value["items"]):
-            raise ValueError("complete formula coverage lacks attributable recognition")
     seen_regions = set()
     for region in value["regions"]:
         key = (region["pointer"], region["region_index"])
@@ -362,75 +440,7 @@ def prepare_pdf_product(
             region["origin"] == "bottom_left" and region["top"] < region["bottom"]
         ):
             raise ValueError("region coordinate origin contradicts vertical bounds")
-    health = value["health"]
-    for universe, policy in (("inline", "candidate_policy"), ("cell", "cells_policy")):
-        if health.get(universe + "_coverage") == "complete" and (
-            not health.get(universe + "_scope")
-            or health.get(universe + "_membership") not in {"direct", "descendants"}
-            or not health.get(policy)
-        ):
-            raise ValueError(
-                "complete recognition coverage requires its named scope, membership and "
-                "candidate policy"
-            )
-        for pointer in health.get(universe + "_scope", ()):
-            if resolve_native_pointer(document, pointer).get("label") not in {"section", "chapter"}:
-                raise ValueError("recognition coverage scope is not a native section")
-    coverage = set()
-    for row in value.get("recognition_coverage", ()):
-        key = row["section_pointer"], row["membership"], row["universe"]
-        if key in coverage:
-            raise ValueError("duplicate scoped recognition coverage")
-        coverage.add(key)
-        if resolve_native_pointer(document, row["section_pointer"]).get("label") not in {
-            "section",
-            "chapter",
-        }:
-            raise ValueError("recognition coverage row requires a native section")
-    if coverage and any(
-        health.get(universe + "_coverage") != "unknown" for universe in ("inline", "cell")
-    ):
-        raise ValueError("scoped row coverage cannot masquerade as a global native summary")
-    reports = set()
-    outcomes = {row["pointer"]: row["outcome"] for row in health.get("formula_outcomes", ())}
-    for report in value.get("cell_reports", ()):
-        key = report["table_pointer"], report["cell_index"]
-        if key in reports:
-            raise ValueError("duplicate native cell report")
-        reports.add(key)
-        table = resolve_native_pointer(document, report["table_pointer"])
-        cells = table.get("data", {}).get("table_cells", ())
-        if (
-            table.get("label") != "table"
-            or not 0 <= report["cell_index"] < len(cells)
-            or str(report["page_no"]) not in document.get("pages", {})
-        ):
-            raise ValueError("cell report is outside its native table/cell/page")
-        if not any(p["page_no"] == report["page_no"] for p in table.get("prov", ())):
-            raise ValueError("cell report page differs from its native table")
-        if report["classification"] == "prose" and (
-            report["outcome"] != "not_requested" or report.get("formula_pointer") is not None
-        ):
-            raise ValueError("prose cell report cannot claim native formula recognition")
-        if report["classification"] == "math" and report["outcome"] == "succeeded":
-            pointer = report.get("formula_pointer")
-            if (
-                pointer is None
-                or (cells[report["cell_index"]].get("ref") or {}).get("$ref") != pointer
-                or resolve_native_pointer(document, pointer).get("label") != "formula"
-                or outcomes.get(pointer) != "succeeded"
-            ):
-                raise ValueError("successful math cell lacks qualified rich formula recognition")
-    runtime = value.get("runtime_report")
-    if runtime is not None:
-        if not isinstance(json.loads(runtime["effective_options"]), dict):
-            raise ValueError("native effective options must be an upstream option object")
-        if "confidence" in runtime and not isinstance(json.loads(runtime["confidence"]), dict):
-            raise ValueError("native confidence must be its upstream report object")
-        for runtime_field in ("packages", "bindings"):
-            names = [row["name"] for row in runtime.get(runtime_field, ())]
-            if len(names) != len(set(names)):
-                raise ValueError("native runtime report repeats a named binding")
+    validate_pdf_report_metadata(value)
     from .pdf_ocr_contracts import validate_pdf_inline_reports, validate_pdf_ocr_pages
 
     validate_pdf_ocr_pages(value)

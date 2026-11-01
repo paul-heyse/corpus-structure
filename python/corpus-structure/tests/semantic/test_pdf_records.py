@@ -581,7 +581,7 @@ def test_native_validation_placements_retain_the_bounded_oracle_limit():
 
     contract = native_validation_contract()
     assert contract["docling_core_version"] == "2.105.0"
-    assert "PDF20/21" in contract["frozen_union_enforcement"]
+    assert "actual reference and artifact verification" in contract["frozen_union_enforcement"]
     assert "identity-bearing" in contract["opaque_extension_profile"]
 
 

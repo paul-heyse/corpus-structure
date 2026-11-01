@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "18"
+EXECUTION_COMPILER_VERSION = "19"
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
@@ -35,6 +35,9 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/arrow-transfer.py", "semantic/arrow_transfer.py"),
     ("capture/adbc-lifetime.py", "core/db/adbc_lifetime.py"),
     ("pdf/borrower-lifetime.py", "core/db/lifetime.py"),
+    ("pdf/payload-model.yaml", "model/semantic/pdf-payloads.yaml"),
+    ("pdf/payloads.py", "semantic/pdf_payloads.py"),
+    ("pdf/payload-validation.py", "semantic/pdf_payload_validation.py"),
     ("pdf/selected-source-model.yaml", "model/semantic/selected-source.yaml"),
     ("pdf/selected-source.py", "serve/selected_source.py"),
     ("pdf/selected-source-native.py", "semantic/pdf_selected_source_native.py"),

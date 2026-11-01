@@ -663,6 +663,13 @@ def _compile_physical(view: View) -> MetaData:
             "model_class": str(name),
             "immutability": ci_annotations(cls).get("ph:immutability"),
         }
+        # Preserve the model-owned upload/derived boundary through physical inheritance.
+        # Downstream PDF wire selection must use this projection, including counterfactuals.
+        for ancestor in view.class_ancestors(str(name), reflexive=True):
+            boundary_role = ci_annotations(view.get_class(ancestor)).get("pds:record_boundary_role")
+            if boundary_role is not None:
+                table_info["pdf_record_boundary_role"] = str(boundary_role)
+                break
         read_roles = ci_annotations(cls).get("ph:read_roles")
         if read_roles is not None:
             table_info["read_roles"] = json.loads(read_roles)

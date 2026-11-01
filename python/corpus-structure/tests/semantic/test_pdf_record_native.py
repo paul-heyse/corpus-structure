@@ -12,9 +12,11 @@ from sqlalchemy.schema import CreateTable
 from corpus_structure.schema.relational import compile_metadata
 from corpus_structure.semantic.metadata import PHYSICAL_MODEL, PHYSICAL_MODEL_ID, physical_model_id
 from corpus_structure.semantic.pdf_record_model import (
+    derived_record_tables,
     record_arrow_schema,
     record_boundary_adapter,
     record_tables,
+    record_upload_tables,
 )
 
 
@@ -41,7 +43,7 @@ def header_binding(engine):
 
 
 def test_record_field_order_types_and_model_constraints():
-    for name, table in record_tables().items():
+    for name, table in record_upload_tables().items():
         schema = record_arrow_schema(name)
         adapter = record_boundary_adapter(name)
         assert schema.names == list(table.c.keys()) == list(adapter.json_schema()["properties"])
@@ -134,11 +136,16 @@ def test_forward_has_single_new_snapshot_and_no_private_table_grants():
     sql = forward_products()[0].content.decode()
     assert sql.count("INSERT INTO sem.physical_contract SELECT") == 1
     assert PHYSICAL_MODEL_ID in sql
+    from corpus_structure.semantic.pdf_record_native import pdf_record_products
+
+    # The publication successor creates only its own tables; prior private-table
+    # restrictions are authored by the record foundation, not repeated as DDL.
+    custody_sql = " ".join((pdf_record_products()[0].content.decode() + sql).split())
     for name in record_tables():
-        assert f"GRANT SELECT ON {name}" not in sql
-        assert f"REVOKE ALL ON {name} FROM PUBLIC" in sql
+        assert f"GRANT SELECT ON {name}" not in custody_sql
+        assert f"REVOKE ALL ON {name} FROM PUBLIC" in custody_sql
     assert "ops.pdf_product_descriptor" in sql
-    assert "ALTER TABLE ops.pdf_product_body ADD CONSTRAINT" in sql
+    assert "ALTER TABLE ops.pdf_product_body ADD CONSTRAINT" in custody_sql
 
 
 def test_private_native_foundations_and_constraints(semantic_db_engine):
@@ -153,7 +160,7 @@ def test_private_native_foundations_and_constraints(semantic_db_engine):
         _verify_deployment_functions(conn)
         assert (
             conn.execute(text("SELECT version_num FROM semantic_alembic_version")).scalar_one()
-            == "semantic_0064"
+            == "semantic_pdf_20261101"
         )
         assert (
             conn.execute(
@@ -274,7 +281,7 @@ def test_private_native_foundations_and_constraints(semantic_db_engine):
                     conn.execute(insert(tables[relation]), values)
 
 
-def test_previous_execution_abi_remains_readable():
+def test_previous_execution_abi_requires_regeneration():
     import json
 
     from corpus_structure.semantic.contracts import (
@@ -287,9 +294,11 @@ def test_previous_execution_abi_remains_readable():
     current = compile_execution_model(trusted_execution_inputs())
     previous = json.loads(current.content)
     previous["inputs"]["compiler_version"] = "14"
-    archived = _bound_execution_model(json.dumps(previous).encode(), current.model_id)
-    archived.require_operation("read_pdf_product")
-    with pytest.raises(Exception, match="read-only"):
+    from corpus_structure.semantic.types import PreparationError
+
+    with pytest.raises(PreparationError, match="current compiler ABI; regenerate"):
+        _bound_execution_model(json.dumps(previous).encode(), current.model_id)
+    with pytest.raises(PreparationError, match="current compiler ABI; regenerate"):
         require_payload_operation(
             json.dumps(previous).encode(), current.model_id, "publish_integrated_pdf"
         )
@@ -548,3 +557,57 @@ def test_graph_cell_identifiers_survive_native_relational_lowering(semantic_db_e
                 "WHERE product_id='graph' ORDER BY field_name"
             )
         ).scalars().all() == ["10", "20"]
+
+
+def test_derived_record_roles_keep_unbounded_numeric_in_exact_core_boundary():
+    from decimal import Decimal
+
+    from sqlalchemy import Numeric
+
+    derived = derived_record_tables()
+    assert set(derived) == {"kb.pdf_record_access", "kb.pdf_record_region"}
+    assert set(record_tables()) == set(record_upload_tables()) | set(derived)
+    relation = derived["kb.pdf_record_region"]
+    assert isinstance(relation.c.left.type, Numeric)
+    assert relation.c.left.type.precision is None and relation.c.left.type.scale is None
+    exact = Decimal("123456789012345678901234567890.123456789012345678901234567890")
+    value = dict(
+        product_id="p",
+        revision_id="p",
+        pointer="#/texts/0",
+        region_index=0,
+        page_no=1,
+        page_width=exact,
+        page_height=exact,
+        left=exact,
+        top=exact,
+        right=exact,
+        bottom=exact,
+        origin="TOPLEFT",
+    )
+    actual = record_boundary_adapter("kb.pdf_record_region").validate_python(value)
+    assert actual.left == exact and type(actual.left) is Decimal
+    for name in derived:
+        with pytest.raises(ValueError, match=r"derived PDF record projection.*SQLAlchemy Core"):
+            record_arrow_schema(name)
+
+
+def test_independent_model_role_edit_changes_wire_selection(tmp_path):
+    from corpus_structure.semantic.pdf_record_model import (
+        derived_record_tables,
+        record_upload_tables,
+    )
+
+    copied = tmp_path / "physical.yaml"
+    copied.write_bytes(PHYSICAL_MODEL.read_bytes())
+    (tmp_path / "pdf-records.yaml").write_bytes(
+        PHYSICAL_MODEL.with_name("pdf-records.yaml").read_bytes()
+    )
+    declarations = yaml.safe_load(PHYSICAL_MODEL.with_name("pdf-staging.yaml").read_bytes())
+    declarations["classes"]["PdfRecordAccess"]["annotations"]["pds:record_boundary_role"] = "upload"
+    (tmp_path / "pdf-staging.yaml").write_text(yaml.safe_dump(declarations, sort_keys=False))
+    changed = compile_metadata(SchemaView(str(copied)), target="semantic")
+    assert "kb.pdf_record_access" in derived_record_tables()
+    assert "kb.pdf_record_access" not in derived_record_tables(changed)
+    assert "kb.pdf_record_access" in record_upload_tables(changed)
+    assert "kb.pdf_record_region" in derived_record_tables(changed)

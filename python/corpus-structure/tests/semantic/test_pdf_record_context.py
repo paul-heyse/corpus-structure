@@ -144,6 +144,9 @@ def context_database(semantic_bare_engine):
             Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/pdf_record_context.sql"
         )
         conn.exec_driver_sql(helper.read_text(), execution_options={"no_parameters": True})
+        from corpus_structure.semantic.pdf_record_reader_native import pdf_record_context_sql
+
+        conn.exec_driver_sql(pdf_record_context_sql(), execution_options={"no_parameters": True})
     yield semantic_bare_engine
 
 
@@ -212,8 +215,15 @@ def test_nested_and_ancestor_coverage_and_page_ranges_keep_original_claims(conte
                     ),
                 },
             )
-        actual = PublishedPdfReader(conn, ProductReference(42, "chosen", "f" * 64)).source_context(
-            ["#/groups/0", "#/groups/1", "#/texts/0"], "#/groups/0", membership="descendants"
+        reader = PublishedPdfReader(conn, ProductReference(42, "chosen", "f" * 64))
+        pointers = ["#/groups/0", "#/groups/1", "#/texts/0"]
+        actual = reader.source_context(pointers, "#/groups/0", membership="descendants")
+        paginated = list(reader.context_rows("coverage", pointers, "#/groups/0"))
+        assert {row["local_id"]: row["body"] for row in paginated} == {
+            row["coverage_id"]: row["body"] for row in actual["coverage"]
+        }
+        assert [row["local_id"] for row in paginated] == sorted(
+            row["coverage_id"] for row in actual["coverage"]
         )
     assert {
         row["coverage_id"]: (row["body"]["scope"], row["body"]["outcome"])
@@ -224,3 +234,65 @@ def test_nested_and_ancestor_coverage_and_page_ranges_keep_original_claims(conte
         "ancestor": ("#/body:descendants", "partial"),
         "range": ("pages:1-3", "unknown"),
     }
+
+
+def test_metadata_page_selector_filters_before_artifact_replay(context_database):
+    from corpus_structure.semantic.pdf_payloads import PROFILE
+    from corpus_structure.semantic.pdf_record_reader_native import pdf_record_reader_sql
+
+    with context_database.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE ops.pdf_artifact_stream(product_id text,revision_id text,"
+            "stream_id text,encoding_profile text)"
+        )
+        for number in (1, 2):
+            conn.execute(
+                text(
+                    "INSERT INTO kb.pdf_record_companion VALUES"
+                    "('b','b','native_metadata',:key,CAST(:body AS jsonb),:ordinal)"
+                ),
+                dict(
+                    key=f"page-{number}",
+                    body=json.dumps(
+                        dict(
+                            kind="inline_candidate_pages",
+                            page_no=number,
+                            payload_codec=PROFILE,
+                        )
+                    ),
+                    ordinal=number,
+                ),
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO kb.pdf_record_companion_field VALUES"
+                    "('b','b','native_metadata',:key,'value',:key,'y')"
+                ),
+                dict(key=f"page-{number}"),
+            )
+            conn.execute(
+                text("INSERT INTO ops.pdf_artifact_stream VALUES('b','b',:key,:profile)"),
+                dict(key=f"page-{number}", profile=PROFILE),
+            )
+        conn.exec_driver_sql(pdf_record_reader_sql(), execution_options={"no_parameters": True})
+        reader = PublishedPdfReader(conn, ProductReference(42, "chosen", "f" * 64))
+        rows = list(
+            reader.iter_rows(
+                "companion",
+                {
+                    "family": "native_metadata",
+                    "kind": "inline_candidate_pages",
+                    "page_nos": [2],
+                },
+                batch_size=1,
+            )
+        )
+        assert [row["local_id"] for row in rows] == ["page-2"]
+        assert rows[0]["_fields"] == [
+            {
+                "field_name": "value",
+                "stream_id": "page-2",
+                "scalar_kind": "y",
+                "encoding_profile": PROFILE,
+            }
+        ]

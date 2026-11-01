@@ -2,23 +2,19 @@
 
 import json
 import struct
-from importlib.resources import files
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic.pdf_publication_native import pdf_record_logical_identity_sql
 from corpus_structure.semantic.pdf_record_identity import canonical_scalar
 
 from .test_pdf_staging import private_build as private_build
 
 
 def test_publication_inline_and_key_spelling(semantic_db_engine):
-    sql = (
-        files("corpus_structure")
-        .joinpath("semantic/sql/pdf_record_logical_identity.sql")
-        .read_text()
-    )
+    sql = pdf_record_logical_identity_sql()
     with semantic_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
@@ -40,11 +36,7 @@ def test_publication_inline_and_key_spelling(semantic_db_engine):
 
 
 def test_publication_inline_refuses_non_scalar(semantic_db_engine):
-    sql = (
-        files("corpus_structure")
-        .joinpath("semantic/sql/pdf_record_logical_identity.sql")
-        .read_text()
-    )
+    sql = pdf_record_logical_identity_sql()
     with semantic_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         conn.exec_driver_sql(sql, execution_options={"no_parameters": True})
@@ -101,11 +93,7 @@ def test_actual_record_cursor_matches_independent_logical_fields(semantic_db_eng
     expected.add_record(
         "publication", "root", (("kind", "native"), ("recipe_digest", private_build.recipe_digest))
     )
-    sql = (
-        files("corpus_structure")
-        .joinpath("semantic/sql/pdf_record_logical_identity.sql")
-        .read_text()
-    )
+    sql = pdf_record_logical_identity_sql()
     with semantic_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         # Before publication migration these two relations are not yet in the foundation.

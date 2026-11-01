@@ -28,9 +28,8 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0034](0034-recorded-agent-supervision.md) | Agents execute the semantic queue through supervised or interactive MCP sessions | 2026-10-30 | [§B3](../design/DESIGN.md#section-b3) | Implemented | [ADR-0015](0015-agent-work-queue.md) |
 | [ADR-0035](0035-model-governed-analysis.md) | One interpretation authority governs prepared analytical representations | 2026-10-30 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0012](0012-math-grammar-token-keys.md) |
 | [ADR-0040](0040-forward-pdf-only-contracts.md) | Maintain the integrated PDF architecture without historical HTML compatibility | 2026-10-31 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0039](0039-integrated-pdf-products.md) |
-| [ADR-0042](0042-relational-pdf-document-records.md) | Realize PDF documents as lossless records with versioned streaming identity | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0041](0041-json-text-pdf-publication.md) |
 | [ADR-0043](0043-segmented-artifact-byte-identity.md) | Separate admitted segmented byte identity from export serialization digests | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
-| [ADR-0044](0044-native-pdf-metadata-jsonschema.md) | Validate lossless PDF metadata with native model-derived JSON Schema | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0045](0045-structured-pdf-payload-validation.md) | Validate model-governed PDF page payloads over immutable stored bytes | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0042](0042-relational-pdf-document-records.md), [ADR-0044](0044-native-pdf-metadata-jsonschema.md) |
 
 ## Superseded, still in the tree
 
@@ -53,5 +52,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0038](0038-pdf-native-docling-products.md) | Use PDF-native Docling products under governed domain contracts | 2026-10-31 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0036](0036-representation-qualified-parsing-products.md), [ADR-0037](0037-layered-parsing-products.md) |
 | [ADR-0039](0039-integrated-pdf-products.md) | Integrate PDF recognizers through one governed document and provenance model | 2026-10-31 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0038](0038-pdf-native-docling-products.md) |
 | [ADR-0041](0041-json-text-pdf-publication.md) | Publish large PDF companions as bounded native records | 2026-10-31 | [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
+| [ADR-0042](0042-relational-pdf-document-records.md) | Realize PDF documents as lossless records with versioned streaming identity | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0041](0041-json-text-pdf-publication.md) |
+| [ADR-0044](0044-native-pdf-metadata-jsonschema.md) | Validate lossless PDF metadata with native model-derived JSON Schema | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).

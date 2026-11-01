@@ -1,6 +1,6 @@
 # Structured payload model and persisted semantic validation
 
-**Status:** Planned; implementation and qualification not_run. **Created:** 2026-11-01.
+**Status:** Implemented and targeted Tested2026-11-01 for PDF-27/28; enclosing PDF adoption remains open. **Created:** 2026-11-01.
 The [coordinator](../pdf-docling-pipeline_2026-10-31.md) alone owns PDF-27/28, investigation
 I21–I25 and source-qualified recommendation dispositions. Basis: [structured-data review](../../plan_improvement_reviews/pdf-docling-structured-data_2026-11-01.md)
 I01–I09 at `e11c89db`, consuming product baseline `0878ba1b`. Operator confirmed both rule
@@ -25,12 +25,11 @@ occurrences, relation endpoints, selected inputs and coverage/support queryable 
 SQL joins require them. Do not scalarize every OCR word solely for storage or hide required
 relationships inside opaque values. Page storage units never split semantic sections.
 
-Source ABI17/compiler4/core0.6.4 includes0065; the owned application remains0060/compiler14/core0.6.2.
-Existing exact metadata bytes and single-cursor exports already solve important fidelity/access
-problems. `semantic/pdf_record_model.py` currently derives SQL-shaped Arrow fields, with JSONB
-as strings; that is not the nested payload target. `pdf_record_reader.py::native_product_values`
-explicitly hydrates the whole native product; `native_metadata` lacks page selection. Native
-reading-order/heading finalization still materializes global state. These are distinct boundaries.
+Implementation baseline refreshed2026-11-01: PostgreSQL capability scope merged into main;
+compiler19 adds archived model/codec/frozen-validator sources. The forward native successor is
+`semantic_pdf_20261101` (0067) over `semantic_pg_20261101` (0066). The shared deployed book remains
+0060/compiler14/core0.6.2, untouched. Native reading-order/heading finalization still materializes
+global state; this package does not claim to remove that boundary.
 
 The existing [Arrow26 probe](../../design_review/evidence/2026-11-01_pdf-structured-data/README.md)
 shows construction and `validate(full=True)` accepting nulls under non-nullable declarations and
@@ -210,11 +209,11 @@ qualified pointers even when values/endpoints match.
 
 ## PostgreSQL prerequisites and current adoption boundary
 
-The [PG coordinator](../postgresql-capability-leverage_2026-11-01.md) owns their implementation
-and qualification. Worktree `work/postgresql-capability-leverage` at `24b22756` contains committed
-shared foundations and reports scoped passes; combined qualification is open and nothing is merged
-into main by this plan. Refresh actual interfaces and evidence before integration. No review or
-plan publication substitutes for a working admitted prerequisite.
+The [PG coordinator](../postgresql-capability-leverage_2026-11-01.md) owns the merged prerequisite
+implementation and its dated319-case targeted receipt. This package consumes those actual interfaces;
+that prior receipt does not qualify these subsequent PDF changes. No worktree or unmerged prerequisite
+remains. Disposable current-realization databases qualify the new forward native revision without
+upgrading the shared deployed book.
 
 | Required capability | PG owner | PDF integration responsibility |
 |---|---|---|
@@ -305,3 +304,65 @@ full export, same-typed semantic field changes, exact native variants/presence, 
 semantic-invalid payloads and interruption before/after append/freeze/seal. Final functional and
 applicable hygiene checks follow complete scope; numerical benefits need complete-operation
 measurements. Existing formatting does not invalidate otherwise applicable types/tests.
+
+## Delivered realization — 2026-11-01
+
+- `model/semantic/pdf-payloads.yaml` declares the selected family, logical owner, codec, retrieval,
+  identity, validation and projection placement. `pdf_payloads.py::prepare_payload_family` derives
+  nested structs/lists from the released `PdfInlineCandidatePage` schema. Supplied-field bitmaps
+  and tagged signed64/binary64 values preserve absence, explicit values, NUL, numeric kinds and
+  signed zero; unsupported schemas/values refuse. Prepared validators/schemas are cached by exact
+  contract. Decimal-valued schema bounds survive frozen capture without conversion to strings/floats.
+- Page IPC uses existing artifact parts and fresh shared COPY encoders for outer records. The
+  envelope supplies page/schema/codec/logical locators; frozen validation recomputes logical identity
+  from actual bytes. Compression/framing affect byte custody, not typed logical identity. Reports,
+  native Docling records, tables/charts and diagnostics remain exact existing representations;
+  broad native nested replacement is deliberately deferred until a complete mapping and useful
+  consumer exist. No dictionary or cross-language profile is presently required.
+- `PublishedPdfReader.native_metadata(page_nos=...)` filters before payload retrieval;
+  `iter_payload_batches` returns owning Arrow arrays. `candidate_inventory` uses list/struct kernels
+  for candidate/region/word counts. Logical exports decode the selected physical profile, preserving
+  existing exact source/evidence and logical serialization distinctions. Both paginated and set-shaped
+  section context use the same relational selector. SQL NUMERIC projections stay exact Decimal/Core
+  boundaries and are explicitly excluded from upload profiles rather than assigned invented precision.
+- `pdf_payload_validation.FrozenPayloadStore` retains captured parts and companions in a temporary
+  disk-backed store owned by the existing finite child. It validates every declared metadata family,
+  page-local OCR/candidate semantics, source/health/report rules and complete-set coverage against
+  actual frozen bytes and captured release schemas. Page lookup hydrates a requested page; native
+  Docling graph validation and its global access/region projection remain explicit materialization.
+- Native0067 uses the existing Plugin/NativeTransitionOp authoring/admission route, preserves prior
+  managed objects and frozen migrations, and registers the matching current physical contract.
+  The result binds the complete admitted dependency contract, frozen input identity and finalized
+  access/region membership. Build-row serialization closes projection/finalization races while
+  retaining independent task heartbeats. Finalized projections accept exact replay only.
+
+I21 is resolved for the first application page family. I22 closes only with the integrated stored
+payload/refusal/result controls below. I23 selects this concrete columnar consumer and shared context
+selector; support derivatives and detached dataset scanning remain conditional on actual consumers.
+I24 has a functional complete-operation route but no measured performance claim. I25 effective native
+options/image-retention redesign remains PDF-22/23 scope. RC12 fresh construction is exercised by
+forward database tests; shared-book rebuild/publication and external grading remain PDF-25/10/11.
+
+## Verification — 2026-11-01
+
+**passed:** the selected283-case functional union across20 files, including actual disposable
+PostgreSQL migration/admission, frozen payload validation, publication, replay, cancellation/lifetime,
+selective Arrow reads, logical exports and native-source reproduction. Receipt
+`build/test-receipts/qualification/pdf-payloads-final-20261101` records282passed/1failed; the sole
+remaining failure was a historical DDL assertion looking in the publication successor instead of
+its foundation. That assertion alone was corrected and the exact case passed in
+`build/test-receipts/qualification/pdf-payloads-final-native-control-20261101`. No production change
+followed the final283-case invocation; the282 unaffected passing cases retain applicability.
+Each receipt's `invocation.json` records the complete `uv run python scripts/test_receipts.py run
+--python-only -- ...` command and actual selection. No overlapping counts are added.
+
+**passed:** `uv run pyrefly check --min-severity warn --summary=none` (zero warnings/errors),
+`uv run ruff check .`, `just model check`, `just adr-lint`, `git diff --check` and root
+`just turn-end`. Formatting did not invalidate otherwise applicable typing/functional evidence.
+**failed, retained:** first283-case attempt `pdf-payloads-20261101` had279passed/4failed: two stale
+historical assertions and two current-source native provenance mismatches, all subsequently resolved.
+**failed:** `just docs-check` on existing moved-library/retired-profile links outside changed documents;
+no publication errors were reported for this package's changed plan/architecture/ADR pages.
+**not_run:** whole-book inference/rebuild, adopted-result/default changes, external provider journeys,
+independent grading, Rust tests and whole-repository qualification. These are not requirements of
+this selected payload package and remain under PDF-25/10/11; no measured performance claim follows.

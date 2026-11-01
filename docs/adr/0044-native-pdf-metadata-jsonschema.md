@@ -1,10 +1,10 @@
 ---
 id: ADR-0044
 title: Validate lossless PDF metadata with native model-derived JSON Schema
-status: accepted
+status: superseded
 date: 2026-11-01
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0045
 design: [§B4, §B5]
 evidence: Proposed
 revisit: The pinned native validator cannot enforce a released metadata schema or its deployment burden exceeds a conforming native alternative.

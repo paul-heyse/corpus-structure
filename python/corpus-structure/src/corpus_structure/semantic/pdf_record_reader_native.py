@@ -16,7 +16,7 @@ def pdf_record_reader_sql() -> str:
         "companion": (
             "kb.pdf_record_companion",
             ("family", "local_id"),
-            ("family", "local_id", "kind", "pointer"),
+            ("family", "local_id", "kind", "pointer", "page_nos"),
         ),
         "companion_field": (
             "kb.pdf_record_companion_field",
@@ -60,7 +60,7 @@ def pdf_record_reader_sql() -> str:
             " AND ".join(
                 "(NOT p_filters ? '" + name + "' OR r." + name + "=p_filters->>'" + name + "')"
                 for name in filters
-                if name not in {"kind", "pointer"}
+                if name not in {"kind", "pointer", "page_nos"}
             )
             or "true"
         )
@@ -69,14 +69,18 @@ def pdf_record_reader_sql() -> str:
                 " AND (NOT p_filters ? 'kind' OR "
                 "r.body->'kind'=p_filters->'kind') AND (NOT p_filters ? 'pointer' "
                 "OR r.body->'pointer'=p_filters->'pointer')"
+                " AND (NOT p_filters ? 'page_nos' OR r.body->'page_no' IN "
+                "(SELECT value FROM jsonb_array_elements(p_filters->'page_nos')))"
             )
         output = f"to_jsonb(r)||jsonb_build_object('_cursor',{cursor})"
         if family == "companion":
             output += (
                 "||jsonb_build_object('_fields',COALESCE((SELECT "
                 "jsonb_agg(jsonb_build_object('field_name',cf.field_name,'stream_i"
-                "d',cf.stream_id,'scalar_kind',cf.scalar_kind) ORDER BY "
-                "cf.field_name) FROM kb.pdf_record_companion_field cf WHERE "
+                "d',cf.stream_id,'scalar_kind',cf.scalar_kind,'encoding_profile',"
+                "s.encoding_profile) ORDER BY "
+                "cf.field_name) FROM kb.pdf_record_companion_field cf "
+                "JOIN ops.pdf_artifact_stream s USING(product_id,revision_id,stream_id) WHERE "
                 "cf.product_id=r.product_id AND cf.revision_id=r.revision_id AND "
                 "cf.family=r.family AND cf.local_id=r.local_id),'[]'::jsonb))"
             )
@@ -119,93 +123,39 @@ BEGIN
 
 
 def pdf_record_context_sql() -> str:
-    return (
-        "\n"
-        "CREATE OR REPLACE FUNCTION "
-        "ops.read_pdf_record_context_rows(p_task bigint,p_product "
-        "text,p_digest text,\n"
-        " p_pointers text[],p_section text,p_family text,p_after "
-        "text,p_limit integer)\n"
-        "RETURNS SETOF jsonb LANGUAGE plpgsql SECURITY DEFINER SET "
-        "search_path=pg_catalog,pg_temp AS $reader$\n"
-        "DECLARE published ops.pdf_published_revision;\n"
-        "BEGIN\n"
-        " IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 1000 OR "
-        "p_pointers IS NULL OR\n"
-        " p_family NOT IN ('occurrence','relation','input','coverage','map"
-        "ping_report','health') THEN\n"
-        " RAISE EXCEPTION 'invalid published context page' USING "
-        "ERRCODE='22023'; END IF;\n"
-        " SELECT * INTO STRICT published FROM "
-        "ops.read_pdf_published_revision(p_task,p_product,p_digest);\n"
-        " RETURN QUERY WITH selected AS MATERIALIZED (\n"
-        " SELECT c.* FROM kb.pdf_record_companion c WHERE "
-        "c.product_id=published.build_id\n"
-        " AND c.revision_id=published.build_id AND c.family='occurrence' "
-        "AND c.body->>'pointer'=ANY(p_pointers)\n"
-        " ), related AS MATERIALIZED (\n"
-        " SELECT DISTINCT e.relation_id FROM kb.pdf_record_endpoint e "
-        "JOIN selected c ON c.local_id=e.occurrence_id\n"
-        " WHERE e.product_id=published.build_id AND "
-        "e.revision_id=published.build_id\n"
-        " AND (e.target_task_id=p_task AND e.target_product_key=p_product "
-        "OR e.target_task_id=0 AND e.target_product_key='@self')\n"
-        " ), endpoints AS MATERIALIZED (\n"
-        " SELECT e.* FROM kb.pdf_record_endpoint e JOIN related r "
-        "USING(relation_id)\n"
-        " WHERE e.product_id=published.build_id AND "
-        "e.revision_id=published.build_id\n"
-        " ), covered AS MATERIALIZED (\n"
-        " SELECT c.* FROM kb.pdf_record_companion c WHERE "
-        "c.product_id=published.build_id\n"
-        " AND c.revision_id=published.build_id AND c.family='coverage' "
-        "AND (\n"
-        " c.body->>'scope' IN "
-        "('whole_document',p_section||':direct',p_section||':descendants')"
-        " OR\n"
-        " c.body->>'scope' IN (SELECT 'page:'||(o.body->>'page_no') FROM "
-        "selected o UNION ALL\n"
-        " SELECT 'pages:'||(o.body->>'page_no')||'-'||(o.body->>'page_no')"
-        " FROM selected o))\n"
-        " ), inputs AS MATERIALIZED (\n"
-        " SELECT c.* FROM kb.pdf_record_companion c WHERE "
-        "c.product_id=published.build_id\n"
-        " AND c.revision_id=published.build_id AND c.family='input' AND (\n"
-        " EXISTS(SELECT FROM endpoints e WHERE e.role<>'output'\n"
-        " AND (e.target_task_id,e.target_product_key,e.target_content_dige"
-        "st)=\n"
-        " ((c.body->>'task_id')::bigint,c.body->>'product_key',c.body->>'c"
-        "ontent_digest')) OR\n"
-        " c.local_id IN (SELECT s->>'input_index' FROM covered x\n"
-        " CROSS JOIN LATERAL jsonb_array_elements(COALESCE(x.body->'suppor"
-        "ts','[]')) s))\n"
-        " ) SELECT jsonb_build_object('local_id',c.local_id,'body',c.body)"
-        "\n"
-        " FROM kb.pdf_record_companion c WHERE "
-        "c.product_id=published.build_id\n"
-        " AND c.revision_id=published.build_id AND c.family=p_family AND "
-        "c.local_id>COALESCE(p_after,'')\n"
-        " AND CASE p_family\n"
-        " WHEN 'occurrence' THEN c.local_id IN (SELECT local_id FROM "
-        "selected)\n"
-        " WHEN 'relation' THEN c.local_id IN (SELECT relation_id FROM "
-        "endpoints)\n"
-        " WHEN 'coverage' THEN c.local_id IN (SELECT local_id FROM "
-        "covered)\n"
-        " WHEN 'input' THEN c.local_id IN (SELECT local_id FROM inputs)\n"
-        " WHEN 'mapping_report' THEN c.body->>'input_index' IN (SELECT "
-        "local_id FROM inputs)\n"
-        " WHEN 'health' THEN true ELSE false END\n"
-        " ORDER BY c.local_id LIMIT p_limit;\n"
-        "END $reader$;\n"
-        "REVOKE ALL ON FUNCTION "
-        "ops.read_pdf_record_context_rows(bigint,text,text,text[],text,tex"
-        "t,text,integer) FROM PUBLIC;\n"
-        "GRANT EXECUTE ON FUNCTION "
-        "ops.read_pdf_record_context_rows(bigint,text,text,text[],text,tex"
-        "t,text,integer)\n"
-        " TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;\n"
-    )
+    """Paginate the same relational scope constructor used by set-based consumers."""
+    return """
+CREATE OR REPLACE FUNCTION ops.read_pdf_record_context_rows(
+ p_task bigint,p_product text,p_digest text,p_pointers text[],p_section text,
+ p_family text,p_after text,p_limit integer)
+RETURNS SETOF jsonb LANGUAGE plpgsql SECURITY DEFINER
+ SET search_path=pg_catalog,pg_temp AS $reader$
+DECLARE published ops.pdf_published_revision;
+BEGIN
+ IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 1000 OR p_pointers IS NULL OR
+ p_family NOT IN ('occurrence','relation','input','coverage','mapping_report','health') THEN
+ RAISE EXCEPTION 'invalid published context page' USING ERRCODE='22023'; END IF;
+ SELECT * INTO STRICT published FROM ops.read_pdf_published_revision(p_task,p_product,p_digest);
+ RETURN QUERY
+ SELECT jsonb_build_object('local_id',selected.local_id,'body',selected.body)
+ FROM (
+   SELECT c.local_id,c.body FROM
+    ops.pdf_record_context_rows(p_task,p_product,p_digest,p_pointers,p_section) c
+    WHERE c.family=p_family
+   UNION ALL
+   SELECT c.local_id,c.body FROM kb.pdf_record_companion c
+    WHERE p_family='health' AND c.family='health'
+      AND c.product_id=published.build_id AND c.revision_id=published.build_id
+ ) selected
+ WHERE selected.local_id>COALESCE(p_after,'')
+ ORDER BY selected.local_id LIMIT p_limit;
+END $reader$;
+REVOKE ALL ON FUNCTION
+ ops.read_pdf_record_context_rows(bigint,text,text,text[],text,text,text,integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION
+ ops.read_pdf_record_context_rows(bigint,text,text,text[],text,text,text,integer)
+ TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;
+"""
 
 
 def pdf_native_export_sql() -> str:

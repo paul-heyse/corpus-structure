@@ -261,7 +261,7 @@ content_digest pins retain their original meaning. A named bounded fold cannot i
 The PDF coordinator owns deployed revision and tested scope; foundations alone do not establish
 book-scale publication, complete streaming integration or adopted consumer qualification.
 
-> Decision: ADR-0042
+> Decision: ADR-0045
 
 **Accepted segmented-byte identity (2026-11-01).** New artifact streams require independently
 verified parts, lengths and canonical byte folds. Whole-stream serialization SHA is optional
@@ -269,13 +269,15 @@ export metadata; original/raw/historical digest custody is unchanged.
 
 > Decision: ADR-0043
 
-**Accepted native metadata mechanism (2026-11-01); scoped implementation Tested.** The semantic
-release supplies metadata JSON Schema and typed projection constraints to pinned `pg_jsonschema`.
-PostgreSQL validates actual retained JSON bytes without sanitization or JSONB conversion of
-NUL-containing text. Exact byte custody and native graph/callback obligations remain distinct.
+**Accepted structured-payload placement (2026-11-01).** The semantic release governs a page-scoped
+OCR/candidate Arrow IPC profile, its logical identity and required SQL projections. The finite
+frozen validator checks actual stored payloads and complete cross-field semantics; PostgreSQL
+checks custody, relational invariants, exact bytes and matching validation/projection contracts
+before publication. Other metadata retains native JSON Schema checks. Current-realization
+rebuilds preserve compatible evidence without mandatory historical reader/layout support.
 [D3](D3-database.md#native-pdf-metadata-validation) owns the mechanism and provisioning boundary.
 
-> Decision: ADR-0044
+> Decision: ADR-0045
 
 **Retained HTML implementation boundary.**
 
@@ -396,11 +398,13 @@ accepted target does not establish conversion, deployment or performance/fidelit
 
 > Decision: ADR-0040
 
-**Accepted metadata realization (2026-11-01).** Native metadata validation consumes the JSON Schema
-derived from the same application release; the server extension is an evaluator, not another
-schema authority. Byte-field envelopes and diagnostic references are modeled projections.
+**Accepted metadata realization (2026-11-01).** Native metadata validation consumes contracts
+derived from the same application release. Selected page interiors use model-derived Arrow IPC
+and frozen runtime semantic validation; other JSON families retain the native extension. Neither
+encoding nor evaluator is another schema authority. Envelope locators, diagnostic references,
+logical identity and validation placement are model-governed contracts.
 
-> Decision: ADR-0044
+> Decision: ADR-0045
 
 **Retained HTML implementation boundary.**
 

@@ -52,6 +52,55 @@ def _context_definition(connection, sql, *, source):
     raise NativeAuthoringError(f"{source}: native context rows declaration is absent")
 
 
+# Existing PDF declarations join the forward native object lifecycle when this scope
+# starts owning their semantics. Their predecessor is always the frozen0065 source.
+_PDF_PAYLOAD_FUNCTIONS = frozenset(
+    {
+        "adopt_pdf_companion",
+        "read_pdf_frozen_rows",
+        "adopt_pdf_access",
+        "record_pdf_native_validation",
+        "validate_pdf_build",
+        "lookup_pdf_validation",
+        "seal_pdf_build",
+        "pdf_validation_contract",
+        "pdf_projection_contract",
+        "pdf_identity_companion_scalar",
+        "pdf_record_logical_identity",
+        "read_pdf_record_rows",
+        "read_pdf_record_context_rows",
+    }
+)
+
+
+def _pdf_payload_definitions(connection, sql, *, source):
+    from .native_function_signatures import function_signature
+    from .native_inventory import update_function_inventory
+
+    inventory = {}
+    prepared = update_function_inventory(inventory, sql)
+    definitions = {}
+    for index, raw in enumerate(prepared.statements):
+        statement = raw.stmt
+        if not isinstance(statement, ast.CreateFunctionStmt):
+            continue
+        name = tuple(part.sval for part in statement.funcname or ())
+        if len(name) != 2 or name[0] != "ops" or name[1] not in _PDF_PAYLOAD_FUNCTIONS:
+            continue
+        descriptor = inventory[function_signature(statement)]
+        definition = definition_from_sql(
+            connection,
+            prepared.excerpt(index),
+            source=source,
+            owner=descriptor["owner"],
+            grants=tuple((role, "EXECUTE", False) for role in descriptor["execute_roles"]),
+        )
+        # CREATE OR REPLACE can recur in a frozen collection; the last declaration
+        # is the source authority, while the inventory carries its cumulative ACL.
+        definitions[definition.identity] = definition
+    return tuple(definitions.values())
+
+
 def series_predecessor_definitions(connection):
     """Bounded predecessor source; never infer desired meaning from a deployed catalog."""
     from .migrations import ALEMBIC_DIR
@@ -61,12 +110,18 @@ def series_predecessor_definitions(connection):
     return (
         _shape_definition(connection, sql, source=path.name),
         _context_definition(connection, sql, source=path.name),
+        *_pdf_payload_definitions(connection, sql, source=path.name),
     )
 
 
 def series_native_definitions(connection, *, include_selected=True):
-    from .pdf_publication_native import _native_shape_guard
+    from .pdf_publication_native import (
+        _native_shape_guard,
+        pdf_record_logical_identity_sql,
+        publication_sql,
+    )
 
+    payload_sql = publication_sql() + "\n" + pdf_record_logical_identity_sql()
     definitions = [
         _shape_definition(connection, _native_shape_guard(), source="native-record-shape:forward"),
         _context_definition(
@@ -75,6 +130,7 @@ def series_native_definitions(connection, *, include_selected=True):
             source="pdf_record_context.sql:forward",
         ),
         *companion_projection_definitions(connection),
+        *_pdf_payload_definitions(connection, payload_sql, source="pdf-payloads:forward"),
     ]
     if include_selected:
         from .pdf_selected_source_native import selected_source_reader_sql
@@ -258,16 +314,16 @@ def prepare_series_candidate(
         )
     if frozen_before is not None:
         known = {item.identity for item in product_predecessor}
-        context_before = next(
+        newly_managed = tuple(
             item
             for item in series_predecessor_definitions(connection)
-            if item.identity.name == "pdf_record_context_rows"
+            if item.identity not in known
         )
-        if context_before.identity not in known:
-            # This newly selected, already-existing helper has a bounded frozen source
-            # authority even when an earlier current candidate state did not manage it.
+        if newly_managed:
+            # Normalization uses frozen declarations, never adoption of deployed
+            # bodies. The transition still refuses an unexpected live predecessor.
             normalized = prepare_native_authoring(
-                connection, (context_before,), owned_authoring=owned_authoring
+                connection, newly_managed, owned_authoring=owned_authoring
             ).desired
             product_predecessor = (*product_predecessor, *normalized)
     product_authoring = prepare_native_authoring(

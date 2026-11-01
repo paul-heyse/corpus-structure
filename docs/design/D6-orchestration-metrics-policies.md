@@ -39,7 +39,7 @@ recovers retained progress without recomputation silently replacing it. Migratio
 does not finalize knowledge or change operational defaults. Complete integrated adoption and
 failure/concurrency qualification remain with the PDF coordinator.
 
-> Decision: ADR-0042
+> Decision: ADR-0045
 
 
 **Implemented PDF lifecycle; targeted controls Tested (2026-10-31).** Existing operation/task/attempt
