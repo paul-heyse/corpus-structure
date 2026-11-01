@@ -242,9 +242,11 @@ def _selected_occurrences(document, origins):
             if anchor is not node: row['grounding_pointer']=anchor.self_ref;precision='inherited'
             row.update(precision=precision,page_no=p.page_no,region={'address_space':'pdf_points','precision':precision,'normalization':'inherited' if anchor is not node else 'none','left':box.l,'top':box.t,'right':box.r,'bottom':box.b,'origin':'top_left' if box.coord_origin.value=='TOPLEFT' else 'bottom_left'})
         rows.append(row)
-        if label=='table':
-            for i,cell in enumerate(node.data.table_cells):
-                entry: dict[str, Any]={'occurrence_id':f'{pointer}/data/table_cells/{i}','pointer':pointer,'cell_index':i,'kind':'cell','address_space':'native_cell','precision':'coarse' if origins[id(node)].input_index else 'cell','text':cell.text}
+        from corpus_structure.semantic.pdf_integrated import native_cells
+        cell_path,cells=native_cells(node.model_dump(mode='json',by_alias=True))
+        if cells:
+            for i,cell in enumerate(cells):
+                entry: dict[str, Any]={'occurrence_id':f'{pointer}{cell_path}/{i}','pointer':pointer,'cell_index':i,'kind':'cell','address_space':'native_cell','precision':'coarse' if origins[id(node)].input_index else 'cell','text':cell['text']}
                 if row.get('region'):
                     entry.update(page_no=row['page_no'],grounding_pointer=pointer,region={**row['region'],'precision':'inherited','normalization':'inherited'},precision='inherited')
                 rows.append(entry)
@@ -405,7 +407,10 @@ def select_pdf_integration(native_product: Mapping[str,Any], structural_pin: Map
     for occurrence in occurrences:
         node=final_nodes[occurrence['pointer']];origin=origins[id(node)]
         source_id=origin.occurrence_id
-        if occurrence['kind']=='cell' and origin.input_index==0:source_id+=f'/data/table_cells/{occurrence["cell_index"]}'
+        if occurrence['kind']=='cell' and origin.input_index==0:
+            from corpus_structure.semantic.pdf_integrated import native_cells
+            path,_=native_cells(node.model_dump(mode='json',by_alias=True))
+            source_id+=f'{path}/{occurrence["cell_index"]}'
         endpoints=[{'role':'input','input_index':origin.input_index,'occurrence_id':source_id},{'role':'output','occurrence_id':occurrence['occurrence_id']}]
         endpoints.extend({'role':'alternative','input_index':i,'occurrence_id':s} for i,s in origin.alternatives)
         relations.append({'relation_id':'decision:'+occurrence['occurrence_id'],'kind':'decision','outcome':origin.disposition,'comparison':'geometry','policy':policy['policy_id'],'evidence':canonical_bytes(origin.evidence or {'reason':'retained_structural_content','policy':policy}).decode(),'endpoints':endpoints})

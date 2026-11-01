@@ -4257,6 +4257,7 @@ classes:
       body:
         range: json_payload
         required: true
+      pointer: {range: string, required: false}
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -4267,7 +4268,8 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"}]'
       ph:checks: '["occurrence_id <> ''''", "kind IN (''item'',''cell'',''formula'',''chart'',''text'',''region'')",
-        "precision IN (''unknown'',''coarse'',''inherited'',''block'',''item'',''cell'',''word'',''glyph'')"]'
+        "pointer IS NOT DISTINCT FROM body->>''pointer''", "precision IN (''unknown'',''coarse'',''inherited'',''block'',''item'',''cell'',''word'',''glyph'')"]'
+      ph:indexes: '[["task_id", "product_key", "pointer", "occurrence_id"]]'
   pdf_relation:
     in_subset:
     - kb

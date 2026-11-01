@@ -59,6 +59,15 @@ def _json_object(value: str, label: str) -> dict[str, Any]:
     return result
 
 
+def native_cells(node: Mapping[str, Any]) -> tuple[str, list[dict[str, Any]]]:
+    """Externally owned cell collections; the pointer retains table versus chart identity."""
+    if node.get("label") == "table":
+        return "/data/table_cells", node.get("data", {}).get("table_cells", [])
+    if node.get("label") == "picture":
+        return "/meta/tabular_chart/chart_data/table_cells", node.get("meta", {}).get("tabular_chart", {}).get("chart_data", {}).get("table_cells", [])
+    return "", []
+
+
 def prepare_integrated_pdf_product(
     payload: Mapping[str, Any],
     original: bytes | PreparedPdfOriginal,
@@ -251,13 +260,12 @@ def prepare_integrated_pdf_product(
                     raise ValueError("boxed occurrence must use its own retained geometry")
             if occurrence["kind"] == "cell":
                 index = occurrence.get("cell_index")
-                if (
-                    index is None
-                    or node.get("label") != "table"
-                    or index >= len(node.get("data", {}).get("table_cells", ()))
-                ):
-                    raise ValueError("selected cell is outside its native table")
-                node = node["data"]["table_cells"][index]
+                path, cells = native_cells(node)
+                if index is None or not path or index >= len(cells):
+                    raise ValueError("selected cell is outside its native table/chart")
+                if node.get("label") == "picture" and occurrence["precision"] != "inherited":
+                    raise ValueError("generated chart cells require inherited chart grounding")
+                node = cells[index]
             elif "cell_index" in occurrence:
                 raise ValueError("cell index requires a cell occurrence")
             kind = occurrence["kind"]
@@ -381,8 +389,7 @@ def prepare_integrated_pdf_product(
         expected.update(
             (node["self_ref"], index)
             for node in nodes
-            if node.get("label") == "table"
-            for index, _ in enumerate(node.get("data", {}).get("table_cells", ()))
+            for index, _ in enumerate(native_cells(node)[1])
         )
         actual = [(o["pointer"], o.get("cell_index")) for o in occurrences if o["kind"] != "region"]
         if len(actual) != len(expected) or set(actual) != expected:

@@ -175,6 +175,13 @@ def reconciled_pdf_products(model=None):
     for constraint in sorted(metadata.tables["ops.pdf_product_body"].constraints, key=lambda c: str(c.name)):
         if isinstance(constraint, CheckConstraint):
             sql += str(AddConstraint(constraint, isolate_from_table=False).compile(dialect=dialect())).strip() + ";\n"
+    sql += "ALTER TABLE kb.pdf_occurrence ADD COLUMN pointer text;\nALTER TABLE kb.pdf_occurrence DISABLE TRIGGER semantic_immutable;\nUPDATE kb.pdf_occurrence SET pointer=body->>'pointer';\nALTER TABLE kb.pdf_occurrence ENABLE TRIGGER semantic_immutable;\n"
+    for constraint in sorted(metadata.tables["kb.pdf_occurrence"].constraints, key=lambda c: str(c.name)):
+        if isinstance(constraint, CheckConstraint) and "pointer IS NOT DISTINCT" in str(constraint.sqltext):
+            sql += str(AddConstraint(constraint, isolate_from_table=False).compile(dialect=dialect())).strip() + ";\n"
+    from sqlalchemy.schema import CreateIndex
+    for index in sorted(metadata.tables["kb.pdf_occurrence"].indexes, key=lambda i: str(i.name)):
+        sql += str(CreateIndex(index).compile(dialect=dialect())) + ";\n"
     new_relation = "kb.pdf_mapping_report"
     sql += "GRANT REFERENCES ON ops.pdf_product_input TO __MIGRATION_OWNER__;\nSET LOCAL ROLE __MIGRATION_OWNER__;\n"
     for product in physical_products():
@@ -198,6 +205,6 @@ def reconciled_pdf_products(model=None):
     physical, _, _ = closure_products(model)
     sql += "\nDO $reference$" + physical.content.decode().split("DO $reference$", 1)[1]
     previous = ALEMBIC_DIR.joinpath("versions/semantic_0056_admission.sql").read_text()
-    admission = native_admission_sql(sql, model, extra_relations=(*changed, "kb.pdf_mapping_report", "ops.pdf_product_body"), base_admission=previous)
+    admission = native_admission_sql(sql, model, extra_relations=(*changed, "kb.pdf_mapping_report", "ops.pdf_product_body", "kb.pdf_occurrence"), base_admission=previous)
     return (NativeProduct("semantic_0057_reconciliation.sql", sql.encode()),
             NativeProduct("semantic_0057_admission.sql", admission.encode()))

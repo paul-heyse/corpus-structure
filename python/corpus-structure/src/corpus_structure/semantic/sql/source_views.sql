@@ -63,8 +63,14 @@ BEGIN
    SELECT native_json INTO STRICT node FROM kb.native_document_item WHERE task_id=native.task_id AND product_key=native.product_key AND pointer=piece_pointer;
    IF piece->>'source_field'='cell_text' THEN
     node:=node->'data'->'table_cells'->((piece->>'cell_index')::integer);
+   ELSIF piece->>'source_field'='chart_cell_text' THEN
+    IF node->>'label'<>'picture' OR NOT piece ? 'cell_index' THEN RAISE EXCEPTION 'chart cell requires picture/cell index' USING ERRCODE='23514'; END IF;
+    node:=node->'meta'->'tabular_chart'->'chart_data'->'table_cells'->((piece->>'cell_index')::integer);
+   ELSIF piece->>'source_field'='chart_title' THEN
+    IF node->>'label'<>'picture' OR piece ? 'cell_index' THEN RAISE EXCEPTION 'chart title requires exact picture witness' USING ERRCODE='23514'; END IF;
+    node:=jsonb_build_object('text',node->'meta'->'tabular_chart'->'title');
    END IF;
-   IF spelling IS DISTINCT FROM (node->>(CASE WHEN piece->>'source_field'='cell_text' THEN 'text' ELSE COALESCE(piece->>'source_field','text') END)) OR COALESCE(piece->>'source_field','text') NOT IN ('text','orig','cell_text') THEN
+   IF spelling IS DISTINCT FROM (node->>(CASE WHEN piece->>'source_field' IN ('cell_text','chart_cell_text','chart_title') THEN 'text' ELSE COALESCE(piece->>'source_field','text') END)) OR COALESCE(piece->>'source_field','text') NOT IN ('text','orig','cell_text','chart_title','chart_cell_text') THEN
     RAISE EXCEPTION 'projected source text differs from native occurrence' USING ERRCODE='23514'; END IF;
   ELSE RAISE EXCEPTION 'unadmitted source projection operation' USING ERRCODE='23514'; END IF;
   pos:=stop;

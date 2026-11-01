@@ -144,7 +144,20 @@ def test_added_paragraph_preserves_native_section_and_reading_order(native_sourc
     result=integrate(native_source,raw)
     selected=DoclingDocument.model_validate(result['content']['document'])
     added=next(n for n in selected.texts if n.text=='middle')
+    assert added.parent is not None
     assert added.parent.cref==section.self_ref
     children=[r.resolve(selected) for r in selected.groups[0].children]
     assert [getattr(n,'text',str(n.label)) for n in children]==['equal','equal','middle','table']
     assert result['content']['items'][next(i for i,r in enumerate(result['content']['items']) if r['pointer']==added.self_ref)]['section_pointer']==section.self_ref
+
+
+def test_chart_values_have_individually_attributed_coarse_parent_witnesses(native_source):
+    raw=(b'<x_0.6><y_0.5><chart type="line">\n| Time | Speed (m/s) |\n|---|---|\n|1|2|<x_0.95><y_0.9><class_Chart>')
+    result=integrate(native_source,raw)
+    cells=[o for o in result['occurrences'] if '/meta/tabular_chart/chart_data/table_cells/' in o['occurrence_id']]
+    assert [o['text'] for o in cells]==['Time','Speed (m/s)','1','2']
+    assert all(o['precision']=='inherited' and o['grounding_pointer']==o['pointer'] for o in cells)
+    assert all(o['region']['precision']=='inherited' for o in cells)
+    for cell in cells:
+        decision=next(r for r in result['relations'] if r['relation_id']=='decision:'+cell['occurrence_id'])
+        assert decision['endpoints'][0]['occurrence_id']=='block-0'

@@ -178,6 +178,8 @@ enums:
     permissible_values: {inputs: {}, coverage: {}, relations: {}, mapping_reports: {}}
   PdfIntegrationAction:
     permissible_values: {keep: {}, add: {}, replace: {}, unresolved: {}}
+  PdfProjectionSourceField:
+    permissible_values: {text: {}, orig: {}, cell_text: {}, chart_title: {}, chart_cell_text: {}}
   PdfMembership:
     permissible_values:
       direct: {}
@@ -568,7 +570,7 @@ classes:
         minimum_value: 0
         slot_uri: pdf:PdfViewPiece_cell_index
       source_field:
-        range: PdfString
+        range: PdfProjectionSourceField
         required: false
         slot_uri: pdf:PdfViewPiece_source_field
   PdfViewProjection:

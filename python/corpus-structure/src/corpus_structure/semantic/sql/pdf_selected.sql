@@ -15,7 +15,7 @@ GRANT SELECT ON ops.pdf_selected_product TO corpus_sem_writer,corpus_sem_reader,
 CREATE OR REPLACE FUNCTION ops.integrated_source_context(p_task bigint,p_key text,p_digest text,p_pointers text[],p_section text,p_membership text) RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $context$
  WITH selected AS (
-  SELECT o.* FROM kb.pdf_occurrence o WHERE o.task_id=p_task AND o.product_key=p_key AND o.body->>'pointer'=ANY(p_pointers)
+  SELECT o.* FROM kb.pdf_occurrence o WHERE o.task_id=p_task AND o.product_key=p_key AND o.pointer=ANY(p_pointers)
  ), relation_ids AS (
   SELECT DISTINCT e.relation_id FROM kb.pdf_relation_endpoint e JOIN selected o ON o.occurrence_id=e.occurrence_id
   WHERE e.task_id=p_task AND e.product_key=p_key AND e.target_task_id=p_task AND e.target_product_key=p_key

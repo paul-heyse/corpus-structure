@@ -317,7 +317,7 @@ def read_pdf_product(
     if occurrence_id is not None:
         query = query.where(occurrences.c.occurrence_id == occurrence_id)
     if pointers is not None:
-        query = query.where(occurrences.c.body["pointer"].astext.in_(pointers))
+        query = query.where(occurrences.c.pointer.in_(pointers))
     occurrence_query = query.order_by(occurrences.c.occurrence_id)
     rows = bounded(occurrence_query)
     if occurrence_id is not None and not rows:
