@@ -152,3 +152,18 @@ These bound later remedies.
   undecided mathematical outcomes kept.
 - **Provider isolation for automated extraction.** Process group with kill on timeout, a stripped
   environment, strict MCP configuration and no tools.
+
+<a id="current-model"></a>
+
+## Current engagement model — 2026-11-01
+
+**Implemented, source-inspected at `1cb8e620`, with verification limits in the audit README.**
+The preceding diagram is the October 29 account. Current release opening uses archived products;
+execution binding is mandatory (`contracts.py:713`), result dimensions are validated
+(`operation_results.py:61`), and native task/run guards consume release-projected transitions
+(`semantic/sql/execution_guards.sql:1–96`). `analytics.py:498–507,637–700` derives Arrow fields
+from shared physical metadata; `pdf_payloads.py:45–90,230–347` preserves supplied fields and
+numeric variants in schema-derived IPC. `ontology.py:496–770` provides qualified graph closure
+and separate conformance execution. These mechanisms are preservation constraints for the review.
+CLI pack-query loading remains a live-file boundary (DA-028). This model update does not
+certify all native guards, deployments, providers or consumers.

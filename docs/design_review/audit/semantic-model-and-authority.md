@@ -18,49 +18,21 @@ database on 2026-10-29. Its output was not retained.
 
 <a id="da-001"></a>
 
-## DA-001 — Identity-bearing qualification is declared twice, with opposite defaults and different consumers
+## DA-001 — Fact identity and comparison grouping lack an explicit relationship
 
-**Principles:** DP-01 (G1), DP-04, FP-04. **Subject:** implemented.
+**Source-inspected 2026-11-01, `1cb8e620`; FP-04, DP-01/04/08; A2/G1 unresolved.**
+`semantic/domain_operations.py:2589–2603` excludes provenance by typed property role, then
+computes comparison identity from raw `cs:qualifiers` minus `cs:identity_qualifiers` metadata.
+`semantic/prepare.py:985–1006` archives that predicate metadata independently of the compiled
+qualification properties. Fact identity follows property roles. These can intentionally be
+different equivalence relations; the defect is the absence of a compiled contract naming the
+comparison projection and its relationship to fact identity, not proof that different keys
+must be equal. A new qualifier therefore requires knowledge of both interpretations.
 
-*Continues, narrowed.* The 2026-10-28 finding concerned claim identity split between code, pack
-data and prose, with qualifiers canonicalized by JSON shape. The pivot corrected that:
-- keys are declared per qualification attribute (`cs:key_role`) and validated
-  (`semantic/prepare.py:611-627`);
-- primitive forms follow the declared range;
-- fact identity refuses undeclared qualifiers (`semantic/types.py:269-293`).
-
-What remains is a second declaration of the same question.
-
-### Diagnosis
-
-Two declarations decide which qualifiers distinguish facts:
-- **The property declaration.** `cs:key_role` on a `Qualification` attribute governs fact identity
-  in Python (`semantic/types.py:283-293`) and natively (`data.value_meaning`, `rev/semantic_0008_*.sql:2-30`).
-  Evaluation follows it too (`evaluate/semantic_alignment.py:731-736`). The default is `meaning`, so
-  an attribute with no declaration is identity-bearing. `identity` behaves exactly like `meaning`.
-- **The predicate declaration.** `cs:qualifiers` and `cs:identity_qualifiers` govern only
-  disagreement and equivalence grouping. Grouping identity is the qualification minus
-  `cs:qualifiers − cs:identity_qualifiers` (`semantic/domain_operations.py:2640-2660`). Listing a
-  qualifier in `cs:qualifiers` makes it *non*-identifying for grouping, which is the opposite
-  default.
-
-Nothing relates the two. Preparation only allow-lists the predicate annotations
-(`semantic/prepare.py:93-94`) and stores them as raw JSON rows. It checks neither that the names
-exist on the qualification class nor that they agree with `key_role`. The legacy pack validator
-did both (`schema/pack.py:391-424`: "ci:key_role … contradicts … ci:identity_qualifiers"), and the
-go-forward compiler dropped the check. Statistics already shows the split: `transformation_of`
-lists `param_mapping` in `cs:qualifiers` but not in `cs:identity_qualifiers`, and `param_mapping`
-has no `key_role`, so it is in the fact id but not in the grouping key.
-
-### Consequence
-
-A pack author reading `cs:identity_qualifiers` will believe it governs fact identity. Adding a
-qualifier makes it identity-bearing for facts and either identity-bearing or not for grouping,
-depending on which list it appears in. The disagreement is silent (scenario SC1).
-
-**Uncertainty:** grouping coarser than fact identity may be intended, but nothing declares it.
-
-**Evidence:** diagnosed from source (two contributors, 2026-10-29).
+The current target inquiry should settle which comparison distinctions are deliberate, how
+references are validated, and how consumers obtain the projection without reconstructing it.
+No failing runtime case or current-data corruption was demonstrated. This narrows the earlier
+October 29 diagnosis; plan disposition is unchanged.
 
 <a id="da-002"></a>
 
@@ -492,221 +464,49 @@ blocks above persist after that commit.
 
 <a id="da-026"></a>
 
-## DA-026 — Release operation bindings have no declared product, so native and Python code bind platform roles by name
+## DA-026 — Earlier missing execution binding corrected for inspected paths
 
-**Principles:** core §1 MUST, FP-04, FP-02, A2, A3, DP-01 (G1), DP-02 (G2), DP-05, DP-06, DP-08,
-DP-24; §E change locality; plan SP-03's "release-aware" native predicates. **Subject:**
-implemented.
-
-### Diagnosis
-
-A release must decide which admitted class plays "source statement" for the agent operation, and
-which class qualifies agent claims. No release product owns that decision. It travels as follows:
-1. **Inferred from raw pack YAML before LinkML resolves it.** The scan matches
-   `is_a == "SourceStatement"` and `is_a == "Qualification"`, direct children only, and requires a
-   unique child per pack: a second direct subclass is refused, and subclasses through mixins or
-   deeper levels are not seen (`semantic/regeneration.py:64-73, 87-96, 164-183`).
-2. **Encoded by rewriting agent-boundary ranges.** The phantom attributes
-   `AgentStatementBinding.statement` and `AgentClaim.qualification` carry it
-   (`model/semantic/agent.yaml:25-28`; `semantic/proposals.py:51-72`).
-3. **Read back by class and property name.** A documented fallback to `"SourceStatement"` exists for
-   older archives; it cannot tell an old archive from a malformed one
-   (`semantic/statement_types.py:8-20`). Python consumers do use the binding
-   (`semantic/domain_operations.py:1345-1348, 1437-1440`; `semantic/consolidation.py:255-260`).
-4. **Not reachable by native guards.** The guards are frozen per revision and pinned by body hash,
-   and `NativeGuardBinding` passes a symbol and a static version `"1"`, with no class, vocabulary or
-   policy parameters (`semantic/contracts.py:289-306`). The release projection has no binding rows
-   (`semantic/releases.py:149-262`). So native code restates platform defaults by name:
-   - **Statement class — the observed defect.** The occurrence-context guard requires membership of
-     a class named exactly `SourceStatement` (`rev/semantic_0030_source_frames.sql:172-178`). Python
-     publishes membership only in the bound class. A valid `ToySourceStatement` is refused, and the
-     fresh MCP run 3 is stuck sealed and consolidating (STATUS, 2026-10-29).
-   - **Role vocabularies.** `vocabulary_id='StatementRole'` and `'EvidenceRole'`
-     (`rev/semantic_0030_source_frames.sql:163-171`), and the literal `'primary'`.
-   - **Payload formats.** The definitions `'AgentStoredBatch'` and `'SourceObservation'` are
-     repeated across the validators of several revisions, together with payload JSON paths
-     (`payload->'claims'`, `outcome='located'`, the item grammar `^claims/[0-9]+$`;
-     `rev/semantic_0030_source_frames.sql:184-262`; also `eval.*` functions).
-   - **The operation version.** `x.operation_version <> 'semantic-domain-2'`
-     (`rev/semantic_0027_exclusions.sql:66`) mirrors `semantic/domain_operations.py:47`. Bumping
-     the Python `VERSION` would make native code refuse every identity exclusion until a new
-     revision is written.
-   - **Inference eligibility.** `role='modality' … IN ('asserted','defined')`, polarity, no
-     `hedge`, `establishment='stated'` (`rev/semantic_0014_entity_input.sql:253-261`). The policy
-     itself is an accepted decision (ADR-0027). The defect is that it is expressed as literals
-     rather than as a declared subset: `conflict_bearing` governs nothing, and a pack modality
-     cannot opt in. The realization plan anticipated a declared subset
-     (`docs/plans/semantic-model-pivot/domain-model-realization.md:117`).
-5. **Restated as Python literals.** `semantic/source_projection.py:86`
-   (`prop.range != "SourceStatement"`).
-
-The native Qualification check accepts any descendant of a class named `Qualification`
-(`rev/semantic_0027_transport.sql:162`), not the bound range. That is consistent with what the
-producer writes, because entity-attribute and statement facts are always typed with base
-`Qualification` (`semantic/domain_operations.py:1585, 1612`). So the producer applies two class
-policies, and neither is declared ([DA-003](#da-003)).
-
-**Composition.** With `statistics + toy`, offline preparation bound `ToySourceStatement` for all
-sources, statistics included. The roles have no binding at all: statement and evidence roles are
-fixed hand copies in `agent.yaml` ([DA-002](#da-002)), so a pack role is refused at the agent
-schema and again natively.
-
-### Consequence
-
-- **Supported behaviour:** a pack specialization the platform explicitly provides for is refused,
-  and fresh frame runs cannot complete.
-- **Credible change:** each of these needs a new frozen revision, regenerated descriptor hashes, a
-  new Python constant and matching Python edits, owned by unrelated components (§E, A3):
-  - a new pack;
-  - a second qualification subclass;
-  - a pack modality;
-  - an operation-version bump;
-  - a pack-specific role.
-- **The pending correction is necessary, not sufficient.** Draft-0031 reads `property_applicability`
-  for the class *named* `AgentStatementBinding`. It fixes the symptom but keeps binding by naming
-  convention, and it leaves roles, eligibility, payload formats and the operation version as they
-  are.
-
-### Counterevidence
-
-- The name lookups read release rows scoped by `release_id`, and most native validation is
-  release-driven: applicability, identity slots, key roles and case policy.
-- Inference eligibility is an operator decision.
-
-**Evidence:** diagnosed from source (four contributors), offline preparation, and the operational
-refusal recorded in STATUS.
-
-**Lead:** the compiler emits typed binding rows (operation → role → class, vocabulary, subset or
-policy) once per release, consumed by Python resolution and by parameterized native guards.
+**Implemented, source-inspected 2026-11-01 at `1cb8e620`.** `semantic/composed.py:22–60`
+archives explicit execution inputs. `semantic/contracts.py:713–745` requires the exact archived
+execution product; `operation_results.py:61–99` consumes its result dimensions. Native
+`semantic/sql/execution_projection.sql:14–32` checks supported effects and transition refinements.
+The old missing-product manifestation is retired. Actual package qualification and remaining
+obligations remain with pivot §13–15, not this inspection.
 
 <a id="da-027"></a>
 
-## DA-027 — Model layers describe the knowledge and execution records without governing them
+## DA-027 — Invariant correspondence remains a bounded open question
 
-**Principles:** FP-04/A2 ("Does that model govern behavior, or merely describe outputs?"), DP-01,
-DP-02, DP-03, DP-16, DP-21, DP-24; G1, G2, G7; heuristic H27. **Subject:** implemented, judged
-against the accepted completeness target: "Logical relationships drive boundary references and
-relational descriptors".
-
-### Diagnosis
-
-Two model layers look authoritative and do not govern behaviour.
-
-**The trusted execution catalog.**
-- **Size and boilerplate.** `model/semantic/execution-model.yaml` has 8,366 lines: 116 concepts (101
-  described as "X in the transitioned semantic model", 96 with one boilerplate identity sentence),
-  57 relationships (43 with the same boilerplate cardinality scope) and 27 invariants, plus
-  lifecycles, operations and projections.
-- **What compilation checks** (`semantic/contracts.py:418-605`): internal cross-references,
-  approved Python symbols, the native guard table, and parity of outcome domains with code Literals.
-- **What runtime consumes:** coverage outcome translations (`semantic/outcomes.py:64-100`), a
-  projection's implementation and lifetime (`semantic/analytics.py:238-256`), and `model_id`
-  equality at activation. Concepts, relationships and invariants are never consumed, and nothing
-  reconciles them with `core.yaml` or `physical.yaml`.
-- **Where it contradicts the semantic model:**
-  - its `Qualification` requires `scope` and plural `conditions`
-    (`execution-model.yaml:1501-1515`), where core has an optional `scope`, a singular `condition`,
-    and `hedge`/`valid_time` (`core.yaml:128-145`);
-  - its `Entity` uses `identity_keys` and `display_label` (`:1038-1042`), where core uses `label`
-    and `aliases`;
-  - `Membership.establishment` is untyped;
-  - it has no `SourceStatement` concept, although native code enforces `SourceStatement`
-    membership.
-- **Codes and lowering:**
-  - invariant `failure_code`s (for example `identity.exclusion_conflict`) are never emitted;
-    native code raises 321 distinct prose messages ([DA-013](structure-and-invariants.md#da-013));
-  - lifecycles are lowered by hand into the frozen `ops.execution_edge` `VALUES`
-    (`rev/semantic_0023_execution.sql:3-44`). The revision header says "generated at development
-    time", but no generator is in the repository. There are 38 native edges against 40 catalog
-    transitions. The missing pair, `reference_pass_record` and `reference_grade_record` going from
-    private to recorded, is enforced by the reference routines instead. Parity rests on a test that
-    samples six task edges (`tests/semantic/test_execution_native.py:85-101`);
-  - guard versions stay `"1"` while their bodies change. `finish_evaluation` has six definitions,
-    and since the catalog was introduced at 0023 guard bodies changed in 0027 and 0029. Body
-    identity is attested by the descriptor's digests ([DA-032](native-integrity.md#da-032)), so the
-    version field is decorative rather than a gap in detection.
-- **Activation effect.** Any byte edit to `execution-model.yaml`, `contracts.yaml` or
-  `reference.yaml` changes `execution_model_id`. Once a descriptor carrying the new id is deployed,
-  writes and selection for every archived release refuse ([DA-049](#da-049)).
-
-**The core record classes.**
-- `AssertionOccurrence`, `SemanticFact`, `Derivation`, `ClassMembership`, `Evidence` and `Coverage`
-  (`core.yaml:157, 181, 502, 356, 368, 381`) are never referenced by name or used as a boundary.
-- The stored occurrence carries statement context, role, establishment and evidence roles that the
-  core class lacks (`semantic/publication.py:94-170`).
-- Selection, Assessment, Support, AlternativeGroup, the entity and fact inputs, and
-  IdentityExclusion have no class in the release. They exist only as boilerplate catalog concepts,
-  physical tables, string-typed transport dataclasses and native guards.
-
-So the knowledge, decision and lineage records are governed by `physical.yaml` plus native SQL.
-Two other layers describe them and disagree with each other.
-
-### Consequence
-
-- A reader or agent consulting the catalog or the core classes gets meanings that differ from what
-  governs.
-- The target's physical projection mapping (concept to table) is absent.
-- The catalog is large maintained machinery with no distinct protection, and editing its text
-  invalidates every archive.
-- No model owns occurrence or decision semantics.
-
-### Counterevidence
-
-Implementation-binding approval is real governance: catalog data cannot name imports. Outcome
-parity is checked. The lifecycle catalog was plausibly the authoring source for the native
-lowering. `physical.yaml` is a single derivation source for the MetaData.
-
-**Evidence:** diagnosed from source; edge counts from a contributor's comparison script
-(2026-10-29).
+**Source-inspected 2026-11-01 at `1cb8e620`; FP-04/05, DP-03/08; unresolved.**
+The old claim that execution declarations are decorative no longer describes operations,
+transitions or effects: `contracts.py:713–745` and
+`semantic/sql/execution_projection_check.sql:11–40` bind and reconstruct those products.
+`contracts.py:1078–1090` resolves invariant/guard references; native guard bodies implement
+actual checks. The native projection comparison does not similarly reconstruct invariant rows.
+Whether the invariant's declared failure code and coverage are intended as enforced contract
+or descriptive metadata needs an explicit boundary assessment. Handwritten SQL is a valid
+realization; its existence alone establishes no violation. Do not carry the old broad diagnosis
+into the new review.
 
 <a id="da-028"></a>
 
-## DA-028 — Runs and served queries execute the live pack files that the bound release archives
+## DA-028 — Named-query serving still loads current pack code for archived runs
 
-**Principles:** DP-01, DP-05, DP-09, FP-04; CI-10, CI-13; ADR-0024 ("releases own … executable
-scope"; "future releases still cannot silently change the meaning of bound operations"); ADR-0030
-("queries … bind the selected result's archived release"). **Subject:** implemented, judged against
-accepted decisions.
+**Implemented defect, source-inspected 2026-11-01 at `1cb8e620`; FP-02/04/06,
+DP-01/08/09/24, CI-10/13; A2, G1/G6 affected.**
+`semantic/regeneration.py:109–125` archives `operation/queries.py`, but
+`cli/query.py:25–46` obtains a completed run's domain and calls
+`build_registry(GENERIC, DOMAINS / domain)`. `serve/registry.py:51–76` imports that live file;
+its module key hashes path plus current bytes, without checking the producing release.
+Editing the plugin after completing a run can therefore change the named query implementation
+used for that run. This is a concrete surviving consumer of the earlier DA-028 cause, not a
+claim that every archived operation uses live files. Scope/parameter/result protocol checking
+and pinned data snapshots are useful contrary evidence but do not pin query code.
 
-### Diagnosis
-
-`prepare_pack` archives the pack's operation inputs into the release:
-`operation/{methods.yaml, guideline.md, queries.py, policies.yaml, slices.yaml}` and
-`source-profile/*.yaml`. Their digests determine the release id (`semantic/regeneration.py:133-160`).
-
-Execution and serving read the working-tree copies instead:
-- `start_bound_run` loads the release, but reads slices, policies, guideline and the method registry
-  from the live `DOMAINS/<domain>` (`orchestrate/commands.py:92-161`);
-- the registry reads the live `methods.yaml` and `SOURCES_DIR` (`orchestrate/registry.py:235-245`),
-  and profiles are read from `SOURCES_DIR` even when the prepared release is supplied
-  (`orchestrate/project.py:121`; `ingest/profile.py:138-149`);
-- the run's dependency manifest records those live inputs (`orchestrate/semantic.py:141-177`);
-- the pack is a CLI option defaulting to `statistics`, independent of the project's active release
-  (`cli/orchestrate.py:148-150`). Nothing checks that the pack matches the release;
-- `ci query` imports the live `domains/<run domain>/queries.py` (`cli/query.py:42-57`;
-  `serve/registry.py:24, 52-79`). Continuation tokens bind release, realization, revision and
-  projection (`serve/journey.py:119-130`). The plug-in *code* is identified only by one shared
-  literal version string, `"semantic-1"`, inherited by every generic and pack query
-  (`serve/queries.py:56`). Plug-in edits cannot be detected.
-
-Evaluation does read the archived inputs (`evaluate/semantic.py:171, 194`), so slice definitions
-have two authorities.
-
-### Consequence
-
-- A run can bind release R, whose archived inputs are X, while executing pack inputs Y.
-- Editing `guideline.md` changes the release id, but runs never consume the archived guideline.
-- Editing a plug-in changes the answers for an archived result without changing the release, the
-  token or the result binding. Continuations resume under different code.
-- *Suspected:* `ci run --project <toy project>` without `--domain` would run the statistics methods,
-  policies and guideline against the toy release (not executed).
-
-### Counterevidence
-
-The run manifest records exactly what was used, so lineage exists, and regeneration prepares and
-runs from the same bytes at the same moment.
-
-**Evidence:** diagnosed from source (three contributors independently).
+Closure requires an explicit supported implementation binding for old-run queries, with a
+post-release plugin-edit scenario covering actual CLI/serving and continuation behavior.
+The scenario was reasoned from source, not executed. Scheduling remains with an accepted plan;
+the new target review may recommend a remedy but does not authorize it.
 
 <a id="da-034"></a>
 

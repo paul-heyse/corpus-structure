@@ -6,6 +6,37 @@ This is the living diagnostic account of design principle misalignment, maintain
 owns its place before a design-review engagement. Ordinary implementation reads its plan and
 architectural owners; this collection is not default production-editing context.
 
+## Current engagement refresh — unified domain model, 2026-11-01
+
+**Source-inspected; revision UM-20261101-r2.** Source `1cb8e620`, core 3.3 with
+heuristics 1.0 and code-intelligence 1.4. Production source was clean during inspection;
+concurrent changes to STATUS, PDF plans/evidence and the Arrow/DuckDB capability guides were
+included as context, not fresh product qualification. The October 29 baseline and findings
+below retain their original dates except for the specifically refreshed subjects here.
+
+This refresh covers release preparation/boundaries, execution contracts and guards, lifecycle,
+CLI/MCP serving, graph/vocabulary and typed analytical integrations. Source inspection establishes
+implementation, not native deployment or tested behavior. Tests, provider journeys and probes
+were not run for this refresh. Test architecture and uncited native guard bodies remain outside
+this inspection; existing test-audit conclusions are not refreshed.
+
+| Subject | Current diagnostic account |
+|---|---|
+| DA-020 | [Current narrowed diagnosis](boundaries-and-composition.md#da-020): resource settings do not reach consolidation scope construction. |
+| DA-001 | [Narrowed current diagnosis](semantic-model-and-authority.md#da-001): fact identity and comparison grouping have separately consumed qualifier policies; their distinction/relationship is not a typed compiled contract. Coarser grouping can be legitimate. |
+| DA-026 | Exact archived execution binding and result/effect consumers now exist; earlier missing-product diagnosis retired for that subject. |
+| DA-027 | Operations/transitions/effects are consumed. Invariant-to-guard correspondence remains an unresolved scoped question, not proof that the catalog is decorative. |
+| DA-028 | [Current concrete continuation](semantic-model-and-authority.md#da-028): CLI named queries import live pack code despite archiving it with the release. |
+| DA-029/030 | Protected archive/activation and caller fences materially correct the earlier lifecycle diagnosis; this inspection does not requalify every admitted row or deployed ACL. |
+| DA-041 | Release-projected task/run edges, terminal receipts and failure diagnostics correct the earlier missing-lifecycle diagnosis. |
+| Typed/graph foundations | Effective field adapters, finite-float construction, metadata-derived Arrow fields, qualified graph closure and model-bound graph validation are implemented strengths. Earlier broad absence claims cannot be carried forward for these paths. |
+
+Decisive sources are cited in the refreshed finding bodies and the
+[engagement model map](domain-model-map.md#current-model). All other DA observations below are
+**inherited at their stated October 29/28 scope**, not newly verified open defects. The review
+must inspect a decisive current manifestation before relying on any inherited diagnosis.
+Plans retain scheduled disposition; this refresh does not close plan obligations.
+
 <a id="baseline"></a>
 
 ## Baseline

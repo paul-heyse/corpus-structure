@@ -39,50 +39,21 @@ earlier text is in Git.
 
 <a id="da-020"></a>
 
-## DA-020 — Cluster coordinates, principal names and resource settings are repeated or unconsumed
+## DA-020 — Analytical resource selection is not propagated to consolidation
 
-**Principles:** DP-01, DP-20, DP-24, FP-02. **Subject:** implemented, and design text.
+**Source-inspected 2026-11-01 at `1cb8e620`; FP-01/05/07, DP-18/20; A4.**
+This narrows the inherited broader configuration diagnosis. `settings.py:98–108` declares
+analytical threads, memory and scratch selection. `semantic/domain_operations.py:2050–2075`
+constructs `AnalysisScope(packet)` without those inputs; `analytics.py:1018–1025` separately
+supplies defaults of four threads, 2GB and no chosen scratch path. An operator choosing a lower
+resource envelope does not thereby select that envelope for this consolidation path. Export
+consumes capture settings; do not describe every analytical setting as unused. The correction
+belongs at runtime acquisition/operation composition, keeping resource selection separate from
+release-owned arithmetic policy. No performance or failure measurement was run.
 
-*Continues the 2026-10-28 finding. The repetition has moved into the semantic additions.*
-
-### Diagnosis
-
-**Coordinates and names.**
-- Port 5434 is read from `ops/postgresql/corpus.conf:5` by `scripts/pg_provision.sh:21`, and
-  hard-coded again in `scripts/pg_semantic_roles.sh:5,9,60` and `settings.py:35-36`.
-- The template name appears in `pg_provision.sh:24`, `settings.py:38` and
-  `core/db/extensions.py:17`.
-- The database name `corpus_semantic` exists only in `settings.py`; provisioning creates `corpus`
-  (`pg_provision.sh:104-109`).
-- The four restricted role names are literals in six Python modules and the shell script.
-
-**Resource settings no longer match their consumers.**
-- `AnalyticsSettings.threads`, `memory_limit` and `scratch_path` (`settings.py:69-75`) are never
-  consumed. The only go-forward `AnalysisScope` uses duplicated constructor defaults
-  (`semantic/domain_operations.py:2044`; `semantic/analytics.py:490-506`), with scratch space outside
-  the configured path.
-- `LlmSettings` and `GpuSettings` have no go-forward consumer, and `--gpu-mode` is refused.
-- Execution resources are hard-coded instead:
-  - the lease is 5 minutes in both Python and SQL (`semantic/operations.py:314`;
-    `rev/semantic_0023_execution.sql:353`);
-  - the provider timeout is 1800 s with 120 turns (`intervene/automated.py:35`, `:144-145`);
-  - the pool size is 4 (`semantic/runtime.py:67`).
-- The generic `ci regenerate` defaults to `slice="trace"`, which only the statistics pack defines
-  (`cli/regenerate.py:104`).
-
-**Stale design text.** D3 §13 still describes the `corpus` database and read-only sessions through
-`corpus_ro` (D3:1592, D3:1616). That role holds `pg_read_all_data` and is granted to the owner
-(`pg_provision.sh:97-102`), which makes it a read path outside the semantic principal model
-([DA-030](native-integrity.md#da-030)).
-
-### Consequence
-
-Low for coordinates, because mismatches fail loudly. Moderate for settings:
-- `CORPUS_ANALYTICS__MEMORY_LIMIT` has no effect, yet `settings_report` shows it as resolved;
-- the consolidation memory budget cannot be adjusted;
-- the prose misdirects an operator.
-
-**Evidence:** diagnosed from source.
+Closure: show a non-default resource selection reaching actual consolidation scope creation,
+with immutable semantic policy unaffected. Other former coordinate/principal observations are
+inherited at October 29 scope and require reinspection before reuse.
 
 <a id="da-045"></a>
 
