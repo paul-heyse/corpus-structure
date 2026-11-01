@@ -2,11 +2,10 @@
 
 import json
 import logging
-from typing import Any
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
-from corpus_structure.semantic.product_reference import ProductReference
 from docling_core.types.doc import (
     BoundingBox,
     DocItemLabel,
@@ -22,6 +21,7 @@ from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.ingest import pdf_recognition_methods as methods
 from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_hierarchy import snapshot
+from corpus_structure.semantic.product_reference import ProductReference
 
 
 def test_retained_integrated_projection_keeps_pin_without_inference_or_reconciliation(monkeypatch):

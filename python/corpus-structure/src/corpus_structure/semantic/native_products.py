@@ -184,9 +184,25 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
             "scientific_decision_rule",
         )
     }
-    RELATIONS = {name: "kb.parsing_"+name for name in ("representation", "component", "node", "relationship", "endpoint", "mapping", "mapping_endpoint", "dependency")}
-    LAYER_RELATIONS = {name: value.replace("parsing_", "parsing_layer_") for name,value in RELATIONS.items()}
-    LAYER_RELATIONS.update(interpretations="kb.parsing_layer_interpretation", assessments="kb.parsing_layer_assessment")
+    RELATIONS = {
+        name: "kb.parsing_" + name
+        for name in (
+            "representation",
+            "component",
+            "node",
+            "relationship",
+            "endpoint",
+            "mapping",
+            "mapping_endpoint",
+            "dependency",
+        )
+    }
+    LAYER_RELATIONS = {
+        name: value.replace("parsing_", "parsing_layer_") for name, value in RELATIONS.items()
+    }
+    LAYER_RELATIONS.update(
+        interpretations="kb.parsing_layer_interpretation", assessments="kb.parsing_layer_assessment"
+    )
 
     new_tables.update(
         {

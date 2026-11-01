@@ -588,8 +588,6 @@ def test_recognizer_terminal_source_boundary_and_coverage(
                 )
 
 
-
-
 def test_reuse_requires_complete_bound_meaning(semantic_db_engine, semantic_writer_engine):
     p = setup(semantic_db_engine)
     e = semantic_writer_engine

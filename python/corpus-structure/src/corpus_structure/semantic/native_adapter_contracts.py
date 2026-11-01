@@ -1,8 +1,12 @@
 """Finite supported native PDF, text and mathematical adapter bindings."""
+
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .contracts import ExecutionModelProducts
+
 
 def validate_native_adapters(model: ExecutionModelProducts) -> None:
     """Refuse a declaration outside the actual bounded endpoint implementation."""
@@ -11,7 +15,13 @@ def validate_native_adapters(model: ExecutionModelProducts) -> None:
     # Future declarations express required distinctions without advertising a producer.
     for name in ("prepare_parsing_text", "interpret_parsing_math", "assess_parsing_math"):
         model.operation(name)
-    for name in ("convert_pdf", "organize_pdf", "project_pdf_source", "publish_source_view", "read_source_view"):
+    for name in (
+        "convert_pdf",
+        "organize_pdf",
+        "project_pdf_source",
+        "publish_source_view",
+        "read_source_view",
+    ):
         model.require_operation(name)
     supported_ids = {
         "docling-pdf-source-1",

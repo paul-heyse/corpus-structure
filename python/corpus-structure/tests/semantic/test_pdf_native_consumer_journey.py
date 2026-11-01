@@ -45,12 +45,12 @@ from corpus_structure.semantic.operations import (
     record_method,
     register_document,
 )
-from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.pdf_contracts import (
     prepare_pdf_product,
     store_pdf_original,
     store_pdf_product,
 )
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.proposals import native_source_frame, proposal_inputs
 from corpus_structure.semantic.releases import activate_release, persist_release
 from corpus_structure.semantic.source_views import load_source_view, store_source_view

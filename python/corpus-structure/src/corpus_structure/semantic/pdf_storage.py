@@ -6,11 +6,11 @@ never initialize a converter or hydrate the native whole-document payload.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
 from typing import Any
-from collections.abc import Sequence
 
 from sqlalchemy import Connection, select
 
@@ -58,9 +58,7 @@ def read_native_items(
         )
     ).one_or_none()
     if actual is None:
-        raise NativeDocumentUnavailable(
-            "selected native content is unavailable"
-        )
+        raise NativeDocumentUnavailable("selected native content is unavailable")
     if actual.content_digest != content_digest:
         raise ValueError("native product digest differs from selected pin")
     from .pdf_contracts import pdf_context_for_task
@@ -199,36 +197,65 @@ def _pdf_product_identity(conn: Connection, task_id: int, product_key: str, cont
         raise NativeDocumentUnavailable("PDF product differs from its archived contract")
     if identity["kind"] == "native":
         native = table("ops.native_document_product")
-        schema_digest = conn.execute(select(native.c.schema_digest).where(
-            native.c.task_id == task_id, native.c.product_key == product_key,
-        )).scalar_one_or_none()
-        if schema_digest != context.native_schema_digest or schema_digest != _reader_schema_digest():
-            raise NativeDocumentUnavailable("native PDF schema requires a qualified archived reader")
+        schema_digest = conn.execute(
+            select(native.c.schema_digest).where(
+                native.c.task_id == task_id,
+                native.c.product_key == product_key,
+            )
+        ).scalar_one_or_none()
+        if (
+            schema_digest != context.native_schema_digest
+            or schema_digest != _reader_schema_digest()
+        ):
+            raise NativeDocumentUnavailable(
+                "native PDF schema requires a qualified archived reader"
+            )
     else:
         from .contracts import approved_implementations
         from .types import PreparationError
+
         try:
             operation = context.execution.require_operation("read_pdf_product")
         except (PreparationError, StopIteration) as error:
-            raise NativeDocumentUnavailable("PDF read ABI is unsupported; qualify an archived reader") from error
-        binding = next(b for b in context.execution.implementations if b.id == operation.implementation)
+            raise NativeDocumentUnavailable(
+                "PDF read ABI is unsupported; qualify an archived reader"
+            ) from error
+        binding = next(
+            b for b in context.execution.implementations if b.id == operation.implementation
+        )
         implementation = approved_implementations()["read_pdf_product"]
         if (binding.owner, binding.symbol) != (
-            implementation.__module__.removeprefix("corpus_structure."), implementation.__qualname__,
+            implementation.__module__.removeprefix("corpus_structure."),
+            implementation.__qualname__,
         ):
             raise NativeDocumentUnavailable("PDF read ABI owner differs from the qualified reader")
         if "PdfIntegratedProduct" not in {d.name for d in context.boundary.definitions}:
-            raise NativeDocumentUnavailable("companion contract requires a qualified archived reader")
-        descriptor = _pdf_descriptors(conn, [(task_id, product_key, content_digest)])[0]["descriptor"]
+            raise NativeDocumentUnavailable(
+                "companion contract requires a qualified archived reader"
+            )
+        descriptor = _pdf_descriptors(conn, [(task_id, product_key, content_digest)])[0][
+            "descriptor"
+        ]
         # Version 1 is the qualified immutable body/relational read ABI. Changes to helper
         # implementation bytes do not change stored meaning; a new body ABI requires a
         # new declared binding and an explicitly qualified reader.
-        if type(descriptor.get("version")) is not int or descriptor["version"] != 1 or descriptor.get("kind") != identity["kind"]:
-            raise NativeDocumentUnavailable("PDF body version/kind requires a qualified archived reader")
+        if (
+            type(descriptor.get("version")) is not int
+            or descriptor["version"] != 1
+            or descriptor.get("kind") != identity["kind"]
+        ):
+            raise NativeDocumentUnavailable(
+                "PDF body version/kind requires a qualified archived reader"
+            )
         if identity["kind"] == "integrated":
             schema_digest = descriptor.get("content_metadata", {}).get("schema_digest")
-            if schema_digest != context.native_schema_digest or schema_digest != _reader_schema_digest():
-                raise NativeDocumentUnavailable("selected Docling schema requires a qualified archived reader")
+            if (
+                schema_digest != context.native_schema_digest
+                or schema_digest != _reader_schema_digest()
+            ):
+                raise NativeDocumentUnavailable(
+                    "selected Docling schema requires a qualified archived reader"
+                )
     return dict(identity)
 
 
@@ -377,38 +404,56 @@ def read_pdf_product(
     pages = {r["body"].get("page_no") for r in rows if r["body"].get("page_no") is not None}
     if identity["kind"] == "recognition_observation":
         page = descriptor.get("observation", {}).get("image", {}).get("page_no")
-        if page is not None: pages.add(page)
+        if page is not None:
+            pages.add(page)
     scopes = {"whole_document"}
     scopes.update(f"page:{p}" for p in pages)
     scopes.update(f"pages:{p}-{p}" for p in pages)
     if section_pointer is not None:
         scopes.update(section_pointer + ":" + m for m in ("direct", "descendants"))
-    coverage_rows = bounded(
-        select(coverage).where(
-            coverage.c.task_id == task_id,
-            coverage.c.product_key == product_key,
-            coverage.c.body["scope"].astext.in_(scopes),
-        ).order_by(coverage.c.coverage_id)
-    ) if rows or identity["kind"] == "recognition_observation" else []
+    coverage_rows = (
+        bounded(
+            select(coverage)
+            .where(
+                coverage.c.task_id == task_id,
+                coverage.c.product_key == product_key,
+                coverage.c.body["scope"].astext.in_(scopes),
+            )
+            .order_by(coverage.c.coverage_id)
+        )
+        if rows or identity["kind"] == "recognition_observation"
+        else []
+    )
     relevant_pins = {
         (e["target_task_id"], e["target_product_key"], e["target_content_digest"])
-        for e in endpoint_rows if e["role"] != "output"
+        for e in endpoint_rows
+        if e["role"] != "output"
     }
     supporting_indices = {
-        support["input_index"]
-        for c in coverage_rows for support in c["body"].get("supports", ())
+        support["input_index"] for c in coverage_rows for support in c["body"].get("supports", ())
     }
     from sqlalchemy import or_, tuple_
-    input_rows = bounded(
-        select(inputs).where(
-            inputs.c.task_id == task_id,
-            inputs.c.product_key == product_key,
-            or_(
-                tuple_(inputs.c.input_task_id, inputs.c.input_product_key, inputs.c.input_content_digest).in_(sorted(relevant_pins)),
-                inputs.c.input_index.in_(sorted(supporting_indices)),
-            ),
-        ).order_by(inputs.c.input_index)
-    ) if relevant_pins or supporting_indices else []
+
+    input_rows = (
+        bounded(
+            select(inputs)
+            .where(
+                inputs.c.task_id == task_id,
+                inputs.c.product_key == product_key,
+                or_(
+                    tuple_(
+                        inputs.c.input_task_id,
+                        inputs.c.input_product_key,
+                        inputs.c.input_content_digest,
+                    ).in_(sorted(relevant_pins)),
+                    inputs.c.input_index.in_(sorted(supporting_indices)),
+                ),
+            )
+            .order_by(inputs.c.input_index)
+        )
+        if relevant_pins or supporting_indices
+        else []
+    )
     result = {
         "identity": identity,
         "descriptor": descriptor,
@@ -416,13 +461,24 @@ def read_pdf_product(
         "relations": relation_rows,
         "inputs": input_rows,
         "coverage": coverage_rows,
-        "mapping_reports": bounded(select(table("kb.pdf_mapping_report")).where(
-            table("kb.pdf_mapping_report").c.task_id == task_id,
-            table("kb.pdf_mapping_report").c.product_key == product_key,
-            table("kb.pdf_mapping_report").c.input_index.in_([i["input_index"] for i in input_rows]),
-        ).order_by(table("kb.pdf_mapping_report").c.report_index)) if input_rows else [],
+        "mapping_reports": bounded(
+            select(table("kb.pdf_mapping_report"))
+            .where(
+                table("kb.pdf_mapping_report").c.task_id == task_id,
+                table("kb.pdf_mapping_report").c.product_key == product_key,
+                table("kb.pdf_mapping_report").c.input_index.in_(
+                    [i["input_index"] for i in input_rows]
+                ),
+            )
+            .order_by(table("kb.pdf_mapping_report").c.report_index)
+        )
+        if input_rows
+        else [],
         "cursor": rows[-1]["occurrence_id"] if len(rows) == limit else None,
-        "manifest": {"collections": ["inputs", "coverage", "relations", "mapping_reports"], "paged": True},
+        "manifest": {
+            "collections": ["inputs", "coverage", "relations", "mapping_reports"],
+            "paged": True,
+        },
     }
     if include_body:
         import json
@@ -529,9 +585,16 @@ def trace_pdf_occurrence(
     return {"nodes": nodes, "products": _pdf_descriptors(conn, pins), "complete": True}
 
 
-def read_pdf_manifest(conn: Connection, *, task_id: int, product_key: str,
-                      content_digest: str, collection: str = "inputs", after: str = "",
-                      limit: int = 100) -> dict[str, Any]:
+def read_pdf_manifest(
+    conn: Connection,
+    *,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    collection: str = "inputs",
+    after: str = "",
+    limit: int = 100,
+) -> dict[str, Any]:
     """Page the global companion without raising budgets or loading the content body."""
     if not 1 <= limit <= 1000:
         raise ValueError("PDF manifest limit must be 1..1000")
@@ -546,20 +609,36 @@ def read_pdf_manifest(conn: Connection, *, task_id: int, product_key: str,
         raise ValueError("unknown PDF manifest collection")
     name, key = choices[collection]
     relation = table(name)
-    query = select(relation).where(relation.c.task_id == task_id, relation.c.product_key == product_key)
+    query = select(relation).where(
+        relation.c.task_id == task_id, relation.c.product_key == product_key
+    )
     if after:
         cursor = int(after) if collection in {"inputs", "mapping_reports"} else after
         query = query.where(relation.c[key] > cursor)
-    rows = [dict(row) for row in conn.execute(query.order_by(relation.c[key]).limit(limit + 1)).mappings()]
+    rows = [
+        dict(row)
+        for row in conn.execute(query.order_by(relation.c[key]).limit(limit + 1)).mappings()
+    ]
     more = len(rows) > limit
     rows = rows[:limit]
-    return {"identity": identity, "collection": collection, "rows": rows,
-            "cursor": str(rows[-1][key]) if more else None}
+    return {
+        "identity": identity,
+        "collection": collection,
+        "rows": rows,
+        "cursor": str(rows[-1][key]) if more else None,
+    }
 
 
-def integrated_source_context(conn: Connection, *, task_id: int, product_key: str,
-                              content_digest: str, pointers: Sequence[str],
-                              section_pointer: str, membership: str) -> dict[str, Any] | None:
+def integrated_source_context(
+    conn: Connection,
+    *,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    pointers: Sequence[str],
+    section_pointer: str,
+    membership: str,
+) -> dict[str, Any] | None:
     """Selected source's mandatory companion, assembled from bounded occurrence pages."""
     identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
     if identity["kind"] == "native":
@@ -569,50 +648,96 @@ def integrated_source_context(conn: Connection, *, task_id: int, product_key: st
     if membership not in {"direct", "descendants"}:
         raise ValueError("source membership is not qualified")
     from sqlalchemy import text
-    result = conn.execute(text(
-        "SELECT ops.integrated_source_context(:task,:key,:digest,CAST(:pointers AS text[]),:section,:membership)"
-    ), dict(task=task_id, key=product_key, digest=content_digest, pointers=list(pointers),
-            section=section_pointer, membership=membership)).scalar_one()
+
+    result = conn.execute(
+        text(
+            (
+                'SELECT ops.integrated_source_context(:task,:key,:d'
+                'igest,CAST(:pointers AS text[]),:section,:membersh'
+                'ip)'
+            )
+        ),
+        dict(
+            task=task_id,
+            key=product_key,
+            digest=content_digest,
+            pointers=list(pointers),
+            section=section_pointer,
+            membership=membership,
+        ),
+    ).scalar_one()
     if result is None:
         raise NativeDocumentUnavailable("integrated source companion is unavailable")
     return result
 
 
-def read_pdf_artifact(conn: Connection, *, task_id: int, product_key: str,
-                      content_digest: str, artifact_digest: str,
-                      offset: int = 0) -> dict[str, Any]:
+def read_pdf_artifact(
+    conn: Connection,
+    *,
+    task_id: int,
+    product_key: str,
+    content_digest: str,
+    artifact_digest: str,
+    offset: int = 0,
+) -> dict[str, Any]:
     """Read a fixed byte page from the exact product's retained input custody."""
     if type(offset) is not int or offset < 0:
         raise ValueError("PDF artifact offset must be a nonnegative byte offset")
-    if len(artifact_digest) != 64 or any(c not in '0123456789abcdef' for c in artifact_digest):
+    if len(artifact_digest) != 64 or any(c not in "0123456789abcdef" for c in artifact_digest):
         raise ValueError("PDF artifact requires its SHA-256 digest")
     _pdf_product_identity(conn, task_id, product_key, content_digest)
     from sqlalchemy import func, tuple_
-    inputs, custody, artifacts = map(table, (
-        'ops.pdf_product_input', 'ops.pdf_product_artifact', 'kb.source_artifact'))
-    products = table('ops.pdf_product')
-    pins = select(products.c.task_id, products.c.product_key, products.c.content_digest).where(
-        products.c.task_id == task_id, products.c.product_key == product_key,
-        products.c.content_digest == content_digest,
-    ).cte('artifact_input_custody', recursive=True)
-    pins = pins.union(select(inputs.c.input_task_id, inputs.c.input_product_key,
-                             inputs.c.input_content_digest).join(pins,
-        (inputs.c.task_id == pins.c.task_id) & (inputs.c.product_key == pins.c.product_key)))
+
+    inputs, custody, artifacts = map(
+        table, ("ops.pdf_product_input", "ops.pdf_product_artifact", "kb.source_artifact")
+    )
+    products = table("ops.pdf_product")
+    pins = (
+        select(products.c.task_id, products.c.product_key, products.c.content_digest)
+        .where(
+            products.c.task_id == task_id,
+            products.c.product_key == product_key,
+            products.c.content_digest == content_digest,
+        )
+        .cte("artifact_input_custody", recursive=True)
+    )
+    pins = pins.union(
+        select(
+            inputs.c.input_task_id, inputs.c.input_product_key, inputs.c.input_content_digest
+        ).join(
+            pins,
+            (inputs.c.task_id == pins.c.task_id) & (inputs.c.product_key == pins.c.product_key),
+        )
+    )
     member = select(custody.c.artifact_digest).where(
-        tuple_(custody.c.task_id, custody.c.product_key).in_(select(pins.c.task_id, pins.c.product_key)),
+        tuple_(custody.c.task_id, custody.c.product_key).in_(
+            select(pins.c.task_id, pins.c.product_key)
+        ),
         custody.c.artifact_digest == artifact_digest,
     )
-    row = conn.execute(select(
-        func.octet_length(artifacts.c.content).label('total_bytes'),
-        func.substring(artifacts.c.content, offset + 1, 65536).label('content'),
-    ).where(artifacts.c.artifact_digest == artifact_digest,
-            artifacts.c.artifact_digest.in_(member))).mappings().one_or_none()
+    row = (
+        conn.execute(
+            select(
+                func.octet_length(artifacts.c.content).label("total_bytes"),
+                func.substring(artifacts.c.content, offset + 1, 65536).label("content"),
+            ).where(
+                artifacts.c.artifact_digest == artifact_digest,
+                artifacts.c.artifact_digest.in_(member),
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
     if row is None:
         raise NativeDocumentUnavailable("artifact is outside the exact PDF input custody")
-    if offset > row['total_bytes']:
+    if offset > row["total_bytes"]:
         raise ValueError("PDF artifact offset exceeds retained byte length")
-    content = bytes(row['content'])
+    content = bytes(row["content"])
     next_offset = offset + len(content)
-    return {'artifact_digest': artifact_digest, 'total_bytes': row['total_bytes'],
-            'offset': offset, 'content': content,
-            'next_offset': next_offset if next_offset < row['total_bytes'] else None}
+    return {
+        "artifact_digest": artifact_digest,
+        "total_bytes": row["total_bytes"],
+        "offset": offset,
+        "content": content,
+        "next_offset": next_offset if next_offset < row["total_bytes"] else None,
+    }

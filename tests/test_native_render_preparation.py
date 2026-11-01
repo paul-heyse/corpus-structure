@@ -15,8 +15,8 @@ from corpus_structure.semantic import analysis_contracts, native_requests, pdf_c
 from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.operations import BoundReader, OperationBinding
-from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.types import PreparationError, RegistryRow
 
 

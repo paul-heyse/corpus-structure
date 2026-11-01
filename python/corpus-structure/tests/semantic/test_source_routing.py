@@ -2,14 +2,8 @@
 
 import json
 from contextlib import contextmanager
-from pathlib import Path
 
-from sqlalchemy import select
 from typer.testing import CliRunner
-
-from corpus_structure.semantic.metadata import table
-
-
 
 
 def test_cli_finalization_returns_real_receipt_and_exact_replay(

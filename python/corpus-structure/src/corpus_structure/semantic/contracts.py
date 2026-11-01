@@ -35,15 +35,14 @@ def approved_implementations() -> Mapping[str, Any]:
 
     from corpus_structure.core.text_structure import capture_text
     from corpus_structure.evaluate import semantic as references
+    from corpus_structure.ingest import pdf_reconciliation
     from corpus_structure.ingest.pdf import PdfConverter
     from corpus_structure.ingest.pdf_hierarchy import organize, project_section
     from corpus_structure.ingest.pdf_methods import EnrichPdfMath
+    from corpus_structure.ingest.pdf_recognition import RecognitionWorker
     from corpus_structure.intervene.semantic import ProposalSession
     from corpus_structure.methods.math.prepared import assess_parsing_math, interpret_parsing_math
     from corpus_structure.orchestrate import project, semantic
-
-    from corpus_structure.ingest import pdf_reconciliation
-    from corpus_structure.ingest.pdf_recognition import RecognitionWorker
 
     from . import (
         analytics,
@@ -760,7 +759,14 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
     from .effect_support import SUPPORTED_EFFECT_VERSIONS
 
     effect_versions = dict(SUPPORTED_EFFECT_VERSIONS)
-    if data["inputs"]["compiler_version"] not in {"9", "10", "11", "12", "13", EXECUTION_COMPILER_VERSION}:
+    if data["inputs"]["compiler_version"] not in {
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        EXECUTION_COMPILER_VERSION,
+    }:
         effect_versions["schedule_pending_or_reused_or_skipped"] = "1"
     return _normalize(
         {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}},
@@ -862,9 +868,16 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact(
             "pdf/integrated.py", root.joinpath("semantic", "pdf_integrated.py").read_bytes()
         ),
-        SourceArtifact("pdf/recognition.py", root.joinpath("ingest", "pdf_recognition.py").read_bytes()),
-        SourceArtifact("pdf/recognition_methods.py", root.joinpath("ingest", "pdf_recognition_methods.py").read_bytes()),
-        SourceArtifact("pdf/reconciliation.py", root.joinpath("ingest", "pdf_reconciliation.py").read_bytes()),
+        SourceArtifact(
+            "pdf/recognition.py", root.joinpath("ingest", "pdf_recognition.py").read_bytes()
+        ),
+        SourceArtifact(
+            "pdf/recognition_methods.py",
+            root.joinpath("ingest", "pdf_recognition_methods.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "pdf/reconciliation.py", root.joinpath("ingest", "pdf_reconciliation.py").read_bytes()
+        ),
         SourceArtifact("pdf/storage.py", root.joinpath("semantic", "pdf_storage.py").read_bytes()),
         SourceArtifact("grammar/grammar.py", math.joinpath("grammar.py").read_bytes()),
         SourceArtifact("grammar/extension.lark", math.joinpath("extension.lark").read_bytes()),
@@ -1383,7 +1396,15 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         operation["id"] in {"prepare_integrated_pdf", "publish_integrated_pdf", "read_pdf_product"}
         for operation in data["operations"]
     ):
-        required_implementations.update({"pdf/integrated.py", "pdf/storage.py", "pdf/reconciliation.py", "pdf/recognition.py", "pdf/recognition_methods.py"})
+        required_implementations.update(
+            {
+                "pdf/integrated.py",
+                "pdf/storage.py",
+                "pdf/reconciliation.py",
+                "pdf/recognition.py",
+                "pdf/recognition_methods.py",
+            }
+        )
     if set(names) != required_implementations or len(names) != len(set(names)):
         _fail(
             "analysis_implementation_inputs",

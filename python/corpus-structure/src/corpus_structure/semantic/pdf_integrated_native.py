@@ -151,6 +151,7 @@ def reconciled_pdf_products(model=None):
     from pglast.stream import RawStream
     from sqlalchemy.dialects.postgresql import dialect
     from sqlalchemy.schema import AddConstraint, CheckConstraint
+
     from .native_shapes import record_shape_guards
     from .pdf_contracts import trusted_pdf_context
 
@@ -158,75 +159,182 @@ def reconciled_pdf_products(model=None):
     # CREATE TABLE replay. Only its function definitions and privileges are carried forward.
     foundation = integrated_pdf_products(model)[0].content.decode()
     sql = "SET LOCAL ROLE corpus_sem_publisher;\n"
-    changed = ("kb.native_document_item", "kb.source_view", "ops.native_source_frame", "ops.native_source_frame_source", "ops.native_region_artifact")
+    changed = (
+        "kb.native_document_item",
+        "kb.source_view",
+        "ops.native_source_frame",
+        "ops.native_source_frame_source",
+        "ops.native_region_artifact",
+    )
     for name in changed:
         sql += (
             "DO $foreign$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint "
             f"WHERE conrelid='{name}'::regclass AND contype='f' AND confrelid='ops.native_document_product'::regclass LOOP "
             f"EXECUTE format('ALTER TABLE {name} DROP CONSTRAINT %I',n); END LOOP; END $foreign$;\n"
         )
-        for constraint in sorted(metadata.tables[name].foreign_key_constraints, key=lambda c: str(c.name)):
+        for constraint in sorted(
+            metadata.tables[name].foreign_key_constraints, key=lambda c: str(c.name)
+        ):
             if constraint.referred_table.fullname == "ops.pdf_product":
-                sql += str(AddConstraint(constraint, isolate_from_table=False).compile(dialect=dialect())).strip() + ";\n"
-    sql += "DO $checks$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint WHERE conrelid='ops.pdf_product_body'::regclass AND contype='c' LOOP EXECUTE format('ALTER TABLE ops.pdf_product_body DROP CONSTRAINT %I',n); END LOOP; END $checks$;\n"
+                sql += (
+                    str(
+                        AddConstraint(constraint, isolate_from_table=False).compile(
+                            dialect=dialect()
+                        )
+                    ).strip()
+                    + ";\n"
+                )
+    sql += (
+        'DO $checks$ DECLARE n text; BEGIN FOR n IN SELECT '
+        "conname FROM pg_constraint WHERE conrelid='ops.pdf"
+        "_product_body'::regclass AND contype='c' LOOP EXEC"
+        "UTE format('ALTER TABLE ops.pdf_product_body DROP "
+        "CONSTRAINT %I',n); END LOOP; END $checks$;\n"
+    )
     sql += "ALTER TABLE ops.pdf_product_body DISABLE TRIGGER semantic_immutable;\n"
-    sql += "UPDATE ops.pdf_product_body SET descriptor=(convert_from(payload,'UTF8')::jsonb - ARRAY['content','occurrences','relations','coverage','inputs','mapping_reports']) || CASE WHEN convert_from(payload,'UTF8')::jsonb->>'kind'='integrated' THEN jsonb_build_object('content_metadata',jsonb_build_object('schema_digest',convert_from(payload,'UTF8')::jsonb->'content'->'schema_digest','recipe_digest',convert_from(payload,'UTF8')::jsonb->'content'->'recipe_digest','health',convert_from(payload,'UTF8')::jsonb->'content'->'health')) ELSE '{}'::jsonb END;\n"
+    sql += (
+        'UPDATE ops.pdf_product_body SET descriptor=(conver'
+        "t_from(payload,'UTF8')::jsonb - ARRAY['content','o"
+        "ccurrences','relations','coverage','inputs','mappi"
+        "ng_reports']) || CASE WHEN convert_from(payload,'U"
+        "TF8')::jsonb->>'kind'='integrated' THEN jsonb_buil"
+        "d_object('content_metadata',jsonb_build_object('sc"
+        "hema_digest',convert_from(payload,'UTF8')::jsonb->"
+        "'content'->'schema_digest','recipe_digest',convert"
+        "_from(payload,'UTF8')::jsonb->'content'->'recipe_d"
+        "igest','health',convert_from(payload,'UTF8')::json"
+        "b->'content'->'health')) ELSE '{}'::jsonb END;\n"
+    )
     sql += "ALTER TABLE ops.pdf_product_body ENABLE TRIGGER semantic_immutable;\n"
-    for constraint in sorted(metadata.tables["ops.pdf_product_body"].constraints, key=lambda c: str(c.name)):
+    for constraint in sorted(
+        metadata.tables["ops.pdf_product_body"].constraints, key=lambda c: str(c.name)
+    ):
         if isinstance(constraint, CheckConstraint):
-            sql += str(AddConstraint(constraint, isolate_from_table=False).compile(dialect=dialect())).strip() + ";\n"
-    sql += "ALTER TABLE kb.pdf_occurrence ADD COLUMN pointer text;\nALTER TABLE kb.pdf_occurrence DISABLE TRIGGER semantic_immutable;\nUPDATE kb.pdf_occurrence SET pointer=body->>'pointer';\nALTER TABLE kb.pdf_occurrence ENABLE TRIGGER semantic_immutable;\n"
-    for constraint in sorted(metadata.tables["kb.pdf_occurrence"].constraints, key=lambda c: str(c.name)):
-        if isinstance(constraint, CheckConstraint) and "pointer IS NOT DISTINCT" in str(constraint.sqltext):
-            sql += str(AddConstraint(constraint, isolate_from_table=False).compile(dialect=dialect())).strip() + ";\n"
+            sql += (
+                str(
+                    AddConstraint(constraint, isolate_from_table=False).compile(dialect=dialect())
+                ).strip()
+                + ";\n"
+            )
+    sql += (
+        'ALTER TABLE kb.pdf_occurrence ADD COLUMN pointer t'
+        'ext;\nALTER TABLE kb.pdf_occurrence DISABLE TRIGGER'
+        ' semantic_immutable;\nUPDATE kb.pdf_occurrence SET '
+        "pointer=body->>'pointer';\nALTER TABLE kb.pdf_occur"
+        'rence ENABLE TRIGGER semantic_immutable;\n'
+    )
+    for constraint in sorted(
+        metadata.tables["kb.pdf_occurrence"].constraints, key=lambda c: str(c.name)
+    ):
+        if isinstance(constraint, CheckConstraint) and "pointer IS NOT DISTINCT" in str(
+            constraint.sqltext
+        ):
+            sql += (
+                str(
+                    AddConstraint(constraint, isolate_from_table=False).compile(dialect=dialect())
+                ).strip()
+                + ";\n"
+            )
     from sqlalchemy.schema import CreateIndex
+
     for index in sorted(metadata.tables["kb.pdf_occurrence"].indexes, key=lambda i: str(i.name)):
         sql += str(CreateIndex(index).compile(dialect=dialect())) + ";\n"
     new_relation = "kb.pdf_mapping_report"
-    sql += "GRANT REFERENCES ON ops.pdf_product_input TO __MIGRATION_OWNER__;\nSET LOCAL ROLE __MIGRATION_OWNER__;\n"
+    sql += (
+        'GRANT REFERENCES ON ops.pdf_product_input TO __MIG'
+        'RATION_OWNER__;\nSET LOCAL ROLE __MIGRATION_OWNER__'
+        ';\n'
+    )
     for product in physical_products():
-        if product.name == new_relation or product.name.startswith(new_relation + "/") or product.name in {str(i.name) for i in metadata.tables[new_relation].indexes}:
+        if (
+            product.name == new_relation
+            or product.name.startswith(new_relation + "/")
+            or product.name in {str(i.name) for i in metadata.tables[new_relation].indexes}
+        ):
             sql += product.content.decode() + "\n"
-    sql += "ALTER TABLE kb.pdf_mapping_report OWNER TO corpus_sem_publisher;\nSET LOCAL ROLE corpus_sem_publisher;\nREVOKE REFERENCES ON ops.pdf_product_input FROM __MIGRATION_OWNER__;\n"
-    sql += "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON kb.pdf_mapping_report FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();\n"
-    sql += "GRANT SELECT ON kb.pdf_mapping_report TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;\n"
+    sql += (
+        'ALTER TABLE kb.pdf_mapping_report OWNER TO corpus_'
+        'sem_publisher;\nSET LOCAL ROLE corpus_sem_publisher'
+        ';\nREVOKE REFERENCES ON ops.pdf_product_input FROM '
+        '__MIGRATION_OWNER__;\n'
+    )
+    sql += (
+        'CREATE TRIGGER semantic_immutable BEFORE UPDATE OR'
+        ' DELETE OR TRUNCATE ON kb.pdf_mapping_report FOR E'
+        'ACH STATEMENT EXECUTE FUNCTION sem.refuse_immutabl'
+        'e_mutation();\n'
+    )
+    sql += (
+        'GRANT SELECT ON kb.pdf_mapping_report TO corpus_se'
+        'm_writer,corpus_sem_reader,corpus_sem_admitter,cor'
+        'pus_sem_evaluator;\n'
+    )
     source = Path(__file__).with_name("sql")
     sql += (source / "pdf_selected.sql").read_text() + "\n"
     for raw in parse_sql(foundation.replace("__MIGRATION_OWNER__", "corpus_migration_owner")):
         stmt = raw.stmt
         if isinstance(stmt, ast.CreateFunctionStmt) or (
-            isinstance(stmt, ast.GrantStmt) and stmt.objtype is not None and stmt.objtype.name == "OBJECT_FUNCTION"
+            isinstance(stmt, ast.GrantStmt)
+            and stmt.objtype is not None
+            and stmt.objtype.name == "OBJECT_FUNCTION"
         ):
             sql += RawStream()(stmt) + ";\n"
-    views = (source / "source_views.sql").read_text().replace(
-        "-- {source_view_shape_guard}", record_shape_guards(trusted_pdf_context().boundary, "PdfSourceViewPublication", "product")
+    views = (
+        (source / "source_views.sql")
+        .read_text()
+        .replace(
+            "-- {source_view_shape_guard}",
+            record_shape_guards(
+                trusted_pdf_context().boundary, "PdfSourceViewPublication", "product"
+            ),
+        )
     )
     sql += views + "\n"
     for raw in parse_sql((source / "execution_projection.sql").read_text()):
-        stmt=raw.stmt
-        if isinstance(stmt,ast.CreateFunctionStmt) and ".".join(p.sval for p in stmt.funcname or ()) == "sem.require_execution_operation":
+        stmt = raw.stmt
+        if (
+            isinstance(stmt, ast.CreateFunctionStmt)
+            and ".".join(p.sval for p in stmt.funcname or ()) == "sem.require_execution_operation"
+        ):
             sql += RawStream()(stmt) + ";\n"
     physical, _, _ = closure_products(model)
     sql += "\nDO $reference$" + physical.content.decode().split("DO $reference$", 1)[1]
     previous = ALEMBIC_DIR.joinpath("versions/semantic_0056_admission.sql").read_text()
-    admission = native_admission_sql(sql, model, extra_relations=(*changed, "kb.pdf_mapping_report", "ops.pdf_product_body", "kb.pdf_occurrence"), base_admission=previous)
-    return (NativeProduct("semantic_0057_reconciliation.sql", sql.encode()),
-            NativeProduct("semantic_0057_admission.sql", admission.encode()))
+    admission = native_admission_sql(
+        sql,
+        model,
+        extra_relations=(
+            *changed,
+            "kb.pdf_mapping_report",
+            "ops.pdf_product_body",
+            "kb.pdf_occurrence",
+        ),
+        base_admission=previous,
+    )
+    return (
+        NativeProduct("semantic_0057_reconciliation.sql", sql.encode()),
+        NativeProduct("semantic_0057_admission.sql", admission.encode()),
+    )
 
 
 def final_reconciliation_products(model=None):
     """0058 updates current functions after the deployed 0057 physical extension."""
     from pglast import ast, parse_sql
     from pglast.stream import RawStream
+
     full = reconciled_pdf_products(model)[0].content.decode()
     sql = "SET LOCAL ROLE corpus_sem_publisher;\n"
     for raw in parse_sql(full.replace("__MIGRATION_OWNER__", "corpus_migration_owner")):
         stmt = raw.stmt
         if isinstance(stmt, (ast.CreateFunctionStmt, ast.ViewStmt)) or (
-            isinstance(stmt, ast.GrantStmt) and stmt.objtype is not None and stmt.objtype.name == "OBJECT_FUNCTION"
+            isinstance(stmt, ast.GrantStmt)
+            and stmt.objtype is not None
+            and stmt.objtype.name == "OBJECT_FUNCTION"
         ):
             sql += RawStream()(stmt) + ";\n"
     previous = ALEMBIC_DIR.joinpath("versions/semantic_0057_admission.sql").read_text()
     admission = native_admission_sql(sql, model, base_admission=previous)
-    return (NativeProduct("semantic_0058_reconciliation.sql", sql.encode()),
-            NativeProduct("semantic_0058_admission.sql", admission.encode()))
+    return (
+        NativeProduct("semantic_0058_reconciliation.sql", sql.encode()),
+        NativeProduct("semantic_0058_admission.sql", admission.encode()),
+    )

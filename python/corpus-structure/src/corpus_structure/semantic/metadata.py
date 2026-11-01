@@ -13,7 +13,7 @@ from pathlib import Path
 from types import MappingProxyType
 
 from linkml_runtime.utils.schemaview import SchemaView
-from sqlalchemy import Table, MetaData
+from sqlalchemy import MetaData, Table
 
 from corpus_structure.schema.relational import compile_metadata
 

@@ -1,6 +1,8 @@
 """Qualified immutable product identity shared by PDF producers and consumers."""
+
 from dataclasses import dataclass
 from typing import Any
+
 
 @dataclass(frozen=True, slots=True)
 class ProductReference:
@@ -22,4 +24,3 @@ class ProductReference:
         return dict(
             task_id=self.task_id, product_key=self.product_key, content_digest=self.content_digest
         )
-

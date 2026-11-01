@@ -28,6 +28,7 @@ from .pdf_contracts import (
 @dataclass(frozen=True, slots=True)
 class PreparedPdfOriginal:
     """Immutable once-hashed original custody for many page observations."""
+
     content: bytes
     digest: str = field(init=False)
 
@@ -64,7 +65,9 @@ def native_cells(node: Mapping[str, Any]) -> tuple[str, list[dict[str, Any]]]:
     if node.get("label") == "table":
         return "/data/table_cells", node.get("data", {}).get("table_cells", [])
     if node.get("label") == "picture":
-        return "/meta/tabular_chart/chart_data/table_cells", node.get("meta", {}).get("tabular_chart", {}).get("chart_data", {}).get("table_cells", [])
+        return "/meta/tabular_chart/chart_data/table_cells", node.get("meta", {}).get(
+            "tabular_chart", {}
+        ).get("chart_data", {}).get("table_cells", [])
     return "", []
 
 
@@ -85,7 +88,9 @@ def prepare_integrated_pdf_product(
     context = trusted_pdf_context() if context is None else context
     context.execution.require_operation("prepare_integrated_pdf")
     supplied = dict(payload)
-    custody = original if isinstance(original, PreparedPdfOriginal) else PreparedPdfOriginal(original)
+    custody = (
+        original if isinstance(original, PreparedPdfOriginal) else PreparedPdfOriginal(original)
+    )
     original = custody.content
     content = supplied.get("content")
     native = None
@@ -245,7 +250,10 @@ def prepare_integrated_pdf_product(
             grounding = occurrence.get("grounding_pointer")
             anchor = node
             if grounding is not None:
-                if occurrence["precision"] != "inherited" or occurrence.get("region", {}).get("precision") != "inherited":
+                if (
+                    occurrence["precision"] != "inherited"
+                    or occurrence.get("region", {}).get("precision") != "inherited"
+                ):
                     raise ValueError("inherited grounding requires inherited precision")
                 if occurrence["kind"] == "region":
                     raise ValueError("native region cannot replace its exact indexed witness")
@@ -253,7 +261,9 @@ def prepare_integrated_pdf_product(
                 while anchor.get("self_ref") != grounding:
                     parent = anchor.get("parent", {}).get("$ref")
                     if parent is None or parent in visited:
-                        raise ValueError("grounding pointer must be the occurrence's native ancestor")
+                        raise ValueError(
+                            "grounding pointer must be the occurrence's native ancestor"
+                        )
                     visited.add(parent)
                     anchor = resolve_native_pointer(document, parent)
                 if grounding != pointer and node.get("prov"):
@@ -290,10 +300,13 @@ def prepare_integrated_pdf_product(
                         kind == "chart"
                         and (
                             label != "picture"
-                            or not (node.get("meta", {}).get("tabular_chart") or any(
-                                a.get("kind", "").endswith("_chart_data")
-                                for a in node.get("annotations", ())
-                            ))
+                            or not (
+                                node.get("meta", {}).get("tabular_chart")
+                                or any(
+                                    a.get("kind", "").endswith("_chart_data")
+                                    for a in node.get("annotations", ())
+                                )
+                            )
                         )
                     )
                 ):
@@ -309,8 +322,7 @@ def prepare_integrated_pdf_product(
             if "start" in occurrence and "text" not in occurrence:
                 raise ValueError("selected text range requires its retained native spelling")
             if "page_no" in occurrence and not any(
-                p["page_no"] == occurrence["page_no"]
-                for p in anchor.get("prov", ())
+                p["page_no"] == occurrence["page_no"] for p in anchor.get("prov", ())
             ):
                 raise ValueError("selected occurrence page differs from native provenance")
             if kind == "region":
@@ -397,7 +409,10 @@ def prepare_integrated_pdf_product(
     governed_outputs = set()
     ids = set(ids)
     for report in value.get("mapping_reports", ()):
-        if report["input_index"] >= len(inputs) or inputs[report["input_index"]]["role"] != "recognition":
+        if (
+            report["input_index"] >= len(inputs)
+            or inputs[report["input_index"]]["role"] != "recognition"
+        ):
             raise ValueError("mapping disposition requires its qualified recognition input")
         if report["outcome"] != "mapped" and not report.get("reason"):
             raise ValueError("mapping loss requires an explicit disposition reason")
@@ -444,7 +459,11 @@ def prepare_integrated_pdf_product(
             raise ValueError("selected integration decision requires an output occurrence")
         if relation["kind"] == "decision" and relation["outcome"] == "rejected" and outputs:
             raise ValueError("rejected decision cannot publish an output occurrence")
-        if relation["kind"] == "decision" and relation["outcome"] in {"selected", "added", "replaced"}:
+        if relation["kind"] == "decision" and relation["outcome"] in {
+            "selected",
+            "added",
+            "replaced",
+        }:
             governed_outputs.update(e["occurrence_id"] for e in outputs)
     if value["kind"] == "integrated" and ids - governed_outputs:
         raise ValueError("every selected occurrence requires a governing integration decision")

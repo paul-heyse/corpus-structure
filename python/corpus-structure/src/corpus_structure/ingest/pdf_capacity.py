@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from urllib.parse import urlsplit
 
@@ -16,7 +16,7 @@ def native_before_nemotron(
     model: str = "nemotron-parse",
     timeout_seconds: float = 30.0,
     check_active: Callable[[], None] | None = None,
-) -> Iterator[None]:
+) -> Generator[None]:
     """Level-one sleep releases weights/KV; restore on success, error or cancellation.
 
     This endpoint is dedicated to this source operation. vLLM must be launched with
