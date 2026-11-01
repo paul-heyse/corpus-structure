@@ -3,6 +3,9 @@ _Updated 2026-11-01; private PDF streaming/staging implemented; whole-book publi
 
 ## Current checkpoint
 
+- [PostgreSQL capability review](docs/functional_reviews/postgresql-capability-leverage_2026-11-01.md): O01–O10 Proposed; latest-stable upgrades are settled direction. PDF plan revision remains separate.
+- Review links and `just turn-end` passed (2026-11-01); `just docs-check` failed on concurrent ADR-0043 missing its DESIGN §B4 decision link. See review for evidence limits.
+
 - [PDF coordinator](docs/plans/pdf-docling-pipeline_2026-10-31.md) owns package/O/I disposition.
   PDF-13–16 implement one Docling content graph with mandatory multi-input lineage, governed
   selection, scoped coverage and singular downstream readers. PDF-17–19 foundation plus private
@@ -27,11 +30,9 @@ _Updated 2026-11-01; private PDF streaming/staging implemented; whole-book publi
   Arrow/DuckDB reconciliation preserve native selection. Native global finalization remains
   materialized by operator selection; strict I14 stays open. No source/public default changed.
 - [Logging plan series](docs/plans/structured-logging-observability_2026-11-01.md): LOG-00 bounded
-  choices settled: structlog/stdlog + scoped Logbook + direct OTel; no production runtime installed.
-  I01–I03 probes passed; I04 primitive direction selected, integrated lifecycle still open.
+  choices settled: structlog/stdlog + scoped Logbook + direct OTel; no production runtime installed. I01–I03 probes passed; I04 primitive direction selected, integrated lifecycle still open.
   I05 partial: hard cleanup deadline unestablished. I06 local contract passed; live read blocked
-  by missing endpoint/read token/test scope. Six finalized records retain failures and boundaries.
-  Earlier `just evidence` and `just ready` passed (2026-11-01).
+  by missing endpoint/read token/test scope. Six finalized records retain failures and boundaries. Earlier `just evidence` and `just ready` passed (2026-11-01).
 
 ## Verification
 
@@ -45,8 +46,7 @@ _Updated 2026-11-01; private PDF streaming/staging implemented; whole-book publi
 - **passed:** `just test-all`0060 baseline2643 Python tests/10warnings, complete reporting and stable source.
   Receipt `build/test-receipts/qualification/20261101T042650Z-4190256`; zero listed Rust tests establish
   no Rust functional coverage. This broad pass precedes0061 and is not whole-book acceptance.
-- Earlier0060/0061 bounded, typing/lint and lifecycle receipts retain their original scope;
-  failed/interrupted broad records remain archived. Cosmetic formatting does not invalidate them.
+- Earlier0060/0061 bounded, typing/lint and lifecycle receipts retain their original scope; failed/interrupted broad records remain archived. Cosmetic formatting does not invalidate them.
 - **not_run:** current external MCP/render/export journey, actual five-section extraction,
   independent full-section A/B/C authors, registration/grading and completed-result/default selection.
 - **failed:** `just docs-check` on existing parsing-profile and moved logging-library links;
