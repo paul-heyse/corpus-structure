@@ -1,8 +1,8 @@
 # Analytical, operator and selected-source consumers
 
-**Proposed target, 2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md)
+**Implemented and targeted Tested,2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md)
 owns PG-06/07/10 and PG-I03. These are selected delivery scope. This document settles their
-interfaces, meanings and realization; source inspection is not implementation or runtime acceptance.
+interfaces, meanings and realization; the coordinator records their final selected functional/native acceptance.
 Existing published/read contracts are prerequisites; unfinished work in another plan is not imported.
 
 ## Baseline and shared application boundary

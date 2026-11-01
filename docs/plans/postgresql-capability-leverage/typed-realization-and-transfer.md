@@ -1,6 +1,6 @@
 # Typed relational realization and directional transfer
 
-**Proposed target, 2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md) owns PG-03/04/06 and PG-I02. Source [O04/O05/O06/O11/O13](../../functional_reviews/postgresql-capability-leverage_2026-11-01.md#O04) informs this design. This document selects the realization of prepared queries, write profiles and published-family transfer; [consumer capabilities](consumer-capabilities.md) owns the delivered Parquet/DuckDB interaction. No implementation or runtime qualification is established by this proposal.
+**Implemented and targeted Tested,2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md) owns PG-03/04/06 and PG-I02. Source [O04/O05/O06/O11/O13](../../functional_reviews/postgresql-capability-leverage_2026-11-01.md#O04) informs this design. This document selects the realization of prepared queries, write profiles and published-family transfer; [consumer capabilities](consumer-capabilities.md) owns the delivered Parquet/DuckDB interaction. The coordinator records the final selected functional/native qualification; quantitative benefits remain unmeasured.
 
 ## Current seams and the intended change
 

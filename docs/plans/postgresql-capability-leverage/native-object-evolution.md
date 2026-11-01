@@ -1,6 +1,6 @@
 # Native object authoring, evolution and syntax
 
-**Proposed target, 2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md)
+**Implemented and targeted Tested,2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md)
 owns PG-01/08/09 and PG-I01. This develops O06/O07/O08/O10/O12 from the
 [integrated review](../../functional_reviews/postgresql-capability-leverage_2026-11-01.md)
 at `09d3125e`. Source inspection establishes the existing seams and library interfaces below,

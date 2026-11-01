@@ -1,6 +1,6 @@
 # Execution outcomes and resource lifetimes
 
-**Proposed target, 2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md) owns PG-02/05 status and source O02/O03/O09 disposition. This document owns their technical explanation.
+**Implemented and targeted Tested,2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md) owns PG-02/05 status and source O02/O03/O09 disposition. This document owns their technical explanation.
 
 ## Foundation and intended behavior
 

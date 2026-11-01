@@ -1,6 +1,6 @@
 # Adoption and validation of the PostgreSQL leverage series
 
-**Proposed execution target, 2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md) owns PG-00/11/12 and the combined completion claim. This owner explains their evidence and transitions. None of the following runtime checks was run during plan authoring.
+**Implemented and targeted Tested,2026-11-01.** [Coordinator](../postgresql-capability-leverage_2026-11-01.md) owns PG-00/11/12 and the combined completion claim. This owner explains their evidence and transitions. None of the following runtime checks was run during plan authoring.
 
 ## PG-00 — Deliberate current baseline and dependency move
 
