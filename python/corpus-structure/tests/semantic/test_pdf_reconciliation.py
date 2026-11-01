@@ -76,6 +76,25 @@ def test_mapper_repeated_equal_occurrences_and_raw_geometry(native_source):
     assert mapped.document.texts[0].prov[0].charspan == (0, 0)
 
 
+def test_plain_native_picture_has_no_chart_cells_in_either_serialization():
+    from docling_core.types.doc import DoclingDocument
+
+    from corpus_structure.semantic.pdf_integrated import native_cells
+
+    picture = DoclingDocument(name="Plain native picture").add_picture()
+    assert picture.meta is None
+    for exclude_none in (False, True):
+        path, cells = native_cells(
+            picture.model_dump(mode="json", by_alias=True, exclude_none=exclude_none)
+        )
+        assert path == "/meta/tabular_chart/chart_data/table_cells"
+        assert cells == []
+    # Picture metadata can exist without tabular-chart recognition.
+    value = picture.model_dump(mode="json", by_alias=True)
+    value["meta"] = {"tabular_chart": None}
+    assert native_cells(value)[1] == []
+
+
 def test_crop_transform_is_inverted_with_independent_expected_points(native_source):
     raw = b"<x_0.2><y_0.1>crop<x_0.8><y_0.9><class_Text>"
     obs = recognized(native_source, raw)

@@ -2,8 +2,10 @@
 
 
 def coverage_recipe() -> dict[str, str]:
+    from .proposals import SEMANTIC_AGENT_VERSION
+
     return {
-        "abi": "semantic-query-coverage-2",
+        "abi": "semantic-query-coverage-3",
         "universe": "sealed_run_tasks_with_cut_origins",
         "member_key": "effective_origin_unit_key_or_task_id",
         "global_scope": "*",
@@ -12,7 +14,7 @@ def coverage_recipe() -> dict[str, str]:
         "global_witness": "complete_without_conflict",
         "family_binding": "archived_source_operation_or_agent_property",
         "agent_method": "agent.opus",
-        "agent_protocol": "semantic-1",
+        "agent_protocol": SEMANTIC_AGENT_VERSION,
         "agent_properties": "AgentPropertyIRI",
-        "document_lifting": "document_rendition_segment_span",
+        "document_lifting": "document_source_view_rendition_segment_span",
     }

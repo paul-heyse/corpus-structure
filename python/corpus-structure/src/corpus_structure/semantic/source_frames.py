@@ -63,7 +63,7 @@ def backfill_source_frames(engine: Engine, run_id: int) -> int:
 
     from .releases import open_release
 
-    tasks, cuts, frames = map(table, ("ops.task", "ops.input_cut", "ops.source_frame"))
+    tasks, cuts, frames = map(table, ("ops.task", "ops.input_cut", "ops.native_source_frame"))
     with engine.begin() as conn:
         cut = conn.execute(
             select(cuts.c.id).where(cuts.c.run_id == run_id, cuts.c.final)

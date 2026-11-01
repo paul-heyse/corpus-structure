@@ -194,8 +194,10 @@ class SourceCustody(_Envelope):
     observation_key: str
     task_id: int
     run_id: int
-    rendition_id: int
+    rendition_id: int | None
     span_id: int | None
+    source_view_id: int | None
+    native_address: str | None
     payload_definition: str
     kind: str
     input_observation_keys: tuple[str, ...]
@@ -660,6 +662,7 @@ class ReadSession:
         run, origin = table("ops.run"), logical.alias("coverage_origin")
         config, method = table("ops.method_config"), table("ops.method")
         segment, span, rendition = table("kb.segment"), table("kb.span"), table("kb.rendition")
+        source_view = table("kb.source_view")
         source = self.connection.execute(
             select(run.c.dependencies)
             .join(completed, completed.c.run_id == run.c.id)
@@ -691,7 +694,9 @@ class ReadSession:
             case((origin.c.unit_type == "rendition", origin.c.unit_id)),
         )
         document = case(
-            (origin.c.unit_type == "document", origin.c.unit_id), else_=rendition.c.document_id
+            (origin.c.unit_type == "document", origin.c.unit_id),
+            (origin.c.unit_type == "source_view", source_view.c.document_id),
+            else_=rendition.c.document_id,
         )
         stmt = (
             select(
@@ -713,6 +718,10 @@ class ReadSession:
                 )
                 .outerjoin(span, and_(origin.c.unit_type == "span", span.c.id == origin.c.unit_id))
                 .outerjoin(rendition, rendition.c.id == physical_rendition)
+                .outerjoin(
+                    source_view,
+                    and_(origin.c.unit_type == "source_view", source_view.c.id == origin.c.unit_id),
+                )
             )
             .where(
                 completed.c.run_id == run_id,
@@ -1470,6 +1479,8 @@ class ReadSession:
                     source.c.evidence_id,
                     source.c.rendition_id,
                     source.c.span_id,
+                    source.c.source_view_id,
+                    source.c.native_address,
                     observation.c.id,
                     observation.c.observation_key,
                     observation.c.task_id,
@@ -1502,6 +1513,8 @@ class ReadSession:
                 run_id=row["run_id"],
                 rendition_id=row["rendition_id"],
                 span_id=row["span_id"],
+                source_view_id=row["source_view_id"],
+                native_address=row["native_address"],
                 payload_definition=row["payload_definition"],
                 kind=row["kind"],
                 input_observation_keys=tuple(dependencies[row["id"]]),

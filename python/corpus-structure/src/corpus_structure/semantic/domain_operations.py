@@ -1092,11 +1092,7 @@ def _project_cut(
             for name, value in descriptor["content"].get("macros", {}).items()
         }
         contexts[observation["id"]] = (
-            (
-                {}
-                if descriptor.get("source_view_id") is not None
-                else effective_macros(source_macros, section.macro_table())
-            ),
+            effective_macros(source_macros, section.macro_table()),
             tuple(sorted(set(section.constants))),
         )
     if len({constants for _, constants in contexts.values()}) > 1:

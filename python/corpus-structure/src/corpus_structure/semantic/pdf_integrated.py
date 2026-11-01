@@ -83,9 +83,14 @@ def native_cells(node: Mapping[str, Any]) -> tuple[str, list[dict[str, Any]]]:
     if node.get("label") == "table":
         return "/data/table_cells", node.get("data", {}).get("table_cells", [])
     if node.get("label") == "picture":
-        return "/meta/tabular_chart/chart_data/table_cells", node.get("meta", {}).get(
-            "tabular_chart", {}
-        ).get("chart_data", {}).get("table_cells", [])
+        path = "/meta/tabular_chart/chart_data/table_cells"
+        meta = node.get("meta")
+        if meta is None:
+            return path, []
+        chart = meta.get("tabular_chart")
+        if chart is None:
+            return path, []
+        return path, chart["chart_data"].get("table_cells", [])
     return "", []
 
 
