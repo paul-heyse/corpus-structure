@@ -262,7 +262,7 @@ def project_section(
         )
         position += len(value)
 
-    def visit(node: Any, separator: bool = True) -> None:
+    def visit(node: Any, separator: bool = True, cell_index: int | None = None) -> None:
         if node.content_layer.value != "body":
             return
         if (
@@ -275,11 +275,10 @@ def project_section(
             for index, cell in enumerate(node.data.table_cells):
                 reference = getattr(cell, "ref", None)
                 if reference is not None:
-                    formula = nodes[reference.cref]
-                    append(formula.text, formula.self_ref, index)
+                    visit(nodes[reference.cref], cell_index=index)
                 else:
                     append(cell.text, node.self_ref, index, "cell_text")
-            # Rich-cell formula children are represented by the cell above, not duplicated.
+            # Rich-cell subtrees are represented by the cell above, not duplicated.
             return
         chart = getattr(getattr(node, "meta", None), "tabular_chart", None)
         if chart is not None:
@@ -288,12 +287,12 @@ def project_section(
             for index, cell in enumerate(chart.chart_data.table_cells):
                 append(cell.text, node.self_ref, index, "chart_cell_text")
         if hasattr(node, "text"):
-            append(node.text, node.self_ref, separator=separator)
+            append(node.text, node.self_ref, cell_index, separator=separator)
         for index, child in enumerate(node.children):
             child_separator = (
                 (separator if index == 0 else False) if str(node.label) == "inline" else True
             )
-            visit(nodes[child.cref], separator=child_separator)
+            visit(nodes[child.cref], separator=child_separator, cell_index=cell_index)
 
     visit(nodes[section_ref])
     return TextProjection(document_digest, section_ref, membership, "".join(text), tuple(pieces))

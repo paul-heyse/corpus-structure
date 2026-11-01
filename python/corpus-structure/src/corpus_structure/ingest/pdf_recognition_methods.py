@@ -387,7 +387,9 @@ class IngestPdfIntegrated:
                 notes = getattr(error, "__notes__", ())
                 if notes:
                     summary = (summary + "; " + "; ".join(notes))[:1800]
-                ctx.logger.warning("ingest.pdf_integrated %s: %s", unit.ref.unit_key, summary)
+                ctx.logger.warning(
+                    "ingest.pdf_integrated %s: %s", unit.ref.unit_key, summary, exc_info=True
+                )
                 outputs.append(
                     UnitResult(ref=unit.ref, outcome=ObservationOutcome.FAILED, error=summary)
                 )

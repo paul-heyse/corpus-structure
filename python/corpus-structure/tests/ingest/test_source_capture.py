@@ -30,6 +30,39 @@ def test_native_item_identity_and_unicode_offsets_survive_section_projection():
     assert raw.payload == snapshot(native).payload
 
 
+def test_rich_cell_subtree_retains_leaf_offsets_once_without_flattening_its_identity():
+    from docling_core.types.doc import GroupLabel, RichTableCell, TableData
+
+    document = DoclingDocument(name="Rich native cell")
+    section = document.add_group(label=GroupLabel.SECTION, name="Section")
+    table = document.add_table(data=TableData(num_rows=1, num_cols=1), parent=section)
+    group = document.add_group(label=GroupLabel.INLINE, parent=table)
+    prose = document.add_text(label=DocItemLabel.TEXT, text="For ", parent=group)
+    formula = document.add_text(label=DocItemLabel.FORMULA, text="x+1", parent=group)
+    table.data.table_cells = [
+        RichTableCell(
+            text="unselected flattened fallback",
+            ref=group.get_ref(),
+            start_row_offset_idx=0,
+            end_row_offset_idx=1,
+            start_col_offset_idx=0,
+            end_col_offset_idx=1,
+        )
+    ]
+    projection = project_section(
+        document, "a" * 64, section.self_ref, "direct", section_refs=frozenset({section.self_ref})
+    )
+    assert projection.text == "For x+1"
+    leaves = [piece for piece in projection.pieces if piece.kind == "native_text"]
+    assert [(piece.item_ref, piece.start, piece.end, piece.cell_index) for piece in leaves] == [
+        (prose.self_ref, 0, 4, 0),
+        (formula.self_ref, 4, 7, 0),
+    ]
+    cell = table.data.table_cells[0]
+    assert isinstance(cell, RichTableCell)
+    assert cell.ref.cref == group.self_ref
+
+
 def test_chart_title_and_actual_cells_project_once_with_distinct_source_handles():
     from docling_core.types.doc import (
         GroupLabel,

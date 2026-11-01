@@ -444,7 +444,7 @@ def _drafts(
     section_refs = frozenset(p for p, n in nodes.items() if str(n.label) in {"section", "chapter"})
     recipe = canonical_bytes(
         {
-            "recipe": "native-section-text-v5",
+            "recipe": "native-section-text-v6",
             "content_layers": ["body"],
             "analysis_eligible": analysis_eligible,
             "organization_owner": native_product.values(),
