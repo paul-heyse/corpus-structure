@@ -64,6 +64,16 @@ class LlmSettings(_Section):
     api_key: SecretStr | None = None
 
 
+class NemotronSettings(_Section):
+    """Dedicated isolated recognizer operations; model/decoding identity belongs to its recipe."""
+
+    endpoint: str = "http://127.0.0.1:8035/v1"
+    python: Path = Path("services/nemotron-parse/.venv/bin/python")
+    worker: Path = Path("services/nemotron-parse/worker.py")
+    receipts: Path = Path("build/recognition")
+    timeout_seconds: float = Field(default=1800.0, gt=0)
+
+
 class GpuSettings(_Section):
     """GPU mode (D6 §5); `auto` chooses per run from the budgets (default open, OPEN-D6-2)."""
 
@@ -100,6 +110,7 @@ class Settings(BaseSettings):
     database: DatabaseSettings = DatabaseSettings()
     paths: PathSettings = PathSettings()
     llm: LlmSettings = LlmSettings()
+    nemotron: NemotronSettings = NemotronSettings()
     gpu: GpuSettings = GpuSettings()
     analytics: AnalyticsSettings = AnalyticsSettings()
     runtime: RuntimeSettings = RuntimeSettings()
