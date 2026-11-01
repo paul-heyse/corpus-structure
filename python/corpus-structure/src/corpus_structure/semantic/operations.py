@@ -1008,7 +1008,7 @@ class BoundReader:
         from .pdf_contracts import PreparedPdfProduct, pdf_context_for_task
 
         product, build, artifact = (
-            table("ops.native_document_product"),
+            table("ops.pdf_selected_product"),
             table("ops.source_build"),
             table("kb.source_artifact"),
         )
@@ -1089,8 +1089,12 @@ class BoundReader:
                 )
             ).all()
         )
+        payload = bytes(row["payload"])
+        values = json.loads(payload)
+        if values.get("kind") == "integrated":
+            payload = canonical_bytes(values["content"])
         return PreparedPdfProduct(
-            bytes(row["payload"]),
+            payload,
             bytes(contents[row["original_digest"]]),
             bytes(contents[row["schema_digest"]]),
             bytes(contents[row["recipe_digest"]]),
@@ -1103,6 +1107,21 @@ class BoundReader:
         if document_id not in self.source_tasks:
             raise OperationConflict("native product requires real claimed source task")
         return ProductReference(self.source_tasks[document_id], product_key, digest)
+
+    def pdf_context(self):
+        from .pdf_contracts import pdf_context_for_task
+        if not self.source_tasks:
+            raise OperationConflict("PDF preparation requires a bound source task")
+        context = getattr(self, "_pdf_context", None)
+        if context is None:
+            context = pdf_context_for_task(self.conn, next(iter(self.source_tasks.values())))
+            self._pdf_context = context
+        return context
+
+    def prepare_integrated_pdf_product(self, payload, original, recipe_bytes, *, artifacts=(), native_schema=None):
+        from .pdf_integrated import prepare_integrated_pdf_product
+        return prepare_integrated_pdf_product(payload, original, recipe_bytes, artifacts=artifacts,
+                                              native_schema=native_schema, context=self.pdf_context())
 
     def prepare_pdf_product(self, payload, original, schema_bytes, recipe_bytes):
         from .pdf_contracts import pdf_context_for_task, prepare_pdf_product

@@ -42,6 +42,8 @@ enums:
     permissible_values:
       available: {}
       unavailable: {}
+  PdfMappingDispositionOutcome:
+    permissible_values: {mapped: {}, dropped: {}, unsupported: {}, evidence_only: {}, unresolved: {}}
   PdfMappingOutcome:
     permissible_values:
       unknown: {}
@@ -172,6 +174,10 @@ enums:
       failed: {}
       unknown: {}
       not_requested: {}
+  PdfManifestCollection:
+    permissible_values: {inputs: {}, coverage: {}, relations: {}, mapping_reports: {}}
+  PdfIntegrationAction:
+    permissible_values: {keep: {}, add: {}, replace: {}, unresolved: {}}
   PdfMembership:
     permissible_values:
       direct: {}
@@ -186,6 +192,8 @@ enums:
       cell: {}
       regions: {}
       trace: {}
+      companion: {}
+      manifest: {}
   PdfRecognitionUniverse:
     permissible_values: {display: {}, inline: {}, cell: {}}
   PdfRecognitionPolicy:
@@ -650,8 +658,8 @@ classes:
       version:
         range: PdfInteger
         required: true
-        minimum_value: 2
-        maximum_value: 2
+        minimum_value: 3
+        maximum_value: 3
         slot_uri: pdf:PdfNativeReadRequest_version
       run_id:
         range: PdfInteger
@@ -701,6 +709,8 @@ classes:
         minimum_value: 1
         maximum_value: 10000
         slot_uri: pdf:PdfNativeReadRequest_limit
+      occurrence_id: {range: PdfString, required: false, slot_uri: pdf:PdfNativeReadRequest_occurrence_id}
+      collection: {range: PdfManifestCollection, required: false, slot_uri: pdf:PdfNativeReadRequest_collection}
   PdfDomainRule:
     attributes:
       rule_id:
@@ -953,6 +963,7 @@ classes:
   PdfFrameSource:
     description: An independently addressed immutable native projection actually supplied to an agent or independent evaluator.
     attributes:
+      version: {range: PdfInteger, required: false, minimum_value: 2, maximum_value: 3, slot_uri: pdf:PdfFrameSource_version}
       unit_ref: {range: PdfString, required: true, slot_uri: 'pdf:PdfFrameSource_unit_ref'}
       text: {range: PdfString, required: true, slot_uri: 'pdf:PdfFrameSource_text'}
       sentences: {range: PdfFrameSentence, required: true, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfFrameSource_sentences'}
@@ -1060,6 +1071,7 @@ classes:
         range: PdfPointer
         required: false
         slot_uri: pdf:PdfProductOccurrence_pointer
+      grounding_pointer: {range: PdfPointer, required: false, slot_uri: pdf:PdfProductOccurrence_grounding_pointer}
       region_index: {range: PdfInteger, minimum_value: 0, slot_uri: pdf:PdfProductOccurrence_region_index}
       cell_index:
         range: PdfInteger
@@ -1300,6 +1312,7 @@ classes:
     description: Raw response and image artifacts survive partial or failed recognition; no second scheduler.
   PdfIntegratedProduct:
     attributes:
+      mapping_reports: {range: PdfMappingDisposition, required: false, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: pdf:PdfIntegratedProduct_mapping_reports}
       version:
         range: PdfInteger
         required: true
@@ -1487,3 +1500,23 @@ classes:
     attributes:
       input_index: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: 'pdf:PdfCoverageSupport_input_index'}
       coverage_id: {range: PdfString, required: true, slot_uri: 'pdf:PdfCoverageSupport_coverage_id'}
+
+  PdfIntegrationPolicy:
+    description: Versioned application selection rules; confidence alone never licenses replacement.
+    attributes:
+      policy_id: {range: string, required: true, equals_string: pdf-integration-v1, slot_uri: 'pdf:PdfIntegrationPolicy_policy_id'}
+      conflict_action: {range: PdfIntegrationAction, required: true, slot_uri: 'pdf:PdfIntegrationPolicy_conflict_action'}
+      unmatched_action: {range: PdfIntegrationAction, required: true, slot_uri: 'pdf:PdfIntegrationPolicy_unmatched_action'}
+      specialized_crop_precedence: {range: PdfBoolean, required: true, slot_uri: 'pdf:PdfIntegrationPolicy_specialized_crop_precedence'}
+
+  PdfMappingDisposition:
+    description: Attributed outcome for a raw block or unparsed raw tail; retained independently of selected content.
+    attributes:
+      input_index: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: pdf:PdfMappingDisposition_input_index}
+      occurrence_id: {range: PdfString, required: false, slot_uri: pdf:PdfMappingDisposition_occurrence_id}
+      outcome: {range: PdfMappingDispositionOutcome, required: true, slot_uri: pdf:PdfMappingDisposition_outcome}
+      label: {range: PdfString, required: false, slot_uri: pdf:PdfMappingDisposition_label}
+      reason: {range: PdfString, required: false, slot_uri: pdf:PdfMappingDisposition_reason}
+      raw_start: {range: PdfInteger, required: false, minimum_value: 0, slot_uri: pdf:PdfMappingDisposition_raw_start}
+      coordinate_scale: {range: PdfNumber, required: false, minimum_value: 1, slot_uri: pdf:PdfMappingDisposition_coordinate_scale}
+      normalization: {range: PdfNormalization, required: false, slot_uri: pdf:PdfMappingDisposition_normalization}

@@ -13,7 +13,7 @@ from pathlib import Path
 from types import MappingProxyType
 
 from linkml_runtime.utils.schemaview import SchemaView
-from sqlalchemy import Table
+from sqlalchemy import Table, MetaData
 
 from corpus_structure.schema.relational import compile_metadata
 
@@ -26,8 +26,16 @@ SCHEMAS = frozenset({"sem", "data", "ops", "kb", "eval"})
 _DECIMAL = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
 
 
+_read_metadata = MetaData()
+_selected_product = metadata.tables["ops.native_document_product"].to_metadata(
+    _read_metadata, name="pdf_selected_product"
+)
+
+
 def table(name: str) -> Table:
     """Return a shared, explicitly schema-qualified Table."""
+    if name == "ops.pdf_selected_product":
+        return _selected_product
     return tables[name]
 
 

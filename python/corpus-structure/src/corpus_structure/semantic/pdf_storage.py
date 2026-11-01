@@ -10,6 +10,7 @@ from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
 from typing import Any
+from collections.abc import Sequence
 
 from sqlalchemy import Connection, select
 
@@ -44,7 +45,7 @@ def read_native_items(
     """Read a pinned page of item projections; an incorrect pin always refuses."""
     if not 1 <= limit <= 1000 or after < -1 or membership not in {"direct", "descendants"}:
         raise ValueError("native item page requires limit 1..1000 and after >= -1")
-    product = table("ops.native_document_product")
+    product = table("ops.pdf_selected_product")
     actual = conn.execute(
         select(
             product.c.content_digest,
@@ -58,7 +59,7 @@ def read_native_items(
     ).one_or_none()
     if actual is None:
         raise NativeDocumentUnavailable(
-            "native body is unavailable; integrated PDF requires its companion reader"
+            "selected native content is unavailable"
         )
     if actual.content_digest != content_digest:
         raise ValueError("native product digest differs from selected pin")
@@ -265,6 +266,8 @@ def read_pdf_product(
     product_key: str,
     content_digest: str,
     occurrence_id: str | None = None,
+    pointers: Sequence[str] | None = None,
+    section_pointer: str | None = None,
     after: str = "",
     limit: int = 100,
     row_budget: int = 1000,
@@ -313,6 +316,8 @@ def read_pdf_product(
     )
     if occurrence_id is not None:
         query = query.where(occurrences.c.occurrence_id == occurrence_id)
+    if pointers is not None:
+        query = query.where(occurrences.c.body["pointer"].astext.in_(pointers))
     occurrence_query = query.order_by(occurrences.c.occurrence_id)
     rows = bounded(occurrence_query)
     if occurrence_id is not None and not rows:
@@ -352,24 +357,54 @@ def read_pdf_product(
         grouped.setdefault(endpoint["relation_id"], []).append(endpoint)
     for relation in relation_rows:
         relation["endpoints"] = grouped[relation["relation_id"]]
+    # Coverage belongs to the materialized occurrence scope. A whole-document manifest
+    # uses its own cursor rather than consuming every read's provenance budget.
+    pages = {r["body"].get("page_no") for r in rows if r["body"].get("page_no") is not None}
+    scopes = {"whole_document"}
+    scopes.update(f"page:{p}" for p in pages)
+    scopes.update(f"pages:{p}-{p}" for p in pages)
+    if section_pointer is not None:
+        scopes.update(section_pointer + ":" + m for m in ("direct", "descendants"))
+    coverage_rows = bounded(
+        select(coverage).where(
+            coverage.c.task_id == task_id,
+            coverage.c.product_key == product_key,
+            coverage.c.body["scope"].astext.in_(scopes),
+        ).order_by(coverage.c.coverage_id)
+    ) if rows else []
+    relevant_pins = {
+        (e["target_task_id"], e["target_product_key"], e["target_content_digest"])
+        for e in endpoint_rows if e["role"] != "output"
+    }
+    supporting_indices = {
+        support["input_index"]
+        for c in coverage_rows for support in c["body"].get("supports", ())
+    }
+    from sqlalchemy import or_, tuple_
+    input_rows = bounded(
+        select(inputs).where(
+            inputs.c.task_id == task_id,
+            inputs.c.product_key == product_key,
+            or_(
+                tuple_(inputs.c.input_task_id, inputs.c.input_product_key, inputs.c.input_content_digest).in_(sorted(relevant_pins)),
+                inputs.c.input_index.in_(sorted(supporting_indices)),
+            ),
+        ).order_by(inputs.c.input_index)
+    ) if relevant_pins or supporting_indices else []
     result = {
         "identity": identity,
-        "descriptor": _pdf_descriptors(conn, [(task_id, product_key, content_digest)])[0][
-            "descriptor"
-        ],
+        "descriptor": _pdf_descriptors(conn, [(task_id, product_key, content_digest)])[0]["descriptor"],
         "occurrences": rows,
         "relations": relation_rows,
-        "inputs": bounded(
-            select(inputs)
-            .where(inputs.c.task_id == task_id, inputs.c.product_key == product_key)
-            .order_by(inputs.c.input_index)
-        ),
-        "coverage": bounded(
-            select(coverage)
-            .where(coverage.c.task_id == task_id, coverage.c.product_key == product_key)
-            .order_by(coverage.c.coverage_id)
-        ),
+        "inputs": input_rows,
+        "coverage": coverage_rows,
+        "mapping_reports": bounded(select(table("kb.pdf_mapping_report")).where(
+            table("kb.pdf_mapping_report").c.task_id == task_id,
+            table("kb.pdf_mapping_report").c.product_key == product_key,
+            table("kb.pdf_mapping_report").c.input_index.in_([i["input_index"] for i in input_rows]),
+        ).order_by(table("kb.pdf_mapping_report").c.report_index)) if input_rows else [],
         "cursor": rows[-1]["occurrence_id"] if len(rows) == limit else None,
+        "manifest": {"collections": ["inputs", "coverage", "relations", "mapping_reports"], "paged": True},
     }
     if include_body:
         import json
@@ -474,3 +509,52 @@ def trace_pdf_occurrence(
         {(node["task_id"], node["product_key"], node["content_digest"]) for node in nodes}
     )
     return {"nodes": nodes, "products": _pdf_descriptors(conn, pins), "complete": True}
+
+
+def read_pdf_manifest(conn: Connection, *, task_id: int, product_key: str,
+                      content_digest: str, collection: str = "inputs", after: str = "",
+                      limit: int = 100) -> dict[str, Any]:
+    """Page the global companion without raising budgets or loading the content body."""
+    if not 1 <= limit <= 1000:
+        raise ValueError("PDF manifest limit must be 1..1000")
+    identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
+    choices = {
+        "inputs": ("ops.pdf_product_input", "input_index"),
+        "coverage": ("kb.pdf_product_coverage", "coverage_id"),
+        "relations": ("kb.pdf_relation", "relation_id"),
+        "mapping_reports": ("kb.pdf_mapping_report", "report_index"),
+    }
+    if collection not in choices:
+        raise ValueError("unknown PDF manifest collection")
+    name, key = choices[collection]
+    relation = table(name)
+    query = select(relation).where(relation.c.task_id == task_id, relation.c.product_key == product_key)
+    if after:
+        cursor = int(after) if collection in {"inputs", "mapping_reports"} else after
+        query = query.where(relation.c[key] > cursor)
+    rows = [dict(row) for row in conn.execute(query.order_by(relation.c[key]).limit(limit + 1)).mappings()]
+    more = len(rows) > limit
+    rows = rows[:limit]
+    return {"identity": identity, "collection": collection, "rows": rows,
+            "cursor": str(rows[-1][key]) if more else None}
+
+
+def integrated_source_context(conn: Connection, *, task_id: int, product_key: str,
+                              content_digest: str, pointers: Sequence[str],
+                              section_pointer: str, membership: str) -> dict[str, Any] | None:
+    """Selected source's mandatory companion, assembled from bounded occurrence pages."""
+    identity = _pdf_product_identity(conn, task_id, product_key, content_digest)
+    if identity["kind"] == "native":
+        return None
+    if identity["kind"] != "integrated":
+        raise NativeDocumentUnavailable("recognition observations are not selected source content")
+    if membership not in {"direct", "descendants"}:
+        raise ValueError("source membership is not qualified")
+    from sqlalchemy import text
+    result = conn.execute(text(
+        "SELECT ops.integrated_source_context(:task,:key,:digest,CAST(:pointers AS text[]),:section,:membership)"
+    ), dict(task=task_id, key=product_key, digest=content_digest, pointers=list(pointers),
+            section=section_pointer, membership=membership)).scalar_one()
+    if result is None:
+        raise NativeDocumentUnavailable("integrated source companion is unavailable")
+    return result

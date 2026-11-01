@@ -520,3 +520,7 @@ SUPPORTED_EFFECTS.update(
         },
     }
 )
+
+# Pure PDF reconciliation consumes retained evidence and publishes no side effects.
+for _operation in ("map_pdf_observation", "compare_pdf_occurrences", "select_pdf_integration"):
+    SUPPORTED_EFFECTS[_operation] = {"effects": (), "implementation": _operation, "transitions": {}, "version": "1"}

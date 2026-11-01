@@ -42,7 +42,7 @@ REVOKE ALL ON FUNCTION ops.register_native_pdf(bigint,text) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION ops.publish_integrated_pdf(p_task bigint,p_attempt bigint,p_holder text,p_contract text,p_payload bytea,p_artifacts bytea[]) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $integrated$
 DECLARE job ops.task; run ops.run; product jsonb; parsing_item jsonb; selected_content jsonb; digest text:=encode(sha256(p_payload),'hex');
- previous ops.pdf_product; input jsonb; occurrence jsonb; relation jsonb; endpoint jsonb; coverage jsonb; pin ops.pdf_product; idx bigint; eid bigint; original text; selected_node jsonb;
+ previous ops.pdf_product; input jsonb; occurrence jsonb; relation jsonb; endpoint jsonb; coverage jsonb; pin ops.pdf_product; idx bigint; eid bigint; original text; selected_node jsonb; selected_anchor jsonb; ancestor_pointer text; grounding_path text[];
 BEGIN
  SELECT r.* INTO STRICT run FROM ops.run r JOIN ops.task t ON t.run_id=r.id WHERE t.id=p_task FOR SHARE OF r;
  SELECT * INTO STRICT job FROM ops.task WHERE id=p_task AND run_id=run.id FOR UPDATE;
@@ -95,8 +95,14 @@ BEGIN
  IF NOT EXISTS(SELECT FROM unnest(p_artifacts) content WHERE encode(sha256(content),'hex')=product->>'recipe_digest') THEN RAISE EXCEPTION 'PDF recipe bytes are missing' USING ERRCODE='23514'; END IF;
  INSERT INTO kb.source_artifact(artifact_digest,content) SELECT encode(sha256(content),'hex'),content FROM unnest(p_artifacts) content ON CONFLICT DO NOTHING;
  INSERT INTO ops.pdf_product(task_id,product_key,content_digest,kind,artifact_digest,release_id,contract_digest) VALUES(p_task,product->>'product_key',digest,product->>'kind',original,run.release_id,p_contract);
+ IF product->>'kind'='integrated' THEN
+  INSERT INTO kb.native_document_item(task_id,product_key,pointer,ordinal,label,parent_pointer,section_pointer,content_layer,text,native_json)
+  SELECT p_task,product->>'product_key',i.pointer,i.ordinal,i.label,i.parent_pointer,i.section_pointer,i.content_layer,i.text,selected_content->'document' #> string_to_array(substr(i.pointer,3),'/') FROM jsonb_populate_recordset(NULL::kb.native_document_item,selected_content->'items') i;
+  INSERT INTO kb.native_document_region(task_id,product_key,pointer,region_index,page_no,page_width,page_height,"left",top,"right",bottom,origin)
+  SELECT p_task,product->>'product_key',r.pointer,r.region_index,r.page_no,r.page_width,r.page_height,r."left",r.top,r."right",r.bottom,r.origin FROM jsonb_populate_recordset(NULL::kb.native_document_region,selected_content->'regions') r;
+ END IF;
  INSERT INTO ops.pdf_product_artifact(task_id,product_key,artifact_digest) SELECT p_task,product->>'product_key',encode(sha256(supplied.content),'hex') FROM unnest(p_artifacts) supplied(content) ON CONFLICT DO NOTHING;
- INSERT INTO ops.pdf_product_body(task_id,product_key,payload,recipe_digest,descriptor) VALUES(p_task,product->>'product_key',p_payload,product->>'recipe_digest',product-ARRAY['content','occurrences','relations','coverage','inputs']);
+ INSERT INTO ops.pdf_product_body(task_id,product_key,payload,recipe_digest,descriptor) VALUES(p_task,product->>'product_key',p_payload,product->>'recipe_digest',(product-ARRAY['content','occurrences','relations','coverage','inputs','mapping_reports'])||CASE WHEN product->>'kind'='integrated' THEN jsonb_build_object('content_metadata',jsonb_build_object('schema_digest',selected_content->'schema_digest','recipe_digest',selected_content->'recipe_digest','health',selected_content->'health')) ELSE '{}'::jsonb END);
  INSERT INTO ops.pdf_product_input(task_id,product_key,input_index,role,input_task_id,input_product_key,input_content_digest)
  SELECT p_task,product->>'product_key',n-1,value->>'role',(value->>'task_id')::bigint,value->>'product_key',value->>'content_digest' FROM jsonb_array_elements(product->'inputs') WITH ORDINALITY i(value,n);
  FOR occurrence IN SELECT value FROM jsonb_array_elements(product->'occurrences') LOOP
@@ -108,16 +114,27 @@ BEGIN
   IF product->>'kind'='integrated' THEN
    IF NOT occurrence ? 'pointer' THEN RAISE EXCEPTION 'selected occurrence has no native pointer' USING ERRCODE='23514'; END IF;
    selected_node:=selected_content->'document' #> string_to_array(substr(occurrence->>'pointer',3),'/');
+   selected_anchor:=selected_node; grounding_path:=ARRAY[occurrence->>'pointer'];
+   IF occurrence ? 'grounding_pointer' THEN
+    IF occurrence->>'precision'<>'inherited' OR occurrence->'region'->>'precision'<>'inherited' OR occurrence->>'kind'='region' THEN RAISE EXCEPTION 'inherited grounding requires inherited precision' USING ERRCODE='23514'; END IF;
+    IF occurrence->>'grounding_pointer'<>occurrence->>'pointer' AND jsonb_array_length(COALESCE(selected_node->'prov','[]'))>0 THEN RAISE EXCEPTION 'boxed occurrence cannot replace own witness' USING ERRCODE='23514'; END IF;
+    WHILE selected_anchor->>'self_ref' IS DISTINCT FROM occurrence->>'grounding_pointer' LOOP
+     ancestor_pointer:=selected_anchor->'parent'->>'$ref';
+     IF ancestor_pointer IS NULL OR ancestor_pointer=ANY(grounding_path) THEN RAISE EXCEPTION 'grounding is not an ancestor' USING ERRCODE='23514'; END IF;
+     grounding_path:=array_append(grounding_path,ancestor_pointer);
+     selected_anchor:=selected_content->'document' #> string_to_array(substr(ancestor_pointer,3),'/');
+    END LOOP;
+   END IF;
    IF occurrence->>'kind'='cell' THEN
     IF selected_node->>'label' IS DISTINCT FROM 'table' OR NOT occurrence ? 'cell_index' THEN RAISE EXCEPTION 'selected cell is outside native table' USING ERRCODE='23514'; END IF;
     selected_node:=selected_node->'data'->'table_cells'->((occurrence->>'cell_index')::integer);
    ELSIF occurrence ? 'cell_index' THEN RAISE EXCEPTION 'cell index requires a cell occurrence' USING ERRCODE='23514'; END IF;
    IF selected_node IS NULL OR (occurrence ? 'text' AND occurrence->>'text' IS DISTINCT FROM selected_node->>'text') THEN RAISE EXCEPTION 'selected occurrence differs from native content' USING ERRCODE='23514'; END IF;
-   IF (occurrence->>'kind'='cell' AND (occurrence->>'address_space'<>'native_cell' OR occurrence->>'precision' NOT IN ('cell','item','inherited','coarse','unknown'))) OR (occurrence->>'kind'<>'cell' AND (occurrence->>'kind' NOT IN ('item','text','formula','chart','region') OR (occurrence->>'kind'<>'region' AND (occurrence->>'kind'='formula') IS DISTINCT FROM (selected_node->>'label'='formula')) OR (occurrence->>'kind'='chart' AND (selected_node->>'label' IS DISTINCT FROM 'picture' OR NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE(selected_node->'annotations','[]')) WHERE value->>'kind' LIKE '%\_chart_data' ESCAPE '\'))) OR (occurrence->>'kind'='text' AND selected_node->>'label'<>'text') OR (occurrence->>'address_space' NOT IN ('native_item','selected_item') AND NOT (occurrence->>'kind'='region' AND occurrence->>'address_space'='pdf_points')) OR occurrence->>'precision' NOT IN ('item','inherited','coarse','unknown'))) OR (occurrence ? 'start' AND NOT occurrence ? 'text') THEN RAISE EXCEPTION 'selected kind/address/precision differs from native custody' USING ERRCODE='23514'; END IF;
-   IF occurrence ? 'page_no' AND NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE((selected_content->'document' #> string_to_array(substr(occurrence->>'pointer',3),'/'))->'prov','[]')) WHERE value->>'page_no'=occurrence->>'page_no') THEN RAISE EXCEPTION 'selected page differs from native provenance' USING ERRCODE='23514'; END IF;
+   IF (occurrence->>'kind'='cell' AND (occurrence->>'address_space'<>'native_cell' OR occurrence->>'precision' NOT IN ('cell','item','inherited','coarse','unknown'))) OR (occurrence->>'kind'<>'cell' AND (occurrence->>'kind' NOT IN ('item','text','formula','chart','region') OR (occurrence->>'kind'<>'region' AND (occurrence->>'kind'='formula') IS DISTINCT FROM (selected_node->>'label'='formula')) OR (occurrence->>'kind'='chart' AND (selected_node->>'label' IS DISTINCT FROM 'picture' OR NOT (selected_node->'meta' ? 'tabular_chart' OR EXISTS(SELECT FROM jsonb_array_elements(COALESCE(selected_node->'annotations','[]')) WHERE value->>'kind' LIKE '%\_chart_data' ESCAPE '\')))) OR (occurrence->>'kind'='text' AND selected_node->>'label'<>'text') OR (occurrence->>'address_space' NOT IN ('native_item','selected_item') AND NOT (occurrence->>'kind'='region' AND occurrence->>'address_space'='pdf_points')) OR occurrence->>'precision' NOT IN ('item','inherited','coarse','unknown'))) OR (occurrence ? 'start' AND NOT occurrence ? 'text') THEN RAISE EXCEPTION 'selected kind/address/precision differs from native custody' USING ERRCODE='23514'; END IF;
+   IF occurrence ? 'page_no' AND NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE(selected_anchor->'prov','[]')) WHERE value->>'page_no'=occurrence->>'page_no') THEN RAISE EXCEPTION 'selected page differs from native provenance' USING ERRCODE='23514'; END IF;
    IF (occurrence->>'kind'='region' AND (NOT occurrence ? 'region_index' OR NOT occurrence ? 'region' OR (occurrence->>'region_index')::bigint>=jsonb_array_length(COALESCE(selected_node->'prov','[]')))) OR (occurrence->>'kind'<>'region' AND occurrence ? 'region_index') THEN RAISE EXCEPTION 'native region index/witness differs' USING ERRCODE='23514'; END IF;
    IF occurrence ? 'region' AND (NOT occurrence ? 'page_no' OR occurrence->'region'->>'address_space'<>'pdf_points' OR occurrence->'region'->>'precision' NOT IN ('cell','item','inherited','coarse','unknown') OR NOT EXISTS(SELECT FROM (
-    SELECT value->'bbox' box,value->>'page_no' page FROM jsonb_array_elements(COALESCE(selected_node->'prov','[]')) WITH ORDINALITY p(value,n) WHERE occurrence->>'kind'<>'region' OR n-1=(occurrence->>'region_index')::bigint
+    SELECT value->'bbox' box,value->>'page_no' page FROM jsonb_array_elements(COALESCE(selected_anchor->'prov','[]')) WITH ORDINALITY p(value,n) WHERE occurrence->>'kind'<>'region' OR n-1=(occurrence->>'region_index')::bigint
     UNION ALL SELECT selected_node->'bbox',((selected_content->'document' #> string_to_array(substr(occurrence->>'pointer',3),'/'))->'prov'->0->>'page_no') WHERE occurrence->>'kind'='cell' AND selected_node ? 'bbox' AND jsonb_array_length(COALESCE((selected_content->'document' #> string_to_array(substr(occurrence->>'pointer',3),'/'))->'prov','[]'))=1
    ) boxes WHERE page=occurrence->>'page_no' AND (occurrence->'region'->>'left')::numeric=(box->>'l')::numeric AND (occurrence->'region'->>'top')::numeric=(box->>'t')::numeric AND (occurrence->'region'->>'right')::numeric=(box->>'r')::numeric AND (occurrence->'region'->>'bottom')::numeric=(box->>'b')::numeric AND occurrence->'region'->>'origin'=CASE box->>'coord_origin' WHEN 'TOPLEFT' THEN 'top_left' WHEN 'BOTTOMLEFT' THEN 'bottom_left' END)) THEN RAISE EXCEPTION 'selected region differs from retained native page/geometry' USING ERRCODE='23514'; END IF;
    occurrence:=occurrence||jsonb_build_object('native_value',selected_node);
@@ -144,6 +161,9 @@ BEGIN
   END LOOP;
  END LOOP;
  IF product->>'kind'='integrated' AND EXISTS(SELECT FROM kb.pdf_occurrence o WHERE o.task_id=p_task AND o.product_key=product->>'product_key' AND NOT EXISTS(SELECT FROM kb.pdf_relation r JOIN kb.pdf_relation_endpoint e USING(task_id,product_key,relation_id) WHERE r.task_id=o.task_id AND r.product_key=o.product_key AND r.kind='decision' AND r.body->>'outcome' IN ('selected','added','replaced') AND e.role='output' AND e.occurrence_id=o.occurrence_id)) THEN RAISE EXCEPTION 'selected occurrence lacks governing integration decision' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(COALESCE(product->'mapping_reports','[]')) r LEFT JOIN ops.pdf_product_input i ON i.task_id=p_task AND i.product_key=product->>'product_key' AND i.input_index=(r->>'input_index')::bigint WHERE i.role IS DISTINCT FROM 'recognition' OR (r->>'outcome'<>'mapped' AND COALESCE(r->>'reason','')='') OR (r ? 'occurrence_id' AND NOT EXISTS(SELECT FROM kb.pdf_occurrence o WHERE o.task_id=i.input_task_id AND o.product_key=i.input_product_key AND o.occurrence_id=r->>'occurrence_id'))) THEN RAISE EXCEPTION 'mapping disposition differs from recognition custody' USING ERRCODE='23514'; END IF;
+ INSERT INTO kb.pdf_mapping_report(task_id,product_key,report_index,input_index,body)
+ SELECT p_task,product->>'product_key',n-1,(r->>'input_index')::bigint,r FROM jsonb_array_elements(COALESCE(product->'mapping_reports','[]')) WITH ORDINALITY rows(r,n);
  IF jsonb_array_length(product->'coverage')=0 THEN RAISE EXCEPTION 'PDF coverage is mandatory' USING ERRCODE='23514'; END IF;
  FOR coverage IN SELECT value FROM jsonb_array_elements(product->'coverage') LOOP
   IF coverage->>'coverage_id'='' OR coverage->>'scope'='' OR coverage->>'family'='' OR coverage->>'discovery_policy'='' OR coverage->>'detail'='' OR (product->>'kind'='recognition_observation' AND coverage->>'outcome'='complete') THEN RAISE EXCEPTION 'PDF coverage scope/policy/outcome differs' USING ERRCODE='23514'; END IF;

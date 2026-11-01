@@ -3655,7 +3655,7 @@ classes:
         - ordinal
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.native_document_product.task_id,product_key"}]'
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"}]'
       ph:checks: '["ordinal >= 0", "pointer LIKE ''#/%''"]'
       ph:indexes: '[["task_id", "product_key", "section_pointer", "ordinal"], ["task_id",
         "product_key", "parent_pointer", "ordinal"]]'
@@ -3776,7 +3776,7 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["document_id"], "target": "kb.document.id"}, {"columns":
         ["release_id"], "target": "sem.release.release_id"}, {"columns": ["native_task_id",
-        "native_product_key", "native_content_digest"], "target": "ops.native_document_product.task_id,product_key,content_digest"},
+        "native_product_key", "native_content_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"},
         {"columns": ["native_task_id", "native_product_key", "section_pointer"], "target":
         "kb.native_document_item.task_id,product_key,pointer"}, {"columns": ["recipe_digest"],
         "target": "kb.source_artifact.artifact_digest"}]'
@@ -3854,7 +3854,7 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns":
         ["source_view_id"], "target": "kb.source_view.id"}, {"columns": ["product_task_id",
-        "product_key", "product_digest"], "target": "ops.native_document_product.task_id,product_key,content_digest"}]'
+        "product_key", "product_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"}]'
       ph:checks: '[]'
       ph:indexes: '[]'
   native_source_frame_source:
@@ -3906,7 +3906,7 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.native_source_frame.task_id"}, {"columns":
         ["source_view_id"], "target": "kb.source_view.id"}, {"columns": ["product_task_id",
-        "product_key", "product_digest"], "target": "ops.native_document_product.task_id,product_key,content_digest"}]'
+        "product_key", "product_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"}]'
       ph:checks: '["role IN (''primary'', ''ancestor_context'')", "membership IN (''direct'', ''descendants'')"]'
       ph:indexes: '[]'
   native_source_frame_sentence:
@@ -3977,7 +3977,7 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns":
         ["native_task_id", "native_product_key", "native_content_digest"], "target":
-        "ops.native_document_product.task_id,product_key,content_digest"}, {"columns":
+        "ops.pdf_product.task_id,product_key,content_digest"}, {"columns":
         ["native_task_id", "native_product_key", "pointer", "region_index"], "target":
         "kb.native_document_region.task_id,product_key,pointer,region_index"}, {"columns":
         ["recipe_digest"], "target": "kb.source_artifact.artifact_digest"}, {"columns":
@@ -4184,7 +4184,7 @@ classes:
         - product_key
     annotations:
       ph:immutability: immutable
-      ph:checks: "[\"descriptor = convert_from(payload,'UTF8')::jsonb - ARRAY['content','occurrences','relations','coverage','inputs']\"]"
+      ph:checks: "[\"descriptor = (convert_from(payload,'UTF8')::jsonb - ARRAY['content','occurrences','relations','coverage','inputs','mapping_reports']) || CASE WHEN convert_from(payload,'UTF8')::jsonb->>'kind'='integrated' THEN jsonb_build_object('content_metadata',jsonb_build_object('schema_digest',convert_from(payload,'UTF8')::jsonb->'content'->'schema_digest','recipe_digest',convert_from(payload,'UTF8')::jsonb->'content'->'recipe_digest','health',convert_from(payload,'UTF8')::jsonb->'content'->'health')) ELSE '{}'::jsonb END\"]"
       ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"},
         {"columns": ["recipe_digest"], "target": "kb.source_artifact.artifact_digest"}]'
   pdf_product_input:
@@ -4380,3 +4380,20 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key"],"target":"ops.pdf_product.task_id,product_key"},{"columns":["artifact_digest"],"target":"kb.source_artifact.artifact_digest"}]'
+
+  pdf_mapping_report:
+    in_subset: [kb]
+    attributes:
+      task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      report_index: {range: integer, required: true}
+      input_index: {range: integer, required: true}
+      body: {range: json_payload, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [task_id, product_key, report_index]
+    annotations:
+      ph:immutability: immutable
+      ph:foreign_keys: '[{"columns":["task_id","product_key","input_index"],"target":"ops.pdf_product_input.task_id,product_key,input_index"}]'
+      ph:checks: '["report_index >= 0", "input_index >= 0"]'
+      ph:indexes: '[["task_id", "product_key", "input_index", "report_index"]]'

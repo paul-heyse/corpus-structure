@@ -7772,9 +7772,11 @@ operations:
   results:
   - PdfIntegratedProduct
   applicability: []
-  universe: Future recognizer and mapping runtime; declared but unbound and unsupported
+  universe: Retained raw coordinate/class observations, sparse page correspondences and versioned selection policy
   effects: []
   outcomes:
+  - complete
+  - partial
   - unsupported
   outcome_domain: source_coverage
   dependencies:
@@ -7782,18 +7784,21 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: No inference, precision mapping or matching implementation admitted by this foundation
+  precision: Coarse transformed blocks and inherited parent witnesses never confer glyph or native cell precision
   transitions: []
   projections: []
+  implementation: map_pdf_observation
 - id: compare_pdf_occurrences
   inputs:
   - PdfIntegratedProduct
   results:
   - PdfIntegratedProduct
   applicability: []
-  universe: Future recognizer and mapping runtime; declared but unbound and unsupported
+  universe: Retained raw coordinate/class observations, sparse page correspondences and versioned selection policy
   effects: []
   outcomes:
+  - complete
+  - partial
   - unsupported
   outcome_domain: source_coverage
   dependencies:
@@ -7801,18 +7806,21 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: No inference, precision mapping or matching implementation admitted by this foundation
+  precision: Coarse transformed blocks and inherited parent witnesses never confer glyph or native cell precision
   transitions: []
   projections: []
+  implementation: compare_pdf_occurrences
 - id: select_pdf_integration
   inputs:
   - PdfIntegratedProduct
   results:
   - PdfIntegratedProduct
   applicability: []
-  universe: Future recognizer and mapping runtime; declared but unbound and unsupported
+  universe: Retained raw coordinate/class observations, sparse page correspondences and versioned selection policy
   effects: []
   outcomes:
+  - complete
+  - partial
   - unsupported
   outcome_domain: source_coverage
   dependencies:
@@ -7820,9 +7828,10 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: No inference, precision mapping or matching implementation admitted by this foundation
+  precision: Coarse transformed blocks and inherited parent witnesses never confer glyph or native cell precision
   transitions: []
   projections: []
+  implementation: select_pdf_integration
 implementations:
 - id: convert_pdf
   owner: ingest.pdf
@@ -8843,6 +8852,48 @@ implementations:
   - PdfProductReference
   result_concepts:
   - PdfProductReadResult
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: map_pdf_observation
+  owner: ingest.pdf_reconciliation
+  symbol: map_pdf_observation
+  version: '1'
+  placement: pure
+  input_concepts:
+  - PdfIntegratedProduct
+  result_concepts:
+  - PdfIntegratedProduct
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: compare_pdf_occurrences
+  owner: ingest.pdf_reconciliation
+  symbol: compare_pdf_occurrences
+  version: '1'
+  placement: pure
+  input_concepts:
+  - PdfIntegratedProduct
+  result_concepts:
+  - PdfIntegratedProduct
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities: []
+- id: select_pdf_integration
+  owner: ingest.pdf_reconciliation
+  symbol: select_pdf_integration
+  version: '1'
+  placement: pure
+  input_concepts:
+  - PdfIntegratedProduct
+  result_concepts:
+  - PdfIntegratedProduct
   features:
   - typed_bound_inputs
   - explicit_outcomes

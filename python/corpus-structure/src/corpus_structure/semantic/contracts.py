@@ -42,6 +42,8 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.methods.math.prepared import assess_parsing_math, interpret_parsing_math
     from corpus_structure.orchestrate import project, semantic
 
+    from corpus_structure.ingest import pdf_reconciliation
+
     from . import (
         analytics,
         arrow_publication,
@@ -97,6 +99,9 @@ def approved_implementations() -> Mapping[str, Any]:
             "retain_pdf_original": pdf_contracts.store_pdf_original,
             "prepare_native_document": pdf_contracts.prepare_pdf_product,
             "publish_native_document": pdf_contracts.store_pdf_product,
+            "map_pdf_observation": pdf_reconciliation.map_pdf_observation,
+            "compare_pdf_occurrences": pdf_reconciliation.compare_pdf_occurrences,
+            "select_pdf_integration": pdf_reconciliation.select_pdf_integration,
             "prepare_integrated_pdf": pdf_integrated.prepare_integrated_pdf_product,
             "publish_integrated_pdf": pdf_integrated.store_integrated_pdf_product,
             "read_pdf_product": pdf_storage.read_pdf_product,
@@ -811,7 +816,6 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("capture/analytics.py", "semantic/analytics.py"),
                 ("invocation/scheduler.py", "orchestrate/semantic.py"),
                 ("invocation/automated.py", "intervene/automated.py"),
-                ("invocation/packet.py", "methods/llm/packet.py"),
                 ("invocation/source_frames.py", "semantic/source_frames.py"),
                 ("invocation/proposals.py", "semantic/proposals.py"),
                 ("invocation/server.py", "intervene/semantic_server.py"),
@@ -860,6 +864,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact(
             "pdf/integrated.py", root.joinpath("semantic", "pdf_integrated.py").read_bytes()
         ),
+        SourceArtifact("pdf/reconciliation.py", root.joinpath("ingest", "pdf_reconciliation.py").read_bytes()),
         SourceArtifact("pdf/storage.py", root.joinpath("semantic", "pdf_storage.py").read_bytes()),
         SourceArtifact("grammar/grammar.py", math.joinpath("grammar.py").read_bytes()),
         SourceArtifact("grammar/extension.lark", math.joinpath("extension.lark").read_bytes()),
@@ -908,7 +913,6 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                         "networkx",
                         "rapidfuzz",
                         "regex",
-                        "lxml",
                     )
                 }
                 | dict(pdf_package_versions())
@@ -1316,7 +1320,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     required_implementations = {
         "invocation/scheduler.py",
         "invocation/automated.py",
-        "invocation/packet.py",
         "invocation/source_frames.py",
         "invocation/proposals.py",
         "invocation/server.py",
@@ -1384,7 +1387,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         operation["id"] in {"prepare_integrated_pdf", "publish_integrated_pdf", "read_pdf_product"}
         for operation in data["operations"]
     ):
-        required_implementations.update({"pdf/integrated.py", "pdf/storage.py"})
+        required_implementations.update({"pdf/integrated.py", "pdf/storage.py", "pdf/reconciliation.py"})
     if set(names) != required_implementations or len(names) != len(set(names)):
         _fail(
             "analysis_implementation_inputs",

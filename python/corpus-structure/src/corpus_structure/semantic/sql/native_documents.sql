@@ -66,6 +66,8 @@ BEGIN
   RAISE EXCEPTION 'source build immutable identity differs' USING ERRCODE='23514'; END IF;
  INSERT INTO ops.native_document_product(task_id,product_key,content_digest,release_id,contract_digest,schema_digest,recipe_digest,parent_task_id,parent_product_key,parent_digest,native_json,health,payload)
  VALUES(p_task,product->>'product_key',digest,run.release_id,p_contract,product->>'schema_digest',product->>'recipe_digest',(product->>'parent_task_id')::bigint,product->>'parent_product_key',product->>'parent_digest',product->'document',product->'health',p_payload);
+ INSERT INTO ops.pdf_product(task_id,product_key,content_digest,kind,artifact_digest,release_id,contract_digest)
+ VALUES(p_task,product->>'product_key',digest,'native',product->>'artifact_digest',run.release_id,p_contract) ON CONFLICT DO NOTHING;
  INSERT INTO kb.native_document_item(task_id,product_key,pointer,ordinal,label,parent_pointer,section_pointer,content_layer,text,native_json)
  SELECT p_task,product->>'product_key',i.pointer,i.ordinal,i.label,i.parent_pointer,i.section_pointer,i.content_layer,i.text,product->'document' #> string_to_array(substr(i.pointer,3),'/') FROM jsonb_populate_recordset(NULL::kb.native_document_item,product->'items') i;
  INSERT INTO kb.native_document_region(task_id,product_key,pointer,region_index,page_no,page_width,page_height,"left",top,"right",bottom,origin)

@@ -14,7 +14,7 @@ REVOKE ALL ON FUNCTION ops.native_scope_items(bigint,text,text,text) FROM PUBLIC
 CREATE OR REPLACE FUNCTION ops.publish_source_view(p_run bigint,p_task bigint,p_attempt bigint,p_holder text,p_position bigint,p_payload bytea,p_recipe bytea) RETURNS bigint
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $view$
 DECLARE job ops.task; run ops.run; product jsonb; parsing_item jsonb; projection jsonb; piece jsonb;
- native ops.native_document_product; section kb.native_document_item; previous kb.source_view; result bigint;
+ native ops.pdf_selected_product; section kb.native_document_item; previous kb.source_view; result bigint;
  pos bigint:=0; stop bigint; node jsonb; spelling text; piece_pointer text; expected jsonb; coverage_universe text; local_coverage text; coverage_row kb.native_document_coverage;
 BEGIN
  SELECT * INTO STRICT run FROM ops.run WHERE id=p_run FOR SHARE;
@@ -27,7 +27,7 @@ BEGIN
  IF product->>'recipe_digest' IS DISTINCT FROM encode(sha256(p_recipe),'hex') OR
  product->>'projection_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(projection),'UTF8')),'hex') THEN
  RAISE EXCEPTION 'source view recipe/projection identity differs' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT native FROM ops.native_document_product WHERE task_id=(product->>'native_task_id')::bigint AND product_key=product->>'native_product_key' AND content_digest=product->>'native_content_digest';
+ SELECT * INTO STRICT native FROM ops.pdf_selected_product WHERE task_id=(product->>'native_task_id')::bigint AND product_key=product->>'native_product_key' AND content_digest=product->>'native_content_digest';
  -- Cross-release reuse is explicitly pinned to an archived native schema and producer contract.
  IF NOT EXISTS(SELECT FROM kb.document d JOIN ops.source_build b ON b.artifact_digest=d.content_hash JOIN ops.task t ON t.id=b.task_id JOIN ops.run r ON r.id=t.run_id
  WHERE d.id=(product->>'document_id')::bigint AND d.project_id=run.project_id AND b.task_id=native.task_id AND r.project_id=run.project_id AND EXISTS(SELECT FROM ops.source_build own WHERE own.task_id=p_task AND own.artifact_digest=b.artifact_digest)) THEN
@@ -169,7 +169,12 @@ BEGIN
  SELECT jsonb_build_object('pieces',view.projection->'pieces','health',view.projection->'health',
  'items',(SELECT COALESCE(jsonb_agg(i.native_json ORDER BY ptr.n),'[]') FROM jsonb_array_elements_text(view.projection->'items') WITH ORDINALITY ptr(value,n) JOIN kb.native_document_item i ON i.task_id=view.native_task_id AND i.product_key=view.native_product_key AND i.pointer=ptr.value),
  'ancestors',(SELECT COALESCE(jsonb_agg(i.native_json ORDER BY ptr.n),'[]') FROM jsonb_array_elements_text(COALESCE(view.projection->'ancestors','[]')) WITH ORDINALITY ptr(value,n) JOIN kb.native_document_item i ON i.task_id=view.native_task_id AND i.product_key=view.native_product_key AND i.pointer=ptr.value)) INTO expected
- FROM ops.native_document_product p WHERE p.task_id=view.native_task_id AND p.product_key=view.native_product_key;
+ FROM ops.pdf_selected_product p WHERE p.task_id=view.native_task_id AND p.product_key=view.native_product_key;
+ IF EXISTS(SELECT FROM ops.pdf_product p WHERE p.task_id=view.native_task_id AND p.product_key=view.native_product_key AND p.kind='integrated') THEN
+  IF COALESCE((p_frame->>'version')::integer,2)<>3 THEN RAISE EXCEPTION 'integrated source frame requires version 3' USING ERRCODE='23514'; END IF;
+  IF NOT context ? 'integrated_context_json' OR (context->>'integrated_context_json')::jsonb IS DISTINCT FROM ops.integrated_source_context(view.native_task_id,view.native_product_key,view.native_content_digest,ARRAY(SELECT jsonb_array_elements_text(view.projection->'items')),view.section_pointer,view.membership) THEN RAISE EXCEPTION 'integrated source companion differs from selected occurrence scope' USING ERRCODE='23514'; END IF;
+  context:=context-'integrated_context_json';
+ END IF;
  IF context IS DISTINCT FROM expected THEN RAISE EXCEPTION 'native packet omitted or changed supplied source context' USING ERRCODE='23514'; END IF;
  FOR sentence IN SELECT value FROM jsonb_array_elements(p_frame->'sentences') LOOP
   IF starts_with(sentence->>'id','native_context:') OR sentence->>'id'='' OR (sentence->>'start')::bigint<0
@@ -252,13 +257,13 @@ GRANT EXECUTE ON FUNCTION ops.select_source_view(bigint,bigint,bigint) TO corpus
 
 CREATE OR REPLACE FUNCTION ops.publish_pdf_region_artifact(p_task bigint,p_attempt bigint,p_holder text,p_selection jsonb,p_recipe bytea,p_content bytea) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $artifact$
-DECLARE job ops.task; run ops.run; product ops.native_document_product; previous ops.native_region_artifact; digest text;
+DECLARE job ops.task; run ops.run; product ops.pdf_selected_product; previous ops.native_region_artifact; digest text;
 BEGIN
  SELECT * INTO STRICT job FROM ops.task WHERE id=p_task FOR UPDATE;
  SELECT * INTO STRICT run FROM ops.run WHERE id=job.run_id FOR SHARE;
  PERFORM sem.require_execution_operation(run.release_id,'publish_pdf_region_artifact');
  IF run.sealed OR job.status<>'running' OR job.attempt<>p_attempt OR job.claimed_by IS DISTINCT FROM p_holder THEN RAISE EXCEPTION 'region artifact attempt lost' USING ERRCODE='P0004'; END IF;
- SELECT * INTO STRICT product FROM ops.native_document_product WHERE task_id=(p_selection->>'task_id')::bigint AND product_key=p_selection->>'product_key' AND content_digest=p_selection->>'content_digest';
+ SELECT * INTO STRICT product FROM ops.pdf_selected_product WHERE task_id=(p_selection->>'task_id')::bigint AND product_key=p_selection->>'product_key' AND content_digest=p_selection->>'content_digest';
  IF NOT EXISTS(SELECT FROM ops.source_build b JOIN kb.document d ON d.content_hash=b.artifact_digest WHERE b.task_id=product.task_id AND d.project_id=run.project_id AND
  ((job.unit_type='document' AND job.unit_id=d.id) OR (job.unit_type='source_view' AND EXISTS(SELECT FROM kb.source_view v JOIN ops.run_source_view rs ON rs.source_view_id=v.id WHERE rs.run_id=run.id AND v.id=job.unit_id AND v.document_id=d.id))))
  OR NOT EXISTS(SELECT FROM kb.native_document_region WHERE task_id=product.task_id AND product_key=product.product_key AND pointer=p_selection->>'pointer' AND region_index=(p_selection->>'region_index')::bigint) THEN

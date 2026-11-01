@@ -143,3 +143,61 @@ def integrated_pdf_products(model=None):
         NativeProduct("semantic_0056_pdf_products.sql", sql.encode()),
         NativeProduct("semantic_0056_admission.sql", admission.encode()),
     )
+
+
+def reconciled_pdf_products(model=None):
+    """Author 0057; retain every predecessor byte and derive current shared enforcement."""
+    from pglast import ast, parse_sql
+    from pglast.stream import RawStream
+    from sqlalchemy.dialects.postgresql import dialect
+    from sqlalchemy.schema import AddConstraint, CheckConstraint
+    from .native_shapes import record_shape_guards
+    from .pdf_contracts import trusted_pdf_context
+
+    # Foundation authoring supplies the reviewed current native validators, not executable
+    # CREATE TABLE replay. Only its function definitions and privileges are carried forward.
+    foundation = integrated_pdf_products(model)[0].content.decode()
+    sql = "SET LOCAL ROLE corpus_sem_publisher;\n"
+    changed = ("kb.native_document_item", "kb.source_view", "ops.native_source_frame", "ops.native_source_frame_source", "ops.native_region_artifact")
+    for name in changed:
+        sql += (
+            "DO $foreign$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint "
+            f"WHERE conrelid='{name}'::regclass AND contype='f' AND confrelid='ops.native_document_product'::regclass LOOP "
+            f"EXECUTE format('ALTER TABLE {name} DROP CONSTRAINT %I',n); END LOOP; END $foreign$;\n"
+        )
+        for constraint in sorted(metadata.tables[name].foreign_key_constraints, key=lambda c: str(c.name)):
+            if constraint.referred_table.fullname == "ops.pdf_product":
+                sql += str(AddConstraint(constraint, isolate_from_table=False).compile(dialect=dialect())).strip() + ";\n"
+    sql += "DO $checks$ DECLARE n text; BEGIN FOR n IN SELECT conname FROM pg_constraint WHERE conrelid='ops.pdf_product_body'::regclass AND contype='c' LOOP EXECUTE format('ALTER TABLE ops.pdf_product_body DROP CONSTRAINT %I',n); END LOOP; END $checks$;\n"
+    sql += "ALTER TABLE ops.pdf_product_body DISABLE TRIGGER semantic_immutable;\n"
+    sql += "UPDATE ops.pdf_product_body SET descriptor=(convert_from(payload,'UTF8')::jsonb - ARRAY['content','occurrences','relations','coverage','inputs','mapping_reports']) || CASE WHEN convert_from(payload,'UTF8')::jsonb->>'kind'='integrated' THEN jsonb_build_object('content_metadata',jsonb_build_object('schema_digest',convert_from(payload,'UTF8')::jsonb->'content'->'schema_digest','recipe_digest',convert_from(payload,'UTF8')::jsonb->'content'->'recipe_digest','health',convert_from(payload,'UTF8')::jsonb->'content'->'health')) ELSE '{}'::jsonb END;\n"
+    sql += "ALTER TABLE ops.pdf_product_body ENABLE TRIGGER semantic_immutable;\n"
+    for constraint in sorted(metadata.tables["ops.pdf_product_body"].constraints, key=lambda c: str(c.name)):
+        if isinstance(constraint, CheckConstraint):
+            sql += str(AddConstraint(constraint, isolate_from_table=False).compile(dialect=dialect())).strip() + ";\n"
+    new_relation = "kb.pdf_mapping_report"
+    sql += "GRANT REFERENCES ON ops.pdf_product_input TO __MIGRATION_OWNER__;\nSET LOCAL ROLE __MIGRATION_OWNER__;\n"
+    for product in physical_products():
+        if product.name == new_relation or product.name.startswith(new_relation + "/") or product.name in {str(i.name) for i in metadata.tables[new_relation].indexes}:
+            sql += product.content.decode() + "\n"
+    sql += "ALTER TABLE kb.pdf_mapping_report OWNER TO corpus_sem_publisher;\nSET LOCAL ROLE corpus_sem_publisher;\nREVOKE REFERENCES ON ops.pdf_product_input FROM __MIGRATION_OWNER__;\n"
+    sql += "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON kb.pdf_mapping_report FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();\n"
+    sql += "GRANT SELECT ON kb.pdf_mapping_report TO corpus_sem_writer,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator;\n"
+    source = Path(__file__).with_name("sql")
+    sql += (source / "pdf_selected.sql").read_text() + "\n"
+    for raw in parse_sql(foundation.replace("__MIGRATION_OWNER__", "corpus_migration_owner")):
+        stmt = raw.stmt
+        if isinstance(stmt, ast.CreateFunctionStmt) or (
+            isinstance(stmt, ast.GrantStmt) and stmt.objtype is not None and stmt.objtype.name == "OBJECT_FUNCTION"
+        ):
+            sql += RawStream()(stmt) + ";\n"
+    views = (source / "source_views.sql").read_text().replace(
+        "-- {source_view_shape_guard}", record_shape_guards(trusted_pdf_context().boundary, "PdfSourceViewPublication", "product")
+    )
+    sql += views + "\n"
+    physical, _, _ = closure_products(model)
+    sql += "\nDO $reference$" + physical.content.decode().split("DO $reference$", 1)[1]
+    previous = ALEMBIC_DIR.joinpath("versions/semantic_0056_admission.sql").read_text()
+    admission = native_admission_sql(sql, model, extra_relations=(*changed, "kb.pdf_mapping_report", "ops.pdf_product_body"), base_admission=previous)
+    return (NativeProduct("semantic_0057_reconciliation.sql", sql.encode()),
+            NativeProduct("semantic_0057_admission.sql", admission.encode()))
