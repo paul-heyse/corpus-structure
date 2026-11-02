@@ -72,12 +72,16 @@ classes:
     )
 
 
-def stage(conn, bundle=None):
+def stage(conn, bundle=None, *, composed=True):
     bundle = source_bundle() if bundle is None else bundle
     dependencies = ResolvedDependencies(
         (SourceArtifact("opaque", b"\x00exact external bytes\xff"),)
     )
-    profile = PreparationProfile()
+    from corpus_structure.semantic.composed import composed_dependencies
+
+    if composed:
+        dependencies = composed_dependencies(dependencies)
+    profile = PreparationProfile(version="semantic-2" if composed else "semantic-1")
     prepared = prepare_release(bundle, dependencies, profile)
     releases.persist_release(conn, bundle, dependencies, profile, prepared)
     return bundle, dependencies, profile, prepared
@@ -95,7 +99,8 @@ def project(conn, release_id=None):
 
 def test_archive_is_exact_offline_and_idempotent(semantic_db_engine: Engine, monkeypatch):
     with semantic_db_engine.begin() as conn:
-        bundle, dependencies, profile, prepared = stage(conn)
+        bundle, dependencies, profile, prepared = stage(conn, composed=False)
+        assert prepared.execution_model_id is None  # Pure artifact custody grants no execution.
         calls = []
         from corpus_structure.semantic import prepare as preparation
 
@@ -467,8 +472,12 @@ def test_sql_admission_and_pointer_share_activation_savepoint(
         dependencies = ResolvedDependencies(
             (SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity"),)
         )
-        prepared = prepare_release(bundle, dependencies)
-        releases.persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
+        from corpus_structure.semantic.composed import composed_dependencies
+
+        dependencies = composed_dependencies(dependencies)
+        profile = PreparationProfile(version="semantic-2")
+        prepared = prepare_release(bundle, dependencies, profile)
+        releases.persist_release(conn, bundle, dependencies, profile, prepared)
         pid = project(conn, first.release_id)
         with pytest.raises(SQLAdmissionError, match="restricted reader"):
             releases.activate_release(

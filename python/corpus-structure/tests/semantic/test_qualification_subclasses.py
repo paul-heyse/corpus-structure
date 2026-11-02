@@ -168,6 +168,6 @@ def test_native_unrelated_record_cannot_pose_as_qualification(
         typed_value=tuple(
             replace(v, datatype=unrelated) if v.datatype == leaf else v for v in batch.typed_value
         ),
-    )
+    ).bind_preparation(release)
     with pytest.raises(DBAPIError, match="typed qualification"):
         publish_batch(semantic_writer_engine, forged)
