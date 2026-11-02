@@ -221,7 +221,9 @@ def classify_error(
     """Translate native facts; the operation supplies phase/effects and chooses recovery."""
     original = exc.orig if isinstance(exc, DBAPIError) else exc
     invalidated = (isinstance(exc, DBAPIError) and exc.connection_invalidated) or broken
-    details = _adbc_details(original) if isinstance(original, adbc.Error) else ()
+    details = (
+        _adbc_details(original) if isinstance(original, adbc.Error) else _postgres_details(original)
+    )
     native_details = dict(details)
     # A native SQLSTATE detail is supplied data, unlike a generic ADBC status.
     sqlstate = getattr(original, "sqlstate", None) or native_details.get("sqlstate")
@@ -292,6 +294,38 @@ _ADBC_DIAGNOSTICS = {
     "PG_DIAG_COLUMN_NAME": "column_name",
     "PG_DIAG_MESSAGE_HINT": "message_hint",
 }
+
+
+def _postgres_details(error: BaseException | None) -> tuple[tuple[str, str], ...]:
+    """Retain native locations and the closed guard protocol, never infer domain meaning.
+
+    Ordinary DETAIL can contain whole row values. It stays on the original exception;
+    only an explicit structured producer envelope is safe for the shared public report.
+    An admitted semantic binding must still verify every discriminator before assigning
+    an invariant failure code.
+    """
+    diagnostic = getattr(error, "diag", None)
+    fields = []
+    for name in ("schema_name", "table_name", "column_name", "datatype_name"):
+        value = getattr(diagnostic, name, None)
+        if isinstance(value, str) and value:
+            fields.append((name, value))
+    detail = getattr(diagnostic, "message_detail", None)
+    if isinstance(detail, str):
+        try:
+            value = json.loads(detail)
+        except ValueError, RecursionError:
+            value = None
+        if (
+            isinstance(value, dict)
+            and set(value) == {"protocol", "guard", "version", "invariant"}
+            and value["protocol"] == "corpus-invariant-1"
+            and all(isinstance(item, str) and item for item in value.values())
+        ):
+            fields.append(
+                ("invariant_detail", json.dumps(value, sort_keys=True, separators=(",", ":")))
+            )
+    return tuple(fields)
 
 
 def _adbc_details(error: adbc.Error) -> tuple[tuple[str, str], ...]:
