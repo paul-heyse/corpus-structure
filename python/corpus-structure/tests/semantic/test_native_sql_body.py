@@ -174,3 +174,46 @@ LANGUAGE sql AS $$ SELECT 'unrelated overload'::text $$""")
         transaction.rollback()
     with semantic_bare_engine.connect() as conn:
         assert conn.scalar(text("""SELECT to_regnamespace('"native test"')""")) is None
+
+
+def test_unbound_sql_standard_body_cannot_author_native_admission():
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR
+    from corpus_structure.semantic.source_view_native import native_admission_sql
+
+    source = """CREATE OR REPLACE FUNCTION ops.unbound_preview() RETURNS integer
+LANGUAGE sql BEGIN ATOMIC SELECT 1; END;"""
+    frozen = ALEMBIC_DIR.joinpath("versions/semantic_0065_admission.sql").read_text()
+    with pytest.raises(ValueError, match="server-bound normalized native object"):
+        native_admission_sql(source, base_admission=frozen)
+
+
+def test_current_release_guards_refuse_historical_archive_and_projection_compilers():
+    from pathlib import Path
+    from corpus_structure.semantic.native_products import function_bodies
+
+    source = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
+    archive = function_bodies((source / "closure.sql").read_text())["sem.require_archive_bytes"]
+    projection = function_bodies((source / "execution_projection_check.sql").read_text())["sem.require_execution_projection"]
+    assert "document->>'format' IS DISTINCT FROM 'semantic-release-archive-3'" in archive
+    assert "manifest->'profile'->>'compiler_version' IS DISTINCT FROM '14'" in archive
+    assert "IS DISTINCT FROM '14' THEN RAISE EXCEPTION" in projection
+    assert "THEN RETURN;" not in projection
+
+
+def test_current_native_sources_own_release_guards_and_record_only_views(semantic_bare_engine):
+    from corpus_structure.semantic.native_candidate import series_native_definitions, series_predecessor_definitions
+
+    with semantic_bare_engine.begin() as conn:
+        conn.exec_driver_sql("CREATE SCHEMA sem")
+        desired = series_native_definitions(conn)
+        predecessor = series_predecessor_definitions(conn)
+    wanted = {(item.identity.schema, item.identity.name): item for item in desired}
+    previous = {(item.identity.schema, item.identity.name): item for item in predecessor}
+    for name in ("require_archive_bytes", "require_execution_projection"):
+        assert wanted["sem", name].sql != previous["sem", name].sql
+        assert wanted["sem", name].owner == "corpus_sem_publisher"
+        assert wanted["sem", name].grants == ()
+    for name in ("pdf_selected_product", "pdf_published_item", "pdf_published_region", "pdf_published_coverage"):
+        assert "UNION" not in wanted["ops", name].sql
+        assert "UNION" in previous["ops", name].sql
+    assert ("ops", "legacy_integrated_source_context") not in wanted

@@ -1,12 +1,9 @@
 """Model-derived private PDF staging DDL and protected batch operations."""
 
 from sqlalchemy.dialects.postgresql import dialect
-from sqlalchemy.schema import AddConstraint, CreateTable
 
 from .metadata import metadata
-from .native_products import NativeProduct
 from .pdf_staging import STAGE_FAMILIES
-from .source_view_native import native_admission_sql
 
 
 def native_payload_size_sql(relation, *, alias="s") -> str:
@@ -298,68 +295,4 @@ END $stage$;
             "octet_length(p_key)>1024",
             "octet_length(p_key)>" + str(profile["max_replay_key_bytes"]),
         )
-    )
-
-
-def pdf_staging_products(model=None, *, authoring_provenance=None):
-    from .migrations import ALEMBIC_DIR
-    from .pdf_record_native import pdf_record_products
-
-    base_sql = pdf_record_products(model, authoring_provenance=authoring_provenance)[
-        0
-    ].content.decode()
-    sql = (
-        "SET LOCAL ROLE __MIGRATION_OWNER__;\n"
-        "GRANT REFERENCES(id) ON ops.task TO corpus_sem_publisher;\n"
-        "SET LOCAL ROLE corpus_sem_publisher;\n"
-    )
-    relations = {
-        name: rel for name, rel in metadata.tables.items() if rel.name.startswith("pdf_stage_")
-    }
-    pg = dialect()
-    for _name, relation in sorted(relations.items()):
-        sql += (
-            str(
-                CreateTable(relation, include_foreign_key_constraints=[]).compile(dialect=pg)
-            ).strip()
-            + ";\n"
-        )
-    for name, relation in sorted(relations.items()):
-        for constraint in sorted(relation.foreign_key_constraints, key=lambda item: str(item.name)):
-            sql += (
-                str(AddConstraint(constraint, isolate_from_table=False).compile(dialect=pg)).strip()
-                + ";\n"
-            )
-        if relation.info["immutability"] == "immutable":
-            sql += (
-                "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE "
-                f"ON {name} FOR EACH STATEMENT "
-                "EXECUTE FUNCTION sem.refuse_immutable_mutation();\n"
-            )
-        sql += (
-            f"REVOKE ALL ON {name} FROM PUBLIC,corpus_sem_writer,corpus_sem_reader,"
-            "corpus_sem_admitter,corpus_sem_evaluator;\n"
-        )
-    sql += base_sql
-    sql += stage_native_sql()
-    previous = ALEMBIC_DIR.joinpath("versions/semantic_0063_admission.sql").read_text()
-    admission = native_admission_sql(
-        sql,
-        model,
-        extra_relations=sorted(
-            [
-                *relations,
-                *(
-                    name
-                    for name in metadata.tables
-                    if ".pdf_record_" in name or ".pdf_artifact_" in name
-                ),
-            ]
-        ),
-        base_admission=previous,
-        authoring_provenance=authoring_provenance,
-    )
-    return (
-        NativeProduct("semantic_0064_reconciliation.sql", sql.encode()),
-        NativeProduct("semantic_0064_admission.sql", admission.encode()),
     )

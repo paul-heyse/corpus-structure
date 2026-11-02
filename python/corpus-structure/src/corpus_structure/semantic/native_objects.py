@@ -12,7 +12,9 @@ from dataclasses import asdict, dataclass, replace
 
 from pglast import ast, enums
 from pglast.stream import RawStream
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection, Integer, cast, func, literal, select, text
+
+from . import native_catalog as catalog_queries
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.exc import DBAPIError
 
@@ -228,8 +230,7 @@ def definition_from_sql(
                 continue
             kind = RawStream()(parameter.argType)
             canonical = connection.scalar(
-                text("SELECT pg_catalog.format_type(pg_catalog.to_regtype(:kind),NULL)"),
-                {"kind": kind},
+                select(catalog_queries.pg.format_type(catalog_queries.pg.to_regtype(kind), None)),
             )
             if canonical is None:
                 raise NativeAuthoringError(f"{source}: unresolved input type {kind}")
@@ -265,64 +266,21 @@ def observe_native(
     """Read selected properties independently from catalog fields; NULL ACL uses acldefault."""
     if catalog_version not in {None, 1, 2}:
         raise NativeAuthoringError("unsupported native catalog comparison profile")
-    args = {
-        "schema": identity.schema,
-        "name": identity.name,
-        "signature": identity.qualified,
-        "relation": identity.relation,
-    }
     if identity.kind == "function":
-        row = (
-            connection.execute(
-                text("""SELECT p.oid,p.proowner,p.proacl::text AS acl,
- p.prosrc AS body,l.lanname AS language,pg_get_function_result(p.oid) AS result,
- pg_get_function_arguments(p.oid) AS arguments,
- p.proretset AS setof,p.provolatile AS volatility,p.proisstrict AS strict,
- p.prosecdef AS security,p.proparallel AS parallel,p.proleakproof AS leakproof,
- p.proconfig AS config,pg_get_userbyid(p.proowner) AS owner,p.prokind AS kind,
- pg_get_expr(p.proargdefaults,0) AS defaults,p.procost AS cost,p.prorows AS rows,
- p.prosupport::regproc::text AS support,p.prosqlbody IS NOT NULL AS sql_body
- FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
- WHERE p.oid=to_regprocedure(:signature)"""),
-                args,
-            )
-            .mappings()
-            .one_or_none()
-        )
-        aclkind = "f"
+        statement = catalog_queries.function_observation(identity.qualified)
     elif identity.kind == "view":
-        row = (
-            connection.execute(
-                text("""SELECT c.oid,c.relowner AS proowner,c.relacl::text AS acl,
- c.relkind AS kind,pg_get_viewdef(c.oid,true) AS query,c.reloptions AS options,
- pg_get_userbyid(c.relowner) AS owner FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname=:schema AND c.relname=:name"""),
-                args,
-            )
-            .mappings()
-            .one_or_none()
-        )
-        aclkind = "r"
-        if row is not None and row["kind"] != "v":
-            raise NativeAuthoringError(
-                f"{identity.qualified}: selected object is not an ordinary view"
-            )
+        statement = catalog_queries.view_observation(identity.schema, identity.name)
     elif identity.kind == "trigger":
-        row = (
-            connection.execute(
-                text("""SELECT pg_get_triggerdef(t.oid,true) AS definition,
- pg_get_userbyid(c.relowner) AS owner,t.tgenabled AS enabled
- FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
- JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=:schema
- AND c.relname=:relation AND t.tgname=:name AND NOT t.tgisinternal"""),
-                args,
-            )
-            .mappings()
-            .one_or_none()
-        )
-        return None if row is None else dict(row)
+        statement = catalog_queries.trigger_observation(identity.schema, identity.name, identity.relation)
     else:
         raise NativeAuthoringError(f"unsupported native kind {identity.kind}")
+    row = connection.execute(statement).mappings().one_or_none()
+    if identity.kind == "trigger":
+        return None if row is None else dict(row)
+    if row is not None and identity.kind == "view" and row["kind"] != "v":
+        raise NativeAuthoringError(
+            f"{identity.qualified}: selected object is not an ordinary view"
+        )
     if row is None:
         return None
     result = dict(row)
@@ -337,7 +295,7 @@ def observe_native(
             SQL_STANDARD_MAJOR,
             SQL_STANDARD_PROFILE,
             catalog_path,
-            dependency_query,
+
         )
 
         if identity.kind != "function" or not sql_body:
@@ -345,7 +303,7 @@ def observe_native(
                 "SQL-standard comparison profile requires a parsed SQL function body"
             )
         major = connection.scalar(
-            text("SELECT current_setting('server_version_num')::integer/10000")
+            select(cast(func.current_setting("server_version_num"), Integer) // 10000)
         )
         if major != SQL_STANDARD_MAJOR:
             raise NativeAuthoringError(
@@ -353,10 +311,10 @@ def observe_native(
             )
         with catalog_path(connection):
             result["body"] = connection.scalar(
-                text("SELECT pg_get_functiondef(CAST(:signature AS regprocedure))"), args
+                select(catalog_queries.pg.pg_get_functiondef(catalog_queries.pg.to_regprocedure(identity.qualified)))
             )
             dependencies = connection.scalar(
-                text(dependency_query("CAST(:signature AS regprocedure)")), args
+                catalog_queries.dependencies(catalog_queries.pg.to_regprocedure(identity.qualified))
             )
         result.update(
             body_kind="sql_standard",
@@ -364,13 +322,9 @@ def observe_native(
             server_major=major,
             dependencies=dependencies,
         )
-    # Bind cast syntax explicitly: SQLAlchemy text does not parse :parameter::type reliably.
+    aclkind = "f" if identity.kind == "function" else "r"
     acl = connection.execute(
-        text("""SELECT CASE WHEN a.grantee=0 THEN 'PUBLIC'
- ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable
- FROM aclexplode(COALESCE(CAST(:acl AS aclitem[]),
- acldefault(CAST(:kind AS \"char\"),CAST(:owner AS oid)))) a ORDER BY 1,2,3"""),
-        {"acl": result.pop("acl"), "kind": aclkind, "owner": result.pop("proowner")},
+        catalog_queries.acl_rows(literal(result.pop("acl")), literal(aclkind), literal(result.pop("proowner")))
     ).all()
     result.pop("oid")
     result["acl"] = [list(item) for item in acl]
@@ -382,9 +336,7 @@ def observe_native(
 
 
 def semantic_namespace_owner(connection: Connection) -> str:
-    owner = connection.scalar(
-        text("SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname='sem'")
-    )
+    owner = connection.scalar(catalog_queries.namespace_owner())
     if owner is None:
         raise NativeAuthoringError("migration-owner binding requires the semantic namespace owner")
     return owner
@@ -416,11 +368,7 @@ def _declared_acl(connection: Connection, definition: NativeDefinition):
     if owner is None:
         raise NativeAuthoringError(f"{definition.source}: native ACL requires an explicit owner")
     rows = connection.execute(
-        text("""SELECT a.privilege_type,a.is_grantable
- FROM aclexplode(acldefault(CAST(:kind AS "char"),
- (SELECT oid FROM pg_roles WHERE rolname=:owner))) a
- WHERE a.grantee=(SELECT oid FROM pg_roles WHERE rolname=:owner) ORDER BY 1"""),
-        {"kind": "f" if definition.identity.kind == "function" else "r", "owner": owner},
+        catalog_queries.declared_acl("f" if definition.identity.kind == "function" else "r", owner)
     ).all()
     grants: dict[tuple[str, str], bool] = {(owner, privilege): option for privilege, option in rows}
     grants.update(
@@ -596,13 +544,7 @@ def prepare_native_authoring(
                     relation = (
                         _quote(item.identity.schema) + "." + _quote(item.identity.relation or "")
                     )
-                    parent_owner = connection.scalar(
-                        text(
-                            "SELECT pg_get_userbyid(relowner) FROM pg_class "
-                            "WHERE oid=to_regclass(:relation)"
-                        ),
-                        {"relation": relation},
-                    )
+                    parent_owner = connection.scalar(catalog_queries.relation_owner(relation))
                     if parent_owner is None or (owner is not None and owner != parent_owner):
                         raise NativeAuthoringError(
                             f"{item.source}: trigger requires its declared owning relation"

@@ -6,10 +6,8 @@ import json
 from pathlib import Path
 
 from sqlalchemy.dialects.postgresql import dialect
-from sqlalchemy.schema import AddConstraint, CreateIndex, CreateTable
 
 from .metadata import metadata
-from .native_products import NativeProduct
 from .pdf_staging import STAGE_FAMILIES
 
 _FINAL = {
@@ -1164,45 +1162,17 @@ differs: "
         + (Path(__file__).with_name("sql") / "pdf_record_context.sql").read_text()
         + "\n"
     )
-    original_context = (
-        (Path(__file__).with_name("sql") / "pdf_selected.sql")
-        .read_text()
-        .split("CREATE OR REPLACE FUNCTION ops.integrated_source_context", 1)[1]
-    )
-    sql += (
-        "CREATE OR REPLACE FUNCTION ops.legacy_integrated_source_context"
-        + original_context.replace(
-            "ops.integrated_source_context", "ops.legacy_integrated_source_context"
-        )
-    )
-    sql += """
-CREATE OR REPLACE FUNCTION ops.integrated_source_context(p_task bigint,p_key text,p_digest \
-text,p_pointers text[],p_section text,p_membership text)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-BEGIN
- IF EXISTS(SELECT FROM ops.pdf_published_revision WHERE task_id=p_task AND product_key=p_key AND \
-logical_digest=p_digest) THEN
- RETURN ops.record_integrated_source_context(p_task,p_key,p_digest,p_pointers,p_section,p_members\
-hip);
- END IF;
- RETURN ops.legacy_integrated_source_context(p_task,p_key,p_digest,p_pointers,p_section,p_members\
-hip);
-END $$;
-REVOKE ALL ON FUNCTION ops.integrated_source_context(bigint,text,text,text[],text,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ops.integrated_source_context(bigint,text,text,text[],text,text) TO \
-corpus_sem_writer,corpus_sem_reader;
-"""
-    # Public views expose only the final bridge; preparation stays private.
-    for suffix, old in [("access", "native_document_item"), ("region", "native_document_region")]:
+    # Published views expose the current record product; preparation stays private.
+    for suffix in ("access", "region"):
         fields = [
             column.key
-            for column in metadata.tables["kb." + old].columns
-            if column.key not in ("task_id", "product_key")
+            for column in metadata.tables["kb.pdf_record_" + suffix].columns
+            if column.key not in ("product_id", "revision_id")
         ]
         view = "ops.pdf_published_" + ("item" if suffix == "access" else "region")
         sql += (
             f"CREATE OR REPLACE VIEW\
- {view} AS SELECT * FROM kb.{old} UNION ALL SELECT p.task_id,p.product_key,"
+ {view} AS SELECT p.task_id,p.product_key,"
             + ",".join("r." + c for c in fields)
             + f" FROM kb.pdf_record\
 _{suffix} r JOIN ops.pdf_published_revision p ON r.product_id=p.build_id;\n"
@@ -1211,23 +1181,14 @@ _{suffix} r JOIN ops.pdf_published_revision p ON r.product_id=p.build_id;\n"
  {view} OWNER TO corpus_sem_publisher; GRANT SELECT \
 ON {view} TO corpus_sem_writer,corpus_sem_reader,corpus_sem_evaluator;\n"
     sql += """CREATE OR REPLACE VIEW ops.pdf_selected_product AS
- SELECT task_id,product_key,content_digest,release_id,contract_digest,schema_digest,recipe_digest\
-,parent_task_id,parent_product_key,parent_digest,native_json,health,payload FROM \
-ops.native_document_product
- UNION ALL SELECT p.task_id,p.product_key,p.content_digest,p.release_id,p.contract_digest,
- body.descriptor->'content_metadata'->>'schema_digest',body.descriptor->'content_metadata'->>'rec\
-ipe_digest',NULL::bigint,NULL::text,NULL::text,
- b.content->'document',body.descriptor->'content_metadata'->'health',body.payload FROM \
-ops.pdf_product p JOIN ops.pdf_product_body body USING(task_id,product_key)
- CROSS JOIN LATERAL (SELECT (convert_from(body.payload,'UTF8')::json->'content')::jsonb content) \
-b WHERE p.kind='integrated'
- UNION ALL SELECT p.task_id,p.product_key,p.logical_digest,p.release_id,
- contract_input.content_digest,p.schema_digest,p.recipe_digest,
- NULL::bigint,NULL::text,NULL::text,NULL::jsonb,(SELECT \
+ SELECT p.task_id,p.product_key,p.logical_digest AS content_digest,p.release_id,
+ contract_input.content_digest AS contract_digest,p.schema_digest,p.recipe_digest,
+ NULL::bigint AS parent_task_id,NULL::text AS parent_product_key,NULL::text AS parent_digest,
+ NULL::jsonb AS native_json,(SELECT \
 c.body-ARRAY['source_scope','page_start','page_end'] FROM kb.pdf_record_companion c WHERE \
 c.product_id=p.build_id AND c.revision_id=p.build_id AND c.family='health' AND \
 c.body ? 'source_scope' ORDER BY \
-c.ordinal,c.local_id LIMIT 1),NULL::bytea
+c.ordinal,c.local_id LIMIT 1) AS health,NULL::bytea AS payload
  FROM ops.pdf_published_revision p JOIN ops.pdf_build_validation v ON v.build_id=p.build_id
  JOIN sem.input contract_input ON contract_input.release_id=p.release_id
  AND contract_input.input_kind='dependency'
@@ -1302,9 +1263,9 @@ CREATE OR REPLACE VIEW ops.pdf_published_coverage AS
 al_id,c.body))->'value' value
  FROM kb.pdf_record_companion c JOIN ops.pdf_published_revision p ON p.build_id=c.product_id
  WHERE c.family='native_metadata' AND c.body->>'kind'='recognition_coverage')
- SELECT * FROM kb.native_document_coverage
- UNION ALL SELECT task_id,product_key,value->>'section_pointer',value->>'membership',value->>'uni\
-verse',value->>'outcome',value->>'policy' FROM coverage_;
+ SELECT task_id,product_key,value->>'section_pointer' AS section_pointer,
+ value->>'membership' AS membership,value->>'universe' AS universe,
+ value->>'outcome' AS outcome,value->>'policy' AS policy FROM coverage_;
 ALTER VIEW ops.pdf_published_coverage OWNER TO corpus_sem_publisher;
 GRANT SELECT ON ops.pdf_published_coverage TO corpus_sem_writer,corpus_sem_reader,corpus_sem_eval\
 uator;
@@ -1387,7 +1348,7 @@ def source_view_sql() -> str:
     from .native_shapes import record_shape_guards
     from .pdf_contracts import trusted_pdf_context
 
-    view_sql = source.read_text().replace(
+    view_sql = source.read_text().replace("ops.integrated_source_context(", "ops.record_integrated_source_context(").replace(
         "-- {source_view_shape_guard}",
         record_shape_guards(trusted_pdf_context().boundary, "PdfSourceViewPublication", "product"),
     )
@@ -1408,114 +1369,3 @@ native.health:=ops.pdf_record_scope_health(native.task_id,native.product_key,nat
 t,ARRAY(SELECT jsonb_array_elements_text(projection->'items'))); END IF;",
     )
     return view_sql
-
-
-def pdf_publication_products(model=None, *, authoring_provenance=None):
-    from .migrations import ALEMBIC_DIR
-    from .pdf_staging_native import stage_native_sql
-    from .source_view_native import native_admission_sql
-
-    pg = dialect()
-    names = (
-        "ops.pdf_frozen_build",
-        "ops.pdf_build_validation",
-        "ops.pdf_published_revision",
-        "ops.pdf_stage_companion",
-        "ops.pdf_stage_endpoint",
-        "kb.pdf_record_companion",
-        "kb.pdf_record_endpoint",
-        "ops.pdf_stage_companion_field",
-        "kb.pdf_record_companion_field",
-        "kb.pdf_record_access",
-        "kb.pdf_record_region",
-        "ops.pdf_stage_recipe",
-        "ops.pdf_native_validation",
-    )
-    sql = "SET LOCAL ROLE corpus_sem_publisher;\n"
-    # New declarations only: prior migrations remain immutable.
-    for name in names:
-        relation = metadata.tables[name]
-        sql += (
-            str(
-                CreateTable(relation, include_foreign_key_constraints=[]).compile(dialect=pg)
-            ).strip()
-            + ";\n"
-        )
-    for name in names:
-        relation = metadata.tables[name]
-        for fk in sorted(relation.foreign_key_constraints, key=lambda c: str(c.name)):
-            sql += (
-                str(AddConstraint(fk, isolate_from_table=False).compile(dialect=pg)).strip() + ";\n"
-            )
-        for index in sorted(relation.indexes, key=lambda i: str(i.name)):
-            sql += str(CreateIndex(index).compile(dialect=pg)) + ";\n"
-        sql += f"CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE \
-ON {name} FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();\n"
-        sql += f"REVOKE ALL ON\
- {name} FROM PUBLIC,corpus_sem_writer,corpus_sem_reader,corpus_sem_evaluator,corpus_sem_admitter;\n"
-    # Forward read-role changes affect existing private families too. Their current
-    # model supplies every selected grant; the ordinary closed deployment emits none.
-    from .pdf_record_model import record_tables
-
-    for name, relation in sorted(record_tables().items()):
-        for role in relation.info.get("read_roles", ()):
-            sql += f"GRANT SELECT ON {name} TO {pg.identifier_preparer.quote(role)};\n"
-    # Existing lifecycle check is derived again from its model-owned enum.
-    from sqlalchemy.schema import CheckConstraint
-
-    relation = metadata.tables["ops.pdf_stage_build"]
-    sql += "DO $$ DECLARE c text; BEGIN FOR c IN SELECT conname FROM pg_constraint WHERE \
-conrelid='ops.pdf_stage_build'::regclass AND contype='c' LOOP EXECUTE format('ALTER TABLE \
-ops.pdf_stage_build DROP CONSTRAINT %I',c); END LOOP; END $$;\n"
-    for constraint in sorted(relation.constraints, key=lambda c: str(c.name)):
-        if isinstance(constraint, CheckConstraint):
-            sql += (
-                str(AddConstraint(constraint, isolate_from_table=False).compile(dialect=pg)).strip()
-                + ";\n"
-            )
-    for name in ("ops.pdf_stage_artifact_stream", "ops.pdf_artifact_stream"):
-        sql += f"ALTER TABLE {name} ALTER COLUMN serialization_sha256 DROP NOT NULL;\n"
-    # Preserve old open-only append checks; resume/abandon gain frozen support below.
-    stage_sql = stage_native_sql().replace(
-        "AND s.release_id=run.release_id AND s.artifact_digest=p_source AND \
-s.recipe_digest=p_recipe)",
-        "AND s.release_id=run.release_id AND s.artifact_digest=p_source AND \
-(s.recipe_digest=p_recipe OR EXISTS(SELECT FROM ops.pdf_stage_recipe sr WHERE sr.task_id=p_task \
-AND sr.source_digest=p_source AND sr.root_recipe_digest=s.recipe_digest AND \
-sr.stage_recipe_digest=p_recipe)))",
-    )
-    pos = stage_sql.index("CREATE OR REPLACE FUNCTION ops.resume_pdf_build(")
-    before, after = stage_sql[:pos], stage_sql[pos:]
-    after = after.replace("build.state<>'open'", "build.state NOT IN ('open','frozen')")
-    sql += before + after
-    sql += (
-        pdf_record_logical_identity_sql()
-        + "\n"
-        + (Path(__file__).with_name("sql") / "pdf_record_access_correspondence.sql").read_text()
-        + "\n"
-        + publication_sql()
-    )
-    view_sql = source_view_sql()
-    from .published_document import published_readers_sql
-
-    sql += published_readers_sql() + "\n" + view_sql
-    from .native_products import closure_products
-
-    physical, _, _ = closure_products(model)
-    sql += "\nDO $reference$" + physical.content.decode().split("DO $reference$", 1)[1]
-    prior = ALEMBIC_DIR.joinpath("versions/semantic_0064_admission.sql").read_text()
-    admission = native_admission_sql(
-        sql,
-        model,
-        extra_relations=sorted(
-            set(names)
-            | set(_FINAL.values())
-            | set(STAGE_FAMILIES.values())
-            | {"ops.pdf_stage_build"}
-        ),
-        base_admission=prior,
-        authoring_provenance=authoring_provenance,
-    )
-    return NativeProduct("semantic_0065_reconciliation.sql", sql.encode()), NativeProduct(
-        "semantic_0065_admission.sql", admission.encode()
-    )

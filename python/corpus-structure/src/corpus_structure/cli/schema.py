@@ -128,38 +128,19 @@ def derive_(
     domains: Annotated[Path, typer.Option("--domains")] = Path("domains"),
     json_: JsonOpt = False,
 ):
-    """Emit a foundation source preview; use native-candidate for current forward authoring.
-
-    Historical product labels are not frozen reproduction or the current migration head.
-    """
+    """Export composed model artifacts; use native-candidate for native authoring."""
     from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.regeneration import prepare_packs
 
     with refusal(json_):
         if out.exists():
             raise SemanticRefusal("derivation requires a new --out directory")
-        from corpus_structure.semantic.contracts import bound_execution_model
-        from corpus_structure.semantic.identity import canonical_bytes
-        from corpus_structure.semantic.native_products import (
-            NATIVE_PREDECESSOR,
-            NATIVE_REVISION,
-            consolidation_products,
-            current_authoring_provenance,
-            forward_products,
-            physical_products,
-        )
-        from corpus_structure.semantic.regeneration import prepare_packs
-
         selected = domain or ["statistics"]
         if any(Path(name).name != name for name in selected):
             raise SemanticRefusal("domain must name a pack under --domains")
         bundle, _deps, _profile, prepared = prepare_packs(
             tuple(domains / name for name in selected)
         )
-        model = bound_execution_model(prepared)
-        bootstrap_products = physical_products()
-        forward = forward_products(model, authoring_provenance=current_authoring_provenance(model))
-        review = consolidation_products(model)
-        # Finish derivation before creating the requested output or reporting success.
         out.mkdir(parents=True)
         (out / "manifest.json").write_bytes(prepared.manifest)
         for artifact in prepared.artifacts:
@@ -169,50 +150,6 @@ def derive_(
             (out / "sources" / (source.name.replace("/", "_") + ".yaml")).write_bytes(
                 source.content
             )
-        native = out / "native"
-        native.mkdir()
-        bootstrap = native / "bootstrap"
-        bootstrap.mkdir()
-        for product in bootstrap_products:
-            (bootstrap / (product.name.replace("/", "_") + ".sql")).write_bytes(product.content)
-        for product in forward:
-            (native / product.name).write_bytes(product.content)
-        review_dir = native / "review"
-        review_dir.mkdir()
-        for product in review:
-            (review_dir / product.name).write_bytes(product.content)
-        from corpus_structure.semantic.releases import _projection_rows
-
-        projections = _projection_rows(prepared)
-        projected = {
-            name: values
-            for name, values in projections.items()
-            if name
-            in {
-                "execution_operation",
-                "execution_transition",
-                "execution_edge",
-                "operation_effect",
-                "transition_effect",
-                "operation_property_role",
-                "scientific_decision_rule",
-            }
-        }
-        (native / "release-projections.json").write_bytes(canonical_bytes(projected))
-        (native / "authoring.json").write_bytes(
-            canonical_bytes(
-                {
-                    "release_id": prepared.release_id,
-                    "execution_model_id": model.model_id,
-                    "predecessor": NATIVE_PREDECESSOR,
-                    "revision": NATIVE_REVISION,
-                    "products": [{"name": p.name, "sha256": p.digest} for p in forward],
-                    "review_products": [
-                        {"name": "review/" + p.name, "sha256": p.digest} for p in review
-                    ],
-                }
-            )
-        )
         emit(
             CompileResult(
                 packs=selected,

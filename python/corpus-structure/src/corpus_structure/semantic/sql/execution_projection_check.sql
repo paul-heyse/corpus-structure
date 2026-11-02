@@ -3,8 +3,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $project
 DECLARE document jsonb; model jsonb; actual jsonb; expected jsonb;
 BEGIN
  SELECT convert_from(prepared_bytes,'UTF8')::jsonb INTO STRICT document FROM sem.release WHERE release_id=r;
- -- Historical finalized archives retain their recorded projection ABI without backfill.
- IF (SELECT convert_from(manifest_bytes,'UTF8')::jsonb->'profile'->>'compiler_version' FROM sem.release WHERE release_id=r)<>'13' THEN RETURN; END IF;
+ IF (SELECT convert_from(manifest_bytes,'UTF8')::jsonb->'profile'->>'compiler_version' FROM sem.release WHERE release_id=r)IS DISTINCT FROM '14' THEN RAISE EXCEPTION 'execution projection requires current compiler ABI; regenerate' USING ERRCODE='23514'; END IF;
  SELECT COALESCE(jsonb_agg(jsonb_build_object('kind',kind,'name',name,'body_hex',encode(body,'hex')) ORDER BY kind,name),'[]'::jsonb) INTO actual FROM sem.registry_row WHERE release_id=r;
  SELECT COALESCE(jsonb_agg(value ORDER BY value->>'kind',value->>'name'),'[]'::jsonb) INTO expected FROM jsonb_array_elements(document->'products'->'registry_rows');
  IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived registry projection differs' USING ERRCODE='23514'; END IF;

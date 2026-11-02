@@ -168,14 +168,13 @@ def body_source(statement: ast.CreateFunctionStmt) -> str:
 
 
 def dependency_query(oid: str) -> str:
-    """One fixed catalog expression shared by observation and native admission."""
-    return f"""SELECT COALESCE(jsonb_agg(jsonb_build_object(
- 'kind',d.deptype,'type',i.type,'schema',i.schema,'name',i.name,'identity',i.identity)
- ORDER BY d.deptype::text COLLATE \"C\",i.type COLLATE \"C\",i.schema COLLATE \"C\",
- i.name COLLATE \"C\",i.identity COLLATE \"C\"),'[]'::jsonb)
- FROM pg_depend d CROSS JOIN LATERAL
- pg_identify_object(d.refclassid,d.refobjid,d.refobjsubid) i
- WHERE d.classid='pg_proc'::regclass AND d.objid={oid}"""
+    """Render the same typed catalog expression used by independent observation."""
+    from sqlalchemy import literal_column
+    from sqlalchemy.dialects.postgresql import OID
+
+    from .native_catalog import dependencies, render
+
+    return render(dependencies(literal_column(oid, type_=OID)))
 
 
 @contextmanager

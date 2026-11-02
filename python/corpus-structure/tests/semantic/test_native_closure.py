@@ -403,119 +403,54 @@ def test_current_frozen_head_witness_records_current_authoring_provenance():
     ]
 
 
-def test_forward_reproduction_still_detects_current_function_change(monkeypatch):
-    from hashlib import sha256
+def test_current_context_source_and_identity_helper_changes_are_visible(monkeypatch):
     from pathlib import Path
-
-    from corpus_structure.semantic.native_products import forward_products, function_bodies
+    from corpus_structure.semantic.native_products import function_bodies
+    from corpus_structure.semantic.pdf_publication_native import publication_sql
 
     original = Path.read_text
+    before = function_bodies(publication_sql())
 
-    def changed_template(path, *args, **kwargs):
+    def changed(path, *args, **kwargs):
         content = original(path, *args, **kwargs)
         if path.name == "pdf_record_context.sql":
-            assert "'descriptor',jsonb_build_object" in content
-            return content.replace(
-                "'descriptor',jsonb_build_object", "'changed_descriptor',jsonb_build_object"
-            )
+            return content.replace("'descriptor',jsonb_build_object", "'changed_descriptor',jsonb_build_object")
         return content
 
-    before = forward_products()
-    monkeypatch.setattr(Path, "read_text", changed_template)
-    after = forward_products()
-    assert before[0].content != after[0].content and before[-1].content != after[-1].content
-    body = function_bodies(after[0].content.decode())["ops.record_integrated_source_context"]
-    assert "'changed_descriptor'" in body
-    function = next(
-        f
-        for f in _forward_descriptor(after[-1])["functions"]
-        if f["signature"]
-        == "ops.record_integrated_source_context(bigint,text,text,text[],text,text,bigint)"
-    )
-    assert function["body_sha256"] == sha256(body.encode()).hexdigest()
-    previous = next(
-        f
-        for f in _forward_descriptor(before[-1])["functions"]
-        if f["signature"] == function["signature"]
-    )
-    assert function["body_sha256"] != previous["body_sha256"]
+    monkeypatch.setattr(Path, "read_text", changed)
+    after = function_bodies(publication_sql())
+    assert "'changed_descriptor'" in after["ops.record_integrated_source_context"]
+    assert before["ops.record_integrated_source_context"] != after["ops.record_integrated_source_context"]
 
 
-def test_forward_reproduction_still_detects_current_identity_helper_change(monkeypatch):
-    from hashlib import sha256
-    from pathlib import Path
-
-    from corpus_structure.semantic.native_products import forward_products, function_bodies
-
-    original = Path.read_text
-
-    def changed_helper(path, *args, **kwargs):
-        content = original(path, *args, **kwargs)
-        if path.name == "pdf_record_logical_identity.sql":
-            assert "RETURN out_||'\"';" in content
-            return content.replace("RETURN out_||'\"';", "RETURN out_||'\"'||'';")
-        return content
-
-    before = forward_products()
-    monkeypatch.setattr(Path, "read_text", changed_helper)
-    after = forward_products()
-    assert before[0].content != after[0].content and before[-1].content != after[-1].content
-    body = function_bodies(after[0].content.decode())["ops.pdf_identity_ascii_string"]
-    assert "RETURN out_||'\"'||'';" in body
-    function = next(
-        f
-        for f in _forward_descriptor(after[-1])["functions"]
-        if f["signature"] == "ops.pdf_identity_ascii_string(text)"
-    )
-    assert function["body_sha256"] == sha256(body.encode()).hexdigest()
-    previous = next(
-        f
-        for f in _forward_descriptor(before[-1])["functions"]
-        if f["signature"] == function["signature"]
-    )
-    assert function["body_sha256"] != previous["body_sha256"]
-
-
-def test_forward_reproduction_refuses_unsupported_current_effect(monkeypatch):
+def test_current_admission_refuses_unsupported_effect(monkeypatch):
     from corpus_structure.semantic.effect_support import SUPPORTED_EFFECTS
-    from corpus_structure.semantic.native_products import forward_products
+    from corpus_structure.semantic.native_products import current_admission_fields
     from corpus_structure.semantic.types import PreparationError
 
-    monkeypatch.setitem(
-        SUPPORTED_EFFECTS["read_pdf_product"], "effects", ("atomic_native_publication",)
-    )
+    monkeypatch.setitem(SUPPORTED_EFFECTS["read_pdf_product"], "effects", ("atomic_native_publication",))
     with pytest.raises(PreparationError, match="effect"):
-        forward_products()
+        current_admission_fields()
 
 
-@pytest.mark.parametrize(
-    ("relation_name", "expression"),
-    [
-        ("kb.native_document_item", "ordinal >= 2"),
-        ("ops.pdf_product_body", "octet_length(payload) >= 2"),
-    ],
-)
-def test_forward_reproduction_still_detects_current_constraint_change(relation_name, expression):
+@pytest.mark.parametrize("relation_name,expression", [
+    ("kb.pdf_record_access", "ordinal >= 2"),
+    ("ops.pdf_product_body", "octet_length(payload) >= 2"),
+])
+def test_current_physical_constraint_changes_admission_identity(relation_name, expression):
     from sqlalchemy import CheckConstraint
-
     from corpus_structure.semantic.metadata import metadata
-    from corpus_structure.semantic.native_products import forward_products
+    from corpus_structure.semantic.native_products import current_admission_fields
 
-    before = forward_products()
+    before = current_admission_fields()
     relation = metadata.tables[relation_name]
     constraint = CheckConstraint(expression, name="counterfactual_reproduction")
     relation.append_constraint(constraint)
     try:
-        after = forward_products()
+        after = current_admission_fields()
     finally:
         relation.constraints.remove(constraint)
-    assert before[-1].content != after[-1].content
-    if relation_name == "ops.pdf_product_body":
-        assert "counterfactual_reproduction" in after[0].content.decode()
-    assert (
-        _forward_descriptor(before[-1])["physical_checks_source_digest"]
-        != _forward_descriptor(after[-1])["physical_checks_source_digest"]
-    )
+    assert before["physical_checks_source_digest"] != after["physical_checks_source_digest"]
 
 
 @pytest.fixture

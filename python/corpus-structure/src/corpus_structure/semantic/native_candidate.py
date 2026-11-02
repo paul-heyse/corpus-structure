@@ -10,7 +10,6 @@ from pathlib import Path
 from alembic.autogenerate import produce_migrations
 from alembic.migration import MigrationContext
 from pglast import ast
-from sqlalchemy import text
 
 from .alembic_defaults import compare_default
 from .alembic_defaults import plugin as defaults_plugin
@@ -117,36 +116,32 @@ def _pdf_payload_definitions(connection, sql, *, source):
     return tuple(definitions.values())
 
 
-def _selected_product_definition(connection, sql, *, source):
-    """Own the existing selected-product view with its frozen declaration and grants."""
+def _publication_view_definitions(connection, sql, *, source):
+    """Own current published views with their frozen predecessors and explicit ACLs."""
     prepared = prepare_sql(sql, source=source)
-    definition = None
+    definitions = {}
     for index, raw in enumerate(prepared.statements):
         statement = raw.stmt
         if (
             isinstance(statement, ast.ViewStmt)
             and statement.view is not None
             and statement.view.schemaname == "ops"
-            and statement.view.relname == "pdf_selected_product"
+            and statement.view.relname in {
+                "pdf_selected_product", "pdf_published_item", "pdf_published_region", "pdf_published_coverage"
+            }
         ):
+            roles = ("corpus_sem_writer", "corpus_sem_reader", "corpus_sem_evaluator")
+            if statement.view.relname == "pdf_selected_product":
+                roles = (*roles, "corpus_sem_admitter")
             definition = definition_from_sql(
-                connection,
-                prepared.excerpt(index),
-                source=source,
+                connection, prepared.excerpt(index), source=source,
                 owner="corpus_sem_publisher",
-                grants=tuple(
-                    (role, "SELECT", False)
-                    for role in (
-                        "corpus_sem_writer",
-                        "corpus_sem_reader",
-                        "corpus_sem_evaluator",
-                        "corpus_sem_admitter",
-                    )
-                ),
+                grants=tuple((role, "SELECT", False) for role in roles),
             )
-    if definition is None:
-        raise NativeAuthoringError(f"{source}: selected PDF product view declaration is absent")
-    return definition
+            definitions[definition.identity] = definition
+    if len(definitions) != 4:
+        raise NativeAuthoringError(f"{source}: current published view declaration is absent")
+    return tuple(definitions.values())
 
 
 def _execution_task_definitions(connection, function_sql, trigger_sql, *, source):
@@ -211,6 +206,23 @@ def _task_call_definition(connection, sql, *, name, source):
     raise NativeAuthoringError(f"native task-call ABI declaration is absent: {name}")
 
 
+def _release_guard_definitions(connection, sql, *, source):
+    prepared = prepare_sql(sql, source=source)
+    definitions = []
+    for index, raw in enumerate(prepared.statements):
+        statement = raw.stmt
+        if isinstance(statement, ast.CreateFunctionStmt) and tuple(
+            part.sval for part in statement.funcname or ()
+        ) in {("sem", "require_archive_bytes"), ("sem", "require_execution_projection")}:
+            definitions.append(definition_from_sql(
+                connection, prepared.excerpt(index), source=source,
+                owner="corpus_sem_publisher",
+            ))
+    if len(definitions) != 2:
+        raise NativeAuthoringError(f"{source}: complete release guards are absent")
+    return tuple(definitions)
+
+
 def series_predecessor_definitions(connection):
     """Bounded predecessor source; never infer desired meaning from a deployed catalog."""
     from .migrations import ALEMBIC_DIR
@@ -222,10 +234,11 @@ def series_predecessor_definitions(connection):
     completion = ALEMBIC_DIR / "versions/semantic_0050_native_evidence.sql"
     direction = ALEMBIC_DIR / "versions/semantic_0029_reference_boundaries.sql"
     return (
+        *_release_guard_definitions(connection, ALEMBIC_DIR.joinpath("versions/semantic_0033_kernels.sql").read_text(), source="frozen0033 release guards"),
         _shape_definition(connection, sql, source=path.name),
         _context_definition(connection, sql, source=path.name),
         *_pdf_payload_definitions(connection, sql, source=path.name),
-        _selected_product_definition(connection, sql, source=path.name),
+        *_publication_view_definitions(connection, sql, source=path.name),
         *_execution_task_definitions(
             connection,
             guard.read_text(),
@@ -273,6 +286,7 @@ def series_native_definitions(connection, *, include_selected=True):
         + observation_publication_sql()
     )
     definitions = [
+        *_release_guard_definitions(connection, Path(__file__).with_name("sql").joinpath("closure.sql").read_text() + "\n" + Path(__file__).with_name("sql").joinpath("execution_projection_check.sql").read_text(), source="current release guards"),
         _shape_definition(connection, _native_shape_guard(), source="native-record-shape:forward"),
         _context_definition(
             connection,
@@ -282,8 +296,8 @@ def series_native_definitions(connection, *, include_selected=True):
         *companion_projection_definitions(connection),
         *published_reader_definitions(connection),
         *_pdf_payload_definitions(connection, payload_sql, source="pdf-payloads:forward"),
-        _selected_product_definition(
-            connection, payload_sql, source="pdf-selected-product:forward"
+        *_publication_view_definitions(
+            connection, payload_sql, source="pdf-published-views:forward"
         ),
     ]
     from .migrations import ALEMBIC_DIR
@@ -334,7 +348,7 @@ def series_native_definitions(connection, *, include_selected=True):
     ]
     # SQL-language readers resolve their provider and PL/pgSQL declarations resolve
     # the view's composite type during CREATE, after the managed scope was dropped.
-    providers = ("read_pdf_published_revision", "pdf_selected_product")
+    providers = ("read_pdf_published_revision", "pdf_selected_product", "pdf_published_item", "pdf_published_region", "pdf_published_coverage")
     definitions = [
         *(item for name in providers for item in definitions if item.identity.name == name),
         *(item for item in definitions if item.identity.name not in providers),
@@ -391,9 +405,7 @@ def _admission_definitions(connection, sql, *, source):
             # Frozen 0026_admission.sql:373 grants EXECUTE to __MIGRATION_OWNER__.
             # Later CREATE OR REPLACE declarations retain this explicit historical
             # capability. The guard itself resolves owner_name through sem.nspowner.
-            migration_owner = connection.scalar(
-                text("SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname='sem'")
-            )
+            migration_owner = semantic_namespace_owner(connection)
             if migration_owner is None:
                 raise NativeAuthoringError("native admission requires its semantic namespace owner")
             roles = tuple(dict.fromkeys((*roles, migration_owner)))

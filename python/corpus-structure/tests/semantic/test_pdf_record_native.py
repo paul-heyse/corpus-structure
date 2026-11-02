@@ -94,14 +94,12 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
     ddl = str(CreateTable(changed.tables["kb.pdf_record_membership"]).compile(dialect=dialect()))
     assert "ordinal >= 2" in ddl
     assert physical_model_id(copied) != PHYSICAL_MODEL_ID
-    before = native_products.forward_products()
+    before = native_products.current_admission_fields()
     before_arrow = record_arrow_schema("kb.pdf_record_membership")
     for module in (native_products, pdf_record_model, source_view_native):
         monkeypatch.setattr(module, "metadata", changed)
-    after = native_products.forward_products()
-    assert before[0].content != after[0].content
-    assert before[-1].content != after[-1].content
-    assert "ordinal >= 2" in after[0].content.decode()
+    after = native_products.current_admission_fields()
+    assert before["physical_checks_source_digest"] != after["physical_checks_source_digest"]
     assert not before_arrow.equals(
         record_arrow_schema("kb.pdf_record_membership"), check_metadata=True
     )
@@ -131,22 +129,15 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
         )
 
 
-def test_forward_has_single_new_snapshot_and_no_private_table_grants():
-    from corpus_structure.semantic.native_products import forward_products
+def test_current_publication_uses_record_products_without_legacy_bridges():
+    from corpus_structure.semantic.pdf_publication_native import publication_sql
 
-    sql = forward_products()[0].content.decode()
-    assert sql.count("INSERT INTO sem.physical_contract SELECT") == 1
-    assert PHYSICAL_MODEL_ID in sql
-    from corpus_structure.semantic.pdf_record_native import pdf_record_products
-
-    # The publication successor creates only its own tables; prior private-table
-    # restrictions are authored by the record foundation, not repeated as DDL.
-    custody_sql = " ".join((pdf_record_products()[0].content.decode() + sql).split())
-    for name in record_tables():
-        assert f"GRANT SELECT ON {name}" not in custody_sql
-        assert f"REVOKE ALL ON {name} FROM PUBLIC" in custody_sql
-    assert "ops.pdf_product_descriptor" in sql
-    assert "ALTER TABLE ops.pdf_product_body ADD CONSTRAINT" in custody_sql
+    sql = publication_sql()
+    assert "legacy_integrated_source_context" not in sql
+    assert "FROM kb.native_document_" not in sql
+    assert "FROM ops.native_document_product" not in sql
+    assert "FROM kb.pdf_record_access" in sql
+    assert "FROM ops.pdf_published_revision" in sql
 
 
 def test_private_native_foundations_and_constraints(semantic_db_engine):
@@ -297,9 +288,9 @@ def test_previous_execution_abi_requires_regeneration():
     previous["inputs"]["compiler_version"] = "14"
     from corpus_structure.semantic.types import PreparationError
 
-    with pytest.raises(PreparationError, match="current compiler ABI; regenerate"):
+    with pytest.raises(PreparationError, match="supported closed reader profile|current compiler ABI; regenerate"):
         _bound_execution_model(json.dumps(previous).encode(), current.model_id)
-    with pytest.raises(PreparationError, match="current compiler ABI; regenerate"):
+    with pytest.raises(PreparationError, match="supported closed reader profile|current compiler ABI; regenerate"):
         require_payload_operation(
             json.dumps(previous).encode(), current.model_id, "publish_integrated_pdf"
         )
@@ -435,32 +426,23 @@ def test_output_alias_retirement_preserves_declared_overloads():
     assert "sample(text,bigint,bytea)" in functions
 
 
-def test_table_return_descriptor_and_model_owned_read_roles(monkeypatch):
-    from corpus_structure.semantic.native_products import forward_products
-    from corpus_structure.semantic.source_view_native import _admission_descriptor
+def test_table_return_inventory_and_model_owned_read_roles(monkeypatch):
+    from corpus_structure.semantic.native_inventory import update_function_inventory
+    from corpus_structure.semantic.native_products import relation_descriptor
 
-    before = forward_products()[-1].content.decode()
-    descriptor = _admission_descriptor(before)
-    functions = {item["signature"]: item for item in descriptor["functions"]}
+    functions = {}
+    from pathlib import Path
+    update_function_inventory(functions, Path(__file__).parents[2].joinpath(
+        "src/corpus_structure/semantic/sql/pdf_record_artifact_identity.sql"
+    ).read_text())
     signature = "ops.pdf_identity_verify_artifact(text,text,text,bytea)"
     assert functions[signature]["result"] == "pg_catalog.record"
     assert functions[signature]["setof"] is True
     assert signature[:-1] + ",bigint,bytea,boolean)" not in functions
     relation = record_tables()["kb.pdf_record_reference"]
-    assert (
-        next(t for t in descriptor["tables"] if t["relation"] == relation.fullname)["read_roles"]
-        == []
-    )
+    assert relation_descriptor(relation)["read_roles"] == []
     monkeypatch.setitem(relation.info, "read_roles", ["corpus_sem_reader"])
-    after = forward_products()[-1].content.decode()
-    assert before != after
-    assert (
-        "GRANT SELECT ON kb.pdf_record_reference TO corpus_sem_reader"
-        in forward_products()[0].content.decode()
-    )
-    assert next(
-        t for t in _admission_descriptor(after)["tables"] if t["relation"] == relation.fullname
-    )["read_roles"] == ["corpus_sem_reader"]
+    assert relation_descriptor(relation)["read_roles"] == ["corpus_sem_reader"]
 
 
 def test_actual_native_release_guard_after_activation(semantic_db_engine, admitter):

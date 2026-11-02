@@ -5,8 +5,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from hashlib import sha256
+from typing import Any
 
-from pglast import ast, parse_sql
+from pglast import ast
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.schema import (
     AddConstraint,
@@ -14,16 +15,10 @@ from sqlalchemy.schema import (
     CreateIndex,
     CreateTable,
     DefaultClause,
-    UniqueConstraint,
 )
 
 from .metadata import metadata
 from .prepared_sql import PreparedSQL
-
-# Historical foundation labels for source previews, not the current Alembic head.
-NATIVE_PREDECESSOR = "semantic_0064"
-NATIVE_REVISION = "semantic_0065"
-
 
 def selected_fact_query():
     """The fixed accepted-fact projection uses the same scoped relationship keys."""
@@ -261,363 +256,27 @@ def derived_publication_sql():
     )
 
 
-def closure_products(model=None) -> tuple[NativeProduct, ...]:
-    """Author forward products from reviewed templates and the trusted model.
-
-    The result is written into a new revision by an explicit authoring command. Historical
-    migrations never import this module. The previous descriptor is a bounded custody input
-    for unchanged kernels, not an oracle of the changed kernels' behavior.
-    """
-    import json
-    from pathlib import Path
-    from typing import Any
-
-    import yaml
-    from pglast.stream import RawStream
-    from sqlalchemy.sql.ddl import CreateView, sort_tables
+def current_admission_fields(model=None) -> dict:
+    """Model-owned admission fields; immutable predecessors own unchanged native programs."""
+    from dataclasses import asdict
 
     from .contracts import compile_execution_model, trusted_execution_inputs
     from .identity import canonical_bytes
-    from .metadata import PHYSICAL_MODEL, PHYSICAL_MODEL_ID
+    from .metadata import PHYSICAL_MODEL_ID
 
-    source = Path(__file__).with_name("sql")
-    declarations = yaml.safe_load(PHYSICAL_MODEL.read_bytes())["classes"]
-    classified = {
-        f"{definition['in_subset'][0]}.{name}": definition.get("annotations", {}).get(
-            "ph:immutability"
-        )
-        for name, definition in declarations.items()
-        if definition.get("annotations", {}).get("ph:immutability")
-    }
-    intrinsic = [
-        relation.name
-        for relation in sort_tables(
-            [metadata.tables[name] for name, mode in classified.items() if mode == "intrinsic"]
-        )
-    ]
-    new_tables = {
-        "sem." + name
-        for name in (
-            "execution_operation",
-            "execution_transition",
-            "execution_edge",
-            "operation_effect",
-            "transition_effect",
-            "operation_property_role",
-            "scientific_decision_rule",
-        )
-    }
-    RELATIONS = {
-        name: "kb.parsing_" + name
-        for name in (
-            "representation",
-            "component",
-            "node",
-            "relationship",
-            "endpoint",
-            "mapping",
-            "mapping_endpoint",
-            "dependency",
-        )
-    }
-    LAYER_RELATIONS = {
-        name: value.replace("parsing_", "parsing_layer_") for name, value in RELATIONS.items()
-    }
-    LAYER_RELATIONS.update(
-        interpretations="kb.parsing_layer_interpretation", assessments="kb.parsing_layer_assessment"
-    )
-
-    new_tables.update(
-        {
-            "kb.source_artifact",
-            "ops.parsing_product",
-            *RELATIONS.values(),
-            "ops.parsing_layer_product",
-            *LAYER_RELATIONS.values(),
-        }
-    )
-    guards = []
-    for name, mode in classified.items():
-        if name not in new_tables:
-            continue
-        guards.append(
-            "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON "
-            f"{name}"
-            " FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation();"
-        )
-        if mode == "intrinsic":
-            guards.append(
-                "CREATE TRIGGER release_finalized BEFORE INSERT ON "
-                f"{name}"
-                " FOR EACH ROW EXECUTE FUNCTION sem.guard_finalized_insert();"
-            )
-    from .routines import _transport_sql, stage_disposal_sql
-
-    kernels = (
-        "SET LOCAL ROLE corpus_sem_publisher;\n"
-        + source.joinpath("execution_projection_check.sql").read_text()
-        + "\n"
-        + (
-            source.joinpath("closure.sql")
-            .read_text()
-            .replace("{intrinsic_relations}", ",".join("'" + name + "'" for name in intrinsic))
-            .replace("-- {immutability_guards}", "\n".join(guards))
-            .replace("{transport_disposal}", stage_disposal_sql())
-        )
-    )
-    kernels += "\n" + "\n".join(
-        f"GRANT SELECT ON {name} TO corpus_sem_writer,corpus_sem_reader,"
-        "corpus_sem_admitter,corpus_sem_evaluator;"
-        for name in sorted(new_tables)
-    )
-    from dataclasses import fields
-
-    from .publication import STAGE_TYPES
-
-    kernels += "\n" + derived_publication_sql()
-    kernels += "\n" + source.joinpath("exclusions.sql").read_text()
-    kernels += "\n" + source.joinpath("pdf_descriptor.sql").read_text()
-    kernels += "\n" + source.joinpath("text_layout.sql").read_text().replace(
-        "{physical_id}", PHYSICAL_MODEL_ID
-    )
-    create, verify, content, insert = _transport_sql("corpus_sem_writer")
-    transport = source.joinpath("transport.sql").read_text()
-    for marker, fragment in (
-        ("create", create),
-        ("verify", verify),
-        ("content", content),
-        ("insert", insert),
-    ):
-        transport = transport.replace("{" + marker + "}", fragment)
-    kernels = "\n".join(
-        line
-        for line in kernels.splitlines()
-        if not line.startswith("CREATE TRIGGER native_float_codec")
-    )
-    kernels += "\n" + transport
-    kernels += "\n" + source.joinpath("execution_projection.sql").read_text()
-    kernels += (
-        "\nSET LOCAL ROLE __MIGRATION_OWNER__;\n"
-        + source.joinpath("execution_guards.sql").read_text()
-        + "\nSET LOCAL ROLE corpus_sem_publisher;\n"
-    )
-
-    row_type, types = STAGE_TYPES["typed_value"]
-    signatures = ",".join(
-        "'" + column.name + ":" + kind + "'"
-        for column, kind in zip(fields(row_type), types, strict=True)
-    )
-    typed_verify = (
-        (
-            "IF NOT EXISTS(SELECT FROM pg_class c WHERE c.relnamespace=pg_my_temp_schema() AND "
-            "c.relname='sp_typed_value' AND c.relkind='r' AND c.relpersistence='t' AND c.relown"
-            "er=current_user::regrole AND (SELECT array_agg(stage_attr.attname||':'||format_typ"
-            "e(stage_attr.atttypid,stage_attr.atttypmod) ORDER BY stage_attr.attnum) FROM pg_at"
-            "tribute stage_attr WHERE stage_attr.attrelid=c.oid AND stage_attr.attnum>0 AND NOT"
-            " stage_attr.attisdropped)=ARRAY["
-        )
-        + signatures
-        + "]) THEN RAISE EXCEPTION 'untrusted typed-value staging'; END IF;"
-    )
-    kernels = kernels.replace("{typed_value_stage_verify}", typed_verify)
     model = compile_execution_model(trusted_execution_inputs()) if model is None else model
     for operation in model.operations:
         if operation.implementation is not None:
             model.require_operation(operation.id)
-    edge_sql = ""  # Finite edges are immutable release rows consumed by stable guards.
-    physical = "\n".join(
-        product.content.decode()
-        for product in physical_products()
-        if product.name in new_tables
-        or any(product.name.startswith(name + "/") for name in new_tables)
-    )
-    physical += edge_sql
-    view_query = selected_fact_query()
-    physical += (
-        "\n"
-        + str(
-            CreateView(view_query, "selected_fact", schema="data", or_replace=True).compile(
-                dialect=dialect()
-            )
-        )
-        + ";\n"
-    )
-    physical += "\nGRANT CREATE ON SCHEMA sem TO corpus_sem_publisher;\n"
-    for name in sorted(new_tables):
-        physical += f"ALTER TABLE {name} OWNER TO corpus_sem_publisher;\n"
-
-    physical += (
-        "GRANT SELECT,INSERT,TRIGGER ON ALL TABLES IN SCHEMA sem TO corpus_sem_publisher WITH G"
-        "RANT OPTION;\n"
-    )
-    physical += (
-        "GRANT SELECT,TRIGGER ON ALL TABLES IN SCHEMA data TO corpus_sem_publisher WITH GRANT O"
-        "PTION;\n"
-    )
-    physical += (
-        "GRANT SELECT ON ALL TABLES IN SCHEMA ops TO corpus_sem_publisher WITH GRANT OPTION;\n"
-    )
-    physical += "GRANT USAGE ON SCHEMA sem TO corpus_sem_publisher WITH GRANT OPTION;\n"
-    physical += (
-        "DO $acl$ BEGIN EXECUTE format('REVOKE TEMP ON DATABASE %I FROM PUBLIC,corpus_sem_write"
-        "r,corpus_sem_reader,corpus_sem_admitter,corpus_sem_evaluator',current_database()); EXE"
-        "CUTE format('GRANT TEMP ON DATABASE %I TO corpus_sem_publisher',current_database()); E"
-        "ND $acl$;\n"
-    )
-    physical += "GRANT USAGE ON SCHEMA sem,data,ops TO corpus_sem_admitter;\n"
-    physical += "SET LOCAL ROLE corpus_sem_publisher;\n"
-    physical += (
-        "DO $reference$ BEGIN IF to_regclass('pg_temp.semantic_physical_checks') IS NOT NULL TH"
-        "EN RAISE EXCEPTION 'preexisting physical contract workspace'; END IF; END $reference$;"
-        "\nCREATE TEMP TABLE semantic_physical_checks(relation_name text,constraint_name text,e"
-        "xpression text) ON COMMIT DROP;\nGRANT SELECT,INSERT ON pg_temp.semantic_physical_chec"
-        "ks TO corpus_sem_publisher,SESSION_USER;\n"
-    )
-    check_sources = []
-    for relation in sorted(metadata.tables.values(), key=lambda item: item.fullname):
-        checks = sorted(
-            (check for check in relation.constraints if isinstance(check, CheckConstraint)),
+    check_sources = [
+        (relation.fullname, str(check.name), str(check.sqltext))
+        for relation in sorted(metadata.tables.values(), key=lambda item: item.fullname)
+        for check in sorted(
+            (item for item in relation.constraints if isinstance(item, CheckConstraint)),
             key=lambda item: str(item.name),
         )
-        uniques = sorted(
-            (check for check in relation.constraints if isinstance(check, UniqueConstraint)),
-            key=lambda item: str(item.name),
-        )
-        if not checks and not uniques:
-            continue
-        qualified = relation.fullname
-        commands = []
-        if checks:
-            from sqlalchemy import Column, MetaData, Table
-
-            reference = Table(
-                "semantic_check_reference",
-                MetaData(),
-                *(Column(column.name, column.type) for column in relation.columns),
-                prefixes=["TEMPORARY"],
-            )
-            reference_ddl = (
-                str(CreateTable(reference).compile(dialect=dialect())).strip().replace("'", "''")
-            )
-            commands.append(
-                (
-                    "IF to_regclass('pg_temp.semantic_check_reference') IS NOT NULL THEN RAISE "
-                    "EXCEPTION 'preexisting migration CHECK reference'; END IF; EXECUTE '"
-                )
-                + reference_ddl
-                + "';"
-            )
-            for check in checks:
-                rendered = dialect().identifier_preparer.format_constraint(check)
-                if rendered is None:
-                    raise ValueError("physical CHECK has no name")
-                desired = rendered.strip('"')
-                reference_ddl = (
-                    str(AddConstraint(check, isolate_from_table=False).compile(dialect=dialect()))
-                    .replace(
-                        "ALTER TABLE " + qualified, "ALTER TABLE pg_temp.semantic_check_reference"
-                    )
-                    .replace("'", "''")
-                )
-                commands.append("EXECUTE '" + reference_ddl + "';")
-                check_sources.append((qualified, desired, str(check.sqltext)))
-                commands.append(
-                    "INSERT INTO pg_temp.semantic_physical_checks SELECT '"
-                    f"{qualified}"
-                    "','"
-                    f"{desired}"
-                    "',pg_get_expr(conbin,conrelid) FROM pg_constraint WHERE conrelid='pg_t"
-                    "emp.semantic_check_reference'::regclass AND conname='"
-                    f"{desired}"
-                    "';"
-                )
-                commands.append(
-                    "SELECT conname INTO n FROM pg_constraint WHERE conrelid='"
-                    f"{qualified}"
-                    "'::regclass AND contype='c' AND pg_get_expr(conbin,conrelid)=(SELECT p"
-                    "g_get_expr(conbin,conrelid) FROM pg_constraint WHERE conrelid='pg_temp"
-                    ".semantic_check_reference'::regclass AND conname='"
-                    f"{desired}"
-                    "');"
-                )
-                if qualified == "eval.document_split":
-                    replacement = str(
-                        AddConstraint(check, isolate_from_table=False).compile(dialect=dialect())
-                    ).replace("'", "''")
-                    commands.append(
-                        "IF n IS NULL THEN ALTER TABLE eval.document_split DROP CONSTRAINT "
-                        "IF EXISTS ck_document_split_physical_23de252598; EXECUTE '"
-                        f"{replacement}"
-                        "'; n:='"
-                        f"{desired}"
-                        "'; END IF;"
-                    )
-                commands.append(
-                    "IF n IS NULL THEN RAISE EXCEPTION 'unmatched physical CHECK requires r"
-                    "eviewed forward repair: "
-                    f"{qualified}"
-                    "."
-                    f"{desired}"
-                    "'; ELSIF n<>'"
-                    f"{desired}"
-                    "' THEN EXECUTE format('ALTER TABLE "
-                    f"{qualified}"
-                    " RENAME CONSTRAINT %I TO %I',n,'"
-                    f"{desired}"
-                    "'); END IF;"
-                )
-            commands.append("DROP TABLE pg_temp.semantic_check_reference;")
-        for unique in uniques:
-            columns = ",".join("'" + column.name + "'" for column in unique.columns)
-            rendered = dialect().identifier_preparer.format_constraint(unique)
-            if rendered is None:
-                raise ValueError("physical unique key has no name")
-            desired = rendered.strip('"')
-            commands.append(
-                "SELECT conname INTO n FROM pg_constraint c WHERE c.conrelid='"
-                f"{qualified}"
-                "'::regclass AND c.contype='u' AND ARRAY(SELECT a.attname::text FROM unnest"
-                "(c.conkey) WITH ORDINALITY cols(num,pos) JOIN pg_attribute a ON a.attrelid"
-                "=c.conrelid AND a.attnum=cols.num ORDER BY cols.pos)=ARRAY["
-                f"{columns}"
-                "];"
-            )
-            commands.append(
-                "IF n IS NULL THEN RAISE EXCEPTION 'missing physical unique key "
-                f"{qualified}"
-                "'; ELSIF n<>'"
-                f"{desired}"
-                "' THEN EXECUTE format('ALTER TABLE "
-                f"{qualified}"
-                " RENAME CONSTRAINT %I TO %I',n,'"
-                f"{desired}"
-                "'); END IF;"
-            )
-        physical += (
-            (
-                "\nDO $repair$ DECLARE n text; owner_name text; previous_name text:=current_use"
-                "r; BEGIN SELECT pg_get_userbyid(relowner) INTO owner_name FROM pg_class WHERE "
-                "oid='"
-                f"{qualified}"
-                "'::regclass; EXECUTE format('SET LOCAL ROLE %I',owner_name); "
-            )
-            + " ".join(commands)
-            + " EXECUTE format('SET LOCAL ROLE %I',previous_name); END $repair$;\n"
-        )
-    check_source_digest = sha256(canonical_bytes(check_sources)).hexdigest()
-    physical += (
-        "INSERT INTO sem.physical_contract SELECT '"
-        + PHYSICAL_MODEL_ID
-        + (
-            "',COALESCE(jsonb_agg(jsonb_build_object('relation',relation_name,'name',constraint"
-            "_name,'expression',expression) ORDER BY relation_name,constraint_name),'[]'::jsonb"
-            "),'"
-        )
-        + check_source_digest
-        + "' FROM pg_temp.semantic_physical_checks;\nDROP TABLE pg_temp.semantic_physical_checks;\n"
-    )
-    descriptor: dict[str, Any] = json.loads(source.joinpath("native_descriptor.json").read_bytes())
-    descriptor["physical_checks_source_digest"] = check_source_digest
+    ]
+    descriptor: dict[str, Any] = {"physical_checks_source_digest": sha256(canonical_bytes(check_sources)).hexdigest()}
     descriptor["base_derived_protocol"] = {
         "operation": "publish_inference",
         "projection": "accepted",
@@ -627,7 +286,7 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     }
     descriptor["physical_relations"] = sorted(metadata.tables)
     descriptor["views"] = [
-        {"relation": "data.selected_fact", "query": str(view_query.compile(dialect=dialect()))}
+        {"relation": "data.selected_fact", "query": str(selected_fact_query().compile(dialect=dialect()))}
     ]
     from .effect_support import SUPPORTED_EFFECT_VERSIONS, SUPPORTED_EFFECTS
 
@@ -638,8 +297,6 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
         for operation in model.operations
         if operation.implementation is not None
     }
-    from dataclasses import asdict
-
     descriptor["parsing_adapters"] = [asdict(adapter) for adapter in model.parsing_adapters]
     from .scientific_evidence import scientific_report_layout
 
@@ -657,67 +314,14 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
     descriptor["execution_abi"] = EXECUTION_COMPILER_VERSION
     descriptor["physical_id"] = PHYSICAL_MODEL_ID
     descriptor.update(current_authoring_provenance(model).descriptor_fields())
-    functions = {item["signature"]: item for item in descriptor["functions"]}
+    return descriptor
 
-    def stream(node: Any) -> str:
-        return RawStream()(node)
 
-    from .native_inventory import update_function_inventory
+def admission_kernel() -> str:
+    """Current enforcement kernel; this does not prepare native deployment products."""
+    from pathlib import Path
 
-    statements = update_function_inventory(
-        functions, (kernels + edge_sql).replace("__MIGRATION_OWNER__", "corpus_migration_owner")
-    ).statements
-    for raw in statements:
-        stmt = raw.stmt
-        if isinstance(stmt, ast.CreateTrigStmt):
-            if (
-                stmt.relation is None
-                or stmt.relation.schemaname is None
-                or stmt.relation.relname is None
-                or stmt.timing is None
-                or stmt.events is None
-            ):
-                raise ValueError("native trigger requires a qualified relation and events")
-            descriptor["triggers"].append(
-                {
-                    "relation": stmt.relation.schemaname + "." + stmt.relation.relname,
-                    "name": stmt.trigname,
-                    "function": ".".join(part.sval for part in stmt.funcname or ()) + "()",
-                    "type": stmt.timing | stmt.events | int(bool(stmt.row)),
-                    "columns": [],
-                    "when": None,
-                    "args": "",
-                    "deferrable": bool(stmt.deferrable),
-                    "deferred": bool(stmt.initdeferred),
-                }
-            )
-    for name in sorted(new_tables):
-        descriptor["tables"].append(relation_descriptor(metadata.tables[name]))
-    descriptor["tables"] = [
-        relation_descriptor(metadata.tables[item["relation"]]) for item in descriptor["tables"]
-    ]
-    descriptor["checks"] = []
-    for name in ("eval.document_split", "eval.reference_set"):
-        for check in metadata.tables[name].constraints:
-            if not isinstance(check, CheckConstraint):
-                continue
-            parsed = parse_sql("SELECT " + str(check.sqltext))[0].stmt
-            if not isinstance(parsed, ast.SelectStmt) or not parsed.targetList:
-                raise ValueError("unsupported native CHECK")
-            expression = parsed.targetList[0].val
-            if not isinstance(expression, ast.A_Expr) or not isinstance(expression.rexpr, tuple):
-                raise ValueError("unsupported native split CHECK")
-            choices = [value.val.sval for value in expression.rexpr]
-            definition = (
-                "CHECK ((split = ANY (ARRAY["
-                + ", ".join("'" + value + "'::text" for value in choices)
-                + "])))"
-            )
-            descriptor["checks"].append(
-                {"relation": name, "name": check.name, "definition": definition}
-            )
-    descriptor["functions"] = sorted(functions.values(), key=lambda item: item["signature"])
-    required = source.joinpath("admission.sql").read_text()
+    required = Path(__file__).with_name("sql").joinpath("admission.sql").read_text()
     required = required.replace(
         "-- {finalized_release}",
         (
@@ -739,137 +343,4 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
             ";"
         ),
     )
-    require_body = function_bodies(required)["data.require_execution_release"]
-    for function in descriptor["functions"]:
-        if function["signature"] == "data.require_execution_release(text)":
-            function["body_sha256"] = sha256(require_body.encode()).hexdigest()
-            function["execute_roles"] = sorted(
-                set(function["execute_roles"]) | {"corpus_sem_admitter"}
-            )
-    encoded = canonical_bytes(descriptor).decode().replace("'", "''")
-    admission = (
-        (
-            "SET LOCAL ROLE corpus_sem_publisher;\nCREATE OR REPLACE FUNCTION data.execution_co"
-            "ntract_descriptor() RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalo"
-            "g,pg_temp AS $descriptor$\n SELECT '"
-        )
-        + encoded
-        + "'::jsonb\n$descriptor$;\n"
-        + required
-    )
-    return (
-        NativeProduct("semantic_0033_physical.sql", physical.encode()),
-        NativeProduct("semantic_0033_kernels.sql", kernels.encode()),
-        NativeProduct("semantic_0033_admission.sql", admission.encode()),
-    )
-
-
-def reference_source_products(base: tuple[NativeProduct, ...]) -> tuple[NativeProduct, ...]:
-    """Author the forward source-frame reference guard and its exact native commitment."""
-    import json
-    from pathlib import Path
-
-    from .identity import canonical_bytes
-
-    kernels = Path(__file__).with_name("sql").joinpath("reference_source.sql").read_text()
-    previous = next(item for item in base if item.name == "semantic_0033_admission.sql")
-    descriptor_body = function_bodies(previous.content.decode())[
-        "data.execution_contract_descriptor"
-    ]
-    statement = parse_sql(descriptor_body)[0].stmt
-    if not isinstance(statement, ast.SelectStmt) or not statement.targetList:
-        raise ValueError("native descriptor must be a literal SELECT")
-    cast = statement.targetList[0].val
-    if not isinstance(cast, ast.TypeCast) or not isinstance(cast.arg, ast.A_Const):
-        raise ValueError("native descriptor must be a literal JSONB value")
-    if not isinstance(cast.arg.val, ast.String) or cast.arg.val.sval is None:
-        raise ValueError("native descriptor must be a literal string")
-    descriptor = json.loads(cast.arg.val.sval)
-    bodies = function_bodies(kernels, by_signature=True)
-    updated = set()
-    for function in descriptor["functions"]:
-        name = function["signature"]
-        if name in bodies:
-            function["body_sha256"] = sha256(bodies[name].encode()).hexdigest()
-            updated.add(name)
-    if updated != set(bodies):
-        raise ValueError("reference source guards lack a prior native custody descriptor")
-    encoded = canonical_bytes(descriptor).decode().replace("'", "''")
-    admission = (
-        "SET LOCAL ROLE corpus_sem_publisher;\n"
-        "CREATE OR REPLACE FUNCTION data.execution_contract_descriptor() RETURNS jsonb "
-        "LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $descriptor$\n SELECT '"
-        + encoded
-        + "'::jsonb\n$descriptor$;\n"
-    )
-    return (
-        NativeProduct("semantic_0034_reference_source.sql", kernels.encode()),
-        NativeProduct("semantic_0034_admission.sql", admission.encode()),
-    )
-
-
-def consolidation_products(model=None) -> tuple[NativeProduct, ...]:
-    """Complete forward authoring: fixed schema, row consumers, transport and Core view.
-
-    Historical migrations execute only committed adjacent products. No physical product
-    is discarded by assuming that every future model has the same tables or views.
-    """
-    from pathlib import Path
-
-    from .metadata import PHYSICAL_MODEL_ID
-
-    base = closure_products(model)
-    reference = reference_source_products(base)
-    # The candidate includes the complete physical realization for review. Deployment
-    # on 0034 reuses its relations and installs only the frozen current kernels/descriptor.
-    physical, kernels, admission = base
-    reference_kernels, reference_admission = reference
-    _, separator, required = admission.content.partition(b"$descriptor$;")
-    if not separator:
-        raise ValueError("native admission product lacks its descriptor boundary")
-    return (
-        NativeProduct(
-            f"{NATIVE_REVISION}_guards.sql",
-            Path(__file__)
-            .with_name("sql")
-            .joinpath("execution_guards.sql")
-            .read_text()
-            .split("CREATE OR REPLACE FUNCTION ops.guard_execution_run", 1)[0]
-            .encode(),
-        ),
-        NativeProduct(f"{NATIVE_REVISION}_derived.sql", derived_publication_sql().encode()),
-        NativeProduct(
-            f"{NATIVE_REVISION}_text_layout.sql",
-            Path(__file__)
-            .with_name("sql")
-            .joinpath("text_layout.sql")
-            .read_text()
-            .replace("{physical_id}", PHYSICAL_MODEL_ID)
-            .encode(),
-        ),
-        NativeProduct(f"{NATIVE_REVISION}_physical.sql", physical.content),
-        NativeProduct(f"{NATIVE_REVISION}_kernels.sql", kernels.content),
-        NativeProduct(f"{NATIVE_REVISION}_reference_source.sql", reference_kernels.content),
-        NativeProduct(f"{NATIVE_REVISION}_admission.sql", reference_admission.content + required),
-    )
-
-
-def forward_products(
-    model=None, *, authoring_provenance: NativeAuthoringProvenance | None = None
-) -> tuple[NativeProduct, ...]:
-    """Derive a foundation source preview using its recorded authoring provenance.
-
-    These historical product labels do not promise frozen 0065 reproduction or the
-    current Alembic head. Current sources intentionally affect the preview. New forward
-    candidates use ``native_candidate.prepare_series_candidate`` and the explicit
-    ``ci schema native-candidate`` command on an owned authoring database.
-    """
-    from .migrations import ALEMBIC_DIR
-    from .pdf_publication_native import pdf_publication_products
-    from .source_view_native import recorded_authoring_provenance
-
-    if authoring_provenance is None:
-        authoring_provenance = recorded_authoring_provenance(
-            ALEMBIC_DIR.joinpath(f"versions/{NATIVE_REVISION}_admission.sql").read_text()
-        )
-    return pdf_publication_products(model, authoring_provenance=authoring_provenance)
+    return required
