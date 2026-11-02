@@ -33,7 +33,7 @@ class DatabaseSettings(_Section):
     """One libpq URL (peer authentication; no password belongs here) and the template database."""
 
     url: str = (
-        "postgresql://corpus_sem_writer@/corpus_parsing_20261030?host=/var/run/postgresql&port=5434"
+        "postgresql://corpus_sem_writer@/corpus_pdf_20261102?host=/var/run/postgresql&port=5434"
     )
     maintenance_url: str = "postgresql:///"
     reader_url: str | None = None
@@ -111,7 +111,7 @@ class AnalyticsSettings(_Section):
 class RuntimeSettings(_Section):
     """Operator selection; semantic meaning stays in the selected admitted release."""
 
-    default_project: str = "parsing-pipeline"
+    default_project: str = "siegrist-pdf"
 
 
 class Settings(BaseSettings):

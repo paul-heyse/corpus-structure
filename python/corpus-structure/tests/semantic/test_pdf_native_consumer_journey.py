@@ -437,7 +437,7 @@ def test_native_proposal_consolidation_and_independent_reference_journey(
             )
             > 0
         )
-        assert conn.scalar(text("SELECT count(*) FROM kb.rendition")) == 0
+        assert conn.scalar(text("SELECT to_regclass('kb.rendition')")) is None
         source = load_source_view(conn, view)
     frame = native_source_frame(source, [("reference_sentence", 0, 14)])
     expected = canonical_bytes(authored(key, "native_evidence:0", "reference"))
@@ -798,7 +798,7 @@ def test_native_parent_premise_survives_submission_custody_and_independent_grade
             )
             == 1
         )
-        assert conn.scalar(text("SELECT count(*) FROM kb.rendition")) == 0
+        assert conn.scalar(text("SELECT to_regclass('kb.rendition')")) is None
     with semantic_evaluator_engine.begin() as conn:
         split_documents(conn, "native-consumer")
         made = create_reference_set(

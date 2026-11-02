@@ -80,11 +80,12 @@ def test_selected_pin_ancestry_source_view_replay_and_empty_array_scope(
             "#/texts/1",
         ]
         assert reader.selected_item_reports(("#/texts/1",)) == []
+        assert reader.selected_item_reports(("#/texts/1",), kinds=("derivation_mappings",)) == []
         assert reader.selected_item_reports(()) == []
         assert reader.selected_regions(()) == []
         assert reader.item_ancestors("#/missing") == []
         assert conn.scalar(text("SELECT to_regclass('kb.native_document_derivation')")) is None
-        assert conn.scalar(text("SELECT count(*) FROM ops.pdf_published_derivation")) == 0
+        assert conn.scalar(text("SELECT to_regclass('ops.pdf_published_derivation')")) is None
     with semantic_reader_engine.connect() as conn, pytest.raises(DBAPIError):
         conn.execute(
             text(
