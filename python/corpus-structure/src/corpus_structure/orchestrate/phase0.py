@@ -13,9 +13,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Connection
 
-from corpus_structure.consolidate.pass_ import ConsolidateMethod
 from corpus_structure.core.method import (
     Digest,
     MethodContext,
@@ -30,16 +28,15 @@ from corpus_structure.core.vocab import (
     MethodFamily,
     MethodTier,
     Stage,
-    TaskStatus,
     TaskUnitType,
 )
 from corpus_structure.ingest import methods as ingest_methods
 from corpus_structure.methods.llm.agent_opus import AgentOpus
 from corpus_structure.methods.math import methods as math_methods
+from corpus_structure.orchestrate.domain_methods import ConsolidateMethod, RulesMethod
 from corpus_structure.orchestrate.registry import MethodRegistry, load_methods
-from corpus_structure.orchestrate.runner import Graph, PassReport, Step
+from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.validate.runner import RulesMethod
 
 M01, M02 = "ingest.pdf_integrated", "profile.segments"
 MATH_ENRICH = "enrich.pdf_math"
@@ -155,13 +152,3 @@ def bind_pdf_source(
         registry.sources,
         prepared=registry.prepared,
     )
-
-
-def stub_pass(conn: Connection, run_id: int, pass_: str, m19_task_id: int | None) -> PassReport:
-    """A pass that consolidates nothing (until P0-C-1)."""
-    return PassReport()
-
-
-def stub_evaluate(conn: Connection, run_id: int, task_id: int) -> TaskStatus:
-    """No adjudicated unit in scope (until P0-E-2b)."""
-    return TaskStatus.EMPTY

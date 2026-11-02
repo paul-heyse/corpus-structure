@@ -1,4 +1,4 @@
-"""Consolidation method configuration; semantic.domain_operations owns publication."""
+"""Configuration descriptors for release-bound domain operations, never legacy executors."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.keys import LabelRules
 from corpus_structure.core.method import (
+    ArtifactRef,
     Digest,
     MethodContext,
     PackSection,
@@ -73,3 +74,36 @@ class ConsolidateMethod:
         self, units: Sequence[UnitView], cfg: ConsolidateConfig, ctx: MethodContext
     ) -> Sequence[UnitResult]:
         raise RuntimeError("use semantic.domain_operations.consolidate_cut for publication")
+
+
+class RulesConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    rules: Annotated[str, ArtifactRef("rules", "rules")] = ""
+
+
+class RulesMethod:
+    """Rule configuration; semantic domain operations own validation/publication."""
+
+    name = "validate.rules"
+    version = "1"
+    family = MethodFamily.VALIDATE
+    unit_type = TaskUnitType.RUN
+    tier = MethodTier.DETERMINISTIC
+    confidence_source: ConfidenceSource | None = ConfidenceSource.RULES
+    Config = RulesConfig
+    resources = Resources()
+
+    def select(self, run: RunView, cfg: RulesConfig) -> Iterable[UnitRef]:
+        return [UnitRef(TaskUnitType.RUN)]
+
+    def input_digest(self, unit: UnitView, cfg: RulesConfig) -> Digest:
+        return Digest(f"{self.name}|{self.version}|{cfg.rules}".encode())
+
+    def run(
+        self, units: Sequence[UnitView], cfg: RulesConfig, ctx: MethodContext
+    ) -> Sequence[UnitResult]:
+        raise RuntimeError(
+            "validate.rules runs inside consolidation's finalize pass (D4 M19); "
+            "no orchestrator worker runs it"
+        )
