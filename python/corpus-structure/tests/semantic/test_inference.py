@@ -382,7 +382,7 @@ def test_real_archived_binary_release_round_trip(
         prepare_release,
     )
     from corpus_structure.semantic.composed import composed_dependencies
-    from corpus_structure.semantic.releases import load_release
+    from corpus_structure.semantic.releases import load_release, persist_release
 
     schema = {
         "id": "https://example/model",
@@ -452,15 +452,15 @@ def test_real_archived_binary_release_round_trip(
     # Preserve source modality and prevent required scalar graph flags being admitted.
     schema["slots"]["p"]["range"] = "string"
     bad_bundle = SourceBundle("model", (SourceArtifact("model", yaml.safe_dump(schema).encode()),))
-    bad = prepare_release(
-        bad_bundle,
-        composed_dependencies(ResolvedDependencies()),
-        PreparationProfile(version="semantic-2"),
-    )
+    bad_dependencies = composed_dependencies(ResolvedDependencies())
+    bad_profile = PreparationProfile(version="semantic-2")
+    bad = prepare_release(bad_bundle, bad_dependencies, bad_profile)
     from corpus_structure.semantic.publication import admit_release
 
-    with semantic_db_engine.connect() as conn, pytest.raises(ValueError, match="binary entity"):
-        admit_release(bad, connection=conn)
+    with semantic_db_engine.begin() as conn:
+        persist_release(conn, bad_bundle, bad_dependencies, bad_profile, bad)
+        with pytest.raises(ValueError, match="binary entity"):
+            admit_release(bad, connection=conn)
 
 
 @pytest.mark.parametrize(

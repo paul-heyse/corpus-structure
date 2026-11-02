@@ -54,6 +54,7 @@ def test_native_packet_read_blocks_input_publication_then_rejects_stale_run(
 def test_native_task_configuration_matches_frozen_params_and_version(
     semantic_db_engine, semantic_writer_engine
 ):
+    from hashlib import sha256
     from types import SimpleNamespace
 
     from pydantic import create_model
@@ -125,5 +126,6 @@ def test_native_task_configuration_matches_frozen_params_and_version(
             stage="propose",
             unit_type="run",
             input_hash="agent",
+            packet_hash=sha256(b"independent frozen-configuration packet").hexdigest(),
             agent=True,
         )
