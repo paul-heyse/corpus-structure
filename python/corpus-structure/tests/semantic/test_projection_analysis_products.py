@@ -36,6 +36,8 @@ def with_product(release, artifact):
 def test_supplied_recipe_closure_yields_all_four_typed_qualified_products():
     value = read_projection_analysis(with_product(prepared(), product()))
     assert value is not None
+    assert value.version == "projection-analysis-2"
+    assert all(item.analysis.profile == "companion-query-analysis-2" for item in value.projections)
     assert {entry.family for entry in value.projections} == {
         "input",
         "relation",
@@ -106,3 +108,66 @@ def test_unsupported_product_is_refused_instead_of_empty_success():
     bad = PreparedArtifact(ARTIFACT, b'{"version":"future","complete":true,"projections":[]}')
     with pytest.raises(SemanticRefusal, match="Unsupported retained"):
         read_projection_analysis(with_product(prepared(), bad))
+    old = json.loads(product().content)
+    old["version"] = "projection-analysis-1"
+    with pytest.raises(SemanticRefusal, match="Unsupported retained"):
+        read_projection_analysis(
+            with_product(prepared(), PreparedArtifact(ARTIFACT, canonical_bytes(old)))
+        )
+
+
+def test_retained_nested_query_expansion_reaches_impact_and_located_validation():
+    import yaml
+
+    from corpus_structure.semantic.operation_reporting import (
+        compatibility_advice,
+        projection_validation_report,
+    )
+
+    deps = composed_dependencies(ResolvedDependencies())
+    name = "execution/implementation/capture/companion-projection-model.yaml"
+    source = next(item for item in deps.artifacts if item.name == name)
+    document = yaml.safe_load(source.content)
+    declarations = document["annotations"]
+    sources = json.loads(declarations["cp:sources"])
+    # Existing materialized source stays a barrier. Add two nonmaterialized
+    # model-owned definitions before it using the same typed physical fields.
+    first = dict(sources[-1], name="first", materialized=False)
+    second = dict(first, name="second", input={"name": "first", "alias": "raw"})
+    barrier = dict(sources[-1], input={"name": "second", "alias": "raw"})
+    declarations["cp:sources"] = json.dumps([*sources[:-1], first, second, barrier])
+    changed = replace(
+        deps,
+        artifacts=tuple(
+            SourceArtifact(item.name, yaml.safe_dump(document).encode())
+            if item.name == name
+            else item
+            for item in deps.artifacts
+        ),
+    )
+    artifact = prepare_projection_analysis(changed)
+    assert artifact is not None
+    before = with_product(prepared(), product())
+    after = with_product(replace(before, release_id="release:nested"), artifact)
+    retained = read_projection_analysis(after)
+    assert retained is not None
+    assert dict(retained.projections[0].analysis.logical_sources)["second"].endswith(
+        "/sources/second"
+    )
+    impact = compare_semantic_releases(before, after)
+    value = impact.model_dump(mode="json")
+    assert any(
+        change["aspect"] == "logical_sources" and change["consumers"] for change in value["changes"]
+    )
+    assert not value["complete"]
+    assert any("helper body not analyzed" in message for message in value["unknowns"])
+    located = projection_validation_report(after).model_dump(mode="json")
+    assert located["release_id"] == after.release_id
+    assert not located["complete"]
+    assert all(
+        item["category"] == "unassessed" and item["model_path"].startswith("projection:")
+        for item in located["observations"]
+    )
+    advice = compatibility_advice(impact)
+    assert any("Regenerate and qualify" in message for message in advice)
+    assert any("unknown" in message for message in advice)

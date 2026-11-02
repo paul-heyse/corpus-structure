@@ -1,8 +1,9 @@
 """Expected semantic caller failures, separate from database and programming failures."""
 
-from dataclasses import asdict
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any, Self
 
 import adbc_driver_manager
 import psycopg
@@ -12,9 +13,57 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
 from corpus_structure.core.db.store import operation_failure
 
+if TYPE_CHECKING:
+    from .types import PreparedRelease
+
 
 class SemanticRefusal(ValueError):
     """An owned boundary deliberately refuses an unsupported or incompatible request."""
+
+
+@dataclass
+class FailureContext:
+    """Invocation-local context, bound only after trusted model resolution."""
+
+    prepared: PreparedRelease | None = None
+    operation: str | None = None
+    scope: str = "boundary"
+    release_id: str | None = None
+    model_id: str | None = None
+
+    def bind(
+        self, prepared: PreparedRelease, operation: str | None = None, *, scope: str = "boundary"
+    ) -> Self:
+        self.prepared, self.operation, self.scope = prepared, operation, scope
+        self.release_id, self.model_id = prepared.release_id, prepared.execution_model_id
+        return self
+
+    def report(self, error: BaseException):
+        from .operation_reporting import validation_failure_report
+
+        return validation_failure_report(
+            error,
+            prepared=self.prepared,
+            operation=self.operation,
+            scope=self.scope,
+            release_id=self.release_id,
+            model_id=self.model_id,
+        )
+
+
+@contextmanager
+def located_failure_context(prepared, operation: str | None = None, *, scope="boundary"):
+    """Carry trusted invocation identity on its exception, without ambient state."""
+    context = FailureContext().bind(prepared, operation, scope=scope)
+    try:
+        yield context
+    except Exception as error:
+        error.__dict__.setdefault("semantic_failure_context", context)
+        raise
+
+
+def failure_context(error, fallback: FailureContext | None = None) -> FailureContext:
+    return getattr(error, "semantic_failure_context", None) or fallback or FailureContext()
 
 
 DATABASE_ERRORS = (
@@ -33,17 +82,17 @@ def database_failure_code(error):
     return "database_" + operation_failure(error).failure.cause.value
 
 
-def database_failure_report(error: BaseException) -> dict[str, Any]:
+def database_failure_report(
+    error: BaseException, *, context: FailureContext | None = None
+) -> dict[str, Any]:
     """Safe typed fields for both CLI and tool reports; no SQL or credentials."""
-    context = operation_failure(error)
+    native = operation_failure(error)
     report: dict[str, Any] = {
         "code": database_failure_code(error),
         "message": "database operation failed",
-        **asdict(context),
+        **asdict(native),
     }
-    from .operation_reporting import validation_failure_report
-
-    report["validation"] = validation_failure_report(error).model_dump(mode="json")
+    report["validation"] = failure_context(error, context).report(error).model_dump(mode="json")
     diagnostic = getattr(error, "database_diagnostic", None)
     if diagnostic is not None:
         report["database"] = asdict(diagnostic)
@@ -56,21 +105,25 @@ def tool_refusals(*expected: type[Exception]):
     def decorate(function):
         @wraps(function)
         def invoke(*args, **kwargs):
+            from pydantic import ValidationError
+
+            from .operation_value_types import NativeResultViolation
+
             try:
                 return function(*args, **kwargs)
-            except expected as error:
+            except (SemanticRefusal, ValidationError, NativeResultViolation, *expected) as error:
                 import json
 
                 from fastmcp.exceptions import ToolError
-
-                from .operation_reporting import validation_failure_report
 
                 raise ToolError(
                     json.dumps(
                         {
                             "code": type(error).__name__,
                             "message": str(error),
-                            "validation": validation_failure_report(error).model_dump(mode="json"),
+                            "validation": failure_context(error)
+                            .report(error)
+                            .model_dump(mode="json"),
                         }
                     )
                 ) from error

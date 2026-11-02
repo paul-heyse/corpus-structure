@@ -495,7 +495,20 @@ def test_projected_validation_uses_nested_qualified_path():
  sh:property [sh:path cs:count; sh:datatype xsd:integer] .""",
         format="turtle",
     )
-    assert not validate_projected_graph(projection, shapes).conforms
+    result = validate_projected_graph(projection, shapes)
+    assert not result.conforms
+    assert result.validation is not None
+    located = result.validation.model_dump(mode="json")
+    assert located["release_id"] == projection.release_id
+    assert located["model_id"] == projection.contract_binding.execution_model_id
+    observation = located["observations"][0]
+    assert observation["operation"] == "graph_validate"
+    assert observation["model_path"]
+    assert observation["input_path"]
+    assert observation["scope"] == "z@0/graph-validation"
+    from hashlib import sha256
+
+    assert observation["original_report"] == "sha256:" + sha256(result.report).hexdigest()
 
 
 def test_projected_null_remains_distinct_from_absence_and_literal_text():

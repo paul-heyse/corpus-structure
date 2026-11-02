@@ -79,7 +79,7 @@ if TYPE_CHECKING:
     from sqlalchemy import Connection
 
     from .contracts import OperationContract
-    from .ontology import GraphValidation
+    from .ontology import GraphProjectionBinding, GraphValidation
     from .pdf_record_reader import PublishedPdfReader
     from .product_reference import ProductReference
     from .query import SnapshotBinding
@@ -131,7 +131,10 @@ def _subject_family(
 ) -> Literal["snapshot", "published_document"] | None:
     """Select qualified observers from this release's declared context concepts."""
     snapshot = "SnapshotBinding" in operation.inputs
-    document = "SourceView" in (*operation.inputs, *operation.results)
+    concepts = (*operation.inputs, *operation.results)
+    document = "SourceView" in concepts or (
+        "published_document_address" in operation.applicability and "SourceArtifact" in concepts
+    )
     if snapshot == document:
         # A mixed context needs its own qualified composition, not implicit precedence.
         return None
@@ -449,6 +452,7 @@ def validation_report(
     diagnostics: tuple[Diagnostic, ...],
     *,
     prepared: PreparedRelease | None = None,
+    operation: str | None = None,
 ) -> BaseModel:
     categories = {
         "invalid": "invalid_input",
@@ -462,7 +466,7 @@ def validation_report(
             code=item.code,
             model_path=item.contract_id or item.location,
             input_path=item.location,
-            operation=item.consumer,
+            operation=operation or item.consumer,
             scope="preparation",
             message=item.message,
             expected=item.expected,
@@ -758,6 +762,7 @@ def _projection_impact(before: PreparedRelease, after: PreparedRelease, changes,
                 f"{side}: projection:{entry.family}: {message}"
                 for message in entry.analysis.unknowns
             )
+
         if (
             not product.complete
             and not product.unknowns
@@ -794,6 +799,7 @@ def _projection_impact(before: PreparedRelease, after: PreparedRelease, changes,
             "relationships",
             "helpers",
             "projection_id",
+            "logical_sources",
         )
         for aspect in aspects:
             old_value = getattr(left, aspect) if left else None
@@ -814,6 +820,72 @@ def _projection_impact(before: PreparedRelease, after: PreparedRelease, changes,
                     ),
                 )
             )
+
+
+def compatibility_advice(impact: BaseModel) -> tuple[str, ...]:
+    """Advice from the shared comparison; admission and migration stay independent."""
+    value = impact.model_dump(mode="json")
+    advice = []
+    if value["changes"]:
+        consumers = sorted({name for change in value["changes"] for name in change["consumers"]})
+        advice.append(
+            "Regenerate and qualify affected declared consumers"
+            + (": " + ", ".join(consumers) if consumers else "; consumer closure is unassessed")
+            + "."
+        )
+    else:
+        advice.append("No examined declared definitions changed.")
+    if not value["complete"]:
+        advice.append("Resolve unknown dependency coverage before claiming compatibility.")
+    advice.append("Native admission, revision fences and explicit activation remain required.")
+    return tuple(advice)
+
+
+def projection_validation_report(prepared: PreparedRelease) -> BaseModel:
+    """Expose the retained analysis coverage through maintained schema-check results."""
+    from .projection_analysis_products import read_projection_analysis
+
+    product = read_projection_analysis(prepared)
+    diagnostics = []
+    if product is None:
+        diagnostics.append(
+            Diagnostic(
+                "projection_analysis_unavailable",
+                "projection",
+                "Retained projection analysis unavailable.",
+                outcome="unchecked",
+            )
+        )
+    else:
+        diagnostics.extend(
+            Diagnostic(
+                "projection_analysis_incomplete",
+                "projection",
+                message,
+                outcome="unchecked",
+            )
+            for message in product.unknowns
+        )
+        for entry in product.projections:
+            diagnostics.extend(
+                Diagnostic(
+                    "projection_analysis_incomplete",
+                    "projection:" + entry.family,
+                    message,
+                    outcome="unchecked",
+                )
+                for message in entry.analysis.unknowns
+            )
+        if not product.complete and not diagnostics:
+            diagnostics.append(
+                Diagnostic(
+                    "projection_analysis_incomplete",
+                    "projection",
+                    "Retained dependency coverage is incomplete.",
+                    outcome="unchecked",
+                )
+            )
+    return validation_report(tuple(diagnostics), prepared=prepared)
 
 
 def report_schema(name: str) -> dict[str, object]:
@@ -847,6 +919,8 @@ def validation_failure_report(
     prepared: PreparedRelease | None = None,
     operation: str | None = None,
     scope: str = "boundary",
+    release_id: str | None = None,
+    model_id: str | None = None,
 ) -> BaseModel:
     """Project known validator/native facts; callers retain the original exception/report."""
     from jsonschema.exceptions import SchemaError
@@ -858,14 +932,22 @@ def validation_failure_report(
     from .invariant_failures import InvariantViolation
     from .ontology import GraphExecutionError, GraphShapeError
     from .operation_value_types import NativeResultViolation
+    from .projection_analysis import ProjectionAnalysisUnavailable
     from .refusals import DATABASE_ERRORS
     from .types import PreparationError
 
     if isinstance(error, PreparationError):
-        return validation_report(error.diagnostics, prepared=prepared)
+        return validation_report(error.diagnostics, prepared=prepared, operation=operation)
 
-    release_id = prepared.release_id if prepared else None
-    model_id = prepared.execution_model_id if prepared else None
+    if prepared is not None:
+        if release_id not in {None, prepared.release_id} or model_id not in {
+            None,
+            prepared.execution_model_id,
+        }:
+            raise SemanticRefusal(
+                "validation report context differs from trusted release"
+            ) from error
+        release_id, model_id = prepared.release_id, prepared.execution_model_id
 
     def owner_release(observed: str | None) -> str | None:
         if observed is not None and release_id is not None and observed != release_id:
@@ -936,7 +1018,7 @@ def validation_failure_report(
         ]
     elif isinstance(error, InvariantViolation):
         failure = error.failure
-        if prepared is not None and model_id != failure.model_id:
+        if model_id is not None and model_id != failure.model_id:
             raise SemanticRefusal(
                 "native diagnostic model differs from supplied report context"
             ) from error
@@ -991,6 +1073,18 @@ def validation_failure_report(
                 original_report="exception:" + type(error).__name__,
             )
         ]
+    elif isinstance(error, ProjectionAnalysisUnavailable):
+        observations = [
+            dict(
+                category="unassessed",
+                code="projection_analysis_unavailable",
+                model_path=error.model_path,
+                operation=operation,
+                scope="projection_analysis",
+                message=str(error),
+                original_report="exception:" + type(error).__name__,
+            )
+        ]
     elif isinstance(error, SemanticRefusal):
         observations = [
             dict(
@@ -1039,18 +1133,35 @@ def validation_failure_report(
 
 
 def graph_validation_report(
-    validation: GraphValidation, *, prepared: PreparedRelease, scope: str
+    validation: GraphValidation,
+    *,
+    prepared: PreparedRelease | None = None,
+    binding: GraphProjectionBinding | None = None,
+    scope: str,
 ) -> BaseModel:
     """Keep graph locations and original report custody; completeness is relative to scope."""
     from hashlib import sha256
 
     reference = "sha256:" + sha256(validation.report).hexdigest()
+    if prepared is None and binding is None:
+        raise SemanticRefusal("graph report requires a trusted release binding")
+    if prepared is not None:
+        release_id, model_id = prepared.release_id, prepared.execution_model_id
+    else:
+        assert binding is not None
+        release_id, model_id = binding.release_id, binding.execution_model_id
+    if binding is not None and (binding.release_id, binding.execution_model_id) != (
+        release_id,
+        model_id,
+    ):
+        raise SemanticRefusal("graph report binding differs from supplied release")
     observations = [
         dict(
             category="state_violation",
             code=item.constraint or "graph_nonconformance",
             model_path=item.source_shape or "graph/shape",
             input_path=item.focus_node,
+            operation="graph_validate",
             scope=scope,
             message=item.message,
             actual=canonical_bytes(dict(path=item.path, severity=item.severity)).decode(),
@@ -1072,8 +1183,8 @@ def graph_validation_report(
     return _report(
         "LocatedValidationReport",
         dict(
-            release_id=prepared.release_id,
-            model_id=prepared.execution_model_id,
+            release_id=release_id,
+            model_id=model_id,
             observations=observations,
             complete=validation.conforms or bool(validation.diagnostics),
         ),

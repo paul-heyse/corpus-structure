@@ -14,18 +14,25 @@ from pydantic import ValidationError
 from corpus_structure.cli.output import stderr_console
 from corpus_structure.semantic.refusals import (
     DATABASE_ERRORS,
+    FailureContext,
     SemanticRefusal,
     database_failure_report,
+    failure_context,
 )
 
 
 @contextmanager
-def failure_boundary(json: bool, *, expected: tuple[type[Exception], ...] = ()) -> Generator[None]:
+def failure_boundary(
+    json: bool, *, expected: tuple[type[Exception], ...] = (), context: FailureContext | None = None
+) -> Generator[FailureContext]:
     """Report deliberate failures; programming errors and cancellation retain their identity."""
+    from corpus_structure.semantic.operation_value_types import NativeResultViolation
+
+    context = context or FailureContext()
     try:
-        yield
+        yield context
     except DATABASE_ERRORS as error:
-        detail = database_failure_report(error)
+        detail = database_failure_report(error, context=context)
         if json:
             typer.echo(jsonlib.dumps({"error": detail}))
         else:
@@ -49,16 +56,16 @@ def failure_boundary(json: bool, *, expected: tuple[type[Exception], ...] = ()) 
                     f"(usage_scope={database['usage_scope']})"
                 )
         raise typer.Exit(1) from error
-    except (SemanticRefusal, ValidationError, *expected) as error:
+    except (SemanticRefusal, ValidationError, NativeResultViolation, *expected) as error:
         from corpus_structure.semantic.types import PreparationError
 
         if json:
             detail: dict[str, Any] = {"code": type(error).__name__, "message": str(error)}
             if getattr(error, "reason", None) is not None:
                 detail["reason"] = error.reason
-            from corpus_structure.semantic.operation_reporting import validation_failure_report
-
-            detail["validation"] = validation_failure_report(error).model_dump(mode="json")
+            detail["validation"] = (
+                failure_context(error, context).report(error).model_dump(mode="json")
+            )
             if isinstance(error, PreparationError):
                 detail["diagnostics"] = [
                     {key: value for key, value in asdict(item).items() if value is not None}

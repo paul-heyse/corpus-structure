@@ -80,6 +80,62 @@ def test_nested_pydantic_error_uses_instance_location():
     assert item["code"] == "string_type"
 
 
+def test_cli_boundary_preserves_trusted_context_and_original_validation_error(capsys):
+    import json
+
+    import typer
+
+    from corpus_structure.cli.failures import failure_boundary
+
+    original = None
+    with pytest.raises(typer.Exit), failure_boundary(True) as context:
+        context.bind(prepared(), "read_source_view", scope="subject")
+        try:
+            prepared().validate_python("Thing", {"label": 5})
+        except ValidationError as error:
+            original = error
+            raise
+    value = json.loads(capsys.readouterr().out)["error"]["validation"]
+    assert isinstance(original, ValidationError)
+    assert value["release_id"] == prepared().release_id
+    assert value["model_id"] == prepared().execution_model_id
+    observation = value["observations"][0]
+    assert observation["operation"] == "read_source_view"
+    assert observation["input_path"] == "/label"
+    assert observation["scope"] == "subject"
+    assert observation["original_report"] == "pydantic:Thing"
+
+
+def test_mcp_boundary_preserves_invocation_context_without_leaking_between_calls():
+    import json
+
+    from fastmcp.exceptions import ToolError
+
+    from corpus_structure.semantic.refusals import located_failure_context, tool_refusals
+
+    @tool_refusals()
+    def bound():
+        with located_failure_context(prepared(), "read_source_view", scope="subject"):
+            prepared().validate_python("Thing", {"label": 5})
+
+    @tool_refusals()
+    def unbound():
+        prepared().validate_python("Thing", {"label": 5})
+
+    with pytest.raises(ToolError) as caught:
+        bound()
+    value = json.loads(str(caught.value))["validation"]
+    assert isinstance(caught.value.__cause__, ValidationError)
+    assert value["release_id"] == prepared().release_id
+    assert value["model_id"] == prepared().execution_model_id
+    assert value["observations"][0]["operation"] == "read_source_view"
+    with pytest.raises(ToolError) as separate:
+        unbound()
+    other = json.loads(str(separate.value))["validation"]
+    assert "release_id" not in other and "model_id" not in other
+    assert "operation" not in other["observations"][0]
+
+
 def test_invalid_json_schema_is_distinct_from_invalid_instance():
     with pytest.raises(SchemaError) as schema_error:
         Draft202012Validator.check_schema({"type": "not_a_type"})
@@ -152,6 +208,29 @@ def test_static_operation_description_is_unresolved_and_does_not_authorize():
         explain_operation(prepared(), "not_an_operation")
 
 
+def test_changed_implementation_binding_is_observed_as_unavailable(monkeypatch):
+    from corpus_structure.semantic import operation_reporting as reports
+    from corpus_structure.semantic.contracts import bound_execution_model
+
+    model = bound_execution_model(prepared())
+    operation = model.operation("claim")
+    changed = replace(
+        model,
+        implementations=tuple(
+            replace(item, version="unqualified-test-version")
+            if item.id == operation.implementation
+            else item
+            for item in model.implementations
+        ),
+    )
+    monkeypatch.setattr(reports, "bound_execution_model", lambda release: changed)
+    report = reports.explain_operation(prepared(), "claim").model_dump(mode="json")
+    check = next(item for item in report["checks"] if item["owner"] == "semantic.contracts")
+    assert check["status"] == "unavailable"
+    assert "effects differ" in check["reason"]
+    assert report["complete"] is False
+
+
 def test_live_subject_family_follows_declared_inputs_and_refuses_unqualified_kinds():
     from corpus_structure.semantic.contracts import bound_execution_model
     from corpus_structure.semantic.operation_reporting import _subject_family
@@ -161,6 +240,7 @@ def test_live_subject_family_follows_declared_inputs_and_refuses_unqualified_kin
     derive = model.operation("derive")
     assert _subject_family(derive) == "snapshot"
     assert _subject_family(model.operation("read_native_source")) == "published_document"
+    assert _subject_family(model.operation("publish_pdf_region_artifact")) == "published_document"
     assert _subject_family(replace(derive, inputs=("SourceView",))) == "published_document"
     assert _subject_family(replace(derive, inputs=("SnapshotBinding", "SourceView"))) is None
     assert _subject_family(replace(derive, inputs=("PdfProductReference",))) is None
@@ -486,3 +566,18 @@ def test_graph_shape_execution_and_located_nonconformance_stay_distinct():
     assert observation["input_path"] == "urn:item:3"
     assert observation["model_path"] == "urn:shape"
     assert observation["original_report"].startswith("sha256:")
+
+
+def test_actual_schema_check_reports_retained_located_coverage(cli):
+    import json
+
+    checked = cli("schema", "check", "--json")
+    assert checked.exit_code == 0, checked.output
+    located = json.loads(checked.stdout)["validation"]
+    assert located["release_id"] == json.loads(checked.stdout)["release_id"]
+    assert located["model_id"] == json.loads(checked.stdout)["execution_model_id"]
+    assert not located["complete"]
+    assert any(
+        item["category"] == "unassessed" and "helper body" in item["message"]
+        for item in located["observations"]
+    )

@@ -6,6 +6,7 @@ permission, arbitrary helper behavior, scientific provenance or semantic equival
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -20,6 +21,7 @@ from sqlglot.schema import MappingSchema
 
 from . import projection_recipe as ir
 from .metadata import metadata
+from .refusals import SemanticRefusal
 
 
 @dataclass(frozen=True)
@@ -37,14 +39,89 @@ class ProjectionAnalysis:
     relationships: tuple[str, ...]
     helpers: tuple[str, ...]
     unknowns: tuple[str, ...]
+    logical_sources: tuple[tuple[str, str], ...]
 
 
-class ProjectionAnalysisUnavailable(ValueError):
+class ProjectionAnalysisUnavailable(SemanticRefusal):
     """The selected analysis cannot faithfully represent this required recipe."""
+
+    def __init__(self, message: str, *, model_path: str = "projection"):
+        self.model_path = model_path
+        super().__init__(message)
 
 
 def _dtype(typ) -> exp.DataType:
     return exp.DataType.build(str(typ.compile(dialect=dialect())), dialect="postgres")
+
+
+def _incomplete_type(typ: exp.DataType) -> bool:
+    return typ.this in {exp.DType.UNKNOWN, exp.DType.USERDEFINED} or (
+        typ.this in {exp.DType.ARRAY, exp.DType.MAP, exp.DType.STRUCT} and not typ.expressions
+    )
+
+
+def expand_sources(
+    query: exp.Query,
+    sources: Mapping[str, exp.Query],
+    *,
+    physical_sources: frozenset[str],
+    parameters: frozenset[str] = frozenset(),
+) -> exp.Query:
+    """Expand a finite model-pinned closure; stored/materialized sources are barriers.
+
+    SQLGlot recursively expands without cycle or CTE-shadow checks. Establish those
+    premises before calling it, retaining the caller's model-origin annotated trees.
+    """
+    edges = {}
+    for name, tree in (("<projection>", query), *sources.items()):
+        if not isinstance(tree, exp.Query):
+            raise ProjectionAnalysisUnavailable(f"{name}: source is not a supported query")
+        ctes = [cte.alias for cte in tree.find_all(exp.CTE)]
+        if len(set(ctes)) != len(ctes) or set(ctes) & sources.keys():
+            raise ProjectionAnalysisUnavailable(f"{name}: ambiguous local CTE/source collision")
+        for node in tree.walk():
+            if isinstance(node, exp.Command) or node.error_messages():
+                raise ProjectionAnalysisUnavailable(f"{name}: opaque or malformed query structure")
+            if isinstance(node, exp.Placeholder) and (
+                node.name not in parameters or node.type is None
+            ):
+                raise ProjectionAnalysisUnavailable(f"{name}: unresolved placeholder {node.name}")
+            if isinstance(node, exp.Anonymous) and (
+                not node.meta.get("model_source") or node.type is None
+            ):
+                raise ProjectionAnalysisUnavailable(f"{name}: unbound helper {node.name}")
+            if isinstance(node, exp.DataType) and _incomplete_type(node):
+                raise ProjectionAnalysisUnavailable(
+                    f"{name}: incomplete declared type {node.sql()}"
+                )
+        references = {
+            ".".join(filter(None, (table.db, table.name)))
+            for table in tree.find_all(exp.Table)
+            if table.db or table.name not in ctes
+        }
+        missing = references - sources.keys() - physical_sources
+        if missing:
+            raise ProjectionAnalysisUnavailable(f"{name}: missing source {sorted(missing)}")
+        edges[name] = references & sources.keys()
+    done, active = set(), set()
+
+    def visit(name):
+        if name in active:
+            raise ProjectionAnalysisUnavailable(f"{name}: cyclic pinned source closure")
+        if name in done:
+            return
+        active.add(name)
+        for child in edges[name]:
+            visit(child)
+        active.remove(name)
+        done.add(name)
+
+    for name in edges:
+        visit(name)
+    result = exp.expand(query, dict(sources), dialect="postgres", copy=True)
+    if not isinstance(result, exp.Query):
+        raise ProjectionAnalysisUnavailable("expanded projection is not a query")
+    return result
 
 
 def recipe_expression(recipe: ir.ProjectionRecipe) -> exp.Select:
@@ -146,6 +223,7 @@ def recipe_expression(recipe: ir.ProjectionRecipe) -> exp.Select:
             value = exp.Collate(this=value, expression=exp.to_identifier(order.collation))
         query = query.order_by(value)
     ctes = []
+    query_sources = {}
     for source in recipe.sources:
         if source.relation is not None:
             continue
@@ -154,6 +232,10 @@ def recipe_expression(recipe: ir.ProjectionRecipe) -> exp.Select:
         body = exp.select(*outputs(source.fields)).from_(reference(source.input))
         if source.predicate is not None:
             body = body.where(lower(source.predicate))
+        if not source.materialized:
+            body.meta["model_source"] = "projection:" + recipe.family + "/sources/" + source.name
+            query_sources[source.name] = body
+            continue
         ctes.append(
             exp.CTE(
                 this=body,
@@ -163,7 +245,15 @@ def recipe_expression(recipe: ir.ProjectionRecipe) -> exp.Select:
         )
     if ctes:
         query.set("with_", exp.With(expressions=ctes))
-    return query
+    expanded = expand_sources(
+        query,
+        query_sources,
+        physical_sources=frozenset(s.relation for s in recipe.sources if s.relation is not None),
+        parameters=frozenset(parameters) | {"published_build_id", "published_release_id"},
+    )
+    if not isinstance(expanded, exp.Select):
+        raise ProjectionAnalysisUnavailable("expanded recipe must retain its SELECT")
+    return expanded
 
 
 @lru_cache(maxsize=32)
@@ -185,6 +275,11 @@ def analyze_recipe(recipe: ir.ProjectionRecipe) -> ProjectionAnalysis:
     nodes = lineage(None, qualified, schema=schema, scope=scope, dialect="postgres")
     if not isinstance(nodes, dict):
         raise ProjectionAnalysisUnavailable("expected all named output lineage")
+    expected_origins = {field.name: field.source for field in recipe.fields}
+    if len(expected_origins) != len(recipe.fields) or set(nodes) != expected_origins.keys():
+        raise ProjectionAnalysisUnavailable(
+            "named output lineage differs from required model fields"
+        )
     dependencies = []
     for name, root in nodes.items():
         leaves = set()
@@ -253,12 +348,25 @@ def analyze_recipe(recipe: ir.ProjectionRecipe) -> ProjectionAnalysis:
         for value in qualified.selects
     )
     unknowns = [f"unknown output type: {name}" for name, typ in types if typ == "UNKNOWN"]
+    for node in qualified.walk():
+        if isinstance(node, exp.DataType) and any(
+            _incomplete_type(value)
+            for value in node.walk()
+            if isinstance(value, exp.DataType)
+        ):
+            unknowns.append("incomplete declared type: " + node.sql(dialect="postgres"))
+    for field in recipe.fields:
+        if not field.source:
+            unknowns.append("missing output model origin: " + field.name)
+    for value in qualified.selects:
+        if value.this.meta.get("model_source") != expected_origins[value.alias_or_name]:
+            unknowns.append("transformed output model origin unavailable: " + value.alias_or_name)
     unknowns.extend(
         "helper body not analyzed: " + helper.function_name for helper in recipe.helpers
     )
     return ProjectionAnalysis(
         recipe.projection_id,
-        "companion-query-analysis-1",
+        "companion-query-analysis-2",
         sqlglot.__version__,
         recipe.consumers,
         tuple((field.name, field.source) for field in recipe.fields),
@@ -278,4 +386,9 @@ def analyze_recipe(recipe: ir.ProjectionRecipe) -> ProjectionAnalysis:
         tuple(join.relationship for join in recipe.joins),
         tuple(helper.function_name for helper in recipe.helpers),
         tuple(unknowns),
+        tuple(
+            (source.name, f"projection:{recipe.family}/sources/{source.name}")
+            for source in recipe.sources
+            if source.relation is None
+        ),
     )

@@ -104,6 +104,62 @@ def test_actual_cli_and_mcp_reports_share_archived_meaning_and_located_refusal(
     anyio.run(journey)
 
 
+def test_live_preflight_never_authorizes_stale_native_publication(
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_reader_engine,
+):
+    import pytest
+    from sqlalchemy import insert
+
+    from corpus_structure.semantic.arrow_publication import StaleAnalysisError
+    from corpus_structure.semantic.inference import derive, publish_inference
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.operation_reporting import explain_operation
+    from corpus_structure.semantic.publication import PublicationBatch, publish_batch
+    from corpus_structure.semantic.query import SnapshotBinding, read_snapshot
+
+    release = prepared()
+    bundle, deps, profile = report_inputs()
+    realization = "report-stale-realization"
+    with semantic_db_engine.begin() as conn:
+        persist_release(conn, bundle, deps, profile, release)
+        conn.execute(insert(table("data.project")).values(project_id="report-stale"))
+        conn.execute(
+            insert(table("data.realization")).values(
+                realization_id=realization,
+                project_id="report-stale",
+                release_id=release.release_id,
+            )
+        )
+    binding = SnapshotBinding(release.release_id, realization, 0, "report-preflight")
+    with read_snapshot(semantic_reader_engine) as conn:
+        observed = explain_operation(
+            release, "derive", subject=binding, connection=conn
+        ).model_dump(mode="json")
+    check = next(item for item in observed["checks"] if item["contract_ref"] == "SnapshotBinding")
+    assert check["status"] == "applicable"
+    with (
+        semantic_writer_engine.connect().execution_options(
+            isolation_level="REPEATABLE READ"
+        ) as conn,
+        conn.begin(),
+    ):
+        result = derive(conn, binding)
+    publish_batch(
+        semantic_writer_engine,
+        PublicationBatch(release.release_id, realization, "advance-after-preflight"),
+    )
+    with pytest.raises(StaleAnalysisError, match="revision changed"):
+        publish_inference(semantic_writer_engine, result)
+    with read_snapshot(semantic_reader_engine) as conn:
+        stale = explain_operation(release, "derive", subject=binding, connection=conn).model_dump(
+            mode="json"
+        )
+    check = next(item for item in stale["checks"] if item["contract_ref"] == "SnapshotBinding")
+    assert check["status"] == "unavailable"
+
+
 def test_actual_diff_preserves_selection_dependencies_and_declared_consumer_unknowns(
     semantic_db_engine,
     semantic_reader_engine,

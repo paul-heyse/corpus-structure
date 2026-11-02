@@ -13,13 +13,15 @@ from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.output import JsonOpt, emit
 
 
-def refusal(json, *, expected=()):
+def refusal(json, *, expected=(), context=None):
     from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
     from corpus_structure.semantic.releases import ReleaseConflict
     from corpus_structure.semantic.types import PreparationError
 
     return failure_boundary(
-        json, expected=(PreparationError, ReleaseConflict, ExecutionAdmissionError, *expected)
+        json,
+        expected=(PreparationError, ReleaseConflict, ExecutionAdmissionError, *expected),
+        context=context,
     )
 
 
@@ -36,6 +38,7 @@ class CompileResult(BaseModel):
     release_id: str
     execution_model_id: str | None
     artifacts: list[ArtifactRow]
+    validation: dict | None = None
 
 
 def _render(result):
@@ -52,6 +55,7 @@ def compile_(
     out: Annotated[Path | None, typer.Option("--out")] = None,
     json_: JsonOpt = False,
 ):
+    from corpus_structure.semantic.operation_reporting import projection_validation_report
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.regeneration import prepare_packs
 
@@ -77,6 +81,7 @@ def compile_(
                 release_id=prepared.release_id,
                 execution_model_id=prepared.execution_model_id,
                 artifacts=[ArtifactRow(kind=a.kind, hash=a.digest) for a in prepared.artifacts],
+                validation=projection_validation_report(prepared).model_dump(mode="json"),
             ),
             json=json_,
             render=_render,
@@ -98,10 +103,11 @@ def check_(
     if release is None:
         return compile_(domain or ["statistics"], domains, None, json_)
     from corpus_structure.cli.output import state
+    from corpus_structure.semantic.operation_reporting import projection_validation_report
     from corpus_structure.semantic.releases import verify_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    with refusal(json_):
+    with refusal(json_) as failure:
         if domain is not None:
             raise SemanticRefusal("select either --domain or --release")
         with (
@@ -109,12 +115,14 @@ def check_(
             read_snapshot(engine) as conn,
         ):
             prepared = verify_release(conn, release)
+            failure.bind(prepared, "schema_check")
         emit(
             CompileResult(
                 packs=[],
                 release_id=prepared.release_id,
                 execution_model_id=prepared.execution_model_id,
                 artifacts=[ArtifactRow(kind=a.kind, hash=a.digest) for a in prepared.artifacts],
+                validation=projection_validation_report(prepared).model_dump(mode="json"),
             ),
             json=json_,
             render=_render,
@@ -329,7 +337,7 @@ def explain_operation_(
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    with refusal(json_, expected=(SemanticRefusal, ValueError, OSError)):
+    with refusal(json_, expected=(SemanticRefusal, ValueError, OSError)) as failure:
         raw_subject = subject.read_bytes() if subject is not None else None
         with (
             open_runtime_engine(
@@ -338,6 +346,7 @@ def explain_operation_(
             read_snapshot(engine) as conn,
         ):
             prepared = open_release(conn, release)
+            failure.bind(prepared, operation)
             reference = (
                 parse_operation_subject(prepared, operation, raw_subject, connection=conn)
                 if raw_subject is not None
@@ -357,16 +366,16 @@ def diff_(ctx: typer.Context, before: str, after: str, json_: JsonOpt = False):
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    with refusal(json_, expected=(SemanticRefusal,)):
+    with refusal(json_, expected=(SemanticRefusal,)) as failure:
         with (
             open_runtime_engine(
                 state(ctx).settings(), "ci-semantic-diff", purpose="read"
             ) as engine,
             read_snapshot(engine) as conn,
         ):
-            report = compare_semantic_releases(
-                open_release(conn, before), open_release(conn, after)
-            )
+            old, new = open_release(conn, before), open_release(conn, after)
+            failure.bind(new, "compare_semantic_releases")
+            report = compare_semantic_releases(old, new)
         emit(report, json=json_)
 
 

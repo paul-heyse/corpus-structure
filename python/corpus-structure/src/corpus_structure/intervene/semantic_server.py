@@ -20,7 +20,7 @@ from corpus_structure.intervene.semantic import ProposalSession, RefusedProposal
 from corpus_structure.semantic.operation_results import MethodConfigId, RunId
 from corpus_structure.semantic.operations import OperationConflict
 from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
-from corpus_structure.semantic.refusals import tool_refusals
+from corpus_structure.semantic.refusals import located_failure_context, tool_refusals
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
 from corpus_structure.serve.source_search import SourceSearchRequest, SourceSearchResponse
@@ -389,14 +389,15 @@ def build_semantic_server(
             )
         with read_snapshot(current(ctx).engine) as conn:
             prepared = open_release(conn, release)
-            reference = (
-                parse_operation_subject(prepared, operation, raw_subject, connection=conn)
-                if raw_subject is not None
-                else None
-            )
-            return explain(prepared, operation, subject=reference, connection=conn).model_dump(
-                mode="json"
-            )
+            with located_failure_context(prepared, operation):
+                reference = (
+                    parse_operation_subject(prepared, operation, raw_subject, connection=conn)
+                    if raw_subject is not None
+                    else None
+                )
+                return explain(prepared, operation, subject=reference, connection=conn).model_dump(
+                    mode="json"
+                )
 
     @server.tool(
         annotations={"readOnlyHint": True}, output_schema=report_schema("SemanticImpactReport")
@@ -411,9 +412,9 @@ def build_semantic_server(
         from corpus_structure.semantic.releases import open_release
 
         with read_snapshot(current(ctx).engine) as conn:
-            return compare(open_release(conn, before), open_release(conn, after)).model_dump(
-                mode="json"
-            )
+            old, new = open_release(conn, before), open_release(conn, after)
+            with located_failure_context(new, "compare_semantic_releases"):
+                return compare(old, new).model_dump(mode="json")
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
@@ -496,16 +497,17 @@ def build_semantic_server(
         run: int | None = None,
         max_units: int | None = None,
     ) -> service.QueueNext:
-        try:
-            return bound_run(ctx, run).next(mode, max_units)
-        except (ProposalRefused, OperationConflict) as error:
-            raise ToolError(str(error)) from None
+        active = bound_run(ctx, run)
+        if isinstance(active, SemanticAgentSession):
+            with located_failure_context(active.interpretation(), "claim"):
+                return active.next(mode, max_units)
+        return active.next(mode, max_units)
 
     @server.tool
     @tool_refusals(ProposalRefused, OperationConflict)
     def read_unit(ctx: Context, task_id: int, part: int = 1) -> ToolResult:
-        try:
-            active = current(ctx).active(task_id)
+        active = current(ctx).active(task_id)
+        with located_failure_context(active.prepared, "make_packet", scope="mcp/read_unit"):
             body = active.read("unit", part)
             pages = active.packet.part_pages(
                 next(item for item in active.packet.parts() if item.name == "unit")
@@ -518,16 +520,14 @@ def build_semantic_server(
                 text=body,
             )
             return ToolResult(content=body, structured_content=structured.model_dump(mode="json"))
-        except (ProposalRefused, OperationConflict) as error:
-            raise ToolError(str(error)) from None
 
     @server.tool
     @tool_refusals(ProposalRefused, OperationConflict)
     def read_instructions(
         ctx: Context, task_id: int, part: str | None = None, page: int = 1
     ) -> service.Instructions:
-        try:
-            active = current(ctx).active(task_id)
+        active = current(ctx).active(task_id)
+        with located_failure_context(active.prepared, "make_packet", scope="mcp/read_instructions"):
             instructions = [item for item in active.packet.parts() if item.name != "unit"]
             infos = [
                 service.PartInfo(
@@ -551,8 +551,6 @@ def build_semantic_server(
                 page_count=len(active.packet.part_pages(item)),
                 text=active.read(part, page),
             )
-        except (ProposalRefused, OperationConflict) as error:
-            raise ToolError(str(error)) from None
 
     @server.tool
     @tool_refusals(ProposalRefused, OperationConflict)
@@ -631,8 +629,8 @@ def build_semantic_server(
     @server.tool
     @tool_refusals(ProposalRefused, OperationConflict)
     def release(ctx: Context, task_id: int, reason: str) -> service.Released:
-        try:
-            active = current(ctx).active(task_id)
+        active = current(ctx).active(task_id)
+        with located_failure_context(active.prepared, "release_claim"):
             from corpus_structure.semantic.operations import release_claim
 
             with current(ctx).engine.begin() as conn:
@@ -645,8 +643,6 @@ def build_semantic_server(
                 )
             current(ctx).sessions.pop(task_id, None)
             return service.Released(task_id=task_id, released=True, reason=reason)
-        except (ProposalRefused, OperationConflict) as error:
-            raise ToolError(str(error)) from None
 
     @server.tool
     @tool_refusals(ProposalRefused, OperationConflict)

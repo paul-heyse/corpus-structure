@@ -323,6 +323,10 @@ def test_retained_integrated_cli_lifecycle(
             app, select_args, obj=CliState(settings_factory=lambda: settings)
         )
         assert restored.exit_code == 0, (restored.output, restored.exception)
+        restored_report = json.loads(restored.stdout)
+        assert restored_report["semantic_impact"]["before_release"] == alternate.release_id
+        assert restored_report["semantic_impact"]["after_release"] == report["release_id"]
+        assert any("Native admission" in item for item in restored_report["compatibility_advice"])
         with semantic_db_engine.connect() as conn:
             project = conn.execute(select(table("data.project"))).mappings().one()
             assert project["active_release_id"] == report["release_id"]

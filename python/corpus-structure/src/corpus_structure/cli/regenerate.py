@@ -24,6 +24,8 @@ class RegenerationReport(BaseModel):
     output_realization_id: str | None = None
     selected_generation: int | None = None
     provider: dict[str, object] | None = None
+    semantic_impact: dict | None = None
+    compatibility_advice: tuple[str, ...] = ()
 
 
 def regenerate(
@@ -103,6 +105,7 @@ def regenerate(
 
     prepared: PreparedRelease | None = None
     source_id: str | None = None
+    impact, advice = None, ()
     from corpus_structure.orchestrate.commands import CommandError
     from corpus_structure.orchestrate.project import ProjectError
     from corpus_structure.semantic.authored_sql import SQLAdmissionError
@@ -124,7 +127,7 @@ def regenerate(
             ActivationConflict,
             ReleaseConflict,
         ),
-    ):
+    ) as failure:
         if Path(domain).name != domain:
             raise SemanticRefusal("domain must name a declared pack")
         if native_source is not None and integrated_source is not None:
@@ -151,6 +154,7 @@ def regenerate(
         integrated_product = product_pin(integrated_source, "integrated")
         if resume_run is None:
             bundle, deps, profile, prepared = prepare_pack(DOMAINS / domain)
+            failure.bind(prepared, "regenerate")
             source_id = f"source:{project}:{prepared.release_id}"
             # Preparation and source registration do not change the selected answer snapshot.
             with (
@@ -211,8 +215,27 @@ def regenerate(
                     if row["project_id"] != project:
                         raise OperationConflict("resume run has another project")
                     prepared = load_release(conn, row["release_id"])
+                    failure.bind(prepared, "regenerate")
                     source_id = row["input_realization_id"]
             assert prepared is not None and source_id is not None
+            # Report meaning changes from the retained selected release even when
+            # the caller leaves the new result unselected. This grants no admission.
+            with engine.connect() as conn:
+                projects = table("data.project")
+                before_release = conn.scalar(
+                    select(projects.c.active_release_id).where(projects.c.project_id == project)
+                )
+                if before_release is not None:
+                    from corpus_structure.semantic.operation_reporting import (
+                        compare_semantic_releases,
+                        compatibility_advice,
+                    )
+
+                    compared = compare_semantic_releases(
+                        load_release(conn, before_release), prepared
+                    )
+                    impact = compared.model_dump(mode="json")
+                    advice = compatibility_advice(compared)
             stderr_console().print(f"semantic run {run_id}; resume with --resume-run {run_id}")
             if not automated:
                 emit(
@@ -222,6 +245,8 @@ def regenerate(
                         source_realization_id=source_id,
                         run_id=run_id,
                         status="prepared",
+                        semantic_impact=impact,
+                        compatibility_advice=advice,
                     ),
                     json=json,
                 )
@@ -274,6 +299,8 @@ def regenerate(
                 output_realization_id=output,
                 selected_generation=generation,
                 provider=provider,
+                semantic_impact=impact,
+                compatibility_advice=advice,
             ),
             json=json,
         )

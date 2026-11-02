@@ -42,6 +42,7 @@ from linkml_term_validator.plugins import (
     PermissibleValueMeaningPlugin,
 )
 from oaklib import get_adapter
+from pydantic import BaseModel
 from pyshacl import validate
 from rdflib import BNode, Graph, Literal, Namespace, URIRef
 from rdflib.namespace import RDF
@@ -113,6 +114,7 @@ class GraphValidation:
     report: bytes
     message: str
     diagnostics: tuple[GraphDiagnostic, ...] = ()
+    validation: BaseModel | None = None
 
     @property
     def outcome(self) -> TypingLiteral["conformant", "nonconformant"]:
@@ -990,6 +992,26 @@ def validate_projected_graph(
         result = validate_graph(qualified_validation_graph(projection), selected, ontology)
     except (GraphShapeError, GraphExecutionError) as exc:
         projection.contract_binding.require_validation_outcome(exc.outcome)
+        from .refusals import FailureContext
+
+        context = FailureContext(
+            operation="graph_validate",
+            scope=f"{projection.realization_id}@{projection.data_revision}/{projection.projection_id}",
+            release_id=projection.contract_binding.release_id,
+            model_id=projection.contract_binding.execution_model_id,
+        )
+        exc.__dict__.setdefault("semantic_failure_context", context)
         raise
     projection.contract_binding.require_validation_outcome(result.outcome)
-    return result
+    from dataclasses import replace
+
+    from .operation_reporting import graph_validation_report
+
+    return replace(
+        result,
+        validation=graph_validation_report(
+            result,
+            binding=projection.contract_binding,
+            scope=f"{projection.realization_id}@{projection.data_revision}/{projection.projection_id}",
+        ),
+    )

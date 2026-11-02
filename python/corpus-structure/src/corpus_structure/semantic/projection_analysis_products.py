@@ -39,7 +39,7 @@ class ProjectionEntry:
 
 @dataclass(frozen=True, config=ConfigDict(extra="forbid", strict=True))
 class ProjectionAnalysisProduct:
-    version: Literal["projection-analysis-1"]
+    version: Literal["projection-analysis-2"]
     complete: bool
     projections: tuple[ProjectionEntry, ...]
     physical_id: str | None = None
@@ -63,7 +63,7 @@ def read_projection_analysis(prepared: PreparedRelease) -> ProjectionAnalysisPro
         raise SemanticRefusal("Unsupported retained projection analysis product") from exc
     families = tuple(item.family for item in value.projections)
     if len(set(families)) != len(families) or any(
-        item.analysis.profile != "companion-query-analysis-1" for item in value.projections
+        item.analysis.profile != "companion-query-analysis-2" for item in value.projections
     ):
         raise SemanticRefusal("Unsupported retained projection analysis profile")
     return value
@@ -121,7 +121,7 @@ def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedA
             ARTIFACT,
             canonical_bytes(
                 dict(
-                    version="projection-analysis-1",
+                    version="projection-analysis-2",
                     complete=False,
                     unknowns=[
                         "Required retained projection source unavailable: " + item
@@ -144,7 +144,7 @@ def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedA
             ARTIFACT,
             canonical_bytes(
                 dict(
-                    version="projection-analysis-1",
+                    version="projection-analysis-2",
                     complete=False,
                     unknowns=["Unsupported retained physical profile: " + physical_id],
                     projections=[],
@@ -177,7 +177,7 @@ def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedA
         ARTIFACT,
         canonical_bytes(
             dict(
-                version="projection-analysis-1",
+                version="projection-analysis-2",
                 physical_id=physical_id,
                 source_id=source_id,
                 complete=complete,

@@ -90,6 +90,25 @@ def test_cli_mcp_published_pin_and_preparation_are_separate_read_only_observatio
     assert checks["published_document"]["status"] == "applicable"
     assert checks["selected_source_views"]["status"] == "applicable"
     assert after["observed_revision"] == published.logical_digest
+    publication = cli(
+        "schema",
+        "explain-operation",
+        "publish_pdf_region_artifact",
+        "--release",
+        private_build.release_id,
+        "--subject",
+        str(subject),
+        "--json",
+        settings=lambda: settings,
+    )
+    assert publication.exit_code == 0, publication.output
+    publication_checks = {
+        item["contract_ref"]: item for item in json.loads(publication.stdout)["checks"]
+    }
+    assert publication_checks["published_document"]["status"] == "applicable"
+    # Exact publication is observable; task ownership and mutation guards remain
+    # native execution obligations rather than preflight authorization.
+    assert publication_checks["invariant:published_document_address"]["status"] == "unresolved"
 
     async def journey():
         server = build_semantic_server(SemanticProjectSession(semantic_reader_engine, "published"))
@@ -134,7 +153,10 @@ def test_cli_mcp_published_pin_and_preparation_are_separate_read_only_observatio
             block = malformed.content[0]
             assert isinstance(block, TextContent)
             failure = json.loads(block.text)
+            assert failure["validation"]["release_id"] == private_build.release_id
+            assert failure["validation"]["model_id"] == after["model_id"]
             observation = failure["validation"]["observations"][0]
+            assert observation["operation"] == "read_source_view"
             assert observation["category"] == "invalid_input"
             assert observation["input_path"] == "/task_id"
 
@@ -152,7 +174,11 @@ def test_cli_mcp_published_pin_and_preparation_are_separate_read_only_observatio
         settings=lambda: settings,
     )
     assert invalid.exit_code == 1, invalid.output
-    observation = json.loads(invalid.stdout)["error"]["validation"]["observations"][0]
+    validation = json.loads(invalid.stdout)["error"]["validation"]
+    assert validation["release_id"] == private_build.release_id
+    assert validation["model_id"] == after["model_id"]
+    observation = validation["observations"][0]
+    assert observation["operation"] == "read_source_view"
     assert observation["category"] == "invalid_input"
     assert observation["input_path"] == "/task_id"
     with semantic_reader_engine.connect() as conn:
