@@ -162,15 +162,19 @@ def test_pinned_closure_refuses_before_recursive_expansion(query, sources, reaso
 
 @pytest.mark.parametrize("type_name", ["ARRAY<UNKNOWN>", "ARRAY"])
 def test_opaque_and_incomplete_nested_type_sources_refuse(type_name):
+    with pytest.raises(
+        ProjectionAnalysisUnavailable, match="<projection>: source is not a supported query"
+    ):
+        expand_sources(exp.Command(this="opaque"), {}, physical_sources=frozenset())
     with pytest.raises(ProjectionAnalysisUnavailable, match="not a supported query"):
         expand_sources(
             exp.select("x").from_("a"),
             {"a": exp.Command(this="opaque")},
             physical_sources=frozenset(),
         )
-    source = exp.select(
-            exp.Cast(this=exp.column("body"), to=exp.DataType.build(type_name))
-    ).from_("ops.run")
+    source = exp.select(exp.Cast(this=exp.column("body"), to=exp.DataType.build(type_name))).from_(
+        "ops.run"
+    )
     with pytest.raises(ProjectionAnalysisUnavailable, match="incomplete declared type"):
         expand_sources(
             exp.select("x").from_("a"), {"a": source}, physical_sources=frozenset({"ops.run"})

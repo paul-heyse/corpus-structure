@@ -61,8 +61,8 @@ def _incomplete_type(typ: exp.DataType) -> bool:
 
 
 def expand_sources(
-    query: exp.Query,
-    sources: Mapping[str, exp.Query],
+    query: exp.Expr,
+    sources: Mapping[str, exp.Expr],
     *,
     physical_sources: frozenset[str],
     parameters: frozenset[str] = frozenset(),
@@ -72,10 +72,15 @@ def expand_sources(
     SQLGlot recursively expands without cycle or CTE-shadow checks. Establish those
     premises before calling it, retaining the caller's model-origin annotated trees.
     """
-    edges = {}
-    for name, tree in (("<projection>", query), *sources.items()):
-        if not isinstance(tree, exp.Query):
+    if not isinstance(query, exp.Query):
+        raise ProjectionAnalysisUnavailable("<projection>: source is not a supported query")
+    query_sources: dict[str, exp.Query] = {}
+    for name, source in sources.items():
+        if not isinstance(source, exp.Query):
             raise ProjectionAnalysisUnavailable(f"{name}: source is not a supported query")
+        query_sources[name] = source
+    edges = {}
+    for name, tree in (("<projection>", query), *query_sources.items()):
         ctes = [cte.alias for cte in tree.find_all(exp.CTE)]
         if len(set(ctes)) != len(ctes) or set(ctes) & sources.keys():
             raise ProjectionAnalysisUnavailable(f"{name}: ambiguous local CTE/source collision")
@@ -118,7 +123,7 @@ def expand_sources(
 
     for name in edges:
         visit(name)
-    result = exp.expand(query, dict(sources), dialect="postgres", copy=True)
+    result = exp.expand(query, dict(query_sources), dialect="postgres", copy=True)
     if not isinstance(result, exp.Query):
         raise ProjectionAnalysisUnavailable("expanded projection is not a query")
     return result
@@ -350,9 +355,7 @@ def analyze_recipe(recipe: ir.ProjectionRecipe) -> ProjectionAnalysis:
     unknowns = [f"unknown output type: {name}" for name, typ in types if typ == "UNKNOWN"]
     for node in qualified.walk():
         if isinstance(node, exp.DataType) and any(
-            _incomplete_type(value)
-            for value in node.walk()
-            if isinstance(value, exp.DataType)
+            _incomplete_type(value) for value in node.walk() if isinstance(value, exp.DataType)
         ):
             unknowns.append("incomplete declared type: " + node.sql(dialect="postgres"))
     for field in recipe.fields:
