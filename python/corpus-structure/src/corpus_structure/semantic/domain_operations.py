@@ -2163,7 +2163,7 @@ class ReleasedRulesPolicy:
     version = VERSION
 
     def __init__(self, prepared: PreparedRelease):
-        from corpus_structure.schema.rulelang import Builtin, Vocabulary
+        from corpus_structure.schema.rulelang import BUILTIN, Builtin, Vocabulary
 
         from .rule_views import build_rule_language
 
@@ -2270,6 +2270,32 @@ class ReleasedRulesPolicy:
                 if p.name == "kind" and p.equals_string
             ),
         )
+        values[("Binding", "bind")] = Vocabulary(
+            "ExpressionBinding kinds",
+            frozenset(
+                p.equals_string
+                for d in prepared.definitions
+                if d.name == "ExpressionBinding" or "ExpressionBinding" in d.ancestors
+                for p in d.properties
+                if p.name == "kind" and p.equals_string
+            ),
+        )
+        keys = {
+            (BUILTIN, name): Vocabulary("keys of $" + name, frozenset(builtin.value))
+            for name, builtin in builtins.items()
+            if isinstance(builtin.value, Mapping)
+        }
+        keys[("Entity", "identity")] = Vocabulary(
+            "identity slots",
+            frozenset(
+                self.compact(prop.iri)
+                for definition in prepared.definitions
+                if definition.name == "Entity" or "Entity" in definition.ancestors
+                for group in definition.identity_groups
+                for prop in definition.properties
+                if prop.name in group
+            ),
+        )
         for prop in qprops.values():
             if prop.range in {
                 row.name for row in prepared.registry_rows if row.kind == "enum_definition"
@@ -2282,6 +2308,7 @@ class ReleasedRulesPolicy:
             qprops=qprops,
             builtins=builtins,
             values=values,
+            keys=keys,
             arguments={"is_a": (Vocabulary("classes", classes), Vocabulary("classes", classes))},
             views=self.source.get("views", {}),
         )

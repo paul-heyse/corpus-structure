@@ -211,6 +211,7 @@ def build_rule_language(
     builtins,
     values,
     arguments,
+    keys=None,
     views=(),
 ) -> Language:
     """Compile the archived LinkML logical view into public rule-engine OBJECT schemas.
@@ -441,6 +442,7 @@ def build_rule_language(
         decimal_context=context,
         builtins=builtins,
         values=values,
+        keys=keys or {},
         arguments=arguments,
         no_regex=frozenset({("Value", "latex"), ("Node", "x_latex"), ("Binding", "symbol")}),
     )
