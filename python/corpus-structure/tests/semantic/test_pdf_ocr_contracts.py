@@ -16,6 +16,7 @@ from corpus_structure.semantic.pdf_ocr_contracts import (
     validate_pdf_ocr_pages,
     validate_pdf_page_payloads,
 )
+from corpus_structure.semantic.pdf_payloads import PayloadContractError, prepare_payload_family
 
 from .test_operations import setup
 
@@ -230,6 +231,104 @@ def test_partial_inventory_preserves_native_output_and_old_pages_remain_accepted
     before = deepcopy(old)
     validate_pdf_ocr_pages(old)
     assert old == before
+
+
+@pytest.fixture(scope="module")
+def ocr_payload_family():
+    return prepare_payload_family()
+
+
+@pytest.mark.parametrize(
+    "collection,outcome,text",
+    [
+        ("lines", "unknown", None),
+        ("lines", "complete", None),
+        ("words", "partial", "x = 2"),
+        ("words", "unknown", "x = 2"),
+        ("words", "complete", ""),
+    ],
+)
+def test_observed_empty_ocr_inventory_retains_outcome_and_ipc_metadata(
+    ocr_payload_family, collection, outcome, text
+):
+    product = example()
+    page = product["inline_candidate_pages"][0]
+    page["candidates"] = []
+    region = page["ocr_regions"][0]
+    region["outcome"] = outcome
+    if collection == "lines":
+        region["lines"] = []
+    else:
+        region["lines"][0].update(text=text, words=[])
+    product["recognition_coverage"][0]["outcome"] = "partial"
+    before = deepcopy(product)
+
+    typed = trusted_pdf_context().boundary.validate_json("PdfInlineCandidatePage", json.dumps(page))
+    assert typed.model_dump(mode="json", exclude_none=True) == page
+    encoded = ocr_payload_family.encode(page)
+    restored = ocr_payload_family.decode(encoded)
+    assert restored == page
+    assert restored["ocr_regions"][0]["outcome"] == outcome
+    assert len(restored["ocr_regions"]) == 1
+    for validate in (validate_pdf_ocr_pages, validate_pdf_page_payloads):
+        validate(product)
+    assert product == before
+
+    product["recognition_coverage"][0]["outcome"] = "complete"
+    for validate in (validate_pdf_ocr_pages, validate_pdf_page_payloads):
+        if outcome == "complete":
+            validate(product)
+        else:
+            with pytest.raises(ValueError, match="complete word inventory"):
+                validate(product)
+
+
+@pytest.mark.parametrize("collection", ["lines", "words"])
+def test_unavailable_ocr_inventory_is_distinct_from_empty_and_refuses_publication(
+    ocr_payload_family, collection
+):
+    product = example()
+    page = product["inline_candidate_pages"][0]
+    page["candidates"] = []
+    region = page["ocr_regions"][0]
+    region["outcome"] = "unknown"
+    target: dict[str, Any] = region if collection == "lines" else region["lines"][0]
+    target[collection] = []
+    empty = deepcopy(page)
+    empty_digest = ocr_payload_family.logical_digest(empty)
+    del target[collection]
+    absent = deepcopy(page)
+    assert ocr_payload_family.decode(ocr_payload_family.encode(absent)) == absent
+    assert ocr_payload_family.logical_digest(absent) != empty_digest
+    typed = trusted_pdf_context().boundary.validate_json(
+        "PdfInlineCandidatePage", json.dumps(absent)
+    )
+    assert typed.model_dump(mode="json", exclude_none=True) == absent
+    product["recognition_coverage"][0]["outcome"] = "partial"
+    for validate in (validate_pdf_ocr_pages, validate_pdf_page_payloads):
+        with pytest.raises(ValueError, match="inventory metadata is unavailable"):
+            validate(product)
+
+    # A null inventory is neither absence nor an observed empty list.
+    target[collection] = None
+    with pytest.raises(PayloadContractError):
+        ocr_payload_family.encode(page)
+    with pytest.raises(ValidationError):
+        trusted_pdf_context().boundary.validate_json("PdfInlineCandidatePage", json.dumps(page))
+    for validate in (validate_pdf_ocr_pages, validate_pdf_page_payloads):
+        with pytest.raises(ValueError, match="inventory metadata is unavailable"):
+            validate(product)
+
+
+def test_empty_word_list_does_not_establish_complete_recognized_text(ocr_payload_family):
+    product = example()
+    page = product["inline_candidate_pages"][0]
+    page["candidates"] = []
+    page["ocr_regions"][0]["lines"][0]["words"] = []
+    assert ocr_payload_family.decode(ocr_payload_family.encode(page)) == page
+    for validate in (validate_pdf_ocr_pages, validate_pdf_page_payloads):
+        with pytest.raises(ValueError, match="omits recognized line content"):
+            validate(product)
 
 
 @pytest.mark.parametrize("validate", [validate_pdf_ocr_pages, validate_pdf_page_payloads])

@@ -96,8 +96,13 @@ def _validate_ocr_page(page, size):
             and abs((bottom - top) * scale - height) <= 1
         ):
             raise ValueError("OCR raster frame differs from its unrotated PDF crop")
+        lines = region.get("lines")
+        if lines is None:
+            raise ValueError(
+                "OCR region line inventory metadata is unavailable; retain observed lines"
+            )
         line_indices = set()
-        for line in region["lines"]:
+        for line in lines:
             line_index = line["line_index"]
             if line_index in line_indices:
                 raise ValueError("duplicate OCR line index")
@@ -105,7 +110,12 @@ def _validate_ocr_page(page, size):
             covered = set()
             previous_end = 0
             word_indices = set()
-            for word in line["words"]:
+            line_words = line.get("words")
+            if line_words is None:
+                raise ValueError(
+                    "OCR line word inventory metadata is unavailable; retain observed words"
+                )
+            for word in line_words:
                 word_index = word["word_index"]
                 start, end = word["start"], word["end"]
                 if word_index in word_indices or not (

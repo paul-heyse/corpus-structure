@@ -1020,7 +1020,15 @@ classes:
     attributes:
       line_index: {range: PdfInteger, required: true, minimum_value: 0, slot_uri: 'pdf:PdfOcrLine_line_index'}
       text: {range: PdfString, required: true, slot_uri: 'pdf:PdfOcrLine_text'}
-      words: {range: PdfOcrWord, required: true, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfOcrLine_words'}
+      words:
+        description: Observed word inventory, including an explicit empty list when no word geometry was recovered. Omission remains unavailable metadata, not an observed empty inventory; the region outcome carries completeness independently.
+        range: PdfOcrWord
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        inlined: true
+        inlined_as_list: true
+        slot_uri: 'pdf:PdfOcrLine_words'
   PdfOcrRegion:
     description: Unrotated OCR crop in PDF TOPLEFT points; scale is raster pixels per PDF point. Word geometry is an estimate from this raster, not native glyph placement.
     attributes:
@@ -1031,7 +1039,15 @@ classes:
       scale: {range: PdfNumber, required: true, minimum_value: 0, slot_uri: 'pdf:PdfOcrRegion_scale'}
       orientation: {range: PdfInteger, required: true, minimum_value: 0, maximum_value: 0, slot_uri: 'pdf:PdfOcrRegion_orientation'}
       outcome: {range: PdfOcrInventoryOutcome, required: true, slot_uri: 'pdf:PdfOcrRegion_outcome'}
-      lines: {range: PdfOcrLine, required: true, multivalued: true, inlined: true, inlined_as_list: true, slot_uri: 'pdf:PdfOcrRegion_lines'}
+      lines:
+        description: Observed line inventory, including an explicit empty list after an empty or unavailable OCR result. Omission remains unavailable metadata; outcome distinguishes a complete empty observation from unknown recognition.
+        range: PdfOcrLine
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        inlined: true
+        inlined_as_list: true
+        slot_uri: 'pdf:PdfOcrRegion_lines'
       left: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrRegion_left'}
       top: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrRegion_top'}
       right: {range: PdfNumber, required: true, slot_uri: 'pdf:PdfOcrRegion_right'}
