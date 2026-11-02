@@ -138,7 +138,9 @@ def test_copied_input_qualification_keeps_exact_fact_reference_lineage(
         },
     )
     original = assemble(prepared, "z", "original", (identity, premise, label))
-    original = replace(original, selection=tuple(SelectionRow(f.fact_id) for f in original.fact))
+    original = replace(
+        original, selection=tuple(SelectionRow(f.fact_id) for f in original.fact)
+    ).bind_preparation(prepared)
     publish_batch(semantic_writer_engine, original)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
@@ -163,7 +165,7 @@ def test_copied_input_qualification_keeps_exact_fact_reference_lineage(
         fact_input=tuple(
             FactInputRow(f.fact_id, "z", 1, old_ids[f.property_id], run) for f in copied.fact
         ),
-    )
+    ).bind_preparation(prepared)
     with (
         semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
@@ -223,7 +225,7 @@ def test_copied_input_qualification_keeps_exact_fact_reference_lineage(
             FactInputRow(f.fact_id, "out", 1, previous_ids[f.property_id], second_run)
             for f in repeated.fact
         ),
-    )
+    ).bind_preparation(prepared)
     with (
         semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),

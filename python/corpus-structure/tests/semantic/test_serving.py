@@ -434,7 +434,9 @@ def install_pack(admin, writer, name, entries, *, contexts=False):
                 and items[int(o.item)].property_name in {"has_distribution", "defined_as"}
             ),
         )
-    batch = replace(batch, selection=tuple(SelectionRow(f.fact_id) for f in batch.fact))
+    batch = replace(
+        batch, selection=tuple(SelectionRow(f.fact_id) for f in batch.fact)
+    ).bind_preparation(prepared)
     publish_batch(writer, batch)
     return prepared, batch
 
