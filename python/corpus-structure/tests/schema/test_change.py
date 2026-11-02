@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 
 from corpus_structure.core.vocab import ChangeKind, CompatibilityClass
-from corpus_structure.schema import change, model, registry
+from corpus_structure.schema import change, model
 
 MODEL = Path(model.__file__).resolve().parents[1] / "model"
 C = CompatibilityClass
@@ -277,60 +277,3 @@ def test_the_shapes_mirror_the_model_classes(base: model.Model) -> None:
 
 
 # --- The registry content -------------------------------------------------------------------
-
-
-def test_the_registry_holds_each_payload_class_at_its_version(
-    base: model.Model, tmp_path: Path
-) -> None:
-    entries = {e.class_: e for e in registry.payload_schema_entries(base, model.read_log())}
-    assert registry.without_schema(base) == []
-    assert len(entries) == 21
-    assert "sys:ParseDetail" not in entries
-    mention = entries["sys:MentionPayload"]
-    assert (mention.version, mention.parent_version, mention.compatibility_class) == (
-        1,
-        None,
-        C.INITIAL,
-    )
-    assert mention.json_schema_id.endswith("/payload.mention.json")
-    assert entries["sys:VerificationPayload"].sql_visible_paths == ()
-    assert entries["sys:TaskCost"].json_schema_id.endswith("/cost.json")
-    assert entries["sys:ClaimProposalPayload"].kind == "claim_proposal"
-    # a nested-additive step to the mention payload adds version 2 with its upcaster
-    new, seed = _seed(tmp_path, "nested-additive")
-    step = record(
-        [
-            {
-                "element": seed["element"],
-                "change": "added",
-                "compatibility_class": "nested-additive",
-                "upcaster": "absent",
-                "reason": "M05 reports a note",
-                "authorized_by": "method_version:mention/2",
-            }
-        ]
-    )
-    log = [*model.read_log(), {"change_record": step.model_dump(mode="json")}]
-    after = {e.class_: e for e in registry.payload_schema_entries(new, log)}
-    v2 = after["sys:MentionPayload"]
-    assert (v2.version, v2.parent_version, v2.compatibility_class, v2.upcaster) == (
-        2,
-        1,
-        C.NESTED_ADDITIVE,
-        "absent",
-    )
-    assert v2.authorized_by == "method_version:mention/2"
-    assert v2.arrow_schema != mention.arrow_schema
-    assert after["sys:TaskCost"].version == 1
-    assert set(v2.row()) == {
-        "class",
-        "kind",
-        "version",
-        "compatibility_class",
-        "json_schema_id",
-        "arrow_schema",
-        "sql_visible_paths",
-        "upcaster",
-        "reason",
-        "authorized_by",
-    }

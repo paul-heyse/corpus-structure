@@ -20,10 +20,9 @@ from pydantic import JsonValue, TypeAdapter
 from corpus_structure.core import payloads, schemas
 from corpus_structure.core._model import revision
 from corpus_structure.core.batch import CitationFrame
-from corpus_structure.core.db import legacy_metadata as db
 from corpus_structure.core.options import RunOptions
 from corpus_structure.schema import interchange as ix
-from corpus_structure.schema import model
+from corpus_structure.schema import model, relational
 
 MODEL = Path(model.__file__).resolve().parents[1] / "model"
 
@@ -82,7 +81,7 @@ def test_no_extension_type_but_arrow_json(projections: ix.Interchange) -> None:
 
 
 def test_table_schemas_agree_with_the_generated_metadata(projections: ix.Interchange) -> None:
-    tables = {n: t for n, t in db.metadata.tables.items() if not t.is_view}
+    tables = relational.compile_metadata(model.load().system).tables
     assert set(projections.tables) == set(tables)
     for name, table in tables.items():
         schema = projections.tables[name]

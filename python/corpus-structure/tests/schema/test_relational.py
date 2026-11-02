@@ -12,7 +12,6 @@ from sqlalchemy import CheckConstraint, ForeignKeyConstraint, MetaData, Table, U
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.core.db import _tables
 from corpus_structure.schema import model, relational
 
 MODEL = Path(model.__file__).resolve().parents[1] / "model"
@@ -215,9 +214,6 @@ def test_the_rendered_module_builds_the_compiled_metadata(compiled: MetaData) ->
     exec(compile(relational.render(compiled, "x"), "<rendered>", "exec"), namespace.__dict__)
     rendered: Any = namespace
     assert ddl(rendered.metadata) == ddl(compiled)
-    # and the checked-in module is that rendering (the drift test checks its bytes)
-    generated = {n: t for n, t in _tables.metadata.tables.items() if not t.is_view}
-    assert set(generated) == set(compiled.tables)
 
 
 def _seeded_error(tmp_path: Path, old: str, new: str, count: int = 1) -> list[str]:

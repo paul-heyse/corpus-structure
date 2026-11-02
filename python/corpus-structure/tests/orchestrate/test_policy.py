@@ -24,15 +24,17 @@ from corpus_structure.orchestrate.policy import (
     registry_configs,
     unit_language,
 )
-from corpus_structure.schema.compile import CompiledSchema, compile_paths
+from corpus_structure.semantic.regeneration import prepare_packs
+from corpus_structure.semantic.statement_types import statement_kinds
+from corpus_structure.semantic.types import PreparedRelease
 
 REPO = Path(__file__).resolve().parents[4]
 STATISTICS = REPO / "domains/statistics"
 
 
 @pytest.fixture(scope="module")
-def stats() -> CompiledSchema:
-    return compile_paths([STATISTICS])
+def stats() -> PreparedRelease:
+    return prepare_packs((STATISTICS,))[3]
 
 
 @pytest.fixture(scope="module")
@@ -41,8 +43,8 @@ def configs() -> dict[str, set[str]]:
 
 
 @pytest.fixture(scope="module")
-def language(stats: CompiledSchema, configs: dict[str, set[str]]) -> Any:
-    kinds = [m.stored for m in stats.lookup.version_sets["StatementKind"].members]
+def language(stats: PreparedRelease, configs: dict[str, set[str]]) -> Any:
+    kinds = statement_kinds(stats)
     return unit_language(kinds, configs)
 
 

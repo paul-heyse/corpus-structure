@@ -1,8 +1,8 @@
 """The relational projection (model and projections §3.4; ADR-0020; TM §6): the model to `MetaData`.
 
 `compile_metadata(view)` is a pure function of the `system` module's `SchemaView` (with `core`
-imported); `render(metadata)` writes it as the checked-in `core/db/_tables.py`. The physical
-overlay (`core/db/overlay.py`) adds every access path; the model declares none (TM §4).
+imported); `render(metadata)` returns optional Python construction source for the same metadata.
+The current semantic deployment owns its metadata; no installed legacy table artifact is emitted.
 
 **Tables.** A `system` class in one of the subsets `meta`, `ops`, `kb`, `eval` with no other
 `ci:store` is a table in that schema, named by its native `local_names: {sql: …}` entry or the
@@ -824,7 +824,7 @@ def _constraint_order(constraint: Any) -> tuple[int, str]:
 
 
 def render(metadata: MetaData, revision: str) -> str:
-    """`core/db/_tables.py`: the `MetaData` construction, deterministic in model order."""
+    """Python `MetaData` construction source, deterministic in model order."""
     names = [t.name for t in metadata.tables.values()]
     if len(names) != len(set(names)):
         raise ModelError(["two tables share a name across schemas; the module names them by table"])

@@ -10,7 +10,6 @@
 - `core/_model/validators.py`: one validator per class with `ci:invariant`, calling
   `core/invariants.py`'s templates;
 - `core/_model/revision.py`: the model revision the files were generated from;
-- `core/db/_tables.py`: the relational projection's `MetaData` (`schema/relational.py`, M2);
 - Stage B's shapes (`schema/stage_b.py`, P0-M-5): `core/_model/types.py`, `core/_model/shapes.py`
   and `ingest/_shapes.py`;
 - `core/schemas/*.json`: the shapes' JSON Schemas, rendered from the shapes just generated (in a
@@ -34,7 +33,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from corpus_structure.schema import relational, stage_b
+from corpus_structure.schema import stage_b
 from corpus_structure.schema.model import (
     GENERATOR,
     Member,
@@ -550,10 +549,7 @@ def render(model: Model) -> dict[str, str]:
         "core/_model/revision.py": _revision(current),
         # Stage B (P0-M-5): the Pydantic shapes; schema/stage_b.py renders them
         **stage_b.render(model),
-        # the relational projection (P0-M-2): schema/relational.py compiles and renders it
-        "core/db/_tables.py": relational.render(
-            relational.compile_metadata(model.system), current.label
-        ),
+
     }
     out = {path: _format(str(PACKAGE / path), text) for path, text in raw.items()}
     # The core shapes' JSON Schemas carry the revision in their `$id` (P0-M-3), so a model change

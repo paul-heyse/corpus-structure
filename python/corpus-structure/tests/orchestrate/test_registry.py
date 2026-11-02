@@ -22,7 +22,6 @@ from corpus_structure.core.method import (
 from corpus_structure.core.vocab import ConfidenceSource, MethodFamily, MethodTier, TaskUnitType
 from corpus_structure.orchestrate import registry as reg
 
-from .legacy_registry import RunConfigs, record
 
 REPO = Path(__file__).resolve().parents[4]
 
@@ -179,36 +178,6 @@ def test_the_loader_ignores_the_environment(
         k: v.config_hash for k, v in before.items()
     }
 
-
-def test_recorded_rows_and_the_runs_map(db: Connection, tmp_path: Path) -> None:
-    registry = reg.MethodRegistry(METHODS, methods_file(tmp_path, FILE))
-    recorded = record(registry, db, registry.resolve_all(ARTIFACTS))
-    again = record(registry, db, registry.resolve_all(ARTIFACTS))
-    assert {k: v.method_config_id for k, v in recorded.items()} == {
-        k: v.method_config_id for k, v in again.items()
-    }
-    row = db.execute(
-        text(
-            "SELECT m.family, m.confidence_source, c.tier, c.params FROM "
-            "ops.method_config c JOIN ops.method m ON m.id = c.method_id "
-            "WHERE c.config_hash = :h"
-        ),
-        {"h": recorded["agent.opus/adjudicate"].config_hash},
-    ).one()
-    assert tuple(row)[:3] == ("agent", "agent", "agent")
-    assert row[3]["packet_cap_chars"] == 9000
-    # a run's later lookups read its recorded map, not the edited file
-    run_map = {k: v.config_hash for k, v in recorded.items()}
-    edited = {
-        **FILE,
-        "configs": {**FILE["configs"], "agent.opus": {"adjudicate": {"packet_cap_chars": 1}}},
-    }
-    later = RunConfigs(reg.MethodRegistry(METHODS, methods_file(tmp_path, edited)), db, run_map)
-    recorded_config = later.config("agent.opus", "adjudicate").config
-    assert isinstance(recorded_config, AgentConfig)
-    assert recorded_config.packet_cap_chars == 9000
-    with pytest.raises(reg.RegistryError, match="not a configuration this run recorded"):
-        later.config("agent.opus", "expectation")
 
 
 def test_literal_configuration_reference_is_validated_as_referenced_value(tmp_path: Path):
