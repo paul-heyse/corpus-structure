@@ -893,15 +893,7 @@ def load_packet(
     from corpus_structure.core.db.store import DatabasePhase
 
     try:
-        connection = (
-            adbc.connect(uri, db_kwargs={"adbc.postgresql.type_resolver_mode": "builtin"})
-            if driver_path is None
-            else adbc_manager.connect(
-                driver=driver_path,
-                entrypoint="AdbcDriverPostgresqlInit",
-                db_kwargs={"uri": uri, "adbc.postgresql.type_resolver_mode": "builtin"},
-            )
-        )
+        connection = open_adbc_connection(uri, driver_path=driver_path)
     except BaseException as error:
         annotate_failure(error, DatabasePhase.ACQUIRING)
         if owner:
@@ -992,6 +984,18 @@ def load_packet(
         if owner:
             _cleanup_after_failure(error, owner.close)
         raise
+
+
+def open_adbc_connection(uri: str, *, driver_path: str | Path | None = None):
+    """Acquire the configured PostgreSQL driver; the caller owns transaction and lifetime."""
+    options = {"adbc.postgresql.type_resolver_mode": "builtin"}
+    if driver_path is None:
+        return adbc.connect(uri, db_kwargs=options)
+    return adbc_manager.connect(
+        driver=str(driver_path),
+        entrypoint="AdbcDriverPostgresqlInit",
+        db_kwargs={"uri": uri, **options},
+    )
 
 
 def capture_packet(

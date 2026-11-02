@@ -9,7 +9,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Literal
 
-import adbc_driver_postgresql.dbapi as adbc
 import duckdb
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -19,6 +18,7 @@ from sqlalchemy import String, text
 from sqlalchemy.dialects import postgresql
 
 from corpus_structure.core.db.adbc_lifetime import ADBCBorrowerCancellation, owned_adbc_read
+from corpus_structure.semantic.analytics import open_adbc_connection
 from corpus_structure.semantic.capture_storage import LogicalRows
 from corpus_structure.semantic.query import read_snapshot
 from corpus_structure.semantic.refusals import SemanticRefusal
@@ -127,9 +127,8 @@ def export_companion_parquet(
             snapshot = conn.execute(text("SELECT pg_export_snapshot()")).scalar_one()
             with (
                 owned_adbc_read(
-                    adbc.connect(
-                        read.database.url,
-                        db_kwargs={"adbc.postgresql.type_resolver_mode": "builtin"},
+                    open_adbc_connection(
+                        read.database.url, driver_path=settings.analytics.adbc_driver_path
                     ),
                     cancellation,
                 ) as bulk,

@@ -25,6 +25,7 @@ from corpus_structure.semantic.analytics import (
     compile_sql,
     load_packet,
 )
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.identity import fact_key, occurrence_key
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import (
@@ -58,7 +59,8 @@ classes:
     bundle, dependencies = analytical_inputs(
         SourceBundle("example", (SourceArtifact("example", source),))
     )
-    return bundle, dependencies, prepare_release(bundle, dependencies)
+    dependencies = composed_dependencies(dependencies)
+    return bundle, dependencies, prepare_release(bundle, dependencies, PreparationProfile(version="semantic-2"))
 
 
 def empty_packet(prepared):
@@ -94,10 +96,11 @@ def test_profile_is_explicit_hashed_and_validated():
                 dependencies.artifacts[0],
                 content=dependencies.artifacts[0].content.replace(b'"HALF_EVEN"', b'"HALF_UP"'),
             ),
+            *dependencies.artifacts[1:],
         ),
     )
     with pytest.raises(ValueError, match="analytical-profile"):
-        prepare_release(bundle, changed)
+        prepare_release(bundle, changed, PreparationProfile(version="semantic-2"))
     with pytest.raises(ValueError, match="no admitted"):
         AnalyticalProfile.from_release(
             prepare_release(SourceBundle("example", (bundle.sources[0],)))
@@ -246,7 +249,7 @@ def test_native_exported_snapshot_and_decimal_boundary(
     bundle, dependencies, prepared = prepared_inputs()
     rid, realization = prepared.release_id, "z"
     with semantic_db_engine.begin() as owner:
-        persist_release(owner, bundle, dependencies, PreparationProfile(), prepared)
+        persist_release(owner, bundle, dependencies, PreparationProfile(version="semantic-2"), prepared)
         owner.execute(insert(table("data.project")).values(project_id="p"))
         owner.execute(
             insert(table("data.realization")).values(
@@ -539,7 +542,7 @@ def test_declared_profile_scale_changes_release_and_packet_shape():
         SourceBundle("example", (bundle.sources[0],)),
         profile=b'{"version":"analytical-1","precision":38,"scale":6,"rounding":"HALF_EVEN","overflow":"refuse"}',
     )
-    prepared6 = prepare_release(bundle6, deps6)
+    prepared6 = prepare_release(bundle6, composed_dependencies(deps6), PreparationProfile(version="semantic-2"))
     profile6 = AnalyticalProfile.from_release(prepared6)
     assert prepared6.release_id != default.release_id
     assert profile6.decimal("1.1234565") == (Decimal("1.123456"), True)
@@ -601,10 +604,11 @@ def test_native_qualification_key_excludes_provenance_and_preserves_occurrence_v
     bundle, deps = analytical_inputs(
         SourceBundle("example", (SourceArtifact("example", yaml.safe_dump(source).encode()),))
     )
-    prepared = prepare_release(bundle, deps)
+    deps = composed_dependencies(deps)
+    prepared = prepare_release(bundle, deps, PreparationProfile(version="semantic-2"))
     r, z, p = prepared.release_id, "z", "https://example/label"
     with semantic_db_engine.begin() as owner:
-        persist_release(owner, bundle, deps, PreparationProfile(), prepared)
+        persist_release(owner, bundle, deps, PreparationProfile(version="semantic-2"), prepared)
         owner.execute(insert(table("data.project")).values(project_id="p"))
         owner.execute(
             insert(table("data.realization")).values(realization_id=z, release_id=r, project_id="p")
@@ -727,7 +731,7 @@ def test_projection_policy_fields_drive_compiler_refusal():
 
     bundle, deps, _ = prepared_inputs()
     prepared = prepare_release(
-        bundle, composed_dependencies(deps), PreparationProfile(version="semantic-2")
+        bundle, deps, PreparationProfile(version="semantic-2")
     )
     row = next(r for r in prepared.registry_rows if r.kind == "execution_model")
     body = json.loads(row.body)

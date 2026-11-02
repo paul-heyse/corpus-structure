@@ -224,3 +224,93 @@ def test_projection_batch_refuses_missing_values_and_misbound_releases(tmp_path,
     batch = batch.set_column(index, batch.schema.field(index), pa.array([value], type=pa.string()))
     with pytest.raises(SemanticRefusal, match=r"null|binding differs"):
         _admit_batch(projection("relation"), batch, manifest.pin, manifest.producer_release_id)
+
+
+@pytest.mark.parametrize("cancel", [False, True])
+def test_export_acquires_configured_driver_and_settles_snapshot_borrower(tmp_path, monkeypatch, cancel):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from pathlib import Path
+
+    from corpus_structure.core.db.adbc_lifetime import ADBCBorrowerCancellation
+    from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
+    from corpus_structure.semantic import analytics
+    from corpus_structure.semantic.companion_projection import projection
+    from corpus_structure.serve import companion_export as export, native_source
+    from corpus_structure.settings import Settings
+
+    events = []
+    cancellation = ADBCBorrowerCancellation()
+    pin = PublishedSourcePin(project_id="p", run_id=1, selection_release_id="r", task_id=2,
+                             product_key="native", content_digest="a" * 64)
+    spec = projection("input")
+
+    class Cursor:
+        adbc_statement = SimpleNamespace(set_options=lambda **options: events.append(options))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            events.append("cursor_close")
+
+        def execute(self, sql):
+            events.append(sql)
+
+        def fetch_record_batch(self):
+            if cancel:
+                cancellation.request_cancel()
+            return pa.RecordBatchReader.from_batches(spec.arrow_schema, [
+                pa.RecordBatch.from_arrays([pa.array([], type=f.type) for f in spec.arrow_schema], schema=spec.arrow_schema)
+            ])
+
+    class Connection:
+        def cursor(self):
+            return Cursor()
+
+        def rollback(self):
+            events.append("rollback")
+
+        def close(self):
+            events.append("connection_close")
+
+        def adbc_cancel(self):
+            events.append("cancel")
+
+    def acquire(**kwargs):
+        events.append(kwargs)
+        return Connection()
+
+    @contextmanager
+    def engine(*args, **kwargs):
+        yield object()
+
+    @contextmanager
+    def snapshot(*args):
+        yield SimpleNamespace(execute=lambda statement: SimpleNamespace(scalar_one=lambda: "00000001-00000002-1"))
+
+    monkeypatch.setattr(analytics.adbc_manager, "connect", acquire)
+    monkeypatch.setattr(export, "open_runtime_engine", engine)
+    monkeypatch.setattr(export, "read_snapshot", snapshot)
+    monkeypatch.setattr(native_source, "inspect_native_source", lambda *args: SimpleNamespace(release_id="producer"))
+    settings = Settings(analytics={"adbc_driver_path": Path("/selected/driver.so"), "batch_size_hint_bytes": 123456})
+    destination = tmp_path / "output"
+    request = export.CompanionExportRequest(pin=pin, destination=destination, families=("input",))
+    if cancel:
+        with pytest.raises(DatabaseOperationCancelled):
+            export.export_companion_parquet(request, settings, cancellation=cancellation)
+        assert not destination.exists()
+        assert "cancel" in events
+    else:
+        result = export.export_companion_parquet(request, settings, cancellation=cancellation)
+        assert result.families["input"].rows == 0
+    assert events[0]["driver"] == "/selected/driver.so"
+    assert events[0]["entrypoint"] == "AdbcDriverPostgresqlInit"
+    assert events[0]["db_kwargs"]["adbc.postgresql.type_resolver_mode"] == "builtin"
+    assert events[1] == {"adbc.postgresql.use_copy": "false"}
+    assert "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY" in events
+    assert "SET TRANSACTION SNAPSHOT '00000001-00000002-1'" in events
+    assert {"adbc.postgresql.use_copy": "true", "adbc.postgresql.batch_size_hint_bytes": "123456"} in events
+    assert events[-3:] == ["cursor_close", "rollback", "connection_close"]
+    cancellation.request_cancel()
+    assert events[-1] == "connection_close"  # The retired borrower is never cancelled again.
