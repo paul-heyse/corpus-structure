@@ -31,11 +31,13 @@ from uuid import uuid4
 import pytest
 from hypothesis import settings as hypothesis_settings
 from sqlalchemy import Connection, Engine
+from sqlalchemy.engine import URL, make_url
 from typer.testing import CliRunner, Result
 
 from corpus_structure.cli.app import app
 from corpus_structure.cli.output import CliState
 from corpus_structure.core.db.ownership import DatabaseReservation
+from corpus_structure.semantic.runtime import Purpose, connection_settings
 from corpus_structure.settings import Settings
 from native_test_support import (
     TEMPLATE_RETENTION,
@@ -54,6 +56,10 @@ PACKAGE = Path(__file__).resolve().parents[1]
 REPO = PACKAGE.parents[1]
 CORPUS_DIR = REPO / "docs" / "statistics_corpus"
 CLI_WIDTH = 100
+REFUSED_APPLICATION_URL = (
+    "postgresql://corpus_test_unbound@/unbound"
+    "?host=/__corpus_structure_refused_application_target__&port=5434"
+)
 
 hypothesis_settings.register_profile(
     "ci", deadline=None, derandomize=True, database=None, print_blob=True, max_examples=300
@@ -155,7 +161,61 @@ def db_support() -> DatabaseSupport:
 
 @pytest.fixture(scope="session")
 def native_settings() -> Settings:
+    """Capture original environment coordinates before application-target fencing."""
     return Settings()
+
+
+@pytest.fixture(autouse=True)
+def refuse_unbound_application_target(
+    monkeypatch: pytest.MonkeyPatch, native_settings: Settings
+) -> None:
+    """Keep default application acquisition away from the native admin endpoint.
+
+    The dependency forces the original session settings to be captured before the sentinel is
+    installed. Native server and purpose fixtures keep using that immutable captured value.
+    Tests that exercise an application connection must pass clone settings or an explicit
+    ``CORPUS_DATABASE__URL`` themselves.
+    """
+    monkeypatch.setenv("CORPUS_DATABASE__URL", REFUSED_APPLICATION_URL)
+
+
+def settings_for_native_clone(
+    original: Settings, database_name: str, purpose: Purpose = "write"
+) -> Settings:
+    """Resolve purpose credentials on the original endpoint, then bind them to one clone.
+
+    Every declared purpose URL in the returned settings is authentication-only. A later
+    ``connection_settings`` call therefore inherits the clone endpoint instead of conflicting
+    with the original endpoint retained by a fully qualified purpose URL.
+    """
+    resolved = connection_settings(original, purpose)
+    target = make_url(resolved.database.url).set(database=database_name)
+    database = resolved.database.model_copy(
+        update={
+            "url": target.render_as_string(hide_password=False),
+            "maintenance_url": _authentication_url(original, "maintenance"),
+            "reader_url": _authentication_url(original, "read"),
+            "evaluator_url": _authentication_url(original, "evaluate"),
+            "admission_url": _authentication_url(original, "admit"),
+        }
+    )
+    return resolved.model_copy(update={"database": database})
+
+
+def _authentication_url(original: Settings, purpose: Purpose) -> str:
+    selected = make_url(connection_settings(original, purpose).database.url)
+    return URL.create(
+        "postgresql", username=selected.username, password=selected.password
+    ).render_as_string(hide_password=False)
+
+
+@pytest.fixture
+def semantic_application_settings(
+    native_settings: Settings, semantic_db_engine: Engine
+) -> Settings:
+    """Application settings bound to this test's owned semantic clone."""
+    assert semantic_db_engine.url.database is not None
+    return settings_for_native_clone(native_settings, semantic_db_engine.url.database)
 
 
 @pytest.fixture(scope="session")

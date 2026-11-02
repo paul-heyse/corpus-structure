@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Connection, Engine, create_engine, text
+from sqlalchemy import Connection, Engine, create_engine, event, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.pool import NullPool
@@ -47,6 +47,7 @@ TEMPLATE_PREFIX = "cs_tpl_"
 TEMPLATE_RETENTION = timedelta(days=1)
 LEASE_SPACE = 0x63735450
 STAMP = re.compile(r"corpus-structure test template, last used (\S+)")
+_DEPLOYMENTS: dict[tuple[str, str, str, int], dict[str, object]] = {}
 
 
 def server_url(settings: Settings | None = None) -> str:
@@ -145,6 +146,11 @@ class PgAdmin:
     def url_of(self, name: str) -> str:
         return make_url(self.url).set(database=name).render_as_string(hide_password=False)
 
+    def alternate_reader(self, database: str):
+        from native_auth import alternate_reader
+
+        return alternate_reader(self, database)
+
     @contextmanager
     def connect(
         self, name: str = "postgres", *, transactional: bool = False
@@ -154,6 +160,7 @@ class PgAdmin:
             poolclass=NullPool,
             isolation_level="READ COMMITTED" if transactional else "AUTOCOMMIT",
         )
+        observe_engine(engine, purpose="maintenance")
         try:
             with engine.begin() if transactional else engine.connect() as conn:
                 yield conn
@@ -442,6 +449,10 @@ class PgAdmin:
                 engine = create_engine(self.url_of(name), poolclass=NullPool)
                 if policy is not None:
                     self.replay_policy(name, policy)
+                observe_engine(engine, purpose="maintenance", policy=policy)
+                # Observe deployment once through its maintenance connection before lending it.
+                with engine.connect():
+                    pass
                 yield engine
             except BaseException as exc:
                 failure = exc
@@ -512,11 +523,12 @@ class PgAdmin:
         return installed
 
     @contextmanager
-    def lease(self, *names: str) -> Generator[Connection]:
-        """Hold a shared session advisory lock on each name while the block runs (DA-019)."""
+    def lease(self, *names: str, exclusive: bool = False) -> Generator[Connection]:
+        """Hold session locks; cluster authentication edits require exclusive ownership."""
         with self.connect() as conn:
             for name in names:
-                conn.execute(text(lock_sql("pg_advisory_lock_shared")), {"name": name})
+                function = "pg_advisory_lock" if exclusive else "pg_advisory_lock_shared"
+                conn.execute(text(lock_sql(function)), {"name": name})
             yield conn
 
     def stamp(self, name: str, at: datetime | None = None) -> None:
@@ -613,7 +625,81 @@ def principal_engine(settings: Settings, purpose: Purpose, database: str | None)
     assert database is not None, "an owned clone must have a database name"
     resolved = connection_settings(settings, purpose)
     url = make_url(resolved.database.sqlalchemy_url).set(database=database)
-    return create_engine(url, poolclass=NullPool)
+    engine = create_engine(url, poolclass=NullPool)
+    observe_engine(engine, purpose=purpose)
+    return engine
+
+
+def observe_engine(engine: Engine, *, purpose: str, policy: DatabasePolicy | None = None) -> None:
+    """Observe each physical acquisition without opening a SQLAlchemy transaction."""
+    import hashlib
+    import json
+    from dataclasses import asdict
+
+    @event.listens_for(engine, "connect")
+    def acquired(connection, _record):
+        try:
+            from qualification_plugin import record_native_context
+        except ImportError:
+            return
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT current_database(), (SELECT oid FROM pg_database "
+                "WHERE datname=current_database()), current_user, session_user, "
+                "current_setting('server_version'), current_setting('port'), "
+                "pg_postmaster_start_time()"
+            )
+            database, oid, principal, login, version, port, started = cursor.fetchone()
+            cursor.execute("SELECT to_regclass('public.semantic_alembic_version')")
+            revision = None
+            if cursor.fetchone()[0] is not None:
+                cursor.execute(
+                    "SELECT has_table_privilege(current_user, "
+                    "'public.semantic_alembic_version', 'SELECT')"
+                )
+                if cursor.fetchone()[0]:
+                    cursor.execute("SELECT version_num FROM public.semantic_alembic_version")
+                    row = cursor.fetchone()
+                    revision = row[0] if row else None
+        if not connection.autocommit:
+            connection.rollback()
+        key = (connection.info.host, port, started.isoformat(), oid)
+        policy_ref = (
+            hashlib.sha256(json.dumps(asdict(policy), sort_keys=True).encode()).hexdigest()
+            if policy
+            else None
+        )
+        if policy is not None:
+            _DEPLOYMENTS[key] = {"revision": revision, "policy_ref": policy_ref}
+        deployment = _DEPLOYMENTS.get(key, {})
+        record_native_context(
+            {
+                "schema": "native-context/v1",
+                "requested": {
+                    "database": engine.url.database,
+                    "host": engine.url.query.get("host", engine.url.host),
+                    "port": engine.url.query.get("port", engine.url.port),
+                    "principal": engine.url.username,
+                    "purpose": purpose,
+                },
+                "acquired": {
+                    "database": database,
+                    "database_oid": oid,
+                    "current_user": principal,
+                    "session_user": login,
+                    "server_version": version,
+                    "server_started": started.isoformat(),
+                    "port": port,
+                    "host": connection.info.host,
+                    "revision": revision or deployment.get("revision"),
+                    "policy_ref": policy_ref or deployment.get("policy_ref"),
+                    "deployment_status": "observed"
+                    if revision or deployment.get("revision")
+                    else "unavailable",
+                },
+                "provenance": {"complete": True, "missing": []},
+            }
+        )
 
 
 def record_server_context(settings: Settings, server: PgAdmin) -> None:
@@ -638,5 +724,6 @@ def record_server_context(settings: Settings, server: PgAdmin) -> None:
             "server_version": server_version,
             "current_user": principal,
             "driver": "psycopg " + psycopg.__version__,
-        }
+        },
+        scope="session",
     )

@@ -3,8 +3,10 @@
 import json
 
 
-def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
-    checked = cli("schema", "check", "--json")
+def test_candidate_check_and_derive_refuse_existing_output(
+    cli, semantic_application_settings, tmp_path
+):
+    checked = cli("schema", "check", "--json", settings=lambda: semantic_application_settings)
     assert checked.exit_code == 0, checked.output
     assert json.loads(checked.stdout)["execution_model_id"]
     target = tmp_path / "candidate"
@@ -23,7 +25,9 @@ def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
     assert (target / "manifest.json").read_bytes() == before
 
 
-def test_model_diagnostics_remain_actionable_in_cli_json(cli, monkeypatch):
+def test_model_diagnostics_remain_actionable_in_cli_json(
+    cli, semantic_application_settings, monkeypatch
+):
     from corpus_structure.semantic import regeneration
     from corpus_structure.semantic.types import Diagnostic, PreparationError
 
@@ -44,7 +48,7 @@ def test_model_diagnostics_remain_actionable_in_cli_json(cli, monkeypatch):
         )
 
     monkeypatch.setattr(regeneration, "prepare_packs", refuse)
-    result = cli("schema", "check", "--json")
+    result = cli("schema", "check", "--json", settings=lambda: semantic_application_settings)
     assert result.exit_code == 1
     item = json.loads(result.stdout)["error"]["diagnostics"][0]
     assert item["contract_id"] == "statement"

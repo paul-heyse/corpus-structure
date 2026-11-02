@@ -15,7 +15,14 @@ from pathlib import Path
 
 import pytest
 
-from test_receipts import classify, classify_receipt, classify_rust, run_process, run_python
+from test_receipts import (
+    _complete_native_context,
+    classify,
+    classify_receipt,
+    classify_rust,
+    run_process,
+    run_python,
+)
 
 
 def stream(path: Path, events: list[dict[str, object]]) -> None:
@@ -146,6 +153,62 @@ def test_required_union_uses_explicit_manifest(tmp_path: Path) -> None:
     assert result["required_unresolved"] == ["other"]
 
 
+def test_old_pass_does_not_satisfy_new_native_required_manifest(tmp_path: Path) -> None:
+    run = tmp_path / "old-run"
+    run.mkdir()
+    receipt(run, [report("setup"), report("call"), report("teardown")], selected=("a",))
+    required = tmp_path / "required.json"
+    required.write_text(json.dumps({"selected": ["a"], "native_required": ["a"]}))
+
+    result = classify([run], [required])
+
+    assert result["receipts"][0]["nodes"]["a"]["status"] == "passed"
+    assert result["receipts"][0]["native_provenance"]["status"] == "unavailable"
+    assert result["coverage"] == {"a": ["incomplete"]}
+    assert result["required_unresolved"] == ["a"]
+    assert result["status"] == "not_run"
+
+
+def test_native_union_qualifies_each_node_from_its_own_context(tmp_path: Path) -> None:
+    context = {
+        "schema": "native-context/v1",
+        "requested": {"database": "cs_sem_test"},
+        "acquired": {
+            "database": "cs_sem_test",
+            "database_oid": 12345,
+            "current_user": "corpus_sem_reader",
+            "session_user": "corpus_sem_reader",
+            "server_version": "18.0",
+            "server_started": "2026-11-02T00:00:00+00:00",
+            "host": "localhost",
+            "port": 5434,
+        },
+        "provenance": {"complete": True, "missing": []},
+    }
+    output = child(
+        tmp_path,
+        "import pytest\n"
+        "from qualification_plugin import record_native_context\n"
+        "@pytest.mark.db\n"
+        "def test_with_context():\n"
+        f"    record_native_context({context!r})\n"
+        "@pytest.mark.db\n"
+        "def test_without_context():\n    pass\n",
+    )
+    native_nodes = [node for node in classify_receipt(output)["selected"] if "test_" in node]
+    required = tmp_path / "required.json"
+    required.write_text(json.dumps({"selected": native_nodes, "native_required": native_nodes}))
+
+    result = classify([output], [required])
+    qualified_node = next(node for node in native_nodes if node.endswith("test_with_context"))
+    unresolved_node = next(node for node in native_nodes if node.endswith("test_without_context"))
+
+    assert result["coverage"][qualified_node] == ["passed"]
+    assert result["coverage"][unresolved_node] == ["incomplete"]
+    assert result["required_unresolved"] == [unresolved_node]
+    assert result["status"] == "incomplete"
+
+
 def child(
     tmp_path: Path,
     source: str,
@@ -158,7 +221,7 @@ def child(
     tests.mkdir()
     (tests / "test_case.py").write_text(source)
     config = tests / "pytest.ini"
-    config.write_text("[pytest]\n")
+    config.write_text("[pytest]\nmarkers = db: requires a native database context\n")
     output = tmp_path / "receipt"
     output.mkdir()
     run_python(
@@ -284,6 +347,195 @@ def test_real_prerequisite_annotation_and_native_context(tmp_path: Path) -> None
     assert node["reason"] == "missing native socket"
     assert node["reports"][0]["outcome"] == "failed"
     assert result["native_contexts"][0]["context"] == {"server": "fixture-server"}
+    assert result["native_contexts"][0]["nodeid"].endswith("test_case")
+    assert result["native_contexts"][0]["scope"] == "test"
+
+
+def test_a_required_native_test_without_acquired_context_is_incomplete(tmp_path: Path) -> None:
+    output = child(
+        tmp_path,
+        "import pytest\n@pytest.mark.db\ndef test_case():\n    pass\n",
+    )
+    result = classify_receipt(output)
+    nodeid = next(iter(result["selected"]))
+    assert result["nodes"][nodeid]["status"] == "passed"  # raw pytest outcome is retained
+    assert result["native_provenance"] == {
+        "status": "incomplete",
+        "required": [nodeid],
+        "claimed": [nodeid],
+        "unresolved": [nodeid],
+        "not_claimed": [],
+        "reason": "required native test has no complete item-bound acquisition context",
+    }
+    assert result["status"] == "incomplete"
+    assert classify([output])["status"] == "incomplete"
+
+
+def test_complete_native_context_is_bound_to_the_selected_node(tmp_path: Path) -> None:
+    context = {
+        "schema": "native-context/v1",
+        "requested": {
+            "server": "requested-host:5434",
+            "database": "cs_sem_test",
+            "principal": "corpus_sem_reader",
+        },
+        "acquired": {
+            "server": "observed-host:5434",
+            "host": "observed-host",
+            "port": 5434,
+            "database": "cs_sem_test",
+            "database_oid": 12345,
+            "current_user": "postgres",
+            "session_user": "postgres",
+            "server_version": "18.0",
+            "server_started": "2026-11-02T00:00:00+00:00",
+        },
+        "provenance": {"complete": True, "missing": []},
+    }
+    source = (
+        "import pytest\n"
+        "from qualification_plugin import record_native_context\n"
+        "@pytest.mark.db\n"
+        "def test_case():\n"
+        f"    record_native_context({context!r})\n"
+    )
+    output = child(tmp_path, source)
+    result = classify_receipt(output)
+    nodeid = next(iter(result["selected"]))
+    event = result["native_contexts"][0]
+    assert event["nodeid"] == nodeid and event["scope"] == "test"
+    assert event["context"]["requested"]["server"] == "requested-host:5434"
+    assert event["context"]["acquired"]["server"] == "observed-host:5434"
+    assert result["native_provenance"]["status"] == "complete"
+    assert result["native_provenance"]["unresolved"] == []
+    assert result["nodes"][nodeid]["status"] == "passed"
+    assert result["status"] == "passed"
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "host",
+        "port",
+        "server_started",
+        "server_version",
+        "database",
+        "database_oid",
+        "session_user",
+        "current_user",
+    ],
+)
+def test_native_context_requires_complete_acquired_identity_fields(field: str) -> None:
+    context = {
+        "schema": "native-context/v1",
+        "requested": {},
+        "acquired": {
+            "host": "localhost",
+            "port": 5434,
+            "server_started": "2026-11-02T00:00:00+00:00",
+            "server_version": "18.0",
+            "database": "cs_sem_test",
+            "database_oid": 12345,
+            "session_user": "corpus_sem_reader",
+            "current_user": "corpus_sem_reader",
+        },
+        "provenance": {"complete": True, "missing": []},
+    }
+    context["acquired"].pop(field)
+
+    event = {"scope": "test", "nodeid": "test_case", "context": context}
+    assert not _complete_native_context(event)
+
+
+def test_native_context_accepts_numeric_string_port() -> None:
+    context = {
+        "schema": "native-context/v1",
+        "requested": {},
+        "acquired": {
+            "host": "localhost",
+            "port": "5434",
+            "server_started": "2026-11-02T00:00:00+00:00",
+            "server_version": "18.0",
+            "database": "cs_sem_test",
+            "database_oid": 12345,
+            "session_user": "corpus_sem_reader",
+            "current_user": "corpus_sem_reader",
+        },
+        "provenance": {"complete": True, "missing": []},
+    }
+
+    event = {"scope": "test", "nodeid": "test_case", "context": context}
+    assert _complete_native_context(event)
+
+
+def test_incomplete_or_session_only_context_does_not_attest_a_native_test(
+    tmp_path: Path,
+) -> None:
+    incomplete = {
+        "schema": "native-context/v1",
+        "requested": {"database": "cs_sem_test"},
+        "acquired": {
+            "database": "cs_sem_test",
+            "database_oid": 12345,
+            "current_user": "corpus_sem_reader",
+            "session_user": "corpus_sem_reader",
+            "server_version": "18.0",
+            "server_started": "2026-11-02T00:00:00+00:00",
+            "host": "localhost",
+            "port": 5434,
+        },
+        "provenance": {"complete": False, "missing": ["database_policy"]},
+    }
+    source = (
+        "import pytest\n"
+        "from qualification_plugin import record_native_context\n"
+        "@pytest.mark.db\n"
+        "def test_case():\n"
+        f"    record_native_context({incomplete!r}, scope='session')\n"
+    )
+    output = child(tmp_path, source)
+    result = classify_receipt(output)
+    nodeid = next(iter(result["selected"]))
+    assert result["native_contexts"][0]["nodeid"] is None
+    assert result["native_provenance"]["unresolved"] == [nodeid]
+    assert result["nodes"][nodeid]["status"] == "passed"
+    assert result["status"] == "incomplete"
+
+
+def test_pure_python_success_does_not_require_native_context(tmp_path: Path) -> None:
+    output = child(tmp_path, "def test_case():\n    assert True\n")
+    result = classify_receipt(output)
+    assert result["status"] == "passed"
+    assert result["native_provenance"]["status"] == "not_required"
+    assert result["native_provenance"]["unresolved"] == []
+
+
+def test_blocked_native_test_does_not_claim_a_successful_native_exercise(tmp_path: Path) -> None:
+    output = child(
+        tmp_path,
+        "import pytest\n"
+        "@pytest.mark.db\n"
+        "def test_case():\n    pytest.skip('native prerequisite unavailable')\n",
+    )
+    result = classify_receipt(output)
+    nodeid = next(iter(result["selected"]))
+    assert result["nodes"][nodeid]["status"] == "blocked"
+    assert result["native_provenance"]["status"] == "no_claim"
+    assert result["native_provenance"]["claimed"] == []
+    assert result["native_provenance"]["not_claimed"] == [nodeid]
+    assert result["status"] == "blocked"
+
+
+def test_legacy_receipt_keeps_its_status_without_claiming_context_completeness(
+    tmp_path: Path,
+) -> None:
+    output = receipt(
+        tmp_path, [report("setup"), report("call"), report("teardown")], selected=("a",)
+    )
+    result = classify_receipt(output)
+    assert result["status"] == "passed"
+    assert result["native_provenance"]["status"] == "unavailable"
+    assert result["native_provenance"]["required"] is None
 
 
 def test_real_skip_and_deselection(tmp_path: Path) -> None:

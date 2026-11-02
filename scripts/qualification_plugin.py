@@ -14,6 +14,7 @@ from hypothesis import settings
 
 _stream: TextIO | None = None
 _identity: dict[str, object] = {}
+_current_nodeid: str | None = None
 
 
 def _emit(event: str, **values: object) -> None:
@@ -24,9 +25,19 @@ def _emit(event: str, **values: object) -> None:
         _stream.flush()
 
 
-def record_native_context(context: dict[str, object]) -> None:
-    """Native fixture calls this with masked context only after actual acquisition."""
-    _emit("native_context", context=context)
+def record_native_context(
+    context: dict[str, object], *, scope: str = "test", nodeid: str | None = None
+) -> None:
+    """Record requested and acquired native context in the current pytest event stream.
+
+    Test-scoped records default to the item whose fixture/setup is currently running. Session
+    records are explicitly unbound to an item; they describe a resource that may serve many
+    tests, and cannot by themselves attest any one test's exercise.
+    """
+    if scope not in {"test", "session"}:
+        raise ValueError("native context scope must be 'test' or 'session'")
+    associated = None if scope == "session" else (nodeid or _current_nodeid)
+    _emit("native_context", context=context, scope=scope, nodeid=associated)
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -59,7 +70,13 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 
 
 def pytest_collection_finish(session: pytest.Session) -> None:
-    _emit("collection_finish", selected=[item.nodeid for item in session.items])
+    _emit(
+        "collection_finish",
+        selected=[item.nodeid for item in session.items],
+        native_required=[
+            item.nodeid for item in session.items if item.get_closest_marker("db") is not None
+        ],
+    )
 
 
 def pytest_deselected(items: list[pytest.Item]) -> None:
@@ -67,6 +84,8 @@ def pytest_deselected(items: list[pytest.Item]) -> None:
 
 
 def pytest_runtest_logstart(nodeid: str, location: object) -> None:
+    global _current_nodeid
+    _current_nodeid = nodeid
     _emit("logstart", nodeid=nodeid, location=location)
 
 
@@ -109,7 +128,10 @@ def pytest_runtest_makereport(
 
 
 def pytest_runtest_logfinish(nodeid: str, location: object) -> None:
+    global _current_nodeid
     _emit("logfinish", nodeid=nodeid, location=location)
+    if _current_nodeid == nodeid:
+        _current_nodeid = None
 
 
 @pytest.hookimpl(optionalhook=True)

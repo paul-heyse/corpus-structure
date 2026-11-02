@@ -460,3 +460,33 @@ def test_clone_replays_and_removes_actual_restricted_reader_default(native_serve
                 assert native_server.policy(target) == initial
         finally:
             reader.dispose()
+
+
+def test_receipt_observes_clone_deployment_and_authenticated_reader(
+    semantic_db_engine, semantic_reader_engine, native_settings, monkeypatch
+):
+    from sqlalchemy.engine import make_url
+
+    import qualification_plugin
+    from corpus_structure.semantic.migrations import head_revision
+
+    observed = []
+    monkeypatch.setattr(
+        qualification_plugin,
+        "record_native_context",
+        lambda context, **kwargs: observed.append(context),
+    )
+    with semantic_reader_engine.connect() as conn:
+        oid = conn.exec_driver_sql(
+            "SELECT oid FROM pg_database WHERE datname=current_database()"
+        ).scalar_one()
+    actual = next(event for event in observed if event["requested"]["purpose"] == "read")
+    assert actual["acquired"]["database"] == semantic_db_engine.url.database
+    assert actual["acquired"]["database"] != make_url(native_settings.database.url).database
+    assert actual["acquired"]["database_oid"] == oid
+    assert actual["acquired"]["current_user"] == "corpus_sem_reader"
+    assert actual["acquired"]["session_user"] == "corpus_sem_reader"
+    assert actual["acquired"]["revision"] == head_revision()
+    assert actual["acquired"]["policy_ref"]
+    assert actual["provenance"] == {"complete": True, "missing": []}
+    assert set(actual["requested"]) == {"database", "host", "port", "principal", "purpose"}

@@ -114,6 +114,28 @@ def test_query_credentials_cannot_override_selected_purpose_credentials():
     assert connection_settings(settings, "write").database.url == settings.database.url
 
 
+def test_unbound_application_settings_use_refused_sentinel():
+    import psycopg
+    from psycopg_pool import PoolTimeout
+
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.settings import Settings
+
+    # The package fixture installed a test-only target after capturing native_settings.
+    selected = Settings()
+    assert selected.database.url == (
+        "postgresql://corpus_test_unbound@/unbound"
+        "?host=/__corpus_structure_refused_application_target__&port=5434"
+    )
+    with (
+        pytest.raises((PoolTimeout, psycopg.OperationalError)),
+        open_runtime_engine(
+            selected, "unbound-application-control", purpose="write", timeout=0.1, max_size=1
+        ),
+    ):
+        pytest.fail("an unbound application target unexpectedly connected")
+
+
 @pytest.mark.parametrize("purpose", ["read", "evaluate", "admit"])
 def test_owner_credentials_are_not_inherited_by_restricted_purpose(purpose):
     settings = Settings(database={"url": "postgresql://owner:secret@/owned"})

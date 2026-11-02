@@ -373,6 +373,53 @@ def _node_status(reports: list[dict[str, Any]], started: bool, finished: bool) -
     return {"status": status, "reason": reason, "properties": properties, "reports": reports}
 
 
+def _complete_native_context(event: dict[str, Any]) -> bool:
+    """Whether an event contains an explicit, item-bound, acquired database identity."""
+    if event.get("scope") != "test" or not isinstance(event.get("nodeid"), str):
+        return False
+    context = event.get("context")
+    if not isinstance(context, dict) or context.get("schema") != "native-context/v1":
+        return False
+    requested, acquired = context.get("requested"), context.get("acquired")
+    provenance = context.get("provenance")
+    if not isinstance(requested, dict) or not isinstance(acquired, dict):
+        return False
+    if not isinstance(provenance, dict) or provenance.get("complete") is not True:
+        return False
+    if provenance.get("missing") != []:
+        return False
+    database_oid = acquired.get("database_oid")
+    principal = acquired.get("current_user")
+    login = acquired.get("session_user")
+    host = acquired.get("host")
+    port = acquired.get("port")
+    server_started = acquired.get("server_started")
+    server_version = acquired.get("server_version")
+    database = acquired.get("database")
+    if isinstance(port, str) and port.isdecimal():
+        port = int(port)
+    return (
+        isinstance(database_oid, int)
+        and not isinstance(database_oid, bool)
+        and database_oid > 0
+        and isinstance(principal, str)
+        and bool(principal.strip())
+        and isinstance(login, str)
+        and bool(login.strip())
+        and isinstance(host, str)
+        and bool(host.strip())
+        and isinstance(port, int)
+        and not isinstance(port, bool)
+        and 1 <= port <= 65535
+        and isinstance(server_started, str)
+        and bool(server_started.strip())
+        and isinstance(server_version, str)
+        and bool(server_version.strip())
+        and isinstance(database, str)
+        and bool(database.strip())
+    )
+
+
 def classify_receipt(directory: Path) -> dict[str, Any]:
     reports, errors = read_stream(directory / "reportlog.jsonl")
     companion: list[dict[str, Any]] = []
@@ -390,12 +437,17 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
     active: dict[str, dict[str, Any]] = {}
     manifests = 0
     worker_loss = []
+    native_required: set[str] = set()
+    native_metadata_manifests = 0
     for event in companion:
         kind = event.get("event")
         identity = f"{event.get('worker')}:{event.get('pid')}"
         if kind == "collection_finish":
             manifests += 1
             selected.update(event["selected"])
+            if "native_required" in event:
+                native_metadata_manifests += 1
+                native_required.update(event["native_required"])
         elif kind == "deselected":
             deselected.update(event["nodes"])
         elif kind == "logstart":
@@ -422,6 +474,41 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         node: _node_status(by_node[node], node in starts, node in finishes)
         for node in sorted(selected | set(by_node) | starts)
     }
+    native_events = [e for e in companion if e.get("event") == "native_context"]
+    if not manifests or native_metadata_manifests != manifests:
+        # Older receipts did not record fixture applicability. Keep their original result and
+        # make the missing provenance explicit; never infer a historical native obligation.
+        native_provenance = {
+            "status": "unavailable",
+            "required": None,
+            "unresolved": [],
+            "reason": "collection manifest lacks native applicability metadata",
+        }
+    elif not native_required:
+        native_provenance = {
+            "status": "not_required",
+            "required": [],
+            "unresolved": [],
+            "reason": None,
+        }
+    else:
+        complete_nodes = {
+            event["nodeid"] for event in native_events if _complete_native_context(event)
+        }
+        claimed = {
+            node for node in native_required if nodes.get(node, {}).get("status") == "passed"
+        }
+        unresolved = sorted(claimed - complete_nodes)
+        native_provenance = {
+            "status": ("incomplete" if unresolved else "complete" if claimed else "no_claim"),
+            "required": sorted(native_required),
+            "claimed": sorted(claimed),
+            "unresolved": unresolved,
+            "not_claimed": sorted(native_required - claimed),
+            "reason": "required native test has no complete item-bound acquisition context"
+            if unresolved
+            else None,
+        }
     process_path = directory / "pytest.process.json"
     process = read_json(process_path) if process_path.exists() else {}
     if not process:
@@ -461,6 +548,8 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         status = "not_run" if not starts else "incomplete"
     else:
         status = "passed" if "passed" in statuses else "not_run"
+    if status == "passed" and native_provenance["status"] == "incomplete":
+        status = "incomplete"
     return {
         "directory": str(directory),
         "status": status,
@@ -476,7 +565,8 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         "process_failed": process_failed,
         "session_finishes": session_finishes,
         "reporting_complete": not errors and not worker_loss,
-        "native_contexts": [e for e in companion if e.get("event") == "native_context"],
+        "native_contexts": native_events,
+        "native_provenance": native_provenance,
         "session_contexts": [e for e in companion if e.get("event") == "session_start"],
         "invocation": read_json(directory / "invocation.json")
         if (directory / "invocation.json").exists()
@@ -537,6 +627,7 @@ def classify_rust(directory: Path) -> dict[str, Any]:
 def classify(directories: list[Path], required_from: list[Path] | None = None) -> dict[str, Any]:
     receipts = [classify_receipt(path) for path in directories]
     required: set[str] = set()
+    native_required: set[str] = set()
     for path in required_from or []:
         if path.suffix == ".jsonl":
             events, errors = read_stream(path)
@@ -547,10 +638,17 @@ def classify(directories: list[Path], required_from: list[Path] | None = None) -
                 raise ValueError(f"no collection manifest: {path}")
             for event in manifests:
                 required.update(event["selected"])
+                native_required.update(event.get("native_required", []))
         else:
-            required.update(read_json(path)["selected"])
+            manifest = read_json(path)
+            required.update(manifest["selected"])
+            native_required.update(manifest.get("native_required", []))
     union = {
-        node: [receipt["nodes"][node]["status"] for receipt in receipts if node in receipt["nodes"]]
+        node: [
+            _union_node_status(receipt, node, native_required)
+            for receipt in receipts
+            if node in receipt["nodes"]
+        ]
         for node in sorted(required)
     }
     missing = [node for node, states in union.items() if "passed" not in states]
@@ -581,6 +679,7 @@ def classify(directories: list[Path], required_from: list[Path] | None = None) -
             "directory": receipt["directory"],
             "invocation": receipt["invocation"],
             "native_contexts": receipt["native_contexts"],
+            "native_provenance": receipt["native_provenance"],
             "session_contexts": receipt["session_contexts"],
         }
         for receipt in receipts
@@ -600,6 +699,23 @@ def classify(directories: list[Path], required_from: list[Path] | None = None) -
         "required_unresolved": missing,
         "coverage": union,
     }
+
+
+def _union_node_status(receipt: dict[str, Any], node: str, native_required: set[str]) -> str:
+    """Return the status eligible for the current manifest's required union.
+
+    Historical node outcomes remain available in ``receipt["nodes"]``. A current native
+    requirement additionally needs a complete item-bound acquisition event in this receipt.
+    """
+    status = receipt["nodes"][node]["status"]
+    if node not in native_required or status != "passed":
+        return status
+    if any(
+        event.get("nodeid") == node and _complete_native_context(event)
+        for event in receipt["native_contexts"]
+    ):
+        return "passed"
+    return "incomplete"
 
 
 def _positive_timeout(value: str) -> float:
