@@ -76,7 +76,7 @@ BEGIN
  IF p_limit<1 OR nullif(p_holder,'') IS NULL THEN RAISE EXCEPTION 'positive claim limit and nonempty holder required'; END IF;
  SELECT * INTO STRICT job FROM ops.run WHERE id=p_run FOR SHARE;
  PERFORM sem.require_execution_operation(job.release_id,'claim');
- IF job.sealed OR job.status NOT IN ('created','running') THEN RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
+ IF job.sealed OR job.status NOT IN ('created','running') THEN RETURN; END IF;
  RETURN QUERY WITH candidates AS MATERIALIZED (
   SELECT id FROM ops.task WHERE run_id=p_run AND method_config_id=p_config
    AND (status=CASE WHEN p_agent THEN 'awaiting_agent' ELSE 'pending' END OR (status='running' AND lease_until<clock_timestamp()))

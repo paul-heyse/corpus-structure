@@ -1,6 +1,6 @@
 # Current-only native forward realization
 
-Date: 2026-11-02. Status: implemented; bounded author rehearsals passed; final-source freeze pending.
+Date: 2026-11-02. Status: implemented and independently reviewed; final-source author rehearsal passed; freeze pending.
 
 This evidence belongs to the unified-domain-model coordinator's current-only transition.
 The current physical model retires 36 obsolete rendition, layered-parsing and aggregate PDF
@@ -43,8 +43,13 @@ Two old `#%%` literals become the modeled `#%`; no global SQL text substitution 
 Earlier rehearsals001–010 remain as failure evidence. They exposed the unavailable admitter/writer
 SET ROLE contexts, a leftover identity-exclusion `kb.span` join, missing complete method fixture
 metadata and pending deferred constraint events before authoring DDL. Rehearsal011 flushes those
-constraints before the fresh candidate check. Source formatting after011 requires another final
-source rehearsal before freezing.
+constraints before the fresh candidate check. Rehearsal012 passed after the main merge and formatting. Review caught one lifecycle
+RETURN changed into a profile refusal; it is restored before final capture. Rehearsal014 proved
+the deferred guard rejects a finished run without its completed EvaluationResult.
+`author_forward_v10.py rehearsal-015` then passed the complete current flow in SERIALIZABLE:
+Report completion, final sealed cut, empty publication receipt, completed EvaluationResult,
+and empty polling in cancelled, sealed/consolidating, finished and failed states. It also
+repeats all retirement, empty-candidate, drift, stale-directive and rollback controls.
 
 All release admission and lifecycle checks in the author transaction run as publisher with session
 migration owner. They are **guard/catalog and publisher-context functional checks**, not actual
