@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "id": "ta.native-arrangement",
+  "title": "Bounded native arrangement and SQL assurance comparison",
+  "group": "test-architecture-and-evidence",
+  "package": "TA-01",
+  "finalized": "2026-11-02",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the existing PgAdmin shared route preserve current deployment and isolation while private pg_virtualenv supplies a credible comparison, and what native assurance tools warrant adoption?",
+  "answers": [
+    "TA-01",
+    "TA-02",
+    "DTA-002",
+    "ADR-0032"
+  ],
+  "method": "Direct existing PgAdmin acquisition on unique owned databases, without general sweeps or shared authentication changes; private pg_virtualenv under an owned TMPDIR parent with explicit sockets/preloads/durability and actual purpose logins; controlled outer SIGKILL before/after server startup with supervised exact-root settlement; private Python/pgTAP posture comparison and pg_prove positive/negative controls; tagged plugin and installed tooling source comparison.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-02_ta-native-arrangement/private_owner.py",
+    "uv run python docs/design_review/evidence/2026-11-02_ta-native-arrangement/private_owner.py pgtap",
+    "uv run python docs/design_review/evidence/2026-11-02_ta-native-arrangement/native_controls.py shared",
+    "uv run python docs/design_review/evidence/2026-11-02_ta-native-arrangement/native_controls.py shared-policy"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "native_controls.py",
+      "role": "bounded native contract and SQL assurance source",
+      "sha256": "51cdaa4dbe767f01a18940ff599fbe69d277d7916340f915157f344525da4f8d"
+    },
+    {
+      "path": "private_owner.py",
+      "role": "private containment and supervised settlement source",
+      "sha256": "d4fdaeece89c48d0dfab0329560fcb9afc45332a1d498b203a85d5bb256e46a9"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "passing results, failed attempts and source context",
+      "sha256": "fc7084d1d7dc7cb86824499b6e0d7d96aedca82d5325c2b4d62440e143c1bada"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "serialized shared current deployment and owned clone controls",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "private current deployment and owned clone controls",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "private outer death before server startup and after startup",
+      "value": 2,
+      "of": null,
+      "unit": "passed bounded scenarios",
+      "note": null
+    },
+    {
+      "name": "pg_prove positive and deliberate wrong-SQLSTATE rejection",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "initial overlapping shared deployment",
+      "value": "failed SQLSTATE53200; serialized rerun passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Retain PgAdmin shared-cluster deployment and inner clone ownership under ADR-0032; extend its authentication-effect recovery as separately implemented TA-02. Private pg_virtualenv is feasible but adds an outer lifecycle and explicit configuration adaptation, and its process group does not own the daemonized server; no default adoption. pytest-postgresql default janitor terminates connections and is unsuitable for shared disposal; an additional server pilot would not change this selected within-contract route. pgTAP can discriminate posture and exact errors; pg_prove correctly fails deliberate TAP failure despite successful SQL execution. Keep Python/native controls now; optional narrower adoption belongs to actual assertion consumers. The pilot does not establish production next-invocation/live-owner recovery, all startup-death windows, host-crash durability, elapsed-time benefit or full TA01-04/product qualification. Failed probe-query/VALUES attempts and overlapping shared capacity failure remain retained.",
+  "consumed_by": [
+    "TA-01",
+    "TA-02",
+    "test-architecture-and-evidence plan",
+    "design-review-ta-native-increment"
+  ]
+}

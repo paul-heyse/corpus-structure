@@ -1,6 +1,6 @@
 # Native infrastructure and qualification
 
-**Status:** Proposed; [coordinator](../test-architecture-and-evidence_2026-11-02.md) owns TA-01–04 state and DTA-002/003/017 disposition.
+**Execution state:** [coordinator](../test-architecture-and-evidence_2026-11-02.md) owns TA-01–04 state and DTA-002/003/017 disposition.
 
 ## Existing foundation and intended boundary
 

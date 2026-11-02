@@ -7,8 +7,8 @@ _Updated 2026-11-02; [UM completion audit](docs/plans/unified-domain-model_2026-
   [Improvement review](docs/plan_improvement_reviews/unified-domain-model_2026-11-02.md) proposes
   provider lifecycle/deadline/pipelining and generation/impact refinements; none adopted.
 
-- [Test architecture/evidence plan](docs/plans/test-architecture-and-evidence_2026-11-02.md) proposed;
-  all20 audit IDs have routes. TA-00/01 are next after implementation authorization; no code or host changes.
+- [Test architecture/evidence](docs/plans/test-architecture-and-evidence_2026-11-02.md#native-increment-execution--2026-11-02):
+  TA-01–04 complete:212required passed; review/types/lint passed. TA-05–12 remain planned.
 
 - ADR-0047 selects current composed execution and record PDF publications. Compiler14, boundary12,
   execution23/archive3, recursive typed identifiers and separate model-owned read shapes landed.

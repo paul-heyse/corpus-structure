@@ -77,8 +77,9 @@ inferred from library installation authority. Installation alone needs no new AD
 
 ## Package queue and working dependencies
 
-All packages below are **Planned**; no implementation or verification is claimed. This table alone
-owns their current state. Dependencies name usable products rather than entire companion documents.
+TA-01–04 are **Complete; bounded Tested** (2026-11-02). Other packages
+remain **Planned**; TA-00 native prerequisites are reconciled, with its wider scope still open.
+This table and the execution checkpoint below own current state. Dependencies name usable products rather than entire companion documents.
 
 | Package | Required working input | Delivered behavior / completion boundary |
 |---|---|---|
@@ -110,8 +111,8 @@ its bounded investigation, not a presumption that every cited example requires a
 | Item | Responsible component / package | Disposition and intended outcome | Closure evidence |
 |---|---|---|---|
 | [DTA-001](../design_review/test-audit/evidence-and-discrimination.md#dta-001) | Native assertions / TA-07 | Open: separate intended guard from confounding rejection | Valid baseline plus exact expected native cause and no partial effects |
-| [DTA-002](../design_review/test-audit/execution-and-qualification.md#dta-002) | Native ownership / TA-01/02 | Open: isolate or recover cluster-level authentication effects | Interrupted acquisition and ordinary/failing cleanup preserve unrelated/live resources |
-| [DTA-003](../design_review/test-audit/execution-and-qualification.md#dta-003) | Qualification context / TA-04 | Open: distinguish requested settings and acquired facts | Actual clone/revision/principal associations and missing-context classification |
+| [DTA-002](../design_review/test-audit/execution-and-qualification.md#dta-002) | Native ownership / TA-01/02 | Closed2026-11-02: authenticated cluster-effect recovery implemented and qualified | Interrupted acquisition and ordinary/failing cleanup preserve unrelated/live resources |
+| [DTA-003](../design_review/test-audit/execution-and-qualification.md#dta-003) | Qualification context / TA-04 | Closed2026-11-02: observed identity/provenance and required-union compatibility qualified | Actual clone/revision/principal associations and missing-context classification |
 | [DTA-004](../design_review/test-audit/retirement-transfer.md#dta-004) | Reference counterparts / TA-09 | Open investigation: select surviving authored obligations, then integrate their actuals | Independent positive/negative served outcomes; unresolved semantic differences explicitly settled |
 | [DTA-005](../design_review/test-audit/support-structure.md#dta-005) | Product composition / TA-05/08/09 | Open: assembled product claims consume production composition | Actual pack wiring change detected; isolated synthetic cases retain their scope |
 | [DTA-006](../design_review/test-audit/evidence-and-discrimination.md#dta-006) | Preservation assertions / TA-07 | Open: exactness only where preservation is promised | Extra/missing/wrong support causes failure under independently expected results |
@@ -125,7 +126,7 @@ its bounded investigation, not a presumption that every cited example requires a
 | [DTA-014](../design_review/test-audit/retirement-transfer.md#dta-014) | Retained reference contracts / TA-00 | Superseded diagnosis: broad dormancy claim withdrawn | Audit challenge and current scientific adapter/frozen-vector evidence; no deletion package |
 | [DTA-015](../design_review/test-audit/evidence-and-discrimination.md#dta-015) | Alias composition / TA-08 | Open: current regression and bounded correction; link X2-01 | Same supported authored alias resolves in product composition and actual entity mapping |
 | [DTA-016](../design_review/test-audit/support-structure.md#dta-016) | Wire/serializer / TA-10/11 | Open: promised properties exercise actual implementations | Post-initialize subprocess tool journey and production emitted-chunk assertions |
-| [DTA-017](../design_review/test-audit/execution-and-qualification.md#dta-017) | Test target isolation / TA-03 | Open investigation/correction: refuse unintended application target acquisition | Independent sentinel target control without breaking explicit clone/purpose credentials |
+| [DTA-017](../design_review/test-audit/execution-and-qualification.md#dta-017) | Test target isolation / TA-03 | Closed2026-11-02: refused application defaults and explicit native target propagation qualified | Independent sentinel target control without breaking explicit clone/purpose credentials |
 | [DTA-018](../design_review/test-audit/execution-and-qualification.md#dta-018) | Scenario preparation / TA-01/05 | Open: remove unnecessary repeated preparation where validity permits | Isolation and changed-input refusal preserved; source-established work removal stated honestly |
 | [DTA-019](../design_review/test-audit/evidence-and-discrimination.md#dta-019) | Reference governance / TA-09 | Open: current support prose, provenance and deliberate-change ownership | Reference-specific adjudication/holds or explicit historical witness role |
 | [DTA-020](../design_review/test-audit/evidence-and-discrimination.md#dta-020) | Current-only archives / TA-00/09 | Superseded historical-success premise | ADR-0047; current custody/refusal retained; stale fixture README addressed under019 |
@@ -149,8 +150,65 @@ for the final source. Missing prerequisites are blocked/not_run, never manufactu
 are structural unless measured under named conditions. No blanket benchmark, new alignment lint,
 coverage quota, whole-corpus rerun or new evidence framework is required.
 
-**Next:** execute TA-00 and the bounded TA-01 decision inquiry when this series is authorized for
-implementation. This document's existence does not mean that authorization or native pilot success.
+## Native increment execution — 2026-11-02
+
+**Complete; bounded Tested, 2026-11-02.** TA-01 retains PgAdmin on18/corpus
+and ADR-0032. The [native arrangement record](../design_review/evidence/2026-11-02_ta-native-arrangement/README.md)
+contains actual shared/private current deployment, policy, clone and four-purpose controls,
+private owner-death comparison and pg_prove positive/negative interpretation. Private isolation
+is feasible but adds an outer owner; no plugin dependency or shared service configuration changed.
+pgTAP was evaluated, not adopted as a new application extension or universal gate. Existing
+application concurrency controls remain; isolationtester/pg_regress/plpgsql_check are retained
+capability leads rather than new required runners without a demonstrated simplification.
+
+TA-02 extends the existing lifecycle with exclusive cluster-authentication ownership, atomic
+operation journals, nonce-stamped/OID-acknowledged roles and exact authentication-row intent.
+Helper effect locks survive direct owner death; a privileged execution barrier and fresh
+recovery generations fence late helpers. Per-operation backend identity and bounded normal-exit
+waits fence client/group death. Recovery preserves ambiguous identities and unrelated
+rows and aggregates cleanup errors. Privileged atomic-edit temporary names derive from the
+journal nonce and are recovered selectively. No forced drop or termination right was added.
+
+TA-03 captures original session coordinates before a test-only refused application URL; actual
+CLI/direct/MCP consumers receive explicit clone settings/configuration. TA-04 records actual
+connection database/OID, server lifetime, login principal and deployment/policy references through
+the existing stream. Node outcomes remain actual; missing required provenance is incomplete,
+and historical provenance remains unavailable rather than being retroactively manufactured.
+
+The [combined increment review](../design_review/reviews/design_review_ta-native-increment_2026-11-02.md)
+owns independent assessment. Concurrent cold deployments exhausted the shared lock table in
+retained attempts; serialized deployment passed. Native qualification uses one cold-deployment
+lane; this is neither a capacity guarantee nor a measured performance benefit.
+
+**Passed, bounded:** final formatted-source receipt
+`build/test-receipts/ta-native/final-20261102` records212passing required nodes, zero unresolved,
+and complete associated provenance for46fixture-native nodes. It includes23authentication
+controls and55receipt controls; these are subsets, not additional counts. The invocation records
+the13selected test files and final runtime/harness source identity. Reclassification with that
+invocation's selected-node manifest passed (`build/ta-required-union-final.json`).
+
+Commands: `CORPUS_TEST_NATIVE_AUTH_CRASH=1 uv run python scripts/test_receipts.py run
+--python-only --out-dir build/test-receipts/ta-native/final-20261102 --` followed by the selections
+in that receipt's `invocation.json`; `uv run python scripts/test_receipts.py classify --receipt-dir
+build/test-receipts/ta-native/final-20261102 --required-from
+build/test-receipts/ta-native/final-20261102/events-controller-*.jsonl`.
+The opt-in environment enables all required real authentication interruption controls; the final
+selection has no skips. Six existing library/PDF deprecation warnings remain in the raw output.
+
+**Passed:** independent combined design/target review (Accept scoped), `just ready`, `just types`,
+`uv run ruff check`, `git diff --check`, `just turn-end`, and `just evidence` (127records,0errors,
+39historical warnings). Logs are `build/ta-{ready,types-final,ruff-final,turn-end}.log`.
+**Failed, unrelated:** `just docs-check` retains existing library-publication link failures
+(`build/ta-docs-final.log`); no TA document failure was reported. Earlier failed probes, concurrent
+cold-migration attempts and test-control development attempts are retained, never promoted to passes.
+
+Final documentation/status disposition followed qualification; maintenance left the staged tested
+runtime/harness files unchanged. DTA-002/003/017 close for the scoped contracts above, not every
+transport/provider or semantic claim. **Not_run:** broad `just test-all`/`just hygiene`, Rust and
+provider campaigns: TA-12/full-series scope remains separately open.
+
+**Next:** continue the separately owned TA-05–12 queue and remaining TA-00 obligations. UM/provider
+acceptance remains external.
 
 ## Authoring verification — 2026-11-02
 

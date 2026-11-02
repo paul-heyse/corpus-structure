@@ -339,6 +339,18 @@ the real deployment independently. The existing leased lifecycle owns authentica
 databases, closes resources and waits boundedly for backend exit without FORCE or new terminate
 rights. Semantic templates expire with the session; the legacy cache keeps its existing lifetime.
 
+**Implemented; bounded Tested (2026-11-02; TA-01–04 acceptance owned by the
+[test architecture coordinator](../plans/test-architecture-and-evidence_2026-11-02.md#native-increment-execution--2026-11-02)).**
+The same lifecycle owns alternate-principal cluster effects through an exclusive authentication
+lease and private atomic operation journals. Exact cluster/role nonce and OID identity authorize
+role and row recovery; helper locks and operation-labelled backend settlement prevent recovery
+from overtaking surviving effects after owner death. Ambiguous identity or unsettled effects
+refuse recovery and remain outstanding; no termination privilege is introduced. Test application
+settings are fenced independently of original native acquisition credentials. Existing receipt
+events distinguish requested configuration from observed database, deployment and actual login
+context, with missing native provenance explicit. Private-cluster/plugin alternatives remain
+unselected; the bounded comparison does not change the production cluster arrangement.
+
 > Decision: ADR-0032
 
 ## Composed-model admission fence
