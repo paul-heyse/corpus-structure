@@ -1,5 +1,12 @@
 # D8 · Agent and query interfaces
 
+## Unified operation realization
+
+**Accepted target, Proposed until implemented (2026-11-02).** Ordinary callers use concrete typed domain operations with generated bindings/materializers. Named queries resolve producing and installed implementation compatibility before plugin import and carry it through continuation/evidence journeys. CLI/MCP operation explanations, semantic impact and located diagnostics share domain functions; preflight observations never authorize later effects.
+
+> Decision: [ADR-0046](../adr/0046-unified-operation-realization.md)
+
+
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
 [ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
 occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below are historical/proposed detail; current runtime contracts are

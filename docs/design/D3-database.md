@@ -1,5 +1,12 @@
 # D3 · Database
 
+## Unified operation realization
+
+**Accepted target, Proposed until implemented (2026-11-02).** SQLAlchemy Core is the primary relational authoring/execution representation. Model-bound expressions and pglast declarations generate eligible native products under versioned custody/catalog/admission profiles and the existing Alembic lifecycle. Restricted PostgreSQL enforcement remains authoritative. Structured SQL bodies require actual profile qualification; retained specialized kernels are explicitly bound. Published-address consumer constraints and read selection share one model-owned binding.
+
+> Decision: [ADR-0046](../adr/0046-unified-operation-realization.md)
+
+
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
 [ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
 occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below are historical/proposed detail; current runtime contracts are

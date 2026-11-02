@@ -1,5 +1,12 @@
 # D2 · Schema conventions, compilers and the statistics pack
 
+## Unified operation realization
+
+**Accepted target, Proposed until implemented (2026-11-02).** The resolved effective model owns explicit comparison-role projections, operation parameter/result correspondence and admitted invariant/diagnostic bindings. Typed callable and projection products derive from these definitions with versioned archive readers; annotation presence alone does not establish enforcement. Existing implementation claims below retain their scope.
+
+> Decision: [ADR-0046](../adr/0046-unified-operation-realization.md)
+
+
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
 [ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
 occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below

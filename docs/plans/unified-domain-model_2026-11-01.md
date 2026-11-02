@@ -1,6 +1,6 @@
 # Unified domain model: typed operations and generated realization
 
-**Status:** Planned — plan series authored; implementation not started by this undertaking.
+**Status:** Active — UM-00 authority amendments and dependency preparation implemented; shared semantic/query/resource slices in progress, qualification open.
 **Created:** 2026-11-01. **Target claims:** Proposed; library interface checks and historical
 implementation evidence retain their stated scope. This coordinator alone owns package state,
 execution queue and source-review disposition for the new series.
@@ -150,28 +150,28 @@ edit ownership. Document boundaries are not execution barriers or permanent work
 
 ## Package queue and working prerequisites
 
-All rows are **Planned**. The table is the sole current package-state owner. A prerequisite means
+The table is the sole current package-state owner. Early implementation is not assembled qualification. A prerequisite means
 usable contract/behavior, not that an entire companion must finish. Early contracts and later
 admission/consumer closure are deliberately separate.
 
-| Package | Required working input | Delivered behavior / completion boundary |
-|---|---|---|
-| UM-00 | Confirmed decisions and current owner/source snapshot | Architecture/rule amendments, explicit supported versions and source-to-consumer baseline for this series; no new audit |
-| UM-01 | Effective property definitions and current comparison policy | Checked comparison context/meaning/evidence projection, used by scientific decisions without changing fact identity |
-| UM-02 | Current invariant/enforcer/operation definitions | Observable versus descriptive invariant contract and qualified diagnostic mapping consumed by real enforcers |
-| UM-03 | Settled request/result concepts; UM-02 only for promised failure mapping | Generated typed domain calls, binds, Core/result projections and materializers, including published-document consumers with private placement bindings |
-| UM-04 | Existing serving protocol; settled implementation compatibility binding | Archived-run query/continuation/explanation/evidence meaning is compatible or explicitly refused |
-| UM-05 | UM-03 signature/projection contract slice, not full caller migration; working PDF foundation for its consumer case | Model-bound Core companion/inference recipes plus published-address read/effect bindings and selected-section projection |
-| UM-06 | UM-02 enforcement contract and UM-05 selected native expression recipes | Structured native declarations and eligible SQL-language bodies with versioned identity/dependency/admission |
-| UM-07 | UM-06 first qualified desired product plus existing Alembic lifecycle | Frozen forward native transitions including changed consumer constraints/inserts/replay, before/after drift/ACL/recreation controls; old revisions unchanged |
-| UM-08 | One settled UM-05 companion recipe and model/native signature metadata | Qualified projection type/dependency analysis with SQLGlot, unknowns explicit, used by UM-12 |
-| UM-09 | Existing Settings and AnalysisScope owners | Non-default resources reach operations; supported lazy results enforce owner lifetime |
-| UM-10 | UM-03/05 directional operation contracts and relevant UM-09 owners | Model-derived exact transfer/decoding used in actual publication and analytical read/export |
-| UM-11 | Operation/state/binding contracts plus actual owner checks | CLI/MCP operation/prerequisite explanations; effects recheck atomically |
-| UM-12 | UM-01/02 semantics, UM-05 projection dependencies, relevant UM-08 analysis | CLI/MCP semantic impact and declared consumer changes, with conservative unknowns |
-| UM-13 | Existing validator outputs and an early shared diagnostic contract | Model/path/operation/scope-located diagnostic consumers preserving failure categories |
-| UM-14 | Working producer and affected consumer products from each package | Remaining maintained callers migrated; replacement paths retired and supported archives/adoption reconciled |
-| UM-15 | All selected functional scope and UM-14 final-source integration | Required functional/native/provider/nonfunctional union has applicable evidence; honest unresolved/benefit limits |
+| Package | State | Required working input | Delivered behavior / completion boundary |
+|---|---|---|---|
+| UM-00 | In progress | Confirmed decisions and current owner/source snapshot | Architecture/rule amendments, explicit supported versions and source-to-consumer baseline for this series; no new audit |
+| UM-01 | In progress | Effective property definitions and current comparison policy | Checked comparison context/meaning/evidence projection, used by scientific decisions without changing fact identity |
+| UM-02 | In progress | Current invariant/enforcer/operation definitions | Observable versus descriptive invariant contract and qualified diagnostic mapping consumed by real enforcers |
+| UM-03 | In progress | Settled request/result concepts; UM-02 only for promised failure mapping | Generated typed domain calls, binds, Core/result projections and materializers, including published-document consumers with private placement bindings |
+| UM-04 | In progress | Existing serving protocol; settled implementation compatibility binding | Archived-run query/continuation/explanation/evidence meaning is compatible or explicitly refused |
+| UM-05 | Planned | UM-03 signature/projection contract slice, not full caller migration; working PDF foundation for its consumer case | Model-bound Core companion/inference recipes plus published-address read/effect bindings and selected-section projection |
+| UM-06 | Planned | UM-02 enforcement contract and UM-05 selected native expression recipes | Structured native declarations and eligible SQL-language bodies with versioned identity/dependency/admission |
+| UM-07 | Planned | UM-06 first qualified desired product plus existing Alembic lifecycle | Frozen forward native transitions including changed consumer constraints/inserts/replay, before/after drift/ACL/recreation controls; old revisions unchanged |
+| UM-08 | Planned | One settled UM-05 companion recipe and model/native signature metadata | Qualified projection type/dependency analysis with SQLGlot, unknowns explicit, used by UM-12 |
+| UM-09 | In progress | Existing Settings and AnalysisScope owners | Non-default resources reach operations; supported lazy results enforce owner lifetime |
+| UM-10 | Planned | UM-03/05 directional operation contracts and relevant UM-09 owners | Model-derived exact transfer/decoding used in actual publication and analytical read/export |
+| UM-11 | Planned | Operation/state/binding contracts plus actual owner checks | CLI/MCP operation/prerequisite explanations; effects recheck atomically |
+| UM-12 | Planned | UM-01/02 semantics, UM-05 projection dependencies, relevant UM-08 analysis | CLI/MCP semantic impact and declared consumer changes, with conservative unknowns |
+| UM-13 | Planned | Existing validator outputs and an early shared diagnostic contract | Model/path/operation/scope-located diagnostic consumers preserving failure categories |
+| UM-14 | Planned | Working producer and affected consumer products from each package | Remaining maintained callers migrated; replacement paths retired and supported archives/adoption reconciled |
+| UM-15 | Planned | All selected functional scope and UM-14 final-source integration | Required functional/native/provider/nonfunctional union has applicable evidence; honest unresolved/benefit limits |
 
 Useful order: begin UM-00 and shared contract definition; UM-04 and UM-09 can progress independently.
 Develop UM-01/02 and UM-03 contracts early, then UM-05/06/07 and UM-10 as working products become
@@ -241,6 +241,12 @@ annotation existence or self-round-tripping does not establish correctness. Run 
 during implementation; final maintenance precedes integrated qualification at complete scope.
 No speed, memory, capacity or quality improvement is established by these plan documents.
 
-**Next:** execute UM-00 and ready shared-contract/UM-04/UM-09 work only after implementation is
-separately authorized. At authoring completion, all packages remain Planned; historical PDF/PG
-receipts are context, not qualification of this series.
+**Next:** finish and integrate the shared-contract, query-compatibility and resource/lifetime slices, then continue the ready dependent packages. Historical PDF/PG receipts retain their scope and do not qualify UM replacements.
+
+## Execution checkpoint — 2026-11-02
+
+The operator authorized the complete UM-00–15 execution approach. ADR-0046 records accepted RC01–RC03 realization boundaries while preserving RC04; D2/D3/D8 and DESIGN §B4/§B5 carry the target. SQLGlot30.27.0 was added exactly, with only its intended lock/dependency changes; `just ready` passed. These steps do not establish UM-08 analysis or native body support.
+
+One writer owns shared model/preparation/archive/generation changes; separate owners implement query compatibility and resource/lifetime consumers. Current source/body profiles, frozen migrations, book task10 pin and dirty concurrent PDF/library files remain preserved. Independent focused checks precede complete-scope qualification. Available disk was about6GB at kickoff; small owned tests and retained products avoid full database/book copies. No cache/database/evidence cleanup was performed.
+
+Product qualification and provider journeys for this series remain open.
