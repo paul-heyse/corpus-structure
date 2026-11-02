@@ -1,7 +1,14 @@
 # Relational implementations and projection analysis
 
-**Status:** In progress; integrated qualification remains open. **Created:** 2026-11-01.
-**Target:** Proposed. The [coordinator](../unified-domain-model_2026-11-01.md) owns package state,
+> Current execution (2026-11-02): implementation is integrated under
+> [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
+> [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
+> owns current disposition and open acceptance. Historical compatibility/repair statements below
+> retain their dated baseline; obsolete runtime formats are retired, while current archive custody
+> and query compatibility remain supported. Final assembled qualification is open.
+
+**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator. **Created:** 2026-11-01.
+**Target:** Implemented for the selected scope; Tested only within recorded checks. The [coordinator](../unified-domain-model_2026-11-01.md) owns package state,
 source disposition and the execution queue. This companion owns UM-05 and UM-08 design.
 **Basis:** integrated review at `370f0643`, [R06/R08](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md),
 and [PostgreSQL applicability](../../library_leverage/libraries/unified-model-postgresql_2026-11-01.md).

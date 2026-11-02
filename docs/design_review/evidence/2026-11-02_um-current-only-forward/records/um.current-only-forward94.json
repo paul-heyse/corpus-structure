@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "id": "um.current-only-forward94",
+  "title": "Current-only native91–94 realization and fresh restricted-login admission",
+  "group": "unified-domain-model",
+  "package": "UM-06/07/14",
+  "finalized": "2026-11-02",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the frozen current-only native revisions retire obsolete relations and bind the final model while preserving exact catalog, source, privilege, transaction and current runtime admission guarantees?",
+  "answers": [
+    "UM-CA01",
+    "UM-CA02",
+    "UM-CA03",
+    "UM-CA08",
+    "UM-CA10"
+  ],
+  "method": "Rehearse only the provenance-checked owned author database inside rollback transactions; freeze and replay exact82–94 products; independently exercise drift/refusal/restoration and lifecycle controls. Separately migrate the fresh creation-token database and use actual restricted LOGIN admission/read/writer entry points. No full-PDF or knowledge acceptance is inferred.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-02_um-current-only-forward/frozen_forward_v2.py frozen-002",
+    "uv run python docs/design_review/evidence/2026-11-02_um-current-only-forward/frozen_ocr93.py ocr93-frozen-001",
+    "uv run python docs/design_review/evidence/2026-11-02_um-current-only-forward/frozen_analytics94.py analytics94-frozen-001",
+    "uv run ci db migrate --json",
+    "uv run ci schema explain-operation construct_project --release release:866ee50aa849b233f96ea113da3e83ed7be70ae4a8ea1979765a7667bf6abc08 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "author_analytics94.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "064a471dccb4500b4f39db8e2d3ef0ca288ff0c3e2d57b239f73b141566b7df7"
+    },
+    {
+      "path": "author_descriptor92.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "5b7a4c99f80c32f5dda19ea8d734d8cbb5ee7feaa21b00903a94096ba505adc6"
+    },
+    {
+      "path": "author_descriptor92_v2.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "68c86cec403ab6a9a834f5cac876b2152837bab3084fadb3d9ec5ff29509586e"
+    },
+    {
+      "path": "author_descriptor92_v3.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "64ef5e5bee29890ff6fc3cefa6dac07b0d8ea593071ec53a14e5f6d267520caf"
+    },
+    {
+      "path": "author_forward.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "31a0b04a74d6e5d295c6bef68e94eeaa535e1c876bc94243ca87931e6faf7e4a"
+    },
+    {
+      "path": "author_forward_v10.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "2336be605feabf17b2171326a18eca7fa836b7d08d014c67d744a8c85cc85c8e"
+    },
+    {
+      "path": "author_forward_v2.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "d5dd15c2d9f833aa954aa43c09a06e62d6c93e7032b73b5c493d093d5aae78ca"
+    },
+    {
+      "path": "author_forward_v3.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "01c580f7f2e3de00678b527f72c95d314c5dfcf94a6248d56fc15002b58fe54d"
+    },
+    {
+      "path": "author_forward_v4.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "c2b1234f92124c1bde31d3a6a3e268641f3ce2d8a4a5a509a1012db9b2357adc"
+    },
+    {
+      "path": "author_forward_v5.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "19bd035b2cb3bd9a7f17df63034d388ed7443413aa02b5e949b68a33945cf491"
+    },
+    {
+      "path": "author_forward_v6.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "9285fd92898b92bfb1985a3d8875227b156c9996d4e0235cb282f95ff436f343"
+    },
+    {
+      "path": "author_forward_v7.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "fc147108eacc552f7638e2fb0595a1a994553951e1317c9d853d6684a098e164"
+    },
+    {
+      "path": "author_forward_v8.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "6a15a15ee3fd0798048e3856b0405a37af86423f5cec7c9ef6afe5e92839ebfe"
+    },
+    {
+      "path": "author_forward_v9.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "5b84c39369b06333a69ac55ed87bbcd96d295eb7e756d47b69f5dfb40554e78f"
+    },
+    {
+      "path": "author_ocr93.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "3e537b8139a3baba90ec172c99c69fad1ceceab077e7672ab726ad5a34dfcd7e"
+    },
+    {
+      "path": "author_ocr93_v2.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "ddbd820f7f284e0438eb2d111d3ec083ef0312438937a68ec56a868740ff3bb3"
+    },
+    {
+      "path": "author_ocr93_v3.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "a25ae5dfaa853fba11ea8ac074880f3f56e29bc130a031e6ec55573789a1e537"
+    },
+    {
+      "path": "candidate_attempt.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "547a8be4fad8daa7e2eda6606721095eeecfba5c862cb2aa51a5d877672fbfa4"
+    },
+    {
+      "path": "compare_predecessor.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "f17753f1e96b78a8076346c77f31fb110ac04c1f9ac0a97e945e781d4a7dee18"
+    },
+    {
+      "path": "freeze_analytics94.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "edf3cd30f52fca302a6d4a561e81fc00acdab796580bf84d2791de95c7c5d96a"
+    },
+    {
+      "path": "freeze_descriptor92.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "5272a22cd97fb441c0017cb0d73269521ef212a680b08bb1ce7da2a8a533cb2b"
+    },
+    {
+      "path": "freeze_forward.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "ac05c1a7003b9440a83b134a0f9db4019d9bd50b276d79432b3fb2df739e8e18"
+    },
+    {
+      "path": "freeze_ocr93.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "afe6320bc9bd6ab3c18a1dfdac24c8f4b9662c8710c1b4f263e3373c1847cebd"
+    },
+    {
+      "path": "frozen_analytics94.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "3217adbaefce6d265d9d3a9189286fa182c4ccea86f289db40120ce7946f2c79"
+    },
+    {
+      "path": "frozen_descriptor92.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "25cd65ec36fc2300ad904724bc5346cd51fb50781a3de92632b85f89348d0906"
+    },
+    {
+      "path": "frozen_descriptor92_v2.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "84a943b82d1c9aee44d8c8df6e81b9b05c0873b1f61e73e7a0c1e35afaa6bb63"
+    },
+    {
+      "path": "frozen_forward.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "67e25a215abf22975457162ca172cd1419968c83135af6175fe7bfec567eb053"
+    },
+    {
+      "path": "frozen_forward_v2.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "dbee2cf5c244f8f8602419c80fa2fed2950f0a018ee2df3a211257cc6b25cfd3"
+    },
+    {
+      "path": "frozen_ocr93.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "e253805d1d68889b3f40bfd136bd2d915de1144385372e26133c8cc9432565bf"
+    },
+    {
+      "path": "inspect_author.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "7e444b5284a3471ced4349ccd048d4a327e437b8d1b44969d96d98c53310f0e2"
+    },
+    {
+      "path": "trigger_acl_control.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "d1696ee77788c0b4c287c9001f3f72efbff0750216ccb432e41ded00b32f84d7"
+    },
+    {
+      "path": "trigger_acl_control_v2.py",
+      "role": "exact retained authoring/rehearsal source",
+      "sha256": "eaba3c96b15e314cf3d4778f31f07c0e3662604901d04a701a3cfc2836d9e4d6"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "preserved failed and passing authoring/freeze/replay controls plus actual LOGIN receipts",
+      "sha256": "be60f16b8c6d2fe7619a39459432bb9f16e08988259b4872ad42bf5d14a2fdc7"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "retired stored relations",
+      "value": 36,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "current stored tables",
+      "value": 119,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "desired native objects",
+      "value": 85,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "frozen head",
+      "value": "semantic_bound_only_20261102",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "actual restricted admitter LOGIN",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "full PDF and assembled qualification",
+      "value": "not_run",
+      "of": null,
+      "unit": null,
+      "note": "Fresh attempts and required union remain separately open at the coordinator."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Bounded native91–94 evolution, source/ACL drift refusal, exact restoration and caller-owned rollback passed. Native93 includes six legitimate source-derived kernel changes;94 changes only the execution descriptor input/model identity. The fresh target migrated through94 and actual restricted admission/read succeeded; actual writer project/run entry paths were exercised. Original failed attempts and frozen predecessors remain. This does not establish full corpus recognition, five-section knowledge, provider grading or assembled UM qualification.",
+  "consumed_by": [
+    "UM-06",
+    "UM-07",
+    "UM-14",
+    "unified-domain-model coordinator"
+  ]
+}

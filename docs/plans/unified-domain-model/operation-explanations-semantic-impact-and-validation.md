@@ -1,6 +1,13 @@
 # Operation explanations, semantic impact and actionable validation
 
-**Status:** In progress; actual CLI/MCP and assembled qualification remain open. **Created:** 2026-11-01.
+> Current execution (2026-11-02): implementation is integrated under
+> [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
+> [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
+> owns current disposition and open acceptance. Historical compatibility/repair statements below
+> retain their dated baseline; obsolete runtime formats are retired, while current archive custody
+> and query compatibility remain supported. Final assembled qualification is open.
+
+**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator. **Created:** 2026-11-01.
 **Target maturity:** Proposed. The [coordinator](../unified-domain-model_2026-11-01.md) owns
 package state, source disposition and assembled acceptance. This companion owns UM-11–UM-13
 and delivers selected review opportunities [O01](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#O01),

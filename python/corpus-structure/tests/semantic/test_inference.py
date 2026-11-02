@@ -459,7 +459,9 @@ def test_real_archived_binary_release_round_trip(
 
     with semantic_db_engine.begin() as conn:
         persist_release(conn, bad_bundle, bad_dependencies, bad_profile, bad)
-        with pytest.raises(ValueError, match="unsupported required native binary inference profile"):
+        with pytest.raises(
+            ValueError, match="unsupported required native binary inference profile"
+        ):
             admit_release(bad, connection=conn)
 
 

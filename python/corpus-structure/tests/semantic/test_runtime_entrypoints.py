@@ -246,17 +246,24 @@ def test_execution_admission_refuses_genuine_unbound_semantic1_before_run(semant
             table("data.realization"),
             table("ops.run"),
         )
-        assert conn.scalar(
-            select(releases.c.profile).where(releases.c.release_id == prepared.release_id)
-        ) == "semantic-1"
-        assert conn.execute(
-            select(realizations.c.realization_id).where(
-                realizations.c.project_id == "unbound-direction"
+        assert (
+            conn.scalar(
+                select(releases.c.profile).where(releases.c.release_id == prepared.release_id)
             )
-        ).all() == []
-        assert conn.execute(
-            select(runs.c.id).where(runs.c.project_id == "unbound-direction")
-        ).all() == []
+            == "semantic-1"
+        )
+        assert (
+            conn.execute(
+                select(realizations.c.realization_id).where(
+                    realizations.c.project_id == "unbound-direction"
+                )
+            ).all()
+            == []
+        )
+        assert (
+            conn.execute(select(runs.c.id).where(runs.c.project_id == "unbound-direction")).all()
+            == []
+        )
         assert conn.execute(select(table("ops.intervention").c.id)).all() == []
 
 

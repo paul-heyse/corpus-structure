@@ -1,8 +1,13 @@
 # Integration, adoption and qualification
 
-**Status:** Integration in progress; product qualification failed (3107 passed/30 failed), required-union acceptance open. Package state and source-review disposition belong only to
-[the coordinator](../unified-domain-model_2026-11-01.md). This companion owns UM-14/15 design and
-the combined acceptance boundary, not a duplicate progress ledger.
+> Current execution (2026-11-02): implementation is integrated under
+> [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
+> [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
+> owns current disposition and open acceptance. Historical compatibility/repair statements below
+> retain their dated baseline; obsolete runtime formats are retired, while current archive custody
+> and query compatibility remain supported. Final assembled qualification is open.
+
+**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator.
 
 ## Baseline and preservation contract
 

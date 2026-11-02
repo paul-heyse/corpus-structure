@@ -1,7 +1,14 @@
 # Semantic contracts and comparison policies
 
-**Status:** In progress; checked comparison and two observable invariant families are implemented with bounded native/semantic evidence; broader acceptance remains open. **Created:** 2026-11-01.
-**Target:** Proposed. Source review at `370f0643`: [R01](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R01)
+> Current execution (2026-11-02): implementation is integrated under
+> [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
+> [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
+> owns current disposition and open acceptance. Historical compatibility/repair statements below
+> retain their dated baseline; obsolete runtime formats are retired, while current archive custody
+> and query compatibility remain supported. Final assembled qualification is open.
+
+**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator. **Created:** 2026-11-01.
+**Target:** Implemented for the selected scope; Tested only within recorded checks. Source review at `370f0643`: [R01](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R01)
 and [R03](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R03), retaining
 DA-001 and DA-027 as diagnostic identities. The [coordinator](../unified-domain-model_2026-11-01.md)
 owns package state, source disposition and combined acceptance. Existing plans are unchanged.

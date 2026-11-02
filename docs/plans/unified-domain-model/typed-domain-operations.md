@@ -1,9 +1,14 @@
 # Generated typed domain operations
 
-**Status:** In progress; generated native/Core boundaries and public identifier propagation are
-Implemented with focused Tested evidence (2026-11-02). Final native/integrated acceptance remains
-open with the coordinator. **Created:** 2026-11-01.
-**Target:** Implemented/Tested only for the bounded slices below; transition and nested-ID gaps remain. Consumes review [R05](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R05)
+> Current execution (2026-11-02): implementation is integrated under
+> [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
+> [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
+> owns current disposition and open acceptance. Historical compatibility/repair statements below
+> retain their dated baseline; obsolete runtime formats are retired, while current archive custody
+> and query compatibility remain supported. Final assembled qualification is open.
+
+**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator. **Created:** 2026-11-01.
+**Target:** Implemented/Tested only for the bounded slices below; the current-only transition and nested-ID corrections are integrated; final acceptance remains open. Consumes review [R05](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R05)
 and the construction/serialization portions of R06/R09. The
 [coordinator](../unified-domain-model_2026-11-01.md) owns mutable package state and acceptance.
 

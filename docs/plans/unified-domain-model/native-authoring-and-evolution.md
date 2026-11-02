@@ -1,7 +1,13 @@
 # Structured native authoring and frozen evolution
 
-**Status:** In progress; selected native generation/evolution implemented and bounded controls
-passed. Maintained derive-preview admission is broken; catalog-mechanism disposition, consumer adoption and integrated qualification remain open. **Created:** 2026-11-01.
+> Current execution (2026-11-02): implementation is integrated under
+> [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
+> [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
+> owns current disposition and open acceptance. Historical compatibility/repair statements below
+> retain their dated baseline; obsolete runtime formats are retired, while current archive custody
+> and query compatibility remain supported. Final assembled qualification is open.
+
+**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator. **Created:** 2026-11-01.
 **Target:** Implemented for the selected versioned SQL body profile; Tested within the scopes below.
 The [coordinator](../unified-domain-model_2026-11-01.md) owns current package
 state, decisions and source dispositions. This companion owns UM-06 and UM-07 design for R07.

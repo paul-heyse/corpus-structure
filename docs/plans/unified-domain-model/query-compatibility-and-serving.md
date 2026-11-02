@@ -1,7 +1,13 @@
 # Query implementation compatibility and serving
 
-**Status:** Bounded query custody and actual CLI journeys are implemented/tested; historical archive compatibility has an open shared defect. Assembled series
-qualification remains with the coordinator. **Created:** 2026-11-01.
+> Current execution (2026-11-02): implementation is integrated under
+> [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
+> [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
+> owns current disposition and open acceptance. Historical compatibility/repair statements below
+> retain their dated baseline; obsolete runtime formats are retired, while current archive custody
+> and query compatibility remain supported. Final assembled qualification is open.
+
+**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator. **Created:** 2026-11-01.
 **Target:** Implemented / Tested within the execution checkpoint below. Source [R02 / DA-028](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R02)
 is the highest-consequence current correction. The [coordinator](../unified-domain-model_2026-11-01.md)
 owns current disposition and assembled completion. Existing plans and frozen products are unchanged.

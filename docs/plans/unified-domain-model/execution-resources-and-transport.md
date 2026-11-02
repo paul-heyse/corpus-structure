@@ -1,7 +1,13 @@
 # Execution resources, ownership and directional transport
 
-**Status:** In progress; resource/lifetime and directional transport slices have focused passing evidence; companion-export driver propagation is incomplete. Final-source integration and series qualification remain open.
-**Created:** 2026-11-01. **Updated:** 2026-11-02. **Maturity:** Implemented; focused Tested evidence
+> Current execution (2026-11-02): implementation is integrated under
+> [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
+> [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
+> owns current disposition and open acceptance. Historical compatibility/repair statements below
+> retain their dated baseline; obsolete runtime formats are retired, while current archive custody
+> and query compatibility remain supported. Final assembled qualification is open.
+
+**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator. **Created:** 2026-11-01. **Updated:** 2026-11-02. **Maturity:** Implemented; focused Tested evidence
 is bounded below, with no measured speedup or universal memory claim.
 The [coordinator](../unified-domain-model_2026-11-01.md) owns
 package state, source disposition and assembled acceptance. This companion owns UM-09/UM-10
