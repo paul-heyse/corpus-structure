@@ -25,7 +25,6 @@ from corpus_structure.core.evidence import (
     rendition_key,
     segment_key,
 )
-from corpus_structure.core.frame import FrameFailure
 from corpus_structure.core.keys import (
     Drop,
     KeyContext,
@@ -47,7 +46,6 @@ from corpus_structure.core.vocab import (
     CanonicalForm,
     CaseRule,
     DropReason,
-    FrameFailureReason,
     KeyRole,
     QualifierStore,
     Relation,
@@ -436,10 +434,6 @@ def test_the_schema_refuses_malformed_specifications() -> None:
     with pytest.raises(ValidationError):
         KeySchema.model_validate({"key_scheme": 0})
 
-
-def test_every_frame_failure_reason_has_a_message() -> None:
-    for code in FrameFailureReason:
-        assert FrameFailure("s1", "p", code).message
 
 
 def test_values_validated_in_the_value_adapters_keep_their_text_form() -> None:

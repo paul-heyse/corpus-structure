@@ -34,7 +34,6 @@ from corpus_structure.core.evidence import (
     rendition_key,
 )
 from corpus_structure.core.locators import LocatorIndex
-from corpus_structure.methods.llm.parse import RenditionView
 from corpus_structure.schema.lookup import name_map
 from corpus_structure.schema.pack import load_pack
 
@@ -85,12 +84,20 @@ def raw_page(page: str) -> bytes:
     return (corpus / ROOT / page).read_bytes()
 
 
-def view_of(page: str, raw: bytes) -> RenditionView:
+@dataclass(frozen=True)
+class ArchivedPage:
+    content: RenditionContent
+    page: str
+    key: str
+    macros: dict[str, MacroDef]
+
+
+def view_of(page: str, raw: bytes) -> ArchivedPage:
     """A production rendition of `raw` as parse reads it, with its `ren` key."""
     uri = f"{ROOT}/{page}"
     content = archived_rendition(page, raw)
     document = document_key("statistics", uri, hashlib.sha256(raw).hexdigest())
-    return RenditionView(
+    return ArchivedPage(
         content,
         page,
         rendition_key(document, content_digest(content)),
@@ -99,7 +106,7 @@ def view_of(page: str, raw: bytes) -> RenditionView:
 
 
 @functools.cache
-def page_view(page: str) -> RenditionView:
+def page_view(page: str) -> ArchivedPage:
     return view_of(page, raw_page(page))
 
 
@@ -110,7 +117,7 @@ def sentence_at(content: RenditionContent, start: int, end: int) -> Segment:
     raise AssertionError(f"no sentence [{start}, {end}) on the production rendition")
 
 
-def frame_of(view: RenditionView, sentences: dict[str, list[int]]) -> CitationFrame:
+def frame_of(view: ArchivedPage, sentences: dict[str, list[int]]) -> CitationFrame:
     """The packet's frame of a spike unit on the production rendition: each sentence id's
     generated locator and text (the spike's offsets are the production rendition's, S1)."""
     index = LocatorIndex(view.content, view.page)
@@ -126,10 +133,10 @@ def frame_of(view: RenditionView, sentences: dict[str, list[int]]) -> CitationFr
 @dataclass(frozen=True)
 class Env:
     data: Callable[[str], Any]
-    view: Callable[[str], RenditionView]
-    view_of: Callable[[str, bytes], RenditionView]
+    view: Callable[[str], ArchivedPage]
+    view_of: Callable[[str, bytes], ArchivedPage]
     raw: Callable[[str], bytes]
-    frame: Callable[[RenditionView, dict[str, list[int]]], CitationFrame]
+    frame: Callable[[ArchivedPage, dict[str, list[int]]], CitationFrame]
     names: dict[str, str]
     fixtures: Path
 

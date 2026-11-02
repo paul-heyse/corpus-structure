@@ -20,7 +20,6 @@ from hypothesis import strategies as st
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Step, snap
-from corpus_structure.methods.llm.parse import resolve_entries
 
 
 class CascadeTimeouts(TypedDict, total=False):
@@ -187,7 +186,9 @@ def test_respaced_and_delimiter_swapped_substrings(sentences: list[str]) -> None
 # --- The spike's quotes on production renditions -------------------------------------------------
 
 
-def located_sets(env: Any, sets: list[str]) -> tuple[Counter[str], list[tuple[Any, ...]]]:
+def located_sets(
+    env: Any, sets: list[str], *, excluded_prefixes: tuple[str, ...] = ()
+) -> tuple[Counter[str], list[tuple[Any, ...]]]:
     steps: Counter[str] = Counter()
     differ: list[tuple[Any, ...]] = []
     cascades: dict[tuple[str, str], Cascade] = {}
@@ -195,18 +196,20 @@ def located_sets(env: Any, sets: list[str]) -> tuple[Counter[str], list[tuple[An
         quote_set = env.data("quotes")[name]
         units = env.data("units")[quote_set["units"]]
         for uid, loc, quote, sentence, start, end, step in quote_set["quotes"]:
+            if uid.startswith(excluded_prefixes):
+                continue
             unit = units[uid]
             if (quote_set["units"], uid) not in cascades:
                 view = env.view(unit["page"])
                 frame = env.frame(view, unit["sentences"])
-                outcomes = resolve_entries(frame, LocatorIndex(view.content, view.page))
-                assert all(o.status == "resolved" for o in outcomes.values())
+                index = LocatorIndex(view.content, view.page)
+                resolved = {sid: index.resolve(entry.locator) for sid, entry in frame.root.items()}
+                assert all(view.content.text(resolved[sid]) == entry.text for sid, entry in frame.root.items())
                 cascades[(quote_set["units"], uid)] = Cascade(
                     view.content.canonical_text,
                     [
-                        FrameSentence(o.sentence, o.segment.start, o.segment.end)
-                        for o in outcomes.values()
-                        if o.segment is not None
+                        FrameSentence(sid, segment.start, segment.end)
+                        for sid, segment in resolved.items()
                     ],
                     view.macros,
                 )
@@ -231,8 +234,8 @@ def test_the_s0_sets_reproduce_s0_stored(env: Any) -> None:
 
 def test_the_s0r2_sets_on_the_spike_pages(env: Any) -> None:
     sets = ["pass_hv", "pass_sv", "adjudication_v1"]
-    _, differ = located_sets(env, sets)
-    assert [d for d in differ if not d[1].startswith("H")] == []
+    _, differ = located_sets(env, sets, excluded_prefixes=("H",))
+    assert differ == []
 
 
 @pytest.mark.corpus
