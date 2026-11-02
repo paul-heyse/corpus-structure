@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
+from pydantic import create_model
 from sqlalchemy import insert, select, text, update
 from sqlalchemy.exc import DBAPIError
 
@@ -39,7 +40,13 @@ def test_native_hold_fences_cancellation_and_refuses_forged_error_seed(
         cfg = record_method(
             conn,
             SimpleNamespace(
-                name="agent", version="1", family="agent", tier="agent", confidence_source=None
+                name="agent",
+                version="1",
+                family="agent",
+                tier="agent",
+                confidence_source=None,
+                unit_type="run",
+                Config=create_model("AgentHoldConfig"),
             ),
             "default",
             {},
