@@ -136,7 +136,7 @@ def test_unsupported_observable_declarations_refuse(change):
 
 
 def legacy20_product():
-    """Translate the independent pre-extension normalized shape, not current model defaults."""
+    """Build the independent pre-extension normalized shape, not current model defaults."""
     body = json.loads(current_model().content)
     for invariant in body["invariants"]:
         invariant.pop("observable")
@@ -149,7 +149,7 @@ def legacy20_product():
     return body
 
 
-def test_compiler20_reader_preserves_frozen_meaning_without_current_admission(monkeypatch):
+def test_compiler20_product_refuses_without_current_admission(monkeypatch):
     from corpus_structure.semantic import contracts
 
     body = legacy20_product()
@@ -159,23 +159,21 @@ def test_compiler20_reader_preserves_frozen_meaning_without_current_admission(mo
         raise AssertionError("archived20 read cannot re-admit against current guard versions")
 
     monkeypatch.setattr(contracts, "_validate", no_current_admission)
-    model = _bound_execution_model(encoded, body["model_id"])
-    assert model.content == encoded
-    assert model.model_id == body["model_id"]
-    assert model.operation("claim").call is None
-    assert not any(i.observable or i.diagnostics for i in model.invariants)
-    assert next(g.version for g in model.native_guards if g.id == "execution_task") == "1"
-    assert classify_invariant_failure(model, "claim", NativeError(envelope())) is None
+    with pytest.raises(
+        PreparationError, match="requires current compiler 23; regenerate"
+    ) as refusal:
+        _bound_execution_model(encoded, body["model_id"])
+    assert refusal.value.diagnostics[0].code == "unsupported_execution_abi"
 
 
 def test_compiler20_cannot_claim_new_observable_contracts():
     body = legacy20_product()
     body["invariants"][0]["observable"] = True
-    with pytest.raises(PreparationError, match="newer contracts"):
+    with pytest.raises(PreparationError, match="requires current compiler 23; regenerate"):
         _bound_execution_model(canonical_bytes(body), body["model_id"])
 
 
-def test_compiler21_reader_preserves_native_json_and_retired_bindings(monkeypatch):
+def test_compiler21_product_with_retired_bindings_refuses_without_current_admission(monkeypatch):
     from corpus_structure.semantic import contracts
 
     body = json.loads(current_model().content)
@@ -194,10 +192,11 @@ def test_compiler21_reader_preserves_native_json_and_retired_bindings(monkeypatc
         raise AssertionError("archived21 read cannot re-admit the current implementation catalog")
 
     monkeypatch.setattr(contracts, "_normalize", no_current_admission)
-    model = _bound_execution_model(encoded, body["model_id"])
-    assert model.content == encoded
-    assert model.operation("publish_integrated_pdf").id == "publish_integrated_pdf"
-    assert all(call.json_read == "native" for op in model.operations for call in op.calls)
+    with pytest.raises(
+        PreparationError, match="requires current compiler 23; regenerate"
+    ) as refusal:
+        _bound_execution_model(encoded, body["model_id"])
+    assert refusal.value.diagnostics[0].code == "unsupported_execution_abi"
 
 
 def test_current_archived_product_read_is_independent_of_growing_current_capabilities(monkeypatch):
@@ -263,7 +262,7 @@ def test_published_address_constraint_is_qualified_and_operation_bound():
     assert classify_invariant_failure(model, "publish_source_view", error) is None
 
 
-def test_compiler22_preserves_native_only_call_products_without_current_admission(monkeypatch):
+def test_compiler22_native_only_product_refuses_without_current_admission(monkeypatch):
     from corpus_structure.semantic import contracts
 
     body = json.loads(current_model().content)
@@ -279,15 +278,16 @@ def test_compiler22_preserves_native_only_call_products_without_current_admissio
         raise AssertionError("a retained22 reader cannot reinterpret current capabilities")
 
     monkeypatch.setattr(contracts, "_normalize", no_current_ingress)
-    archived = _bound_execution_model(encoded, body["model_id"])
-    assert archived.content == encoded
-    assert all(c.backend == "native" for op in archived.operations for c in op.calls)
-    assert not archived.operation("configure_method").calls
+    with pytest.raises(
+        PreparationError, match="requires current compiler 23; regenerate"
+    ) as refusal:
+        _bound_execution_model(encoded, body["model_id"])
+    assert refusal.value.diagnostics[0].code == "unsupported_execution_abi"
 
 
 @pytest.mark.parametrize("compiler", ["20", "21", "22"])
 def test_pre23_archive_cannot_assert_core_backend_even_if_native(compiler):
     body = json.loads(current_model().content)
     body["inputs"]["compiler_version"] = compiler
-    with pytest.raises(PreparationError, match="newer"):
+    with pytest.raises(PreparationError, match="requires current compiler 23; regenerate"):
         _bound_execution_model(canonical_bytes(body), body["model_id"])

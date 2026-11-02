@@ -223,7 +223,7 @@ def test_invalid_archived_resolved_scope_refuses():
         comparison_projection(replace(prepared, artifacts=tuple(artifacts)))
 
 
-def test_supported_historical_translation_uses_archived_lists_without_new_validation():
+def test_historical_projection_refuses_instead_of_reinterpreting_archived_lists():
     prepared = prepare_release(comparison_bundle(None, None))
     manifest = json.loads(prepared.manifest)
     manifest["profile"]["compiler_version"] = "13"
@@ -241,9 +241,11 @@ def test_supported_historical_translation_uses_archived_lists_without_new_valida
         registry_rows=rows,
         artifacts=tuple(a for a in prepared.artifacts if a.kind != ARTIFACT),
     )
-    assert comparison_projection(historical).partition(
-        "Thing", "https://example.org/owns", "Qualification", {"measure": "1", "interval": "2020"}
-    )[1:] == ({"interval": "2020"}, {"measure": "1"})
+    # The historical registry remains evidence, not a supported translation route.
+    with pytest.raises(ValueError, match=r"^unsupported comparison projection compiler 13$"):
+        comparison_projection(historical)
+    row = next(r for r in rows if r.kind == "operation_property" and r.name == "Thing/owns")
+    assert json.loads(row.body)["cs:qualifiers"] == "measure missing"
 
 
 def test_scientific_consumer_uses_projection_preserving_group_keys_and_occurrences():

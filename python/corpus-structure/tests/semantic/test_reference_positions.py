@@ -106,8 +106,10 @@ def test_keyed_collision_policy_is_explicit_and_distinct_members_always_refuse()
 def test_proposal_and_domain_property_reference_use_declared_nonentity_carrier():
     from pathlib import Path
 
+    from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.domain_operations import _property_value
     from corpus_structure.semantic.proposals import locate_proposal, proposal_inputs
+    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 
     from .test_proposals import batch, frame
 
@@ -140,7 +142,9 @@ classes:
                     SourceArtifact("reference_domain", declaration),
                 ),
             )
-        )
+        ),
+        composed_dependencies(ResolvedDependencies()),
+        PreparationProfile(version="semantic-2"),
     )
     raw = batch()
     raw["claims"][0]["predicate"] = "https://example.org/tag"

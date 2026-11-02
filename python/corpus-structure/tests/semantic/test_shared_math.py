@@ -31,7 +31,7 @@ def test_model_bound_compatible_consumers_share_one_group():
 
 
 def test_base_release_does_not_claim_model_bound_grouping():
-    prepared = fixture_model()[1]
+    prepared = fixture_model(composed=False)[1]
     selected = steps("normalize.formula/default", "extract.math/default")
     assert list(_source_step_groups(selected, configurations(), prepared)) == [
         [selected[0]],

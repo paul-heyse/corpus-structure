@@ -3,6 +3,7 @@
 import json
 from dataclasses import asdict, replace
 from hashlib import sha256
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, event
@@ -99,23 +100,18 @@ def test_current_read_owner_retains_exact_snapshot_contract(current):
         engine.dispose()
 
 
-def test_genuine_historical_read_does_not_acquire_current_semantics():
-    data, bundle, artifacts = archived()
-    retained = reconstruct_release(
-        data["products"],
-        bytes.fromhex(data["manifest"]),
-        bundle,
-        PreparationProfile(**data["profile"]),
-        artifacts,
-    )
-    assert json.loads(retained.manifest)["profile"]["compiler_version"] == "10"
-    binding = SnapshotBinding(retained.release_id, "realization:old", 2, "read:old")
-    engine = create_engine("sqlite://")
-    try:
-        with engine.connect() as connection:
-            session = ReadSession(connection, binding, retained)
-            assert session.prepared is retained
-            assert session._analysis_input is None
-            assert session.binding == binding
-    finally:
-        engine.dispose()
+def test_genuine_historical_read_refuses_without_rewriting_retained_bytes():
+    fixture = Path(__file__).parents[1] / "fixtures/semantic/reader-v10.json"
+    original = fixture.read_bytes()
+    data, bundle, artifacts = archived(fixture)
+    manifest = bytes.fromhex(data["manifest"])
+    assert json.loads(manifest)["profile"]["compiler_version"] == "10"
+    with pytest.raises(ValueError, match=r"^unsupported archived compiler 10$"):
+        reconstruct_release(
+            data["products"],
+            manifest,
+            bundle,
+            PreparationProfile(**data["profile"]),
+            artifacts,
+        )
+    assert fixture.read_bytes() == original

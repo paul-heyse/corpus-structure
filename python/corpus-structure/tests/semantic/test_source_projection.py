@@ -10,8 +10,10 @@ from corpus_structure.core.evidence import (
     segment_key,
 )
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.consolidation import assemble
 from corpus_structure.semantic.source_projection import project_markup
+from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 
 
 @pytest.mark.parametrize("narrowed", [False, True])
@@ -40,7 +42,11 @@ classes:
 """,
             ),
         )
-    prepared = prepare_release(SourceBundle(root, sources))
+    prepared = prepare_release(
+        SourceBundle(root, sources),
+        composed_dependencies(ResolvedDependencies()),
+        PreparationProfile(version="semantic-2"),
+    )
     archive = json.loads(
         (Path(__file__).with_name("fixtures") / "retained-html-inputs.json").read_bytes()
     )["markup"]

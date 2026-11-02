@@ -15,16 +15,33 @@ from corpus_structure.orchestrate import semantic
 from corpus_structure.orchestrate.registry import MethodRegistry, MethodsFile
 from corpus_structure.orchestrate.runner import Graph, Step
 from corpus_structure.semantic import pdf_contracts
+from corpus_structure.semantic.composed import composed_dependencies
+from corpus_structure.semantic.contracts import trusted_execution_inputs
 from corpus_structure.semantic.operations import OperationBinding, OperationConflict
-from corpus_structure.semantic.types import PreparationError
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import (
+    PreparationError,
+    PreparationProfile,
+    ResolvedDependencies,
+)
 
 
 class RegistrationBoundary(Exception):
     """Stop after observing the exact attempted run registration, without writing a run."""
 
 
+@pytest.fixture(scope="module")
+def source_release():
+    inputs = trusted_execution_inputs()
+    return prepare_release(
+        inputs.schema,
+        composed_dependencies(ResolvedDependencies(), inputs),
+        PreparationProfile(version="semantic-2"),
+    )
+
+
 @pytest.fixture
-def run_scope(monkeypatch):
+def run_scope(monkeypatch, source_release):
     context = pdf_contracts.trusted_pdf_context()
     engine = MagicMock(spec=Engine)
     conn = MagicMock(spec=Connection)
@@ -53,8 +70,8 @@ def run_scope(monkeypatch):
         return semantic.run_source_methods(
             engine,
             project_id="scope-control",
-            prepared=context.boundary,
-            binding=OperationBinding(context.boundary.release_id, "input", 0, b"{}"),
+            prepared=source_release,
+            binding=OperationBinding(source_release.release_id, "input", 0, b"{}"),
             registry=registry,
             graph=Graph(((Stage.INGEST, (Step(method.name + "/default"),)),)),
             method_settings=None,
