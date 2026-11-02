@@ -582,7 +582,7 @@ def test_native_constraints_prepares_datatype_aliases_and_scientific_bounds():
     import yaml
 
     from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-    from corpus_structure.semantic.publication import admit_release, native_constraints
+    from corpus_structure.semantic.publication import native_constraints
 
     source = {
         "id": "https://example/alias",
@@ -599,7 +599,6 @@ def test_native_constraints_prepares_datatype_aliases_and_scientific_bounds():
     prepared = prepare_release(
         SourceBundle("alias", (SourceArtifact("alias", yaml.safe_dump(source).encode()),))
     )
-    admit_release(prepared)
     constraints = native_constraints(prepared)
     assert constraints["https://example/Thing", "https://example/cost"]["native_range"] == "decimal"
     assert (
@@ -679,14 +678,13 @@ def test_existing_value_tree_cannot_be_extended_by_a_later_batch(
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
 
 
-def test_constraint_capability_refusal_and_optional_ontology_metadata():
+def test_constraint_capability_refusal_and_optional_ontology_metadata(semantic_db_engine):
     from dataclasses import replace
 
     from corpus_structure.semantic.publication import admit_release
     from corpus_structure.semantic.types import (
         ClassDefinition,
         Diagnostic,
-        PreparedRelease,
         PropertyDefinition,
     )
 
@@ -694,28 +692,35 @@ def test_constraint_capability_refusal_and_optional_ontology_metadata():
         "p", "https://example/p", "float", False, False, None, None, "0", None, None, False
     )
     definition = ClassDefinition("Thing", C, (), (prop,), ())
-    prepared = PreparedRelease("r", b"{}", (definition,), (), (), (), (), (), (), ())
-    with pytest.raises(ValueError, match="float bounds"):
-        admit_release(prepared)
+    # Admission checks native deployment before checking the independently invalid definition.
+    prepared = replace(seed(semantic_db_engine), definitions=(definition,))
+    with (
+        semantic_db_engine.connect() as connection,
+        pytest.raises(ValueError, match="float bounds"),
+    ):
+        admit_release(prepared, connection=connection)
     unconstrained = replace(
         prepared, definitions=(replace(definition, properties=(replace(prop, minimum=None),)),)
     )
-    admit_release(
-        replace(
-            unconstrained,
-            diagnostics=(
-                Diagnostic("unchecked_term", "vocab", "not4curation:unchecked", "unchecked"),
+    with semantic_db_engine.connect() as connection:
+        admit_release(
+            replace(
+                unconstrained,
+                diagnostics=(
+                    Diagnostic("unchecked_term", "vocab", "not4curation:unchecked", "unchecked"),
+                ),
             ),
+            connection=connection,
         )
-    )
-    with pytest.raises(ValueError, match="unchecked"):
+    with semantic_db_engine.connect() as connection, pytest.raises(ValueError, match="unchecked"):
         admit_release(
             replace(
                 unconstrained,
                 diagnostics=(
                     Diagnostic("unchecked_term", "vocab", "meaning:unknown:unchecked", "unchecked"),
                 ),
-            )
+            ),
+            connection=connection,
         )
 
 

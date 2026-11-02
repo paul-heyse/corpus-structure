@@ -26,6 +26,7 @@ from corpus_structure.semantic.analytics import (
     load_packet,
 )
 from corpus_structure.semantic.composed import composed_dependencies
+from corpus_structure.semantic.contracts import execution_payload
 from corpus_structure.semantic.identity import fact_key, occurrence_key
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import (
@@ -77,6 +78,8 @@ def empty_packet(prepared):
             {p.name: pa.Table.from_pylist([], schema=p.schema) for p in compiled.relations}
         ),
         scale=compiled.profile.scale,
+        execution_model_id=prepared.execution_model_id,
+        execution_contract=execution_payload(prepared),
     )
 
 
@@ -718,6 +721,8 @@ def test_candidate_input_has_explicit_universe_without_fabricated_capture():
             )
         },
         scale=packet.scale,
+        execution_model_id=packet.execution_model_id,
+        execution_contract=packet.execution_contract,
     )
     with AnalysisScope(candidate) as scope:
         assert scope.connection.sql("SELECT 3").fetchall() == [(3,)]

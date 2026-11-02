@@ -145,16 +145,12 @@ def test_iteration_cancellation_releases_generator_before_scope_cleanup(prepared
 
 
 def test_consolidation_applies_invocation_resources_to_actual_scope(tmp_path, monkeypatch):
-    from corpus_structure.semantic import PreparationProfile, analytics, prepare_release
+    from corpus_structure.semantic import analytics
     from corpus_structure.semantic import domain_operations as operations
-    from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.publication import PublicationBatch
     from corpus_structure.semantic.query import SnapshotBinding
 
-    bundle, deps, _ = prepared_inputs()
-    prepared = prepare_release(
-        bundle, composed_dependencies(deps), PreparationProfile(version="semantic-2")
-    )
+    prepared = prepared_inputs()[2]
     resources = AnalyticsSettings(
         threads=2, memory_limit="64MiB", scratch_path=tmp_path / "scratch"
     )
@@ -256,6 +252,12 @@ class FinalizationConnection:
     def execute(self, *args, **kwargs):
         return FinalizationResult()
 
+    def scalar(self, statement):
+        from corpus_structure.semantic.metadata import table
+
+        assert list(statement.selected_columns) == [table("data.project").c.active_release_id]
+        return None
+
 
 class FinalizationEngine:
     @contextmanager
@@ -291,7 +293,6 @@ def test_cli_passes_resolved_analytics_without_reacquiring_defaults(command, tmp
     from corpus_structure.semantic import releases, runtime
     from corpus_structure.semantic.domain_operations import DomainResult
     from corpus_structure.semantic.publication import PublicationReceipt
-    from corpus_structure.semantic.types import PreparedRelease
 
     resources = {"threads": "3", "memory_limit": "72MiB", "scratch_path": str(tmp_path)}
     for key, value in resources.items():
@@ -311,9 +312,7 @@ def test_cli_passes_resolved_analytics_without_reacquiring_defaults(command, tmp
     monkeypatch.setattr(cli, "ENGINE", engine)
     monkeypatch.setattr(runtime, "open_runtime_engine", engine)
     monkeypatch.setattr(commands, "finalize_bound_run", finalized)
-    from types import SimpleNamespace
-
-    prepared = cast(PreparedRelease, SimpleNamespace(release_id="release-control"))
+    prepared = prepared_inputs()[2]
     monkeypatch.setattr(releases, "load_release", lambda *args: prepared)
     args = (
         ["run", "finalize", "17", "--output-realization", "output", "--json"]

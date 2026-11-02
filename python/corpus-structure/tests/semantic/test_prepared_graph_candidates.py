@@ -52,13 +52,7 @@ def test_independent_shape_blank_nodes_do_not_collide():
 
 
 def cut_input():
-    from corpus_structure.semantic import PreparationProfile, prepare_release
-    from corpus_structure.semantic.composed import composed_dependencies
-
-    bundle, dependencies, _ = prepared_inputs()
-    prepared = prepare_release(
-        bundle, composed_dependencies(dependencies), PreparationProfile(version="semantic-2")
-    )
+    prepared = prepared_inputs()[2]
     batch = PublicationBatch(
         prepared.release_id,
         "output",
