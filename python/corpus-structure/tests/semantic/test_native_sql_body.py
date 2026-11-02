@@ -203,20 +203,27 @@ def test_current_release_guards_refuse_historical_archive_and_projection_compile
     assert "THEN RETURN;" not in projection
 
 
-def test_current_native_sources_own_release_guards_and_record_only_views(semantic_bare_engine):
+def test_current_native_sources_own_release_guards_and_record_only_views(semantic_db_engine):
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR
     from corpus_structure.semantic.native_candidate import (
         series_native_definitions,
         series_predecessor_definitions,
     )
+    from corpus_structure.semantic.native_products import function_bodies
 
-    with semantic_bare_engine.begin() as conn:
-        conn.exec_driver_sql("CREATE SCHEMA sem")
+    # Candidate authoring resolves trigger ownership against current relations;
+    # the migrated schema also exercises omission of physically retired tables.
+    with semantic_db_engine.begin() as conn:
         desired = series_native_definitions(conn)
         predecessor = series_predecessor_definitions(conn)
     wanted = {(item.identity.schema, item.identity.name): item for item in desired}
     previous = {(item.identity.schema, item.identity.name): item for item in predecessor}
+    # The bounded PDF/task predecessor set does not own the old release guards.
+    old_guards = function_bodies(
+        ALEMBIC_DIR.joinpath("versions/semantic_0053_positioned_syntax.sql").read_text()
+    )
     for name in ("require_archive_bytes", "require_execution_projection"):
-        assert wanted["sem", name].sql != previous["sem", name].sql
+        assert function_bodies(wanted["sem", name].sql)["sem." + name] != old_guards["sem." + name]
         assert wanted["sem", name].owner == "corpus_sem_publisher"
         assert wanted["sem", name].grants == ()
     for name in (
