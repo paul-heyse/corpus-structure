@@ -98,3 +98,27 @@ The first frozen92 attempt preserves the drift exception and a cleanup-order fai
 admission wrapper translated a DBAPI refusal before role cleanup. V2 places the savepoint inside
 the role scope so rollback precedes role restoration. No production policy was changed to pass it.
 All executed probes and failed outputs remain intact; revisions83–91 remain unchanged.
+
+Revision93, `semantic_ocr_inventory_20261102`, captures the coordinator's retained-empty OCR
+inventory correction. Actual source derivation requires seven native transitions, not only a
+descriptor: four published batch readers change their model-bound projection identity, and
+`adopt_pdf_companion`/`publish_pdf_observation` regenerate embedded OCR shape validation. The
+seventh transition updates the descriptor and the six corresponding native body hashes.
+Owners, ACLs, signatures and dependency profiles remain unchanged; ordinary DDL is empty.
+`raw/ocr93-author-003/native-body.diff` contains the bounded source diff. Only the three approved
+OCR inputs changed: PDF products schema, OCR contracts implementation and report-schema cache.
+
+Author attempts001–002 preserve refused assumptions about one transition and provenance-only
+descriptor changes. Author003 passed seven body-only changes, exact descriptor correspondence,
+85 desired objects, empty re-entry, catalog checks and rollback. Its inherited terminal phrase
+"descriptor-only successor" is superseded by the explicit seven-operation result JSON.
+`freeze_ocr93.py` wrote the exact artifacts and pins recorded in `raw/ocr93-freeze-001.json`.
+`frozen_ocr93.py ocr93-frozen-001` passed full frozen82→92→93 replay, repeated no-op, unchanged
+physical receipt, current archive/Python pins/native guard, exact catalogs, empty candidate,
+source-pin/ACL drift refusal and restoration, source custody and rollback to82 with `paul`.
+
+Revision93 is an **intermediate frozen source boundary**: after its freeze the coordinator
+identified a remaining analytics/schema-only execution fallback and instructed a new94 after
+that source correction. Revision93 and all earlier artifacts remain unchanged; its bounded
+success does not claim closure of the subsequently discovered runtime fallback. Actual runtime
+LOGIN qualification and final cutover remain with the coordinator.
