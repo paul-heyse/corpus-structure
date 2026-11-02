@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from sqlalchemy import create_engine
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic._operation_ids import TaskAttempt, TaskId
 from corpus_structure.semantic.proposals import (
     ProposalFrame,
     ProposalRefused,
@@ -207,7 +208,7 @@ def test_served_packet_pins_release_schema_configuration_and_complete_part_readi
             configuration={"model": "declared-agent", "mode": "extract"},
         ).hash
     )
-    session = ProposalSession(release, packet, 1, 1, "agent:test")
+    session = ProposalSession(release, packet, TaskId(1), TaskAttempt(1), "agent:test")
     with pytest.raises(ProposalRefused, match="read every"):
         session.check(batch(), packet_hash=packet.hash, schema_hash=packet.schema_hash)
     for part in session.manifest()["parts"]:
@@ -236,7 +237,7 @@ def test_unit_packet_cap_splits_without_losing_source_text_and_requires_every_pa
     pages = packet.part_pages(unit)
     assert len(pages) > 1 and all(len(page) <= 20 for page in pages)
     assert "".join(pages) == unit.text
-    session = ProposalSession(release, packet, 1, 1, "agent:test")
+    session = ProposalSession(release, packet, TaskId(1), TaskAttempt(1), "agent:test")
     for part in packet.parts():
         for page in range(1, len(packet.part_pages(part)) + 1):
             if part.name != "unit" or page == 1:

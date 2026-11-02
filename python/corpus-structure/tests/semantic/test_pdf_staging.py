@@ -35,12 +35,17 @@ from .test_operations import setup
 
 
 @pytest.fixture
-def private_build(semantic_db_engine, semantic_writer_engine, tmp_path):
+def private_build(semantic_db_engine, semantic_writer_engine, tmp_path, request):
     prepared = setup(semantic_db_engine, composed=True)
-    original = b"%PDF-1.7 private staging fixture"
     recipe = b'{"recipe":"stage-test"}'
     path = tmp_path / "source.pdf"
-    path.write_bytes(original)
+    if getattr(request, "param", None) == "renderable_pdf":
+        from pdf_acceptance_support import write_controlled_pdf
+
+        original = write_controlled_pdf(path, ("Region section", "evidence"))
+    else:
+        original = b"%PDF-1.7 private staging fixture"
+        path.write_bytes(original)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
             conn,

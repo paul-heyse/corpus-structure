@@ -6,7 +6,7 @@ compute; only explicitly owned result readers extend a local scope's lifetime.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from dataclasses import field as dataclass_field
@@ -428,6 +428,8 @@ class BorrowedHandle:
 
     def __getattr__(self, name: str) -> Any:
         self._owner._ensure_open()
+        if name == "__arrow_c_stream__":
+            raise TypeError("unowned Arrow capsules are unsupported; use to_arrow_reader")
         if name == "close" and self._native is self._owner._connection:
             return self._owner.close
         attribute = getattr(self._native, name)
@@ -436,6 +438,8 @@ class BorrowedHandle:
 
         def invoke(*args: Any, **kwargs: Any) -> Any:
             self._owner._ensure_open()
+            if name == "pl" and kwargs.get("lazy", False):
+                raise TypeError("lazy Polars results are unsupported by the analysis scope")
 
             def unwrap(value: Any) -> Any:
                 if isinstance(value, BorrowedHandle):
@@ -448,6 +452,8 @@ class BorrowedHandle:
             result = attribute(
                 *(unwrap(v) for v in args), **{k: unwrap(v) for k, v in kwargs.items()}
             )
+            if name == "iter_rows":
+                return self._owner._borrow_rows(result)
             return self._owner._borrow(result, self._connection_owner)
 
         return invoke
@@ -462,6 +468,35 @@ class BorrowedReader(BorrowedHandle):
         return self._native.read_next_batch()
 
     def close(self) -> None:
+        self._native.close()
+
+
+class BorrowedRows(Iterator[tuple[Any, ...]]):
+    """The supported row generator retains its scope until exhaustion or explicit close."""
+
+    def __init__(self, owner: AnalysisScope, native: Generator[tuple[Any, ...]]):
+        self._owner = owner
+        self._native = native
+        self._closed = False
+
+    def __next__(self) -> tuple[Any, ...]:
+        self._owner._ensure_open()
+        if self._closed:
+            raise StopIteration
+        try:
+            return next(self._native)
+        except StopIteration:
+            self.close()
+            raise
+        except BaseException as error:
+            _cleanup_after_failure(error, self.close)
+            raise
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self._owner._row_iterators.remove(self)
         self._native.close()
 
 
@@ -1046,6 +1081,7 @@ class AnalysisScope:
         self._capture_lease = None
         self._closed = False
         self._readers: list[pa.RecordBatchReader] = []
+        self._row_iterators: list[BorrowedRows] = []
         self._connections: list[duckdb.DuckDBPyConnection] = []
         self._registered: list[str] = []
         self._views: list[str] = []
@@ -1182,12 +1218,21 @@ class AnalysisScope:
             return BorrowedHandle(self, value, connection)
         return value
 
+    def _borrow_rows(self, value: Any) -> BorrowedRows:
+        # Only this named DuckDB API is supported. Do not infer ownership of arbitrary iterables.
+        if not isinstance(value, Generator):
+            raise TypeError("iter_rows requires a supported closeable row generator")
+        rows = BorrowedRows(self, value)
+        self._row_iterators.append(rows)
+        return rows
+
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
         failures: list[BaseException] = []
-        actions = [reader.close for reader in self._readers]
+        actions = [rows.close for rows in self._row_iterators]
+        actions += [reader.close for reader in self._readers]
         actions += [
             lambda name=name: self._connection.sql(f'DROP VIEW IF EXISTS "{name}"')
             for name in self._views

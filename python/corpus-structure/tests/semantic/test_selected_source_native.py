@@ -50,7 +50,7 @@ def deploy_selected(engine):
         admit_native(conn, authoring.desired)
 
 
-def publish_selected(engine, build, directory):
+def publish_selected(engine, build, directory, *, diagnostics=()):
     document = DoclingDocument(name="independently selected source")
     outside = document.add_text(label=DocItemLabel.TEXT, text="omitted sibling body")
     ancestor = document.add_group(label=GroupLabel.CHAPTER, name="Outside ancestor chapter")
@@ -148,6 +148,10 @@ def publish_selected(engine, build, directory):
             ],
             "recognition",
         )
+        if diagnostics:
+            adopt_pdf_companion_batch(
+                conn, build, "native_metadata", diagnostics, "selected-diagnostics"
+            )
         adopt_pdf_companion_batch(
             conn,
             build,
@@ -264,7 +268,7 @@ def test_native_selection_context_and_offline_preparation(
         pin=PublishedSourcePin(
             project_id="p",
             run_id=run,
-            release_id=private_build.release_id,
+            selection_release_id=private_build.release_id,
             task_id=private_build.task_id,
             product_key="selected",
             content_digest=published.logical_digest,

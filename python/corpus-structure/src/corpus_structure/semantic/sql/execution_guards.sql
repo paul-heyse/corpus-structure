@@ -38,7 +38,8 @@ BEGIN
     OR NEW.lease_until IS NULL OR NEW.lease_until<=clock_timestamp()
     OR (OLD.status='running' AND (OLD.lease_until IS NULL OR OLD.lease_until>=clock_timestamp()))
     OR NOT ops.execution_edge(NEW.release_id,'task',prior,result) THEN
-   RAISE EXCEPTION 'invalid claim or reclaim ownership' USING ERRCODE='23514'; END IF;
+   RAISE EXCEPTION 'invalid claim or reclaim ownership' USING ERRCODE='23514',
+    DETAIL='{"protocol":"corpus-invariant-1","guard":"execution_task","version":"2","invariant":"attempt_fence"}'; END IF;
  ELSIF NEW.claimed_by IS DISTINCT FROM OLD.claimed_by
   AND NOT(current_user='corpus_sem_publisher' AND NEW.status='awaiting_agent'
    AND NEW.claimed_by IS NULL AND ops.execution_edge(NEW.release_id,'task',prior,result)) THEN

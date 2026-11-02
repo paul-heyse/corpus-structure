@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 import typer
 
 from corpus_structure.cli.output import JsonOpt, state
-from corpus_structure.cli.query import context, refusal
+from corpus_structure.cli.query import refusal, result_context
 
 
 def export(
@@ -35,7 +35,7 @@ def export(
             open_runtime_engine(settings, application_name="ci-export", purpose="read") as engine,
             read_snapshot(engine) as conn,
         ):
-            _, rid, _ = context(
+            _, rid = result_context(
                 conn,
                 project or (settings.runtime.default_project if run == "promoted" else None),
                 run,

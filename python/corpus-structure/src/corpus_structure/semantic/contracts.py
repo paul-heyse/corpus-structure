@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
@@ -25,11 +25,25 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "20"
+EXECUTION_COMPILER_VERSION = "23"
 
 POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/companion-projection-model.yaml", "model/semantic/companion-projections.yaml"),
     ("capture/companion-projection.py", "semantic/companion_projection.py"),
+    ("capture/projection-recipe.py", "semantic/projection_recipe.py"),
+    ("capture/projection-analysis.py", "semantic/projection_analysis.py"),
+    ("capture/projection-analysis-products.py", "semantic/projection_analysis_products.py"),
+    ("capture/companion-projection-native.py", "semantic/companion_projection_native.py"),
+    ("capture/comparison-projection.py", "semantic/comparison_projection.py"),
+    ("invocation/invariant-failures.py", "semantic/invariant_failures.py"),
+    ("invocation/operation-call-generation.py", "semantic/operation_call_generation.py"),
+    ("invocation/operation-calls.py", "semantic/_operation_calls.py"),
+    ("invocation/operation-identifiers.py", "semantic/_operation_ids.py"),
+    ("capture/directions.sql", "semantic/sql/directions.sql"),
+    ("invocation/directions.py", "intervene/directions.py"),
+    ("invocation/operation-value-types.py", "semantic/operation_value_types.py"),
+    ("invocation/operation-reporting.py", "semantic/operation_reporting.py"),
+    ("capture/operation-report-schemas.json", "model/semantic/operation-report-schemas.json"),
     ("capture/companion-columns.py", "semantic/_companion_columns.py"),
     ("capture/companion-export.py", "serve/companion_export.py"),
     ("capture/arrow-transfer.py", "semantic/arrow_transfer.py"),
@@ -42,6 +56,11 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("pdf/selected-source.py", "serve/selected_source.py"),
     ("pdf/selected-source-native.py", "semantic/pdf_selected_source_native.py"),
     ("pdf/published-reader.py", "semantic/pdf_record_reader.py"),
+    ("pdf/published-document.py", "semantic/published_document.py"),
+    ("pdf/section-views.py", "ingest/pdf_section_views.py"),
+    ("pdf/native-consumer-native.py", "semantic/native_consumer_native.py"),
+    ("pdf/source-view-native.py", "semantic/source_view_native.py"),
+    ("pdf/native-task-completion.sql", "semantic/sql/native_task_completion.sql"),
 )
 
 
@@ -59,6 +78,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.ingest.pdf_recognition import RecognitionWorker
     from corpus_structure.ingest.pdf_stream_reconciliation import reconcile_pdf_stream
     from corpus_structure.ingest.pdf_streaming import StreamingPdfProducer
+    from corpus_structure.intervene.directions import record_direction
     from corpus_structure.intervene.semantic import ProposalSession
     from corpus_structure.methods.math.prepared import assess_parsing_math, interpret_parsing_math
     from corpus_structure.orchestrate import project, semantic
@@ -107,6 +127,7 @@ def approved_implementations() -> Mapping[str, Any]:
             "complete": operations.complete_task,
             "complete_unit": operations.complete_unit_result,
             "hold": operations.hold_agent_result,
+            "record_direction": record_direction,
             "cut": operations.seal_cut,
             "source_execution": semantic.run_source_methods,
             "end_run": operations.end_source_run,
@@ -134,13 +155,12 @@ def approved_implementations() -> Mapping[str, Any]:
             "resume_pdf_build": pdf_staging.resume_pdf_build,
             "abandon_pdf_build": pdf_staging.abandon_pdf_build,
             "prepare_native_document": pdf_contracts.prepare_pdf_product,
-            "publish_native_document": pdf_contracts.store_pdf_product,
             "recognize_pdf_observation": RecognitionWorker.recognize_pages,
             "map_pdf_observation": pdf_reconciliation.map_pdf_observation,
             "compare_pdf_occurrences": pdf_reconciliation.compare_pdf_occurrences,
             "select_pdf_integration": pdf_reconciliation.select_pdf_integration,
             "prepare_integrated_pdf": pdf_integrated.prepare_integrated_pdf_product,
-            "publish_integrated_pdf": pdf_integrated.store_integrated_pdf_product,
+            "publish_pdf_observation": pdf_integrated.store_pdf_observation,
             "read_pdf_product": pdf_storage.read_pdf_product,
             "convert_pdf": PdfConverter.convert_bytes,
             "enrich_pdf_math": EnrichPdfMath.run,
@@ -294,6 +314,18 @@ class TransitionDefinition:
 
 
 @dataclass(frozen=True)
+class NativeDiagnosticBinding:
+    operation: str
+    kind: Literal["constraint", "guard"]
+    sqlstate: str
+    schema_name: str | None = None
+    table_name: str | None = None
+    constraint_name: str | None = None
+    guard: str | None = None
+    guard_version: str | None = None
+
+
+@dataclass(frozen=True)
 class InvariantDefinition:
     id: str
     meaning: str
@@ -303,6 +335,8 @@ class InvariantDefinition:
     failure_code: str
     implementation: str
     required_capability: str | None = None
+    observable: bool = False
+    diagnostics: tuple[NativeDiagnosticBinding, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -327,6 +361,56 @@ class ResultDimension:
 
 
 @dataclass(frozen=True)
+class OperationFieldType:
+    kind: str
+    nullable: bool
+    multivalued: bool
+    enum_values: tuple[str, ...] = ()
+    model_class: str | None = None
+
+
+@dataclass(frozen=True)
+class OperationFieldBinding:
+    name: str
+    source: str
+    nullable: bool
+    native_parameter: str | None = None
+    native_field: str | None = None
+    native_type: Literal["integer"] | None = None
+    multivalued: bool = False
+    semantic_type: str | None = None
+    default_json: str | None = None
+    transform: Literal["identity", "task_unit_type", "held_progress"] | None = None
+    resolved: OperationFieldType | None = None
+
+
+@dataclass(frozen=True)
+class OperationRecordBinding:
+    name: str
+    fields: tuple[OperationFieldBinding, ...]
+
+
+@dataclass(frozen=True)
+class OperationCallBinding:
+    id: str
+    symbol: str
+    parameters: tuple[OperationFieldBinding, ...]
+    result_class: str | None = field(default=None, kw_only=True)
+    result_fields: tuple[OperationFieldBinding, ...]
+    cardinality: Literal["many", "one", "optional", "none"]
+    ordered: bool
+    source_digest: str | None = None
+    result_mode: Literal["table", "scalar", "void", "json"] = "table"
+    result_source: str | None = None
+    requires_context: bool = False
+    order_by: tuple[str, ...] = ()
+    records: tuple[OperationRecordBinding, ...] = ()
+    batch: bool = False
+    json_read: Literal["native", "json-text-v1"] = "native"
+    backend: Literal["native", "core"] = "native"
+
+
+@dataclass(frozen=True)
 class OperationContract:
     id: str
     inputs: tuple[str, ...]
@@ -344,6 +428,12 @@ class OperationContract:
 
     result_dimensions: tuple[ResultDimension, ...] = ()
     policy_version: str | None = None
+    calls: tuple[OperationCallBinding, ...] = ()
+
+    @property
+    def call(self) -> OperationCallBinding | None:
+        """Convenience for a single fixed variant; calls is the sole stored contract."""
+        return self.calls[0] if len(self.calls) == 1 else None
 
 
 @dataclass(frozen=True)
@@ -410,7 +500,8 @@ class NativeGuardBinding:
 # Code-owned kernels, not arbitrary catalog-provided SQL names.
 _APPROVED_NATIVE_GUARDS = {
     "execution_edge": ("ops.execution_edge(text,text,text)", "1"),
-    "execution_task": ("ops.guard_execution_task()", "1"),
+    "execution_task": ("ops.guard_execution_task()", "2"),
+    "native_source_address": ("ops.complete_task(bigint,bigint,text,jsonb,text,jsonb,jsonb)", "1"),
     "execution_run": ("ops.guard_execution_run()", "1"),
     "conditional_kernel": ("data.validate_conditions(text,text)", "1"),
     "completed_result": ("data.finish_evaluation(bigint,text,text)", "1"),
@@ -702,11 +793,13 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
 
 
 def require_database_operation(connection, release_id: str, name: str) -> None:
-    from sqlalchemy import text
+    from ._operation_calls import require_execution_operation
+    from ._operation_ids import ReleaseId
 
-    connection.execute(
-        text("SELECT sem.require_execution_operation(:release,:operation)"),
-        {"release": release_id, "operation": name},
+    require_execution_operation(
+        connection,
+        release_id=ReleaseId(release_id),
+        operation=name,
     )
 
 
@@ -730,40 +823,86 @@ def bound_execution_model(prepared) -> ExecutionModelProducts:
 
 @lru_cache(maxsize=16)
 def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts:
-    data = json.loads(body)
-    if data.get("inputs", {}).get("compiler_version") != EXECUTION_COMPILER_VERSION:
+    try:
+        data = json.loads(body)
+    except ValueError as exc:
+        _fail("contract_product", model_id, str(exc))
+    if not isinstance(data, dict) or not isinstance(data.get("inputs"), dict):
+        _fail("contract_product", model_id, "execution product and inputs must be objects")
+    compiler = data["inputs"].get("compiler_version")
+    if not isinstance(compiler, str) or compiler not in {"20", "21", "22", "23"}:
         _fail(
             "unsupported_execution_abi",
             model_id,
-            "execution product requires the current compiler ABI; regenerate the release",
+            "execution product requires a supported closed reader profile",
         )
     if data.get("model_id") != model_id:
         _fail("execution_binding", model_id, "execution product identity differs")
-    return _normalize(
-        {k: v for k, v in data.items() if k not in {"model_id", "content", "inputs"}},
-        model_id,
-    )
+    # Archived products are normalized at their original preparation boundary. Reading
+    # verified immutable bytes must not re-admit them against installed capability sets.
+    # Actual execution still requires effect support, fixed-call continuity and native
+    # release admission. Missing21 JSON representation remains the original native form.
+    try:
+        if compiler == "20" and (
+            any({"observable", "diagnostics"}.intersection(item) for item in data["invariants"])
+            or any({"call", "calls"}.intersection(item) for item in data["operations"])
+        ):
+            _fail("unsupported_execution_abi", model_id, "compiler20 contains newer contracts")
+        if compiler == "21" and any(
+            "json_read" in call
+            for operation in data["operations"]
+            for call in operation.get("calls", ())
+        ):
+            _fail("unsupported_execution_abi", model_id, "compiler21 contains newer contracts")
+        if compiler in {"20", "21", "22"} and any(
+            "backend" in call
+            for operation in data["operations"]
+            for call in operation.get("calls", ())
+        ):
+            _fail("unsupported_execution_abi", model_id, "archived profile contains newer backend")
+        if "content" in data:
+            _fail("contract_product", model_id, "encoded execution product cannot contain content")
+        return _PRODUCT_CONVERTER.structure(
+            {
+                **{k: v for k, v in data.items() if k not in {"model_id", "inputs"}},
+                "model_id": model_id,
+                "content": body,
+            },
+            ExecutionModelProducts,
+        )
+    except PreparationError:
+        raise
+    except Exception as exc:
+        _fail("contract_product", model_id, "; ".join(transform_error(exc)))
 
 
 def _fail(code: str, location: str, message: str) -> Never:
     raise PreparationError((Diagnostic(code, location, message),))
 
 
+def trusted_execution_schema() -> SourceBundle:
+    """Acquire the one closed schema bundle without implementation/provider acquisition."""
+    root = files("corpus_structure").joinpath("model", "semantic")
+    return SourceBundle(
+        "contracts",
+        (
+            SourceArtifact("contracts", root.joinpath("contracts.yaml").read_bytes()),
+            SourceArtifact("semantic_reference", root.joinpath("reference.yaml").read_bytes()),
+            SourceArtifact("native_adapters", root.joinpath("native-adapters.yaml").read_bytes()),
+            SourceArtifact("pdf_products", root.joinpath("pdf-products.yaml").read_bytes()),
+            SourceArtifact("observations", root.joinpath("observations.yaml").read_bytes()),
+            SourceArtifact(
+                "operation_reports", root.joinpath("operation-reports.yaml").read_bytes()
+            ),
+        ),
+    )
+
+
 def trusted_execution_inputs() -> ExecutionModelInputs:
     """Read bundled code-owned definitions once at an explicit application entry boundary."""
     root = files("corpus_structure").joinpath("model", "semantic")
     return ExecutionModelInputs(
-        SourceBundle(
-            "contracts",
-            (
-                SourceArtifact("contracts", root.joinpath("contracts.yaml").read_bytes()),
-                SourceArtifact("semantic_reference", root.joinpath("reference.yaml").read_bytes()),
-                SourceArtifact(
-                    "native_adapters", root.joinpath("native-adapters.yaml").read_bytes()
-                ),
-                SourceArtifact("pdf_products", root.joinpath("pdf-products.yaml").read_bytes()),
-            ),
-        ),
+        trusted_execution_schema(),
         SourceArtifact("execution-model.yaml", root.joinpath("execution-model.yaml").read_bytes()),
         analysis_implementation_inputs(),
     )
@@ -837,6 +976,12 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
         SourceArtifact(
             "pdf/record-model.yaml",
             root.joinpath("model", "semantic", "pdf-records.yaml").read_bytes(),
+        ),
+        SourceArtifact(
+            "unified/linkml-types.yaml",
+            files("linkml_runtime")
+            .joinpath("linkml_model", "model", "schema", "types.yaml")
+            .read_bytes(),
         ),
         *(
             SourceArtifact(name, root.joinpath(*path.split("/")).read_bytes())
@@ -922,6 +1067,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                     for name in (
                         "pyarrow",
                         "duckdb",
+                        "sqlglot",
                         "adbc-driver-postgresql",
                         "pgpq",
                         "rdflib",
@@ -1264,6 +1410,9 @@ def _validate(
         if key in translations:
             _fail("duplicate_translation", "outcome_translation", str(key))
         translations.add(key)
+    from .invariant_failures import validate_invariant_diagnostics
+
+    validate_invariant_diagnostics(products)
 
 
 def _collection_defaults(
@@ -1302,7 +1451,6 @@ def _compile_execution_model_cached(
 
 def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProducts:
     """Compile only supplied immutable bytes; no application defaults, imports or invocation."""
-    from dataclasses import replace
 
     from .prepare import prepare_release
 
@@ -1379,6 +1527,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "transformer/native_context.py",
         "libraries.json",
         "pdf/record-model.yaml",
+        "unified/linkml-types.yaml",
         "pdf/record-physical.yaml",
         "pdf/record-relational.py",
         "pdf/record-boundaries.py",
@@ -1418,7 +1567,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     if any(source.name == "pdf_products" for source in inputs.schema.sources):
         required_implementations.update({"pdf/contracts.py", "pdf/docling-validation.schema.json"})
     if any(
-        operation["id"] in {"prepare_integrated_pdf", "publish_integrated_pdf", "read_pdf_product"}
+        operation["id"] in {"prepare_integrated_pdf", "publish_pdf_observation", "read_pdf_product"}
         for operation in data["operations"]
     ):
         required_implementations.update(
@@ -1453,6 +1602,9 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         _normalize(data, model_id),
         implementation_digests=tuple((item.name, item.digest) for item in inputs.implementations),
     )
+    from .operation_call_generation import validate_call_bindings
+
+    products = validate_call_bindings(products, inputs)
     normalized = {
         key: value
         for key, value in _PRODUCT_CONVERTER.unstructure(products).items()

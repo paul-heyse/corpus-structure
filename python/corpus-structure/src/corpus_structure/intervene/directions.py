@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
-
-from sqlalchemy import Engine, select, text
+from sqlalchemy import Engine, select
 
 from corpus_structure.intervene.service import DirectionRecorded, ToolFailure
 from corpus_structure.semantic.metadata import table
@@ -25,7 +23,7 @@ def record_direction(
         raise ToolFailure("a direction has text")
     runs = table("ops.run")
     with engine.begin() as conn:
-        query = select(runs.c.id, runs.c.project_id)
+        query = select(runs.c.id, runs.c.project_id, runs.c.release_id)
         if run_id is not None:
             query = query.where(runs.c.id == run_id)
         elif project is not None:
@@ -39,15 +37,19 @@ def record_direction(
             raise ToolFailure(
                 "initialize and start a semantic project run before recording guidance"
             )
-        iid = conn.execute(
-            text("SELECT ops.record_direction(:r,:a,:s,CAST(:b AS jsonb))"),
-            {
-                "r": row.id,
-                "a": actor,
-                "s": session_ref or "operator",
-                "b": json.dumps(
-                    {"text": direction, "scope": scope or "all", "project_id": row.project_id}
-                ),
-            },
-        ).scalar_one()
+        from corpus_structure.semantic._operation_calls import record_direction as invoke
+        from corpus_structure.semantic._operation_ids import RunId
+        from corpus_structure.semantic.contracts import require_bound_operation
+        from corpus_structure.semantic.releases import open_release
+
+        prepared = open_release(conn, row.release_id)
+        require_bound_operation(prepared, "record_direction")
+        iid = invoke(
+            conn,
+            run_id=RunId(row.id),
+            actor=actor,
+            session_ref=session_ref or "operator",
+            body={"text": direction, "scope": scope or "all", "project_id": row.project_id},
+            projection_context=prepared,
+        )
     return DirectionRecorded(intervention_id=iid, project=row.project_id, file="ops.intervention")

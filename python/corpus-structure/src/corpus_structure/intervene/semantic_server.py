@@ -17,6 +17,7 @@ from sqlalchemy import Engine, func, select
 
 from corpus_structure.intervene import service, submission
 from corpus_structure.intervene.semantic import ProposalSession, RefusedProposal
+from corpus_structure.semantic.operation_results import MethodConfigId, RunId
 from corpus_structure.semantic.operations import OperationConflict
 from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
 from corpus_structure.semantic.refusals import tool_refusals
@@ -80,7 +81,12 @@ class SemanticAgentSession:
                 from corpus_structure.semantic.operations import renew_claim
 
                 try:
-                    renew_claim(conn, task_id=task_id, attempt=session.attempt, holder=self.holder)
+                    renew_claim(
+                        conn,
+                        task_id=session.task_id,
+                        attempt=session.attempt,
+                        holder=self.holder,
+                    )
                 except OperationConflict as error:
                     raise ProposalTaskNotOpen(str(error)) from error
                 from corpus_structure.semantic.metadata import table
@@ -145,11 +151,12 @@ class SemanticAgentSession:
                 limit = min(max_units or 1, row["params"].get("max_units", 1))
                 leased = claim_tasks(
                     conn,
-                    run_id=self.run_id,
-                    config_id=row["id"],
+                    run_id=RunId(self.run_id),
+                    config_id=MethodConfigId(row["id"]),
                     holder=self.holder,
                     limit=limit,
                     agent=True,
+                    prepared=prepared,
                 )
                 for task in leased:
                     packet = agent_packet(
@@ -319,6 +326,94 @@ def build_semantic_server(
         if run is not None and run != found.run_id:
             raise ToolError("this server is bound to a different semantic run")
         return found
+
+    from corpus_structure.semantic.operation_reporting import report_schema
+
+    @server.tool(
+        annotations={"readOnlyHint": True}, output_schema=report_schema("OperationExplanation")
+    )
+    @tool_refusals(ValueError)
+    def explain_operation(
+        ctx: Context,
+        release: str,
+        operation: str,
+        task_id: int | None = None,
+        product_key: str | None = None,
+        content_digest: str | None = None,
+        realization_id: str | None = None,
+        data_revision: int | None = None,
+        capture_id: str | None = None,
+        run_id: int | None = None,
+        section_pointer: str | None = None,
+        pointer: str | None = None,
+        region_index: int | None = None,
+    ) -> dict:
+        """Explain the exact operation contract and qualified observed prerequisites."""
+        from corpus_structure.semantic.identity import canonical_bytes
+        from corpus_structure.semantic.operation_reporting import explain_operation as explain
+        from corpus_structure.semantic.operation_reporting import parse_operation_subject
+        from corpus_structure.semantic.query import read_snapshot
+        from corpus_structure.semantic.releases import open_release
+
+        raw_subject = None
+        if any(v is not None for v in (task_id, product_key, content_digest)):
+            if task_id is None or product_key is None or content_digest is None:
+                raise ValueError("product subject requires all three pin fields")
+            raw_subject = canonical_bytes(
+                dict(task_id=task_id, product_key=product_key, content_digest=content_digest)
+                | {
+                    name: value
+                    for name, value in dict(
+                        run_id=run_id,
+                        section_pointer=section_pointer,
+                        pointer=pointer,
+                        region_index=region_index,
+                    ).items()
+                    if value is not None
+                }
+            )
+        elif any(v is not None for v in (run_id, section_pointer, pointer, region_index)):
+            raise ValueError("document context requires its exact product pin")
+        if any(v is not None for v in (realization_id, data_revision, capture_id)):
+            if raw_subject is not None:
+                raise ValueError("select a product or snapshot subject")
+            if realization_id is None or data_revision is None or capture_id is None:
+                raise ValueError("snapshot subject requires realization, revision and capture")
+            raw_subject = canonical_bytes(
+                dict(
+                    release_id=release,
+                    realization_id=realization_id,
+                    data_revision=data_revision,
+                    capture_id=capture_id,
+                )
+            )
+        with read_snapshot(current(ctx).engine) as conn:
+            prepared = open_release(conn, release)
+            reference = (
+                parse_operation_subject(prepared, operation, raw_subject, connection=conn)
+                if raw_subject is not None
+                else None
+            )
+            return explain(prepared, operation, subject=reference, connection=conn).model_dump(
+                mode="json"
+            )
+
+    @server.tool(
+        annotations={"readOnlyHint": True}, output_schema=report_schema("SemanticImpactReport")
+    )
+    @tool_refusals(ValueError)
+    def compare_semantic_releases(ctx: Context, before: str, after: str) -> dict:
+        """Compare supported immutable releases and retain unknown impact explicitly."""
+        from corpus_structure.semantic.operation_reporting import (
+            compare_semantic_releases as compare,
+        )
+        from corpus_structure.semantic.query import read_snapshot
+        from corpus_structure.semantic.releases import open_release
+
+        with read_snapshot(current(ctx).engine) as conn:
+            return compare(open_release(conn, before), open_release(conn, after)).model_dump(
+                mode="json"
+            )
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
@@ -543,7 +638,7 @@ def build_semantic_server(
             with current(ctx).engine.begin() as conn:
                 release_claim(
                     conn,
-                    task_id=task_id,
+                    task_id=active.task_id,
                     attempt=active.attempt,
                     holder=active.holder,
                     reason=reason,

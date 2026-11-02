@@ -213,15 +213,16 @@ def test_known_input_exclusions_follow_participating_endpoints(
             .mappings()
             .one()
         )
-        (view,) = publish_controlled_pdf_views(
-            conn,
-            prepared=prepared,
-            run_id=run,
-            document_id=old_view["document_id"],
-            original=Path(document["original_path"]).read_bytes(),
-            paragraphs=("Alice is here.",),
-            keys=("source.html#known-people",),
-        )
+    (view,) = publish_controlled_pdf_views(
+        semantic_writer_engine,
+        prepared=prepared,
+        run_id=run,
+        document_id=old_view["document_id"],
+        original=Path(document["original_path"]).read_bytes(),
+        paragraphs=("Alice is here.",),
+        keys=("source.html#known-people",),
+    )
+    with semantic_writer_engine.begin() as conn:
         locator = view.ref.key
         (task,) = queue_agent(
             conn,

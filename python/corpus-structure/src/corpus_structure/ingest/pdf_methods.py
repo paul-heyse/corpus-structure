@@ -206,28 +206,34 @@ class IngestPdf:
         consumer_release = _consumer_release(ctx)
         outputs = []
         for unit in units:
-            retained_native = ()
             if unit.ref.unit_id is None:
                 raise ValueError("native PDF unit requires original document id")
             try:
                 if cfg.native_product is not None:
-                    # Explicit sanctioned adoption is not conversion or a new native producer.
-                    archived = ctx.reader.native_document(cfg.native_product)
-                    values: dict[str, Any] = archived.values()
-                    if (
-                        values.get("source_scope") != "whole_document"
-                        or values["health"]["conversion"] != "success"
-                    ):
-                        raise ValueError(
-                            "PDF adoption requires a complete whole-document native product"
+                    from .pdf_section_views import NoQualifiedSections
+
+                    try:
+                        drafts = ctx.reader.native_section_drafts(
+                            cfg.native_product,
+                            document_id=unit.ref.unit_id,
+                            selections=tuple(cfg.sections),
+                            membership=cfg.membership,
+                            scope=ctx.run.options.get("scope"),
+                            consumer_release=consumer_release,
                         )
-                    native = _snapshot_from_values(values)
-                    doc = load_snapshot(native)
-                    nodes = native_nodes(doc)
-                    selected_product = cfg.native_product
-                    products = ()
-                    if not any(str(n.label) in {"section", "chapter"} for n in nodes.values()):
-                        # Reuse successful conversion after a previous organization failure.
+                    except NoQualifiedSections as unorganized:
+                        # Only an admitted raw record graph can enter this real global
+                        # transformation. Legacy aggregate publication never reaches it.
+                        archived = ctx.reader.native_document(cfg.native_product)
+                        values = archived.values()
+                        if (
+                            values.get("source_scope") != "whole_document"
+                            or values["health"]["conversion"] != "success"
+                        ):
+                            raise ValueError(
+                                "PDF adoption requires a complete whole-document native product"
+                            ) from unorganized
+                        native = _snapshot_from_values(values)
                         organization = organize(native, cfg.section_policy())
                         adopted_recipe = self.original_recipe(cfg)
                         conversion = _conversion_from_product(archived, adopted_recipe)
@@ -242,29 +248,22 @@ class IngestPdf:
                         current = dataclasses.replace(
                             current,
                             companions={
-                                "input": ({**cfg.native_product.values(), "role": "structural"},)
+                                "input": ({**cfg.native_product.values(), "role": "structural"},),
                             },
                         )
                         selected_product = ctx.retain_pdf_records(unit.ref, current)
-                        native = organization.document
-                        values = {"health": current.health}
-                        nodes = native_nodes(load_snapshot(native))
-                    sections = _select_sections(nodes, cfg, scope=ctx.run.options.get("scope"))
-                    drafts = _drafts(
-                        unit.ref.unit_id,
-                        selected_product,
-                        native,
-                        values["health"],
-                        sections,
-                        cfg.membership,
-                        consumer_release,
-                        recognition_coverage=values.get("recognition_coverage", ()),
-                    )
+                        drafts = ctx.reader.native_section_drafts(
+                            selected_product,
+                            document_id=unit.ref.unit_id,
+                            selections=tuple(cfg.sections),
+                            membership=cfg.membership,
+                            scope=ctx.run.options.get("scope"),
+                            consumer_release=consumer_release,
+                        )
                     outputs.append(
                         UnitResult(
                             ref=unit.ref,
                             outcome=ObservationOutcome.EMPTY,
-                            native_products=products,
                             source_views=drafts,
                         )
                     )
@@ -313,7 +312,6 @@ class IngestPdf:
                     UnitResult(
                         ref=unit.ref,
                         outcome=ObservationOutcome.EMPTY,
-                        native_products=(),
                         source_views=drafts,
                     )
                 )
@@ -325,7 +323,6 @@ class IngestPdf:
                         ref=unit.ref,
                         outcome=ObservationOutcome.FAILED,
                         error=summary,
-                        native_products=retained_native,
                     )
                 )
         return outputs
@@ -795,7 +792,6 @@ class EnrichPdfMath:
                         UnitResult(
                             ref=unit.ref,
                             outcome=ObservationOutcome.EMPTY,
-                            native_products=(),
                             source_views=drafts,
                         )
                     )
@@ -976,7 +972,6 @@ class EnrichPdfMath:
                     UnitResult(
                         ref=unit.ref,
                         outcome=ObservationOutcome.EMPTY,
-                        native_products=(),
                         source_views=drafts,
                     )
                 )

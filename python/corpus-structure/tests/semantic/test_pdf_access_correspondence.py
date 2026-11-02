@@ -192,6 +192,8 @@ def test_native_projection_correspondence_accepts_actual_values(access_database)
         ),
         "UPDATE kb.pdf_record_access SET parent_pointer='#/furniture' WHERE pointer='#/texts/0'",
         "UPDATE kb.pdf_record_access SET ordinal=9 WHERE pointer='#/texts/0'",
+        "DELETE FROM kb.pdf_record_access WHERE pointer='#/texts/0'",
+        "UPDATE kb.pdf_record_access SET content_layer='forged-layer' WHERE pointer='#/texts/0'",
         "UPDATE kb.pdf_record_access SET section_pointer='#/body' WHERE pointer='#/texts/0'",
         (
             "UPDATE kb.pdf_record_access SET "

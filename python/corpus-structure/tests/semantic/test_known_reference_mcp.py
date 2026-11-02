@@ -138,15 +138,16 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             mime="application/pdf",
         )
 
-        (view,) = publish_controlled_pdf_views(
-            conn,
-            prepared=prepared,
-            run_id=run,
-            document_id=document,
-            original=original,
-            paragraphs=("Alice is here.",),
-            keys=("source.html#people",),
-        )
+    (view,) = publish_controlled_pdf_views(
+        e,
+        prepared=prepared,
+        run_id=run,
+        document_id=document,
+        original=original,
+        paragraphs=("Alice is here.",),
+        keys=("source.html#people",),
+    )
+    with e.begin() as conn:
         locator = view.ref.key
         (agent,) = queue_agent(
             conn,

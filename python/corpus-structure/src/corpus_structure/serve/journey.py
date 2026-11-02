@@ -17,13 +17,18 @@ from corpus_structure.semantic.query import (
     SnapshotBinding,
     bind_completed_result,
 )
+from corpus_structure.semantic.query_compatibility import (
+    BoundQuery,
+    QueryCompatibilityError,
+    validate_query_token,
+)
 from corpus_structure.semantic.refusals import (
     InvalidContinuation,
     SemanticRefusal,
     StaleSnapshot,
     WrongBinding,
 )
-from corpus_structure.serve.protocol import DomainQuery, QueryContext, QueryResult, Scope
+from corpus_structure.serve.protocol import QueryContext, QueryResult, Scope
 
 PROMOTED = "promoted"
 
@@ -113,7 +118,7 @@ def params_digest(params: Mapping[str, Any]) -> str:
 
 def encode_token(
     run_id: int,
-    query: DomainQuery,
+    query: BoundQuery,
     params: Mapping[str, Any],
     position: JsonValue,
     *,
@@ -121,6 +126,10 @@ def encode_token(
     projection: str,
 ) -> str:
     body = {
+        "token_version": 2,
+        "query_contract": query.contract,
+        "implementation": query.implementation,
+        "compatibility": query.compatibility,
         "run": run_id,
         "query": query.name,
         "version": query.version,
@@ -141,7 +150,7 @@ def decode_token(token: str) -> dict[str, Any]:
 
 def serve_query(
     conn: Connection,
-    registry: Mapping[str, DomainQuery],
+    registry: Mapping[str, BoundQuery],
     name: str,
     params: Mapping[str, Any] | None = None,
     *,
@@ -151,17 +160,16 @@ def serve_query(
     max_rows: int | None = None,
     max_chars: int | None = None,
     projection: Literal["occurrence", "fact", "accepted"] = "accepted",
+    origin_query: BoundQuery | None = None,
 ) -> QueryResult:
     """One page of a query's journey (module doc)."""
     if name not in registry:
         raise QueryRefused(f"no query {name!r}")
     query = registry[name]
-    p = query.params.model_validate(dict(params or {}))
-    dumped: dict[str, JsonValue] = p.model_dump(mode="json")
-    if projection == "accepted" and (
-        getattr(p, "include_candidates", False) or getattr(p, "status", None) == "candidate"
-    ):
-        projection = "fact"
+    if not isinstance(query, BoundQuery):
+        raise QueryCompatibilityError(
+            "named query requires its release-bound registry", reason="unavailable_query"
+        )
     position: JsonValue = None
     body: dict[str, Any] | None = None
     if page_token is not None:
@@ -188,7 +196,19 @@ def serve_query(
         projection=projection,
     )
     binding = ctx.session.binding
+    if query.release_id != binding.release_id:
+        raise QueryCompatibilityError("query registry belongs to another producing release")
+    if origin_query is not None and origin_query.release_id != binding.release_id:
+        raise QueryCompatibilityError("follow-up query belongs to another producing release")
+    p = query.params.model_validate(dict(params or {}))
+    dumped: dict[str, JsonValue] = p.model_dump(mode="json")
+    if projection == "accepted" and (
+        getattr(p, "include_candidates", False) or getattr(p, "status", None) == "candidate"
+    ):
+        projection = "fact"
+        ctx.projection = projection
     if body is not None:
+        validate_query_token(query, body)
         validate_continuation(
             ctx.session.prepared,
             body,
@@ -239,6 +259,11 @@ def serve_query(
             ),
             query=query.name,
             version=query.version,
+            query_contract=query.contract,
+            producing_implementation=query.producing_implementation,
+            implementation=query.implementation,
+            compatibility=query.compatibility,
+            origin_binding=origin_query.reference if origin_query is not None else None,
             params=dumped,
             coverage=cov,
             coverage_diagnostic=coverage_diagnostic,
@@ -259,7 +284,10 @@ def serve_query(
             if max_rows is not None and len(rows) >= max_rows:
                 return response(True, cursor)
             following = next(iterator, None)
-            item = found.row.model_dump(mode="json", serialize_as_any=True)
+            # Validate the declared result fields without erasing concrete nested
+            # release-owned models (notably SerializeAsAny qualifications).
+            admitted = query.result.model_validate(dict(found.row))
+            item = admitted.model_dump(mode="json", serialize_as_any=True)
             rows.append(item)
             # Reserve the continuation envelope too, even for a last row.
             if (

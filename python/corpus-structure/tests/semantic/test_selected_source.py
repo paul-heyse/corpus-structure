@@ -24,6 +24,7 @@ from corpus_structure.serve.selected_source import (
 class SourceBytes(PublishedPdfReader):
     def __init__(self):
         self.revision = {
+            "release_id": "source-production-release",
             "source_digest": "a" * 64,
             "schema_digest": "b" * 64,
             "recipe_digest": "c" * 64,
@@ -175,7 +176,7 @@ def offline_package(tmp_path):
     pin = PublishedSourcePin(
         project_id="p",
         run_id=7,
-        release_id=context.release_id,
+        selection_release_id=context.release_id,
         task_id=70,
         product_key="integrated",
         content_digest="1" * 64,
@@ -217,6 +218,9 @@ def test_exact_offline_membership_table_original_addresses_and_formula_preparati
         table = json.loads(Path(paths[2][1]).read_bytes())
         assert table["data"]["table_cells"][0]["text"] == "cell"
         assert receipt.selected_record_count == 4
+        assert receipt.pin.selection_release_id == "retained-release"
+        assert receipt.producer_release_id == "source-production-release"
+        assert reader.header["producer_release_id"] == receipt.producer_release_id
         with pytest.raises(AdditionalContextRequired) as error:
             reader.prepare_formula_inputs(context, required_outside_values=["#/texts/99"])
         assert error.value.references[0]["target"]["content_digest"] == "2" * 64

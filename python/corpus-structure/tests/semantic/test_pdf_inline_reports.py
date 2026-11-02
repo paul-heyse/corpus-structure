@@ -7,8 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import create_model
-from sqlalchemy import event, text
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy import event
 
 from corpus_structure.semantic.pdf_ocr_contracts import (
     validate_pdf_inline_reports,
@@ -166,6 +165,7 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
     semantic_writer_engine,
     semantic_reader_engine,
     tmp_path,
+    monkeypatch,
 ):
     from docling_core.types.doc import (
         BoundingBox,
@@ -179,7 +179,6 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
 
     from corpus_structure.ingest.pdf import PdfConversion, publication_payload
     from corpus_structure.ingest.pdf_hierarchy import snapshot
-    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.operations import (
         OperationBinding,
         claim_tasks,
@@ -191,7 +190,6 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
     from corpus_structure.semantic.pdf_contracts import (
         prepare_pdf_product,
         store_pdf_original,
-        store_pdf_product,
     )
     from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
 
@@ -281,72 +279,70 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
             original=original,
             recipe_bytes=recipe,
         )
-    with semantic_writer_engine.begin() as conn:
-        store_pdf_product(
-            conn, task_id=task, attempt=claim.attempt, holder="inline-fixture", product=raw
-        )
-        derived = deepcopy(payload)
-        derived.update(
-            product_key="partial",
-            parent_task_id=task,
-            parent_product_key="native",
-            parent_digest=raw.digest,
-        )
-        derived["inline_alignment_reports"] = example()["inline_alignment_reports"]
-        derived["inline_alignment_reports"][0]["item_pointers"] = [paragraph.self_ref]
-        derived["recognition_coverage"] = example()["recognition_coverage"]
-        derived["recognition_coverage"][0]["section_pointer"] = section.self_ref
-        partial = prepare_pdf_product(derived, original, schema, recipe)
-        for mutation, diagnostic in [
-            ("candidate", "candidate is unavailable"),
-            ("complete", "unresolved source correspondence"),
-        ]:
-            bad = deepcopy(derived)
-            bad["product_key"] = "bad-" + mutation
-            if mutation == "candidate":
-                bad["inline_alignment_reports"][0]["candidate_index"] = 9
-            else:
-                bad["recognition_coverage"][0]["outcome"] = "complete"
-            with pytest.raises(DBAPIError, match=diagnostic), conn.begin_nested():
-                conn.execute(
-                    text(
-                        "SELECT ops.publish_native_document(:task,:attempt,:holder,:contract,"
-                        ":payload,NULL,:schema,:recipe)"
-                    ),
-                    dict(
-                        task=task,
-                        attempt=claim.attempt,
-                        holder="inline-fixture",
-                        contract=partial.contract_digest,
-                        payload=canonical_bytes(bad),
-                        schema=schema,
-                        recipe=recipe,
-                    ),
-                )
-        store_pdf_product(
-            conn, task_id=task, attempt=claim.attempt, holder="inline-fixture", product=partial
-        )
-        assert (
-            conn.scalar(
-                text(
-                    "SELECT count(*) FROM kb.native_document_inline_alignment_report "
-                    "WHERE task_id=:task"
-                ),
-                dict(task=task),
+    from .native_record_fixtures import publish_native_record_fixture
+
+    original_pin = publish_native_record_fixture(
+        semantic_writer_engine,
+        tmp_path / "original-records",
+        task_id=task,
+        attempt=claim.attempt,
+        holder="inline-fixture",
+        product=raw,
+        document=document,
+    )
+    derived = deepcopy(payload)
+    derived.update(
+        product_key="partial",
+        parent_task_id=task,
+        parent_product_key="native",
+        parent_digest=original_pin.logical_digest,
+    )
+    derived["inline_alignment_reports"] = example()["inline_alignment_reports"]
+    derived["inline_alignment_reports"][0]["item_pointers"] = [paragraph.self_ref]
+    derived["recognition_coverage"] = example()["recognition_coverage"]
+    derived["recognition_coverage"][0]["section_pointer"] = section.self_ref
+    partial = prepare_pdf_product(derived, original, schema, recipe)
+    for mutation, diagnostic in [
+        ("candidate", "unavailable candidate"),
+        ("complete", "unresolved source correspondence"),
+    ]:
+        bad = deepcopy(derived)
+        bad["product_key"] = "bad-" + mutation
+        if mutation == "candidate":
+            bad["inline_alignment_reports"][0]["candidate_index"] = 9
+        else:
+            bad["recognition_coverage"][0]["outcome"] = "complete"
+        with pytest.raises(ValueError, match=diagnostic):
+            malformed = prepare_pdf_product(bad, original, schema, recipe)
+            publish_native_record_fixture(
+                semantic_writer_engine,
+                tmp_path / ("bad-" + mutation),
+                task_id=task,
+                attempt=claim.attempt,
+                holder="inline-fixture",
+                product=malformed,
+                document=document,
             )
-            == 1
-        )
-        assert (
-            conn.scalar(
-                text(
-                    "SELECT count(*) FROM kb.native_document_inline_alignment_item "
-                    "WHERE task_id=:task"
-                ),
-                dict(task=task),
-            )
-            == 1
-        )
+    selected_pin = publish_native_record_fixture(
+        semantic_writer_engine,
+        tmp_path / "partial-records",
+        task_id=task,
+        attempt=claim.attempt,
+        holder="inline-fixture",
+        product=partial,
+        document=document,
+    )
     statements = []
+    from corpus_structure.semantic import _operation_calls
+
+    ancestor_reads = []
+    read_ancestors = _operation_calls.read_published_item_ancestors
+
+    def capture_ancestor_read(conn, **parameters):
+        ancestor_reads.append(parameters)
+        return read_ancestors(conn, **parameters)
+
+    monkeypatch.setattr(_operation_calls, "read_published_item_ancestors", capture_ancestor_read)
 
     def capture(conn, cursor, statement, parameters, context, executemany):
         statements.append(statement)
@@ -360,7 +356,7 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
                     run_id=run,
                     task_id=task,
                     product_key="partial",
-                    content_digest=partial.digest,
+                    content_digest=selected_pin.logical_digest,
                     view="item",
                     pointer=paragraph.self_ref,
                 ),
@@ -373,28 +369,30 @@ def test_publication_and_item_inspection_use_fixed_report_relations(
             assert report["candidate_basis"] == "native-vector-gap-v1"
             assert report["item_pointers"] == [paragraph.self_ref]
             assert report["source_product"] == dict(
-                task_id=task, product_key="native", content_digest=raw.digest
+                task_id=task, product_key="native", content_digest=original_pin.logical_digest
             )
-            before = len(statements)
             legacy = inspect_native_source(
                 conn,
                 NativeSourceRequest(
                     run_id=run,
                     task_id=task,
                     product_key="native",
-                    content_digest=raw.digest,
+                    content_digest=original_pin.logical_digest,
                     view="item",
                     pointer=paragraph.self_ref,
                 ),
             )
-            assert legacy.rows[0]["inline_alignment_reports"] == []
+            assert legacy.rows[0]["inline_alignment_reports"] is None
             assert legacy.health["inline_coverage"] == "unknown"
     finally:
         event.remove(semantic_reader_engine, "before_cursor_execute", capture)
     assert any(
-        "native_document_inline_alignment_report" in statement for statement in statements[:before]
+        (read["task_id"], read["product_key"], read["content_digest"], read["pointer"])
+        == (task, "partial", selected_pin.logical_digest, paragraph.self_ref)
+        and read["projection_context"].release_id == prepared.release_id
+        for read in ancestor_reads
     )
     assert not any(
-        "native_document_product" in statement and "payload" in statement
+        "kb.native_document_" in statement or "ops.native_document_product" in statement
         for statement in statements
     )

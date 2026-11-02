@@ -264,22 +264,49 @@ class PreparedPayloadFamily:
         return sink.getvalue().to_pybytes()
 
     def read_batch(
-        self, payload: bytes, *, schema_digest: str | None = None, logical_digest: str | None = None
+        self,
+        payload: bytes,
+        *,
+        schema_digest: str | None = None,
+        logical_digest: str | None = None,
+        columns: Sequence[str] | None = None,
     ) -> pa.RecordBatch:
         """Return owning Arrow buffers after framing, schema and optional identity checks.
 
         This physical reader does not reconstruct domain mappings. Full JSON Schema and
         cross-field admission remain the publication/``decode`` boundary's responsibility.
+        A column projection is for already admitted, byte-verified artifacts; it cannot
+        independently recompute the whole-page logical identity.
         """
         if schema_digest is not None and schema_digest != self.schema_digest:
             _error("#", "payload schema binding differs")
         source = pa.BufferReader(payload)
+        indices = None
+        expected_schema = self.arrow_schema
+        if columns is not None:
+            if logical_digest is not None:
+                _error("#", "projected payload cannot recompute whole-page logical identity")
+            if not columns or len(set(columns)) != len(columns):
+                _error("#", "payload projection requires distinct named columns")
+            indices = [self.arrow_schema.get_field_index(name) for name in columns]
+            if -1 in indices:
+                _error("#", "unknown payload projection column")
+            expected_schema = pa.schema(
+                [self.arrow_schema.field(index) for index in sorted(indices)],
+                metadata=self.arrow_schema.metadata,
+            )
         try:
+            if indices is not None:
+                # Check the complete declared header without reading/decompressing its batches.
+                with pa.ipc.open_stream(source) as header:
+                    if not header.schema.equals(self.arrow_schema, check_metadata=True):
+                        _error("#", "IPC schema/profile differs")
+                source.seek(0)
             # Page-local reads share existing admission; do not add Arrow decompression workers.
             with pa.ipc.open_stream(
-                source, options=pa.ipc.IpcReadOptions(use_threads=False)
+                source, options=pa.ipc.IpcReadOptions(use_threads=False, included_fields=indices)
             ) as reader:
-                if not reader.schema.equals(self.arrow_schema, check_metadata=True):
+                if not reader.schema.equals(expected_schema, check_metadata=True):
                     _error("#", "IPC schema/profile differs")
                 page_batch = None
                 for batch in reader:
@@ -304,7 +331,7 @@ class PreparedPayloadFamily:
                 digest.update(chunk)
             if digest.hexdigest() != logical_digest:
                 _error("#", "payload logical digest differs")
-        return page_batch
+        return page_batch.select(columns) if columns is not None else page_batch
 
     def decode(
         self, payload: bytes, *, schema_digest: str | None = None, logical_digest: str | None = None

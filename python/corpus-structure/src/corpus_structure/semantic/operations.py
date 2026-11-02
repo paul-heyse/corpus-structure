@@ -13,10 +13,10 @@ from hashlib import sha256
 from typing import Any
 
 from pydantic import BaseModel, JsonValue
-from sqlalchemy import Connection, func, insert, select, text
+from sqlalchemy import Connection, func, insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from corpus_structure.core.evidence import RenditionContent
+from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.method import (
     MeasurementView,
     Method,
@@ -28,9 +28,24 @@ from corpus_structure.core.method import (
 )
 from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, RunKind, TaskUnitType
 
+from ._operation_calls import ReleasedClaim as ReleasedClaim
+from ._operation_ids import (
+    CutId,
+    DocumentId,
+    MethodConfigId,
+    ProjectId,
+    RenditionId,
+    RunId,
+    TaskAttempt,
+    TaskId,
+)
 from .identity import canonical_bytes
 from .metadata import table
-from .operation_results import ClaimedTask, CompletionResult, HeldProgress, HoldDecision
+from .operation_results import (
+    ClaimedTask,
+    CompletionResult,
+    HoldDecision,
+)
 from .types import PreparedRelease
 
 
@@ -68,35 +83,38 @@ def create_run(
     code_commit: str,
     guideline: str = "",
     phase: int = 0,
-) -> int:
-    import json
+) -> RunId:
+    from typing import cast
+
+    from ._operation_calls import ProjectId, RealizationId, ReleaseId
+    from ._operation_calls import create_run as invoke
 
     try:
-        return conn.execute(
-            text("SELECT ops.create_run(:p,:r,:z,:v,:d,:k,:phase,CAST(:opts AS jsonb),:g,:commit)"),
-            dict(
-                p=project_id,
-                r=binding.release_id,
-                z=binding.input_realization_id,
-                v=binding.input_revision,
-                d=binding.dependencies,
-                k=kind,
-                phase=phase,
-                opts=json.dumps(options),
-                g=guideline,
-                commit=code_commit,
-            ),
-        ).scalar_one()
+        return invoke(
+            conn,
+            project_id=ProjectId(project_id),
+            release_id=ReleaseId(binding.release_id),
+            realization_id=RealizationId(binding.input_realization_id),
+            revision=binding.input_revision,
+            dependencies=binding.dependencies,
+            kind=kind,
+            phase=phase,
+            options=cast(JsonValue, dict(options)),
+            guideline=guideline,
+            code_commit=code_commit,
+        )
     except Exception as exc:
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
             raise OperationConflict("input realization changed before run creation") from exc
         raise
 
 
-def start_run(conn: Connection, run_id: int) -> int:
+def start_run(conn: Connection, run_id: RunId) -> int:
     """Start a source run through guarded DML; an exact running replay is harmless."""
     try:
-        return conn.execute(text("SELECT ops.start_source_run(:run)"), {"run": run_id}).scalar_one()
+        from ._operation_calls import start_source_run as invoke
+
+        return invoke(conn, run_id=run_id)
     except Exception as exc:
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
             raise OperationConflict("run no longer accepts source execution") from exc
@@ -127,20 +145,21 @@ class OperationDescriptor:
 
 def record_method(
     conn: Connection,
-    method: Any,
+    method: Method[Any] | OperationDescriptor,
     name: str,
     params: Mapping[str, Any],
     config_hash: str,
     *,
     prepared: PreparedRelease | None = None,
-) -> int:
+) -> MethodConfigId:
+    from . import _operation_calls as calls
     from .contracts import require_bound_operation
 
     if prepared is not None:
         require_bound_operation(prepared, "configure_method")
     m = table("ops.method")
     c = table("ops.method_config")
-    values = dict(
+    request = calls.prepare_method_definition(
         name=method.name,
         version=method.version,
         unit_type=str(method.unit_type) if hasattr(method, "unit_type") else None,
@@ -154,40 +173,55 @@ def record_method(
         confidence_source=str(method.confidence_source)
         if method.confidence_source is not None
         else None,
+        projection_context=prepared,
     )
+    values = calls.values_method_definition_ops_method(request)
+    expected = calls.expected_method_definition_ops_method(request)
     conn.execute(pg_insert(m).values(**values).on_conflict_do_nothing())
-    declared = (
-        conn.execute(select(m).where(m.c.name == method.name, m.c.version == method.version))
-        .mappings()
-        .one()
+    declared = calls.collect_method_definition(
+        conn.execute(
+            select(*calls.projection_method_definition).where(
+                m.c.name == request.name, m.c.version == request.version
+            )
+        )
     )
+    actual = declared.decoded_json_fields(operation="configure_method")
     if any(
-        declared[k] != value
-        for k, value in values.items()
-        if not (k in {"unit_type", "configuration_schema_digest"} and declared[k] is None)
+        actual[k] != value
+        for k, value in expected.items()
+        if not (k in {"unit_type", "configuration_schema_digest"} and actual[k] is None)
     ):
         raise OperationConflict("operation version denotes another method contract")
-    mid = declared["id"]
+    configuration = calls.prepare_method_configuration(
+        method_id=declared.id,
+        name=name,
+        params=dict(params),
+        config_hash=config_hash,
+        projection_context=prepared,
+    )
     conn.execute(
         pg_insert(c)
-        .values(method_id=mid, name=name, params=dict(params), config_hash=config_hash)
+        .values(**calls.values_method_configuration_ops_method_config(configuration))
         .on_conflict_do_nothing()
     )
-    row = (
-        conn.execute(select(c).where(c.c.method_id == mid, c.c.config_hash == config_hash))
-        .mappings()
-        .one()
+    row = calls.collect_method_configuration(
+        conn.execute(
+            select(*calls.projection_method_configuration).where(
+                c.c.method_id == configuration.method_id,
+                c.c.config_hash == configuration.config_hash,
+            )
+        )
     )
-    if row["params"] != dict(params):
+    if row.decoded_json_fields(operation="configure_method")["params"] != configuration.params:
         raise OperationConflict("configuration hash denotes different parameters")
-    return row["id"]
+    return row.id
 
 
 def create_task(
     conn: Connection,
     *,
-    run_id: int,
-    config_id: int,
+    run_id: RunId,
+    config_id: MethodConfigId,
     stage: str,
     unit_type: str,
     input_hash: str,
@@ -198,13 +232,11 @@ def create_task(
     fresh: bool = False,
     trigger: Mapping[str, Any] | None = None,
     skip_reason: str | None = None,
-) -> int:
+) -> TaskId:
     r = table("ops.run")
-    run = (
-        conn.execute(text("SELECT * FROM ops.lock_execution_run(:run,'schedule')"), {"run": run_id})
-        .mappings()
-        .one()
-    )
+    from ._operation_calls import lock_schedule_run
+
+    run = lock_schedule_run(conn, run_id=run_id).decoded_json_fields(operation="schedule")
     if run["sealed"] or run["status"] not in {"created", "running"}:
         raise OperationConflict("run no longer accepts tasks")
     t = table("ops.task")
@@ -274,50 +306,61 @@ def create_task(
                 .values(run_id=run_id, document_id=item.document_id, rendition_id=item.rendition_id)
                 .on_conflict_do_nothing()
             )
-    return task_id
+    return TaskId(task_id)
 
 
 def claim_tasks(
     conn: Connection,
     *,
-    run_id: int,
-    config_id: int,
+    run_id: RunId,
+    config_id: MethodConfigId,
     holder: str,
     limit: int = 1,
     agent: bool = False,
+    prepared: PreparedRelease | None = None,
 ) -> tuple[ClaimedTask, ...]:
     if limit < 1:
         raise ValueError("positive claim limit required")
     if not isinstance(holder, str) or not holder:
         raise ValueError("nonempty claim holder required")
-    rows = conn.execute(
-        text("SELECT * FROM ops.claim_tasks(:run,:config,:holder,:limit,:agent)"),
-        {"run": run_id, "config": config_id, "holder": holder, "limit": limit, "agent": agent},
-    ).mappings()
-    from corpus_structure.core.vocab import TaskUnitType
+    from ._operation_calls import claim_tasks as invoke
 
-    return tuple(
-        ClaimedTask(
-            task_id=row["id"],
-            run_id=row["run_id"],
-            release_id=row["release_id"],
-            method_config_id=row["method_config_id"],
-            unit_type=TaskUnitType(row["unit_type"]),
-            unit_id=row["unit_id"],
-            unit_key=row["unit_key"],
-            packet_hash=row["packet_hash"],
-            attempt=row["attempt"],
-            holder=row["claimed_by"],
-            deadline=row["lease_until"],
-            invocation_key=row["invocation_key"],
-            held_progress=HeldProgress.model_validate(
-                row["error"]["semantic_proposal_first_result"]
-            )
-            if row["error"] and "semantic_proposal_first_result" in row["error"]
-            else None,
+    model = None
+    if prepared is not None:
+        from dataclasses import asdict
+
+        from ._operation_calls import CLAIM_TASKS_CONTRACT_DIGEST
+        from .contracts import bound_execution_model
+
+        run = table("ops.run")
+        release = conn.execute(select(run.c.release_id).where(run.c.id == run_id)).scalar_one()
+        if release != prepared.release_id:
+            raise ValueError("claim preparation differs from the run's bound release")
+        if prepared.execution_model_id is not None:
+            model = bound_execution_model(prepared)
+            call = model.require_operation("claim").call
+            # Compiler20 has the supported fixed claim shape but no generated-call
+            # or observable failure promise. New declarations must match the adapter.
+            if (
+                call is not None
+                and sha256(canonical_bytes([asdict(call)])).hexdigest()
+                != CLAIM_TASKS_CONTRACT_DIGEST
+            ):
+                raise ValueError("claim call correspondence differs from this generated adapter")
+    try:
+        return invoke(
+            conn, run_id=run_id, config_id=config_id, holder=holder, limit=limit, agent=agent
         )
-        for row in rows
-    )
+    except Exception as exc:
+        if model is not None and prepared is not None:
+            from .invariant_failures import InvariantViolation, classify_invariant_failure
+
+            failure = classify_invariant_failure(
+                model, "claim", exc, release_id=prepared.release_id
+            )
+            if failure is not None:
+                raise InvariantViolation(failure) from exc
+        raise
 
 
 def observation_key(
@@ -343,8 +386,8 @@ def observation_key(
 def complete_task(
     conn: Connection,
     *,
-    task_id: int,
-    attempt: int,
+    task_id: TaskId,
+    attempt: TaskAttempt,
     holder: str,
     prepared: PreparedRelease,
     observations: Sequence[Mapping[str, Any]],
@@ -402,29 +445,35 @@ def complete_task(
                 ),
             )
         )
-    import json
+    from typing import cast
+
+    from ._operation_calls import TaskAttempt, TaskId
+    from ._operation_calls import complete_task as invoke
 
     try:
-        result = conn.execute(
-            text(
-                "SELECT ops.complete_task(:task,:attempt,:holder,CAST(:rows AS "
-                "jsonb),:outcome,CAST(:error AS jsonb),CAST(:envelope AS jsonb))::text"
-            ),
-            dict(
-                task=task_id,
-                attempt=attempt,
-                holder=holder,
-                rows=json.dumps(rows),
-                outcome=outcome,
-                error=json.dumps(error),
-                envelope=json.dumps(envelope) if envelope is not None else None,
-            ),
-        ).scalar_one()
+        completion = invoke(
+            conn,
+            task_id=TaskId(task_id),
+            attempt=TaskAttempt(attempt),
+            holder=holder,
+            rows=cast(JsonValue, rows),
+            outcome=outcome,
+            error=cast(JsonValue, dict(error) if error is not None else None),
+            envelope=cast(JsonValue, dict(envelope) if envelope is not None else None),
+        )
     except Exception as exc:
+        if prepared.execution_model_id is not None:
+            from .contracts import bound_execution_model
+            from .invariant_failures import InvariantViolation, classify_invariant_failure
+
+            failure = classify_invariant_failure(
+                bound_execution_model(prepared), "complete", exc, release_id=prepared.release_id
+            )
+            if failure is not None:
+                raise InvariantViolation(failure) from exc
         if getattr(getattr(exc, "orig", None), "sqlstate", None) in {"P0004", "55000"}:
             raise OperationConflict("task attempt lost or run sealed") from exc
         raise
-    completion = CompletionResult.model_validate_json(result, strict=True)
     from .operation_results import validate_result_dimension
 
     validate_result_dimension(
@@ -436,13 +485,13 @@ def complete_task(
     return completion
 
 
-def seal_cut(conn: Connection, run_id: int, name: str, *, final: bool = False) -> int:
-    return conn.execute(
-        text("SELECT ops.capture_cut(:run,:name,:final)"), dict(run=run_id, name=name, final=final)
-    ).scalar_one()
+def seal_cut(conn: Connection, run_id: RunId, name: str, *, final: bool = False) -> CutId:
+    from ._operation_calls import capture_cut as invoke
+
+    return invoke(conn, run_id=run_id, name=name, final=final)
 
 
-def cut_observations(conn: Connection, cut_id: int) -> list[dict[str, Any]]:
+def cut_observations(conn: Connection, cut_id: CutId) -> list[dict[str, Any]]:
     o = table("kb.observation")
     c = table("ops.cut_task")
     return [
@@ -468,7 +517,8 @@ def register_document(
     title: str | None = None,
     metadata: Mapping[str, Any] | None = None,
     prepared: PreparedRelease | None = None,
-) -> int:
+) -> DocumentId:
+    from . import _operation_calls as calls
     from .contracts import require_bound_operation
 
     if prepared is not None:
@@ -482,8 +532,8 @@ def register_document(
 
     key = document_key(project_id, source_uri, content_hash)
     t = table("kb.document")
-    values = dict(
-        project_id=project_id,
+    request = calls.prepare_document_registration(
+        project_id=ProjectId(project_id),
         key=key,
         source_uri=source_uri,
         content_hash=content_hash,
@@ -491,18 +541,25 @@ def register_document(
         mime=mime,
         title=title,
         meta=dict(metadata or {}),
+        projection_context=prepared,
     )
+    values = calls.values_document_registration_kb_document(request)
     conn.execute(pg_insert(t).values(**values).on_conflict_do_nothing())
-    row = (
-        conn.execute(select(t).where(t.c.project_id == project_id, t.c.key == key)).mappings().one()
+    row = calls.collect_document_registration(
+        conn.execute(
+            select(*calls.projection_document_registration).where(
+                t.c.project_id == request.project_id, t.c.key == request.key
+            )
+        )
     )
-    if any(row[k] != v for k, v in values.items()):
+    actual = row.decoded_json_fields(operation="register_document")
+    if any(
+        actual[k] != value
+        for k, value in calls.expected_document_registration_kb_document(request).items()
+    ):
         raise OperationConflict("source identity denotes another source descriptor")
-    conn.execute(
-        text("SELECT ops.retain_source_artifact(:document,:original)"),
-        dict(document=row["id"], original=original),
-    )
-    return row["id"]
+    calls.retain_source_artifact(conn, document_id=row.id, original=original)
+    return row.id
 
 
 class SourceReadRefused(OperationConflict):
@@ -524,33 +581,55 @@ def _source_read_outcome(prepared: PreparedRelease | None, operation: str, outco
 
 
 def read_original(
-    conn: Connection, document_id: int, *, prepared: PreparedRelease | None = None
+    conn: Connection,
+    document_id: DocumentId,
+    *,
+    prepared: PreparedRelease | None = None,
+    projection_context: PreparedRelease | None = None,
 ) -> bytes:
-    """Translate a verified original payload or a modeled missing/invalid read refusal."""
+    """Read fixed physical custody; producer outcomes and consumer admission stay separate.
+
+    Without a selected projection context this is the fixed base Core read protocol, not
+    admission against an inferred installed release. A supplied context must declare the call.
+    """
     from pathlib import Path
 
+    from . import _operation_calls as calls
+
+    request = calls.prepare_original_descriptor(
+        id=document_id, projection_context=projection_context
+    )
     t = table("kb.document")
-    row = conn.execute(select(t).where(t.c.id == document_id)).mappings().one_or_none()
+    row = calls.collect_original_descriptor(
+        conn.execute(select(*calls.projection_original_descriptor).where(t.c.id == request.id))
+    )
     if row is None:
         _source_read_outcome(prepared, "read_original", "missing")
         raise SourceReadRefused("missing", "retained original document is missing")
     artifact = table("kb.source_artifact")
-    retained = conn.execute(
-        select(artifact.c.content).where(artifact.c.artifact_digest == row["content_hash"])
-    ).scalar_one_or_none()
+    artifact_request = calls.prepare_original_artifact(
+        artifact_digest=row.content_hash, projection_context=projection_context
+    )
+    retained = calls.collect_original_artifact(
+        conn.execute(
+            select(*calls.projection_original_artifact).where(
+                artifact.c.artifact_digest == artifact_request.artifact_digest
+            )
+        )
+    )
     if retained is not None:
-        data = bytes(retained)
-        if sha256(data).hexdigest() != row["content_hash"]:
+        data = retained
+        if sha256(data).hexdigest() != row.content_hash:
             _source_read_outcome(prepared, "read_original", "invalid")
             raise SourceReadRefused("invalid", "retained original artifact is corrupt")
         _source_read_outcome(prepared, "read_original", "source_ready")
         return data
     try:
-        data = Path(row["original_path"]).read_bytes()
+        data = Path(row.original_path).read_bytes()
     except FileNotFoundError as exc:
         _source_read_outcome(prepared, "read_original", "missing")
         raise SourceReadRefused("missing", "retained original file is missing") from exc
-    if sha256(data).hexdigest() != row["content_hash"]:
+    if sha256(data).hexdigest() != row.content_hash:
         _source_read_outcome(prepared, "read_original", "invalid")
         raise SourceReadRefused("invalid", "retained original content changed")
     _source_read_outcome(prepared, "read_original", "source_ready")
@@ -560,16 +639,17 @@ def read_original(
 def store_rendition(
     conn: Connection,
     *,
-    run_id: int,
-    document_id: int,
+    run_id: RunId,
+    document_id: DocumentId,
     content: RenditionContent,
-    task_id: int,
-    config_id: int,
+    task_id: TaskId,
+    config_id: MethodConfigId,
     parse_detail: Mapping[str, Any],
     text_layout: Mapping[str, Any] | None = None,
     prepared: PreparedRelease | None = None,
-) -> int:
+) -> RenditionId:
     """Preserve physical content sharing separately from method build provenance."""
+    from . import _operation_calls as calls
     from .contracts import require_database_operation
 
     require_database_operation(conn, binding_of(conn, run_id).release_id, "store_rendition")
@@ -583,41 +663,56 @@ def store_rendition(
 
     digest = content_digest(content)
     d = table("kb.document")
-    source = conn.execute(select(d.c.key).where(d.c.id == document_id)).scalar_one()
+    source_request = calls.prepare_rendition_source_key(id=document_id, projection_context=prepared)
+    source = calls.collect_rendition_source_key(
+        conn.execute(
+            select(*calls.projection_rendition_source_key).where(d.c.id == source_request.id)
+        )
+    )
     key = rendition_key(source, digest)
     t = table("kb.rendition")
-    values = dict(
+    request = calls.prepare_rendition_definition(
         document_id=document_id,
         key=key,
         content_digest=digest,
         canonical_text=content.canonical_text,
         content=payload,
         parse_status=str(content.parse_status),
+        projection_context=prepared,
     )
+    values = calls.values_rendition_definition_kb_rendition(request)
     conn.execute(pg_insert(t).values(**values).on_conflict_do_nothing())
-    row = conn.execute(select(t).where(t.c.key == key)).mappings().one()
-    if any(row[k] != v for k, v in values.items()):
+    row = calls.collect_rendition_definition(
+        conn.execute(select(*calls.projection_rendition_definition).where(t.c.key == request.key))
+    )
+    actual = row.decoded_json_fields(operation="store_rendition")
+    if any(
+        actual[k] != value
+        for k, value in calls.expected_rendition_definition_kb_rendition(request).items()
+    ):
         raise OperationConflict("rendition identity denotes different content")
-    rendition_id = row["id"]
+    rendition_id = row.id
     st = table("kb.segment")
     counter = [0]
 
-    def put(segment: Any, parent: str | None = None) -> None:
+    def put(segment: Segment, parent: str | None = None) -> None:
         skey = segment_key(key, segment.kind, segment.start, segment.end)
+        request = calls.prepare_rendition_segment(
+            rendition_id=rendition_id,
+            segment_key=skey,
+            parent_key=parent,
+            kind=str(segment.kind),
+            ordinal=counter[0],
+            start_offset=segment.start,
+            end_offset=segment.end,
+            attrs=dict(segment.attrs),
+            parse_status=str(segment.parse_status),
+            parse_reason=segment.parse_reason,
+            projection_context=prepared,
+        )
         conn.execute(
             pg_insert(st)
-            .values(
-                rendition_id=rendition_id,
-                segment_key=skey,
-                parent_key=parent,
-                kind=str(segment.kind),
-                ordinal=counter[0],
-                start_offset=segment.start,
-                end_offset=segment.end,
-                attrs=dict(segment.attrs),
-                parse_status=str(segment.parse_status),
-                parse_reason=segment.parse_reason,
-            )
+            .values(**calls.values_rendition_segment_kb_segment(request))
             .on_conflict_do_nothing()
         )
         counter[0] += 1
@@ -626,17 +721,28 @@ def store_rendition(
 
     put(content.document)
     b = table("ops.rendition_build")
-    build = dict(
+    build = calls.prepare_rendition_build(
         document_id=document_id,
         method_config_id=config_id,
         rendition_id=rendition_id,
         task_id=task_id,
         parse_detail=dict(parse_detail),
         text_layout=dict(text_layout) if text_layout is not None else None,
+        projection_context=prepared,
     )
-    conn.execute(pg_insert(b).values(**build).on_conflict_do_nothing())
-    stored_build = conn.execute(select(b).where(b.c.task_id == task_id)).mappings().one()
-    if any(stored_build[k] != v for k, v in build.items()):
+    conn.execute(
+        pg_insert(b)
+        .values(**calls.values_rendition_build_ops_rendition_build(build))
+        .on_conflict_do_nothing()
+    )
+    stored_build = calls.collect_rendition_build(
+        conn.execute(select(*calls.projection_rendition_build).where(b.c.task_id == build.task_id))
+    )
+    actual_build = stored_build.decoded_json_fields(operation="store_rendition")
+    if any(
+        actual_build[k] != value
+        for k, value in calls.expected_rendition_build_ops_rendition_build(build).items()
+    ):
         raise OperationConflict("rendition build artifact differs on retry")
     tasks = table("ops.task")
     current_hash = conn.execute(
@@ -658,33 +764,55 @@ def store_rendition(
     if any(value != rendition_id for value in previous):
         raise OperationConflict("deterministic rendition build changed content")
     rr = table("ops.run_rendition")
+    selection = calls.prepare_run_rendition_selection(
+        run_id=run_id,
+        document_id=document_id,
+        rendition_id=rendition_id,
+        projection_context=prepared,
+    )
     conn.execute(
         pg_insert(rr)
-        .values(run_id=run_id, document_id=document_id, rendition_id=rendition_id)
+        .values(**calls.values_run_rendition_selection_ops_run_rendition(selection))
         .on_conflict_do_nothing()
     )
-    chosen = conn.execute(
-        select(rr.c.rendition_id).where(rr.c.run_id == run_id, rr.c.document_id == document_id)
-    ).scalar_one()
+    chosen = calls.collect_run_rendition_selection(
+        conn.execute(
+            select(*calls.projection_run_rendition_selection).where(
+                rr.c.run_id == selection.run_id, rr.c.document_id == selection.document_id
+            )
+        )
+    )
     if chosen != rendition_id:
         raise OperationConflict("run already selected another source rendition")
     return rendition_id
 
 
 def read_rendition(
-    conn: Connection, rendition_id: int, *, prepared: PreparedRelease | None = None
+    conn: Connection,
+    rendition_id: RenditionId,
+    *,
+    prepared: PreparedRelease | None = None,
+    projection_context: PreparedRelease | None = None,
 ) -> RenditionContent:
-    """Translate a typed rendition payload or an explicit modeled source-read refusal."""
+    """Use fixed Core custody, with separate producer outcome and consumer call authority."""
     from pydantic import ValidationError
 
     from corpus_structure.core.evidence import RenditionContent
 
+    from . import _operation_calls as calls
+
+    request = calls.prepare_rendition_content(
+        id=rendition_id, projection_context=projection_context
+    )
     t = table("kb.rendition")
-    payload = conn.execute(select(t.c.content).where(t.c.id == rendition_id)).scalar_one_or_none()
-    if payload is None:
+    row = calls.collect_rendition_content(
+        conn.execute(select(*calls.projection_rendition_content).where(t.c.id == request.id))
+    )
+    if row is None:
         _source_read_outcome(prepared, "read_rendition", "missing")
         raise SourceReadRefused("missing", "retained rendition is missing")
     try:
+        payload = row.decoded_json_fields(operation="read_rendition")["content"]
         content = RenditionContent.model_validate(payload)
     except ValidationError as exc:
         _source_read_outcome(prepared, "read_rendition", "invalid")
@@ -696,8 +824,8 @@ def read_rendition(
 def complete_unit_result(
     conn: Connection,
     *,
-    task_id: int,
-    attempt: int,
+    task_id: TaskId,
+    attempt: TaskAttempt,
     holder: str,
     prepared: PreparedRelease,
     result: UnitResult,
@@ -713,10 +841,9 @@ def complete_unit_result(
 
     task_table = table("ops.task")
     initial = conn.execute(select(task_table).where(task_table.c.id == task_id)).mappings().one()
-    conn.execute(
-        text("SELECT * FROM ops.lock_execution_run(:run,'complete_unit')"),
-        {"run": initial["run_id"]},
-    ).one()
+    from ._operation_calls import lock_complete_unit_run
+
+    lock_complete_unit_run(conn, run_id=RunId(initial["run_id"]))
     task = (
         conn.execute(select(task_table).where(task_table.c.id == task_id).with_for_update())
         .mappings()
@@ -737,18 +864,20 @@ def complete_unit_result(
         if method.confidence_source is not None
         else None,
     )
-    envelope = bound.model_dump(mode="python")
-    items = envelope.pop("observations", [])
+    # Native completion receives JSON, while complete_task admits each typed
+    # observation through the Python boundary. Keep those representations separate.
+    envelope = bound.model_dump(mode="json", exclude={"observations"})
+    items = bound.model_dump(mode="python", include={"observations"})["observations"]
     rendition_id = None
     if result.rendition is not None and task["status"] == "running":
-        if result.ref.unit_id is None:
+        if result.ref.unit_type is not TaskUnitType.DOCUMENT or result.ref.unit_id is None:
             raise ValueError("ingest result requires document id")
         from .text_layouts import freeze_text_layouts
 
         rendition_id = store_rendition(
             conn,
             run_id=task["run_id"],
-            document_id=result.ref.unit_id,
+            document_id=DocumentId(result.ref.unit_id),
             content=result.rendition,
             task_id=task_id,
             config_id=task["method_config_id"],
@@ -775,20 +904,6 @@ def complete_unit_result(
             raise OperationConflict("terminal rendition build artifact differs")
         if read_rendition(conn, rendition_id, prepared=prepared) != result.rendition:
             raise OperationConflict("terminal rendition result differs from published content")
-    if result.native_products:
-        from .pdf_contracts import store_pdf_product
-
-        for product in result.native_products:
-            store_pdf_product(
-                conn, task_id=task_id, attempt=attempt, holder=holder, product=product
-            )
-    if result.integrated_products:
-        from .pdf_integrated import store_integrated_pdf_product
-
-        for product in result.integrated_products:
-            store_integrated_pdf_product(
-                conn, task_id=task_id, attempt=attempt, holder=holder, product=product
-            )
     if result.source_views:
         from .source_views import store_source_view
 
@@ -983,35 +1098,73 @@ class BoundReader:
 
     def _native_product_input(self, reference):
         """Shared selected-or-claimed custody and archived contract admission."""
+        from .contracts import require_bound_operation
         from .pdf_contracts import pdf_context_for_task
-
-        identity = table("ops.pdf_product")
-        product, build = table("ops.pdf_selected_product"), table("ops.source_build")
-        row = (
-            self.conn.execute(
-                select(
-                    product.c.payload,
-                    product.c.contract_digest,
-                    product.c.schema_digest,
-                    product.c.recipe_digest,
-                    identity.c.kind.label("product_kind"),
-                    build.c.artifact_digest.label("original_digest"),
-                )
-                .join(
-                    identity,
-                    (identity.c.task_id == product.c.task_id)
-                    & (identity.c.product_key == product.c.product_key),
-                )
-                .join(build, build.c.task_id == product.c.task_id)
-                .where(
-                    product.c.task_id == reference.task_id,
-                    product.c.product_key == reference.product_key,
-                    product.c.content_digest == reference.content_digest,
-                )
-            )
-            .mappings()
-            .one()
+        from .pdf_record_reader import PublishedSchemaUnavailable, published_record_reader
+        from .pdf_storage import (
+            NativeDocumentUnavailable,
+            _pdf_product_identity,
+            _record_product_identity,
         )
+
+        require_bound_operation(self.prepared, "read_pdf_product")
+        context = pdf_context_for_task(self.conn, reference.task_id)
+        published = published_record_reader(self.conn, reference, projection_context=self.prepared)
+        if published is not None:
+            identity = _record_product_identity(
+                self.conn,
+                reference.task_id,
+                reference.product_key,
+                reference.content_digest,
+                published,
+            )
+            try:
+                published._native_schema_mapping()
+            except PublishedSchemaUnavailable as error:
+                raise NativeDocumentUnavailable(str(error)) from error
+            # PreparedPdfProduct's contract is the producer payload schema, not
+            # the sealed record projection receipt. Keep their meanings distinct.
+            row = dict(
+                payload=None,
+                contract_digest=context.contract_digest,
+                schema_digest=published.revision["schema_digest"],
+                recipe_digest=published.revision["recipe_digest"],
+                product_kind=identity["kind"],
+                original_digest=published.revision["source_digest"],
+            )
+        else:
+            # Explicit historical reads retain their qualified legacy protocol.
+            # New section preparation below still requires a published record binding.
+            _pdf_product_identity(
+                self.conn, reference.task_id, reference.product_key, reference.content_digest
+            )
+            identity_table = table("ops.pdf_product")
+            product, build = table("ops.pdf_selected_product"), table("ops.source_build")
+            row = dict(
+                self.conn.execute(
+                    select(
+                        product.c.payload,
+                        product.c.contract_digest,
+                        product.c.schema_digest,
+                        product.c.recipe_digest,
+                        identity_table.c.kind.label("product_kind"),
+                        build.c.artifact_digest.label("original_digest"),
+                    )
+                    .join(
+                        identity_table,
+                        (identity_table.c.task_id == product.c.task_id)
+                        & (identity_table.c.product_key == product.c.product_key),
+                    )
+                    .join(build, build.c.task_id == product.c.task_id)
+                    .where(
+                        product.c.task_id == reference.task_id,
+                        product.c.product_key == reference.product_key,
+                        product.c.content_digest == reference.content_digest,
+                    )
+                )
+                .mappings()
+                .one()
+            )
         from .source_views import selected_source_views
 
         # Custody is bound to selected pins or a claimed input, before analysis-unit filtering.
@@ -1073,25 +1226,17 @@ class BoundReader:
                 "whole-native read requires a selected source view or exact claimed "
                 "method input pin"
             )
-        context = pdf_context_for_task(self.conn, reference.task_id)
         if row["contract_digest"] != context.contract_digest:
             raise OperationConflict("native product archived contract differs")
-        from .pdf_contracts import pdf_context_for_release
-
-        if (
-            row["schema_digest"]
-            != pdf_context_for_release(self.conn, self.prepared).native_schema_digest
-        ):
-            raise OperationConflict("native adoption consumer does not admit producer schema")
-        context.execution.require_operation("publish_native_document")
-        return row, context
+        context.execution.require_operation("read_pdf_product")
+        return row, context, published
 
     def native_document(self, reference, *, include_candidate_pages: bool = True):
         import json
 
         from .pdf_contracts import PreparedPdfProduct
 
-        row, _ = self._native_product_input(reference)
+        row, _, published = self._native_product_input(reference)
         artifact = table("kb.source_artifact")
         contents = dict(
             self.conn.execute(
@@ -1103,9 +1248,9 @@ class BoundReader:
             ).all()
         )
         if row["payload"] is None:
-            from .pdf_record_reader import PublishedPdfReader
-
-            values = PublishedPdfReader(self.conn, reference).native_product_values(
+            if published is None:
+                raise OperationConflict("native product has no readable published record binding")
+            values = published.native_product_values(
                 include_candidate_pages=include_candidate_pages
             )
             return PreparedPdfProduct(
@@ -1131,6 +1276,28 @@ class BoundReader:
             row["contract_digest"],
         )
 
+    def native_section_drafts(
+        self, reference, *, document_id, selections, membership, scope, consumer_release
+    ):
+        from corpus_structure.ingest.pdf_section_views import published_section_drafts
+
+        _, _, reader = self._native_product_input(reference)
+        if consumer_release != self.prepared.release_id:
+            raise OperationConflict("section projection consumer release differs from its reader")
+        if reader is None:
+            raise OperationConflict(
+                "current source preparation requires a record-backed publication; "
+                "legacy aggregate products are historical reads only"
+            )
+        return published_section_drafts(
+            reader,
+            document_id=document_id,
+            selections=selections,
+            membership=membership,
+            scope=scope,
+            consumer_release=consumer_release,
+        )
+
     def capture_pdf_candidates(self, reference, directory):
         """Detach selected-product IPC custody before releasing the database borrower."""
         from dataclasses import replace
@@ -1140,10 +1307,8 @@ class BoundReader:
         from corpus_structure.ingest.pdf_streaming import _atomic_bytes
 
         from .pdf_payloads import prepare_payload_family
-        from .pdf_record_reader import published_record_reader
 
-        _, context = self._native_product_input(reference)
-        reader = published_record_reader(self.conn, reference)
+        _, context, reader = self._native_product_input(reference)
         if reader is None:
             raise OperationConflict("selected product has no released Arrow candidate realization")
         family = prepare_payload_family(context)
@@ -1235,7 +1400,7 @@ class BoundReader:
                 rendition=rendition_id,
                 profile=self.prepared.execution_model_id,
             )
-        return read_rendition(self.conn, rendition_id, prepared=self.prepared)
+        return read_rendition(self.conn, RenditionId(rendition_id), prepared=self.prepared)
 
     def original(self, document_id: int) -> bytes:
         """Read retained source bytes only within this reader's run/project binding."""
@@ -1251,7 +1416,7 @@ class BoundReader:
         ).scalar_one_or_none()
         if permitted is None:
             raise OperationConflict("original source is outside the bound run/project")
-        return read_original(self.conn, document_id, prepared=self.prepared)
+        return read_original(self.conn, DocumentId(permitted), prepared=self.prepared)
 
     def bind_source_tasks(self, tasks: Mapping[int, int]) -> None:
         """Bind one claimed batch; task identity never comes from a fabricated placeholder."""
@@ -1519,20 +1684,35 @@ def run_view(
 
 
 def end_source_run(
-    conn: Connection, run_id: int, *, failure: Mapping[str, JsonValue] | None = None
+    conn: Connection,
+    run_id: RunId,
+    *,
+    failure: Mapping[str, JsonValue] | None = None,
+    prepared: PreparedRelease | None = None,
 ) -> int:
-    import json
+    from ._operation_calls import end_source_run as invoke
+    from .releases import open_release
 
-    return conn.execute(
-        text("SELECT ops.end_source_run(:run,CAST(:failure AS jsonb))"),
-        {"run": run_id, "failure": json.dumps(failure) if failure is not None else None},
-    ).scalar_one()
+    run = table("ops.run")
+    release = conn.execute(select(run.c.release_id).where(run.c.id == run_id)).scalar_one()
+    if prepared is None:
+        prepared = open_release(conn, release)
+    elif prepared.release_id != release:
+        raise ValueError("end-run preparation differs from the run's bound release")
+    return invoke(
+        conn,
+        run_id=run_id,
+        failure=dict(failure) if failure is not None else None,
+        projection_context=prepared,
+    )
 
 
 def lock_input_snapshot(conn: Connection, run_id: int) -> None:
     """Fence packet input reads until this queue/serve transaction ends; no agent wait lock."""
     try:
-        conn.execute(text("SELECT ops.lock_input_snapshot(:run)"), {"run": run_id})
+        from ._operation_calls import lock_input_snapshot as invoke
+
+        invoke(conn, run_id=RunId(run_id))
     except Exception as exc:
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
             raise OperationConflict("packet input snapshot changed") from exc
@@ -1542,8 +1722,8 @@ def lock_input_snapshot(conn: Connection, run_id: int) -> None:
 def hold_agent_result(
     conn: Connection,
     *,
-    task_id: int,
-    attempt: int,
+    task_id: TaskId,
+    attempt: TaskAttempt,
     holder: str,
     packet_hash: str,
     clean: bool,
@@ -1551,23 +1731,19 @@ def hold_agent_result(
     prepared: PreparedRelease | None = None,
 ) -> HoldDecision:
     """Lock one live submission; persist only its first well-typed uncertain result."""
-    import json
+    from ._operation_calls import TaskAttempt, TaskId
+    from ._operation_calls import hold_agent_result as invoke
 
     try:
-        held = conn.execute(
-            text(
-                "SELECT ops.hold_agent_result(:task,:attempt,:holder,:packet,:clean,CAST("
-                ":result AS jsonb))"
-            ),
-            {
-                "task": task_id,
-                "attempt": attempt,
-                "holder": holder,
-                "packet": packet_hash,
-                "clean": clean,
-                "result": json.dumps(dict(result)),
-            },
-        ).scalar_one()
+        held = invoke(
+            conn,
+            task_id=TaskId(task_id),
+            attempt=TaskAttempt(attempt),
+            holder=holder,
+            packet_hash=packet_hash,
+            clean=clean,
+            result=dict(result),
+        )
         from .operation_results import validate_result_dimension, validate_task_result_dimension
 
         disposition = "held" if held else "proceed"
@@ -1591,20 +1767,13 @@ def hold_agent_result(
         raise
 
 
-@dataclass(frozen=True)
-class ReleasedClaim:
-    task_id: int
-    attempt: int
-    reason: str
-
-
-def renew_claim(conn: Connection, *, task_id: int, attempt: int, holder: str) -> None:
+def renew_claim(conn: Connection, *, task_id: TaskId, attempt: TaskAttempt, holder: str) -> None:
     """Renew only the current attempt through the protected native ownership guard."""
     try:
-        conn.execute(
-            text("SELECT ops.renew_claim(:task,:attempt,:holder)"),
-            dict(task=task_id, attempt=attempt, holder=holder),
-        ).scalar_one()
+        from ._operation_calls import TaskAttempt, TaskId
+        from ._operation_calls import renew_claim as invoke
+
+        invoke(conn, task_id=TaskId(task_id), attempt=TaskAttempt(attempt), holder=holder)
     except Exception as exc:
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
             raise OperationConflict("task ownership changed before renewal") from exc
@@ -1612,18 +1781,24 @@ def renew_claim(conn: Connection, *, task_id: int, attempt: int, holder: str) ->
 
 
 def release_claim(
-    conn: Connection, *, task_id: int, attempt: int, holder: str, reason: str
+    conn: Connection, *, task_id: TaskId, attempt: TaskAttempt, holder: str, reason: str
 ) -> ReleasedClaim:
     """Release the current agent attempt while retaining durable held submission progress."""
     if not reason:
         raise ValueError("claim release requires a reason")
     try:
-        conn.execute(
-            text("SELECT ops.release_claim(:task,:attempt,:holder,:reason)"),
-            dict(task=task_id, attempt=attempt, holder=holder, reason=reason),
-        ).scalar_one()
+        from ._operation_calls import TaskAttempt, TaskId
+        from ._operation_calls import release_claim as invoke
+
+        released = invoke(
+            conn,
+            task_id=TaskId(task_id),
+            attempt=TaskAttempt(attempt),
+            holder=holder,
+            reason=reason,
+        )
     except Exception as exc:
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
             raise OperationConflict("task ownership changed before release") from exc
         raise
-    return ReleasedClaim(task_id, attempt, reason)
+    return released

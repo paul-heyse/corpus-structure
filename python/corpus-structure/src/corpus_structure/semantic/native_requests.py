@@ -8,13 +8,14 @@ from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Engine, select, text
+from sqlalchemy import Engine, select
 
 from corpus_structure.core.method import CoverageDraft, ObservationDraft, UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, TaskUnitType
 
 from .identity import canonical_bytes
 from .metadata import table
+from .operation_results import MethodConfigId, RunId
 from .operations import (
     OperationDescriptor,
     binding_of,
@@ -274,9 +275,15 @@ def request_source_view(
             options={"native_request": params},
             code_commit=code_commit,
         )
-        conn.execute(
-            text("SELECT ops.select_source_view(:run,:source,:view)"),
-            dict(run=run_id, source=source_run_id, view=source_view_id),
+        from ._operation_calls import select_source_view
+        from ._operation_ids import SourceViewId
+
+        select_source_view(
+            conn,
+            run_id=run_id,
+            source_run_id=RunId(source_run_id),
+            source_view_id=SourceViewId(source_view_id),
+            projection_context=prepared,
         )
         config_id = record_method(conn, method, "request", params, digest, prepared=prepared)
         task_id = create_task(
@@ -318,23 +325,26 @@ def request_source_view(
                 artifact,
                 result,
             )
-        claim = claim_tasks(conn, run_id=run_id, config_id=config_id, holder=holder)[0]
+        claim = claim_tasks(
+            conn,
+            run_id=RunId(run_id),
+            config_id=MethodConfigId(config_id),
+            holder=holder,
+            prepared=prepared,
+        )[0]
         region: dict[str, Any] | None = None
         original = None
         if demand == "render":
-            regions = table("kb.native_document_region")
-            region = dict(
-                conn.execute(
-                    select(regions).where(
-                        regions.c.task_id == view.ref.native_product.task_id,
-                        regions.c.product_key == view.ref.native_product.product_key,
-                        regions.c.pointer == pointer,
-                        regions.c.region_index == region_index,
-                    )
-                )
-                .mappings()
-                .one()
+            from .pdf_record_reader import published_record_reader
+
+            published = published_record_reader(
+                conn, view.ref.native_product, projection_context=prepared
             )
+            if published is None:
+                raise ValueError("current rendering requires a published record-backed source")
+            if pointer is None or region_index is None:
+                raise ValueError("render requires an exact published pointer and region index")
+            region = published.region(pointer, region_index)
             build, artifact = table("ops.source_build"), table("kb.source_artifact")
             original = bytes(
                 conn.execute(
@@ -389,11 +399,12 @@ def request_source_view(
                 )
                 end_source_run(
                     conn,
-                    run_id,
+                    RunId(run_id),
                     failure={
                         "message": failure,
                         "native_analysis": analysis.model_dump(mode="json"),
                     },
+                    prepared=prepared,
                 )
             return NativeRequestResult(
                 run_id,
@@ -490,7 +501,10 @@ def request_source_view(
     except BaseException as error:
         with engine.begin() as conn:
             end_source_run(
-                conn, run_id, failure={"message": str(error), "exception": type(error).__name__}
+                conn,
+                RunId(run_id),
+                failure={"message": str(error), "exception": type(error).__name__},
+                prepared=prepared,
             )
         raise
 

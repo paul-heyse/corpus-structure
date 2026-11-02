@@ -94,150 +94,21 @@ def native_cells(node: Mapping[str, Any]) -> tuple[str, list[dict[str, Any]]]:
     return "", []
 
 
-def prepare_integrated_pdf_product(
-    payload: Mapping[str, Any],
-    original: bytes | PreparedPdfOriginal,
-    recipe_bytes: bytes,
-    *,
-    artifacts: tuple[bytes, ...] = (),
-    native_schema: bytes | None = None,
-    context: PreparedPdfContext | None = None,
-) -> PreparedIntegratedPdfProduct:
-    """Admit a retained observation or integrated content with mandatory companion semantics.
+def validate_pdf_product_meaning(value: Mapping[str, Any]) -> None:
+    """Shared local occurrence/relationship meaning over repeatable bounded family views.
 
-    Exact external endpoint existence/custody is checked atomically at publication. The
-    caller must retain the submitted image and raw response bytes even for failed passes.
+    External pin/occurrence/coverage custody remains the native publication guard's owner.
+    Only occurrence/relationship identity and native-address summaries survive iteration.
     """
-    context = trusted_pdf_context() if context is None else context
-    context.execution.require_operation("prepare_integrated_pdf")
-    supplied = dict(payload)
-    custody = (
-        original if isinstance(original, PreparedPdfOriginal) else PreparedPdfOriginal(original)
-    )
-    original = custody.content
-    content = supplied.get("content")
-    native = None
-    if content is not None:
-        if native_schema is None:
-            raise ValueError("integrated Docling content requires its retained native schema")
-        native = prepare_pdf_product(
-            content,
-            original,
-            native_schema,
-            recipe_bytes,
-            context=context,
-            publication_kind="integrated" if supplied.get("kind") == "integrated" else "native",
-        )
-        supplied["content"] = native.values()
-        document = supplied["content"].pop("document")
-        supplied["content"]["document_json"] = canonical_bytes(document).decode()
-    value = context.boundary.validate_json("PdfIntegratedProduct", json.dumps(supplied)).model_dump(
-        mode="json", exclude_none=True
-    )
-    for field_name in ("inputs", "occurrences", "relations"):
-        value.setdefault(field_name, [])
-    for coverage_row in value["coverage"]:
-        coverage_row.setdefault("supports", [])
-    if content is not None:
-        value["content"].pop("document_json")
-        assert native is not None
-        value["content"]["document"] = native.values()["document"]
-    if value["kind"] not in {"recognition_observation", "integrated"}:
-        raise ValueError("native products use their preserved native publication contract")
-    if not value["product_key"] or not original.startswith(b"%PDF-"):
-        raise ValueError("product key and PDF original are required")
-    if value["artifact_digest"] != custody.digest:
-        raise ValueError("original digest differs from retained bytes")
-    if value["recipe_digest"] != sha256(recipe_bytes).hexdigest():
-        raise ValueError("recipe digest differs from retained bytes")
-    inputs = value["inputs"]
-    keys = [(i["role"], i["task_id"], i["product_key"]) for i in inputs]
-    if len(set(keys)) != len(keys):
-        raise ValueError("duplicate role-qualified product input")
-    if any(not i["product_key"] for i in inputs):
-        raise ValueError("input product key cannot be empty")
-    occurrences = value["occurrences"]
-    ids = [o["occurrence_id"] for o in occurrences]
-    if any(not i for i in ids) or len(set(ids)) != len(ids):
-        raise ValueError("duplicate or empty occurrence identity")
+    inputs, occurrences = value["inputs"], value["occurrences"]
     observation = value.get("observation")
-    retained = {sha256(b).hexdigest(): b for b in (recipe_bytes, *artifacts)}
-    if native_schema is not None:
-        retained[sha256(native_schema).hexdigest()] = native_schema
-    if value["kind"] == "recognition_observation":
-        if observation is None or content is not None:
-            raise ValueError(
-                "recognition observation requires an observation body without selected content"
-            )
-        image = observation["image"]
-        if image["artifact_digest"] not in retained or (
-            "raw_response_digest" in observation
-            and observation["raw_response_digest"] not in retained
-        ):
-            raise ValueError("submitted image and raw response bytes must be retained")
-        if (
-            observation["outcome"] in {"succeeded", "partial"}
-            and "raw_response_digest" not in observation
-        ):
-            raise ValueError("successful/partial observation requires its actual raw response")
-        if observation["outcome"] in {"failed", "unknown", "unsupported"} and not observation.get(
-            "diagnostic"
-        ):
-            raise ValueError("failed/unavailable observation requires an attributable diagnostic")
-        if value["health"]["execution_outcome"] != observation["outcome"]:
-            raise ValueError("observation execution outcome differs from its health report")
-        if image["precision"] not in {"unknown", "coarse"}:
-            raise ValueError("I10/I11 have not admitted fine provider image precision")
-        from PIL import Image
-
-        with Image.open(BytesIO(retained[image["artifact_digest"]])) as submitted:
-            if submitted.format != "PNG" or submitted.size != (image["width"], image["height"]):
-                raise ValueError("submitted image bytes differ from declared dimensions/encoding")
-            submitted.verify()
-        if any(o.get("page_no", image["page_no"]) != image["page_no"] for o in occurrences):
-            raise ValueError("provider occurrence page differs from submitted image")
-        transform = image["transform"]
-        parameters = {
-            "page_width",
-            "page_height",
-            "page_rotation",
-            "crop_left",
-            "crop_top",
-            "crop_right",
-            "crop_bottom",
-            "affine",
-        }
-        if transform["status"] == "unknown" and parameters & transform.keys():
-            raise ValueError("unknown image transform cannot carry fabricated parameters")
-        if transform["status"] == "coarse":
-            if not parameters <= transform.keys() or len(transform["affine"]) != 6:
-                raise ValueError(
-                    "coarse image transform requires its full page/crop/affine witness"
-                )
-            if transform["page_rotation"] not in {0, 90, 180, 270} or not (
-                0 <= transform["crop_left"] < transform["crop_right"] <= transform["page_width"]
-                and 0
-                <= transform["crop_top"]
-                < transform["crop_bottom"]
-                <= transform["page_height"]
-            ):
-                raise ValueError("image transform crop/page/rotation differs")
-        _json_object(observation["binding"]["decoding_json"], "effective decoding")
-        if (observation["usage_availability"] == "available") != ("usage_json" in observation):
-            raise ValueError("usage availability differs from retained provider report")
-        if "usage_json" in observation:
-            _json_object(observation["usage_json"], "usage")
-        if any(o["precision"] not in {"unknown", "coarse", "block"} for o in occurrences):
-            raise ValueError("I10/I11 have not admitted fine provider occurrence precision")
-    else:
-        if content is None or observation is not None:
-            raise ValueError(
-                "integrated product requires Docling content and separate observation inputs"
-            )
-        if not {"structural", "recognition"} <= {i["role"] for i in inputs}:
-            raise ValueError("integrated product requires structural and recognition inputs")
-        if value["content"]["artifact_digest"] != value["artifact_digest"]:
-            raise ValueError("selected content differs from original custody")
+    ids = [o["occurrence_id"] for o in occurrences]
+    if any(not item for item in ids) or len(set(ids)) != len(ids):
+        raise ValueError("duplicate or empty occurrence identity")
+    if value["kind"] == "integrated" and not {"structural", "recognition"} <= {
+        item["role"] for item in inputs
+    }:
+        raise ValueError("integrated product requires structural and recognition inputs")
     for occurrence in occurrences:
         if ("start" in occurrence) != ("end" in occurrence):
             raise ValueError("occurrence range requires both endpoints")
@@ -507,9 +378,12 @@ def prepare_integrated_pdf_product(
     ):
         raise ValueError("coverage requires independently identified scope/family/policy/results")
     for coverage in value["coverage"]:
+        supports = coverage.get("supports", [])
+        if not isinstance(supports, list):
+            raise ValueError("coverage supports must be an array when present")
         if any(
             support["input_index"] >= len(inputs) or not support["coverage_id"]
-            for support in coverage["supports"]
+            for support in supports
         ):
             raise ValueError("coverage support differs from an exact input coverage pin")
         if coverage["outcome"] == "complete":
@@ -517,8 +391,150 @@ def prepare_integrated_pdf_product(
                 raise ValueError(
                     "I10/I11 unqualified observations cannot satisfy complete source coverage"
                 )
-            if not coverage["supports"]:
+            if not supports:
                 raise ValueError("complete coverage requires qualified input coverage attribution")
+
+
+def prepare_integrated_pdf_product(
+    payload: Mapping[str, Any],
+    original: bytes | PreparedPdfOriginal,
+    recipe_bytes: bytes,
+    *,
+    artifacts: tuple[bytes, ...] = (),
+    native_schema: bytes | None = None,
+    context: PreparedPdfContext | None = None,
+) -> PreparedIntegratedPdfProduct:
+    """Admit a retained observation or integrated content with mandatory companion semantics.
+
+    Exact external endpoint existence/custody is checked atomically at publication. The
+    caller must retain the submitted image and raw response bytes even for failed passes.
+    """
+    context = trusted_pdf_context() if context is None else context
+    context.execution.require_operation("prepare_integrated_pdf")
+    supplied = dict(payload)
+    custody = (
+        original if isinstance(original, PreparedPdfOriginal) else PreparedPdfOriginal(original)
+    )
+    original = custody.content
+    content = supplied.get("content")
+    native = None
+    if content is not None:
+        if native_schema is None:
+            raise ValueError("integrated Docling content requires its retained native schema")
+        native = prepare_pdf_product(
+            content,
+            original,
+            native_schema,
+            recipe_bytes,
+            context=context,
+            publication_kind="integrated" if supplied.get("kind") == "integrated" else "native",
+        )
+        supplied["content"] = native.values()
+        document = supplied["content"].pop("document")
+        supplied["content"]["document_json"] = canonical_bytes(document).decode()
+    value = context.boundary.validate_json("PdfIntegratedProduct", json.dumps(supplied)).model_dump(
+        mode="json", exclude_none=True
+    )
+    for field_name in ("inputs", "occurrences", "relations"):
+        value.setdefault(field_name, [])
+    for coverage_row in value["coverage"]:
+        coverage_row.setdefault("supports", [])
+    if content is not None:
+        value["content"].pop("document_json")
+        assert native is not None
+        value["content"]["document"] = native.values()["document"]
+    if value["kind"] not in {"recognition_observation", "integrated"}:
+        raise ValueError("native products use their preserved native publication contract")
+    if not value["product_key"] or not original.startswith(b"%PDF-"):
+        raise ValueError("product key and PDF original are required")
+    if value["artifact_digest"] != custody.digest:
+        raise ValueError("original digest differs from retained bytes")
+    if value["recipe_digest"] != sha256(recipe_bytes).hexdigest():
+        raise ValueError("recipe digest differs from retained bytes")
+    inputs = value["inputs"]
+    keys = [(i["role"], i["task_id"], i["product_key"]) for i in inputs]
+    if len(set(keys)) != len(keys):
+        raise ValueError("duplicate role-qualified product input")
+    if any(not i["product_key"] for i in inputs):
+        raise ValueError("input product key cannot be empty")
+    occurrences = value["occurrences"]
+    observation = value.get("observation")
+    retained = {sha256(b).hexdigest(): b for b in (recipe_bytes, *artifacts)}
+    if native_schema is not None:
+        retained[sha256(native_schema).hexdigest()] = native_schema
+    if value["kind"] == "recognition_observation":
+        if observation is None or content is not None:
+            raise ValueError(
+                "recognition observation requires an observation body without selected content"
+            )
+        image = observation["image"]
+        if image["artifact_digest"] not in retained or (
+            "raw_response_digest" in observation
+            and observation["raw_response_digest"] not in retained
+        ):
+            raise ValueError("submitted image and raw response bytes must be retained")
+        if (
+            observation["outcome"] in {"succeeded", "partial"}
+            and "raw_response_digest" not in observation
+        ):
+            raise ValueError("successful/partial observation requires its actual raw response")
+        if observation["outcome"] in {"failed", "unknown", "unsupported"} and not observation.get(
+            "diagnostic"
+        ):
+            raise ValueError("failed/unavailable observation requires an attributable diagnostic")
+        if value["health"]["execution_outcome"] != observation["outcome"]:
+            raise ValueError("observation execution outcome differs from its health report")
+        if image["precision"] not in {"unknown", "coarse"}:
+            raise ValueError("I10/I11 have not admitted fine provider image precision")
+        from PIL import Image
+
+        with Image.open(BytesIO(retained[image["artifact_digest"]])) as submitted:
+            if submitted.format != "PNG" or submitted.size != (image["width"], image["height"]):
+                raise ValueError("submitted image bytes differ from declared dimensions/encoding")
+            submitted.verify()
+        if any(o.get("page_no", image["page_no"]) != image["page_no"] for o in occurrences):
+            raise ValueError("provider occurrence page differs from submitted image")
+        transform = image["transform"]
+        parameters = {
+            "page_width",
+            "page_height",
+            "page_rotation",
+            "crop_left",
+            "crop_top",
+            "crop_right",
+            "crop_bottom",
+            "affine",
+        }
+        if transform["status"] == "unknown" and parameters & transform.keys():
+            raise ValueError("unknown image transform cannot carry fabricated parameters")
+        if transform["status"] == "coarse":
+            if not parameters <= transform.keys() or len(transform["affine"]) != 6:
+                raise ValueError(
+                    "coarse image transform requires its full page/crop/affine witness"
+                )
+            if transform["page_rotation"] not in {0, 90, 180, 270} or not (
+                0 <= transform["crop_left"] < transform["crop_right"] <= transform["page_width"]
+                and 0
+                <= transform["crop_top"]
+                < transform["crop_bottom"]
+                <= transform["page_height"]
+            ):
+                raise ValueError("image transform crop/page/rotation differs")
+        _json_object(observation["binding"]["decoding_json"], "effective decoding")
+        if (observation["usage_availability"] == "available") != ("usage_json" in observation):
+            raise ValueError("usage availability differs from retained provider report")
+        if "usage_json" in observation:
+            _json_object(observation["usage_json"], "usage")
+        if any(o["precision"] not in {"unknown", "coarse", "block"} for o in occurrences):
+            raise ValueError("I10/I11 have not admitted fine provider occurrence precision")
+    else:
+        if content is None or observation is not None:
+            raise ValueError(
+                "integrated product requires Docling content and separate observation inputs"
+            )
+        if value["content"]["artifact_digest"] != value["artifact_digest"]:
+            raise ValueError("selected content differs from original custody")
+    validate_pdf_product_meaning(value)
     result = PreparedIntegratedPdfProduct(
         canonical_bytes(value),
         tuple(retained[k] for k in sorted(retained)),
@@ -526,6 +542,49 @@ def prepare_integrated_pdf_product(
     )
     object.__setattr__(result, "_validated", True)
     return result
+
+
+def store_pdf_observation(
+    conn: Connection,
+    *,
+    task_id: int,
+    attempt: int,
+    holder: str,
+    product: PreparedIntegratedPdfProduct,
+    context: PreparedPdfContext | None = None,
+) -> str:
+    """Publish a validated recognition observation; document bodies use record publication."""
+    from .contracts import require_database_operation
+
+    archived = pdf_context_for_task(conn, task_id)
+    if context is not None and context != archived:
+        raise ValueError("PDF context differs from producing task release")
+    archived.execution.require_operation("publish_pdf_observation")
+    if (
+        archived.release_id is None
+        or not product._validated
+        or product.contract_digest != archived.contract_digest
+    ):
+        raise ValueError(
+            "observation publication requires its prepared immutable producing archive"
+        )
+    archived.boundary.validate_json("PdfObservationProduct", product.payload)
+    if product.values()["kind"] != "recognition_observation":
+        raise ValueError("observation publication refuses native or integrated document bodies")
+    require_database_operation(conn, archived.release_id, "publish_pdf_observation")
+    from ._operation_calls import TaskAttempt, TaskId, publish_pdf_observation
+    from .releases import open_release
+
+    return publish_pdf_observation(
+        conn,
+        task_id=TaskId(task_id),
+        attempt=TaskAttempt(attempt),
+        holder=holder,
+        contract_digest=product.contract_digest,
+        payload=product.payload,
+        artifacts=product.artifacts,
+        projection_context=open_release(conn, archived.release_id),
+    )
 
 
 def store_integrated_pdf_product(

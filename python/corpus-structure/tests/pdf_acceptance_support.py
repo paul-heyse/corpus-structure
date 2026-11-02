@@ -37,7 +37,6 @@ from corpus_structure.semantic.pdf_contracts import (
     pdf_context_for_task,
     prepare_pdf_product,
     store_pdf_original,
-    store_pdf_product,
 )
 
 
@@ -249,24 +248,31 @@ def seed_retained_integrated_product(
                 conversion.recipe,
                 context=pdf_context_for_task(conn, task),
             )
-            store_pdf_product(
-                conn,
-                task_id=task,
-                attempt=claim.attempt,
-                holder="controlled-native-fixture",
-                product=product,
-            )
+        from corpus_structure.ingest.pdf_record_product import native_publication_draft
+        from corpus_structure.orchestrate.pdf_streaming import publish_pdf_record_draft
+
+        raw_pin = publish_pdf_record_draft(
+            engine,
+            claim,
+            "controlled-native-fixture",
+            native_publication_draft(
+                conversion, product_key="controlled-native", original=original, schema_bytes=schema
+            ),
+            directory=settings.paths.data_dir / "controlled-records",
+            check_active=lambda: None,
+        )
+        with engine.begin() as conn:
             from corpus_structure.ingest.pdf_reconciliation import select_pdf_integration
             from corpus_structure.semantic.pdf_integrated import (
                 prepare_integrated_pdf_product,
-                store_integrated_pdf_product,
+                store_pdf_observation,
             )
 
             context = pdf_context_for_task(conn, task)
             evidence = prepare_integrated_pdf_product(
                 observation, original, conversion.recipe, artifacts=artifacts, context=context
             )
-            store_integrated_pdf_product(
+            store_pdf_observation(
                 conn,
                 task_id=task,
                 attempt=claim.attempt,
@@ -278,7 +284,7 @@ def seed_retained_integrated_product(
                 {
                     "task_id": task,
                     "product_key": "controlled-native",
-                    "content_digest": product.digest,
+                    "content_digest": raw_pin.logical_digest,
                     "role": "structural",
                 },
                 [
@@ -299,13 +305,63 @@ def seed_retained_integrated_product(
                 context=context,
                 product_key="controlled-integrated",
             )
-            store_integrated_pdf_product(
-                conn,
-                task_id=task,
-                attempt=claim.attempt,
-                holder="controlled-native-fixture",
-                product=selected,
-            )
+        from corpus_structure.core.method import PdfRecordPublicationDraft
+
+        selected_values = selected.values()
+        content = selected_values["content"]
+        selected_pin = publish_pdf_record_draft(
+            engine,
+            claim,
+            "controlled-native-fixture",
+            PdfRecordPublicationDraft(
+                document=DoclingDocument.model_validate(content["document"]),
+                product_key="controlled-integrated",
+                kind="integrated",
+                original=original,
+                schema_bytes=schema,
+                recipe_bytes=conversion.recipe,
+                health=content["health"],
+                companions={
+                    **{
+                        family: selected_values.get(
+                            {
+                                "input": "inputs",
+                                "occurrence": "occurrences",
+                                "relation": "relations",
+                                "mapping_report": "mapping_reports",
+                            }.get(family, family),
+                            (),
+                        )
+                        for family in (
+                            "input",
+                            "occurrence",
+                            "relation",
+                            "mapping_report",
+                            "coverage",
+                        )
+                    },
+                    "health": (
+                        {"health": content["health"], "source_scope": content["source_scope"]},
+                        selected_values["health"],
+                    ),
+                },
+                metadata={
+                    kind: content[kind]
+                    for kind in (
+                        "inline_candidate_pages",
+                        "recognition_coverage",
+                        "derivation_mappings",
+                        "cell_reports",
+                        "inline_alignment_reports",
+                        "runtime_report",
+                    )
+                    if kind in content
+                },
+            ),
+            directory=settings.paths.data_dir / "controlled-records",
+            check_active=lambda: None,
+        )
+        with engine.begin() as conn:
             complete_task(
                 conn,
                 task_id=task,
@@ -318,7 +374,7 @@ def seed_retained_integrated_product(
     return {
         "task_id": task,
         "product_key": "controlled-integrated",
-        "content_digest": selected.digest,
+        "content_digest": selected_pin.logical_digest,
     }
 
 
@@ -332,12 +388,17 @@ def write_controlled_pdf(path: Path, paragraphs: tuple[str, ...]) -> bytes:
 
 
 def publish_controlled_pdf_views(
-    conn, *, prepared, run_id, document_id, original, paragraphs, keys
+    engine, *, prepared, run_id, document_id, original, paragraphs, keys
 ):
     """Retain independently authored section text through the real native publication ports."""
     from dataclasses import replace
+    from tempfile import TemporaryDirectory
 
-    from corpus_structure.ingest.pdf_methods import _drafts
+    from semantic.native_record_fixtures import publish_native_record_fixture
+
+    from corpus_structure.ingest.pdf_section_views import published_section_drafts
+    from corpus_structure.semantic.operation_results import MethodConfigId, RunId
+    from corpus_structure.semantic.pdf_record_reader import published_record_reader
     from corpus_structure.semantic.product_reference import ProductReference
     from corpus_structure.semantic.source_views import load_source_view, store_source_view
 
@@ -368,86 +429,102 @@ def publish_controlled_pdf_views(
         .joinpath("model/semantic/docling-validation.schema.json")
         .read_bytes()
     )
-    config = record_method(
-        conn,
-        SimpleNamespace(
-            name="pdf.controlled-source",
-            version="1",
-            family="ingest",
-            tier="deterministic",
-            confidence_source=None,
-            unit_type="document",
-            Config=create_model("ControlledSource"),
-        ),
-        "default",
-        {},
-        "controlled-source-config",
-    )
-    task = create_task(
-        conn,
-        run_id=run_id,
-        config_id=config,
-        stage="ingest",
-        unit_type="document",
-        unit_id=document_id,
-        unit_key="controlled-source",
-        input_hash=conversion.original_digest,
-    )
-    claim = claim_tasks(conn, run_id=run_id, config_id=config, holder="controlled-source")[0]
-    store_pdf_original(
-        conn,
-        task_id=task,
-        attempt=claim.attempt,
-        holder=claim.holder,
-        original=original,
-        recipe_bytes=conversion.recipe,
-    )
-    payload = publication_payload(
-        conversion,
-        product_key="native",
-        schema_digest=sha256(schema).hexdigest(),
-        section_refs=frozenset(section.self_ref for section in sections),
-    )
-    product = prepare_pdf_product(
-        payload, original, schema, conversion.recipe, context=pdf_context_for_task(conn, task)
-    )
-    store_pdf_product(
-        conn, task_id=task, attempt=claim.attempt, holder=claim.holder, product=product
-    )
-    views = []
-    for index, (key, section) in enumerate(zip(keys, sections, strict=True)):
-        membership = "descendants" if index == 0 and len(sections) > 1 else "direct"
-        (draft,) = _drafts(
-            document_id,
-            ProductReference(task, "native", product.digest),
-            conversion.native,
-            payload["health"],
-            (section.self_ref,),
-            membership,
-            prepared.release_id,
-            document=document,
+    with engine.begin() as conn:
+        config = record_method(
+            conn,
+            SimpleNamespace(
+                name="pdf.controlled-source",
+                version="1",
+                family="ingest",
+                tier="deterministic",
+                confidence_source=None,
+                unit_type="document",
+                Config=create_model("ControlledSource"),
+            ),
+            "default",
+            {},
+            "controlled-source-config",
         )
-        draft = replace(draft, key=key)
-        view_id = store_source_view(
+        task = create_task(
             conn,
             run_id=run_id,
+            config_id=config,
+            stage="ingest",
+            unit_type="document",
+            unit_id=document_id,
+            unit_key="controlled-source",
+            input_hash=conversion.original_digest,
+        )
+        claim = claim_tasks(
+            conn, run_id=RunId(run_id), config_id=MethodConfigId(config), holder="controlled-source"
+        )[0]
+        store_pdf_original(
+            conn,
             task_id=task,
             attempt=claim.attempt,
             holder=claim.holder,
-            draft=draft,
-            position=index,
+            original=original,
+            recipe_bytes=conversion.recipe,
         )
-        views.append(load_source_view(conn, view_id))
-    complete_task(
-        conn,
-        task_id=task,
-        attempt=claim.attempt,
-        holder=claim.holder,
-        prepared=prepared,
-        observations=[],
-        outcome="empty",
-    )
-    return tuple(views)
+        payload = publication_payload(
+            conversion,
+            product_key="native",
+            schema_digest=sha256(schema).hexdigest(),
+            section_refs=frozenset(section.self_ref for section in sections),
+        )
+        product = prepare_pdf_product(
+            payload, original, schema, conversion.recipe, context=pdf_context_for_task(conn, task)
+        )
+    with TemporaryDirectory(prefix="controlled-native-views-") as directory:
+        published = publish_native_record_fixture(
+            engine,
+            Path(directory),
+            task_id=task,
+            attempt=claim.attempt,
+            holder=claim.holder,
+            product=product,
+            document=document,
+        )
+    with engine.begin() as conn:
+        reader = published_record_reader(
+            conn,
+            ProductReference(task, "native", published.logical_digest),
+            projection_context=prepared,
+        )
+        if reader is None:
+            raise AssertionError("controlled source has no published record binding")
+        views = []
+        for index, (key, section) in enumerate(zip(keys, sections, strict=True)):
+            membership = "descendants" if index == 0 and len(sections) > 1 else "direct"
+            (draft,) = published_section_drafts(
+                reader,
+                document_id=document_id,
+                selections=(section.self_ref,),
+                membership=membership,
+                scope=None,
+                consumer_release=prepared.release_id,
+            )
+            draft = replace(draft, key=key)
+            view_id = store_source_view(
+                conn,
+                run_id=run_id,
+                task_id=task,
+                attempt=claim.attempt,
+                holder=claim.holder,
+                draft=draft,
+                position=index,
+            )
+            views.append(load_source_view(conn, view_id))
+        complete_task(
+            conn,
+            task_id=task,
+            attempt=claim.attempt,
+            holder=claim.holder,
+            prepared=prepared,
+            observations=[],
+            outcome="empty",
+        )
+        return tuple(views)
 
 
 def independent_pdf_address(conn, run_id, key, *, start=None, end=None, pointer=None):

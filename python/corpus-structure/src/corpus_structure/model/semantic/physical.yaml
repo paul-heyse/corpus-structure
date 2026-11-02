@@ -3747,6 +3747,8 @@ classes:
       native_content_digest:
         range: string
         required: true
+      native_build_id: {range: string, required: true}
+      native_revision_id: {range: string, required: true}
       section_pointer:
         range: string
         required: true
@@ -3779,10 +3781,9 @@ classes:
       ph:foreign_keys: '[{"columns": ["document_id"], "target": "kb.document.id"}, {"columns":
         ["release_id"], "target": "sem.release.release_id"}, {"columns": ["native_task_id",
         "native_product_key", "native_content_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"},
-        {"columns": ["native_task_id", "native_product_key", "section_pointer"], "target":
-        "kb.native_document_item.task_id,product_key,pointer"}, {"columns": ["recipe_digest"],
+        {"columns": ["native_build_id", "native_task_id", "native_product_key", "native_content_digest"], "target": "ops.pdf_published_revision.build_id,task_id,product_key,logical_digest"}, {"columns": ["native_build_id", "native_revision_id", "section_pointer"], "target": "kb.pdf_record_access.product_id,revision_id,pointer"}, {"columns": ["recipe_digest"],
         "target": "kb.source_artifact.artifact_digest"}]'
-      ph:checks: '["membership IN (''direct'',''descendants'')", "key <> ''''"]'
+      ph:checks: '["membership IN (''direct'',''descendants'')", "key <> ''''", "native_build_id = native_revision_id"]'
       ph:indexes: '[["native_task_id", "native_product_key", "section_pointer"]]'
   run_source_view:
     in_subset:
@@ -3959,6 +3960,8 @@ classes:
       native_content_digest:
         range: string
         required: true
+      native_build_id: {range: string, required: true}
+      native_revision_id: {range: string, required: true}
       pointer:
         range: string
         required: true
@@ -3979,11 +3982,10 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns":
         ["native_task_id", "native_product_key", "native_content_digest"], "target":
-        "ops.pdf_product.task_id,product_key,content_digest"}, {"columns":
-        ["native_task_id", "native_product_key", "pointer", "region_index"], "target":
-        "kb.native_document_region.task_id,product_key,pointer,region_index"}, {"columns":
+        "ops.pdf_product.task_id,product_key,content_digest"}, {"columns": ["native_build_id", "native_task_id", "native_product_key", "native_content_digest"], "target": "ops.pdf_published_revision.build_id,task_id,product_key,logical_digest"}, {"columns": ["native_build_id", "native_revision_id", "pointer", "region_index"], "target": "kb.pdf_record_region.product_id,revision_id,pointer,region_index"}, {"columns":
         ["recipe_digest"], "target": "kb.source_artifact.artifact_digest"}, {"columns":
         ["artifact_digest"], "target": "kb.source_artifact.artifact_digest"}]'
+      ph:checks: '["native_build_id = native_revision_id"]'
   task_dependency:
     in_subset:
     - ops
@@ -4712,6 +4714,8 @@ classes:
         - task_id
         - product_key
         - logical_digest
+      unique_1:
+        unique_key_slots: [build_id, task_id, product_key, logical_digest]
     annotations:
       ph:immutability: immutable
       ph:read_roles: '[]'

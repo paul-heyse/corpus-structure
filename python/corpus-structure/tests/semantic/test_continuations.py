@@ -47,6 +47,10 @@ def test_binding_failures_are_distinct_from_freshness(field, actual, reason, exc
 @pytest.mark.parametrize("replacement", [True, "1", 1.0, None])
 def test_named_token_revision_is_an_integer_not_coercible(replacement):
     body = {
+        "token_version": 2,
+        "query_contract": "q",
+        "implementation": "i",
+        "compatibility": "c",
         "run": 1,
         "query": "claims",
         "version": "1",

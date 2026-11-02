@@ -124,31 +124,43 @@ BEGIN
 
 def pdf_record_context_sql() -> str:
     """Paginate the same relational scope constructor used by set-based consumers."""
-    return """
+    from pathlib import Path
+
+    source = (Path(__file__).with_name("sql") / "pdf_record_context.sql").read_text()
+    _, start, remaining = source.partition("-- BEGIN pdf-context-selection\n")
+    selection, end, _ = remaining.partition("-- END pdf-context-selection\n")
+    if not start or not end:
+        raise ValueError("shared PDF context selector markers are missing")
+    selection = selection.strip().replace("p_key", "p_product")
+    return f"""
 CREATE OR REPLACE FUNCTION ops.read_pdf_record_context_rows(
  p_task bigint,p_product text,p_digest text,p_pointers text[],p_section text,
  p_family text,p_after text,p_limit integer)
 RETURNS SETOF jsonb LANGUAGE plpgsql SECURITY DEFINER
  SET search_path=pg_catalog,pg_temp AS $reader$
-DECLARE published ops.pdf_published_revision;
+DECLARE placement ops.pdf_published_revision;
 BEGIN
- IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 1000 OR p_pointers IS NULL OR
+ IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 1000 OR p_pointers IS NULL OR p_family IS NULL OR
  p_family NOT IN ('occurrence','relation','input','coverage','mapping_report','health') THEN
  RAISE EXCEPTION 'invalid published context page' USING ERRCODE='22023'; END IF;
- SELECT * INTO STRICT published FROM ops.read_pdf_published_revision(p_task,p_product,p_digest);
+ SELECT * INTO STRICT placement FROM ops.read_pdf_published_revision(p_task,p_product,p_digest);
  RETURN QUERY
- SELECT jsonb_build_object('local_id',selected.local_id,'body',selected.body)
- FROM (
-   SELECT c.local_id,c.body FROM
-    ops.pdf_record_context_rows(p_task,p_product,p_digest,p_pointers,p_section) c
-    WHERE c.family=p_family
+ {selection}, selected_context AS (
+   SELECT c.product_id,c.revision_id,c.family,c.local_id,c.body FROM chosen c
+   WHERE c.family=p_family
    UNION ALL
-   SELECT c.local_id,c.body FROM kb.pdf_record_companion c
+   SELECT c.product_id,c.revision_id,c.family,c.local_id,c.body
+    FROM kb.pdf_record_companion c JOIN published p
+    ON c.product_id=p.build_id AND c.revision_id=p.build_id
     WHERE p_family='health' AND c.family='health'
-      AND c.product_id=published.build_id AND c.revision_id=published.build_id
- ) selected
- WHERE selected.local_id>COALESCE(p_after,'')
- ORDER BY selected.local_id LIMIT p_limit;
+ ), requested_page AS MATERIALIZED (
+   SELECT c.* FROM selected_context c
+   WHERE c.local_id>COALESCE(p_after,'')
+   ORDER BY c.local_id LIMIT p_limit
+ )
+ SELECT jsonb_build_object('local_id',c.local_id,'body',
+   ops.pdf_companion_body(c.product_id,c.revision_id,c.family,c.local_id,c.body))
+ FROM requested_page c ORDER BY c.local_id;
 END $reader$;
 REVOKE ALL ON FUNCTION
  ops.read_pdf_record_context_rows(bigint,text,text,text[],text,text,text,integer) FROM PUBLIC;

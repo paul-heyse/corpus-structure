@@ -2594,6 +2594,14 @@ concepts:
   attributes:
   - {name: content_digest, range: text, required: true, multivalued: false}
   relationships: []
+- id: PdfObservationProduct
+  family: interpretation
+  scope: run
+  meaning: Validated immutable recognition observation and retained response/image artifacts; no document graph
+  identity: Producing task/product key/digest and archived release contract
+  attributes:
+  - {name: content_digest, range: text, required: true, multivalued: false}
+  relationships: []
 - id: PdfProductReference
   family: interpretation
   scope: run
@@ -2673,6 +2681,35 @@ concepts:
   attributes:
   - name: build_id
     range: text
+    required: true
+    multivalued: false
+  relationships: []
+- id: OperatorDirection
+  family: execution
+  scope: run
+  meaning: An immutable authored operator guidance event for one selected active run; recorded input,
+    not a semantic model assertion
+  identity: Run-bound append event; native sequence locates this event without merging repeated authored
+    guidance
+  attributes:
+  - name: id
+    range: integer
+    required: true
+    multivalued: false
+  - name: run_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: actor
+    range: text
+    required: true
+    multivalued: false
+  - name: session_ref
+    range: text
+    required: true
+    multivalued: false
+  - name: body
+    range: json
     required: true
     multivalued: false
   relationships: []
@@ -4808,7 +4845,29 @@ invariants:
   scope: lifecycle
   failure_code: execution.attempt_fence
   implementation: claim
+  observable: true
+  diagnostics:
+  - {operation: claim, kind: guard, sqlstate: '23514', guard: execution_task, guard_version: '2'}
   required_capability: execution.lifecycle.v1
+- id: published_document_address
+  meaning: Selected document addresses belong to the exact published product pin and its resolved native build and revision
+  subjects:
+  - SourceView
+  - SourceArtifact
+  - PdfProductReference
+  relationships: []
+  scope: relational
+  failure_code: pdf.published_document_address
+  implementation: publish_source_view
+  observable: true
+  diagnostics:
+  - {operation: complete, kind: guard, sqlstate: '23514', guard: native_source_address, guard_version: '1'}
+  - {operation: publish_source_view, kind: constraint, sqlstate: '23503', schema_name: kb, table_name: source_view, constraint_name: fk_source_view_native_build_id_native_task_id_native_pr_bef7}
+  - {operation: publish_source_view, kind: constraint, sqlstate: '23503', schema_name: kb, table_name: source_view, constraint_name: fk_source_view_native_build_id_native_revision_id_secti_79ff}
+  - {operation: publish_source_view, kind: constraint, sqlstate: '23514', schema_name: kb, table_name: source_view, constraint_name: ck_source_view_physical_73dfcc4ba8}
+  - {operation: publish_pdf_region_artifact, kind: constraint, sqlstate: '23503', schema_name: ops, table_name: native_region_artifact, constraint_name: fk_native_region_artifact_native_build_id_native_task_i_e848}
+  - {operation: publish_pdf_region_artifact, kind: constraint, sqlstate: '23503', schema_name: ops, table_name: native_region_artifact, constraint_name: fk_native_region_artifact_native_build_id_native_revisi_6345}
+  - {operation: publish_pdf_region_artifact, kind: constraint, sqlstate: '23514', schema_name: ops, table_name: native_region_artifact, constraint_name: ck_native_region_artifact_physical_73dfcc4ba8}
 - id: terminal_result
   meaning: Terminal task envelopes and outcome agree and are immutable
   subjects:
@@ -5159,6 +5218,23 @@ operations:
   implementation: archive
   transitions: []
   projections: []
+  calls:
+  - id: publish_release_archive
+    symbol: sem.publish_release_archive
+    parameters:
+    - name: payload
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: payload
+    result_fields:
+    - name: release_id
+      source: physical:sem.release.release_id
+      nullable: false
+      semantic_type: ReleaseId
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
 - id: reload
   inputs: &id007
   - Archive
@@ -5208,6 +5284,37 @@ operations:
   implementation: activate
   transitions: []
   projections: []
+  calls:
+  - id: activate_release
+    symbol: sem.activate_release
+    parameters:
+    - name: project_id
+      source: physical:data.project.project_id
+      nullable: false
+      native_parameter: p
+      semantic_type: ProjectId
+    - name: release_id
+      source: physical:sem.release.release_id
+      nullable: false
+      native_parameter: r
+      semantic_type: ReleaseId
+    - name: expected_parent
+      source: physical:sem.release.release_id
+      nullable: true
+      native_parameter: parent
+      semantic_type: ReleaseId
+    - name: expected_generation
+      source: physical:data.project.generation
+      nullable: false
+      native_parameter: g
+    result_fields:
+    - name: generation
+      source: physical:data.project.generation
+      nullable: false
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
 - id: construct_project
   inputs: &id013
   - Project
@@ -5235,6 +5342,34 @@ operations:
   implementation: project
   transitions: []
   projections: []
+  calls:
+  - id: initialize_source_project
+    symbol: data.initialize_source_project
+    parameters:
+    - name: project_id
+      source: physical:data.project.project_id
+      nullable: false
+      native_parameter: p
+      semantic_type: ProjectId
+    - name: release_id
+      source: physical:sem.release.release_id
+      nullable: false
+      native_parameter: r
+      semantic_type: ReleaseId
+    - name: realization_id
+      source: physical:data.realization.realization_id
+      nullable: false
+      native_parameter: z
+      semantic_type: RealizationId
+    result_fields:
+    - name: realization_id
+      source: physical:data.realization.realization_id
+      nullable: false
+      semantic_type: RealizationId
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
 - id: start_run
   inputs: &id016
   - RunBinding
@@ -5259,6 +5394,61 @@ operations:
   implementation: start_run
   transitions: []
   projections: []
+  calls:
+  - id: create_run
+    symbol: ops.create_run
+    parameters:
+    - name: project_id
+      source: physical:ops.run.project_id
+      nullable: false
+      native_parameter: p
+      semantic_type: ProjectId
+    - name: release_id
+      source: physical:ops.run.release_id
+      nullable: false
+      native_parameter: r
+      semantic_type: ReleaseId
+    - name: realization_id
+      source: physical:ops.run.input_realization_id
+      nullable: false
+      native_parameter: z
+      semantic_type: RealizationId
+    - name: revision
+      source: physical:ops.run.input_revision
+      nullable: false
+      native_parameter: v
+    - name: dependencies
+      source: physical:ops.run.dependencies
+      nullable: false
+      native_parameter: d
+    - name: kind
+      source: physical:ops.run.kind
+      nullable: false
+      native_parameter: k
+    - name: phase
+      source: physical:ops.run.phase
+      nullable: false
+      native_parameter: phase
+    - name: options
+      source: physical:ops.run.options
+      nullable: false
+      native_parameter: opts
+    - name: guideline
+      source: physical:ops.run.guideline
+      nullable: false
+      native_parameter: g
+    - name: code_commit
+      source: physical:ops.run.code_commit
+      nullable: false
+      native_parameter: commit
+    result_mode: scalar
+    result_fields:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      semantic_type: RunId
+    cardinality: one
+    ordered: false
 - id: configure_method
   inputs: &id019
   - MethodDefinition
@@ -5285,6 +5475,106 @@ operations:
   implementation: method
   transitions: []
   projections: []
+  calls:
+  - id: method_definition
+    symbol: semantic.operations.record_method
+    parameters:
+    - name: name
+      source: physical:ops.method.name
+      nullable: false
+    - name: version
+      source: physical:ops.method.version
+      nullable: false
+    - name: unit_type
+      source: physical:ops.method.unit_type
+      nullable: true
+    - name: configuration_schema_digest
+      source: physical:ops.method.configuration_schema_digest
+      nullable: true
+    - name: family
+      source: physical:ops.method.family
+      nullable: false
+    - name: tier
+      source: physical:ops.method.tier
+      nullable: false
+    - name: confidence_source
+      source: physical:ops.method.confidence_source
+      nullable: true
+    result_fields:
+    - name: id
+      source: physical:ops.method.id
+      nullable: false
+      semantic_type: MethodId
+    - name: name
+      source: physical:ops.method.name
+      nullable: false
+    - name: version
+      source: physical:ops.method.version
+      nullable: false
+    - name: unit_type
+      source: physical:ops.method.unit_type
+      nullable: true
+    - name: configuration_schema_digest
+      source: physical:ops.method.configuration_schema_digest
+      nullable: true
+    - name: family
+      source: physical:ops.method.family
+      nullable: false
+    - name: tier
+      source: physical:ops.method.tier
+      nullable: false
+    - name: confidence_source
+      source: physical:ops.method.confidence_source
+      nullable: true
+    result_mode: table
+    cardinality: one
+    ordered: false
+    order_by: []
+    backend: core
+    requires_context: false
+    result_class: RecordedMethod
+  - id: method_configuration
+    symbol: semantic.operations.record_method
+    parameters:
+    - name: method_id
+      source: physical:ops.method_config.method_id
+      nullable: false
+      semantic_type: MethodId
+    - name: name
+      source: physical:ops.method_config.name
+      nullable: false
+    - name: params
+      source: physical:ops.method_config.params
+      nullable: false
+    - name: config_hash
+      source: physical:ops.method_config.config_hash
+      nullable: false
+    result_fields:
+    - name: id
+      source: physical:ops.method_config.id
+      nullable: false
+      semantic_type: MethodConfigId
+    - name: method_id
+      source: physical:ops.method_config.method_id
+      nullable: false
+      semantic_type: MethodId
+    - name: name
+      source: physical:ops.method_config.name
+      nullable: false
+    - name: params
+      source: physical:ops.method_config.params
+      nullable: false
+    - name: config_hash
+      source: physical:ops.method_config.config_hash
+      nullable: false
+    result_mode: table
+    cardinality: one
+    ordered: false
+    order_by: []
+    backend: core
+    requires_context: false
+    result_class: RecordedMethodConfig
+    json_read: json-text-v1
 - id: schedule
   inputs: &id022
   - Run
@@ -5313,6 +5603,27 @@ operations:
   implementation: schedule
   transitions: []
   projections: []
+  calls:
+  - id: lock_schedule_run
+    json_read: json-text-v1
+    symbol: ops.lock_execution_run
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: operation
+      source: primitive:string
+      nullable: false
+      native_parameter: operation
+      default_json: '"schedule"'
+    result_mode: table
+    result_class: LockedScheduleRun
+    result_source: model:run
+    result_fields: []
+    cardinality: one
+    ordered: false
 - id: claim
   inputs: &id025
   - Run
@@ -5339,6 +5650,32 @@ operations:
   - implementation_version
   precision: Exact authored/canonical values; no implicit rounding
   implementation: claim
+  calls:
+  - id: claim_tasks
+    symbol: ops.claim_tasks
+    parameters:
+    - {name: run_id, native_parameter: p_run, source: 'physical:ops.run.id', nullable: false, semantic_type: RunId}
+    - {name: config_id, native_parameter: p_config, source: 'physical:ops.method_config.id', nullable: false, semantic_type: MethodConfigId}
+    - {name: holder, native_parameter: p_holder, source: 'physical:ops.task.claimed_by', nullable: false}
+    - {name: limit, native_parameter: p_limit, source: 'primitive:integer', nullable: false, default_json: '1'}
+    - {name: agent, native_parameter: p_agent, source: 'primitive:boolean', nullable: false, default_json: 'false'}
+    result_class: ClaimedTask
+    cardinality: many
+    ordered: false
+    result_fields:
+    - {name: task_id, source: 'physical:ops.task.id', nullable: false, semantic_type: TaskId}
+    - {name: run_id, source: 'physical:ops.task.run_id', nullable: false, semantic_type: RunId}
+    - {name: release_id, source: 'physical:ops.task.release_id', nullable: false, semantic_type: ReleaseId}
+    - {name: method_config_id, source: 'physical:ops.task.method_config_id', nullable: false, semantic_type: MethodConfigId}
+    - {name: unit_type, source: 'physical:ops.task.unit_type', nullable: false, transform: task_unit_type}
+    - {name: unit_id, source: 'physical:ops.task.unit_id', nullable: true}
+    - {name: unit_key, source: 'physical:ops.task.unit_key', nullable: true}
+    - {name: packet_hash, source: 'physical:ops.task.packet_hash', nullable: true}
+    - {name: attempt, source: 'physical:ops.task.attempt', nullable: false, semantic_type: TaskAttempt}
+    - {name: holder, source: 'physical:ops.task.claimed_by', nullable: false}
+    - {name: deadline, source: 'physical:ops.task.lease_until', nullable: false}
+    - {name: invocation_key, source: 'physical:ops.task.invocation_key', nullable: false}
+    - {name: held_progress, source: 'physical:ops.task.error', nullable: true, transform: held_progress}
   transitions:
   - task_claim
   - task_reclaim
@@ -5356,6 +5693,7 @@ operations:
   - SourceObservation
   - SourceCoverage
   applicability:
+  - published_document_address
   - attempt_fence
   - terminal_result
   universe: Exact explicit bound inputs; no ambient latest model
@@ -5380,6 +5718,45 @@ operations:
   - task_complete
   - task_complete_held
   projections: []
+  calls:
+  - id: complete_task
+    symbol: ops.complete_task
+    parameters:
+    - name: task_id
+      source: physical:ops.task.id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: physical:ops.task.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: physical:ops.task.claimed_by
+      nullable: false
+      native_parameter: p_holder
+    - name: rows
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_rows
+    - name: outcome
+      source: physical:ops.task.status
+      nullable: false
+      native_parameter: p_outcome
+    - name: error
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_error
+    - name: envelope
+      source: primitive:json_payload
+      nullable: true
+      native_parameter: p_envelope
+    result_mode: json
+    result_source: model:CompletionResult
+    result_fields: []
+    cardinality: one
+    ordered: false
 - id: complete_unit
   inputs: &id031
   - Run
@@ -5415,6 +5792,29 @@ operations:
   implementation: complete_unit
   transitions: []
   projections: []
+  calls:
+  - id: lock_complete_unit_run
+    symbol: ops.lock_execution_run
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: operation
+      source: primitive:string
+      nullable: false
+      native_parameter: operation
+      default_json: '"complete_unit"'
+    result_mode: table
+    result_class: LockedRunIdentity
+    result_fields:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      semantic_type: RunId
+    cardinality: one
+    ordered: false
 - id: hold_submission
   inputs: &id034
   - TaskInvocation
@@ -5448,6 +5848,55 @@ operations:
   - task_hold
   - submission_hold
   projections: []
+  calls:
+  - id: hold_agent_result
+    symbol: ops.hold_agent_result
+    parameters:
+    - name: task_id
+      source: physical:ops.task.id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: physical:ops.task.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: physical:ops.task.claimed_by
+      nullable: false
+      native_parameter: p_holder
+    - name: packet_hash
+      source: physical:ops.task.packet_hash
+      nullable: false
+      native_parameter: p_packet
+    - name: clean
+      source: primitive:boolean
+      nullable: false
+      native_parameter: p_clean
+    - name: result
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_result
+    result_mode: scalar
+    result_fields:
+    - name: held
+      source: primitive:boolean
+      nullable: false
+    cardinality: one
+    ordered: false
+  - id: lock_input_snapshot
+    symbol: ops.lock_input_snapshot
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
 - id: capture_cut
   inputs: &id037
   - Run
@@ -5477,6 +5926,32 @@ operations:
   transitions:
   - run_final_cut
   projections: []
+  calls:
+  - id: capture_cut
+    symbol: ops.capture_cut
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: name
+      source: physical:ops.input_cut.name
+      nullable: false
+      native_parameter: p_name
+    - name: final
+      source: physical:ops.input_cut.final
+      nullable: false
+      native_parameter: p_final
+      default_json: 'false'
+    result_mode: scalar
+    result_fields:
+    - name: cut_id
+      source: physical:ops.input_cut.id
+      nullable: false
+      semantic_type: CutId
+    cardinality: one
+    ordered: false
 - id: execute_source
   inputs: &id040
   - Run
@@ -5507,6 +5982,23 @@ operations:
   transitions:
   - run_start_source
   projections: []
+  calls:
+  - id: start_source_run
+    symbol: ops.start_source_run
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    result_mode: scalar
+    result_fields:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      semantic_type: RunId
+    cardinality: one
+    ordered: false
 - id: end_run
   inputs: &id043
   - Run
@@ -5538,6 +6030,27 @@ operations:
   - task_cancel
   - task_cancel_held
   projections: []
+  calls:
+  - id: end_source_run
+    symbol: ops.end_source_run
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: failure
+      source: primitive:json_payload
+      nullable: true
+      native_parameter: p_failure
+      default_json: 'null'
+    result_mode: scalar
+    result_fields:
+    - name: affected_tasks
+      source: primitive:integer
+      nullable: false
+    cardinality: one
+    ordered: false
 - id: register_document
   inputs: &id046
   - SourceArtifact
@@ -5561,6 +6074,92 @@ operations:
   implementation: register_document
   transitions: []
   projections: []
+  calls:
+  - id: retain_source_artifact
+    symbol: ops.retain_source_artifact
+    parameters:
+    - name: document_id
+      source: physical:kb.document.id
+      nullable: false
+      native_parameter: p_document
+      semantic_type: DocumentId
+    - name: original
+      source: physical:kb.source_artifact.content
+      nullable: false
+      native_parameter: p_original
+    result_mode: scalar
+    result_fields:
+    - name: digest
+      source: physical:kb.source_artifact.artifact_digest
+      nullable: false
+    cardinality: one
+    ordered: false
+  - id: document_registration
+    symbol: semantic.operations.register_document
+    parameters:
+    - name: project_id
+      source: physical:kb.document.project_id
+      nullable: false
+      semantic_type: ProjectId
+    - name: key
+      source: physical:kb.document.key
+      nullable: false
+    - name: source_uri
+      source: physical:kb.document.source_uri
+      nullable: false
+    - name: content_hash
+      source: physical:kb.document.content_hash
+      nullable: false
+    - name: original_path
+      source: physical:kb.document.original_path
+      nullable: false
+    - name: mime
+      source: physical:kb.document.mime
+      nullable: false
+    - name: title
+      source: physical:kb.document.title
+      nullable: true
+    - name: meta
+      source: physical:kb.document.meta
+      nullable: false
+    result_fields:
+    - name: id
+      source: physical:kb.document.id
+      nullable: false
+      semantic_type: DocumentId
+    - name: project_id
+      source: physical:kb.document.project_id
+      nullable: false
+      semantic_type: ProjectId
+    - name: key
+      source: physical:kb.document.key
+      nullable: false
+    - name: source_uri
+      source: physical:kb.document.source_uri
+      nullable: false
+    - name: content_hash
+      source: physical:kb.document.content_hash
+      nullable: false
+    - name: original_path
+      source: physical:kb.document.original_path
+      nullable: false
+    - name: mime
+      source: physical:kb.document.mime
+      nullable: false
+    - name: title
+      source: physical:kb.document.title
+      nullable: true
+    - name: meta
+      source: physical:kb.document.meta
+      nullable: false
+    result_mode: table
+    cardinality: one
+    ordered: false
+    order_by: []
+    backend: core
+    requires_context: false
+    result_class: RegisteredDocument
+    json_read: json-text-v1
 - id: read_original
   inputs: &id049
   - Document
@@ -5585,6 +6184,45 @@ operations:
   implementation: read_original
   transitions: []
   projections: []
+  calls:
+  - id: original_descriptor
+    symbol: semantic.operations.read_original
+    parameters:
+    - name: id
+      source: physical:kb.document.id
+      nullable: false
+      semantic_type: DocumentId
+    result_fields:
+    - name: content_hash
+      source: physical:kb.document.content_hash
+      nullable: false
+    - name: original_path
+      source: physical:kb.document.original_path
+      nullable: false
+    result_mode: table
+    cardinality: optional
+    ordered: false
+    order_by: []
+    backend: core
+    requires_context: false
+    result_class: OriginalDescriptor
+  - id: original_artifact
+    symbol: semantic.operations.read_original
+    parameters:
+    - name: artifact_digest
+      source: physical:kb.source_artifact.artifact_digest
+      nullable: false
+    result_fields:
+    - name: content
+      source: physical:kb.source_artifact.content
+      nullable: false
+    result_mode: scalar
+    cardinality: optional
+    ordered: false
+    order_by: []
+    backend: core
+    requires_context: false
+    json_read: json-text-v1
 - id: store_rendition
   inputs: &id052
   - Document
@@ -5615,6 +6253,204 @@ operations:
   implementation: store_rendition
   transitions: []
   projections: []
+  calls:
+  - id: rendition_source_key
+    symbol: semantic.operations.store_rendition
+    parameters:
+    - name: id
+      source: physical:kb.document.id
+      nullable: false
+      semantic_type: DocumentId
+    result_fields:
+    - name: key
+      source: physical:kb.document.key
+      nullable: false
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
+    backend: core
+    requires_context: false
+  - id: rendition_definition
+    symbol: semantic.operations.store_rendition
+    parameters:
+    - name: document_id
+      source: physical:kb.rendition.document_id
+      nullable: false
+      semantic_type: DocumentId
+    - name: key
+      source: physical:kb.rendition.key
+      nullable: false
+    - name: content_digest
+      source: physical:kb.rendition.content_digest
+      nullable: false
+    - name: canonical_text
+      source: physical:kb.rendition.canonical_text
+      nullable: false
+    - name: content
+      source: physical:kb.rendition.content
+      nullable: false
+    - name: parse_status
+      source: physical:kb.rendition.parse_status
+      nullable: false
+    result_fields:
+    - name: id
+      source: physical:kb.rendition.id
+      nullable: false
+      semantic_type: RenditionId
+    - name: document_id
+      source: physical:kb.rendition.document_id
+      nullable: false
+      semantic_type: DocumentId
+    - name: key
+      source: physical:kb.rendition.key
+      nullable: false
+    - name: content_digest
+      source: physical:kb.rendition.content_digest
+      nullable: false
+    - name: canonical_text
+      source: physical:kb.rendition.canonical_text
+      nullable: false
+    - name: content
+      source: physical:kb.rendition.content
+      nullable: false
+    - name: parse_status
+      source: physical:kb.rendition.parse_status
+      nullable: false
+    result_mode: table
+    cardinality: one
+    ordered: false
+    order_by: []
+    backend: core
+    requires_context: false
+    result_class: StoredRendition
+    json_read: json-text-v1
+  - id: rendition_build
+    symbol: semantic.operations.store_rendition
+    parameters:
+    - name: document_id
+      source: physical:ops.rendition_build.document_id
+      nullable: false
+      semantic_type: DocumentId
+    - name: method_config_id
+      source: physical:ops.rendition_build.method_config_id
+      nullable: false
+      semantic_type: MethodConfigId
+    - name: rendition_id
+      source: physical:ops.rendition_build.rendition_id
+      nullable: false
+      semantic_type: RenditionId
+    - name: task_id
+      source: physical:ops.rendition_build.task_id
+      nullable: false
+      semantic_type: TaskId
+    - name: parse_detail
+      source: physical:ops.rendition_build.parse_detail
+      nullable: false
+    - name: text_layout
+      source: physical:ops.rendition_build.text_layout
+      nullable: true
+    result_fields:
+    - name: document_id
+      source: physical:ops.rendition_build.document_id
+      nullable: false
+      semantic_type: DocumentId
+    - name: method_config_id
+      source: physical:ops.rendition_build.method_config_id
+      nullable: false
+      semantic_type: MethodConfigId
+    - name: rendition_id
+      source: physical:ops.rendition_build.rendition_id
+      nullable: false
+      semantic_type: RenditionId
+    - name: task_id
+      source: physical:ops.rendition_build.task_id
+      nullable: false
+      semantic_type: TaskId
+    - name: parse_detail
+      source: physical:ops.rendition_build.parse_detail
+      nullable: false
+    - name: text_layout
+      source: physical:ops.rendition_build.text_layout
+      nullable: true
+    result_mode: table
+    cardinality: one
+    ordered: false
+    order_by: []
+    backend: core
+    requires_context: false
+    result_class: StoredRenditionBuild
+    json_read: json-text-v1
+  - id: rendition_segment
+    symbol: semantic.operations.store_rendition
+    parameters:
+    - name: rendition_id
+      source: physical:kb.segment.rendition_id
+      nullable: false
+      semantic_type: RenditionId
+    - name: segment_key
+      source: physical:kb.segment.segment_key
+      nullable: false
+    - name: parent_key
+      source: physical:kb.segment.parent_key
+      nullable: true
+    - name: kind
+      source: physical:kb.segment.kind
+      nullable: false
+    - name: ordinal
+      source: physical:kb.segment.ordinal
+      nullable: false
+    - name: start_offset
+      source: physical:kb.segment.start_offset
+      nullable: false
+    - name: end_offset
+      source: physical:kb.segment.end_offset
+      nullable: false
+    - name: attrs
+      source: physical:kb.segment.attrs
+      nullable: false
+    - name: parse_status
+      source: physical:kb.segment.parse_status
+      nullable: false
+    - name: parse_reason
+      source: physical:kb.segment.parse_reason
+      nullable: true
+    result_fields:
+    - name: segment_key
+      source: physical:kb.segment.segment_key
+      nullable: false
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
+    backend: core
+    requires_context: false
+  - id: run_rendition_selection
+    symbol: semantic.operations.store_rendition
+    parameters:
+    - name: run_id
+      source: physical:ops.run_rendition.run_id
+      nullable: false
+      semantic_type: RunId
+    - name: document_id
+      source: physical:ops.run_rendition.document_id
+      nullable: false
+      semantic_type: DocumentId
+    - name: rendition_id
+      source: physical:ops.run_rendition.rendition_id
+      nullable: false
+      semantic_type: RenditionId
+    result_fields:
+    - name: rendition_id
+      source: physical:ops.run_rendition.rendition_id
+      nullable: false
+      semantic_type: RenditionId
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
+    backend: core
+    requires_context: false
 - id: read_rendition
   inputs: &id055
   - Rendition
@@ -5641,6 +6477,26 @@ operations:
   implementation: read_rendition
   transitions: []
   projections: []
+  calls:
+  - id: rendition_content
+    symbol: semantic.operations.read_rendition
+    parameters:
+    - name: id
+      source: physical:kb.rendition.id
+      nullable: false
+      semantic_type: RenditionId
+    result_fields:
+    - name: content
+      source: physical:kb.rendition.content
+      nullable: false
+    result_mode: table
+    cardinality: optional
+    ordered: false
+    order_by: []
+    backend: core
+    requires_context: false
+    result_class: StoredRenditionContent
+    json_read: json-text-v1
 - id: bind_report
   inputs: &id058
   - TaskResultEnvelope
@@ -5797,6 +6653,71 @@ operations:
   projections:
   - candidate
   - accepted
+  calls:
+  - id: begin_evaluation
+    symbol: data.begin_evaluation
+    parameters:
+    - name: cut_id
+      source: physical:ops.input_cut.id
+      nullable: false
+      native_parameter: p_cut
+      semantic_type: CutId
+    - name: output_realization_id
+      source: physical:data.realization.realization_id
+      nullable: false
+      native_parameter: p_output
+      semantic_type: RealizationId
+    result_fields: []
+    result_mode: void
+    cardinality: none
+    ordered: false
+    order_by: []
+  - id: end_stage
+    symbol: data.end_stage
+    parameters: []
+    result_fields: []
+    result_mode: void
+    cardinality: none
+    ordered: false
+    order_by: []
+  - id: finish_evaluation
+    symbol: data.finish_evaluation
+    parameters:
+    - name: cut_id
+      source: physical:ops.input_cut.id
+      nullable: false
+      native_parameter: p_cut
+      semantic_type: CutId
+    - name: output_realization_id
+      source: physical:data.realization.realization_id
+      nullable: false
+      native_parameter: p_output
+      semantic_type: RealizationId
+    - name: batch_id
+      source: physical:data.batch.batch_id
+      nullable: false
+      native_parameter: p_batch
+    result_fields: []
+    result_mode: void
+    cardinality: none
+    ordered: false
+    order_by: []
+  - id: lock_finalization_run
+    symbol: ops.lock_finalization_run
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    result_fields: []
+    result_mode: table
+    cardinality: one
+    ordered: false
+    order_by: []
+    result_class: LockedFinalizationRun
+    result_source: model:run
+    json_read: json-text-v1
 - id: scientific_policy
   policy_version: semantic-domain-3
   inputs: &id073
@@ -5859,6 +6780,59 @@ operations:
   transitions: []
   projections:
   - accepted
+  calls:
+  - id: begin_inference_workspace
+    symbol: data.begin_inference_workspace
+    parameters:
+    - name: release_id
+      source: physical:sem.release.release_id
+      nullable: false
+      native_parameter: r
+      semantic_type: ReleaseId
+    - name: realization_id
+      source: physical:data.realization.realization_id
+      nullable: false
+      native_parameter: z
+      semantic_type: RealizationId
+    - name: revision
+      source: physical:data.realization.data_revision
+      nullable: false
+      native_parameter: revision
+    - name: snapshot
+      source: physical:data.publication_intent.source_capture_id
+      nullable: false
+      native_parameter: snapshot
+    result_fields: []
+    result_mode: void
+    cardinality: none
+    ordered: false
+    order_by: []
+  - id: end_inference_workspace
+    symbol: data.end_inference_workspace
+    parameters:
+    - name: release_id
+      source: physical:sem.release.release_id
+      nullable: false
+      native_parameter: r
+      semantic_type: ReleaseId
+    - name: realization_id
+      source: physical:data.realization.realization_id
+      nullable: false
+      native_parameter: z
+      semantic_type: RealizationId
+    - name: revision
+      source: physical:data.realization.data_revision
+      nullable: false
+      native_parameter: revision
+    - name: snapshot
+      source: physical:data.publication_intent.source_capture_id
+      nullable: false
+      native_parameter: snapshot
+    result_fields: []
+    result_mode: void
+    cardinality: none
+    ordered: false
+    order_by: []
 - id: publish_inference
   inputs: &id079
   - SnapshotBinding
@@ -5917,6 +6891,44 @@ operations:
   implementation: publish
   transitions: []
   projections: []
+  calls:
+  - id: begin_stage
+    symbol: data.begin_stage
+    parameters: []
+    result_fields: []
+    result_mode: void
+    cardinality: none
+    ordered: false
+    order_by: []
+  - id: publish_batch
+    symbol: data.publish_batch
+    parameters:
+    - name: release_id
+      source: physical:sem.release.release_id
+      nullable: false
+      native_parameter: r
+      semantic_type: ReleaseId
+    - name: realization_id
+      source: physical:data.batch.realization_id
+      nullable: false
+      native_parameter: z
+      semantic_type: RealizationId
+    - name: batch_id
+      source: physical:data.batch.batch_id
+      nullable: false
+      native_parameter: b
+    - name: content
+      source: physical:data.batch.content
+      nullable: false
+      native_parameter: p_content
+    result_fields:
+    - name: data_revision
+      source: physical:data.batch.data_revision
+      nullable: false
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
 - id: admit
   inputs: &id085
   - SemanticRelease
@@ -5940,6 +6952,78 @@ operations:
   implementation: native_admission
   transitions: []
   projections: []
+  calls:
+  - id: require_runtime_principal
+    symbol: data.require_runtime_principal
+    parameters:
+    - name: purpose
+      source: model:NativeAdmissionParameters.purpose
+      nullable: false
+      native_parameter: purpose
+    result_fields: []
+    result_mode: void
+    cardinality: none
+    ordered: false
+    order_by: []
+  - id: require_native_execution_release
+    symbol: data.require_execution_release
+    parameters:
+    - name: release_id
+      source: physical:sem.release.release_id
+      nullable: false
+      native_parameter: r
+      semantic_type: ReleaseId
+    result_fields: []
+    result_mode: void
+    cardinality: none
+    ordered: false
+    order_by: []
+  - id: require_execution_operation
+    symbol: sem.require_execution_operation
+    parameters:
+    - name: release_id
+      source: physical:sem.release.release_id
+      nullable: false
+      native_parameter: r
+      semantic_type: ReleaseId
+    - name: operation
+      source: model:OperationContract.id
+      nullable: false
+      native_parameter: operation
+    result_fields: []
+    result_mode: void
+    cardinality: none
+    ordered: false
+    order_by: []
+  - id: record_sql_admission
+    symbol: sem.record_sql_admission
+    parameters:
+    - name: release_id
+      source: physical:sem.sql_admission.release_id
+      nullable: false
+      native_parameter: r
+      semantic_type: ReleaseId
+    - name: input_kind
+      source: physical:sem.sql_admission.input_kind
+      nullable: false
+      native_parameter: ik
+    - name: input_name
+      source: physical:sem.sql_admission.input_name
+      nullable: false
+      native_parameter: n
+    - name: physical_id
+      source: physical:sem.sql_admission.physical_id
+      nullable: false
+      native_parameter: p
+    - name: content
+      source: physical:sem.sql_admission.content
+      nullable: false
+      native_parameter: c
+    result_fields: []
+    result_mode: void
+    cardinality: none
+    ordered: false
+    order_by: []
 - id: open_read
   inputs: &id088
   - Realization
@@ -6166,6 +7250,75 @@ operations:
   projections:
   - append
   - snapshot_derived
+  calls:
+  - id: publish_derived_batch
+    symbol: data.publish_derived_batch_v2
+    parameters:
+    - name: release_id
+      source: physical:sem.release.release_id
+      nullable: false
+      native_parameter: r
+      semantic_type: ReleaseId
+    - name: realization_id
+      source: physical:data.batch.realization_id
+      nullable: false
+      native_parameter: z
+      semantic_type: RealizationId
+    - name: batch_id
+      source: physical:data.batch.batch_id
+      nullable: false
+      native_parameter: b
+    - name: content
+      source: physical:data.batch.content
+      nullable: false
+      native_parameter: p_content
+    - name: source_release_id
+      source: physical:data.publication_intent.source_release_id
+      nullable: false
+      native_parameter: source_release
+      semantic_type: ReleaseId
+    - name: source_realization_id
+      source: physical:data.publication_intent.source_realization_id
+      nullable: false
+      native_parameter: source_realization
+      semantic_type: RealizationId
+    - name: source_revision
+      source: physical:data.publication_intent.source_revision
+      nullable: false
+      native_parameter: source_revision
+    - name: source_capture_id
+      source: physical:data.publication_intent.source_capture_id
+      nullable: false
+      native_parameter: source_capture
+    - name: operation
+      source: physical:data.publication_intent.operation_id
+      nullable: false
+      native_parameter: operation
+    - name: projection
+      source: physical:data.publication_intent.projection_id
+      nullable: false
+      native_parameter: projection
+    - name: contract_id
+      source: primitive:string
+      nullable: true
+      native_parameter: contract_id
+    - name: cut_id
+      source: physical:ops.input_cut.id
+      nullable: true
+      native_parameter: cut_id
+      semantic_type: CutId
+    - name: profile_digest
+      source: primitive:string
+      nullable: true
+      native_parameter: profile_digest
+    result_fields:
+    - name: data_revision
+      source: physical:data.batch.data_revision
+      nullable: false
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
 - id: renew_claim
   inputs:
   - TaskInvocation
@@ -6194,6 +7347,28 @@ operations:
   - task_renew_claim
   - task_renew_claim_held
   projections: []
+  calls:
+  - id: renew_claim
+    symbol: ops.renew_claim
+    parameters:
+    - name: task_id
+      source: physical:ops.task.id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: physical:ops.task.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: physical:ops.task.claimed_by
+      nullable: false
+      native_parameter: p_holder
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
 - id: release_claim
   inputs:
   - TaskInvocation
@@ -6222,6 +7397,44 @@ operations:
   - task_release_claim
   - task_release_claim_held
   projections: []
+  calls:
+  - id: release_claim
+    symbol: ops.release_claim
+    parameters:
+    - name: task_id
+      source: physical:ops.task.id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: physical:ops.task.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: physical:ops.task.claimed_by
+      nullable: false
+      native_parameter: p_holder
+    - name: reason
+      source: physical:ops.task.reason
+      nullable: false
+      native_parameter: p_reason
+    result_mode: void
+    result_class: ReleasedClaim
+    result_fields:
+    - name: task_id
+      source: parameter:task_id
+      nullable: false
+      semantic_type: TaskId
+    - name: attempt
+      source: parameter:attempt
+      nullable: false
+      semantic_type: TaskAttempt
+    - name: reason
+      source: parameter:reason
+      nullable: false
+    cardinality: one
+    ordered: false
 - id: graph_project
   inputs:
   - QualifiedGraphProjection
@@ -6456,6 +7669,32 @@ operations:
   implementation: select_result
   transitions: []
   projections: []
+  calls:
+  - id: select_completed_result
+    symbol: sem.select_completed_result
+    parameters:
+    - name: project_id
+      source: physical:data.project.project_id
+      nullable: false
+      native_parameter: p
+      semantic_type: ProjectId
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: r
+      semantic_type: RunId
+    - name: expected_generation
+      source: physical:data.project.generation
+      nullable: false
+      native_parameter: g
+    result_fields:
+    - name: generation
+      source: physical:data.project.generation
+      nullable: false
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
 - id: validate_continuation
   inputs:
   - Continuation
@@ -6518,6 +7757,40 @@ operations:
   transitions: []
   projections: []
   implementation: retain_pdf_original
+  calls:
+  - id: retain_pdf_original
+    symbol: ops.retain_pdf_original
+    parameters:
+    - name: task_id
+      source: physical:ops.task.id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: physical:ops.task.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: physical:ops.task.claimed_by
+      nullable: false
+      native_parameter: p_holder
+    - name: original
+      source: primitive:bytes
+      nullable: false
+      native_parameter: p_original
+    - name: recipe_bytes
+      source: primitive:bytes
+      nullable: false
+      native_parameter: p_recipe
+    result_fields:
+    - name: digest
+      source: physical:kb.source_artifact.artifact_digest
+      nullable: false
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
 - id: prepare_native_document
   inputs:
   - PdfNativeEnvelope
@@ -6547,35 +7820,6 @@ operations:
   transitions: []
   projections: []
   implementation: prepare_native_document
-- id: publish_native_document
-  inputs:
-  - TaskInvocation
-  - PreparedPdfProduct
-  results:
-  - PdfNativeEnvelope
-  applicability: []
-  universe: Pinned PDF original, native schema, conversion recipe and qualified projections;
-    no ambient rendition
-  effects:
-  - atomic_native_publication
-  - preserve_original_normalized_distinction
-  outcomes:
-  - applied
-  - replay
-  - conflict
-  outcome_domain: transaction
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  - source_representation
-  - adapter_revision
-  precision: Native recognized text is distinct from PDF bytes, page regions and author
-    TeX
-  transitions: []
-  projections: []
-  implementation: publish_native_document
 - id: prepare_parsing_text
   inputs:
   - SourceView
@@ -6759,7 +8003,8 @@ operations:
   - SourceView
   results:
   - SourceView
-  applicability: []
+  applicability:
+  - published_document_address
   universe: Pinned native original/product and section/item universe with explicit
     named dependencies
   effects:
@@ -6778,6 +8023,89 @@ operations:
   transitions: []
   projections: []
   implementation: publish_source_view
+  calls:
+  - id: publish_source_view
+    symbol: ops.publish_source_view
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: task_id
+      source: physical:ops.task.id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: physical:ops.task.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: physical:ops.task.claimed_by
+      nullable: false
+      native_parameter: p_holder
+    - name: position
+      source: physical:ops.run_source_view.position
+      nullable: false
+      native_parameter: p_position
+    - name: payload
+      source: primitive:bytes
+      nullable: false
+      native_parameter: p_payload
+    - name: recipe
+      source: primitive:bytes
+      nullable: false
+      native_parameter: p_recipe
+    result_mode: scalar
+    result_fields:
+    - name: source_view_id
+      source: physical:kb.source_view.id
+      nullable: false
+      semantic_type: SourceViewId
+    cardinality: one
+    ordered: false
+  - id: select_reused_source_views
+    symbol: ops.select_reused_source_views
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: task_id
+      source: physical:ops.task.id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
+  - id: select_source_view
+    symbol: ops.select_source_view
+    parameters:
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: source_run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_source_run
+      semantic_type: RunId
+    - name: source_view_id
+      source: physical:kb.source_view.id
+      nullable: false
+      native_parameter: p_view
+      semantic_type: SourceViewId
+    result_fields: []
+    result_mode: void
+    cardinality: none
+    ordered: false
+    order_by: []
 - id: read_source_view
   inputs:
   - SourceView
@@ -6826,6 +8154,501 @@ operations:
   transitions: []
   projections: []
   implementation: read_native_source
+  calls:
+  - id: read_published_sections
+    symbol: ops.read_pdf_published_sections
+    parameters:
+    - &published_id001
+      name: task_id
+      source: physical:ops.pdf_published_revision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - &published_id002
+      name: product_key
+      source: physical:ops.pdf_published_revision.product_key
+      nullable: false
+      native_parameter: p_product
+      semantic_type: ProductKey
+    - &published_id003
+      name: content_digest
+      source: physical:ops.pdf_published_revision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    result_source: model:PublishedSectionRow
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - ordinal
+    requires_context: true
+  - id: read_published_section_nodes
+    json_read: json-text-v1
+    symbol: ops.read_pdf_published_section_nodes
+    parameters:
+    - *published_id001
+    - *published_id002
+    - *published_id003
+    - name: section
+      source: physical:kb.pdf_record_access.pointer
+      native_parameter: p_section
+      nullable: false
+    - &published_id004
+      name: membership
+      source: model:PdfSourceViewPublication.membership
+      nullable: false
+      native_parameter: p_membership
+    result_source: model:PublishedSectionNodeRow
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - ordinal
+    requires_context: true
+  - id: read_published_items
+    json_read: json-text-v1
+    symbol: ops.read_pdf_published_items
+    parameters:
+    - *published_id001
+    - *published_id002
+    - *published_id003
+    - name: pointers
+      source: physical:kb.pdf_record_access.pointer
+      native_parameter: p_pointers
+      nullable: false
+      multivalued: true
+    result_source: model:PdfRecordAccess
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - ordinal
+    requires_context: true
+  - id: read_published_region
+    symbol: ops.read_pdf_published_region
+    parameters:
+    - *published_id001
+    - *published_id002
+    - *published_id003
+    - name: pointer
+      source: physical:kb.pdf_record_access.pointer
+      native_parameter: p_pointer
+      nullable: false
+    - name: region_index
+      source: physical:kb.pdf_record_region.region_index
+      nullable: false
+      native_parameter: p_region_index
+    result_source: model:PdfRecordRegion
+    result_fields: []
+    cardinality: optional
+    ordered: false
+    order_by: []
+    requires_context: true
+  - id: read_published_section_reports
+    json_read: json-text-v1
+    symbol: ops.read_pdf_published_section_reports
+    parameters:
+    - *published_id001
+    - *published_id002
+    - *published_id003
+    - name: pointers
+      source: physical:kb.pdf_record_access.pointer
+      native_parameter: p_pointers
+      nullable: false
+      multivalued: true
+    - name: sections
+      source: physical:kb.pdf_record_access.pointer
+      native_parameter: p_sections
+      nullable: false
+      multivalued: true
+    result_source: model:PublishedSectionReportRow
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - ordinal
+    - local_id
+    requires_context: true
+  - id: read_published_item_page
+    symbol: ops.read_pdf_published_item_page
+    parameters:
+    - *published_id001
+    - *published_id002
+    - *published_id003
+    - name: section
+      source: physical:kb.pdf_record_access.pointer
+      native_parameter: p_section
+      nullable: true
+    - *published_id004
+    - name: pointer
+      source: physical:kb.pdf_record_access.pointer
+      native_parameter: p_pointer
+      nullable: true
+    - name: after
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_after
+    - name: limit
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_limit
+    result_source: model:PublishedItemIndexRow
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - ordinal
+    requires_context: true
+  - id: read_published_regions
+    symbol: ops.read_pdf_published_regions
+    parameters:
+    - *published_id001
+    - *published_id002
+    - *published_id003
+    - name: pointer
+      source: physical:kb.pdf_record_access.pointer
+      native_parameter: p_pointer
+      nullable: false
+    result_source: model:PdfRecordRegion
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - region_index
+    requires_context: true
+  - id: read_published_region_batch
+    symbol: ops.read_pdf_published_region_batch
+    parameters:
+    - *published_id001
+    - *published_id002
+    - *published_id003
+    - name: pointers
+      source: physical:kb.pdf_record_access.pointer
+      native_parameter: p_pointers
+      nullable: false
+      multivalued: true
+    result_source: model:PdfRecordRegion
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - pointer
+    - region_index
+    requires_context: true
+  - id: read_published_item_ancestors
+    symbol: ops.read_pdf_published_item_ancestors
+    parameters:
+    - *published_id001
+    - *published_id002
+    - *published_id003
+    - name: pointer
+      source: physical:kb.pdf_record_access.pointer
+      native_parameter: p_pointer
+      nullable: false
+    result_source: model:PublishedItemIndexRow
+    result_fields: []
+    cardinality: many
+    ordered: true
+    order_by:
+    - ordinal
+    requires_context: true
+  - id: read_pdf_record_rows
+    symbol: ops.read_pdf_record_rows
+    parameters:
+    - name: task_id
+      source: physical:ops.pdf_published_revision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: physical:ops.pdf_published_revision.product_key
+      nullable: false
+      native_parameter: p_product
+      semantic_type: ProductKey
+    - name: content_digest
+      source: physical:ops.pdf_published_revision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    - name: family
+      source: primitive:string
+      nullable: false
+      native_parameter: p_family
+    - name: filters
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_filters
+    - name: after
+      source: primitive:json_payload
+      nullable: true
+      native_parameter: p_after
+    - name: limit
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_limit
+      native_type: integer
+    result_fields:
+    - name: body
+      source: primitive:json_payload
+      nullable: false
+    result_mode: scalar
+    cardinality: many
+    ordered: false
+    order_by: []
+    result_class: NativeJsonEnvelope
+    json_read: json-text-v1
+  - id: read_pdf_record_context_rows
+    symbol: ops.read_pdf_record_context_rows
+    parameters:
+    - name: task_id
+      source: physical:ops.pdf_published_revision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: physical:ops.pdf_published_revision.product_key
+      nullable: false
+      native_parameter: p_product
+      semantic_type: ProductKey
+    - name: content_digest
+      source: physical:ops.pdf_published_revision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    - name: pointers
+      source: physical:kb.pdf_record_access.pointer
+      nullable: false
+      native_parameter: p_pointers
+      multivalued: true
+    - name: section
+      source: primitive:string
+      nullable: true
+      native_parameter: p_section
+    - name: family
+      source: primitive:string
+      nullable: false
+      native_parameter: p_family
+    - name: after
+      source: primitive:string
+      nullable: true
+      native_parameter: p_after
+    - name: limit
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_limit
+      native_type: integer
+    result_fields:
+    - name: body
+      source: primitive:json_payload
+      nullable: false
+    result_mode: scalar
+    cardinality: many
+    ordered: false
+    order_by: []
+    result_class: NativeJsonEnvelope
+    json_read: json-text-v1
+  - id: read_pdf_companion_export_events
+    symbol: ops.read_pdf_companion_export_events
+    parameters:
+    - name: task_id
+      source: physical:ops.pdf_published_revision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: physical:ops.pdf_published_revision.product_key
+      nullable: false
+      native_parameter: p_product
+      semantic_type: ProductKey
+    - name: content_digest
+      source: physical:ops.pdf_published_revision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    - name: family
+      source: primitive:string
+      nullable: false
+      native_parameter: p_family
+    result_fields:
+    - name: body
+      source: primitive:json_payload
+      nullable: false
+    result_mode: scalar
+    cardinality: many
+    ordered: false
+    order_by: []
+    result_class: NativeJsonEnvelope
+    json_read: json-text-v1
+  - id: read_pdf_native_events
+    symbol: ops.read_pdf_native_events
+    parameters:
+    - name: task_id
+      source: physical:ops.pdf_published_revision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: physical:ops.pdf_published_revision.product_key
+      nullable: false
+      native_parameter: p_product
+      semantic_type: ProductKey
+    - name: content_digest
+      source: physical:ops.pdf_published_revision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    result_fields:
+    - name: body
+      source: primitive:json_payload
+      nullable: false
+    result_mode: scalar
+    cardinality: many
+    ordered: false
+    order_by: []
+    result_class: NativeJsonEnvelope
+    json_read: json-text-v1
+  - id: record_integrated_source_context
+    symbol: ops.record_integrated_source_context
+    parameters:
+    - name: task_id
+      source: physical:ops.pdf_published_revision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: physical:ops.pdf_published_revision.product_key
+      nullable: false
+      native_parameter: p_key
+      semantic_type: ProductKey
+    - name: content_digest
+      source: physical:ops.pdf_published_revision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    - name: pointers
+      source: physical:kb.pdf_record_access.pointer
+      nullable: false
+      native_parameter: p_pointers
+      multivalued: true
+    - name: section
+      source: primitive:string
+      nullable: false
+      native_parameter: p_section
+    - name: membership
+      source: primitive:string
+      nullable: false
+      native_parameter: p_membership
+    - name: row_budget
+      source: primitive:integer
+      nullable: true
+      native_parameter: p_row_budget
+    result_fields:
+    - name: body
+      source: primitive:json_payload
+      nullable: false
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
+    result_class: NativeJsonEnvelope
+    json_read: json-text-v1
+  - id: integrated_source_context
+    symbol: ops.integrated_source_context
+    parameters:
+    - name: task_id
+      source: physical:ops.pdf_published_revision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: physical:ops.pdf_published_revision.product_key
+      nullable: false
+      native_parameter: p_key
+      semantic_type: ProductKey
+    - name: content_digest
+      source: physical:ops.pdf_published_revision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    - name: pointers
+      source: physical:kb.pdf_record_access.pointer
+      nullable: false
+      native_parameter: p_pointers
+      multivalued: true
+    - name: section
+      source: primitive:string
+      nullable: false
+      native_parameter: p_section
+    - name: membership
+      source: primitive:string
+      nullable: false
+      native_parameter: p_membership
+    result_fields:
+    - name: body
+      source: primitive:json_payload
+      nullable: false
+    result_mode: scalar
+    cardinality: optional
+    ordered: false
+    order_by: []
+    result_class: NativeJsonEnvelope
+    json_read: json-text-v1
+  - id: read_pdf_selected_source_events
+    symbol: ops.read_pdf_selected_source_events
+    parameters:
+    - name: project_id
+      source: physical:data.project.project_id
+      nullable: false
+      native_parameter: p_project
+      semantic_type: ProjectId
+    - name: run_id
+      source: physical:ops.run.id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: selection_release_id
+      source: physical:sem.release.release_id
+      nullable: false
+      native_parameter: p_release
+      semantic_type: ReleaseId
+    - name: task_id
+      source: physical:ops.pdf_published_revision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: physical:ops.pdf_published_revision.product_key
+      nullable: false
+      native_parameter: p_product
+      semantic_type: ProductKey
+    - name: content_digest
+      source: physical:ops.pdf_published_revision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    - name: section
+      source: primitive:string
+      nullable: false
+      native_parameter: p_section
+    - name: membership
+      source: primitive:string
+      nullable: false
+      native_parameter: p_membership
+    - name: policy
+      source: primitive:string
+      nullable: false
+      native_parameter: p_policy
+    result_fields:
+    - name: body
+      source: primitive:json_payload
+      nullable: false
+    result_mode: scalar
+    cardinality: many
+    ordered: false
+    order_by: []
+    result_class: NativeJsonEnvelope
+    json_read: json-text-v1
 - id: capture_native_source_frame
   inputs:
   - TaskInvocation
@@ -6851,6 +8674,27 @@ operations:
   transitions: []
   projections: []
   implementation: capture_native_source_frame
+  calls:
+  - id: capture_native_source_frame
+    symbol: ops.capture_native_source_frame
+    parameters:
+    - name: task_id
+      source: physical:ops.task.id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: packet_hash
+      source: physical:ops.native_source_frame.packet_hash
+      nullable: false
+      native_parameter: p_hash
+    - name: frame
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_frame
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
 - id: request_native_source
   inputs:
   - TaskInvocation
@@ -6883,7 +8727,8 @@ operations:
   - SourceArtifact
   results:
   - SourceArtifact
-  applicability: []
+  applicability:
+  - published_document_address
   universe: Pinned native original/product and section/item universe with explicit
     named dependencies
   effects:
@@ -6902,6 +8747,43 @@ operations:
   transitions: []
   projections: []
   implementation: publish_pdf_region_artifact
+  calls:
+  - id: publish_pdf_region_artifact
+    symbol: ops.publish_pdf_region_artifact
+    parameters:
+    - name: task_id
+      source: physical:ops.task.id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: physical:ops.task.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: physical:ops.task.claimed_by
+      nullable: false
+      native_parameter: p_holder
+    - name: selection
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_selection
+    - name: recipe
+      source: primitive:bytes
+      nullable: false
+      native_parameter: p_recipe
+    - name: content
+      source: primitive:bytes
+      nullable: false
+      native_parameter: p_content
+    result_mode: scalar
+    result_fields:
+    - name: digest
+      source: physical:ops.native_region_artifact.artifact_digest
+      nullable: false
+    cardinality: one
+    ordered: false
 - id: prepare_integrated_pdf
   inputs:
   - PdfIntegratedProduct
@@ -6931,18 +8813,17 @@ operations:
   transitions: []
   projections: []
   implementation: prepare_integrated_pdf
-- id: publish_integrated_pdf
+- id: publish_pdf_observation
   inputs:
   - TaskInvocation
-  - PreparedIntegratedPdfProduct
+  - PdfObservationProduct
   results:
   - PdfProductReference
   applicability: []
-  universe: Exact original and all immutable already-published qualified inputs; no forward references or ambient
-    latest selection
+  universe: One validated recognition_observation bundle and exact original/input custody; generic document
+    writes are unavailable
   effects:
   - atomic_native_publication
-  - preserve_original_normalized_distinction
   outcomes:
   - applied
   - replay
@@ -6955,11 +8836,49 @@ operations:
   - implementation_version
   - source_representation
   - adapter_revision
-  precision: Address spaces, source coverage, structural admission and recognition outcomes remain independent;
-    I10/I11 fine provider geometry unadmitted
+  precision: Raw response bytes, image/frame geometry, recognition outcome and native document structure
+    remain distinct
   transitions: []
   projections: []
-  implementation: publish_integrated_pdf
+  implementation: publish_pdf_observation
+  calls:
+  - id: publish_pdf_observation
+    symbol: ops.publish_pdf_observation
+    parameters:
+    - name: task_id
+      source: physical:ops.task.id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+    - name: attempt
+      source: physical:ops.task.attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+    - name: holder
+      source: physical:ops.task.claimed_by
+      native_parameter: p_holder
+      nullable: false
+    - name: contract_digest
+      source: primitive:string
+      native_parameter: p_contract
+      nullable: false
+    - name: payload
+      source: primitive:bytes
+      native_parameter: p_payload
+      nullable: false
+    - name: artifacts
+      source: physical:kb.source_artifact.content
+      native_parameter: p_artifacts
+      nullable: false
+      multivalued: true
+    result_mode: scalar
+    result_fields:
+    - name: content_digest
+      source: primitive:string
+      nullable: false
+    cardinality: one
+    ordered: false
 - id: read_pdf_product
   inputs:
   - PdfProductReference
@@ -6987,6 +8906,52 @@ operations:
   transitions: []
   projections: []
   implementation: read_pdf_product
+  calls:
+  - id: read_pdf_published_revision
+    symbol: ops.read_pdf_published_revision
+    parameters:
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: model:PdfPublishedRevision.product_key
+      nullable: false
+      native_parameter: p_key
+    - name: logical_digest
+      source: model:PdfPublishedRevision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+    result_mode: table
+    result_fields: []
+    cardinality: optional
+    ordered: false
+    result_source: model:PdfPublishedRevision
+  - id: read_pdf_published_validation
+    symbol: ops.read_pdf_published_validation
+    parameters:
+    - name: task_id
+      source: physical:ops.pdf_published_revision.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: product_key
+      source: physical:ops.pdf_published_revision.product_key
+      nullable: false
+      native_parameter: p_key
+      semantic_type: ProductKey
+    - name: content_digest
+      source: physical:ops.pdf_published_revision.logical_digest
+      nullable: false
+      native_parameter: p_digest
+      semantic_type: ContentDigest
+    result_fields: []
+    result_mode: table
+    cardinality: optional
+    ordered: false
+    order_by: []
+    result_source: model:PdfBuildValidation
 - id: recognize_pdf_observation
   inputs:
   - PreparedRecognitionSource
@@ -7107,6 +9072,39 @@ operations:
   implementation: freeze_pdf_build
   transitions: [pdf_private_freeze]
   projections: []
+  calls:
+  - id: freeze_pdf_build
+    symbol: ops.freeze_pdf_build
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: kind
+      source: model:PdfFrozenBuild.kind
+      nullable: false
+      native_parameter: p_kind
+    result_mode: scalar
+    result_fields:
+    - name: frozen_digest
+      source: model:PdfFrozenBuild.frozen_digest
+      nullable: false
+    cardinality: one
+    ordered: false
 - id: prepare_pdf_build
   inputs:
   - TaskInvocation
@@ -7133,6 +9131,36 @@ operations:
   implementation: prepare_pdf_build
   transitions: []
   projections: []
+  calls:
+  - id: prepare_pdf_build
+    symbol: ops.prepare_pdf_build
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: frozen_digest
+      source: model:PdfFrozenBuild.frozen_digest
+      nullable: false
+      native_parameter: p_frozen
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
 - id: validate_pdf_build
   inputs:
   - TaskInvocation
@@ -7159,6 +9187,183 @@ operations:
   implementation: validate_pdf_build
   transitions: []
   projections: []
+  calls:
+  - id: lookup_pdf_validation
+    symbol: ops.lookup_pdf_validation
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: frozen_digest
+      source: model:PdfFrozenBuild.frozen_digest
+      nullable: false
+      native_parameter: p_frozen
+    result_mode: table
+    result_fields: []
+    cardinality: optional
+    ordered: false
+    result_source: model:PdfBuildValidation
+  - id: record_pdf_native_validation
+    symbol: ops.record_pdf_native_validation
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: frozen_digest
+      source: model:PdfFrozenBuild.frozen_digest
+      nullable: false
+      native_parameter: p_frozen
+    - name: passed
+      source: primitive:boolean
+      nullable: false
+      native_parameter: p_passed
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
+  - id: adopt_pdf_access_batch
+    symbol: ops.adopt_pdf_access_batch
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: frozen_digest
+      source: model:PdfFrozenBuild.frozen_digest
+      nullable: false
+      native_parameter: p_frozen
+    - name: rows
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_rows
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
+  - id: validate_pdf_build
+    symbol: ops.validate_pdf_build
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: frozen_digest
+      source: model:PdfFrozenBuild.frozen_digest
+      nullable: false
+      native_parameter: p_frozen
+    result_mode: table
+    result_fields: []
+    cardinality: one
+    ordered: false
+    result_source: model:PdfBuildValidation
+  - id: read_pdf_frozen_rows
+    json_read: json-text-v1
+    symbol: ops.read_pdf_frozen_rows
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: frozen_digest
+      source: model:PdfFrozenBuild.frozen_digest
+      nullable: false
+      native_parameter: p_frozen
+    - name: family
+      source: primitive:string
+      nullable: false
+      native_parameter: p_family
+    - name: after
+      source: primitive:json_payload
+      nullable: true
+      native_parameter: p_after
+    - name: limit
+      source: primitive:integer
+      nullable: false
+      native_parameter: p_limit
+      native_type: integer
+    - name: filters
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_filters
+    result_mode: scalar
+    result_fields:
+    - name: body
+      source: primitive:json_payload
+      nullable: false
+    cardinality: many
+    ordered: false
 - id: seal_pdf_build
   inputs:
   - TaskInvocation
@@ -7185,6 +9390,41 @@ operations:
   implementation: seal_pdf_build
   transitions: [pdf_private_publish]
   projections: []
+  calls:
+  - id: seal_pdf_build
+    symbol: ops.seal_pdf_build
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: frozen_digest
+      source: model:PdfFrozenBuild.frozen_digest
+      nullable: false
+      native_parameter: p_frozen
+    - name: product_key
+      source: model:PdfPublishedRevision.product_key
+      nullable: false
+      native_parameter: p_key
+    result_mode: table
+    result_fields: []
+    cardinality: one
+    ordered: false
+    result_source: model:PdfPublishedRevision
 - id: inspect_pdf_build
   inputs:
   - TaskInvocation
@@ -7210,6 +9450,115 @@ operations:
   implementation: inspect_pdf_build
   transitions: []
   projections: []
+  calls:
+  - id: lookup_pdf_build
+    symbol: ops.lookup_pdf_build
+    parameters:
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: replay_key
+      source: model:PdfStageBuild.replay_key
+      nullable: false
+      native_parameter: p_key
+    result_mode: table
+    result_fields: []
+    cardinality: optional
+    ordered: false
+    result_source: model:PdfStageBuild
+  - id: lookup_pdf_frozen_digest
+    symbol: ops.lookup_pdf_frozen_digest
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    result_mode: scalar
+    result_fields:
+    - name: frozen_digest
+      source: model:PdfFrozenBuild.frozen_digest
+      nullable: false
+    cardinality: optional
+    ordered: false
+  - id: lookup_pdf_frozen_kind
+    symbol: ops.lookup_pdf_frozen_kind
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    result_mode: scalar
+    result_fields:
+    - name: kind
+      source: model:PdfFrozenBuild.kind
+      nullable: false
+    cardinality: optional
+    ordered: false
+  - id: lookup_pdf_published_build
+    symbol: ops.lookup_pdf_published_build
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    result_mode: table
+    result_fields: []
+    cardinality: one
+    ordered: false
+    result_source: model:PdfPublishedRevision
 - id: retain_pdf_stage_recipe
   inputs:
   - TaskInvocation
@@ -7236,6 +9585,35 @@ operations:
   implementation: retain_pdf_stage_recipe
   transitions: []
   projections: []
+  calls:
+  - id: bind_pdf_stage_recipe
+    symbol: ops.bind_pdf_stage_recipe
+    parameters:
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: recipe
+      source: primitive:bytes
+      nullable: false
+      native_parameter: p_recipe
+    result_mode: scalar
+    result_fields:
+    - name: recipe_digest
+      source: model:PdfStageBuild.recipe_digest
+      nullable: false
+    cardinality: one
+    ordered: false
 - id: adopt_pdf_companion_batch
   inputs:
   - TaskInvocation
@@ -7262,6 +9640,57 @@ operations:
   implementation: adopt_pdf_companion_batch
   transitions: []
   projections: []
+  calls:
+  - id: adopt_pdf_companion
+    symbol: ops.adopt_pdf_companion
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: family
+      source: model:PdfRecordCompanion.family
+      nullable: false
+      native_parameter: p_family
+    - name: local_id
+      source: model:PdfRecordCompanion.local_id
+      nullable: false
+      native_parameter: p_local
+    - name: body
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_body
+    - name: replay_key
+      source: model:PdfStageBuild.replay_key
+      nullable: false
+      native_parameter: p_key
+    - name: ordinal
+      source: model:PdfRecordCompanion.ordinal
+      nullable: false
+      native_parameter: p_ordinal
+    - name: fields
+      source: primitive:json_payload
+      nullable: false
+      native_parameter: p_fields
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
+    batch: true
 - id: begin_pdf_build
   inputs:
   - TaskInvocation
@@ -7289,6 +9718,45 @@ operations:
   implementation: begin_pdf_build
   transitions: []
   projections: []
+  calls:
+  - id: begin_pdf_build
+    symbol: ops.begin_pdf_build
+    parameters:
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: source_digest
+      source: model:PdfStageBuild.source_digest
+      nullable: false
+      native_parameter: p_source
+    - name: recipe_digest
+      source: model:PdfStageBuild.recipe_digest
+      nullable: false
+      native_parameter: p_recipe
+    - name: schema_digest
+      source: model:PdfStageBuild.schema_digest
+      nullable: false
+      native_parameter: p_schema
+    - name: replay_key
+      source: model:PdfStageBuild.replay_key
+      nullable: false
+      native_parameter: p_key
+    result_mode: table
+    result_fields: []
+    cardinality: one
+    ordered: false
+    result_source: model:PdfStageBuild
 - id: adopt_pdf_batch
   inputs:
   - TaskInvocation
@@ -7316,6 +9784,62 @@ operations:
   implementation: adopt_pdf_batch
   transitions: []
   projections: []
+  calls:
+  - id: prepare_pdf_stage
+    symbol: ops.prepare_pdf_stage
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
+  - id: adopt_pdf_batch
+    symbol: ops.adopt_pdf_batch
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    - name: replay_key
+      source: model:PdfStageBuild.replay_key
+      nullable: false
+      native_parameter: p_key
+    result_mode: table
+    result_fields: []
+    cardinality: one
+    ordered: false
+    result_source: model:PdfStageReceipt
 - id: inspect_pdf_progress
   inputs:
   - TaskInvocation
@@ -7342,6 +9866,33 @@ operations:
   implementation: inspect_pdf_progress
   transitions: []
   projections: []
+  calls:
+  - id: inspect_pdf_progress
+    symbol: ops.inspect_pdf_progress
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    result_mode: table
+    result_fields: []
+    cardinality: many
+    ordered: false
+    result_source: model:PdfStageReceipt
 - id: resume_pdf_build
   inputs:
   - TaskInvocation
@@ -7370,6 +9921,32 @@ operations:
   implementation: resume_pdf_build
   transitions: []
   projections: []
+  calls:
+  - id: resume_pdf_build
+    symbol: ops.resume_pdf_build
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
 - id: abandon_pdf_build
   inputs:
   - TaskInvocation
@@ -7398,6 +9975,32 @@ operations:
   transitions:
   - pdf_private_abandon
   projections: []
+  calls:
+  - id: abandon_pdf_build
+    symbol: ops.abandon_pdf_build
+    parameters:
+    - name: build_id
+      source: model:PdfStageBuild.build_id
+      nullable: false
+      native_parameter: p_build
+    - name: task_id
+      source: model:PdfStageBuild.task_id
+      nullable: false
+      native_parameter: p_task
+      semantic_type: TaskId
+    - name: attempt
+      source: model:PdfStageBuild.attempt
+      nullable: false
+      native_parameter: p_attempt
+      semantic_type: TaskAttempt
+    - name: holder
+      source: model:PdfStageBuild.holder
+      nullable: false
+      native_parameter: p_holder
+    result_mode: void
+    result_fields: []
+    cardinality: none
+    ordered: false
 - id: stream_pdf_native
   inputs:
   - SourceArtifact
@@ -7479,6 +10082,61 @@ operations:
   implementation: stage_pdf_producer
   transitions: []
   projections: []
+- id: record_direction
+  inputs:
+  - Run
+  - OperatorDirection
+  results:
+  - OperatorDirection
+  applicability:
+  - qualified_reference
+  - immutable_binding
+  universe: Exact selected active run and its producing release; no project-active-release substitution
+  effects:
+  - atomic_protected_insert
+  outcomes:
+  - applied
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact supplied text, scope, actor, session and resolved project retained as authored provenance
+  implementation: record_direction
+  transitions: []
+  projections: []
+  calls:
+  - id: record_direction
+    symbol: ops.record_direction
+    parameters:
+    - name: run_id
+      source: physical:ops.intervention.run_id
+      nullable: false
+      native_parameter: p_run
+      semantic_type: RunId
+    - name: actor
+      source: physical:ops.intervention.actor
+      nullable: false
+      native_parameter: p_actor
+    - name: session_ref
+      source: physical:ops.intervention.session_ref
+      nullable: false
+      native_parameter: p_session
+    - name: body
+      source: physical:ops.intervention.body
+      nullable: false
+      native_parameter: p_body
+    result_fields:
+    - name: intervention_id
+      source: physical:ops.intervention.id
+      nullable: false
+      semantic_type: InterventionId
+    result_mode: scalar
+    cardinality: one
+    ordered: false
+    order_by: []
 implementations:
 - id: convert_pdf
   owner: ingest.pdf
@@ -7807,6 +10465,7 @@ implementations:
   effects: *id039
   required_capabilities:
   - execution.lifecycle.v1
+
 - id: source_execution
   owner: orchestrate.semantic
   symbol: run_source_methods
@@ -8347,23 +11006,6 @@ implementations:
   - explicit_outcomes
   effects: []
   required_capabilities: []
-- id: publish_native_document
-  owner: semantic.pdf_contracts
-  symbol: store_pdf_product
-  version: '1'
-  placement: core
-  input_concepts:
-  - TaskInvocation
-  - PreparedPdfProduct
-  result_concepts:
-  - PdfNativeEnvelope
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects:
-  - atomic_native_publication
-  - preserve_original_normalized_distinction
-  required_capabilities: []
 - id: prepare_parsing_text
   owner: core.text_structure
   symbol: capture_text
@@ -8425,14 +11067,14 @@ implementations:
   - explicit_outcomes
   effects: []
   required_capabilities: []
-- id: publish_integrated_pdf
+- id: publish_pdf_observation
   owner: semantic.pdf_integrated
-  symbol: store_integrated_pdf_product
+  symbol: store_pdf_observation
   version: '1'
   placement: core
   input_concepts:
   - TaskInvocation
-  - PreparedIntegratedPdfProduct
+  - PdfObservationProduct
   result_concepts:
   - PdfProductReference
   features:
@@ -8440,7 +11082,6 @@ implementations:
   - explicit_outcomes
   effects:
   - atomic_native_publication
-  - preserve_original_normalized_distinction
   required_capabilities: []
 - id: read_pdf_product
   owner: semantic.pdf_storage
@@ -8753,6 +11394,23 @@ implementations:
   effects:
   - atomic_private_pdf_stage
   required_capabilities: []
+- id: record_direction
+  owner: intervene.directions
+  symbol: record_direction
+  version: '1'
+  placement: core
+  input_concepts:
+  - Run
+  - OperatorDirection
+  result_concepts:
+  - OperatorDirection
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - atomic_protected_insert
+  required_capabilities:
+  - execution.lifecycle.v1
 projections:
 - id: occurrence
   sources:
@@ -10419,6 +13077,10 @@ outcome_translations:
   retained_meaning: Typed source failure and affected scope
   invariant: coverage_lowering
 native_guards:
+- id: native_source_address
+  symbol: ops.complete_task(bigint,bigint,text,jsonb,text,jsonb,jsonb)
+  version: '1'
+  invariants: [published_document_address]
 - id: execution_edge
   symbol: ops.execution_edge(text,text,text)
   version: '1'
@@ -10427,7 +13089,7 @@ native_guards:
   - terminal_result
 - id: execution_task
   symbol: ops.guard_execution_task()
-  version: '1'
+  version: '2'
   invariants:
   - attempt_fence
   - terminal_result

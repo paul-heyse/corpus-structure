@@ -20,7 +20,14 @@ from corpus_structure.core.db.store import (
 )
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.semantic import claim_lifetime, publication
-from corpus_structure.semantic.operation_results import ClaimedTask
+from corpus_structure.semantic.operation_results import (
+    ClaimedTask,
+    MethodConfigId,
+    ReleaseId,
+    RunId,
+    TaskAttempt,
+    TaskId,
+)
 from corpus_structure.semantic.publication import PublicationBatch
 from corpus_structure.settings import DatabaseSettings
 
@@ -181,15 +188,15 @@ def test_renewal_exit_cancels_active_query_and_joins_owner(db_engine, monkeypatc
 
     monkeypatch.setattr(claim_lifetime, "renew_claim", slow_renew)
     claim = ClaimedTask(
-        task_id=1,
-        run_id=1,
-        release_id="r",
-        method_config_id=1,
+        task_id=TaskId(1),
+        run_id=RunId(1),
+        release_id=ReleaseId("r"),
+        method_config_id=MethodConfigId(1),
         unit_type=TaskUnitType.SOURCE_VIEW,
         unit_id=1,
         unit_key=None,
         packet_hash=None,
-        attempt=1,
+        attempt=TaskAttempt(1),
         holder="owner",
         deadline=datetime.now(UTC),
         invocation_key="renewal",
@@ -211,15 +218,15 @@ def test_renewal_native_statement_deadline_reaches_authority_check(db_engine, mo
 
     monkeypatch.setattr(claim_lifetime, "renew_claim", slow_renew)
     claim = ClaimedTask(
-        task_id=1,
-        run_id=1,
-        release_id="r",
-        method_config_id=1,
+        task_id=TaskId(1),
+        run_id=RunId(1),
+        release_id=ReleaseId("r"),
+        method_config_id=MethodConfigId(1),
         unit_type=TaskUnitType.SOURCE_VIEW,
         unit_id=1,
         unit_key=None,
         packet_hash=None,
-        attempt=1,
+        attempt=TaskAttempt(1),
         holder="owner",
         deadline=datetime.now(UTC),
         invocation_key="renewal",

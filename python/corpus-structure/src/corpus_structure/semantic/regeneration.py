@@ -117,6 +117,9 @@ def acquire_pack(pack: Path) -> PackInputs:
         )
         if (pack / filename).is_file()
     )
+    from .query_compatibility import acquire_query_inputs
+
+    artifacts += acquire_query_inputs(pack)
     split_policy = pack / "eval/split.yaml"
     if split_policy.is_file():
         artifacts += (SourceArtifact("operation/evaluation-split.yaml", split_policy.read_bytes()),)

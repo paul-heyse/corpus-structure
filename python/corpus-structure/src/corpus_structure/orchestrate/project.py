@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from pydantic import BaseModel
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection
 
 from corpus_structure.orchestrate.registry import MethodRegistry
 
@@ -51,10 +51,16 @@ def init_bound_project(
     from sqlalchemy.exc import DBAPIError
 
     try:
-        conn.execute(
-            text("SELECT data.initialize_source_project(:p,:r,:z)"),
-            {"p": project_id, "r": release_id, "z": realization_id},
-        ).scalar_one()
+        from corpus_structure.semantic._operation_calls import initialize_source_project
+        from corpus_structure.semantic._operation_ids import ProjectId, RealizationId, ReleaseId
+
+        initialize_source_project(
+            conn,
+            project_id=ProjectId(project_id),
+            release_id=ReleaseId(release_id),
+            realization_id=RealizationId(realization_id),
+            projection_context=prepared,
+        )
     except DBAPIError as exc:
         if getattr(exc.orig, "sqlstate", None) in {"P0001", "P0004"}:
             raise ProjectError(str(exc.orig).split("\n")[0]) from exc

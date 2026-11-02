@@ -24,8 +24,11 @@ def function_descriptor(statement, previous, *, owner):
     options = {option.defname: option.arg for option in statement.options or ()}
     if statement.is_procedure or statement.returnType is None:
         raise ValueError("native authoring supports functions with an explicit result")
-    if "as" not in options or len(options["as"]) != 1 or "language" not in options:
+    if "language" not in options:
         raise ValueError("native authoring requires a single source body and language")
+    from .native_sql_body import SQL_STANDARD_PROFILE, body_source
+
+    source = body_source(statement)
     result_type = copy(statement.returnType)
     result_type.setof = False
     config = []
@@ -44,9 +47,9 @@ def function_descriptor(statement, previous, *, owner):
                 value = RawStream()(arg)
             values.append(value)
         config.append(setting.name + "=" + ", ".join(values))
-    return dict(
+    descriptor = dict(
         signature=function_signature(statement),
-        body_sha256=sha256(options["as"][0].sval.encode()).hexdigest(),
+        body_sha256=sha256(source.encode()).hexdigest(),
         language=options["language"].sval,
         security=bool(options.get("security") and options["security"].boolval),
         strict=bool(options.get("strict") and options["strict"].boolval),
@@ -63,6 +66,11 @@ def function_descriptor(statement, previous, *, owner):
         owner=previous.get("owner", owner),
         execute_roles=list(previous.get("execute_roles", ["PUBLIC"])),
     )
+    if statement.sql_body is not None:
+        # The source hash is custody only. Candidate admission replaces it with the
+        # bound profile from its normalized NativeObject before accepting deployment.
+        descriptor.update(body_kind="sql_standard", body_profile=SQL_STANDARD_PROFILE)
+    return descriptor
 
 
 def _object_signature(obj):

@@ -41,6 +41,9 @@ def database_failure_report(error: BaseException) -> dict[str, Any]:
         "message": "database operation failed",
         **asdict(context),
     }
+    from .operation_reporting import validation_failure_report
+
+    report["validation"] = validation_failure_report(error).model_dump(mode="json")
     diagnostic = getattr(error, "database_diagnostic", None)
     if diagnostic is not None:
         report["database"] = asdict(diagnostic)
@@ -56,9 +59,21 @@ def tool_refusals(*expected: type[Exception]):
             try:
                 return function(*args, **kwargs)
             except expected as error:
+                import json
+
                 from fastmcp.exceptions import ToolError
 
-                raise ToolError(str(error)) from error
+                from .operation_reporting import validation_failure_report
+
+                raise ToolError(
+                    json.dumps(
+                        {
+                            "code": type(error).__name__,
+                            "message": str(error),
+                            "validation": validation_failure_report(error).model_dump(mode="json"),
+                        }
+                    )
+                ) from error
             except DATABASE_ERRORS as error:
                 import json
 

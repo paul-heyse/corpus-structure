@@ -56,6 +56,9 @@ def failure_boundary(json: bool, *, expected: tuple[type[Exception], ...] = ()) 
             detail: dict[str, Any] = {"code": type(error).__name__, "message": str(error)}
             if getattr(error, "reason", None) is not None:
                 detail["reason"] = error.reason
+            from corpus_structure.semantic.operation_reporting import validation_failure_report
+
+            detail["validation"] = validation_failure_report(error).model_dump(mode="json")
             if isinstance(error, PreparationError):
                 detail["diagnostics"] = [
                     {key: value for key, value in asdict(item).items() if value is not None}

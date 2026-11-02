@@ -4,6 +4,7 @@ imports:
 - semantic_reference
 - native_adapters
 - pdf_products
+- operation_reports
 description: Trusted execution companion types. These are definitions, not domain-extractable
   corpus classes.
 prefixes:
@@ -22,6 +23,83 @@ types:
     base: bool
     uri: xsd:boolean
 classes:
+  NativeAdmissionParameters:
+    description: Bootstrap native capability checks; helper success is not whole-release admission.
+    attributes:
+      purpose: {range: RuntimePrincipalPurpose, required: true}
+  PdfObservationProduct:
+    description: A retained recognition observation only; this boundary cannot publish a legacy document graph.
+    is_a: PdfIntegratedProduct
+    slot_usage:
+      kind: {range: PdfObservationKind}
+  CompletionReceipt:
+    attributes:
+      task_id: {range: integer, required: true}
+      run_id: {range: integer, required: true}
+      release_id: {range: string, required: true}
+      attempt: {range: integer, required: true}
+      protocol: {range: CompletionProtocol, required: true}
+      observation_ids: {range: integer, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      result_digest: {range: string, required: true}
+  CompletionResult:
+    attributes:
+      receipt: {range: CompletionReceipt, required: true, inlined: true}
+      transaction: {range: CompletionTransaction, required: true}
+  NativeDiagnosticBinding:
+    description: An admitted native diagnostic identity for one operation/invariant; prose is never an identifier.
+    attributes:
+      operation: {range: string, required: true}
+      kind: {range: NativeDiagnosticKind, required: true}
+      sqlstate: {range: string, required: true}
+      schema_name: {range: string}
+      table_name: {range: string}
+      constraint_name: {range: string}
+      guard: {range: string}
+      guard_version: {range: string}
+  OperationFieldBinding:
+    description: A parameter/result position referring to an authoritative physical field or a new primitive parameter.
+    attributes:
+      name: {range: string, required: true}
+      source: {range: string, required: true}
+      native_parameter: {range: string}
+      native_field: {range: string}
+      native_type: {range: OperationNativeParameterType}
+      multivalued: {range: boolean}
+      nullable: {range: boolean, required: true}
+      semantic_type: {range: string}
+      default_json: {range: string}
+      transform: {range: OperationValueTransform}
+      resolved: {range: OperationFieldType, inlined: true}
+  OperationFieldType:
+    description: Compiler-resolved representation of an authoritative field, never an independent authored type.
+    attributes:
+      kind: {range: string, required: true}
+      nullable: {range: boolean, required: true}
+      multivalued: {range: boolean, required: true}
+      enum_values: {range: string, multivalued: true}
+      model_class: {range: string}
+  OperationRecordBinding:
+    attributes:
+      name: {range: string, required: true}
+      fields: {range: OperationFieldBinding, multivalued: true, required: true, inlined: true}
+  OperationCallBinding:
+    attributes:
+      backend: {range: OperationCallBackend}
+      id: {range: string, required: true}
+      source_digest: {range: string}
+      result_mode: {range: OperationNativeResultMode}
+      result_source: {range: string}
+      requires_context: {range: boolean}
+      symbol: {range: string, required: true}
+      parameters: {range: OperationFieldBinding, value_presence: PRESENT, minimum_cardinality: 0, multivalued: true, inlined: true}
+      result_class: {range: string}
+      result_fields: {range: OperationFieldBinding, value_presence: PRESENT, minimum_cardinality: 0, multivalued: true, inlined: true}
+      cardinality: {range: OperationResultCardinality, required: true}
+      ordered: {range: boolean, required: true}
+      order_by: {range: string, multivalued: true}
+      records: {range: OperationRecordBinding, multivalued: true, inlined: true}
+      batch: {range: boolean}
+      json_read: {range: OperationJsonReadRepresentation}
   PdfIntegratedMetadataPolicy:
     description: Integration preserves original-page payloads and emits fresh current-graph health; parent assessments remain under their qualified input product.
     attributes:
@@ -472,6 +550,8 @@ classes:
         slot_uri: execution:TransitionDefinition_outcomes
   InvariantDefinition:
     attributes:
+      observable: {range: boolean}
+      diagnostics: {range: NativeDiagnosticBinding, multivalued: true, inlined: true}
       id:
         range: string
         required: true
@@ -567,6 +647,7 @@ classes:
       outcome_domain: {range: string, required: true}
   OperationContract:
     attributes:
+      calls: {range: OperationCallBinding, multivalued: true, inlined: true}
       policy_version:
         range: string
         slot_uri: execution:OperationContract_policy_version
@@ -921,6 +1002,56 @@ classes:
         required: true
         slot_uri: execution:AttributeDefinition_multivalued
 enums:
+  OperationCallBackend:
+    permissible_values:
+      native: {}
+      core: {}
+  RuntimePrincipalPurpose:
+    permissible_values:
+      write: {}
+      read: {}
+      evaluate: {}
+      admit: {}
+  PdfObservationKind:
+    permissible_values:
+      recognition_observation: {}
+  OperationJsonReadRepresentation:
+    permissible_values:
+      native: {}
+      json-text-v1: {}
+  OperationNativeParameterType:
+    permissible_values:
+      integer: {}
+  CompletionProtocol:
+    permissible_values:
+      done: {}
+      empty: {}
+      failed: {}
+  CompletionTransaction:
+    permissible_values:
+      applied: {}
+      replay: {}
+  NativeDiagnosticKind:
+    permissible_values:
+      constraint: {}
+      guard: {}
+  OperationResultCardinality:
+    permissible_values:
+      many: {}
+      one: {}
+      optional: {}
+      none: {}
+  OperationNativeResultMode:
+    permissible_values:
+      table: {}
+      scalar: {}
+      void: {}
+      json: {}
+  OperationValueTransform:
+    permissible_values:
+      identity: {}
+      task_unit_type: {}
+      held_progress: {}
   PdfProjectionWriteIsolation:
     permissible_values:
       read committed: {}

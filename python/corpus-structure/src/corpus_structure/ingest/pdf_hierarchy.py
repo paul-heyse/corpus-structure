@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import warnings
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal
@@ -238,9 +239,27 @@ def project_section(
     node_index: dict[str, Any] | None = None,
 ) -> TextProjection:
     """One explicit section view, retaining tables/cells and synthetic separators."""
+    nodes = native_nodes(document) if node_index is None else node_index
+    return project_section_nodes(
+        nodes, document_digest, section_ref, membership, section_refs=section_refs
+    )
+
+
+def project_section_nodes(
+    nodes: Mapping[str, Any],
+    document_digest: str,
+    section_ref: str,
+    membership: Literal["direct", "descendant"],
+    *,
+    section_refs: frozenset[str],
+) -> TextProjection:
+    """Project an admitted selected closure without fabricating a partial document.
+
+    Native objects and retained native mappings share this constructor. Relationship
+    resolution stays explicit in the caller's exact published selection.
+    """
     if membership not in {"direct", "descendant"}:
         raise ValueError("membership must be direct or descendant")
-    nodes = native_nodes(document) if node_index is None else node_index
     if section_ref not in section_refs or section_ref not in nodes:
         raise ValueError("section selector is not qualified by this organization")
     text: list[str] = []
@@ -271,37 +290,65 @@ def project_section(
         )
         position += len(value)
 
+    def field(value: Any, name: str, default: Any = None) -> Any:
+        return (
+            value.get(name, default)
+            if isinstance(value, Mapping)
+            else getattr(value, name, default)
+        )
+
+    def reference(value: Any) -> str:
+        pointer = field(value, "$ref") if isinstance(value, Mapping) else field(value, "cref")
+        if not isinstance(pointer, str):
+            raise ValueError("selected native closure is missing a referenced occurrence")
+        return pointer
+
     def visit(node: Any, separator: bool = True, cell_index: int | None = None) -> None:
-        if node.content_layer.value != "body":
+        layer = field(node, "content_layer", "body")
+        if field(layer, "value", layer) != "body":
             return
         if (
-            node.self_ref != section_ref
-            and node.self_ref in section_refs
+            field(node, "self_ref") != section_ref
+            and field(node, "self_ref") in section_refs
             and membership == "direct"
         ):
             return
-        if hasattr(node, "data") and hasattr(node.data, "table_cells"):
-            for index, cell in enumerate(node.data.table_cells):
-                reference = getattr(cell, "ref", None)
-                if reference is not None:
-                    visit(nodes[reference.cref], cell_index=index)
+        pointer = field(node, "self_ref")
+        cells = field(field(node, "data"), "table_cells")
+        if cells is not None:
+            for index, cell in enumerate(cells):
+                target = field(cell, "ref")
+                if target is not None:
+                    target_pointer = reference(target)
+                    if target_pointer not in nodes:
+                        raise ValueError(
+                            "selected native closure is missing a rich-cell occurrence"
+                        )
+                    visit(nodes[target_pointer], cell_index=index)
                 else:
-                    append(cell.text, node.self_ref, index, "cell_text")
+                    append(field(cell, "text"), pointer, index, "cell_text")
             # Rich-cell subtrees are represented by the cell above, not duplicated.
             return
-        chart = getattr(getattr(node, "meta", None), "tabular_chart", None)
+        chart = field(field(node, "meta"), "tabular_chart")
         if chart is not None:
-            if chart.title:
-                append(chart.title, node.self_ref, source_field="chart_title")
-            for index, cell in enumerate(chart.chart_data.table_cells):
-                append(cell.text, node.self_ref, index, "chart_cell_text")
-        if hasattr(node, "text"):
-            append(node.text, node.self_ref, cell_index, separator=separator)
-        for index, child in enumerate(node.children):
+            if field(chart, "title"):
+                append(field(chart, "title"), pointer, source_field="chart_title")
+            for index, cell in enumerate(field(field(chart, "chart_data"), "table_cells")):
+                append(field(cell, "text"), pointer, index, "chart_cell_text")
+        if field(node, "text") is not None:
+            append(field(node, "text"), pointer, cell_index, separator=separator)
+        for index, child in enumerate(field(node, "children", ())):
+            target = reference(child)
+            if target not in nodes:
+                if membership == "direct" and target in section_refs:
+                    continue
+                raise ValueError("selected native closure is missing a referenced occurrence")
             child_separator = (
-                (separator if index == 0 else False) if str(node.label) == "inline" else True
+                (separator if index == 0 else False)
+                if str(field(node, "label")) == "inline"
+                else True
             )
-            visit(nodes[child.cref], separator=child_separator, cell_index=cell_index)
+            visit(nodes[target], separator=child_separator, cell_index=cell_index)
 
     visit(nodes[section_ref])
     return TextProjection(document_digest, section_ref, membership, "".join(text), tuple(pieces))

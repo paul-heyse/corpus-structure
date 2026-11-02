@@ -581,7 +581,9 @@ def stage_batch(
     cancellation: BorrowerCancellation | None = None,
 ) -> None:
     """COPY fixed typed rows on the driver's *same* SQLAlchemy-owned connection."""
-    connection.execute(text("SELECT data.begin_stage()"))
+    from ._operation_calls import begin_stage
+
+    begin_stage(connection)
     driver = connection.connection.driver_connection
     if not isinstance(driver, psycopg.Connection):
         raise TypeError("publication requires the existing psycopg-backed SQLAlchemy engine")
@@ -619,15 +621,16 @@ def publish_on_connection(
         stage_batch(connection, batch)
     else:
         stage_batch(connection, batch, cancellation=cancellation)
-    revision = connection.execute(
-        text("SELECT data.publish_batch(:release,:realization,:batch,:content)"),
-        {
-            "release": batch.release_id,
-            "realization": batch.realization_id,
-            "batch": batch.batch_id,
-            "content": batch.content,
-        },
-    ).scalar_one()
+    from ._operation_calls import publish_batch as invoke_publish_batch
+    from ._operation_ids import RealizationId, ReleaseId
+
+    revision = invoke_publish_batch(
+        connection,
+        release_id=ReleaseId(batch.release_id),
+        realization_id=RealizationId(batch.realization_id),
+        batch_id=batch.batch_id,
+        content=batch.content,
+    )
     return PublicationReceipt(batch.batch_id, revision, sha256(batch.content).hexdigest())
 
 

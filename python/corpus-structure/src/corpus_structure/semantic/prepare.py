@@ -144,6 +144,7 @@ _ALLOWED = {
         "is_a",
         "mixins",
         "required",
+        "value_presence",
         "multivalued",
         "identifier",
         "inlined",
@@ -597,6 +598,14 @@ def _prepare_release_uncached(
             scope = ann.get("cs:constraint_scope", profile.constraint_scope)
             if scope not in {"shape", "occurrence", "accepted_value", "context"}:
                 _fail("constraint_scope", f"{name}/{sn}", scope)
+            presence = str(slot.value_presence) if slot.value_presence is not None else None
+            if presence not in {None, "PRESENT"} or (presence is not None and scope != "shape"):
+                _fail(
+                    "value_presence",
+                    f"{name}/{sn}",
+                    "the supported presence profile is PRESENT at shape scope",
+                    "unsupported",
+                )
             if scope != "shape":
                 for ancestor in view.class_ancestors(name, reflexive=False):
                     for inherited in view.class_induced_slots(ancestor):
@@ -609,6 +618,7 @@ def _prepare_release_uncached(
                         constrained = any(
                             (
                                 inherited.required,
+                                inherited.value_presence is not None,
                                 not inherited.multivalued,
                                 inherited.identifier,
                                 inherited.minimum_cardinality is not None,
@@ -665,7 +675,12 @@ def _prepare_release_uncached(
                 sn,
                 view.get_uri(slot, expand=True),
                 rng,
-                bool(slot.required or slot.identifier or (slot.minimum_cardinality or 0) > 0),
+                bool(
+                    slot.required
+                    or slot.identifier
+                    or presence == "PRESENT"
+                    or (slot.minimum_cardinality or 0) > 0
+                ),
                 bool(slot.multivalued),
                 minimum_cardinality,
                 slot.maximum_cardinality,
@@ -736,7 +751,7 @@ def _prepare_release_uncached(
             conditional_fragments=rule_fragments,
             conditional_scope=profile.constraint_scope,
             legacy_v10=profile.compiler_version == "10",
-            finite_fields=profile.compiler_version in {"12", "13"},
+            finite_fields=profile.compiler_version in {"12", "13", "14"},
             descendant_order=descendants,
             models_out=boundary_models,
         )
@@ -761,6 +776,21 @@ def _prepare_release_uncached(
         "descendants": descendants,
         "conditional_scope": profile.constraint_scope,
     }
+    from .comparison_projection import compile_comparison_projection, projection_bytes
+
+    comparison = (
+        compile_comparison_projection(
+            tuple(definitions),
+            {
+                (d.name, p.iri): _annotations(view.induced_slot(p.name, d.name))
+                for d in definitions
+                for p in d.properties
+            },
+            effective_bindings["qualification"],
+        )
+        if profile.compiler_version == "14"
+        else None
+    )
     manifest = canonical_bytes(
         {
             "root": bundle.root,
@@ -780,6 +810,10 @@ def _prepare_release_uncached(
         PreparedArtifact("query_coverage.json", canonical_bytes(coverage_recipe())),
         PreparedArtifact("effective_bindings.json", canonical_bytes(effective_bindings)),
     ]
+    if comparison is not None:
+        artifacts.append(
+            PreparedArtifact("comparison_projection.json", projection_bytes(comparison))
+        )
     if profile.version == "semantic-2":
         artifacts.extend(
             (
@@ -1013,6 +1047,22 @@ def _prepare_release_uncached(
     if execution is not None:
         artifacts.append(PreparedArtifact("execution/contracts.json", execution.content))
         rows += (RegistryRow("execution_model", execution.model_id, execution.content),)
+    from .query_compatibility import prepare_query_bindings
+
+    query_products = (
+        prepare_query_bindings(dependencies) if profile.compiler_version == "14" else None
+    )
+    if query_products is not None:
+        query_artifact, query_rows = query_products
+        artifacts.append(query_artifact)
+        rows += query_rows
+    from .projection_analysis_products import prepare_projection_analysis
+
+    projection_analysis = (
+        prepare_projection_analysis(dependencies) if profile.compiler_version == "14" else None
+    )
+    if projection_analysis is not None:
+        artifacts.append(projection_analysis)
     required = ("semantic_registry", "scoped_publication", "typed_values")
     if execution is not None:
         required += execution.required_capabilities

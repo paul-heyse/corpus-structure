@@ -107,15 +107,16 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             options={"corpus": {"documents": [key]}},
             code_commit="test",
         )
-        (view,) = publish_controlled_pdf_views(
-            conn,
-            prepared=prepared,
-            run_id=run,
-            document_id=document,
-            original=original,
-            paragraphs=(source,),
-            keys=("Statistics#qualified",),
-        )
+    (view,) = publish_controlled_pdf_views(
+        semantic_writer_engine,
+        prepared=prepared,
+        run_id=run,
+        document_id=document,
+        original=original,
+        paragraphs=(source,),
+        keys=("Statistics#qualified",),
+    )
+    with semantic_writer_engine.begin() as conn:
         unit_locator = view.ref.key
         frame = native_source_frame(view, (("s1", 0, len(source)),))
         packet = proposal_packet(prepared, frame, guideline="", configuration={})

@@ -8,10 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, JsonValue
-from sqlalchemy import Connection, Engine, text
+from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.vocab import TaskStatus
 from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.settings import AnalyticsSettings
 
 
 class CommandError(ValueError):
@@ -204,10 +205,11 @@ def start_bound_run(
 
 
 def cancel_bound_run(engine: Engine, run_id: int) -> CancelReport:
+    from corpus_structure.semantic.operation_results import RunId
     from corpus_structure.semantic.operations import end_source_run
 
     with engine.begin() as conn:
-        return CancelReport(run_id=run_id, tasks_cancelled=end_source_run(conn, run_id))
+        return CancelReport(run_id=run_id, tasks_cancelled=end_source_run(conn, RunId(run_id)))
 
 
 def _bound_run_id(conn: Connection, run_id: int | None, project_id: str | None) -> int | None:
@@ -280,7 +282,13 @@ def bound_task_listing(
     )
 
 
-def finalize_bound_run(engine: Engine, run_id: int, output_realization_id: str):
+def finalize_bound_run(
+    engine: Engine,
+    run_id: int,
+    output_realization_id: str,
+    *,
+    analytics: AnalyticsSettings | None = None,
+):
     from sqlalchemy import select
 
     from corpus_structure.semantic.domain_operations import DomainOperationRefused, consolidate_cut
@@ -289,13 +297,13 @@ def finalize_bound_run(engine: Engine, run_id: int, output_realization_id: str):
 
     t = table("ops.task")
     with engine.begin() as conn:
-        row = (
-            conn.execute(text("SELECT * FROM ops.lock_finalization_run(:run)"), {"run": run_id})
-            .mappings()
-            .one_or_none()
+        from corpus_structure.semantic._operation_calls import lock_finalization_run
+        from corpus_structure.semantic._operation_ids import RunId
+
+        owned_run_id = RunId(run_id)
+        row = lock_finalization_run(conn, run_id=owned_run_id).decoded_json_fields(
+            operation="evaluate"
         )
-        if row is None:
-            raise CommandError(f"no semantic run {run_id}")
         if row["status"] in ("cancelled", "failed"):
             raise DomainOperationRefused("cancelled or failed run cannot finalize")
         unfinished = row["result_realization_id"] is None
@@ -312,12 +320,12 @@ def finalize_bound_run(engine: Engine, run_id: int, output_realization_id: str):
             select(cuts.c.id).where(cuts.c.run_id == run_id, cuts.c.final)
         ).scalar_one_or_none()
         if cut is None:
-            cut = seal_cut(conn, run_id, "evaluation", final=True)
+            cut = seal_cut(conn, owned_run_id, "evaluation", final=True)
     if unfinished:
         from corpus_structure.semantic.source_frames import backfill_source_frames
 
         backfill_source_frames(engine, run_id)
-    return consolidate_cut(engine, cut, output_realization_id)
+    return consolidate_cut(engine, cut, output_realization_id, analytics=analytics)
 
 
 def bound_status(

@@ -585,7 +585,6 @@ def test_document_enrichment_reads_one_native_parent_and_replaces_intact_view(
     assert result.outcome is ObservationOutcome.EMPTY
     assert guarded == ["release1"]
     assert reads == [pin]
-    assert len(result.native_products) == 0
     assert len(prepared) == 1
     assert captured_directories and all(not path.exists() for path in captured_directories)
     assert result.source_views[0].replaces_source_view_id == 10

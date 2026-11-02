@@ -2,11 +2,17 @@
 
 import json
 
+import adbc_driver_postgresql.dbapi as adbc
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from sqlalchemy import text
+from psycopg.errors import CheckViolation
+from pydantic import ValidationError
+from sqlalchemy import Text, literal_column, select, text, union_all
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.core.db.adbc_lifetime import owned_adbc_read
 from corpus_structure.semantic.companion_projection import FAMILIES, projection
 from corpus_structure.semantic.pdf_publication import (
     adopt_pdf_companion_batch,
@@ -19,6 +25,7 @@ from corpus_structure.semantic.pdf_staging import begin_pdf_build
 from corpus_structure.serve.companion_export import (
     CompanionExportRequest,
     PublishedSourcePin,
+    _literal_statement,
     export_companion_parquet,
     inventory_companion_export,
 )
@@ -27,7 +34,7 @@ from .test_pdf_publication import stage_complete_native
 from .test_pdf_staging import private_build as private_build
 
 
-def publish(engine, build, key, directory):
+def publish(engine, build, key, directory, *, coverage=(), rejected_coverage=()):
     stage_complete_native(engine, build, directory)
     with engine.begin() as conn:
         adopt_pdf_companion_batch(
@@ -46,6 +53,13 @@ def publish(engine, build, key, directory):
             ],
             "source-occurrence",
         )
+        if coverage:
+            adopt_pdf_companion_batch(conn, build, "coverage", coverage, "coverage")
+        for rejected in rejected_coverage:
+            with pytest.raises(DBAPIError) as invalid, conn.begin_nested():
+                adopt_pdf_companion_batch(conn, build, "coverage", [rejected], "invalid-coverage")
+            assert isinstance(invalid.value.orig, CheckViolation)
+            assert invalid.value.orig.sqlstate == "23514"
         frozen = freeze_pdf_build(conn, build, kind="native")
         prepare_pdf_build(conn, frozen)
     validate_pdf_build(engine, frozen)
@@ -81,6 +95,111 @@ def read_settings(native_settings, engine):
     )
 
 
+def test_published_json_direction_preserves_declared_values_and_transport_nulls(
+    private_build,
+    semantic_db_engine,
+    semantic_writer_engine,
+    semantic_reader_engine,
+    native_settings,
+    tmp_path,
+):
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    from corpus_structure.semantic.runtime import connection_settings
+
+    nullable = dict(
+        coverage_id="invalid-null",
+        scope="whole_document",
+        family="text",
+        discovery_policy="fixture",
+        outcome="unknown",
+        detail="optional collection permits omission or array, not null",
+        supports=None,
+    )
+    with pytest.raises(ValidationError) as invalid:
+        trusted_pdf_context().boundary.validate_python("PdfProductCoverage", nullable)
+    assert invalid.value.errors()[0]["loc"] == ("supports",)
+    published = publish(
+        semantic_writer_engine,
+        private_build,
+        "native",
+        tmp_path / "native",
+        coverage=[
+            dict(
+                coverage_id=f"c{i}",
+                scope="whole_document",
+                family="text",
+                discovery_policy="fixture",
+                outcome="unknown",
+                detail="independently absent or empty supports",
+                **supports,
+            )
+            for i, supports in enumerate(({}, {"supports": []}))
+        ],
+        rejected_coverage=[nullable],
+    )
+    with semantic_db_engine.connect() as conn:
+        run = conn.scalar(
+            text("SELECT run_id FROM ops.task WHERE id=:task"), {"task": private_build.task_id}
+        )
+    pin = PublishedSourcePin(
+        project_id="p",
+        run_id=run,
+        selection_release_id=private_build.release_id,
+        task_id=private_build.task_id,
+        product_key="native",
+        content_digest=published.logical_digest,
+    )
+    spec = projection("coverage")
+    with semantic_reader_engine.connect() as conn:
+        rows = conn.execute(spec.statement, pin.model_dump()).mappings().all()
+    assert [row["supports_json"] for row in rows] == [None, "[]"]
+    target = tmp_path / "export"
+    export_companion_parquet(
+        CompanionExportRequest(pin=pin, destination=target, families=("coverage",)),
+        read_settings(native_settings, semantic_db_engine),
+    )
+    values = pq.read_table(target / "coverage.parquet")["supports_json"]
+    assert values.to_pylist() == [None, "[]"]
+    assert values.is_null().to_pylist() == [True, False]
+
+    # The coverage contract above has no valid whole-field JSON null. Exercise that
+    # transport value independently instead of broadening the document's domain.
+    literals = union_all(
+        *(
+            select(
+                literal_column(str(ordinal)).label("ordinal"),
+                literal_column(value, JSONB()).label("value"),
+            )
+            for ordinal, value in enumerate(
+                ("NULL::jsonb", "'null'::jsonb", "'[]'::jsonb", "'{}'::jsonb")
+            )
+        )
+    ).subquery()
+    python_statement = select(literals.c.value.cast(Text())).order_by(literals.c.ordinal)
+    with semantic_reader_engine.connect() as conn:
+        assert list(conn.scalars(python_statement)) == [None, "null", "[]", "{}"]
+    native_statement = select(literals.c.value).order_by(literals.c.ordinal)
+    settings = connection_settings(read_settings(native_settings, semantic_db_engine), "read")
+    with (
+        owned_adbc_read(
+            adbc.connect(
+                settings.database.url,
+                db_kwargs={"adbc.postgresql.type_resolver_mode": "builtin"},
+            )
+        ) as bulk,
+        bulk.cursor() as cursor,
+    ):
+        cursor.execute(_literal_statement(native_statement))
+        with cursor.fetch_record_batch() as reader:
+            transported = reader.read_all()
+    assert transported.schema.field("value").type == pa.json_()
+    path = tmp_path / "json-transport.parquet"
+    pq.write_table(transported, path)
+    values = pq.read_table(path)["value"]
+    assert values.to_pylist() == [None, "null", "[]", "{}"]
+    assert values.is_null().to_pylist() == [True, False, False, False]
+
+
 def test_all_typed_families_capture_from_actual_published_rows(
     private_build,
     semantic_db_engine,
@@ -99,7 +218,7 @@ def test_all_typed_families_capture_from_actual_published_rows(
     original_pin = PublishedSourcePin(
         project_id="p",
         run_id=run,
-        release_id=private_build.release_id,
+        selection_release_id=private_build.release_id,
         task_id=private_build.task_id,
         product_key="native",
         content_digest=original.logical_digest,
@@ -237,7 +356,7 @@ def test_all_typed_families_capture_from_actual_published_rows(
     pin = PublishedSourcePin(
         project_id="p",
         run_id=run,
-        release_id=build.release_id,
+        selection_release_id=build.release_id,
         task_id=build.task_id,
         product_key="selected",
         content_digest=published.logical_digest,
@@ -327,7 +446,7 @@ def test_all_typed_families_capture_from_actual_published_rows(
         published.logical_digest,
         "--project",
         "p",
-        "--release",
+        "--selection-release",
         build.release_id,
         "--output",
         str(cli_target),

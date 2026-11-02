@@ -37,6 +37,11 @@ def physical_model_id(root: Path) -> str:
                 visit(path.parent / (imported + ".yaml"))
 
     visit(root)
+    return physical_sources_id(sources)
+
+
+def physical_sources_id(sources: dict[str, bytes]) -> str:
+    """The same identity recipe for an explicitly retained source closure, with no I/O."""
     digest = sha256(b"corpus-physical-sources-1\0")
     for name, content in sorted(sources.items()):
         encoded = name.encode()

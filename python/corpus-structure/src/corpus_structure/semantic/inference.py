@@ -22,7 +22,6 @@ from sqlalchemy import (
     insert,
     literal,
     select,
-    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -165,14 +164,15 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
         schema="pg_temp",
         prefixes=["TEMPORARY"],
     )
-    connection.execute(
-        text("SELECT data.begin_inference_workspace(:r,:z,:revision,:snapshot)"),
-        {
-            "r": binding.release_id,
-            "z": binding.realization_id,
-            "revision": binding.data_revision,
-            "snapshot": binding.capture_id,
-        },
+    from ._operation_calls import begin_inference_workspace, end_inference_workspace
+    from ._operation_ids import RealizationId, ReleaseId
+
+    begin_inference_workspace(
+        connection,
+        release_id=ReleaseId(binding.release_id),
+        realization_id=RealizationId(binding.realization_id),
+        revision=binding.data_revision,
+        snapshot=binding.capture_id,
     )
     database_failed = False
     try:
@@ -320,14 +320,12 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
         raise
     finally:
         if not database_failed:
-            connection.execute(
-                text("SELECT data.end_inference_workspace(:r,:z,:revision,:snapshot)"),
-                {
-                    "r": binding.release_id,
-                    "z": binding.realization_id,
-                    "revision": binding.data_revision,
-                    "snapshot": binding.capture_id,
-                },
+            end_inference_workspace(
+                connection,
+                release_id=ReleaseId(binding.release_id),
+                realization_id=RealizationId(binding.realization_id),
+                revision=binding.data_revision,
+                snapshot=binding.capture_id,
             )
 
 

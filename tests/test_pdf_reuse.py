@@ -14,6 +14,7 @@ from docling_core.types.doc import DocItemLabel, DoclingDocument
 from corpus_structure.core.method import (
     MethodContext,
     MethodSettings,
+    SourceViewDraft,
     SourceViewRef,
     UnitRef,
     UnitView,
@@ -197,7 +198,7 @@ def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(mo
         assert captures == []
         assert result.outcome is ObservationOutcome.FAILED
         assert result.error is not None and "custody" in result.error
-        assert result.native_products == () and result.source_views == ()
+        assert result.source_views == ()
         return
     if case not in {"exact", "partial"}:
         assert calls == ["runtime"]
@@ -208,7 +209,6 @@ def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(mo
     assert calls == []
     assert captures == []
     assert result.outcome is ObservationOutcome.EMPTY
-    assert result.native_products == ()
     # Existing analysis view remains selected; only the missing ancestor context is emitted.
     assert len(result.source_views) == 1
     context = result.source_views[0]
@@ -217,3 +217,63 @@ def test_exact_retained_enrichment_reuses_pin_without_worker_or_native_output(mo
     assert context.replaces_source_view_id is None and context.key != existing.key
     assert context.health["inline_coverage"] == ("partial" if case == "partial" else "complete")
     assert canonical_bytes(values) == original
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_adoption_uses_selected_record_constructor_without_whole_native_hydration(
+    monkeypatch, legacy
+):
+    from corpus_structure.semantic.operations import OperationConflict
+
+    pin = ProductReference(3, "organized", "a" * 64)
+    draft = SourceViewDraft(
+        "selected",
+        1,
+        pin,
+        "#/groups/0",
+        "direct",
+        "text",
+        ({"start": 0, "end": 4, "kind": "native_text", "item_ref": "#/texts/0"},),
+        ("#/groups/0", "#/texts/0"),
+        (),
+        {"conversion": "success"},
+        b"{}",
+    )
+    requests = []
+
+    def selected(reference, **kwargs):
+        requests.append((reference, kwargs))
+        if legacy:
+            raise OperationConflict(
+                "requires a record-backed publication; "
+                "legacy aggregate products are historical reads only"
+            )
+        return (draft,)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("organized adoption must not hydrate a whole native document")
+
+    reader = SimpleNamespace(native_section_drafts=selected, native_document=forbidden)
+    run = SimpleNamespace(reader=reader, options={})
+    ctx = MethodContext(
+        run,
+        reader,
+        MethodSettings(data_dir=Path("."), model_cache=Path(".")),
+        logging.getLogger(__name__),
+    )
+    monkeypatch.setattr(
+        "corpus_structure.ingest.pdf_methods._consumer_release", lambda _: "consumer"
+    )
+    (result,) = IngestPdf().run(
+        (UnitView(UnitRef(TaskUnitType.DOCUMENT, 1, "source"), run),),
+        PdfIngestConfig(native_product=pin),
+        ctx,
+    )
+    assert len(requests) == 1 and requests[0][0] == pin
+    if legacy:
+        assert result.outcome is ObservationOutcome.FAILED
+        assert result.error is not None and "record-backed publication" in result.error
+        assert result.source_views == ()
+    else:
+        assert result.outcome is ObservationOutcome.EMPTY
+        assert result.source_views == (draft,)

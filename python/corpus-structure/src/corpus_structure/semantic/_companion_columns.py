@@ -1,5 +1,4 @@
 # Generated from model/semantic/companion-projections.yaml.
-from pydantic import JsonValue
 from sqlalchemy import Named, TypedColumns
 
 
@@ -11,7 +10,8 @@ class PublishedInputRow(TypedColumns):
     input_content_digest: Named[str]
     project_id: Named[str]
     run_id: Named[int]
-    release_id: Named[str]
+    selection_release_id: Named[str]
+    producer_release_id: Named[str]
     task_id: Named[int]
     product_key: Named[str]
     content_digest: Named[str]
@@ -33,7 +33,8 @@ class PublishedRelationRow(TypedColumns):
     target_occurrence_id: Named[str]
     project_id: Named[str]
     run_id: Named[int]
-    release_id: Named[str]
+    selection_release_id: Named[str]
+    producer_release_id: Named[str]
     task_id: Named[int]
     product_key: Named[str]
     content_digest: Named[str]
@@ -47,10 +48,11 @@ class PublishedCoverageRow(TypedColumns):
     discovery_policy: Named[str]
     outcome: Named[str]
     detail: Named[str]
-    supports_json: Named[JsonValue | None]
+    supports_json: Named[str | None]
     project_id: Named[str]
     run_id: Named[int]
-    release_id: Named[str]
+    selection_release_id: Named[str]
+    producer_release_id: Named[str]
     task_id: Named[int]
     product_key: Named[str]
     content_digest: Named[str]
@@ -73,7 +75,8 @@ class PublishedMappingReportRow(TypedColumns):
     normalization: Named[str | None]
     project_id: Named[str]
     run_id: Named[int]
-    release_id: Named[str]
+    selection_release_id: Named[str]
+    producer_release_id: Named[str]
     task_id: Named[int]
     product_key: Named[str]
     content_digest: Named[str]

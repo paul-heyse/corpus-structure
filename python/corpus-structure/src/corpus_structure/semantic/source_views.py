@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
+from pydantic import JsonValue
 from sqlalchemy import Connection, select, text
 
 from corpus_structure.core.method import SourceViewDraft, SourceViewRef
@@ -126,31 +127,22 @@ def load_source_view(
     reference = _ref(row)
     projection = row["projection"]
     pointers = tuple(dict.fromkeys([*projection["items"], *projection["ancestors"]]))
-    # One set-shaped query transfers only selected native values, never the book JSON.
-    from .pdf_record_reader import published_native_table
-
-    items_relation = published_native_table(conn)
-    values = conn.execute(
-        text(
-            "SELECT refs.pointer,i.native_json AS item\n        FROM "
-            + items_relation.fullname
-            + " i JOIN unnest(CAST(:pointers AS text[])) WITH "
-            "ORDINALITY refs(pointer,position) ON refs.pointer=i.pointer\n        "
-            "WHERE i.task_id=:task AND i.product_key=:key ORDER BY refs.position"
-        ),
-        dict(
-            pointers=list(pointers),
-            task=reference.native_product.task_id,
-            key=reference.native_product.product_key,
-        ),
-    ).mappings()
-    native = {r["pointer"]: r["item"] for r in values}
-    if any(native.get(p) is None for p in pointers):
-        raise ValueError("source view has lost its pinned native occurrences")
-    from .analysis_contracts import prepare_text_policy
+    from .pdf_record_reader import published_record_reader
+    from .published_document import PublishedDocumentBinding
     from .releases import open_release
 
-    policy = prepare_text_policy(open_release(conn, row["release_id"])) if analysis else None
+    projection_context = open_release(conn, row["release_id"])
+    reader = published_record_reader(
+        conn, reference.native_product, projection_context=projection_context
+    )
+    if reader is None:
+        raise ValueError("current source view has no published record binding")
+    binding = PublishedDocumentBinding.from_revision(reference.native_product, reader.revision)
+    binding.require_placement(row)
+    native = reader.selected_native_items(pointers)
+    from .analysis_contracts import prepare_text_policy
+
+    policy = prepare_text_policy(projection_context) if analysis else None
     from .pdf_storage import integrated_source_context
 
     integrated = integrated_source_context(
@@ -211,25 +203,48 @@ def store_source_view(
     payload = context.boundary.validate_json(
         "PdfSourceViewPublication", json.dumps(payload)
     ).model_dump(mode="json", exclude_none=True)
-    return conn.execute(
-        text(
-            "SELECT ops.publish_source_view(:run,:task,:attempt,:holder,:position,:payload,:recipe)"
-        ),
-        dict(
-            run=run_id,
-            task=task_id,
-            attempt=attempt,
+    from ._operation_calls import RunId, TaskAttempt, TaskId
+    from ._operation_calls import publish_source_view as invoke
+    from .invariant_failures import InvariantViolation, classify_invariant_failure
+    from .refusals import DATABASE_ERRORS
+    from .releases import open_release
+
+    prepared = open_release(conn, release)
+    try:
+        return invoke(
+            conn,
+            run_id=RunId(run_id),
+            task_id=TaskId(task_id),
+            attempt=TaskAttempt(attempt),
             holder=holder,
             position=position,
             payload=canonical_bytes(payload),
             recipe=draft.recipe_bytes,
-        ),
-    ).scalar_one()
+            projection_context=prepared,
+        )
+    except DATABASE_ERRORS as exc:
+        failure = classify_invariant_failure(
+            context.execution, "publish_source_view", exc, release_id=context.release_id
+        )
+        if failure is not None:
+            raise InvariantViolation(failure) from exc
+        raise
 
 
 def select_reused_source_views(conn: Connection, *, run_id: int, task_id: int) -> None:
-    conn.execute(
-        text("SELECT ops.select_reused_source_views(:run,:task)"), dict(run=run_id, task=task_id)
+    from ._operation_calls import RunId, TaskId
+    from ._operation_calls import select_reused_source_views as invoke
+    from .pdf_contracts import pdf_context_for_task
+    from .releases import open_release
+
+    context = pdf_context_for_task(conn, task_id)
+    if context.release_id is None:
+        raise ValueError("reused source selection requires its bound task release")
+    invoke(
+        conn,
+        run_id=RunId(run_id),
+        task_id=TaskId(task_id),
+        projection_context=open_release(conn, context.release_id),
     )
 
 
@@ -239,10 +254,19 @@ def store_native_source_frame(
     from .pdf_contracts import pdf_context_for_task
 
     context = pdf_context_for_task(conn, task_id)
-    context.boundary.validate_json("PdfNativeProposalFrame", json.dumps(frame))
-    conn.execute(
-        text("SELECT ops.capture_native_source_frame(:task,:hash,CAST(:frame AS jsonb))"),
-        dict(task=task_id, hash=packet_hash, frame=json.dumps(frame)),
+    value = context.boundary.validate_json("PdfNativeProposalFrame", json.dumps(frame))
+    from ._operation_calls import TaskId
+    from ._operation_calls import capture_native_source_frame as invoke
+    from .releases import open_release
+
+    if context.release_id is None:
+        raise ValueError("native source frame requires its bound task release")
+    invoke(
+        conn,
+        task_id=TaskId(task_id),
+        packet_hash=packet_hash,
+        frame=value.model_dump(mode="json"),
+        projection_context=open_release(conn, context.release_id),
     )
 
 
@@ -302,21 +326,45 @@ def request_source_view(*args, **kwargs):
     return request(*args, **kwargs)
 
 
-def store_region_artifact(conn, *, task_id, attempt, holder, selection, recipe_bytes, content):
-    return conn.execute(
-        text(
-            "SELECT ops.publish_pdf_region_artifact(:task,:attempt,:holder,CAST(:sele"
-            "ction AS jsonb),:recipe,:content)"
-        ),
-        dict(
-            task=task_id,
-            attempt=attempt,
+def store_region_artifact(
+    conn: Connection,
+    *,
+    task_id: int,
+    attempt: int,
+    holder: str,
+    selection: Mapping[str, JsonValue],
+    recipe_bytes: bytes,
+    content: bytes,
+) -> str:
+    from ._operation_calls import TaskAttempt, TaskId
+    from ._operation_calls import publish_pdf_region_artifact as invoke
+    from .invariant_failures import InvariantViolation, classify_invariant_failure
+    from .pdf_contracts import pdf_context_for_task
+    from .refusals import DATABASE_ERRORS
+    from .releases import open_release
+
+    context = pdf_context_for_task(conn, task_id)
+    if context.release_id is None:
+        raise ValueError("region artifact requires its bound task release")
+    prepared = open_release(conn, context.release_id)
+    try:
+        return invoke(
+            conn,
+            task_id=TaskId(task_id),
+            attempt=TaskAttempt(attempt),
             holder=holder,
-            selection=json.dumps(selection),
+            selection=dict(selection),
             recipe=recipe_bytes,
             content=content,
-        ),
-    ).scalar_one()
+            projection_context=prepared,
+        )
+    except DATABASE_ERRORS as exc:
+        failure = classify_invariant_failure(
+            context.execution, "publish_pdf_region_artifact", exc, release_id=context.release_id
+        )
+        if failure is not None:
+            raise InvariantViolation(failure) from exc
+        raise
 
 
 def _native_section_title_parts(value: str) -> tuple[str | None, str]:
@@ -372,22 +420,54 @@ def resolve_native_sections[Key](
 def scope_source_views(conn: Connection, selected, scope):
     """Match released organizational titles, then include declared descendants once."""
     ids = [ref.id for ref in selected]
-    rows = conn.execute(
-        text(
-            "SELECT v.id,i.native_json AS section,\n       (SELECT "
-            "COALESCE(jsonb_agg(a.native_json ORDER BY refs.n),'[]') FROM "
-            "jsonb_array_elements_text(v.projection->'ancestors') WITH ORDINALITY "
-            "refs(value,n) JOIN kb.native_document_item a ON "
-            "a.task_id=v.native_task_id AND a.product_key=v.native_product_key AND "
-            "a.pointer=refs.value) AS ancestors\n       FROM kb.source_view v JOIN "
-            "kb.native_document_item i ON i.task_id=v.native_task_id AND "
-            "i.product_key=v.native_product_key AND i.pointer=v.section_pointer\n     "
-            "  WHERE v.id=ANY(:ids)"
-        ),
-        dict(ids=ids),
-    ).mappings()
-    rows = list(rows)
+    relation = table("kb.source_view")
+    raw = (
+        conn.execute(
+            select(
+                relation.c.id,
+                relation.c.release_id,
+                relation.c.native_build_id,
+                relation.c.native_revision_id,
+                relation.c.projection["ancestors"].label("ancestors"),
+            ).where(relation.c.id.in_(ids))
+        )
+        .mappings()
+        .all()
+    )
     references = {ref.id: ref for ref in selected}
+    from .pdf_record_reader import published_record_reader
+    from .published_document import PublishedDocumentBinding
+    from .releases import open_release
+
+    grouped = {}
+    for row in raw:
+        reference = references[row["id"]]
+        grouped.setdefault((reference.native_product, row["release_id"]), []).append(row)
+    rows: list[dict[str, Any]] = []
+    for (pin, release_id), group in grouped.items():
+        reader = published_record_reader(
+            conn, pin, projection_context=open_release(conn, release_id)
+        )
+        if reader is None:
+            raise ValueError("current source scope requires a published record binding")
+        binding = PublishedDocumentBinding.from_revision(pin, reader.revision)
+        pointers = tuple(
+            dict.fromkeys(
+                pointer
+                for row in group
+                for pointer in (references[row["id"]].section_pointer, *row["ancestors"])
+            )
+        )
+        values = reader.selected_native_items(pointers)
+        for row in group:
+            binding.require_placement(row)
+            rows.append(
+                dict(
+                    id=row["id"],
+                    section=values[references[row["id"]].section_pointer],
+                    ancestors=[values[pointer] for pointer in row["ancestors"]],
+                )
+            )
     catalog = {}
     ancestors_by_id = {}
     for row in rows:
@@ -446,7 +526,14 @@ def formula_health_summary(
 
 
 def source_view_health(
-    health, section_pointer, membership, items, ancestors, *, recognition_coverage=()
+    health,
+    section_pointer,
+    membership,
+    items,
+    ancestors,
+    *,
+    recognition_coverage=(),
+    recognition_coverage_present: bool = False,
 ):
     """Project coverage onto its named section and retain only local recognition outcomes.
 
@@ -475,7 +562,7 @@ def source_view_health(
             if any(pointer in outcomes for pointer in display)
             else "unknown"
         )
-    if recognition_coverage:
+    if recognition_coverage_present or recognition_coverage:
         for key in (
             "inline_scope",
             "cell_scope",

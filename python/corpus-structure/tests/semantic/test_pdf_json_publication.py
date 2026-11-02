@@ -20,14 +20,17 @@ def test_json_envelope_and_every_decomposed_record_remain_closed_and_typed(pdf13
     value = fixtures.integrated(db.source, db.inputs)
     value["mapping_reports"] = [{"input_index": 1, "occurrence_id": "block-0", "outcome": "mapped"}]
     product = fixtures.prepare(value, db.source)
-    cases = []
+    # The removed aggregate document writer no longer accepts collection/envelope
+    # arguments. Their closed preparation boundary remains independently assessed.
+    envelope_cases = []
+    record_cases = []
     for collection in ("inputs", "occurrences", "relations", "coverage", "mapping_reports"):
         invalid = deepcopy(value)
         invalid[collection][-1]["unmodeled"] = True
-        cases.append(invalid)
+        record_cases.append(invalid)
         invalid = deepcopy(value)
         invalid[collection] = None
-        cases.append(invalid)
+        envelope_cases.append(invalid)
     for change in ("unknown", "missing", "null", "empty_coverage", "nested_enum", "nested_type"):
         invalid = deepcopy(value)
         if change == "unknown":
@@ -40,15 +43,23 @@ def test_json_envelope_and_every_decomposed_record_remain_closed_and_typed(pdf13
             invalid["coverage"] = []
         elif change == "nested_enum":
             invalid["relations"][-1]["endpoints"][-1]["role"] = "unmodeled"
+            record_cases.append(invalid)
         else:
             invalid["inputs"][-1]["task_id"] = str(invalid["inputs"][-1]["task_id"])
-        cases.append(invalid)
-    for index, invalid in enumerate(cases):
+            record_cases.append(invalid)
+        envelope_cases.append(invalid)
+    for invalid in envelope_cases:
+        with pytest.raises(ValueError):
+            fixtures.prepare(invalid, db.source)
+    for index, invalid in enumerate(record_cases):
         invalid["product_key"] = f"invalid-json-{index}"
-        with db.writer.begin() as conn, pytest.raises(DBAPIError), conn.begin_nested():
-            fixtures.raw_publish(conn, db, invalid, product)
-    assert fixtures.publish(db, product) == product.digest
-    assert fixtures.publish(db, product) == product.digest
+        with pytest.raises(DBAPIError):
+            fixtures._publish_record_values(db, invalid)
+    digest = fixtures.publish(db, product)
+    assert fixtures.publish(db, product) == digest
+    from corpus_structure.semantic.pdf_record_reader import published_record_reader
+    from corpus_structure.semantic.product_reference import ProductReference
+
     with db.writer.connect() as conn:
         assert (
             conn.scalar(
@@ -56,23 +67,19 @@ def test_json_envelope_and_every_decomposed_record_remain_closed_and_typed(pdf13
             )
             == 0
         )
-        descriptor = conn.scalar(
-            text(
-                "SELECT descriptor FROM ops.pdf_product_body "
-                "WHERE task_id=:task AND product_key='selected'"
-            ),
-            {"task": db.job.task},
-        )
-    expected = {
-        key: child
-        for key, child in value.items()
-        if key
-        not in {"content", "inputs", "occurrences", "relations", "coverage", "mapping_reports"}
-    }
-    expected["content_metadata"] = {
-        key: value["content"][key] for key in ("schema_digest", "recipe_digest", "health")
-    }
-    assert descriptor == expected
+        reader = published_record_reader(conn, ProductReference(db.job.task, "selected", digest))
+        assert reader is not None
+        descriptor = reader.product_descriptor()
+    assert descriptor["version"] == 2 and descriptor["kind"] == "integrated"
+    assert descriptor["health"] == value["health"]
+    assert descriptor["revision"]["logical_digest"] == digest
+    assert descriptor["revision"]["schema_digest"] == value["content"]["schema_digest"]
+    assert descriptor["revision"]["recipe_digest"] == value["content"]["recipe_digest"]
+    assert descriptor["revision"]["release_id"] == db.prepared.release_id
+    assert (
+        not {"content", "inputs", "occurrences", "relations", "coverage", "mapping_reports"}
+        & descriptor.keys()
+    )
 
 
 def test_decomposed_cardinality_is_derived_from_effective_model(pdf13_db):

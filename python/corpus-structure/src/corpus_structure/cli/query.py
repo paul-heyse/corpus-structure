@@ -22,20 +22,31 @@ def refusal(json: bool):
         yield
 
 
-def context(conn: Any, project: str | None, run: str) -> tuple[str, int, Any]:
+def result_context(conn: Any, project: str | None, run: str) -> tuple[str, int]:
     from sqlalchemy import select
 
-    from corpus_structure.schema.pack import DOMAINS
     from corpus_structure.semantic.metadata import table
     from corpus_structure.serve.journey import QueryRefused, parse_run, select_run
-    from corpus_structure.serve.queries import GENERIC
-    from corpus_structure.serve.registry import build_registry
 
     if run == "promoted" and not project:
         raise QueryRefused("a selected completed result needs its project")
     rid = select_run(conn, project or "", run if run == "promoted" else parse_run(run))
     r = table("ops.run")
-    row = conn.execute(select(r.c.project_id, r.c.options).where(r.c.id == rid)).one()
+    return conn.execute(select(r.c.project_id).where(r.c.id == rid)).scalar_one(), rid
+
+
+def context(
+    conn: Any, project: str | None, run: str, *, query_name: str | None = None
+) -> tuple[str, int, Any]:
+    from sqlalchemy import select
+
+    from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.query_compatibility import open_query_registry
+    from corpus_structure.serve.journey import QueryRefused, bind_session
+
+    project_id, rid = result_context(conn, project, run)
+    row = conn.execute(select(table("ops.run").c.options).where(table("ops.run").c.id == rid)).one()
     domain = row.options.get("domain")
     if (
         not isinstance(domain, str)
@@ -43,7 +54,38 @@ def context(conn: Any, project: str | None, run: str) -> tuple[str, int, Any]:
         or __import__("pathlib").Path(domain).name != domain
     ):
         raise QueryRefused("completed run has no canonical domain pack")
-    return row.project_id, rid, build_registry(GENERIC, DOMAINS / domain)
+    return (
+        project_id,
+        rid,
+        open_query_registry(
+            bind_session(conn, rid).prepared, DOMAINS / domain, query_name=query_name
+        ),
+    )
+
+
+def followup_context(conn: Any, token: str, project: str | None, run: str):
+    from corpus_structure.semantic.continuations import validate_continuation
+    from corpus_structure.semantic.query_compatibility import validate_query_token
+    from corpus_structure.serve.journey import bind_session, decode_token, parse_run
+
+    body = decode_token(token)
+    pid, rid, registry = context(conn, project, str(body["run"]), query_name=body["query"])
+    query = registry[body["query"]]
+    session = bind_session(conn, rid)
+    validate_query_token(query, body)
+    validate_continuation(
+        session.prepared,
+        body,
+        {
+            "release": session.binding.release_id,
+            "realization": session.binding.realization_id,
+            "revision": session.binding.data_revision,
+            "query": query.name,
+            "version": query.version,
+            **({"run": parse_run(run)} if run != "promoted" else {}),
+        },
+    )
+    return pid, rid, query
 
 
 def render_query(result: Any) -> Table:
@@ -93,6 +135,7 @@ def query(
     project: str | None = None,
     param: Annotated[list[str] | None, typer.Option("--param")] = None,
     page_token: str | None = None,
+    origin_token: str | None = None,
     max_rows: int | None = None,
     max_chars: int | None = None,
     projection: Literal["occurrence", "fact", "accepted"] = "accepted",
@@ -124,12 +167,22 @@ def query(
             from corpus_structure.serve.journey import decode_token
 
             selected = str(decode_token(page_token)["run"]) if page_token else run
+            serving_run = run if run == "promoted" else parse_run(run)
+            origin_query = None
+            if origin_token is not None:
+                _, origin_run, origin_query = followup_context(
+                    conn, origin_token, project, selected if page_token else run
+                )
+                if page_token is None:
+                    selected = str(origin_run)
+                    serving_run = origin_run
             try:
                 pid, _, registry = context(
                     conn,
                     project
                     or (settings.runtime.default_project if selected == "promoted" else None),
                     selected,
+                    query_name=name,
                 )
             except QueryRefused as error:
                 if page_token is None:
@@ -145,11 +198,12 @@ def query(
                 name,
                 params,
                 project_id=pid,
-                run=run if run == "promoted" else parse_run(run),
+                run=serving_run,
                 page_token=page_token,
                 max_rows=max_rows,
                 max_chars=max_chars,
                 projection=projection,
+                origin_query=origin_query,
             )
             emit(result, json=json, render=render_query)
 

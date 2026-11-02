@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from dataclasses import dataclass
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -61,7 +62,28 @@ def test_native_products_json_retains_report_shape(cli, source_runtime, empty):
         "runtime_report": {"seconds": 1.5, "ocr": {"enabled": True}},
     }
     rows = [] if empty else [row, {**row, "task_id": 24, "runtime_report": None}]
-    source_runtime.connection.execute.return_value.mappings.return_value = rows
+    catalog = [{**row, "origin_run": 17, "record_backed": False} for row in rows]
+
+    def execute(statement):
+        result = MagicMock()
+        if "kb.native_document_runtime" in str(statement):
+            assert rows
+            result.__iter__.return_value = [
+                SimpleNamespace(
+                    task_id=row["task_id"],
+                    product_key=row["product_key"],
+                    report=row["runtime_report"],
+                )
+                for row in rows
+                if row["runtime_report"] is not None
+            ]
+        else:
+            assert "ops.pdf_selected_product.payload IS NULL" in str(statement)
+            assert "ops.pdf_published_revision" not in str(statement)
+            result.mappings.return_value = catalog
+        return result
+
+    source_runtime.connection.execute.side_effect = execute
 
     result = cli("source", "native-products", "17", "--json")
 

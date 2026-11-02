@@ -6,6 +6,7 @@ import pytest
 from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.compare import isomorphic
 
+from corpus_structure.semantic._operation_ids import CutId, RunId
 from corpus_structure.semantic.analytics import CandidateInput
 from corpus_structure.semantic.domain_operations import CutInput
 from corpus_structure.semantic.ontology import (
@@ -74,8 +75,8 @@ def cut_input():
         occurrence_evidence=(OccurrenceEvidenceRow("o2", "e2"), OccurrenceEvidenceRow("o2", "e1")),
     )
     return prepared, CutInput(
-        1,
-        2,
+        CutId(1),
+        RunId(2),
         "p",
         prepared,
         "output",

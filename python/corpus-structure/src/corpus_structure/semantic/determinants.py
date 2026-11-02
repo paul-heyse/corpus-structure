@@ -29,7 +29,9 @@ def determinant_version(name: str) -> str:
 
 def boundary_compatible(recorded: dict[str, str], compiler: str) -> bool:
     required = (
-        BOUNDARY_LIBRARIES if compiler in {"12", "13"} else ("pydantic", "jsonschema", "cattrs")
+        BOUNDARY_LIBRARIES
+        if compiler in {"12", "13", "14"}
+        else ("pydantic", "jsonschema", "cattrs")
     )
     if compiler == "10":
         required = (*required, "linkml-runtime")

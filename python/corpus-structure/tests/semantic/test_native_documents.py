@@ -1,10 +1,10 @@
 """Restricted PDF publication independent of HTML rendition custody."""
 
-from copy import deepcopy
 from decimal import Decimal
 from hashlib import sha256
 from importlib.resources import files
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from pydantic import ValidationError, create_model
@@ -46,7 +46,6 @@ def test_pdf_original_and_native_product_need_no_rendition(
     from corpus_structure.semantic.pdf_contracts import (
         prepare_pdf_product,
         store_pdf_original,
-        store_pdf_product,
     )
 
     prepared = setup(semantic_db_engine, observations=True, composed=True)
@@ -168,58 +167,28 @@ def test_pdf_original_and_native_product_need_no_rendition(
             )
             == sha256(original).hexdigest()
         )
-    # A separate transaction models original retention before fallible inference.
-    with semantic_writer_engine.begin() as conn:
-        digest = store_pdf_product(
-            conn, task_id=task, attempt=claim.attempt, holder="pdf-fixture", product=product
-        )
-        assert digest == product.digest
-        assert (
-            store_pdf_product(
-                conn, task_id=task, attempt=claim.attempt, holder="pdf-fixture", product=qualified
-            )
-            == qualified.digest
-        )
-        assert (
-            store_pdf_product(
-                conn, task_id=task, attempt=claim.attempt, holder="pdf-fixture", product=product
-            )
-            == digest
-        )
-        with pytest.raises(DBAPIError), conn.begin_nested():
-            store_pdf_product(
-                conn, task_id=task, attempt=claim.attempt + 1, holder="pdf-fixture", product=product
-            )
-    from corpus_structure.semantic.identity import canonical_bytes
+    # Record publication settles before fallible application preparation or terminal completion.
+    from .native_record_fixtures import publish_native_record_fixture
 
-    mutations = [
-        lambda value: value["items"].pop(),
-        lambda value: value["regions"].clear(),
-        lambda value: value["items"][0].update(ordinal=999),
-        lambda value: value["items"][0].update(content_layer="forged-layer"),
-    ]
-    with semantic_writer_engine.begin() as conn:
-        for index, mutate in enumerate(mutations):
-            invalid = deepcopy(product.values())
-            invalid["product_key"] = f"invalid-{index}"
-            mutate(invalid)
-            with pytest.raises(DBAPIError), conn.begin_nested():
-                conn.execute(
-                    text(
-                        "SELECT ops.publish_native_document(:task,:attempt,:holder,:contract,"
-                        ":payload,:original,:schema,:recipe)"
-                    ),
-                    dict(
-                        task=task,
-                        attempt=claim.attempt,
-                        holder="pdf-fixture",
-                        contract=product.contract_digest,
-                        payload=canonical_bytes(invalid),
-                        original=None,
-                        schema=schema,
-                        recipe=recipe,
-                    ),
-                )
+    published = publish_native_record_fixture(
+        semantic_writer_engine,
+        tmp_path / "native-records",
+        task_id=task,
+        attempt=claim.attempt,
+        holder="pdf-fixture",
+        product=product,
+        document=doc,
+    )
+    publish_native_record_fixture(
+        semantic_writer_engine,
+        tmp_path / "qualified-records",
+        task_id=task,
+        attempt=claim.attempt,
+        holder="pdf-fixture",
+        product=qualified,
+        document=doc,
+    )
+    digest = published.logical_digest
     # Optional application preparation can fail after exact native capture. Existing terminal
     # publication must retain that valid capture even when the task outcome is failed.
     from dataclasses import replace
@@ -251,7 +220,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
         application_conversion,
         product_key="organized",
         schema_digest=sha256(schema).hexdigest(),
-        parent=(task, "native", product.digest),
+        parent=(task, "native", digest),
     )
     # Omission succeeds; explicit null remains a contract violation (no widened slot).
     prepare_pdf_product(application, original, schema, recipe)
@@ -260,11 +229,18 @@ def test_pdf_original_and_native_product_need_no_rendition(
         prepare_pdf_product(application, original, schema, recipe)
     summary = _error_summary(invalid.value)
     assert "inline_candidate_pages.0.candidates.0.font" in summary
+    legacy_arguments: dict[str, Any] = {"native_products": (product, qualified)}
+    with pytest.raises(TypeError, match="native_products"):
+        UnitResult(
+            ref=UnitRef(TaskUnitType.DOCUMENT, document_id, "pdf-source"),
+            outcome=ObservationOutcome.FAILED,
+            error=summary,
+            **legacy_arguments,
+        )
     failed = UnitResult(
         ref=UnitRef(TaskUnitType.DOCUMENT, document_id, "pdf-source"),
         outcome=ObservationOutcome.FAILED,
         error=summary,
-        native_products=(product, qualified),
     )
     with semantic_writer_engine.begin() as conn:
         complete_unit_result(
@@ -286,18 +262,27 @@ def test_pdf_original_and_native_product_need_no_rendition(
         assert len(str(state.error)) < 2000
         retained = conn.execute(
             text(
-                "SELECT content_digest FROM ops.native_document_product WHERE "
-                "task_id=:task AND product_key='native'"
+                "SELECT logical_digest FROM ops.read_pdf_published_revision(:task,'native',:digest)"
             ),
-            {"task": task},
+            {"task": task, "digest": digest},
         ).scalar_one()
-        assert retained == product.digest
+        assert retained == digest
         rows = read_native_items(
-            conn, task_id=task, product_key="native", content_digest=digest, pointer=probe.self_ref
+            conn,
+            task_id=task,
+            product_key="native",
+            content_digest=digest,
+            pointer=probe.self_ref,
+            projection_context=prepared,
         )
         assert rows[0]["text"] == expected_text
         regions = read_native_regions(
-            conn, task_id=task, product_key="native", content_digest=digest, pointer=probe.self_ref
+            conn,
+            task_id=task,
+            product_key="native",
+            content_digest=digest,
+            pointer=probe.self_ref,
+            projection_context=prepared,
         )
         assert len(regions) == len(probe.prov)
         assert (
@@ -337,19 +322,27 @@ def test_pdf_original_and_native_product_need_no_rendition(
                 recipe_bytes=recipe,
             )
             assert end_source_run(conn, run) == 1
+        from corpus_structure.semantic.pdf_staging import begin_pdf_build
+
         with pytest.raises(DBAPIError), semantic_writer_engine.begin() as conn:
-            store_pdf_product(
+            begin_pdf_build(
                 conn,
                 task_id=late,
                 attempt=late_claim.attempt,
                 holder="late-native",
-                product=product,
+                source_digest=sha256(original).hexdigest(),
+                recipe_digest=sha256(recipe).hexdigest(),
+                schema_digest=sha256(schema).hexdigest(),
+                replay_key="late-publication",
             )
         with semantic_reader_engine.connect() as conn:
             assert (
                 conn.execute(
-                    text("SELECT count(*) FROM ops.native_document_product WHERE task_id=:task"),
-                    {"task": late},
+                    text(
+                        "SELECT count(*) FROM "
+                        "ops.read_pdf_published_revision(:task,'native',:digest)"
+                    ),
+                    {"task": late, "digest": digest},
                 ).scalar_one()
                 == 0
             )

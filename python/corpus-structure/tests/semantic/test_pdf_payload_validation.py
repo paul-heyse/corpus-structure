@@ -11,7 +11,151 @@ from corpus_structure.semantic.pdf_payload_validation import FrozenPayloadStore,
 from corpus_structure.semantic.pdf_payloads import PROFILE, prepare_payload_family
 from corpus_structure.semantic.pdf_record_identity import byte_root
 
+from . import test_pdf_integrated as integrated_examples
 from .test_pdf_ocr_contracts import inventory
+
+native_source = integrated_examples.native_source
+independent_integrated = integrated_examples.independent_integrated
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        None,
+        "empty_companions",
+        "missing_coverage",
+        "missing_decision",
+        "wrong_kind",
+        "exact_glyph",
+        "out_of_bounds_region",
+        "wrong_region_page",
+        "missing_region_page",
+        "forged_text",
+        "missing_local_endpoint",
+        "duplicate_occurrence",
+        "duplicate_endpoint",
+        "missing_structural",
+        "missing_recognition",
+    ],
+)
+def test_frozen_selected_companions_retain_complete_meaning(
+    tmp_path,
+    independent_integrated,
+    change,
+):
+    value = independent_integrated
+    if change is not None:
+        integrated_examples.mutate_selected(value, change)
+    store = FrozenPayloadStore(tmp_path / "meaning.sqlite")
+    try:
+        for family, key in (
+            ("input", "inputs"),
+            ("occurrence", "occurrences"),
+            ("relation", "relations"),
+            ("coverage", "coverage"),
+            ("mapping_report", "mapping_reports"),
+        ):
+            for ordinal, body in enumerate(value.get(key, ())):
+                store.add(
+                    "companion",
+                    dict(
+                        family=family, local_id=str(ordinal), ordinal=ordinal, body=deepcopy(body)
+                    ),
+                )
+        if change is None:
+            store.validate_integrated_meaning(value["content"]["document"])
+        else:
+            with pytest.raises(ValueError):
+                store.validate_integrated_meaning(value["content"]["document"])
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize(
+    "state,outcome,accepted",
+    [
+        ("omitted", "partial", True),
+        ("empty", "partial", True),
+        ("null", "partial", False),
+        ("omitted", "complete", False),
+    ],
+)
+def test_raw_frozen_coverage_distinguishes_absent_empty_and_null_supports(
+    tmp_path,
+    independent_integrated,
+    state,
+    outcome,
+    accepted,
+):
+    value = independent_integrated
+    coverage = value["coverage"][0]
+    coverage["outcome"] = outcome
+    if state == "omitted":
+        coverage.pop("supports")
+    else:
+        coverage["supports"] = [] if state == "empty" else None
+    original = deepcopy(coverage)
+    store = FrozenPayloadStore(tmp_path / "optional-supports.sqlite")
+    try:
+        for family, key in (
+            ("input", "inputs"),
+            ("occurrence", "occurrences"),
+            ("relation", "relations"),
+            ("coverage", "coverage"),
+        ):
+            for ordinal, body in enumerate(value[key]):
+                store.add("companion", dict(family=family, local_id=str(ordinal), body=body))
+        if accepted:
+            store.validate_integrated_meaning(value["content"]["document"])
+        else:
+            with pytest.raises(
+                ValueError,
+                match=(
+                    "must be an array"
+                    if state == "null"
+                    else "complete coverage requires qualified input"
+                ),
+            ):
+                store.validate_integrated_meaning(value["content"]["document"])
+        assert next(store.companions("coverage"))["body"] == original
+        assert coverage == original
+    finally:
+        store.close()
+
+
+def test_frozen_occurrence_text_uses_lossless_checked_byte_field(tmp_path):
+    store = FrozenPayloadStore(tmp_path / "text.sqlite")
+    spelling = "equal\x00Ω"
+    payload = spelling.encode()
+    length, root = byte_root((payload,))
+    row = dict(family="occurrence", local_id="o", body={"occurrence_id": "o"})
+    try:
+        store.add(
+            "companion_field",
+            dict(
+                family="occurrence",
+                local_id="o",
+                field_name="text",
+                stream_id="text",
+                scalar_kind="s",
+            ),
+        )
+        store.add(
+            "artifact_stream",
+            dict(
+                stream_id="text",
+                byte_length=length,
+                byte_root=root.hex(),
+                encoding_profile="pdf-record-scalar-v1:s",
+            ),
+        )
+        store.add("artifact_part", dict(stream_id="text", ordinal=0, body=payload.hex()))
+        assert store.companion_value(row)["text"] == spelling
+        store.db.execute("UPDATE part SET body=? WHERE stream='text'", (b"changed",))
+        with pytest.raises(ValueError):
+            store.companion_value(row)
+    finally:
+        store.close()
 
 
 def captured(tmp_path, page):
@@ -409,6 +553,70 @@ def test_captured_publication_policy_and_actual_metadata_kind_inventory_are_used
         raise AssertionError("the exact captured publication policy must be reused")
 
     monkeypatch.setattr(pdf_contracts, "integrated_metadata_policy", no_installed_policy)
+    # This policy-only example has no content items; it still declares its selected
+    # input roles and partial coverage instead of bypassing integrated meaning.
+    for ordinal, role in enumerate(("structural", "recognition")):
+        store.add(
+            "companion",
+            dict(
+                family="input",
+                local_id=str(ordinal),
+                body=dict(
+                    role=role, task_id=41, product_key=f"source-{ordinal}", content_digest="a" * 64
+                ),
+            ),
+        )
+    store.add(
+        "companion",
+        dict(
+            family="coverage",
+            local_id="scope",
+            body=dict(
+                coverage_id="scope",
+                scope="page:1",
+                family="table",
+                discovery_policy="fixture",
+                detail="unassessed mapping",
+                outcome="partial",
+                supports=[],
+            ),
+        ),
+    )
+    for ordinal, family in enumerate(("body", "furniture")):
+        pointer = f"#/{family}"
+        document[family] = dict(self_ref=pointer, children=[])
+        store.add(
+            "companion",
+            dict(
+                family="occurrence",
+                local_id=pointer,
+                body=dict(
+                    occurrence_id=pointer,
+                    kind="item",
+                    address_space="selected_item",
+                    precision="item",
+                    pointer=pointer,
+                ),
+            ),
+        )
+        store.add(
+            "companion",
+            dict(
+                family="relation",
+                local_id=f"decision-{ordinal}",
+                body=dict(
+                    relation_id=f"decision-{ordinal}",
+                    kind="decision",
+                    outcome="selected",
+                    policy="fixture",
+                    evidence="empty container retained",
+                    endpoints=[
+                        dict(role="input", input_index=0, occurrence_id=pointer),
+                        dict(role="output", occurrence_id=pointer),
+                    ],
+                ),
+            ),
+        )
     try:
         store.validate(document, projection)
         payload = b'{"effective_options":"{}"}'

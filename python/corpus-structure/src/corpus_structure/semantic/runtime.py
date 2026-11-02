@@ -6,14 +6,16 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Literal
 
-from sqlalchemy import Connection, Engine, select, text
+from sqlalchemy import Connection, Engine, select
 from sqlalchemy.engine import URL, make_url
 
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationConflict
 from corpus_structure.settings import Settings
 
-Purpose = Literal["write", "read", "evaluate", "admit", "maintenance"]
+from ._operation_ids import NativeAdmissionParametersPurpose
+
+type Purpose = NativeAdmissionParametersPurpose | Literal["maintenance"]
 
 
 def connection_settings(settings: Settings, purpose: Purpose = "write") -> Settings:
@@ -78,11 +80,10 @@ def open_runtime_engine(
     ) as store:
         try:
             if purpose != "maintenance":
+                from ._operation_calls import require_runtime_principal
+
                 with store.engine.connect() as conn:
-                    conn.execute(
-                        text("SELECT data.require_runtime_principal(:purpose)"),
-                        {"purpose": purpose},
-                    )
+                    require_runtime_principal(conn, purpose=purpose)
             yield store.engine
         except BaseException as error:
             from corpus_structure.core.db.store import operation_failure
@@ -147,7 +148,12 @@ def select_completed_result(
     expected_generation: int,
 ) -> int:
     """Atomically select an immutable completed output under the project generation CAS."""
-    return conn.execute(
-        text("SELECT sem.select_completed_result(:p,:r,:g)"),
-        {"p": project_id, "r": run_id, "g": expected_generation},
-    ).scalar_one()
+    from ._operation_calls import select_completed_result as invoke
+    from ._operation_ids import ProjectId, RunId
+
+    return invoke(
+        conn,
+        project_id=ProjectId(project_id),
+        run_id=RunId(run_id),
+        expected_generation=expected_generation,
+    )

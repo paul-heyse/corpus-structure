@@ -24,6 +24,7 @@ from .native_objects import (
     NativeObject,
     definition_from_sql,
     prepare_native_authoring,
+    semantic_namespace_owner,
 )
 from .prepared_sql import prepare_sql
 
@@ -63,6 +64,8 @@ _PDF_PAYLOAD_FUNCTIONS = frozenset(
         "resume_pdf_build",
         "adopt_pdf_companion",
         "read_pdf_frozen_rows",
+        "read_pdf_published_revision",
+        "read_pdf_published_validation",
         "adopt_pdf_access",
         "record_pdf_native_validation",
         "validate_pdf_build",
@@ -77,6 +80,11 @@ _PDF_PAYLOAD_FUNCTIONS = frozenset(
         "pdf_record_logical_identity",
         "read_pdf_record_rows",
         "read_pdf_record_context_rows",
+        "publish_source_view",
+        "validate_native_frame_source",
+        "publish_pdf_region_artifact",
+        "pdf_record_scope_health",
+        "publish_pdf_observation",
     }
 )
 
@@ -141,27 +149,114 @@ def _selected_product_definition(connection, sql, *, source):
     return definition
 
 
+def _execution_task_definitions(connection, function_sql, trigger_sql, *, source):
+    """Own the existing guard and its declared dependent trigger together."""
+    definitions = []
+    owner = semantic_namespace_owner(connection)
+    for sql, kind in ((function_sql, "function"), (trigger_sql, "trigger")):
+        prepared = prepare_sql(sql, source=source)
+        for index, raw in enumerate(prepared.statements):
+            statement = raw.stmt
+            selected = (
+                kind == "function"
+                and isinstance(statement, ast.CreateFunctionStmt)
+                and tuple(part.sval for part in statement.funcname or ())
+                == ("ops", "guard_execution_task")
+            ) or (
+                kind == "trigger"
+                and isinstance(statement, ast.CreateTrigStmt)
+                and statement.trigname == "zz_execution_task"
+                and statement.relation is not None
+                and statement.relation.schemaname == "ops"
+                and statement.relation.relname == "task"
+            )
+            if selected:
+                definitions.append(
+                    replace(
+                        definition_from_sql(
+                            connection,
+                            prepared.excerpt(index),
+                            source=source,
+                            owner=owner,
+                            # Frozen0026_admission.sql:153 grants this capability;
+                            # subsequent CREATE OR REPLACE declarations retain it.
+                            grants=(("corpus_sem_publisher", "EXECUTE", False),)
+                            if kind == "function"
+                            else (),
+                        ),
+                        role_bindings=(("$migration_owner", "sem_namespace_owner"),),
+                        bind_owner=True,
+                    )
+                )
+    if len(definitions) != 2:
+        raise NativeAuthoringError("execution task guard requires its frozen dependent trigger")
+    return tuple(definitions)
+
+
+def _task_call_definition(connection, sql, *, name, source):
+    """Bind the existing generated-call ABI to normalized argument/result/ACL facts."""
+    prepared = prepare_sql(sql, source=source)
+    for index, raw in enumerate(prepared.statements):
+        statement = raw.stmt
+        if isinstance(statement, ast.CreateFunctionStmt) and tuple(
+            part.sval for part in statement.funcname or ()
+        ) == ("ops", name):
+            return definition_from_sql(
+                connection,
+                prepared.excerpt(index),
+                source=source,
+                owner="corpus_sem_publisher",
+                grants=(("corpus_sem_writer", "EXECUTE", False),),
+            )
+    raise NativeAuthoringError(f"native task-call ABI declaration is absent: {name}")
+
+
 def series_predecessor_definitions(connection):
     """Bounded predecessor source; never infer desired meaning from a deployed catalog."""
     from .migrations import ALEMBIC_DIR
 
     path = ALEMBIC_DIR / "versions/semantic_0065_reconciliation.sql"
     sql = path.read_text()
+    guard = ALEMBIC_DIR / "versions/semantic_0053_positioned_syntax.sql"
+    trigger = ALEMBIC_DIR / "versions/semantic_0023_execution.sql"
+    completion = ALEMBIC_DIR / "versions/semantic_0050_native_evidence.sql"
+    direction = ALEMBIC_DIR / "versions/semantic_0029_reference_boundaries.sql"
     return (
         _shape_definition(connection, sql, source=path.name),
         _context_definition(connection, sql, source=path.name),
         *_pdf_payload_definitions(connection, sql, source=path.name),
         _selected_product_definition(connection, sql, source=path.name),
+        *_execution_task_definitions(
+            connection,
+            guard.read_text(),
+            trigger.read_text(),
+            source="frozen0053/0023 execution task",
+        ),
+        _task_call_definition(
+            connection, guard.read_text(), name="claim_tasks", source="frozen0053 claim"
+        ),
+        _task_call_definition(
+            connection, completion.read_text(), name="complete_task", source="frozen0050 complete"
+        ),
+        _task_call_definition(
+            connection,
+            direction.read_text(),
+            name="record_direction",
+            source="frozen0029 direction",
+        ),
     )
 
 
 def series_native_definitions(connection, *, include_selected=True):
+    from .pdf_integrated_native import observation_publication_sql
     from .pdf_publication_native import (
         _native_shape_guard,
         pdf_record_logical_identity_sql,
         publication_sql,
+        source_view_sql,
     )
     from .pdf_staging_native import stage_native_sql
+    from .published_document import published_reader_definitions
 
     access_sql = Path(__file__).with_name("sql") / "pdf_record_access_correspondence.sql"
     payload_sql = (
@@ -172,6 +267,10 @@ def series_native_definitions(connection, *, include_selected=True):
         + pdf_record_logical_identity_sql()
         + "\n"
         + access_sql.read_text()
+        + "\n"
+        + source_view_sql()
+        + "\n"
+        + observation_publication_sql()
     )
     definitions = [
         _shape_definition(connection, _native_shape_guard(), source="native-record-shape:forward"),
@@ -181,10 +280,64 @@ def series_native_definitions(connection, *, include_selected=True):
             source="pdf_record_context.sql:forward",
         ),
         *companion_projection_definitions(connection),
+        *published_reader_definitions(connection),
         *_pdf_payload_definitions(connection, payload_sql, source="pdf-payloads:forward"),
         _selected_product_definition(
             connection, payload_sql, source="pdf-selected-product:forward"
         ),
+    ]
+    from .migrations import ALEMBIC_DIR
+
+    definitions.extend(
+        _execution_task_definitions(
+            connection,
+            Path(__file__).with_name("sql").joinpath("execution_guards.sql").read_text(),
+            ALEMBIC_DIR.joinpath("versions/semantic_0023_execution.sql").read_text(),
+            source="execution task:forward",
+        )
+    )
+    definitions.append(
+        _task_call_definition(
+            connection,
+            Path(__file__).with_name("sql").joinpath("execution_projection.sql").read_text(),
+            name="claim_tasks",
+            source="native claim:forward",
+        )
+    )
+    from .native_consumer_native import native_task_completion_sql
+
+    definitions.append(
+        _task_call_definition(
+            connection,
+            native_task_completion_sql(),
+            name="complete_task",
+            source="native completion:forward",
+        )
+    )
+    definitions.append(
+        _task_call_definition(
+            connection,
+            Path(__file__).with_name("sql").joinpath("directions.sql").read_text(),
+            name="record_direction",
+            source="native direction:forward",
+        )
+    )
+    from .native_sql_body import published_revision_definition, published_validation_definition
+
+    definitions = [
+        published_revision_definition(item)
+        if item.identity.schema == "ops" and item.identity.name == "read_pdf_published_revision"
+        else published_validation_definition(item)
+        if item.identity.schema == "ops" and item.identity.name == "read_pdf_published_validation"
+        else item
+        for item in definitions
+    ]
+    # SQL-language readers resolve their provider and PL/pgSQL declarations resolve
+    # the view's composite type during CREATE, after the managed scope was dropped.
+    providers = ("read_pdf_published_revision", "pdf_selected_product")
+    definitions = [
+        *(item for name in providers for item in definitions if item.identity.name == name),
+        *(item for item in definitions if item.identity.name not in providers),
     ]
     if include_selected:
         from .pdf_selected_source_native import selected_source_reader_sql

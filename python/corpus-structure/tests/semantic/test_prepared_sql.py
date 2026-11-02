@@ -38,6 +38,21 @@ def test_unicode_error_coordinates_and_unknown_span():
     assert SQLSyntaxError("x", "Ω", "missing", None).excerpt is None
 
 
+def test_sql_standard_body_slices_preserve_nested_semicolons_and_unicode():
+    source = (
+        "-- Ω\nCREATE FUNCTION x() RETURNS text LANGUAGE sql "
+        "BEGIN ATOMIC SELECT 'é;'; END; SELECT 'after';"
+    )
+    prepared = prepare_sql(source, source="sql-standard.sql")
+    assert len(prepared.statements) == len(prepared.slices) == 2
+    assert prepared.excerpt(0) == (
+        "CREATE FUNCTION x() RETURNS text LANGUAGE sql BEGIN ATOMIC SELECT 'é;'; END"
+    )
+    assert prepared.excerpt(1) == "SELECT 'after'"
+    for index in range(2):
+        assert len(prepare_sql(prepared.excerpt(index)).statements) == 1
+
+
 def test_prepared_authored_consumer_nested_ctes_and_forbidden_descendant():
     md = MetaData()
     Table("entity", md, Column("value", Text), schema="data")

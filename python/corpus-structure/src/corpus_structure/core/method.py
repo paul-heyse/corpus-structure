@@ -320,6 +320,17 @@ class Reader(Protocol):
         self, reference: ProductReference, *, include_candidate_pages: bool = True
     ) -> PreparedPdfProduct: ...
 
+    def native_section_drafts(
+        self,
+        reference: ProductReference,
+        *,
+        document_id: int,
+        selections: tuple[str, ...],
+        membership: Literal["direct", "descendants"],
+        scope: Any,
+        consumer_release: str,
+    ) -> tuple[SourceViewDraft, ...]: ...
+
     def capture_pdf_candidates(
         self, reference: ProductReference, directory: Path
     ) -> CandidatePageSource: ...
@@ -542,9 +553,10 @@ class SourceCoverageReading:
 class UnitResult:
     """One unit outcome: produced observations, an empty result, or a failure diagnostic.
 
-    A failed operation publishes no claims or measurements. It may retain already validated
-    native capture/diagnostic products so later application preparation can recover without
-    repeating conversion. Native products and source views use the same fenced task owner.
+    A failed operation publishes no claims or measurements. Record and observation publication
+    use the owned context ports while work progresses, retaining recovery inputs independently
+    of terminal completion. A terminal result selects source views; it never publishes aggregate
+    PDF document bodies.
     """
 
     ref: UnitRef
@@ -557,8 +569,6 @@ class UnitResult:
     parse_detail: Mapping[str, JsonValue] | None = None
     text_layouts: tuple[TextLayout, ...] = ()
     coverage: tuple[CoverageDraft, ...] = ()
-    native_products: tuple[PreparedPdfProduct, ...] = ()
-    integrated_products: tuple[PreparedIntegratedPdfProduct, ...] = ()
     source_views: tuple[SourceViewDraft, ...] = ()
 
     def __post_init__(self) -> None:
@@ -617,14 +627,10 @@ def _unleased_operation() -> None:
     """Standalone method kernels have no external task lease to maintain."""
 
 
-def _unowned_native_publication(ref: UnitRef, product: PreparedPdfProduct) -> ProductReference:
-    raise RuntimeError("native publication requires an owned task fence")
-
-
-def _unowned_integrated_publication(
+def _unowned_observation_publication(
     ref: UnitRef, product: PreparedIntegratedPdfProduct
 ) -> ProductReference:
-    raise RuntimeError("integrated publication requires an owned task fence")
+    raise RuntimeError("recognition observation publication requires an owned task fence")
 
 
 @dataclass(frozen=True, slots=True)
@@ -691,11 +697,8 @@ class MethodContext:
     retain_pdf_records: Callable[[UnitRef, PdfRecordPublicationDraft], ProductReference] = (
         _unowned_record_publication
     )
-    retain_native_pdf: Callable[[UnitRef, PreparedPdfProduct], ProductReference] = (
-        _unowned_native_publication
-    )
-    retain_integrated_pdf: Callable[[UnitRef, PreparedIntegratedPdfProduct], ProductReference] = (
-        _unowned_integrated_publication
+    retain_pdf_observation: Callable[[UnitRef, PreparedIntegratedPdfProduct], ProductReference] = (
+        _unowned_observation_publication
     )
 
 

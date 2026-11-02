@@ -224,15 +224,16 @@ def fixture(
             options={"corpus": {"documents": [document_key]}},
             code_commit="test",
         )
-        views = publish_controlled_pdf_views(
-            conn,
-            prepared=prepared,
-            run_id=run,
-            document_id=document,
-            original=original,
-            paragraphs=paragraphs,
-            keys=("page#one", "page#two") if double_source else ("page#one",),
-        )
+    views = publish_controlled_pdf_views(
+        writer,
+        prepared=prepared,
+        run_id=run,
+        document_id=document,
+        original=original,
+        paragraphs=paragraphs,
+        keys=("page#one", "page#two") if double_source else ("page#one",),
+    )
+    with writer.begin() as conn:
         view = views[0]
         cid = record_method(
             conn,

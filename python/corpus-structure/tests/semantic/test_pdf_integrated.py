@@ -34,7 +34,7 @@ from corpus_structure.semantic.pdf_contracts import (
 )
 from corpus_structure.semantic.pdf_integrated import (
     prepare_integrated_pdf_product,
-    store_integrated_pdf_product,
+    store_pdf_observation,
 )
 from corpus_structure.semantic.pdf_storage import (
     NativeDocumentUnavailable,
@@ -551,86 +551,177 @@ def pdf13_db(semantic_db_engine, semantic_writer_engine, native_source, tmp_path
                 original=original,
                 recipe_bytes=source.recipe,
             )
-        return SimpleNamespace(task=task, run=run, attempt=claim.attempt)
+        return SimpleNamespace(
+            task=task, run=run, attempt=claim.attempt, claim=claim, document=document
+        )
 
     job = create()
     native = prepare_pdf_product(source.payload, source.original, source.schema, source.recipe)
-    with semantic_writer_engine.begin() as conn:
-        store_pdf_product(
-            conn, task_id=job.task, attempt=job.attempt, holder=HOLDER, product=native
-        )
-    observations = []
-    for key, role in (("pass-a", "A"), ("pass-b", "B")):
-        product = prepare(observation(source, key=key, pass_role=role), source)
-        with semantic_writer_engine.begin() as conn:
-            store_integrated_pdf_product(
-                conn, task_id=job.task, attempt=job.attempt, holder=HOLDER, product=product
-            )
-        observations.append(product)
-    inputs = [
-        pin(job.task, "native", native.digest, "structural"),
-        *[pin(job.task, p.values()["product_key"], p.digest, "recognition") for p in observations],
-    ]
-    return SimpleNamespace(
+    db = SimpleNamespace(
         source=source,
         prepared=prepared,
         job=job,
         native=native,
-        observations=observations,
-        inputs=inputs,
         create=create,
         writer=semantic_writer_engine,
         admin=semantic_db_engine,
+        directory=tmp_path / "records",
+        published={},
     )
+    db.native_digest = _publish_record_document(db, native)
+    observations = []
+    for key, role in (("pass-a", "A"), ("pass-b", "B")):
+        product = prepare(observation(source, key=key, pass_role=role), source)
+        publish(db, product)
+        observations.append(product)
+    db.observations = observations
+    db.inputs = [
+        pin(job.task, "native", db.native_digest, "structural"),
+        *[pin(job.task, p.values()["product_key"], p.digest, "recognition") for p in observations],
+    ]
+    return db
 
 
-def publish(db, product, *, attempt=None):
-    with db.writer.begin() as conn:
-        return store_integrated_pdf_product(
-            conn,
-            task_id=db.job.task,
-            attempt=db.job.attempt if attempt is None else attempt,
-            holder=HOLDER,
-            product=product,
+def _publish_record_document(db, product, *, job=None, source=None, attempt=None, holder=HOLDER):
+    job = job or db.job
+    if product.values().get("kind") == "integrated" and not product._validated:
+        raise ValueError("publication requires an immutable prepared bundle")
+    reuse = (
+        job.task,
+        attempt or job.attempt,
+        holder,
+        product.values()["product_key"],
+        product.digest,
+    )
+    if reuse not in db.published:
+        db.published[reuse] = _publish_record_values(
+            db, product.values(), job=job, source=source, attempt=attempt, holder=holder
         )
+    else:
+        from corpus_structure.semantic.pdf_record_reader import published_record_reader
+        from corpus_structure.semantic.product_reference import ProductReference
+
+        with db.writer.connect() as conn:
+            retained = published_record_reader(
+                conn,
+                ProductReference(job.task, product.values()["product_key"], db.published[reuse]),
+            )
+            assert retained is not None
+            assert retained.revision["logical_digest"] == db.published[reuse]
+    return db.published[reuse]
 
 
-def raw_publish(conn, db, value, product):
-    return conn.execute(
-        text(
-            "SELECT ops.publish_integrated_pdf("
-            ":task,:attempt,:holder,:contract,:payload,:artifacts)"
+def _publish_record_values(db, outer, *, job=None, source=None, attempt=None, holder=HOLDER):
+    """Submit actual record/companion inputs directly to the released publication validators."""
+    from docling_core.types.doc import DoclingDocument
+
+    from corpus_structure.core.method import PdfRecordPublicationDraft
+    from corpus_structure.orchestrate.pdf_streaming import publish_pdf_record_draft
+
+    job, source = job or db.job, source or db.source
+    claim = job.claim if attempt is None else job.claim.model_copy(update={"attempt": attempt})
+    kind = outer.get("kind", "native")
+    content = outer["content"] if kind == "integrated" else outer
+    companions = {
+        family: outer.get(key, ())
+        for family, key in (
+            ("input", "inputs"),
+            ("occurrence", "occurrences"),
+            ("relation", "relations"),
+            ("mapping_report", "mapping_reports"),
+            ("coverage", "coverage"),
+        )
+        if kind == "integrated" or key in outer
+    }
+    if kind == "integrated":
+        companions["health"] = (
+            {"health": content["health"], "source_scope": content["source_scope"]},
+            outer["health"],
+        )
+    retained = publish_pdf_record_draft(
+        db.writer,
+        claim,
+        holder,
+        PdfRecordPublicationDraft(
+            document=DoclingDocument.model_validate(content["document"]),
+            product_key=outer["product_key"],
+            kind=kind,
+            original=source.original,
+            schema_bytes=source.schema,
+            recipe_bytes=source.recipe,
+            health=content["health"],
+            source_scope=content["source_scope"],
+            companions=companions,
+            metadata={
+                key: content[key]
+                for key in (
+                    "formula_outcomes",
+                    "inline_candidate_pages",
+                    "recognition_coverage",
+                    "derivation_mappings",
+                    "cell_reports",
+                    "inline_alignment_reports",
+                    "runtime_report",
+                )
+                if key in content
+            },
         ),
-        {
-            "task": db.job.task,
-            "attempt": db.job.attempt,
-            "holder": HOLDER,
-            "contract": product.contract_digest,
-            "payload": canonical_bytes(value),
-            "artifacts": list(product.artifacts),
-        },
-    ).scalar_one()
+        directory=db.directory,
+        check_active=lambda: None,
+    )
+    return retained.logical_digest
+
+
+def publish(db, product, *, attempt=None, holder=HOLDER):
+    if product.values().get("kind") == "recognition_observation":
+        with db.writer.begin() as conn:
+            return store_pdf_observation(
+                conn,
+                task_id=db.job.task,
+                attempt=db.job.attempt if attempt is None else attempt,
+                holder=holder,
+                product=product,
+            )
+    return _publish_record_document(db, product, attempt=attempt, holder=holder)
 
 
 def test_selected_cell_traces_two_observations_original_and_policy_reuse(
     pdf13_db, semantic_reader_engine
 ):
+    from docling_core.types.doc import DoclingDocument
+
+    from corpus_structure.semantic.pdf_record_reader import published_record_reader
+    from corpus_structure.semantic.product_reference import ProductReference
+
     db = pdf13_db
     product = prepare(integrated(db.source, db.inputs), db.source)
     transmitted = []
 
     def capture_publication(conn, clause, multiparams, params, options):
-        if "ops.publish_integrated_pdf(" in str(clause):
-            transmitted.extend(params["artifacts"])
+        def values(value):
+            if isinstance(value, (bytes, bytearray, memoryview)):
+                yield bytes(value)
+            elif isinstance(value, dict):
+                for child in value.values():
+                    yield from values(child)
+            elif isinstance(value, (tuple, list)):
+                for child in value:
+                    yield from values(child)
+
+        # Generated calls bind immutable values into the Core statement itself.
+        # Explicit execution parameters still take precedence when supplied.
+        transmitted.extend(values({**(clause.compile().params or {}), **params}))
+        transmitted.extend(values(multiparams))
 
     event.listen(db.writer, "before_execute", capture_publication)
     try:
-        assert publish(db, product) == product.digest
+        digest = publish(db, product)
     finally:
         event.remove(db.writer, "before_execute", capture_publication)
     assert db.source.original not in transmitted
-    assert {IMAGE, RESPONSE, db.source.recipe} <= set(transmitted)
-    assert publish(db, product) == product.digest
+    assert IMAGE not in transmitted and RESPONSE not in transmitted
+    assert db.source.recipe in transmitted
+    assert publish(db, product) == digest
     with semantic_reader_engine.connect() as conn:
         before = (
             conn.execute(
@@ -645,13 +736,64 @@ def test_selected_cell_traces_two_observations_original_and_policy_reuse(
             conn,
             task_id=db.job.task,
             product_key="native",
-            content_digest=db.native.digest,
+            content_digest=db.native_digest,
             include_body=True,
         )
-        assert native["body"] == db.native.values()
-        assert native["identity"]["content_digest"] == sha256(db.native.payload).hexdigest()
+        original = db.native.values()
+        body = native["body"]
+        assert DoclingDocument.model_validate(body["document"]).model_dump(
+            mode="json", by_alias=True, exclude_computed_fields=True
+        ) == DoclingDocument.model_validate(original["document"]).model_dump(
+            mode="json", by_alias=True, exclude_computed_fields=True
+        )
+        assert {key: value for key, value in body.items() if key not in {"document", "health"}} == {
+            key: value
+            for key, value in original.items()
+            if key not in {"document", "health", "items", "regions"}
+        }
+        # Empty outcome inventory is represented by no formula-outcome companion rows.
+        assert original["health"]["formula_outcomes"] == []
+        assert body["health"] == {
+            key: value for key, value in original["health"].items() if key != "formula_outcomes"
+        }
+        actual_items = read_native_items(
+            conn,
+            task_id=db.job.task,
+            product_key="native",
+            content_digest=db.native_digest,
+            projection_context=db.prepared,
+        )
+        item_fields = (
+            "pointer",
+            "ordinal",
+            "parent_pointer",
+            "label",
+            "content_layer",
+            "section_pointer",
+            "text",
+        )
+        assert [{key: row.get(key) for key in item_fields} for row in actual_items] == [
+            {key: row.get(key) for key in item_fields} for row in original["items"]
+        ]
+        record_reader = published_record_reader(
+            conn,
+            ProductReference(db.job.task, "native", db.native_digest),
+            projection_context=db.prepared,
+        )
+        assert record_reader is not None
+        actual_regions = record_reader.selected_regions(
+            tuple(row["pointer"] for row in actual_items)
+        )
+        assert [
+            {key: row[key] for key in original["regions"][0]} for row in actual_regions
+        ] == sorted(original["regions"], key=lambda row: (row["pointer"], row["region_index"]))
+        assert native["identity"]["content_digest"] == db.native_digest
         assert read_native_items(
-            conn, task_id=db.job.task, product_key="selected", content_digest=product.digest
+            conn,
+            task_id=db.job.task,
+            product_key="selected",
+            content_digest=digest,
+            projection_context=db.prepared,
         )
         assert {
             o["occurrence_id"] for o in native["occurrences"]
@@ -660,7 +802,7 @@ def test_selected_cell_traces_two_observations_original_and_policy_reuse(
             conn,
             task_id=db.job.task,
             product_key="selected",
-            content_digest=product.digest,
+            content_digest=digest,
             occurrence_id=CELL,
         )
         assert "body" not in selected
@@ -680,14 +822,14 @@ def test_selected_cell_traces_two_observations_original_and_policy_reuse(
             conn,
             task_id=db.job.task,
             product_key="selected",
-            content_digest=product.digest,
+            content_digest=digest,
             occurrence_id=CELL,
         )
         assert trace["complete"] is True
         metadata = {p["product_key"]: p for p in trace["products"]}
         assert set(metadata) == {"selected", "native", "pass-a", "pass-b"}
-        assert metadata["native"]["content_digest"] == db.native.digest
-        assert metadata["selected"]["content_digest"] == product.digest
+        assert metadata["native"]["content_digest"] == db.native_digest
+        assert metadata["selected"]["content_digest"] == digest
         for key, role, previous in zip(
             ("pass-a", "pass-b"), ("A", "B"), db.observations, strict=True
         ):
@@ -727,12 +869,12 @@ def test_selected_cell_traces_two_observations_original_and_policy_reuse(
             "b": 120.0,
             "coord_origin": "TOPLEFT",
         }
-        with pytest.raises(ValueError, match="limit"):
+        with pytest.raises(ValueError, match="exceeds requested row budget"):
             trace_pdf_occurrence(
                 conn,
                 task_id=db.job.task,
                 product_key="selected",
-                content_digest=product.digest,
+                content_digest=digest,
                 occurrence_id=CELL,
                 limit=3,
             )
@@ -745,7 +887,7 @@ def test_selected_cell_traces_two_observations_original_and_policy_reuse(
                 conn,
                 task_id=db.job.task,
                 product_key="selected",
-                content_digest=product.digest,
+                content_digest=digest,
                 occurrence_id="missing",
             )
     changed = integrated(db.source, db.inputs)
@@ -770,7 +912,7 @@ def test_selected_cell_traces_two_observations_original_and_policy_reuse(
             conn,
             task_id=db.job.task,
             product_key="selected",
-            content_digest=product.digest,
+            content_digest=digest,
             occurrence_id=CELL,
         )
         assert old["relations"][0]["body"]["policy"] == "retain-native-v1"
@@ -778,14 +920,14 @@ def test_selected_cell_traces_two_observations_original_and_policy_reuse(
             conn,
             task_id=db.job.task,
             product_key="selected",
-            content_digest=product.digest,
+            content_digest=digest,
             limit=1,
         )
         following = read_pdf_product(
             conn,
             task_id=db.job.task,
             product_key="selected",
-            content_digest=product.digest,
+            content_digest=digest,
             after=page["cursor"],
             limit=100,
         )
@@ -819,58 +961,34 @@ def test_direct_publication_cannot_bypass_meaning_or_task_fence(pdf13_db):
         invalid = deepcopy(value)
         invalid["product_key"] = f"invalid-{index}"
         mutate_selected(invalid, change)
-        with db.writer.begin() as conn, pytest.raises(DBAPIError) as refused, conn.begin_nested():
-            raw_publish(conn, db, invalid, product)
-        assert getattr(refused.value.orig, "sqlstate", None) in {"23514", "23503", "23505"}
+        with pytest.raises((ValueError, DBAPIError)):
+            _publish_record_values(db, invalid)
     with pytest.raises(DBAPIError):
         publish(db, product, attempt=db.job.attempt + 1)
-    with pytest.raises(DBAPIError), db.writer.begin() as conn:
-        store_integrated_pdf_product(
-            conn,
-            task_id=db.job.task,
-            attempt=db.job.attempt,
-            holder="another-holder",
-            product=product,
-        )
+    with pytest.raises(DBAPIError):
+        publish(db, product, holder="another-holder")
     forged = replace(product, payload=canonical_bytes({**value, "product_key": "forged"}))
     with pytest.raises(ValueError, match="immutable prepared"):
         publish(db, forged)
-    publish(db, product)
+    digest = publish(db, product)
     mutated = deepcopy(value)
     mutated["health"]["validation_report"] = "changed after publication"
-    with pytest.raises(DBAPIError), db.writer.begin() as conn:
-        raw_publish(conn, db, mutated, product)
-    assert publish(db, product) == product.digest
-    extra = b"already-retained-but-not-in-this-product"
-    unrelated = observation(db.source, key="pass-unrelated")
-    unrelated["observation"]["raw_response_digest"] = sha256(extra).hexdigest()
-    retained_extra = prepare_integrated_pdf_product(
-        unrelated, db.source.original, db.source.recipe, artifacts=(IMAGE, extra)
-    )
-    publish(db, retained_extra)
-    with pytest.raises(DBAPIError), db.writer.begin() as conn:
-        conn.execute(
-            text(
-                "SELECT ops.publish_integrated_pdf("
-                ":task,:attempt,:holder,:contract,:payload,:artifacts)"
-            ),
-            {
-                "task": db.job.task,
-                "attempt": db.job.attempt,
-                "holder": HOLDER,
-                "contract": product.contract_digest,
-                "payload": product.payload,
-                "artifacts": [*product.artifacts, extra],
-            },
+    with pytest.raises(ValueError, match="frozen/published"):
+        _publish_record_values(db, mutated)
+    assert publish(db, product) == digest
+    # The narrowed observation retainer cannot publish the removed aggregate document shape.
+    with db.writer.begin() as conn, pytest.raises(ValueError):
+        store_pdf_observation(
+            conn, task_id=db.job.task, attempt=db.job.attempt, holder=HOLDER, product=product
         )
     with db.admin.connect() as conn:
         assert (
-            conn.execute(
+            conn.scalar(
                 text(
-                    "SELECT count(*) FROM ops.pdf_product "
+                    "SELECT count(*) FROM ops.pdf_published_revision "
                     "WHERE product_key LIKE 'invalid-%' OR product_key='forged'"
                 )
-            ).scalar_one()
+            )
             == 0
         )
 
@@ -886,10 +1004,7 @@ def test_inputs_require_exact_extant_same_original_and_project_pins(pdf13_db):
     foreign_native = prepare_pdf_product(
         other_source.payload, other_original, db.source.schema, db.source.recipe
     )
-    with db.writer.begin() as conn:
-        store_pdf_product(
-            conn, task_id=other.task, attempt=other.attempt, holder=HOLDER, product=foreign_native
-        )
+    other_digest = _publish_record_document(db, foreign_native, job=other, source=other_source)
     with db.admin.begin() as conn:
         conn.execute(insert(table("data.project")).values(project_id="foreign"))
         conn.execute(
@@ -898,16 +1013,13 @@ def test_inputs_require_exact_extant_same_original_and_project_pins(pdf13_db):
             )
         )
     foreign = db.create(project="foreign", name="foreign-project")
-    with db.writer.begin() as conn:
-        store_pdf_product(
-            conn, task_id=foreign.task, attempt=foreign.attempt, holder=HOLDER, product=db.native
-        )
+    foreign_digest = _publish_record_document(db, db.native, job=foreign)
     cases = [
         pin(db.job.task, "native", "0" * 64, "structural"),
         pin(db.job.task, "not-published", "a" * 64, "structural"),
         pin(db.job.task, "attempt-self", "a" * 64, "structural"),
-        pin(other.task, "native", foreign_native.digest, "structural"),
-        pin(foreign.task, "native", db.native.digest, "structural"),
+        pin(other.task, "native", other_digest, "structural"),
+        pin(foreign.task, "native", foreign_digest, "structural"),
     ]
     for index, invalid_pin in enumerate(cases):
         value = integrated(db.source, [invalid_pin, *db.inputs[1:]])
@@ -921,7 +1033,8 @@ def test_inputs_require_exact_extant_same_original_and_project_pins(pdf13_db):
     missing["relations"][0]["endpoints"][0]["occurrence_id"] = "not-a-native-occurrence"
     with pytest.raises(DBAPIError) as refused:
         publish(db, prepare(missing, db.source))
-    assert getattr(refused.value.orig, "sqlstate", None) == "23503"
+    assert getattr(refused.value.orig, "sqlstate", None) == "23514"
+    assert "companion endpoint outside admitted occurrence inventory" in str(refused.value.orig)
 
 
 def test_forward_migration_backfills_structural_edges_without_rewriting_native(
@@ -1228,19 +1341,69 @@ admin.dispose()
 def test_partial_observation_cannot_support_complete_integrated_coverage(pdf13_db):
     db = pdf13_db
     value = integrated(db.source, db.inputs)
-    value["product_key"] = "false-complete"
-    value["coverage"][0].update(
-        outcome="complete", supports=[{"input_index": 1, "coverage_id": "page-1-table"}]
+    for defect in ("outcome", "missing", "scope", "family"):
+        invalid = deepcopy(value)
+        invalid["product_key"] = f"false-complete-{defect}"
+        coverage = invalid["coverage"][0]
+        coverage.update(
+            outcome="complete",
+            supports=[
+                {
+                    "input_index": 1,
+                    "coverage_id": "nonexistent-coverage"
+                    if defect == "missing"
+                    else "page-1-table",
+                }
+            ],
+        )
+        if defect in {"scope", "family"}:
+            coverage[defect] = "page:2" if defect == "scope" else "text"
+        with pytest.raises(DBAPIError) as refused:
+            publish(db, prepare(invalid, db.source))
+        assert getattr(refused.value.orig, "sqlstate", None) == "23514"
+        assert "coverage support differs from exact input coverage scope/family/outcome" in str(
+            refused.value.orig
+        )
+
+    # A native producer can independently qualify complete coverage without inherited
+    # support; integrated completeness must cite that exact admitted assessment.
+    native = deepcopy(db.source.payload)
+    native["product_key"] = "native-complete-seed"
+    native["coverage"] = [
+        dict(
+            coverage_id="native-table-complete",
+            scope="page:1",
+            family="table",
+            discovery_policy="fixture-native-full-page",
+            outcome="complete",
+            detail="independent native producer assessment",
+            supports=[],
+        )
+    ]
+    native_digest = _publish_record_values(db, native)
+    selected = integrated(
+        db.source,
+        [pin(db.job.task, native["product_key"], native_digest, "structural"), *db.inputs[1:]],
     )
-    # The pin and coverage id exist, and scope/family agree: only the required outcome
-    # is stronger than its retained evidence. This must fail at cross-product admission.
-    product = prepare(value, db.source)
+    for outcome in ("complete", "partial"):
+        selected["product_key"] = f"mixed-evidence-{outcome}"
+        selected["coverage"][0].update(
+            outcome=outcome,
+            supports=[
+                {"input_index": 0, "coverage_id": "native-table-complete"},
+                {"input_index": 1, "coverage_id": "page-1-table"},
+            ],
+        )
+        assert publish(db, prepare(selected, db.source))
+    selected["product_key"] = "complete-plus-invalid-edge"
+    selected["coverage"][0].update(outcome="complete")
+    selected["coverage"][0]["supports"][1]["coverage_id"] = "absent-even-with-complete-witness"
     with pytest.raises(DBAPIError) as refused:
-        publish(db, product)
+        publish(db, prepare(selected, db.source))
     assert getattr(refused.value.orig, "sqlstate", None) == "23514"
-    value["coverage"][0]["supports"][0]["coverage_id"] = "nonexistent-coverage"
-    with pytest.raises(DBAPIError):
-        publish(db, prepare(value, db.source))
+    assert "coverage support differs from exact input coverage scope/family/outcome" in str(
+        refused.value.orig
+    )
 
 
 def test_failed_later_pass_retains_earlier_observations(pdf13_db, semantic_reader_engine):
@@ -1256,13 +1419,13 @@ def test_failed_later_pass_retains_earlier_observations(pdf13_db, semantic_reade
     product = prepare_integrated_pdf_product(
         failed, db.source.original, db.source.recipe, artifacts=(IMAGE,)
     )
-    publish(db, product)
+    digest = publish(db, product)
     with semantic_reader_engine.connect() as conn:
         retained = read_pdf_product(
             conn,
             task_id=db.job.task,
             product_key="pass-c-failed",
-            content_digest=product.digest,
+            content_digest=digest,
             include_body=True,
         )
         assert retained["occurrences"] == []
@@ -1280,6 +1443,89 @@ def test_failed_later_pass_retains_earlier_observations(pdf13_db, semantic_reade
             assert old["body"]["observation"]["raw_response_digest"] == sha256(RESPONSE).hexdigest()
             assert old["body"]["observation"]["outcome"] == "succeeded"
             assert {o["occurrence_id"] for o in old["occurrences"]} == {"block-0", "block-1"}
+
+
+def test_retained_recognition_page_callback_uses_observation_only_native_port(
+    pdf13_db, semantic_reader_engine, tmp_path
+):
+    import json
+
+    from corpus_structure.core.method import UnitRef
+    from corpus_structure.core.vocab import TaskUnitType
+    from corpus_structure.ingest.pdf_recognition import (
+        NemotronRecipe,
+        PreparedRecognitionSource,
+        RecognitionPage,
+    )
+    from corpus_structure.ingest.pdf_recognition_methods import _retain_page
+    from corpus_structure.semantic.operations import BoundReader
+    from corpus_structure.semantic.pdf_integrated import PreparedPdfOriginal
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    db = pdf13_db
+    directory = tmp_path / "retained-request"
+    directory.mkdir()
+    raw = b"<x_0.1><y_0.2>retained page<x_0.8><y_0.3><class_Text>"
+    (directory / "submitted.png").write_bytes(IMAGE)
+    (directory / "response.txt").write_bytes(raw)
+    (directory / "request-000.json").write_text(
+        json.dumps(
+            dict(
+                ordinal=0,
+                stage="fullpage",
+                outcome="succeeded",
+                submitted_image="submitted.png",
+                submitted_digest=sha256(IMAGE).hexdigest(),
+                width=4,
+                height=6,
+                raw_response="response.txt",
+                prompt="Independent retained request fixture",
+                settings={},
+                finish_reason="stop",
+            )
+        )
+    )
+    page = RecognitionPage(
+        1,
+        directory,
+        {"outcome": "succeeded"},
+        dict(
+            status="unknown",
+            normalization="unknown",
+            source_space="pdf_points",
+            target_space="submitted_pixels",
+        ),
+    )
+    recipe = NemotronRecipe("1" * 64, "2" * 64)
+    unit = UnitRef(TaskUnitType.DOCUMENT, db.job.document)
+
+    def retain(ref, product):
+        assert ref == unit
+        assert product.values()["kind"] == "recognition_observation"
+        return ProductReference(db.job.task, product.values()["product_key"], publish(db, product))
+
+    with db.writer.connect() as conn:
+        reader = BoundReader(conn, db.job.run, db.prepared, analysis=False)
+        reader.source_tasks[db.job.document] = db.job.task
+        context: Any = SimpleNamespace(reader=reader, retain_pdf_observation=retain)
+        retained = _retain_page(
+            page,
+            unit,
+            PreparedRecognitionSource.prepare(db.source.original),
+            recipe,
+            PreparedPdfOriginal(db.source.original),
+            context,
+        )
+    assert len(retained) == 1
+    reference, observed, response = retained[0]
+    assert (
+        response == raw
+        and observed["observation"]["raw_response_digest"] == sha256(raw).hexdigest()
+    )
+    with semantic_reader_engine.connect() as conn:
+        stored = read_pdf_product(conn, **reference, include_body=True)
+    assert stored["body"] == observed
+    assert stored["occurrences"][0]["body"]["text"] == "retained page"
 
 
 def test_integrated_roundtrip_preserves_full_distinct_inventory(
@@ -1325,13 +1571,13 @@ def test_scoped_companion_does_not_materialize_bookwide_coverage(pdf13_db, seman
         for page in range(3, 1590)
     )
     product = prepare(values, db.source)
-    publish(db, product)
+    digest = publish(db, product)
     with semantic_reader_engine.connect() as conn:
         scoped = read_pdf_product(
             conn,
             task_id=db.job.task,
             product_key="bookwide-coverage",
-            content_digest=product.digest,
+            content_digest=digest,
             occurrence_id=CELL,
             row_budget=20,
         )
@@ -1344,7 +1590,7 @@ def test_scoped_companion_does_not_materialize_bookwide_coverage(pdf13_db, seman
                 conn,
                 task_id=db.job.task,
                 product_key="bookwide-coverage",
-                content_digest=product.digest,
+                content_digest=digest,
                 collection="coverage",
                 after=after,
                 limit=137,
@@ -1366,15 +1612,22 @@ def test_artifact_byte_pages_require_exact_input_custody(pdf13_db, semantic_read
     values = integrated(db.source, db.inputs)
     values["product_key"] = "artifact-pages"
     artifact = bytes(range(256)) * 600
+    retained_response = observation(db.source, key="artifact-response")
+    retained_response["observation"]["raw_response_digest"] = sha256(artifact).hexdigest()
+    evidence = prepare_integrated_pdf_product(
+        retained_response, db.source.original, db.source.recipe, artifacts=(IMAGE, artifact)
+    )
+    publish(db, evidence)
+    values["inputs"].append(pin(db.job.task, "artifact-response", evidence.digest, "recognition"))
     product = prepare_integrated_pdf_product(
         values,
         db.source.original,
         db.source.recipe,
-        artifacts=(artifact,),
+        artifacts=(),
         native_schema=db.source.schema,
     )
-    publish(db, product)
-    args = dict(task_id=db.job.task, product_key="artifact-pages", content_digest=product.digest)
+    digest = publish(db, product)
+    args = dict(task_id=db.job.task, product_key="artifact-pages", content_digest=digest)
     with semantic_reader_engine.connect() as conn:
         offset = 0
         parts = []
@@ -1408,7 +1661,7 @@ def test_qualified_read_abi_survives_helper_bytes_but_refuses_unknown_binding(
 
     db = pdf13_db
     product = prepare(integrated(db.source, db.inputs), db.source)
-    publish(db, product)
+    digest = publish(db, product)
     load = pdf_contracts.pdf_context_for_task
     unsupported = False
 
@@ -1438,7 +1691,7 @@ def test_qualified_read_abi_survives_helper_bytes_but_refuses_unknown_binding(
             conn,
             task_id=db.job.task,
             product_key="selected",
-            content_digest=product.digest,
+            content_digest=digest,
             occurrence_id=CELL,
         )
         assert result["occurrences"][0]["body"]["native_value"]["text"] == "equal"
@@ -1448,6 +1701,6 @@ def test_qualified_read_abi_survives_helper_bytes_but_refuses_unknown_binding(
                 conn,
                 task_id=db.job.task,
                 product_key="selected",
-                content_digest=product.digest,
+                content_digest=digest,
                 occurrence_id=CELL,
             )

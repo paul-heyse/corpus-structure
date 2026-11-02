@@ -16,6 +16,7 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
+from corpus_structure.semantic._operation_ids import CutId, RunId
 from corpus_structure.semantic.analytical_profile import AnalyticalProfile, analytical_inputs
 from corpus_structure.semantic.analytics import (
     AnalysisScope,
@@ -754,8 +755,8 @@ def test_projection_policy_fields_drive_compiler_refusal():
     from corpus_structure.semantic.domain_operations import CutInput
 
     cut = CutInput(
-        1,
-        2,
+        CutId(1),
+        RunId(2),
         "p",
         prepared,
         "output",

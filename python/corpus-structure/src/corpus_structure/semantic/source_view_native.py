@@ -259,7 +259,20 @@ def native_admission_sql(
                 f"normalized native function is absent from source inventory: {signature}"
             )
         catalog = native.catalog
+        if native.catalog_version == 2:
+            from .native_sql_body import SQL_STANDARD_PROFILE
+
+            if catalog.get("body_profile") != SQL_STANDARD_PROFILE:
+                raise ValueError("unsupported normalized SQL-standard native profile")
+            functions[signature].update(
+                body_kind=catalog["body_kind"],
+                body_profile=catalog["body_profile"],
+                server_major=catalog["server_major"],
+                dependencies=catalog["dependencies"],
+                body_sha256=sha256(catalog["body"].encode()).hexdigest(),
+            )
         functions[signature].update(
+            owner=catalog["owner"],
             result_definition=catalog["result"],
             argument_definition=catalog["arguments"],
             catalog_acl=catalog["acl"],
@@ -271,58 +284,14 @@ def native_admission_sql(
         )
     descriptor["functions"] = sorted(functions.values(), key=lambda item: item["signature"])
     tables = {item["relation"]: item for item in descriptor["tables"]}
+    from .native_products import relation_descriptor
+
+    # Existing admitted relations evolve from the same current physical model as
+    # explicitly added relations. Frozen predecessor columns are not current authority.
+    tables = {name: relation_descriptor(metadata.tables[name]) for name in tables}
     for name in extra_relations:
         relation = metadata.tables[name]
-        columns = []
-        for column in relation.columns:
-            kind = column.type.compile(dialect=dialect()).lower()
-            if kind == "float":
-                kind = "double precision"
-            columns.append(
-                dict(
-                    name=column.name,
-                    type=kind,
-                    not_null=not column.nullable,
-                    default=None,
-                    identity=("a" if column.identity.always else "d")
-                    if column.identity is not None
-                    else "",
-                    generated="",
-                )
-            )
-        tables[name] = dict(
-            relation=name,
-            read_roles=relation.info.get(
-                "read_roles",
-                [
-                    "corpus_sem_writer",
-                    "corpus_sem_reader",
-                    "corpus_sem_admitter",
-                    "corpus_sem_evaluator",
-                ],
-            ),
-            owner="corpus_sem_publisher",
-            columns=columns,
-            primary_key=[c.name for c in relation.primary_key.columns],
-            foreign_keys=[
-                dict(
-                    name=dialect().identifier_preparer.format_constraint(c),
-                    columns=[v.name for v in c.columns],
-                    target=c.elements[0].target_fullname.rsplit(".", 1)[0],
-                    remote_columns=[e.target_fullname.rsplit(".", 1)[1] for e in c.elements],
-                    on_delete="a",
-                    on_update="a",
-                    match="s",
-                    deferrable=False,
-                    deferred=False,
-                    validated=True,
-                )
-                for c in sorted(
-                    relation.foreign_key_constraints,
-                    key=lambda c: str(dialect().identifier_preparer.format_constraint(c)),
-                )
-            ],
-        )
+        tables[name] = relation_descriptor(relation)
         descriptor["triggers"] = [
             t
             for t in descriptor["triggers"]
@@ -346,6 +315,17 @@ def native_admission_sql(
     _, separator, required = current_admission.partition("$descriptor$;")
     if not separator:
         raise ValueError("missing native descriptor boundary")
+    from .native_sql_body import admission_body_comparison
+
+    body_comparison = (
+        "encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM "
+        "item.value->>'body_sha256'"
+    )
+    if body_comparison not in required:
+        raise ValueError("missing native body admission comparison boundary")
+    required = required.replace(body_comparison, admission_body_comparison(), 1)
+    if any("body_profile" in item and "dependencies" not in item for item in functions.values()):
+        raise ValueError("SQL-standard admission requires a server-bound normalized native object")
     # The current descriptor additionally protects normalized TABLE/OUT result columns
     # and complete ACL/grant options for series-owned functions. Historical descriptors
     # lack these keys and retain their original admitted meaning.
@@ -391,14 +371,13 @@ def native_admission_sql(
             ),
             1,
         )
-    if native_objects:
-        from .native_products import function_bodies
+    from .native_products import function_bodies
 
-        # Admission protects its own exact enforcing body too. The descriptor literal
-        # is a separate function, so this digest has no self-reference.
-        functions[required_signature]["body_sha256"] = sha256(
-            function_bodies(required)["data.require_execution_release"].encode()
-        ).hexdigest()
+    # Admission protects its own exact enforcing body too. The descriptor literal
+    # is a separate function, so this digest has no self-reference.
+    functions[required_signature]["body_sha256"] = sha256(
+        function_bodies(required)["data.require_execution_release"].encode()
+    ).hexdigest()
     encoded = canonical_bytes(descriptor).decode().replace("'", "''")
     admission = (
         (

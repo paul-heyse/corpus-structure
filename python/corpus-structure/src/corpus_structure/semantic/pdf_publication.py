@@ -17,8 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
-from sqlalchemy import Connection, Engine, text
-from sqlalchemy.engine import RowMapping
+from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.core.db.store import (
@@ -29,7 +28,8 @@ from corpus_structure.core.db.store import (
     record_operation_failure,
 )
 
-from .pdf_staging import PdfBuildRef, _parameters
+from . import _operation_calls as calls
+from .pdf_staging import PdfBuildRef
 
 COMPANION_BATCH_ROWS = 64
 COMPANION_BATCH_BYTES = 4 * 1024 * 1024
@@ -76,7 +76,7 @@ class PublishedPdfDocumentRef:
         return self.logical_digest
 
 
-def _published(row: RowMapping) -> PublishedPdfDocumentRef:
+def _published(row: Mapping[str, Any]) -> PublishedPdfDocumentRef:
     return PublishedPdfDocumentRef(
         **{key: row[key] for key in PublishedPdfDocumentRef.__dataclass_fields__}
     )
@@ -85,29 +85,45 @@ def _published(row: RowMapping) -> PublishedPdfDocumentRef:
 def published_pdf_revision(
     conn: Connection, task_id: int, product_key: str, logical_digest: str
 ) -> PublishedPdfDocumentRef | None:
-    row = (
-        conn.execute(
-            text("SELECT * FROM ops.read_pdf_published_revision(:task,:key,:digest)"),
-            dict(task=task_id, key=product_key, digest=logical_digest),
-        )
-        .mappings()
-        .one_or_none()
+    row = calls.read_pdf_published_revision(
+        conn,
+        task_id=calls.TaskId(task_id),
+        product_key=product_key,
+        logical_digest=logical_digest,
     )
-    return None if row is None else _published(row)
+    return None if row is None else _published(row.model_dump(mode="python"))
 
 
 def freeze_pdf_build(conn: Connection, build: PdfBuildRef, *, kind: str) -> FrozenPdfBuildRef:
-    digest = conn.execute(
-        text("SELECT ops.freeze_pdf_build(:build,:task,:attempt,:holder,:kind)"),
-        {**_parameters(build), "kind": kind},
-    ).scalar_one()
+    parameters = calls._freeze_pdf_buildRequest.model_validate(
+        {
+            "build_id": build.build_id,
+            "task_id": build.task_id,
+            "attempt": build.attempt,
+            "holder": build.holder,
+            "kind": kind,
+        },
+        strict=True,
+    )
+    digest = calls.freeze_pdf_build(
+        conn,
+        build_id=parameters.build_id,
+        task_id=parameters.task_id,
+        attempt=parameters.attempt,
+        holder=parameters.holder,
+        kind=parameters.kind,
+    )
     return FrozenPdfBuildRef(build, digest, kind)
 
 
 def prepare_pdf_build(conn: Connection, frozen: FrozenPdfBuildRef) -> None:
-    conn.execute(
-        text("SELECT ops.prepare_pdf_build(:build,:task,:attempt,:holder,:frozen)"),
-        {**_parameters(frozen.build), "frozen": frozen.frozen_digest},
+    calls.prepare_pdf_build(
+        conn,
+        build_id=frozen.build.build_id,
+        task_id=calls.TaskId(frozen.build.task_id),
+        attempt=calls.TaskAttempt(frozen.build.attempt),
+        holder=frozen.build.holder,
+        frozen_digest=frozen.frozen_digest,
     )
 
 
@@ -153,27 +169,31 @@ def adopt_pdf_companion_batch(
                 },
                 cancellation=cancellation,
             )
-        parameters = [
-            {
-                **_parameters(build),
-                "family": family,
-                "local": local,
-                "body": json.dumps(body, ensure_ascii=False, allow_nan=False),
-                "fields": json.dumps(fields),
-                "key": f"{replay_key}:{ordinal}",
-                "ordinal": ordinal,
-            }
-            for ordinal, local, body, fields in pending
-        ]
+        from .pdf_records import _finite_json
+
+        parameters = []
+        for ordinal, local, body, fields in pending:
+            _finite_json(body, "#/companion/body")
+            parameters.append(
+                calls.AdoptPdfCompanionParameters.model_validate(
+                    {
+                        "build_id": build.build_id,
+                        "task_id": build.task_id,
+                        "attempt": build.attempt,
+                        "holder": build.holder,
+                        "family": family,
+                        "local_id": local,
+                        "body": body,
+                        "fields": fields,
+                        "replay_key": f"{replay_key}:{ordinal}",
+                        "ordinal": ordinal,
+                    },
+                    strict=True,
+                )
+            )
         if cancellation is not None:
             cancellation.check_active()
-        conn.execute(
-            text(
-                "SELECT ops.adopt_pdf_companion(:build,:task,:attempt,:holder,:family,:local,CAST\
-(:body AS jsonb),:key,:ordinal,CAST(:fields AS jsonb))"
-            ),
-            parameters,
-        )
+        calls.adopt_pdf_companion_batch(conn, requests=parameters)
         pending = []
         streams = []
         parts = []
@@ -612,25 +632,22 @@ def validate_pdf_build(
         cancellation.check_active()
         authority_check()
 
-    params = {**_parameters(frozen.build), "frozen": frozen.frozen_digest}
     check_active()
     with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
         from .contracts import require_database_operation
 
         require_database_operation(conn, frozen.build.release_id, "validate_pdf_build")
-        existing = (
-            conn.execute(
-                text(
-                    "SELECT * FROM ops.lookup_pdf_validation(:build,:task,:attempt,:holder,:frozen)"
-                ),
-                params,
-            )
-            .mappings()
-            .one_or_none()
+        existing = calls.lookup_pdf_validation(
+            conn,
+            build_id=frozen.build.build_id,
+            task_id=calls.TaskId(frozen.build.task_id),
+            attempt=calls.TaskAttempt(frozen.build.attempt),
+            holder=frozen.build.holder,
+            frozen_digest=frozen.frozen_digest,
         )
     if existing is not None:
         return PdfValidationOutcome(
-            existing["frozen_digest"], existing["logical_digest"], existing["contract_digest"]
+            existing.frozen_digest, existing.logical_digest, existing.contract_digest
         )
     with tempfile.TemporaryDirectory(prefix="pdf-native-validation-") as directory:
         capture = Path(directory) / "frozen.arrow"
@@ -695,24 +712,26 @@ def validate_pdf_build(
                     with _validation_transaction(
                         engine, frozen, cancellation, check_active
                     ) as conn:
-                        values = (
-                            conn.execute(
-                                text(
-                                    "SELECT * FROM ops.read_pdf_frozen_rows"
-                                    "(:build,:task,:attempt,:holder,:frozen,:family,"
-                                    "CAST(:after AS jsonb),:limit,CAST(:filters AS jsonb))"
-                                ),
-                                {
-                                    **params,
-                                    "family": family,
-                                    "after": json.dumps(after) if after is not None else None,
-                                    "limit": 64 if family == "artifact_part" else 1000,
-                                    "filters": json.dumps(dict(filters or {})),
-                                },
-                            )
-                            .scalars()
-                            .all()
+                        raw_values = calls.read_pdf_frozen_rows(
+                            conn,
+                            build_id=frozen.build.build_id,
+                            task_id=calls.TaskId(frozen.build.task_id),
+                            attempt=calls.TaskAttempt(frozen.build.attempt),
+                            holder=frozen.build.holder,
+                            frozen_digest=frozen.frozen_digest,
+                            family=family,
+                            after=after,
+                            limit=64 if family == "artifact_part" else 1000,
+                            filters=dict(filters or {}),
                         )
+                        values = []
+                        from .operation_value_types import decode_json_text
+
+                        for encoded in raw_values:
+                            value = decode_json_text(encoded)
+                            if not isinstance(value, dict):
+                                raise ValueError("frozen PDF record envelope must be a JSON object")
+                            values.append(value)
                     if not values:
                         break
                     after = values[-1]["_cursor"]
@@ -720,23 +739,37 @@ def validate_pdf_build(
                         row.pop("_cursor", None)
                     write_rows(family, values)
                     if family == "companion":
-                        fields = [
-                            {
-                                "product_id": row["product_id"],
-                                "revision_id": row["revision_id"],
-                                "family": row["family"],
-                                "local_id": row["local_id"],
-                                **descriptor,
-                            }
-                            for row in values
-                            for descriptor in row.get("_fields", ())
-                        ]
+                        fields = []
+                        for row in values:
+                            descriptors = row.get("_fields", [])
+                            if not isinstance(descriptors, list):
+                                raise ValueError("frozen companion fields must be a JSON array")
+                            for descriptor in descriptors:
+                                if not isinstance(descriptor, dict):
+                                    raise ValueError("frozen companion field must be a JSON object")
+                                fields.append(
+                                    {
+                                        "product_id": row["product_id"],
+                                        "revision_id": row["revision_id"],
+                                        "family": row["family"],
+                                        "local_id": row["local_id"],
+                                        **descriptor,
+                                    }
+                                )
                         if fields:
                             write_rows("companion_field", fields)
 
             for family in ("header", "native", "membership"):
                 capture_rows(family)
-            for family in ("health", "input", "native_metadata"):
+            for family in (
+                "health",
+                "input",
+                "native_metadata",
+                "occurrence",
+                "relation",
+                "coverage",
+                "mapping_report",
+            ):
                 capture_rows("companion", {"family": family})
             stream_ids = sorted(required_streams)
             for start in range(0, len(stream_ids), 512):
@@ -745,12 +778,14 @@ def validate_pdf_build(
                 capture_rows("artifact_part", filters)
         _run_native_validation(capture, projection, check_active)
         with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
-            conn.execute(
-                text(
-                    "SELECT ops.record_pdf_native_validation(:build,:task,:attempt,:holder,"
-                    ":frozen,true)"
-                ),
-                params,
+            calls.record_pdf_native_validation(
+                conn,
+                build_id=frozen.build.build_id,
+                task_id=calls.TaskId(frozen.build.task_id),
+                attempt=calls.TaskAttempt(frozen.build.attempt),
+                holder=frozen.build.holder,
+                frozen_digest=frozen.frozen_digest,
+                passed=True,
             )
         with projection.open() as source:
             pending = []
@@ -758,12 +793,14 @@ def validate_pdf_build(
 
             def adopt_projection(rows):
                 with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
-                    conn.execute(
-                        text(
-                            "SELECT ops.adopt_pdf_access_batch(:build,:task,:attempt,:holder,:fro\
-zen,CAST(:rows AS jsonb))"
-                        ),
-                        {**params, "rows": json.dumps(rows)},
+                    calls.adopt_pdf_access_batch(
+                        conn,
+                        build_id=frozen.build.build_id,
+                        task_id=calls.TaskId(frozen.build.task_id),
+                        attempt=calls.TaskAttempt(frozen.build.attempt),
+                        holder=frozen.build.holder,
+                        frozen_digest=frozen.frozen_digest,
+                        rows=rows,
                     )
 
             for line in source:
@@ -778,43 +815,42 @@ zen,CAST(:rows AS jsonb))"
                 adopt_projection(pending)
         check_active()
         with _validation_transaction(engine, frozen, cancellation, check_active) as conn:
-            row = (
-                conn.execute(
-                    text(
-                        "SELECT * FROM ops.validate_pdf_build(:build,:task,:attempt,:holder,:froz\
-en)"
-                    ),
-                    params,
-                )
-                .mappings()
-                .one()
+            row = calls.validate_pdf_build(
+                conn,
+                build_id=frozen.build.build_id,
+                task_id=calls.TaskId(frozen.build.task_id),
+                attempt=calls.TaskAttempt(frozen.build.attempt),
+                holder=frozen.build.holder,
+                frozen_digest=frozen.frozen_digest,
             )
-        return PdfValidationOutcome(
-            row["frozen_digest"], row["logical_digest"], row["contract_digest"]
-        )
+        return PdfValidationOutcome(row.frozen_digest, row.logical_digest, row.contract_digest)
 
 
 def seal_pdf_build(
     conn: Connection, frozen: FrozenPdfBuildRef, product_key: str = "integrated"
 ) -> PublishedPdfDocumentRef:
-    row = (
-        conn.execute(
-            text("SELECT * FROM ops.seal_pdf_build(:build,:task,:attempt,:holder,:frozen,:key)"),
-            {**_parameters(frozen.build), "frozen": frozen.frozen_digest, "key": product_key},
-        )
-        .mappings()
-        .one()
+    row = calls.seal_pdf_build(
+        conn,
+        build_id=frozen.build.build_id,
+        task_id=calls.TaskId(frozen.build.task_id),
+        attempt=calls.TaskAttempt(frozen.build.attempt),
+        holder=frozen.build.holder,
+        frozen_digest=frozen.frozen_digest,
+        product_key=product_key,
     )
-    return _published(row)
+    return _published(row.model_dump(mode="python"))
 
 
 def retain_pdf_stage_recipe(
     conn: Connection, *, task_id: int, attempt: int, holder: str, recipe_bytes: bytes
 ) -> str:
-    return conn.execute(
-        text("SELECT ops.bind_pdf_stage_recipe(:task,:attempt,:holder,:recipe)"),
-        dict(task=task_id, attempt=attempt, holder=holder, recipe=recipe_bytes),
-    ).scalar_one()
+    return calls.bind_pdf_stage_recipe(
+        conn,
+        task_id=calls.TaskId(task_id),
+        attempt=calls.TaskAttempt(attempt),
+        holder=holder,
+        recipe=recipe_bytes,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -828,35 +864,46 @@ class PdfBuildState:
 def inspect_pdf_build(
     conn: Connection, *, task_id: int, attempt: int, holder: str, replay_key: str
 ) -> PdfBuildState | None:
-    row = (
-        conn.execute(
-            text("SELECT * FROM ops.lookup_pdf_build(:task,:attempt,:holder,:key)"),
-            dict(task=task_id, attempt=attempt, holder=holder, key=replay_key),
-        )
-        .mappings()
-        .one_or_none()
+    value = calls.lookup_pdf_build(
+        conn,
+        task_id=calls.TaskId(task_id),
+        attempt=calls.TaskAttempt(attempt),
+        holder=holder,
+        replay_key=replay_key,
     )
-    if row is None:
+    if value is None:
         return None
+    row = value.model_dump(mode="python")
     build = PdfBuildRef(**{f.name: row[f.name] for f in fields(PdfBuildRef) if f.init})
-    params = dict(build=build.build_id, task=task_id, attempt=attempt, holder=holder)
-    digest = conn.execute(
-        text("SELECT ops.lookup_pdf_frozen_digest(:build,:task,:attempt,:holder)"), params
-    ).scalar_one()
-    kind = conn.execute(
-        text("SELECT ops.lookup_pdf_frozen_kind(:build,:task,:attempt,:holder)"), params
-    ).scalar_one()
+    digest = calls.lookup_pdf_frozen_digest(
+        conn,
+        build_id=build.build_id,
+        task_id=calls.TaskId(task_id),
+        attempt=calls.TaskAttempt(attempt),
+        holder=holder,
+    )
+    kind = calls.lookup_pdf_frozen_kind(
+        conn,
+        build_id=build.build_id,
+        task_id=calls.TaskId(task_id),
+        attempt=calls.TaskAttempt(attempt),
+        holder=holder,
+    )
     published = None
     if row["state"] == "published":
-        value = (
-            conn.execute(
-                text("SELECT * FROM ops.lookup_pdf_published_build(:build,:task,:attempt,:holder)"),
-                params,
-            )
-            .mappings()
-            .one()
+        result = calls.lookup_pdf_published_build(
+            conn,
+            build_id=build.build_id,
+            task_id=calls.TaskId(task_id),
+            attempt=calls.TaskAttempt(attempt),
+            holder=holder,
         )
-        published = _published(value)
+        published = _published(result.model_dump(mode="python"))
+    if digest is not None and kind is None:
+        raise ValueError("frozen PDF digest is missing its publication kind")
     return PdfBuildState(
-        build, row["state"], FrozenPdfBuildRef(build, digest, kind) if digest else None, published
+        build,
+        row["state"],
+        FrozenPdfBuildRef(build, digest, kind) if digest and kind else None,
+        published,
     )

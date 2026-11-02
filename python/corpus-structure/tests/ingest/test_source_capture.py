@@ -1,24 +1,39 @@
 """Native Docling occurrence projections replace HTML lexical source capture."""
 
+import pytest
 from docling_core.types.doc import DocItemLabel, DoclingDocument
 
 from corpus_structure.ingest.pdf_hierarchy import (
     SectionPolicy,
     load_snapshot,
+    native_nodes,
     organize,
     project_section,
+    project_section_nodes,
     snapshot,
 )
 
 
-def test_native_item_identity_and_unicode_offsets_survive_section_projection():
+def project(retained, document, digest, section, membership, *, section_refs):
+    if retained:
+        nodes = {
+            pointer: node.model_dump(mode="json", by_alias=True)
+            for pointer, node in native_nodes(document).items()
+        }
+        return project_section_nodes(nodes, digest, section, membership, section_refs=section_refs)
+    return project_section(document, digest, section, membership, section_refs=section_refs)
+
+
+@pytest.mark.parametrize("retained", [False, True])
+def test_native_item_identity_and_unicode_offsets_survive_section_projection(retained):
     native = DoclingDocument(name="native Unicode occurrence fixture")
     native.add_heading(text="1.1: Sets", level=1)
     item = native.add_text(label=DocItemLabel.TEXT, text="Same \u03b1. Same \u03b1.")
     raw = snapshot(native)
     organized = organize(raw, SectionPolicy("fixture"))
     section = organized.sections[0].group_ref
-    projected = project_section(
+    projected = project(
+        retained,
         load_snapshot(organized.document),
         organized.document.digest,
         section,
@@ -30,7 +45,8 @@ def test_native_item_identity_and_unicode_offsets_survive_section_projection():
     assert raw.payload == snapshot(native).payload
 
 
-def test_rich_cell_subtree_retains_leaf_offsets_once_without_flattening_its_identity():
+@pytest.mark.parametrize("retained", [False, True])
+def test_rich_cell_subtree_retains_leaf_offsets_once_without_flattening_its_identity(retained):
     from docling_core.types.doc import GroupLabel, RichTableCell, TableData
 
     document = DoclingDocument(name="Rich native cell")
@@ -49,8 +65,13 @@ def test_rich_cell_subtree_retains_leaf_offsets_once_without_flattening_its_iden
             end_col_offset_idx=1,
         )
     ]
-    projection = project_section(
-        document, "a" * 64, section.self_ref, "direct", section_refs=frozenset({section.self_ref})
+    projection = project(
+        retained,
+        document,
+        "a" * 64,
+        section.self_ref,
+        "direct",
+        section_refs=frozenset({section.self_ref}),
     )
     assert projection.text == "For x+1"
     leaves = [piece for piece in projection.pieces if piece.kind == "native_text"]
@@ -63,7 +84,8 @@ def test_rich_cell_subtree_retains_leaf_offsets_once_without_flattening_its_iden
     assert cell.ref.cref == group.self_ref
 
 
-def test_chart_title_and_actual_cells_project_once_with_distinct_source_handles():
+@pytest.mark.parametrize("retained", [False, True])
+def test_chart_title_and_actual_cells_project_once_with_distinct_source_handles(retained):
     from docling_core.types.doc import (
         GroupLabel,
         PictureMeta,
@@ -114,8 +136,13 @@ def test_chart_title_and_actual_cells_project_once_with_distinct_source_handles(
             ),
         )
     )
-    projection = project_section(
-        document, "a" * 64, section.self_ref, "direct", section_refs=frozenset({section.self_ref})
+    projection = project(
+        retained,
+        document,
+        "a" * 64,
+        section.self_ref,
+        "direct",
+        section_refs=frozenset({section.self_ref}),
     )
     assert projection.text == "Measured output\nOutput\n3\n3"
     native_pieces = [piece for piece in projection.pieces if piece.kind == "native_text"]

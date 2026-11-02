@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from decimal import Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from functools import cache, reduce
 from operator import or_
 from typing import Annotated, Any, ForwardRef, Literal
@@ -28,6 +28,19 @@ _LITERAL: Any = Literal
 _ANNOTATED: Any = Annotated
 _TUPLE: Any = tuple
 _DICT: Any = dict
+
+
+def _numeric_bound(
+    value: str, representation: type | None, *, lower: bool
+) -> int | float | Decimal:
+    number = Decimal(value)
+    if representation is int:
+        return int(number.to_integral_value(rounding=ROUND_CEILING if lower else ROUND_FLOOR))
+    if representation is float:
+        # Match the float boundary's own representation. Decimal metadata is
+        # otherwise emitted as a string by JSON-mode schema encoders.
+        return float(number)
+    return number
 
 
 def _keyed_members(key: str):
@@ -182,10 +195,12 @@ def build_boundary_adapters(
                 annotation = _LITERAL[prop.equals_string]
             limits: dict[str, Any] = {}
             if prop.constraint_scope == "shape":
+                representation = primitive_types.get(prop.range)
+
                 if prop.minimum is not None:
-                    limits["ge"] = Decimal(prop.minimum)
+                    limits["ge"] = _numeric_bound(prop.minimum, representation, lower=True)
                 if prop.maximum is not None:
-                    limits["le"] = Decimal(prop.maximum)
+                    limits["le"] = _numeric_bound(prop.maximum, representation, lower=False)
                 if prop.patterns:
                     annotation = _ANNOTATED[
                         annotation, AfterValidator(_pattern_validator(prop.patterns))

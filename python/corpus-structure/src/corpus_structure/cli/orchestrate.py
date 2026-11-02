@@ -225,8 +225,11 @@ def run_finalize(
     from corpus_structure.orchestrate import commands
     from corpus_structure.semantic.domain_operations import DomainResult
 
-    with _refusals(), ENGINE(state(ctx).settings()) as engine:
-        result = commands.finalize_bound_run(engine, run_id, output_realization)
+    settings = state(ctx).settings()
+    with _refusals(), ENGINE(settings) as engine:
+        result = commands.finalize_bound_run(
+            engine, run_id, output_realization, analytics=settings.analytics
+        )
     emit(RootModel[DomainResult](result), json=json)
 
 

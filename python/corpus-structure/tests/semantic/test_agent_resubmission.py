@@ -46,6 +46,7 @@ def source_task(
     global_names=False,
     domain=None,
     evaluation_policy: bytes | None = None,
+    query_inputs: tuple[SourceArtifact, ...] = (),
 ):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
@@ -61,6 +62,10 @@ def source_task(
     if identity_keyed:
         schema["classes"]["Person"]["unique_keys"] = {"name": {"unique_key_slots": ["name"]}}
     deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []")
+    if query_inputs:
+        deps = ResolvedDependencies(
+            (*deps.artifacts, *query_inputs), deps.vocabularies, deps.ontology_sources
+        )
     if evaluation_policy is not None:
         deps = ResolvedDependencies(
             (*deps.artifacts, SourceArtifact("operation/evaluation-split.yaml", evaluation_policy)),
@@ -131,15 +136,16 @@ def source_task(
             metadata={"page": "source.html"},
             mime="application/pdf",
         )
-        (view,) = publish_controlled_pdf_views(
-            conn,
-            prepared=prepared,
-            run_id=run,
-            document_id=document,
-            original=original,
-            paragraphs=paragraphs,
-            keys=("source.html#people",),
-        )
+    (view,) = publish_controlled_pdf_views(
+        engine,
+        prepared=prepared,
+        run_id=run,
+        document_id=document,
+        original=original,
+        paragraphs=paragraphs,
+        keys=("source.html#people",),
+    )
+    with engine.begin() as conn:
         locator = view.ref.key
         (task,) = queue_agent(
             conn,

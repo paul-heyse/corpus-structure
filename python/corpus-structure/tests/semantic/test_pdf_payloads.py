@@ -172,6 +172,35 @@ def test_arrow_physical_validity_does_not_replace_requiredness(family):
         family.decode(sink.getvalue().to_pybytes())
 
 
+def test_admitted_projection_reads_only_selected_columns_without_logical_rescan(
+    family, monkeypatch
+):
+    import corpus_structure.semantic.pdf_payloads as payloads
+
+    content = family.encode(inventory(), compression="zstd")
+
+    def refuse_logical_rescan(*args, **kwargs):
+        raise AssertionError("admitted projection must not walk unrelated logical page values")
+
+    monkeypatch.setattr(payloads, "_canonical_scalar", refuse_logical_rescan)
+    batch = family.read_batch(
+        content, schema_digest=family.schema_digest, columns=("page_no", "candidates")
+    )
+    assert batch.schema.names == ["page_no", "candidates"]
+    assert batch.column("page_no")[0].as_py() == 1
+    assert batch.column("candidates")[0].values.field("basis")[0].as_py() == "ocr-word-token-v1"
+    with pytest.raises(PayloadContractError, match="whole-page logical identity"):
+        family.read_batch(content, columns=("page_no",), logical_digest="0" * 64)
+    with pytest.raises(PayloadContractError, match="schema/profile"):
+        other = PreparedPayloadFamily(
+            family.json_schema,
+            family.arrow_schema.with_metadata({"other": "profile"}),
+            family.schema_digest,
+            family.validator,
+        )
+        other.read_batch(content, columns=("page_no",))
+
+
 def test_schema_capture_preserves_exact_decimal_constraints():
     schema = {"type": "number", "minimum": Decimal("1.0000000000000000001")}
     restored = schema_load(schema_dump(schema))

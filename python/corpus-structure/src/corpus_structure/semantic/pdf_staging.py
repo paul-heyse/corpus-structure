@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, fields
-from typing import Any
 
 import pyarrow as pa
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 
+from . import _operation_calls as calls
 from .arrow_transfer import ArrowWriteProfile, copy_arrow_stream
 from .pdf_record_model import record_arrow_schema, record_write_profile
 
@@ -125,12 +125,6 @@ def artifact_profile(kind: str) -> str:
     return profiles[kind]
 
 
-def _parameters(build: PdfBuildRef) -> dict[str, Any]:
-    return dict(
-        build=build.build_id, task=build.task_id, attempt=build.attempt, holder=build.holder
-    )
-
-
 def begin_pdf_build(
     conn: Connection,
     *,
@@ -143,25 +137,16 @@ def begin_pdf_build(
     replay_key: str,
     release_id: str | None = None,
 ) -> PdfBuildRef:
-    row = (
-        conn.execute(
-            text(
-                "SELECT * FROM ops.begin_pdf_build("
-                ":task,:attempt,:holder,:source,:recipe,:schema,:key)"
-            ),
-            dict(
-                task=task_id,
-                attempt=attempt,
-                holder=holder,
-                source=source_digest,
-                recipe=recipe_digest,
-                schema=schema_digest,
-                key=replay_key,
-            ),
-        )
-        .mappings()
-        .one()
-    )
+    row = calls.begin_pdf_build(
+        conn,
+        task_id=calls.TaskId(task_id),
+        attempt=calls.TaskAttempt(attempt),
+        holder=holder,
+        source_digest=source_digest,
+        recipe_digest=recipe_digest,
+        schema_digest=schema_digest,
+        replay_key=replay_key,
+    ).model_dump(mode="python")
     if release_id is not None and row["release_id"] != release_id:
         raise ValueError("PDF build release differs from requested release")
     return PdfBuildRef(**{f.name: row[f.name] for f in fields(PdfBuildRef) if f.init})
@@ -181,8 +166,12 @@ def adopt_pdf_batch(
     names = [stage_relation(name) for name in relations]
     if len(set(names)) != len(names):
         raise ValueError("one input stream per stage relation")
-    conn.execute(
-        text("SELECT ops.prepare_pdf_stage(:build,:task,:attempt,:holder)"), _parameters(build)
+    calls.prepare_pdf_stage(
+        conn,
+        build_id=build.build_id,
+        task_id=calls.TaskId(build.task_id),
+        attempt=calls.TaskAttempt(build.attempt),
+        holder=build.holder,
     )
     count = size = 0
 
@@ -205,26 +194,27 @@ def adopt_pdf_batch(
         )
     if cancellation is not None:
         cancellation.check_active()
-    params = {**_parameters(build), "key": replay_key}
-    row = (
-        conn.execute(
-            text("SELECT * FROM ops.adopt_pdf_batch(:build,:task,:attempt,:holder,:key)"), params
-        )
-        .mappings()
-        .one()
+    row = calls.adopt_pdf_batch(
+        conn,
+        build_id=build.build_id,
+        task_id=calls.TaskId(build.task_id),
+        attempt=calls.TaskAttempt(build.attempt),
+        holder=build.holder,
+        replay_key=replay_key,
     )
-    return PdfStageReceipt(
-        row["build_id"], row["replay_key"], row["content_digest"], row["row_count"]
-    )
+    return PdfStageReceipt(row.build_id, row.replay_key, row.content_digest, row.row_count)
 
 
 def inspect_pdf_progress(conn: Connection, build: PdfBuildRef) -> tuple[PdfStageReceipt, ...]:
-    rows = conn.execute(
-        text("SELECT * FROM ops.inspect_pdf_progress(:build,:task,:attempt,:holder)"),
-        _parameters(build),
-    ).mappings()
+    rows = calls.inspect_pdf_progress(
+        conn,
+        build_id=build.build_id,
+        task_id=calls.TaskId(build.task_id),
+        attempt=calls.TaskAttempt(build.attempt),
+        holder=build.holder,
+    )
     return tuple(
-        PdfStageReceipt(row["build_id"], row["replay_key"], row["content_digest"], row["row_count"])
+        PdfStageReceipt(row.build_id, row.replay_key, row.content_digest, row.row_count)
         for row in rows
     )
 
@@ -232,16 +222,25 @@ def inspect_pdf_progress(conn: Connection, build: PdfBuildRef) -> tuple[PdfStage
 def resume_pdf_build(
     conn: Connection, build: PdfBuildRef, *, attempt: int, holder: str
 ) -> PdfBuildRef:
-    params = {**_parameters(build), "attempt": attempt, "holder": holder}
-    conn.execute(text("SELECT ops.resume_pdf_build(:build,:task,:attempt,:holder)"), params)
+    calls.resume_pdf_build(
+        conn,
+        build_id=build.build_id,
+        task_id=calls.TaskId(build.task_id),
+        attempt=calls.TaskAttempt(attempt),
+        holder=holder,
+    )
     from dataclasses import replace
 
     return replace(build, attempt=attempt, holder=holder)
 
 
 def abandon_pdf_build(conn: Connection, build: PdfBuildRef) -> None:
-    conn.execute(
-        text("SELECT ops.abandon_pdf_build(:build,:task,:attempt,:holder)"), _parameters(build)
+    calls.abandon_pdf_build(
+        conn,
+        build_id=build.build_id,
+        task_id=calls.TaskId(build.task_id),
+        attempt=calls.TaskAttempt(build.attempt),
+        holder=build.holder,
     )
 
 

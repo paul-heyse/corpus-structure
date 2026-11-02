@@ -9,11 +9,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from threading import RLock
-from typing import TypeVar
+from typing import Any, Literal, TypeVar
 
 from sqlalchemy import Engine
 
+from corpus_structure.core.method import SourceViewDraft
 from corpus_structure.semantic.operations import BoundReader
+from corpus_structure.semantic.product_reference import ProductReference
 
 _T = TypeVar("_T")
 
@@ -67,6 +69,27 @@ class ScopedSourceReader:
         return self._read(
             lambda reader: reader.native_document(
                 reference, include_candidate_pages=include_candidate_pages
+            )
+        )
+
+    def native_section_drafts(
+        self,
+        reference: ProductReference,
+        *,
+        document_id: int,
+        selections: tuple[str, ...],
+        membership: Literal["direct", "descendants"],
+        scope: Any,
+        consumer_release: str,
+    ) -> tuple[SourceViewDraft, ...]:
+        return self._read(
+            lambda reader: reader.native_section_drafts(
+                reference,
+                document_id=document_id,
+                selections=selections,
+                membership=membership,
+                scope=scope,
+                consumer_release=consumer_release,
             )
         )
 

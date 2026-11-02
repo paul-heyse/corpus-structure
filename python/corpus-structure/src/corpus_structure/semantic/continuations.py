@@ -35,14 +35,28 @@ class _NamedToken(BaseModel):
     revision: int
     projection: str
     arithmetic: str
+    token_version: Literal[2]
+    query_contract: str
+    implementation: str
+    compatibility: str
 
 
 def decode_continuation(token: str, *, kind: Literal["primitive", "named"]) -> dict[str, Any]:
     try:
         data = base64.b64decode(token.encode("ascii"), altchars=b"-_", validate=True)
+        header = json.loads(data) if kind == "named" else None
+        if isinstance(header, dict) and (
+            type(header.get("token_version")) is not int or header.get("token_version") != 2
+        ):
+            from .query_compatibility import QueryCompatibilityError
+
+            raise QueryCompatibilityError(
+                "unsupported named-query continuation reader; start a new supported query",
+                reason="unsupported_query_token",
+            )
         model = _PrimitiveToken if kind == "primitive" else _NamedToken
         return model.model_validate_json(data, strict=True).model_dump()
-    except (UnicodeError, binascii.Error, ValidationError) as error:
+    except (UnicodeError, binascii.Error, json.JSONDecodeError, ValidationError) as error:
         raise InvalidContinuation("invalid continuation token") from error
 
 

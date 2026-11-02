@@ -58,7 +58,7 @@ def test_unique_unnumbered_aliases_preserve_existing_selection():
         resolve_native_sections(catalog, ["1.2: Sets"])
 
 
-def test_reader_resolves_catalog_before_descendant_and_maximal_root_selection():
+def test_reader_resolves_catalog_before_descendant_and_maximal_root_selection(monkeypatch):
     product = ProductReference(2, "organized", "a" * 64)
     selected = []
     rows = []
@@ -84,8 +84,52 @@ def test_reader_resolves_catalog_before_descendant_and_maximal_root_selection():
             ancestors=[{"self_ref": "#/groups/11", "name": "1.1: Sets"}],
         )
     )
+    # The scope reader now loads placement/ancestor metadata first, then hydrates only the
+    # requested native pointers through the published port. Keep catalog expectations independent.
+    release = "selected-consumer-release"
+    placement = "published-build"
+    values = {row["section"]["self_ref"]: row["section"] for row in rows}
+    raw = [
+        dict(
+            id=row["id"],
+            release_id=release,
+            native_build_id=placement,
+            native_revision_id=placement,
+            ancestors=[parent["self_ref"] for parent in row["ancestors"]],
+        )
+        for row in rows
+    ]
     conn = Mock()
-    conn.execute.return_value.mappings.return_value = rows
+    conn.execute.return_value.mappings.return_value.all.return_value = raw
+    context = object()
+
+    class PublishedReader:
+        def __init__(self):
+            self.revision = dict(
+                build_id=placement,
+                task_id=2,
+                product_key="organized",
+                logical_digest="a" * 64,
+                release_id="original-producer-release",
+            )
+
+        def selected_native_items(self, pointers):
+            assert set(pointers) == set(values)
+            return {pointer: values[pointer] for pointer in pointers}
+
+    def published_reader(connection, reference, *, projection_context):
+        assert connection is conn and reference == product
+        assert projection_context is context
+        return PublishedReader()
+
+    def open_release(connection, release_id):
+        assert connection is conn and release_id == release
+        return context
+
+    monkeypatch.setattr("corpus_structure.semantic.releases.open_release", open_release)
+    monkeypatch.setattr(
+        "corpus_structure.semantic.pdf_record_reader.published_record_reader", published_reader
+    )
     scope = {"sections": SELECTORS, "include_descendants": True}
     assert [ref.section_pointer for ref in scope_source_views(conn, selected, scope)] == [
         "#/groups/11",

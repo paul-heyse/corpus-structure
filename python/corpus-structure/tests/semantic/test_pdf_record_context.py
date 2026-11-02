@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError, NoResultFound
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
 from corpus_structure.semantic.product_reference import ProductReference
@@ -185,10 +185,42 @@ def test_shared_native_context_budget_refuses_instead_of_truncating(context_data
         )
 
 
+def test_context_family_filter_precedes_unrelated_body_decoding(context_database):
+    # Instrument only this isolated component fixture's decoder. Retained rows stay
+    # unchanged; a whole-context request demonstrates that the unrelated branch is live.
+    with context_database.begin() as conn:
+        conn.exec_driver_sql(
+            """
+          ALTER FUNCTION ops.pdf_companion_body(text,text,text,text,jsonb)
+            RENAME TO context_original_companion_body;
+          CREATE FUNCTION ops.pdf_companion_body(p_product text,p_revision text,p_family text,
+            p_local text,p_body jsonb) RETURNS jsonb
+          LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+          BEGIN
+            IF p_family<>'coverage' THEN
+              RAISE EXCEPTION 'unrelated companion body decoded: %',p_family;
+            END IF;
+            RETURN ops.context_original_companion_body(
+              p_product,p_revision,p_family,p_local,p_body);
+          END $$;
+        """,
+            execution_options={"no_parameters": True},
+        )
+        reader = PublishedPdfReader(conn, ProductReference(42, "chosen", "f" * 64))
+        selected = list(reader.context_rows("coverage", ["#/texts/0"], "#/body"))
+        assert [row["local_id"] for row in selected] == ["c"]
+        assert selected[0]["body"]["scope"] == "page:1"
+        with (
+            pytest.raises(DBAPIError, match="unrelated companion body decoded"),
+            conn.begin_nested(),
+        ):
+            reader.source_context(["#/texts/0"], "#/body")
+
+
 def test_shared_native_context_wrong_pin_refuses(context_database):
     with (
         context_database.connect() as conn,
-        pytest.raises(NoResultFound, match=r"row was found|available|No row"),
+        pytest.raises(ValueError, match="published native revision is absent"),
     ):
         PublishedPdfReader(conn, ProductReference(42, "chosen", "e" * 64))
 

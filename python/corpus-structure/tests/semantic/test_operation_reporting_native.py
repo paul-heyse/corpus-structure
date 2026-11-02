@@ -1,0 +1,202 @@
+"""Real archived-release CLI/MCP observations, including native admission refusal."""
+
+import json
+from dataclasses import replace
+
+import anyio
+from fastmcp import Client
+
+from corpus_structure.intervene.semantic_server import SemanticProjectSession, build_semantic_server
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.releases import persist_release
+from corpus_structure.semantic.types import SourceArtifact
+from corpus_structure.settings import Settings
+
+from .test_operation_reporting import prepared, report_inputs
+
+
+def test_actual_cli_and_mcp_reports_share_archived_meaning_and_located_refusal(
+    semantic_db_engine,
+    semantic_reader_engine,
+    cli,
+):
+    release = prepared()
+    bundle, deps, profile = report_inputs()
+    with semantic_db_engine.begin() as conn:
+        persist_release(conn, bundle, deps, profile, release)
+    settings = Settings(
+        database={
+            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+                hide_password=False
+            )
+        }
+    )
+    explained = cli(
+        "schema",
+        "explain-operation",
+        "claim",
+        "--release",
+        release.release_id,
+        "--json",
+        settings=lambda: settings,
+    )
+    assert explained.exit_code == 0, explained.output
+    observation = json.loads(explained.stdout)
+    assert observation["operation"] == "claim"
+    assert not observation["complete"]
+    assert any(c["status"] == "unresolved" for c in observation["checks"])
+    # Frozen84 supplies the required native realization. Observation alone still
+    # grants no mutable task ownership and attempts no claim effect.
+    native = next(
+        c for c in observation["checks"] if c["owner"] == "sem.require_execution_operation"
+    )
+    assert native["status"] == "applicable"
+    compared = cli(
+        "schema",
+        "diff",
+        release.release_id,
+        release.release_id,
+        "--json",
+        settings=lambda: settings,
+    )
+    assert compared.exit_code == 0, compared.output
+    impact = json.loads(compared.stdout)
+    assert impact["changes"] == []
+    assert any("helper body not analyzed" in item for item in impact["unknowns"])
+    invalid = cli(
+        "schema",
+        "explain-operation",
+        "not_declared",
+        "--release",
+        release.release_id,
+        "--json",
+        settings=lambda: settings,
+    )
+    assert invalid.exit_code == 1, invalid.output
+    assert (
+        json.loads(invalid.stdout)["error"]["validation"]["observations"][0]["category"]
+        == "unassessed"
+    )
+
+    async def journey():
+        server = build_semantic_server(SemanticProjectSession(semantic_reader_engine, "reports"))
+        async with Client(server) as client:
+            answer = await client.call_tool(
+                "explain_operation",
+                {
+                    "release": release.release_id,
+                    "operation": "claim",
+                },
+            )
+            assert answer.structured_content is not None
+            result = answer.structured_content
+            assert result["model_id"] == observation["model_id"]
+            assert result["checks"] == observation["checks"]
+            difference = await client.call_tool(
+                "compare_semantic_releases",
+                {
+                    "before": release.release_id,
+                    "after": release.release_id,
+                },
+            )
+            assert difference.structured_content == impact
+
+    anyio.run(journey)
+
+
+def test_actual_diff_preserves_selection_dependencies_and_declared_consumer_unknowns(
+    semantic_db_engine,
+    semantic_reader_engine,
+    cli,
+):
+    """Change retained recipe inputs, rather than fabricating an analysis result."""
+    import yaml
+
+    bundle, deps, profile = report_inputs()
+    path = "execution/implementation/capture/companion-projection-model.yaml"
+    source = next(item for item in deps.artifacts if item.name == path)
+    model = yaml.safe_load(source.content)
+    declaration = model["classes"]["PublishedCoverageRow"]["annotations"]
+    recipe = json.loads(declaration["cp:recipe"])
+    recipe["predicate"] = {
+        "all": [
+            recipe["predicate"],
+            {"equal": [{"field": ["c", "local_id"]}, {"constant": "selected-only"}]},
+        ]
+    }
+    declaration["cp:recipe"] = json.dumps(recipe)
+    changed = replace(
+        deps,
+        artifacts=tuple(
+            SourceArtifact(item.name, yaml.safe_dump(model).encode()) if item.name == path else item
+            for item in deps.artifacts
+        ),
+    )
+    changed_bundle = replace(
+        bundle,
+        sources=tuple(
+            SourceArtifact(item.name, item.content.replace(b"required: true", b"required: false"))
+            for item in bundle.sources
+        ),
+    )
+    before = prepare_release(bundle, deps, profile)
+    after = prepare_release(changed_bundle, changed, profile)
+    with semantic_db_engine.begin() as conn:
+        persist_release(conn, bundle, deps, profile, before)
+        persist_release(conn, changed_bundle, changed, profile, after)
+    settings = Settings(
+        database={
+            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+                hide_password=False
+            )
+        }
+    )
+    result = cli(
+        "schema",
+        "diff",
+        before.release_id,
+        after.release_id,
+        "--json",
+        settings=lambda: settings,
+    )
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    where = next(
+        item
+        for item in report["changes"]
+        if item["model_ref"] == "projection:coverage"
+        and item["aspect"] == "relational_dependencies"
+    )
+    assert "physical:kb.pdf_record_companion.local_id" in where["reason"]
+    assert "ops.read_published_coverage_batch" in where["consumers"]
+    assert "corpus_structure.serve.companion_export.export_companion_parquet" in where["consumers"]
+    changed_class = next(item for item in report["changes"] if item["model_ref"] == "class:Thing")
+    assert changed_class["members"] == [
+        {
+            "kind": "changed",
+            "model_path": "class:Thing/properties/label/minimum_cardinality",
+            "before": {"kind": "integer", "integer": 1},
+            "after": {"kind": "null"},
+        },
+        {
+            "kind": "changed",
+            "model_path": "class:Thing/properties/label/required",
+            "before": {"kind": "boolean", "boolean": True},
+            "after": {"kind": "boolean", "boolean": False},
+        },
+    ]
+    assert report["before_release"] == before.release_id
+    assert report["after_release"] == after.release_id
+    assert not report["complete"]
+    assert any("helper body not analyzed" in value for value in report["unknowns"])
+
+    async def journey():
+        server = build_semantic_server(SemanticProjectSession(semantic_reader_engine, "impact"))
+        async with Client(server) as client:
+            answer = await client.call_tool(
+                "compare_semantic_releases",
+                dict(before=before.release_id, after=after.release_id),
+            )
+            assert answer.structured_content == report
+
+    anyio.run(journey)

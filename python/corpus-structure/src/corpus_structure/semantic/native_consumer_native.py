@@ -14,6 +14,24 @@ from .source_view_native import RELATIONS, native_admission_sql
 DERIVATION = "kb.native_document_derivation"
 
 
+def native_task_completion_sql(context=None) -> str:
+    """One rendered completion source for normal products and native authoring."""
+    from .native_shapes import record_shape_guards
+    from .pdf_contracts import trusted_pdf_context
+
+    context = trusted_pdf_context() if context is None else context
+    return (
+        Path(__file__)
+        .with_name("sql")
+        .joinpath("native_task_completion.sql")
+        .read_text()
+        .replace(
+            "-- {native_input_shape_guard}",
+            record_shape_guards(context.boundary, "PdfNativeObservationInput", "native_input"),
+        )
+    )
+
+
 def native_consumer_products(model=None):
     from .native_shapes import record_shape_guards
     from .pdf_contracts import pdf_shape_guard_sql, trusted_pdf_context
@@ -81,10 +99,7 @@ def native_consumer_products(model=None):
         "-- {source_view_shape_guard}",
         record_shape_guards(context.boundary, "PdfSourceViewPublication", "product"),
     ) + "\n"
-    sql += (source / "native_task_completion.sql").read_text().replace(
-        "-- {native_input_shape_guard}",
-        record_shape_guards(context.boundary, "PdfNativeObservationInput", "native_input"),
-    ) + "\n"
+    sql += native_task_completion_sql(context) + "\n"
     physical, kernels, _ = closure_products(model)
     for raw in parse_sql(kernels.content.decode()):
         stmt = raw.stmt

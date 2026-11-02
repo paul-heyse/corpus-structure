@@ -6,6 +6,7 @@ import json
 import math
 from collections.abc import Generator, Iterator, Mapping
 from hashlib import sha256
+from types import SimpleNamespace
 from typing import Any, Literal
 from unittest.mock import Mock
 
@@ -55,6 +56,11 @@ class NativeRows(PublishedPdfReader):
 
     def product_kind(self) -> Literal["native", "integrated"]:
         return "integrated"
+
+    def _native_schema_mapping(self):
+        from corpus_structure.semantic.pdf_records import prepare_native_schema_mapping
+
+        return prepare_native_schema_mapping()
 
     def iter_companion_export_events(self, family):
         for body in self.iter_companions(family):
@@ -274,7 +280,7 @@ def test_record_pages_close_result_before_yield_and_bind_same_pin():
             self.owner.open = False
 
         def __iter__(self):
-            return iter((r,) for r in self.rows)
+            return iter((json.dumps(r),) for r in self.rows)
 
     class Connection:
         open = False
@@ -282,7 +288,8 @@ def test_record_pages_close_result_before_yield_and_bind_same_pin():
         def __init__(self):
             self.calls = []
 
-        def execute(self, statement, values):
+        def execute(self, statement):
+            values = statement.compile().params
             self.calls.append(values)
             after = values["after"]
             rows = [{"record_id": "one", "_cursor": ["one"]}] if after is None else []
@@ -296,10 +303,46 @@ def test_record_pages_close_result_before_yield_and_bind_same_pin():
     assert next(rows) == {"record_id": "one"}
     assert not backing.open
     assert list(rows) == []
-    assert backing.calls[1]["after"] == '["one"]'
-    assert {(c["task"], c["product"], c["digest"]) for c in backing.calls} == {
+    assert backing.calls[1]["after"] == ["one"]
+    assert {(c["task_id"], c["product_key"], c["content_digest"]) for c in backing.calls} == {
         (42, "integrated", "f" * 64)
     }
+
+
+@pytest.mark.parametrize("assessment", ["absent", "present", "ambiguous"])
+def test_compact_record_descriptor_preserves_health_availability_without_hydration(
+    monkeypatch, assessment
+):
+    reader = object.__new__(PublishedPdfReader)
+    reader.revision = dict(kind="integrated", release_id="producer-release")
+    producer = Mock()
+    monkeypatch.setattr(reader, "_payload_context", lambda: SimpleNamespace(execution=producer))
+    health = [dict(source_scope="whole_document", conversion="success")]
+    if assessment != "absent":
+        health.append(dict(source_fidelity="unassessed", execution_outcome="succeeded"))
+    if assessment == "ambiguous":
+        health.append(dict(source_fidelity="unknown", execution_outcome="succeeded"))
+
+    def rows(family, filters, **kwargs):
+        assert family == "companion" and filters == {"family": "health"}
+        yield from (dict(body=value) for value in health)
+
+    def refuse_hydration(*args, **kwargs):
+        raise AssertionError("compact metadata must not hydrate native content")
+
+    monkeypatch.setattr(reader, "iter_rows", rows)
+    monkeypatch.setattr(reader, "hydrate_document", refuse_hydration)
+    if assessment == "ambiguous":
+        with pytest.raises(ValueError, match="health inventory is ambiguous"):
+            reader.product_descriptor()
+    else:
+        descriptor = reader.product_descriptor()
+        assert descriptor["version"] == 2 and descriptor["revision"] == reader.revision
+        if assessment == "absent":
+            assert "health" not in descriptor
+        else:
+            assert descriptor["health"] == health[1]
+    producer.require_operation.assert_called_once_with("read_pdf_product")
 
 
 @pytest.mark.parametrize("large", [False, True])

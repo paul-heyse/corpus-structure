@@ -172,6 +172,110 @@ def test_default_mcp_and_direct_share_protected_direction_log(
         assert [row.actor for row in rows] == ["agent:session", "human:operator"]
         assert all(row.body["scope"] == "all" for row in rows)
 
+    from psycopg.errors import CheckViolation
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic.operations import end_source_run
+
+    statement = text("SELECT ops.record_direction(:run,:actor,:session,CAST(:body AS jsonb))")
+    valid = dict(
+        run=run,
+        actor="independent:writer",
+        session="independent:session",
+        body=json.dumps(dict(text="Keep uncertainty.", scope="all", project_id="resubmit")),
+    )
+    # Direct writers retain the same scope/input guards independently of the tool facade.
+    for changed in (
+        {"actor": ""},
+        {"session": ""},
+        {"body": json.dumps(dict(text="Keep uncertainty.", scope="all", project_id="other"))},
+        {"body": json.dumps(dict(scope="all", project_id="resubmit"))},
+    ):
+        with semantic_writer_engine.begin() as conn:
+            with pytest.raises(DBAPIError) as refused, conn.begin_nested():
+                conn.execute(statement, valid | changed)
+            assert isinstance(refused.value.orig, CheckViolation)
+            assert refused.value.orig.sqlstate == "23514"
+            assert "direction run binding differs" in str(refused.value.orig)
+            assert len(conn.execute(select(log.c.id).where(log.c.run_id == run)).all()) == 2
+
+    with semantic_writer_engine.begin() as conn:
+        end_source_run(conn, run)
+    with semantic_writer_engine.begin() as conn:
+        with pytest.raises(DBAPIError) as inactive, conn.begin_nested():
+            conn.execute(statement, valid)
+        assert isinstance(inactive.value.orig, CheckViolation)
+        assert inactive.value.orig.sqlstate == "23514"
+        assert "run no longer active" in str(inactive.value.orig)
+        assert len(conn.execute(select(log.c.id).where(log.c.run_id == run)).all()) == 2
+
+
+def test_direction_native_refuses_genuine_unbound_semantic1_run(
+    semantic_db_engine, semantic_writer_engine
+):
+    import json
+
+    from psycopg.errors import CheckViolation
+    from sqlalchemy import insert
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
+    from corpus_structure.semantic.operations import OperationBinding, create_run
+    from corpus_structure.semantic.releases import persist_release
+
+    from .test_releases import source_bundle
+
+    bundle = source_bundle()
+    dependencies = ResolvedDependencies()
+    profile = PreparationProfile()
+    prepared = prepare_release(bundle, dependencies, profile)
+    assert profile.version == "semantic-1" and prepared.execution_model_id is None
+    with semantic_db_engine.begin() as conn:
+        persist_release(conn, bundle, dependencies, profile, prepared)
+        conn.execute(insert(table("data.project")).values(project_id="unbound-direction"))
+        conn.execute(
+            insert(table("data.realization")).values(
+                project_id="unbound-direction",
+                realization_id="unbound-direction-input",
+                release_id=prepared.release_id,
+            )
+        )
+    with semantic_writer_engine.begin() as conn:
+        run = create_run(
+            conn,
+            project_id="unbound-direction",
+            binding=OperationBinding(prepared.release_id, "unbound-direction-input", 0, b"{}"),
+            kind="full",
+            options={},
+            code_commit="direction qualification",
+        )
+        with pytest.raises(DBAPIError) as refused, conn.begin_nested():
+            conn.execute(
+                text(
+                    "SELECT ops.record_direction(:run,'independent:writer','session',"
+                    "CAST(:body AS jsonb))"
+                ),
+                dict(
+                    run=run,
+                    body=json.dumps(
+                        dict(text="Keep uncertainty.", scope="all", project_id="unbound-direction")
+                    ),
+                ),
+            )
+        assert isinstance(refused.value.orig, CheckViolation)
+        assert refused.value.orig.sqlstate == "23514"
+        assert "direction requires a composed run release declaring record_direction" in str(
+            refused.value.orig
+        )
+        assert (
+            conn.execute(
+                select(table("ops.intervention").c.id).where(
+                    table("ops.intervention").c.run_id == run
+                )
+            ).all()
+            == []
+        )
+
 
 def test_default_cli_mcp_stdio_starts_with_protocol_response(semantic_db_engine):
     import json

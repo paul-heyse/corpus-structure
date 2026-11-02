@@ -14,8 +14,8 @@ REVOKE ALL ON FUNCTION ops.native_scope_items(bigint,text,text,text) FROM PUBLIC
 CREATE OR REPLACE FUNCTION ops.publish_source_view(p_run bigint,p_task bigint,p_attempt bigint,p_holder text,p_position bigint,p_payload bytea,p_recipe bytea) RETURNS bigint
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $view$
 DECLARE job ops.task; run ops.run; product jsonb; parsing_item jsonb; projection jsonb; piece jsonb;
- native ops.pdf_selected_product; section kb.native_document_item; previous kb.source_view; result bigint;
- pos bigint:=0; stop bigint; node jsonb; spelling text; piece_pointer text; expected jsonb; coverage_universe text; local_coverage text; coverage_row kb.native_document_coverage;
+ native ops.pdf_selected_product; placement ops.pdf_published_revision; section kb.pdf_record_access; previous kb.source_view; result bigint;
+ pos bigint:=0; stop bigint; node jsonb; spelling text; piece_pointer text; expected jsonb; coverage_universe text; local_coverage text; coverage_row record; coverage_rows jsonb;
 BEGIN
  SELECT * INTO STRICT run FROM ops.run WHERE id=p_run FOR SHARE;
  SELECT * INTO STRICT job FROM ops.task WHERE id=p_task AND run_id=p_run FOR UPDATE;
@@ -28,6 +28,8 @@ BEGIN
  product->>'projection_digest' IS DISTINCT FROM encode(sha256(convert_to(data.canonical_json(projection),'UTF8')),'hex') THEN
  RAISE EXCEPTION 'source view recipe/projection identity differs' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT native FROM ops.pdf_selected_product WHERE task_id=(product->>'native_task_id')::bigint AND product_key=product->>'native_product_key' AND content_digest=product->>'native_content_digest';
+ SELECT * INTO STRICT placement FROM ops.read_pdf_published_revision(native.task_id,native.product_key,native.content_digest);
+ PERFORM sem.require_execution_operation(placement.release_id,'read_native_source');
  -- Cross-release reuse is explicitly pinned to an archived native schema and producer contract.
  IF NOT EXISTS(SELECT FROM kb.document d JOIN ops.source_build b ON b.artifact_digest=d.content_hash JOIN ops.task t ON t.id=b.task_id JOIN ops.run r ON r.id=t.run_id
  WHERE d.id=(product->>'document_id')::bigint AND d.project_id=run.project_id AND b.task_id=native.task_id AND r.project_id=run.project_id AND EXISTS(SELECT FROM ops.source_build own WHERE own.task_id=p_task AND own.artifact_digest=b.artifact_digest)) THEN
@@ -35,19 +37,19 @@ BEGIN
  IF NOT EXISTS(SELECT FROM sem.input WHERE release_id=native.release_id AND input_kind='dependency' AND input_name='execution/schema/pdf_products' AND encode(sha256(content),'hex')=native.contract_digest)
  OR NOT EXISTS(SELECT FROM sem.input WHERE release_id=run.release_id AND input_kind='dependency' AND input_name='execution/implementation/pdf/docling-validation.schema.json' AND encode(sha256(content),'hex')=native.schema_digest) THEN
  RAISE EXCEPTION 'native producer/consumer schema compatibility is unavailable' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT section FROM kb.native_document_item WHERE task_id=native.task_id AND product_key=native.product_key AND pointer=product->>'section_pointer';
+ SELECT * INTO STRICT section FROM kb.pdf_record_access WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=product->>'section_pointer';
  IF section.label NOT IN ('section','chapter') THEN RAISE EXCEPTION 'source view requires admitted section container' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM jsonb_array_elements_text(projection->'items') ptr WHERE NOT EXISTS(SELECT FROM kb.native_document_item WHERE task_id=native.task_id AND product_key=native.product_key AND pointer=ptr))
- OR EXISTS(SELECT FROM jsonb_array_elements_text(COALESCE(projection->'ancestors','[]')) ptr WHERE NOT EXISTS(SELECT FROM kb.native_document_item WHERE task_id=native.task_id AND product_key=native.product_key AND pointer=ptr)) THEN
+ IF EXISTS(SELECT FROM jsonb_array_elements_text(projection->'items') ptr WHERE NOT EXISTS(SELECT FROM kb.pdf_record_access WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=ptr))
+ OR EXISTS(SELECT FROM jsonb_array_elements_text(COALESCE(projection->'ancestors','[]')) ptr WHERE NOT EXISTS(SELECT FROM kb.pdf_record_access WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=ptr)) THEN
  RAISE EXCEPTION 'source view references an unqualified occurrence' USING ERRCODE='23514'; END IF;
  IF (SELECT count(*) FROM jsonb_array_elements_text(projection->'items'))<>(SELECT count(DISTINCT value) FROM jsonb_array_elements_text(projection->'items')) THEN
  RAISE EXCEPTION 'source view repeats an occurrence' USING ERRCODE='23514'; END IF;
- SELECT COALESCE(jsonb_agg(pointer ORDER BY ordinal),'[]'::jsonb) INTO expected FROM kb.native_document_item
- WHERE task_id=native.task_id AND product_key=native.product_key AND pointer IN (SELECT ops.native_scope_items(native.task_id,native.product_key,section.pointer,product->>'membership'));
+ SELECT COALESCE(jsonb_agg(pointer ORDER BY ordinal),'[]'::jsonb) INTO expected FROM kb.pdf_record_access
+ WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer IN (SELECT pointer FROM ops.read_pdf_published_section_nodes(native.task_id,native.product_key,native.content_digest,section.pointer,product->>'membership') WHERE role='selected');
  IF projection->'items' IS DISTINCT FROM expected THEN RAISE EXCEPTION 'source view membership/order is incomplete or differs' USING ERRCODE='23514'; END IF;
  WITH RECURSIVE ancestry AS (
- SELECT p.*,0 depth FROM kb.native_document_item p WHERE p.task_id=native.task_id AND p.product_key=native.product_key AND p.pointer=section.parent_pointer
- UNION ALL SELECT p.*,a.depth+1 FROM kb.native_document_item p JOIN ancestry a ON p.pointer=a.parent_pointer WHERE p.task_id=native.task_id AND p.product_key=native.product_key
+ SELECT p.*,0 depth FROM kb.pdf_record_access p WHERE p.product_id=placement.build_id AND p.revision_id=placement.build_id AND p.pointer=section.parent_pointer
+ UNION ALL SELECT p.*,a.depth+1 FROM kb.pdf_record_access p JOIN ancestry a ON p.pointer=a.parent_pointer WHERE p.product_id=placement.build_id AND p.revision_id=placement.build_id
  ) SELECT COALESCE(jsonb_agg(pointer ORDER BY depth DESC),'[]'::jsonb) INTO expected FROM ancestry WHERE pointer NOT IN ('#/body','#/furniture');
  IF COALESCE(projection->'ancestors','[]') IS DISTINCT FROM expected THEN RAISE EXCEPTION 'source view ancestry differs' USING ERRCODE='23514'; END IF;
  FOR piece IN SELECT value FROM jsonb_array_elements(projection->'pieces') LOOP
@@ -60,7 +62,7 @@ BEGIN
   ELSIF piece->>'kind'='native_text' THEN
    piece_pointer:=piece->>'item_ref';
    IF NOT (projection->'items' ? piece_pointer) THEN RAISE EXCEPTION 'piece outside selected source occurrences' USING ERRCODE='23514'; END IF;
-   SELECT native_json INTO STRICT node FROM kb.native_document_item WHERE task_id=native.task_id AND product_key=native.product_key AND pointer=piece_pointer;
+   SELECT native_json INTO STRICT node FROM kb.pdf_record_access WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=piece_pointer;
    IF piece->>'source_field'='cell_text' THEN
     node:=node->'data'->'table_cells'->((piece->>'cell_index')::integer);
    ELSIF piece->>'source_field'='chart_cell_text' THEN
@@ -76,10 +78,14 @@ BEGIN
   pos:=stop;
  END LOOP;
  SELECT (native.health - 'formula_outcomes') || jsonb_build_object('formula_outcomes',COALESCE(jsonb_agg(o.value ORDER BY o.n) FILTER(WHERE projection->'items' ? (o.value->>'pointer')),'[]')) INTO expected FROM jsonb_array_elements(COALESCE(native.health->'formula_outcomes','[]')) WITH ORDINALITY o(value,n);
- IF EXISTS(SELECT FROM kb.native_document_coverage WHERE task_id=native.task_id AND product_key=native.product_key) THEN
+ SELECT COALESCE(jsonb_agg(r.body->'value' ORDER BY r.ordinal,r.local_id COLLATE "C"),'[]') INTO coverage_rows
+ FROM ops.read_pdf_published_section_reports(native.task_id,native.product_key,native.content_digest,
+ ARRAY(SELECT jsonb_array_elements_text(projection->'items')),ARRAY[section.pointer]||ARRAY(SELECT jsonb_array_elements_text(COALESCE(projection->'ancestors','[]')))) r
+ WHERE r.body->>'kind'='recognition_coverage';
+ IF EXISTS(SELECT FROM kb.pdf_record_companion c WHERE c.product_id=placement.build_id AND c.revision_id=placement.build_id AND c.family='native_metadata' AND c.body->>'kind'='recognition_coverage') THEN
   expected:=expected-ARRAY['inline_scope','cell_scope','inline_membership','cell_membership','candidate_policy','cells_policy'];
   FOREACH coverage_universe IN ARRAY ARRAY['display','inline','cell'] LOOP
-   SELECT * INTO coverage_row FROM kb.native_document_coverage c WHERE c.task_id=native.task_id AND c.product_key=native.product_key AND c.universe=coverage_universe AND
+   SELECT * INTO coverage_row FROM jsonb_to_recordset(coverage_rows) AS c(section_pointer text,membership text,universe text,outcome text,policy text) WHERE c.universe=coverage_universe AND
     ((c.section_pointer=section.pointer AND c.membership=product->>'membership') OR (c.outcome='complete' AND c.membership='descendants' AND (c.section_pointer=section.pointer OR projection->'ancestors' ? c.section_pointer)))
     ORDER BY (c.section_pointer=section.pointer AND c.membership=product->>'membership') DESC,c.section_pointer LIMIT 1;
    IF FOUND THEN
@@ -93,9 +99,9 @@ BEGIN
   END LOOP;
  ELSE
  SELECT CASE WHEN count(i.pointer)=0 OR bool_and(COALESCE(o.value->>'outcome'='succeeded',false)) THEN 'complete' WHEN count(o.value)>0 THEN 'partial' ELSE 'unknown' END INTO local_coverage
- FROM kb.native_document_item i LEFT JOIN kb.native_document_item parent ON parent.task_id=i.task_id AND parent.product_key=i.product_key AND parent.pointer=i.parent_pointer
+ FROM kb.pdf_record_access i LEFT JOIN kb.pdf_record_access parent ON parent.product_id=i.product_id AND parent.revision_id=i.revision_id AND parent.pointer=i.parent_pointer
  LEFT JOIN jsonb_array_elements(COALESCE(native.health->'formula_outcomes','[]')) o(value) ON o.value->>'pointer'=i.pointer
- WHERE i.task_id=native.task_id AND i.product_key=native.product_key AND projection->'items' ? i.pointer AND i.label='formula' AND COALESCE(parent.label,'') NOT IN ('table','inline');
+ WHERE i.product_id=placement.build_id AND i.revision_id=placement.build_id AND projection->'items' ? i.pointer AND i.label='formula' AND COALESCE(parent.label,'') NOT IN ('table','inline');
  expected:=jsonb_set(expected,'{display_coverage}',to_jsonb(local_coverage));
  FOREACH coverage_universe IN ARRAY ARRAY['inline','cell'] LOOP
   IF native.health->>(coverage_universe||'_coverage') IN ('complete','partial') AND NOT COALESCE((
@@ -109,14 +115,14 @@ BEGIN
  RAISE EXCEPTION 'source view text extent/health differs' USING ERRCODE='23514'; END IF;
  SELECT * INTO previous FROM kb.source_view WHERE key=product->>'key' AND release_id=run.release_id;
  IF FOUND THEN
-  IF previous.projection IS DISTINCT FROM projection OR previous.native_content_digest<>native.content_digest OR previous.recipe_digest<>product->>'recipe_digest' OR previous.analysis_eligible IS DISTINCT FROM (product->>'analysis_eligible')::boolean THEN
+  IF previous.projection IS DISTINCT FROM projection OR previous.native_build_id IS DISTINCT FROM placement.build_id OR previous.native_revision_id IS DISTINCT FROM placement.build_id OR previous.native_content_digest<>native.content_digest OR previous.recipe_digest<>product->>'recipe_digest' OR previous.analysis_eligible IS DISTINCT FROM (product->>'analysis_eligible')::boolean THEN
    RAISE EXCEPTION 'immutable source view replay differs' USING ERRCODE='23514'; END IF;
   result:=previous.id;
  ELSE
   IF run.sealed OR run.status NOT IN ('created','running') OR job.status<>'running' THEN RAISE EXCEPTION 'source view run is no longer writable' USING ERRCODE='P0004'; END IF;
   INSERT INTO kb.source_artifact(artifact_digest,content) VALUES(encode(sha256(p_recipe),'hex'),p_recipe) ON CONFLICT DO NOTHING;
-  INSERT INTO kb.source_view(analysis_eligible,key,document_id,release_id,native_task_id,native_product_key,native_content_digest,section_pointer,membership,projection_digest,recipe_digest,projection)
-  VALUES((product->>'analysis_eligible')::boolean,product->>'key',(product->>'document_id')::bigint,run.release_id,native.task_id,native.product_key,native.content_digest,section.pointer,product->>'membership',product->>'projection_digest',product->>'recipe_digest',projection) RETURNING id INTO result;
+  INSERT INTO kb.source_view(analysis_eligible,key,document_id,release_id,native_task_id,native_product_key,native_content_digest,native_build_id,native_revision_id,section_pointer,membership,projection_digest,recipe_digest,projection)
+  VALUES((product->>'analysis_eligible')::boolean,product->>'key',(product->>'document_id')::bigint,run.release_id,native.task_id,native.product_key,native.content_digest,placement.build_id,placement.build_id,section.pointer,product->>'membership',product->>'projection_digest',product->>'recipe_digest',projection) RETURNING id INTO result;
  END IF;
  IF product->>'replaces_source_view_id' IS NOT NULL AND NOT EXISTS(SELECT FROM ops.run_source_view rs JOIN kb.source_view old ON old.id=rs.source_view_id WHERE rs.run_id=p_run AND old.id=(product->>'replaces_source_view_id')::bigint AND old.document_id=(product->>'document_id')::bigint AND old.section_pointer=section.pointer AND old.membership=product->>'membership') THEN
  RAISE EXCEPTION 'source view replacement differs from selected original/section' USING ERRCODE='23514'; END IF;
@@ -173,9 +179,9 @@ BEGIN
  END LOOP;
  context:=(p_frame->>'native_context')::jsonb;
  SELECT jsonb_build_object('pieces',view.projection->'pieces','health',view.projection->'health',
- 'items',(SELECT COALESCE(jsonb_agg(i.native_json ORDER BY ptr.n),'[]') FROM jsonb_array_elements_text(view.projection->'items') WITH ORDINALITY ptr(value,n) JOIN kb.native_document_item i ON i.task_id=view.native_task_id AND i.product_key=view.native_product_key AND i.pointer=ptr.value),
- 'ancestors',(SELECT COALESCE(jsonb_agg(i.native_json ORDER BY ptr.n),'[]') FROM jsonb_array_elements_text(COALESCE(view.projection->'ancestors','[]')) WITH ORDINALITY ptr(value,n) JOIN kb.native_document_item i ON i.task_id=view.native_task_id AND i.product_key=view.native_product_key AND i.pointer=ptr.value)) INTO expected
- FROM ops.pdf_selected_product p WHERE p.task_id=view.native_task_id AND p.product_key=view.native_product_key;
+ 'items',(SELECT COALESCE(jsonb_agg(i.native_json ORDER BY ptr.n),'[]') FROM jsonb_array_elements_text(view.projection->'items') WITH ORDINALITY ptr(value,n) JOIN kb.pdf_record_access i ON i.product_id=view.native_build_id AND i.revision_id=view.native_revision_id AND i.pointer=ptr.value),
+ 'ancestors',(SELECT COALESCE(jsonb_agg(i.native_json ORDER BY ptr.n),'[]') FROM jsonb_array_elements_text(COALESCE(view.projection->'ancestors','[]')) WITH ORDINALITY ptr(value,n) JOIN kb.pdf_record_access i ON i.product_id=view.native_build_id AND i.revision_id=view.native_revision_id AND i.pointer=ptr.value)) INTO expected
+ FROM ops.pdf_selected_product p WHERE p.task_id=view.native_task_id AND p.product_key=view.native_product_key AND p.content_digest=view.native_content_digest;
  IF EXISTS(SELECT FROM ops.pdf_product p WHERE p.task_id=view.native_task_id AND p.product_key=view.native_product_key AND p.kind='integrated') THEN
   IF COALESCE((p_frame->>'version')::integer,2)<>3 THEN RAISE EXCEPTION 'integrated source frame requires version 3' USING ERRCODE='23514'; END IF;
   IF NOT context ? 'integrated_context_json' OR (context->>'integrated_context_json')::jsonb IS DISTINCT FROM ops.integrated_source_context(view.native_task_id,view.native_product_key,view.native_content_digest,ARRAY(SELECT jsonb_array_elements_text(view.projection->'items')),view.section_pointer,view.membership) THEN RAISE EXCEPTION 'integrated source companion differs from selected occurrence scope' USING ERRCODE='23514'; END IF;
@@ -263,24 +269,26 @@ GRANT EXECUTE ON FUNCTION ops.select_source_view(bigint,bigint,bigint) TO corpus
 
 CREATE OR REPLACE FUNCTION ops.publish_pdf_region_artifact(p_task bigint,p_attempt bigint,p_holder text,p_selection jsonb,p_recipe bytea,p_content bytea) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $artifact$
-DECLARE job ops.task; run ops.run; product ops.pdf_selected_product; previous ops.native_region_artifact; digest text;
+DECLARE job ops.task; run ops.run; product ops.pdf_selected_product; placement ops.pdf_published_revision; previous ops.native_region_artifact; digest text;
 BEGIN
  SELECT * INTO STRICT job FROM ops.task WHERE id=p_task FOR UPDATE;
  SELECT * INTO STRICT run FROM ops.run WHERE id=job.run_id FOR SHARE;
  PERFORM sem.require_execution_operation(run.release_id,'publish_pdf_region_artifact');
  IF run.sealed OR job.status<>'running' OR job.attempt<>p_attempt OR job.claimed_by IS DISTINCT FROM p_holder THEN RAISE EXCEPTION 'region artifact attempt lost' USING ERRCODE='P0004'; END IF;
  SELECT * INTO STRICT product FROM ops.pdf_selected_product WHERE task_id=(p_selection->>'task_id')::bigint AND product_key=p_selection->>'product_key' AND content_digest=p_selection->>'content_digest';
+ SELECT * INTO STRICT placement FROM ops.read_pdf_published_revision(product.task_id,product.product_key,product.content_digest);
+ PERFORM sem.require_execution_operation(placement.release_id,'read_native_source');
  IF NOT EXISTS(SELECT FROM ops.source_build b JOIN kb.document d ON d.content_hash=b.artifact_digest WHERE b.task_id=product.task_id AND d.project_id=run.project_id AND
  ((job.unit_type='document' AND job.unit_id=d.id) OR (job.unit_type='source_view' AND EXISTS(SELECT FROM kb.source_view v JOIN ops.run_source_view rs ON rs.source_view_id=v.id WHERE rs.run_id=run.id AND v.id=job.unit_id AND v.document_id=d.id))))
- OR NOT EXISTS(SELECT FROM kb.native_document_region WHERE task_id=product.task_id AND product_key=product.product_key AND pointer=p_selection->>'pointer' AND region_index=(p_selection->>'region_index')::bigint) THEN
+ OR NOT EXISTS(SELECT FROM kb.pdf_record_region WHERE product_id=placement.build_id AND revision_id=placement.build_id AND pointer=p_selection->>'pointer' AND region_index=(p_selection->>'region_index')::bigint) THEN
  RAISE EXCEPTION 'render artifact is outside selected native original/region' USING ERRCODE='23514'; END IF;
  digest:=encode(sha256(p_content),'hex');
  SELECT * INTO previous FROM ops.native_region_artifact WHERE task_id=p_task;
  IF FOUND THEN
- IF previous.artifact_digest<>digest OR previous.recipe_digest<>encode(sha256(p_recipe),'hex') THEN RAISE EXCEPTION 'immutable region artifact replay differs' USING ERRCODE='23514'; END IF;
+ IF previous.native_build_id IS DISTINCT FROM placement.build_id OR previous.native_revision_id IS DISTINCT FROM placement.build_id OR previous.native_task_id IS DISTINCT FROM product.task_id OR previous.native_product_key IS DISTINCT FROM product.product_key OR previous.native_content_digest IS DISTINCT FROM product.content_digest OR previous.pointer IS DISTINCT FROM p_selection->>'pointer' OR previous.region_index IS DISTINCT FROM (p_selection->>'region_index')::bigint OR previous.artifact_digest<>digest OR previous.recipe_digest<>encode(sha256(p_recipe),'hex') THEN RAISE EXCEPTION 'immutable region artifact replay differs' USING ERRCODE='23514'; END IF;
  RETURN digest; END IF;
  INSERT INTO kb.source_artifact SELECT encode(sha256(content),'hex'),content FROM unnest(ARRAY[p_recipe,p_content]) content ON CONFLICT DO NOTHING;
- INSERT INTO ops.native_region_artifact VALUES(p_task,product.task_id,product.product_key,product.content_digest,p_selection->>'pointer',(p_selection->>'region_index')::bigint,encode(sha256(p_recipe),'hex'),digest);
+ INSERT INTO ops.native_region_artifact(task_id,native_task_id,native_product_key,native_content_digest,native_build_id,native_revision_id,pointer,region_index,recipe_digest,artifact_digest) VALUES(p_task,product.task_id,product.product_key,product.content_digest,placement.build_id,placement.build_id,p_selection->>'pointer',(p_selection->>'region_index')::bigint,encode(sha256(p_recipe),'hex'),digest);
  RETURN digest;
 END $artifact$;
 REVOKE ALL ON FUNCTION ops.publish_pdf_region_artifact(bigint,bigint,text,jsonb,bytea,bytea) FROM PUBLIC;

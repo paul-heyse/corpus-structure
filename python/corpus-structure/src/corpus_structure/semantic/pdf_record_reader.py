@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import codecs
 import json
+from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
 from contextlib import closing, contextmanager, nullcontext
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
-from typing import Any, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO, TypedDict
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -30,6 +31,63 @@ from corpus_structure.core.db.store import (
 
 from .product_reference import ProductReference
 
+if TYPE_CHECKING:
+    from ._operation_calls import ContentDigest, ProductKey, TaskId
+    from .operation_value_types import NativeRowResult
+    from .types import PreparedRelease
+
+
+class _ProjectionParameters(TypedDict):
+    task_id: TaskId
+    product_key: ProductKey
+    content_digest: ContentDigest
+    projection_context: PreparedRelease
+
+
+class _RecordParameters(TypedDict):
+    task_id: TaskId
+    product_key: ProductKey
+    content_digest: ContentDigest
+
+
+def _record_parameters(reference: ProductReference) -> _RecordParameters:
+    from ._operation_ids import ContentDigest, ProductKey, TaskId
+
+    return _RecordParameters(
+        task_id=TaskId(reference.task_id),
+        product_key=ProductKey(reference.product_key),
+        content_digest=ContentDigest(reference.content_digest),
+    )
+
+
+def _record_envelope(row: NativeRowResult) -> dict[str, Any]:
+    body = row.decoded_json_fields(operation="read_native_source")["body"]
+    if not isinstance(body, dict):
+        raise ValueError("published record envelope requires an object")
+    return body
+
+
+def _published_revision(conn: Connection, reference: ProductReference):
+    from ._operation_calls import (
+        materialize_read_pdf_published_revision,
+        prepare_read_pdf_published_revision,
+    )
+    from ._operation_ids import TaskId
+
+    statement = prepare_read_pdf_published_revision(
+        task_id=TaskId(reference.task_id),
+        product_key=reference.product_key,
+        logical_digest=reference.content_digest,
+    )
+    with conn.execute(statement) as result:
+        row = result.one_or_none()
+        return (
+            materialize_read_pdf_published_revision(row).model_dump(mode="python")
+            if row is not None
+            else None
+        )
+
+
 _METADATA_PROJECTIONS = (
     "pointer",
     "outcome",
@@ -45,6 +103,14 @@ _METADATA_PROJECTIONS = (
 class PdfExportReceipt:
     byte_length: int
     serialization_sha256: str
+
+
+class PublishedRecordUnavailable(ValueError):
+    """An exact published record address is absent under its immutable pin."""
+
+
+class PublishedSchemaUnavailable(ValueError):
+    """Retained schema custody or its explicit supported decoding profile is unavailable."""
 
 
 def published_native_table(conn: Connection, kind: str = "item"):
@@ -72,6 +138,7 @@ def published_record_reader(
     reference: ProductReference,
     *,
     cancellation: BorrowerCancellation | None = None,
+    projection_context: PreparedRelease | None = None,
 ):
     """Return the published port, or None for an explicitly archived PDF product."""
     cancellation = cancellation or BorrowerCancellation()
@@ -84,23 +151,22 @@ def published_record_reader(
         ).scalar_one()
         if not available:
             return None
-        row = (
-            conn.execute(
-                text("SELECT * FROM ops.read_pdf_published_revision(:task,:product,:digest)"),
-                dict(
-                    task=reference.task_id,
-                    product=reference.product_key,
-                    digest=reference.content_digest,
-                ),
-            )
-            .mappings()
-            .one_or_none()
-        )
+        row = _published_revision(conn, reference)
         return (
-            PublishedPdfReader(conn, reference, revision=dict(row), cancellation=cancellation)
+            PublishedPdfReader(
+                conn,
+                reference,
+                revision=dict(row),
+                cancellation=cancellation,
+                projection_context=projection_context,
+            )
             if row
             else None
         )
+
+
+class PublishedRegionUnavailable(ValueError):
+    """The qualified published reader established that the requested region is absent."""
 
 
 class PublishedPdfReader:
@@ -111,26 +177,16 @@ class PublishedPdfReader:
         *,
         revision: Mapping[str, Any] | None = None,
         cancellation: BorrowerCancellation | None = None,
+        projection_context: PreparedRelease | None = None,
     ):
+        self.projection_context = projection_context
         self.conn, self.reference = conn, reference
         self.cancellation = cancellation or BorrowerCancellation()
         if revision is None:
             with self._read_scope():
-                row = (
-                    conn.execute(
-                        text(
-                            "SELECT * FROM ops.read_pdf_published_revision(:task,:product,:digest)"
-                        ),
-                        dict(
-                            task=reference.task_id,
-                            product=reference.product_key,
-                            digest=reference.content_digest,
-                        ),
-                    )
-                    .mappings()
-                    .one()
-                )
-            revision = dict(row)
+                revision = _published_revision(conn, reference)
+            if revision is None:
+                raise ValueError("published native revision is absent")
         self.revision: dict[str, Any] = dict(revision)
         self._cached_record: Callable[[str], dict[str, Any]] = lru_cache(maxsize=256)(self._record)
 
@@ -173,6 +229,8 @@ class PublishedPdfReader:
         after=None,
         batch_size: int = 100,
     ) -> Generator[dict[str, Any]]:
+        from ._operation_calls import materialize_read_pdf_record_rows, prepare_read_pdf_record_rows
+
         if not 1 <= batch_size <= 1000:
             raise ValueError("published record batch size must be 1..1000")
         while True:
@@ -181,22 +239,16 @@ class PublishedPdfReader:
             with (
                 self._read_scope(),
                 self.conn.execute(
-                    text(
-                        "SELECT * FROM ops.read_pdf_record_rows(:task,:product,:digest,:family,"
-                        "CAST(:filters AS jsonb),CAST(:after AS jsonb),:limit)"
-                    ).execution_options(yield_per=batch_size),
-                    dict(
-                        task=self.reference.task_id,
-                        product=self.reference.product_key,
-                        digest=self.reference.content_digest,
+                    prepare_read_pdf_record_rows(
+                        **_record_parameters(self.reference),
                         family=family,
-                        filters=json.dumps(dict(filters or {})),
-                        after=json.dumps(after) if after is not None else None,
+                        filters=dict(filters or {}),
+                        after=after,
                         limit=batch_size,
-                    ),
+                    ).execution_options(yield_per=batch_size),
                 ) as result,
             ):
-                rows = [dict(r[0]) for r in result]
+                rows = [_record_envelope(materialize_read_pdf_record_rows(row)) for row in result]
             if not rows:
                 return
             for row in rows:
@@ -214,8 +266,10 @@ class PublishedPdfReader:
     def _one(self, family, filters=None):
         with closing(self.iter_rows(family, filters, batch_size=2)) as rows:
             first = next(rows, None)
-            if first is None or next(rows, None) is not None:
-                raise ValueError("published native record is absent or ambiguous")
+            if first is None:
+                raise PublishedRecordUnavailable("published native record is absent")
+            if next(rows, None) is not None:
+                raise ValueError("published native record is ambiguous")
             return first
 
     def record(self, record_id: str) -> dict[str, Any]:
@@ -262,6 +316,221 @@ class PublishedPdfReader:
                 yield chunk
         self._check_active()
 
+    @contextmanager
+    def _projection_scope(self) -> Generator[_ProjectionParameters]:
+        from ._operation_calls import ContentDigest, ProductKey, TaskId
+
+        if self.projection_context is None:
+            raise ValueError("selected published projection requires its explicit consumer release")
+        with self._read_scope():
+            yield _ProjectionParameters(
+                task_id=TaskId(self.reference.task_id),
+                product_key=ProductKey(self.reference.product_key),
+                content_digest=ContentDigest(self.reference.content_digest),
+                projection_context=self.projection_context,
+            )
+
+    def _projection_values(self, rows: Sequence[NativeRowResult], *, placement=True):
+        from .published_document import PublishedDocumentBinding
+
+        binding = PublishedDocumentBinding.from_revision(self.reference, self.revision)
+        result = [row.decoded_json_fields(operation="read_native_source") for row in rows]
+        if placement and any(
+            (row["product_id"], row["revision_id"])
+            != (binding.native_build_id, binding.native_revision_id)
+            for row in result
+        ):
+            raise ValueError("published projection escaped its exact placement")
+        return result
+
+    def sections(self):
+        from ._operation_calls import read_published_sections
+
+        with self._projection_scope() as pin:
+            rows = read_published_sections(self.conn, **pin)
+        return self._projection_values(rows, placement=False)
+
+    def section_nodes(self, section: str, membership: str):
+        from ._operation_calls import read_published_section_nodes
+
+        if membership not in {"direct", "descendants"}:
+            raise ValueError("invalid published section membership")
+        with self._projection_scope() as pin:
+            rows = read_published_section_nodes(
+                self.conn, **pin, section=section, membership=membership
+            )
+        return self._projection_values(rows)
+
+    def selected_native_items(self, pointers: Sequence[str]):
+        from ._operation_calls import read_published_items
+
+        with self._projection_scope() as pin:
+            projected = read_published_items(self.conn, **pin, pointers=tuple(pointers))
+        rows = self._projection_values(projected)
+        values = {row["pointer"]: row["native_json"] for row in rows}
+        if len(values) != len(set(pointers)) or set(values) != set(pointers):
+            raise ValueError("published native item selection is absent or ambiguous")
+        return values
+
+    def item_page(self, *, section=None, membership="direct", pointer=None, after=-1, limit=100):
+        from ._operation_calls import read_published_item_page
+
+        if membership not in {"direct", "descendants"}:
+            raise ValueError("invalid published item membership")
+        with self._projection_scope() as pin:
+            rows = read_published_item_page(
+                self.conn,
+                **pin,
+                section=section,
+                membership=membership,
+                pointer=pointer,
+                after=after,
+                limit=limit,
+            )
+        return self._projection_values(rows)
+
+    def regions(self, pointer: str):
+        from ._operation_calls import read_published_regions
+
+        with self._projection_scope() as pin:
+            rows = read_published_regions(self.conn, **pin, pointer=pointer)
+        return self._projection_values(rows)
+
+    def selected_regions(self, pointers: Sequence[str]):
+        from ._operation_calls import read_published_region_batch
+
+        with self._projection_scope() as pin:
+            rows = read_published_region_batch(self.conn, **pin, pointers=tuple(pointers))
+        return self._projection_values(rows)
+
+    def item_ancestors(self, pointer: str):
+        from ._operation_calls import read_published_item_ancestors
+
+        with self._projection_scope() as pin:
+            rows = read_published_item_ancestors(self.conn, **pin, pointer=pointer)
+        return self._projection_values(rows)
+
+    def _remember_metadata_report(self, row, body):
+        cache = self.__dict__.setdefault("_metadata_report_cache", OrderedDict())
+        cache[row["local_id"]] = body
+        cache.move_to_end(row["local_id"])
+        if len(cache) > 256:
+            cache.popitem(last=False)
+        order = self.__dict__.setdefault("_metadata_report_order", {})
+        order[row["local_id"]] = (row["ordinal"], row["local_id"])
+
+    def _metadata_report_index(self, kind):
+        """Scan one known family in bounded pages, retaining addresses rather than bodies."""
+        indexes = self.__dict__.setdefault("_metadata_report_indexes", {})
+        if kind in indexes:
+            return indexes[kind]
+        index = {}
+        for row in self.iter_rows("companion", {"family": "native_metadata", "kind": kind}):
+            body = self.decode_companion_row(row)
+            value = body["value"]
+            pointers = (
+                value["item_pointers"]
+                if kind == "inline_alignment_reports"
+                else (value["table_pointer" if kind == "cell_reports" else "pointer"],)
+            )
+            for pointer in pointers:
+                index.setdefault(pointer, []).append(row["local_id"])
+            self._remember_metadata_report(row, body)
+        indexes[kind] = index
+        return index
+
+    def _metadata_report_value(self, local_id):
+        from copy import deepcopy
+
+        cache = self.__dict__.setdefault("_metadata_report_cache", OrderedDict())
+        if local_id not in cache:
+            row = self._one("companion", {"family": "native_metadata", "local_id": local_id})
+            self._remember_metadata_report(row, self.decode_companion_row(row))
+        cache.move_to_end(local_id)
+        # Callers can attach presentation custody without changing original retained values.
+        return deepcopy(cache[local_id])
+
+    def selected_item_reports(
+        self,
+        pointers: Sequence[str],
+        *,
+        kinds=(
+            "cell_reports",
+            "derivation_mappings",
+            "inline_alignment_reports",
+        ),
+    ):
+        """Select known diagnostics through original byte-owned companion fields.
+
+        Single-pointer cell/derivation reads use their existing native selector. An
+        inline or bulk family is streamed once per reader into a pointer/local-id
+        index; at most 256 decoded reports remain cached. No native JSONB conversion
+        is used for opaque values or arbitrary strings.
+        """
+        from .contracts import bound_execution_model
+
+        allowed = {"cell_reports", "derivation_mappings", "inline_alignment_reports"}
+        if not set(kinds) <= allowed:
+            raise ValueError("unknown selected native diagnostic family")
+        with self._projection_scope() as pin:
+            bound_execution_model(pin["projection_context"]).require_operation("read_native_source")
+            if not pointers:
+                return []
+            selected = set(pointers)
+            ancestry = set()
+            local_ids = set()
+            for kind in dict.fromkeys(kinds):
+                if kind != "inline_alignment_reports" and len(selected) == 1:
+                    for row in self.iter_rows(
+                        "companion",
+                        {
+                            "family": "native_metadata",
+                            "kind": kind,
+                            "pointer": next(iter(selected)),
+                        },
+                    ):
+                        self._remember_metadata_report(row, self.decode_companion_row(row))
+                        local_ids.add(row["local_id"])
+                    continue
+                if kind == "inline_alignment_reports" and not ancestry:
+                    ancestry = {
+                        row["pointer"]
+                        for pointer in selected
+                        for row in self.item_ancestors(pointer)
+                    }
+                index = self._metadata_report_index(kind)
+                for pointer in ancestry if kind == "inline_alignment_reports" else selected:
+                    local_ids.update(index.get(pointer, ()))
+            order = self.__dict__.get("_metadata_report_order", {})
+            return [
+                dict(
+                    local_id=local_id,
+                    ordinal=order[local_id][0],
+                    body=self._metadata_report_value(local_id),
+                )
+                for local_id in sorted(local_ids, key=order.__getitem__)
+            ]
+
+    def section_reports(self, pointers: Sequence[str], sections: Sequence[str]):
+        from ._operation_calls import read_published_section_reports
+
+        with self._projection_scope() as pin:
+            rows = read_published_section_reports(
+                self.conn, **pin, pointers=tuple(pointers), sections=tuple(sections)
+            )
+        return self._projection_values(rows, placement=False)
+
+    def region(self, pointer: str, region_index: int):
+        from ._operation_calls import read_published_region
+
+        with self._projection_scope() as pin:
+            row = read_published_region(
+                self.conn, **pin, pointer=pointer, region_index=region_index
+            )
+        if row is None:
+            raise PublishedRegionUnavailable("published region is absent or ambiguous")
+        return self._projection_values((row,))[0]
+
     def _profile(self, stream_id):
         return self._one("artifact_stream", {"stream_id": stream_id})["encoding_profile"]
 
@@ -276,10 +545,52 @@ class PublishedPdfReader:
 
         self._check_active()
         value = reconstruct_native_document(
-            self, record_id, scalar_profiles=Profiles(), native_type=native_type
+            self,
+            record_id,
+            scalar_profiles=Profiles(),
+            native_type=native_type,
+            mapping=self._native_schema_mapping(),
         )
         self._check_active()
         return value
+
+    def _native_schema_mapping(self):
+        """Decode requested native values with their retained producer schema bytes."""
+        from sqlalchemy import select
+
+        from .metadata import table
+        from .pdf_records import NativeMappingError, prepare_native_schema_mapping
+
+        if not hasattr(self, "_prepared_native_mapping"):
+            context = self._payload_context()
+            context.execution.require_operation("read_pdf_product")
+            digest = self.revision["schema_digest"]
+            if digest != context.native_schema_digest:
+                raise PublishedSchemaUnavailable(
+                    "native record schema differs from its producer archive"
+                )
+            artifacts = table("kb.source_artifact")
+            with (
+                self._read_scope(),
+                self.conn.execute(
+                    select(artifacts.c.content).where(artifacts.c.artifact_digest == digest)
+                ) as result,
+            ):
+                retained = result.scalar_one_or_none()
+            if retained is None:
+                raise PublishedSchemaUnavailable("retained native schema artifact is missing")
+            schema = bytes(retained)
+            if sha256(schema).hexdigest() != digest:
+                raise PublishedSchemaUnavailable(
+                    "retained native schema bytes differ from their digest"
+                )
+            try:
+                self._prepared_native_mapping = prepare_native_schema_mapping(schema)
+            except (NativeMappingError, json.JSONDecodeError) as error:
+                raise PublishedSchemaUnavailable(
+                    "retained native schema has no supported mapping"
+                ) from error
+        return self._prepared_native_mapping
 
     def hydrate_document(self):
         """Explicit whole-value demand uses one ordered native cursor, without repairs."""
@@ -289,20 +600,44 @@ class PublishedPdfReader:
         return value
 
     def product_kind(self) -> str:
-        with self._read_scope():
-            return self.conn.execute(
-                text(
-                    "SELECT kind FROM ops.pdf_product WHERE task_id=:task AND product_key=:product "
-                    "AND content_digest=:digest"
-                ),
-                dict(
-                    task=self.reference.task_id,
-                    product=self.reference.product_key,
-                    digest=self.reference.content_digest,
-                ),
-            ).scalar_one()
+        self._check_active()
+        return self.revision["kind"]
+
+    def validation_receipt(self):
+        """Read immutable sealed assurance, including its original contract epoch."""
+        from ._operation_calls import (
+            materialize_read_pdf_published_validation,
+            prepare_read_pdf_published_validation,
+        )
+
+        with (
+            self._read_scope(),
+            self.conn.execute(
+                prepare_read_pdf_published_validation(**_record_parameters(self.reference))
+            ) as result,
+        ):
+            row = result.one_or_none()
+            return None if row is None else materialize_read_pdf_published_validation(row)
+
+    def product_descriptor(self) -> dict[str, Any]:
+        """Retain assessed integration health without hydrating native content."""
+        from itertools import islice
+
+        self._payload_context().execution.require_operation("read_pdf_product")
+        with closing(self.iter_rows("companion", {"family": "health"}, batch_size=3)) as rows:
+            health_rows = [self.decode_companion_row(row) for row in islice(rows, 3)]
+        if len(health_rows) > 2:
+            raise ValueError("published product health inventory is ambiguous")
+        assessments = [row for row in health_rows if "source_scope" not in row]
+        if len(assessments) > 1:
+            raise ValueError("published product integration health is ambiguous")
+        descriptor = dict(version=2, kind=self.product_kind(), revision=dict(self.revision))
+        if assessments:
+            descriptor["health"] = assessments[0]
+        return descriptor
 
     def native_items(self, pointers):
+        """Archived producer decoding; explicit native consumers retain this port."""
         result = {}
         for pointer in dict.fromkeys(pointers):
             row = self._one("native", {"native_address": pointer})
@@ -333,6 +668,12 @@ class PublishedPdfReader:
                 )
         return self._prepared_payload_context
 
+    def has_native_metadata(self, kind: str) -> bool:
+        with closing(
+            self.iter_rows("companion", {"family": "native_metadata", "kind": kind}, batch_size=1)
+        ) as rows:
+            return next(rows, None) is not None
+
     def native_metadata(self, kind, *, pointer=None, page_nos: Sequence[int] | None = None):
         """Materialize only selected metadata pages, preserving the logical Python contract."""
         for row in self._metadata_rows(kind, pointer=pointer, page_nos=page_nos):
@@ -347,7 +688,7 @@ class PublishedPdfReader:
         context=None,
     ) -> Iterator[pa.RecordBatch]:
         """Yield owned selected-page batches after closing each artifact result page."""
-        from .pdf_payloads import FAMILY, PROFILE, page_payload_batches
+        from .pdf_payloads import FAMILY, PROFILE, prepare_payload_family
 
         if kind != FAMILY:
             raise ValueError("metadata family has no declared Arrow payload realization")
@@ -366,15 +707,39 @@ class PublishedPdfReader:
                 )
             payload = b"".join(self.scalar(field["stream_id"]))
             self._check_active()
-            for batch in page_payload_batches(
+            # scalar() verifies the admitted immutable artifact's byte root and SHA. Selected
+            # columns retain schema/framing checks without rescanning unrelated OCR values.
+            batch = prepare_payload_family(
+                context if context is not None else self._payload_context()
+            ).read_batch(
                 payload,
-                context if context is not None else self._payload_context(),
                 schema_digest=body["payload_schema_digest"],
-                logical_digest=body["payload_logical_digest"],
+                logical_digest=body["payload_logical_digest"] if columns is None else None,
                 columns=columns,
-            ):
-                self._check_active()
-                yield batch
+            )
+            self._check_active()
+            yield batch
+
+    def candidate_bases(self, addresses: Sequence[tuple[int, int]]) -> dict[tuple[int, int], str]:
+        """Read selected candidate basis scalars without decoding page/OCR mappings."""
+        wanted = set(addresses)
+        if not wanted:
+            return {}
+        result = {}
+        for batch in self.iter_payload_batches(
+            page_nos=sorted({page for page, _ in wanted}), columns=("page_no", "candidates")
+        ):
+            page = batch.column("page_no")[0].as_py()
+            candidates = batch.column("candidates")[0]
+            if not candidates.is_valid:
+                continue
+            bases = candidates.values.field("basis")
+            for address in wanted:
+                if address[0] == page and 0 <= address[1] < len(bases):
+                    result[address] = bases[address[1]].as_py()
+        if result.keys() != wanted:
+            raise ValueError("inline diagnostic candidate is absent from admitted page inventory")
+        return result
 
     def candidate_inventory(self, *, page_nos: Sequence[int] | None = None, context=None):
         """Project page inventory through Arrow kernels without hydrating candidate/OCR objects."""
@@ -533,24 +898,23 @@ class PublishedPdfReader:
             yield self.decode_companion_row(row)
 
     def iter_companion_export_events(self, family) -> Generator[dict[str, Any]]:
+        from ._operation_calls import (
+            materialize_read_pdf_companion_export_events,
+            prepare_read_pdf_companion_export_events,
+        )
+
         with (
             self._read_scope(),
             self.conn.execute(
-                text(
-                    "SELECT * FROM ops.read_pdf_companion_export_events(:task,:product,:digest,"
-                    ":family)"
-                ).execution_options(yield_per=32),
-                dict(
-                    task=self.reference.task_id,
-                    product=self.reference.product_key,
-                    digest=self.reference.content_digest,
+                prepare_read_pdf_companion_export_events(
+                    **_record_parameters(self.reference),
                     family=family,
-                ),
+                ).execution_options(yield_per=32),
             ) as result,
         ):
             for row in result:
                 self._check_active()
-                yield row[0]
+                yield _record_envelope(materialize_read_pdf_companion_export_events(row))
 
     def iter_companion_json(self, family, events=None) -> Generator[bytes]:
         """One joined cursor streams exact fields without per-field SQL or JSONB coercion."""
@@ -658,20 +1022,19 @@ class PublishedPdfReader:
                 events.close()
 
     def context_rows(self, family, pointers, section_pointer):
+        from ._operation_calls import (
+            materialize_read_pdf_record_context_rows,
+            prepare_read_pdf_record_context_rows,
+        )
+
         after = ""
         while True:
             with (
                 self._read_scope(),
                 self.conn.execute(
-                    text(
-                        "SELECT * FROM ops.read_pdf_record_context_rows(:task,:product,:digest,"
-                        "CAST(:pointers AS text[]),:section,:family,:after,:limit)"
-                    ),
-                    dict(
-                        task=self.reference.task_id,
-                        product=self.reference.product_key,
-                        digest=self.reference.content_digest,
-                        pointers=list(pointers),
+                    prepare_read_pdf_record_context_rows(
+                        **_record_parameters(self.reference),
+                        pointers=tuple(pointers),
                         section=section_pointer,
                         family=family,
                         after=after,
@@ -679,7 +1042,10 @@ class PublishedPdfReader:
                     ),
                 ) as result,
             ):
-                rows = [dict(row[0]) for row in result]
+                rows = [
+                    _record_envelope(materialize_read_pdf_record_context_rows(row))
+                    for row in result
+                ]
             for row in rows:
                 self._check_active()
                 after = row["local_id"]
@@ -696,25 +1062,166 @@ class PublishedPdfReader:
         membership: str = "direct",
     ) -> dict[str, Any]:
         """Use the same published relational context constructor as native frame guards."""
-        with self._read_scope():
-            value = self.conn.execute(
-                text(
-                    "SELECT ops.record_integrated_source_context(:task,:product,:digest,"
-                    "CAST(:pointers AS text[]),:section,:membership,:budget)"
-                ),
-                dict(
-                    task=self.reference.task_id,
-                    product=self.reference.product_key,
-                    digest=self.reference.content_digest,
-                    pointers=list(pointers),
+        from ._operation_calls import (
+            materialize_record_integrated_source_context,
+            prepare_record_integrated_source_context,
+        )
+
+        with (
+            self._read_scope(),
+            self.conn.execute(
+                prepare_record_integrated_source_context(
+                    **_record_parameters(self.reference),
+                    pointers=tuple(pointers),
                     section=section_pointer,
                     membership=membership,
-                    budget=row_budget,
+                    row_budget=row_budget,
                 ),
-            ).scalar_one()
-        if value is None:
-            raise ValueError("published integrated source context is unavailable")
-        return value
+            ) as result,
+        ):
+            return _record_envelope(materialize_record_integrated_source_context(result.one()))
+
+    def occurrence_context(
+        self, selected: Sequence[Mapping[str, Any]], section_pointer: str, *, row_budget: int
+    ) -> dict[str, Any]:
+        """Compose exact occurrence relationships through existing protected byte selectors."""
+        if row_budget < 1:
+            raise ValueError("PDF companion row budget must be positive")
+        count = 0
+
+        def consume(amount=1):
+            nonlocal count
+            count += amount
+            if count > row_budget:
+                raise ValueError("PDF mandatory companion exceeds requested row budget")
+
+        own = self.reference.task_id, self.reference.product_key, self.reference.content_digest
+
+        def target(endpoint):
+            pin = (
+                endpoint["target_task_id"],
+                endpoint["target_product_key"],
+                endpoint["target_content_digest"],
+            )
+            return own if pin == (0, "@self", "@self") else pin
+
+        def wrap(**value) -> dict[str, Any]:
+            return dict(task_id=own[0], product_key=own[1], **value)
+
+        occurrences, relation_ids, input_indices = [], set(), set()
+        pointers = set()
+        for row in selected:
+            consume()
+            body = self.decode_companion_row(row)
+            local = row["local_id"]
+            pointer = body.get("pointer")
+            if pointer is not None:
+                pointers.add(pointer)
+            occurrences.append(
+                wrap(
+                    occurrence_id=local,
+                    pointer=pointer,
+                    kind=body["kind"],
+                    precision=body["precision"],
+                    address_space=body["address_space"],
+                    body=body,
+                )
+            )
+            with closing(self.iter_rows("endpoint", {"occurrence_id": local})) as endpoints:
+                for endpoint in endpoints:
+                    if target(endpoint) == own:
+                        relation_ids.add(endpoint["relation_id"])
+                        if len(relation_ids) + len(occurrences) > row_budget:
+                            consume(row_budget + 1)
+        relations = []
+        for relation_id in sorted(relation_ids):
+            consume()
+            row = self._one("companion", {"family": "relation", "local_id": relation_id})
+            body = self.decode_companion_row(row)
+            input_indices.update(
+                endpoint["input_index"]
+                for endpoint in body["endpoints"]
+                if endpoint.get("input_index") is not None
+            )
+            rendered = []
+            with closing(self.iter_rows("endpoint", {"relation_id": relation_id})) as endpoints:
+                for endpoint in endpoints:
+                    consume()
+                    task, key, digest = target(endpoint)
+                    rendered.append(
+                        wrap(
+                            relation_id=relation_id,
+                            endpoint_index=endpoint["ordinal"],
+                            role=endpoint["role"],
+                            target_task_id=task,
+                            target_product_key=key,
+                            target_content_digest=digest,
+                            occurrence_id=endpoint["occurrence_id"],
+                        )
+                    )
+            relations.append(
+                (
+                    row["ordinal"],
+                    relation_id,
+                    wrap(
+                        relation_id=relation_id,
+                        kind=body["kind"],
+                        body={key: value for key, value in body.items() if key != "endpoints"},
+                        endpoints=rendered,
+                    ),
+                )
+            )
+        coverage = []
+        # Only typed scoped coverage metadata is selected here. Occurrence/relation
+        # bodies are never obtained through a broader table-pointer context.
+        with closing(self.context_rows("coverage", sorted(pointers), section_pointer)) as rows:
+            for row in rows:
+                consume()
+                body = row["body"]
+                input_indices.update(support["input_index"] for support in body.get("supports", ()))
+                coverage.append(wrap(coverage_id=row["local_id"], body=body))
+        inputs = []
+        for index in sorted(input_indices):
+            consume()
+            row = self._one("companion", {"family": "input", "local_id": str(index)})
+            body = self.decode_companion_row(row)
+            inputs.append(
+                wrap(
+                    input_index=index,
+                    role=body["role"],
+                    input_task_id=body["task_id"],
+                    input_product_key=body["product_key"],
+                    input_content_digest=body["content_digest"],
+                )
+            )
+        reports = []
+        if input_indices:
+            with closing(
+                self.context_rows("mapping_report", sorted(pointers), section_pointer)
+            ) as rows:
+                for row in rows:
+                    body = row["body"]
+                    if body.get("input_index") in input_indices:
+                        consume()
+                        reports.append(
+                            wrap(
+                                report_index=int(row["local_id"]),
+                                input_index=body.get("input_index"),
+                                body=body,
+                            )
+                        )
+        return dict(
+            selection=dict(task_id=own[0], product_key=own[1], content_digest=own[2]),
+            descriptor=dict(version=2, kind=self.product_kind(), revision=dict(self.revision)),
+            occurrences=occurrences,
+            relations=[
+                row[2]
+                for row in sorted(relations, key=lambda row: (row[0] is None, row[0], row[1]))
+            ],
+            inputs=inputs,
+            coverage=coverage,
+            mapping_reports=reports,
+        )
 
     def iter_native_json(self, events=None) -> Generator[bytes]:
         """One ordered containment cursor; scalar parts remain bounded owned reads."""
@@ -779,22 +1286,22 @@ class PublishedPdfReader:
                     raise ValueError("unsupported published export event")
 
     def iter_native_events(self) -> Generator[dict[str, Any]]:
+        from ._operation_calls import (
+            materialize_read_pdf_native_events,
+            prepare_read_pdf_native_events,
+        )
+
         with (
             self._read_scope(),
             self.conn.execute(
-                text(
-                    "SELECT * FROM ops.read_pdf_native_events(:task,:product,:digest)"
+                prepare_read_pdf_native_events(
+                    **_record_parameters(self.reference)
                 ).execution_options(yield_per=256),
-                dict(
-                    task=self.reference.task_id,
-                    product=self.reference.product_key,
-                    digest=self.reference.content_digest,
-                ),
             ) as result,
         ):
             for row in result:
                 self._check_active()
-                yield row[0]
+                yield _record_envelope(materialize_read_pdf_native_events(row))
 
     def write_native_json(self, sink: BinaryIO) -> PdfExportReceipt:
         digest, size = sha256(), 0

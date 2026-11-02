@@ -1,4 +1,4 @@
-"""Stable frozen native-operation payload v1 and Alembic's comparison/render lifecycle."""
+"""Versioned frozen native-operation payloads and Alembic's comparison/render lifecycle."""
 
 from __future__ import annotations
 
@@ -46,15 +46,24 @@ class NativeTransitionOp(MigrateOperation):
         self.before, self.after, self.recreate = before, after, recreate
 
     @classmethod
-    def native_transition(cls, operations, payload):
-        if payload.get("version") != 1:
+    def from_payload(cls, payload):
+        if payload.get("version") not in {1, 2}:
             raise NativeAuthoringError("unsupported frozen native operation payload")
         operation = cls(
             NativeObject.from_payload(payload["before"]) if payload["before"] else None,
             NativeObject.from_payload(payload["after"]) if payload["after"] else None,
             recreate=payload["recreate"],
         )
-        return operations.invoke(operation)
+        if payload["version"] == 1 and any(
+            item is not None and item.payload_version != 1
+            for item in (operation.before, operation.after)
+        ):
+            raise NativeAuthoringError("v1 frozen operation cannot carry a v2 catalog profile")
+        return operation
+
+    @classmethod
+    def native_transition(cls, operations, payload):
+        return operations.invoke(cls.from_payload(payload))
 
     @property
     def identity(self):
@@ -65,7 +74,9 @@ class NativeTransitionOp(MigrateOperation):
 
     def payload(self):
         return {
-            "version": 1,
+            "version": max(
+                item.payload_version for item in (self.before, self.after) if item is not None
+            ),
             "before": self.before.payload() if self.before else None,
             "after": self.after.payload() if self.after else None,
             "recreate": self.recreate,
@@ -81,7 +92,7 @@ def execute_native(operations, operation):
         raise NativeAuthoringError("native operations require an explicit live Connection")
     connection = operations.get_bind()
     expected = operation.before.expected_catalog(connection) if operation.before else None
-    actual = observe_native(connection, operation.identity)
+    actual = observe_native(connection, operation.identity, catalog_version=None)
     if actual != expected:
         raise NativeAuthoringError(f"stale native before-state for {operation.identity.qualified}")
     # Validate the whole directive before any effects. Result changes need explicit
@@ -115,8 +126,18 @@ def execute_native(operations, operation):
                 execute_native_sql(connection, statement)
             if operation.identity.kind != "trigger":
                 # Frozen complete ACL replaces ambient default grants and prior effects.
-                set_native_acl(connection, operation.identity, target_catalog["acl"])
-            if observe_native(connection, operation.identity) != target_catalog:
+                set_native_acl(
+                    connection,
+                    operation.identity,
+                    target_catalog["acl"],
+                    catalog_version=operation.after.catalog_version,
+                )
+            if (
+                observe_native(
+                    connection, operation.identity, catalog_version=operation.after.catalog_version
+                )
+                != target_catalog
+            ):
                 raise NativeAuthoringError(
                     f"native after-state differs for {operation.identity.qualified}"
                 )
@@ -147,20 +168,20 @@ def compare_native(autogen_context, upgrade_ops, schemas):
             if identity in before
             else None
         )
-        actual = observe_native(autogen_context.connection, identity)
         target = (
             desired[identity].expected_catalog(autogen_context.connection)
             if identity in desired
             else None
         )
-        if actual != expected and actual != target:
+        actual = observe_native(autogen_context.connection, identity, catalog_version=None)
+        if actual != target and actual != expected:
             raise NativeAuthoringError(
                 f"unexpected catalog state for managed native object {identity.qualified}"
             )
     recreations = (
         authoring.recreate
         if any(
-            observe_native(autogen_context.connection, identity)
+            observe_native(autogen_context.connection, identity, catalog_version=None)
             != desired[identity].expected_catalog(autogen_context.connection)
             for identity in authoring.recreate
         )
@@ -171,11 +192,12 @@ def compare_native(autogen_context, upgrade_ops, schemas):
     for previous in reversed(authoring.predecessor):
         if (
             previous.identity in authoring.retire | recreations
-            and observe_native(autogen_context.connection, previous.identity) is not None
+            and observe_native(autogen_context.connection, previous.identity, catalog_version=None)
+            is not None
         ):
             upgrade_ops.ops.append(NativeTransitionOp(previous, None))
     for item in authoring.desired:
-        actual = observe_native(autogen_context.connection, item.identity)
+        actual = observe_native(autogen_context.connection, item.identity, catalog_version=None)
         if item.identity in recreations:
             upgrade_ops.ops.append(NativeTransitionOp(None, item))
         elif actual != item.expected_catalog(autogen_context.connection):

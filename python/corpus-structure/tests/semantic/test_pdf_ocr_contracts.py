@@ -5,19 +5,76 @@ from copy import deepcopy
 from hashlib import sha256
 from importlib.resources import files
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from pydantic import ValidationError, create_model
-from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 from corpus_structure.semantic.pdf_ocr_contracts import (
+    validate_pdf_cell_coverage,
     validate_pdf_ocr_pages,
     validate_pdf_page_payloads,
 )
 
 from .test_operations import setup
+
+
+@pytest.mark.parametrize("declaration", ["scoped", "health"])
+@pytest.mark.parametrize("failure", ["unknown", "failed_math", "missing"])
+def test_complete_cell_scope_requires_resolved_assessment(declaration, failure):
+    value: dict[str, Any] = dict(
+        document={"tables": [{"data": {"table_cells": [{"text": "x"}]}}]},
+        items=[
+            dict(pointer="#/groups/0", label="section"),
+            dict(pointer="#/groups/1", label="section", parent_pointer="#/groups/0"),
+            dict(
+                pointer="#/tables/0",
+                label="table",
+                parent_pointer="#/groups/1",
+                section_pointer="#/groups/1",
+            ),
+        ],
+        health={},
+        cell_reports=[
+            dict(
+                table_pointer="#/tables/0",
+                cell_index=0,
+                classification="prose",
+                outcome="not_requested",
+            )
+        ],
+    )
+    if declaration == "scoped":
+        value["recognition_coverage"] = [
+            dict(
+                section_pointer="#/groups/0",
+                membership="descendants",
+                universe="cell",
+                outcome="complete",
+            )
+        ]
+    else:
+        value["health"] = dict(
+            cell_coverage="complete", cell_scope=["#/groups/0"], cell_membership="descendants"
+        )
+    validate_pdf_cell_coverage(value)
+    if failure == "missing":
+        value["cell_reports"] = []
+        diagnostic = "omits a native cell assessment"
+    else:
+        value["cell_reports"][0].update(
+            classification="unknown" if failure == "unknown" else "math", outcome="failed"
+        )
+        diagnostic = "unresolved recognition/classification"
+    with pytest.raises(ValueError, match=diagnostic):
+        validate_pdf_cell_coverage(value)
+    # A direct scope does not silently include a child section's table.
+    if declaration == "scoped":
+        value["recognition_coverage"][0]["membership"] = "direct"
+    else:
+        value["health"]["cell_membership"] = "direct"
+    validate_pdf_cell_coverage(value)
 
 
 def inventory():
@@ -231,7 +288,6 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
 
     from corpus_structure.ingest.pdf import PdfConversion, publication_payload
     from corpus_structure.ingest.pdf_hierarchy import snapshot
-    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.operations import (
         OperationBinding,
         claim_tasks,
@@ -243,7 +299,6 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
     from corpus_structure.semantic.pdf_contracts import (
         prepare_pdf_product,
         store_pdf_original,
-        store_pdf_product,
     )
 
     prepared = setup(semantic_db_engine, observations=True, composed=True)
@@ -341,57 +396,72 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
             original=original,
             recipe_bytes=recipe,
         )
-    with semantic_writer_engine.begin() as conn:
-        store_pdf_product(
-            conn, task_id=task, attempt=claim.attempt, holder="ocr-fixture", product=product
-        )
-        for mutation, diagnostic in [
-            ("transform", "raster-to-PDF"),
-            ("address", "estimated-word address"),
-            ("partial", "complete word inventory"),
-        ]:
-            bad = deepcopy(payload)
-            bad["product_key"] = "bad-" + mutation
-            if mutation == "transform":
-                bad["inline_candidate_pages"][0]["ocr_regions"][0]["lines"][0]["words"][0][
-                    "left"
-                ] += 1
-            elif mutation == "address":
-                bad["inline_candidate_pages"][0]["candidates"][0].pop("ocr_word_index")
-            else:
-                bad["inline_candidate_pages"][0]["ocr_regions"][0]["outcome"] = "partial"
-            with pytest.raises(DBAPIError, match=diagnostic), conn.begin_nested():
-                conn.execute(
-                    text(
-                        "SELECT ops.publish_native_document(:task,:attempt,:holder,:contract,"
-                        ":payload,NULL,:schema,:recipe)"
-                    ),
-                    dict(
-                        task=task,
-                        attempt=claim.attempt,
-                        holder="ocr-fixture",
-                        contract=product.contract_digest,
-                        payload=canonical_bytes(bad),
-                        schema=schema,
-                        recipe=recipe,
-                    ),
-                )
-        partial = deepcopy(payload)
-        partial["product_key"] = "partial"
-        partial["inline_candidate_pages"][0]["ocr_regions"][0]["outcome"] = "partial"
-        partial["inline_candidate_pages"][0]["ocr_regions"][0]["lines"][0]["words"].pop()
-        partial["recognition_coverage"][0]["outcome"] = "partial"
-        kept = prepare_pdf_product(partial, original, schema, recipe)
-        store_pdf_product(
-            conn, task_id=task, attempt=claim.attempt, holder="ocr-fixture", product=kept
-        )
-        assert (
-            conn.scalar(
-                text("SELECT count(*) FROM ops.native_document_product WHERE task_id=:task"),
-                dict(task=task),
+    from corpus_structure.semantic.pdf_record_reader import published_record_reader
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    from .native_record_fixtures import publish_native_record_fixture
+
+    published = publish_native_record_fixture(
+        semantic_writer_engine,
+        tmp_path / "native-records",
+        task_id=task,
+        attempt=claim.attempt,
+        holder="ocr-fixture",
+        product=product,
+        document=doc,
+    )
+    for mutation, diagnostic in [
+        ("transform", "raster-to-PDF"),
+        ("address", "estimated-word address"),
+        ("partial", "complete word inventory"),
+    ]:
+        bad = deepcopy(payload)
+        bad["product_key"] = "bad-" + mutation
+        if mutation == "transform":
+            bad["inline_candidate_pages"][0]["ocr_regions"][0]["lines"][0]["words"][0]["left"] += 1
+        elif mutation == "address":
+            bad["inline_candidate_pages"][0]["candidates"][0].pop("ocr_word_index")
+        else:
+            bad["inline_candidate_pages"][0]["ocr_regions"][0]["outcome"] = "partial"
+        with pytest.raises(ValueError, match=diagnostic):
+            malformed = prepare_pdf_product(bad, original, schema, recipe)
+            publish_native_record_fixture(
+                semantic_writer_engine,
+                tmp_path / ("bad-" + mutation),
+                task_id=task,
+                attempt=claim.attempt,
+                holder="ocr-fixture",
+                product=malformed,
+                document=doc,
             )
-            == 2
-        )
+    partial = deepcopy(payload)
+    partial["product_key"] = "partial"
+    partial["inline_candidate_pages"][0]["ocr_regions"][0]["outcome"] = "partial"
+    partial["inline_candidate_pages"][0]["ocr_regions"][0]["lines"][0]["words"].pop()
+    partial["recognition_coverage"][0]["outcome"] = "partial"
+    kept = prepare_pdf_product(partial, original, schema, recipe)
+    partial_pin = publish_native_record_fixture(
+        semantic_writer_engine,
+        tmp_path / "partial-records",
+        task_id=task,
+        attempt=claim.attempt,
+        holder="ocr-fixture",
+        product=kept,
+        document=doc,
+    )
+    with semantic_writer_engine.connect() as conn:
+        for key, retained, expected in (
+            ("native", published, payload),
+            ("partial", partial_pin, partial),
+        ):
+            reader = published_record_reader(
+                conn, ProductReference(task, key, retained.logical_digest)
+            )
+            assert reader is not None
+            assert (
+                list(reader.native_metadata("inline_candidate_pages"))
+                == expected["inline_candidate_pages"]
+            )
 
 
 def test_display_only_page_is_outside_the_declared_inline_prose_universe():

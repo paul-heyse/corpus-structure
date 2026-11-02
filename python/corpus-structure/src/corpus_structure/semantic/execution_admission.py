@@ -133,14 +133,16 @@ def _verify_deployment_functions(connection: Connection) -> None:
 
 
 def require_native_execution(connection: Connection, prepared: PreparedRelease) -> None:
-    from sqlalchemy import text
     from sqlalchemy.exc import DBAPIError
+
+    from ._operation_calls import require_native_execution_release
+    from ._operation_ids import ReleaseId
 
     _verify_deployment_functions(connection)
     try:
-        connection.execute(
-            text("SELECT data.require_execution_release(:release)"),
-            {"release": prepared.release_id},
+        require_native_execution_release(
+            connection,
+            release_id=ReleaseId(prepared.release_id),
         )
     except DBAPIError as exc:
         if getattr(exc.orig, "sqlstate", None) not in {"23514", "P0001"}:
@@ -201,7 +203,7 @@ def require_archive_fence(connection: Connection) -> None:
 
 # Frozen from reviewed migration ASTs through semantic_pdf_retire_20261101.
 # Schema derive emits the corresponding SQL.
-_DESCRIPTOR_SHA256 = "065df67097b65d0e18658e0bea644355ff95e559106a82760d27d825f13ee998"
-_REQUIRE_SHA256 = "f2b63aaa90583a8cc46bcd5a5b0d28cdf31497883e60e81fbcff67fad16cc5fa"
+_DESCRIPTOR_SHA256 = "44b6fbd388562df43806fb91311988f989f0deea747cffddc81c149ff53329e1"
+_REQUIRE_SHA256 = "36765b37612d3c061bd0ad490967c0eadbf267d03b56bab5ba5f658a145e9c63"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

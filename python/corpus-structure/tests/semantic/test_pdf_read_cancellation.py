@@ -1,6 +1,7 @@
 """Public PDF reads settle cursors, decoding and output before a borrower can be reused."""
 
 import io
+import json
 from unittest.mock import MagicMock
 
 import psycopg
@@ -58,7 +59,7 @@ def test_abandoned_native_event_iterator_closes_result_and_unregisters():
     conn, driver = borrower()
     cancellation = BorrowerCancellation()
     result = conn.execute.return_value.__enter__.return_value
-    result.__iter__.return_value = iter([({"kind": "literal", "value": "{"},)])
+    result.__iter__.return_value = iter([(json.dumps({"kind": "literal", "value": "{"}),)])
     reader = PublishedPdfReader(
         conn, ProductReference(2, "native", "a" * 64), revision={}, cancellation=cancellation
     )

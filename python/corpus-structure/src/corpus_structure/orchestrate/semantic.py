@@ -11,8 +11,10 @@ from sqlalchemy import select
 
 from corpus_structure.core.method import MethodContext, UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
+from corpus_structure.semantic._operation_ids import CutId, DocumentId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.operation_results import MethodConfigId, RunId, TaskId
 from corpus_structure.semantic.operations import (
     BoundReader,
     OperationBinding,
@@ -29,11 +31,11 @@ from corpus_structure.semantic.operations import (
 
 
 class BoundRunReport(BaseModel):
-    run_id: int
+    run_id: RunId
     status: str
     release_id: str
     realization_id: str
-    cut_id: int | None = None
+    cut_id: CutId | None = None
 
 
 def run_source_methods(
@@ -455,10 +457,11 @@ def run_source_methods(
                             with engine.begin() as conn:
                                 claimed = claim_tasks(
                                     conn,
-                                    run_id=rid,
-                                    config_id=cid,
+                                    run_id=RunId(rid),
+                                    config_id=MethodConfigId(cid),
                                     holder=holder,
                                     limit=method.resources.batch_size,
+                                    prepared=prepared,
                                 )
                             if claimed:
                                 work.append((method, config, claimed))
@@ -498,7 +501,9 @@ def run_source_methods(
                                                 "an original-bound task"
                                             )
                                         original = read_original(
-                                            original_conn, document_id, prepared=prepared
+                                            original_conn,
+                                            DocumentId(document_id),
+                                            prepared=prepared,
                                         )
                                         store_pdf_original(
                                             original_conn,
@@ -560,34 +565,7 @@ def run_source_methods(
 
                             with maintained_claims(engine, claimed, holder) as check_active:
 
-                                def retain_native_pdf(
-                                    ref,
-                                    product,
-                                    *,
-                                    claimed_tasks=tuple(claimed),
-                                    active=check_active,
-                                ):
-                                    from corpus_structure.semantic.pdf_contracts import (
-                                        store_pdf_product,
-                                    )
-                                    from corpus_structure.semantic.product_reference import (
-                                        ProductReference,
-                                    )
-
-                                    task = _retained_claim(ref, claimed_tasks, active)
-                                    with engine.begin() as publication_conn:
-                                        digest = store_pdf_product(
-                                            publication_conn,
-                                            task_id=task.task_id,
-                                            attempt=task.attempt,
-                                            holder=holder,
-                                            product=product,
-                                        )
-                                    return ProductReference(
-                                        task.task_id, product.values()["product_key"], digest
-                                    )
-
-                                def retain_integrated_pdf(
+                                def retain_pdf_observation(
                                     ref,
                                     product,
                                     *,
@@ -595,7 +573,7 @@ def run_source_methods(
                                     active=check_active,
                                 ):
                                     from corpus_structure.semantic.pdf_integrated import (
-                                        store_integrated_pdf_product,
+                                        store_pdf_observation,
                                     )
                                     from corpus_structure.semantic.product_reference import (
                                         ProductReference,
@@ -603,7 +581,7 @@ def run_source_methods(
 
                                     task = _retained_claim(ref, claimed_tasks, active)
                                     with engine.begin() as publication_conn:
-                                        digest = store_integrated_pdf_product(
+                                        digest = store_pdf_observation(
                                             publication_conn,
                                             task_id=task.task_id,
                                             attempt=task.attempt,
@@ -687,8 +665,7 @@ def run_source_methods(
                                         check_active=check_active,
                                         retain_pdf_records=retain_pdf_records,
                                         produce_pdf_records=produce_pdf_records,
-                                        retain_native_pdf=retain_native_pdf,
-                                        retain_integrated_pdf=retain_integrated_pdf,
+                                        retain_pdf_observation=retain_pdf_observation,
                                     ),
                                 )
                             completed.append((method, config, claimed, results))
@@ -742,7 +719,7 @@ def run_source_methods(
         )
         try:
             with engine.begin() as conn:
-                end_source_run(conn, rid, failure=failure)
+                end_source_run(conn, RunId(rid), failure=failure, prepared=prepared)
         except BaseException as cleanup_error:
             exc.add_note(f"source run cleanup failed: {cleanup_error}")
         raise
@@ -851,7 +828,7 @@ def agent_packet(
 def queue_agent(
     conn: Any,
     *,
-    run_id: int,
+    run_id: RunId,
     prepared: Any,
     configuration: Mapping[str, Any],
     units: Any,
@@ -859,7 +836,7 @@ def queue_agent(
     trigger: Mapping[str, Any] | None = None,
     skip_reason: str | None = None,
     preparation: dict | None = None,
-) -> list[int]:
+) -> list[TaskId]:
     """Queue policy-selected source units under the same packet definition used by MCP."""
     from hashlib import sha256
 

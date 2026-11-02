@@ -1,5 +1,6 @@
 """Stored native fields remain readable when their analytical implementation is unavailable."""
 
+import json
 from dataclasses import replace
 from unittest.mock import MagicMock
 
@@ -60,6 +61,8 @@ def test_retained_view_hydrates_pins_but_refuses_layout_and_outside_run(
         native_task_id=23,
         native_product_key="organized",
         native_content_digest="a" * 64,
+        native_build_id="current-published-native",
+        native_revision_id="current-published-native",
         section_pointer="#/groups/0",
         membership="direct",
         projection_digest="b" * 64,
@@ -77,26 +80,56 @@ def test_retained_view_hydrates_pins_but_refuses_layout_and_outside_run(
 
     def execute(statement, *args):
         result = MagicMock()
+        result.__enter__.return_value = result
         sql = str(statement)
         if "to_regclass" in sql or "to_regprocedure" in sql:
             result.scalar_one.return_value = True
         elif "ops.read_pdf_published_revision" in sql:
-            assert args == ({"task": 23, "product": "organized", "digest": "a" * 64},)
-            result.mappings.return_value.one_or_none.return_value = {
-                "build_id": "current-published-native",
+            assert args == ()
+            assert statement.compile().params == {
                 "task_id": 23,
                 "product_key": "organized",
                 "logical_digest": "a" * 64,
-                "release_id": retained_release.release_id,
-                "source_digest": "d" * 64,
-                "schema_digest": "e" * 64,
-                "recipe_digest": "f" * 64,
-                "frozen_digest": "0" * 64,
-                "kind": "native",
             }
-        elif "unnest" in sql:
-            result.mappings.return_value = [dict(pointer="#/texts/0", item=item)]
+            # Independent ordered native result; the generated materializer must preserve this pin.
+            result.one_or_none.return_value = (
+                "current-published-native",
+                23,
+                "organized",
+                "a" * 64,
+                retained_release.release_id,
+                "d" * 64,
+                "e" * 64,
+                "f" * 64,
+                "0" * 64,
+                "native",
+            )
+        elif "ops.read_pdf_published_items" in sql:
+            assert args == ()
+            assert statement.compile().params == {
+                "task_id": 23,
+                "product_key": "organized",
+                "content_digest": "a" * 64,
+                "pointers": ("#/texts/0",),
+            }
+            result.__iter__.return_value = iter(
+                (
+                    (
+                        "current-published-native",
+                        "current-published-native",
+                        "#/texts/0",
+                        1,
+                        "formula",
+                        "#/groups/0",
+                        "#/groups/0",
+                        "body",
+                        "x",
+                        json.dumps(item),
+                    ),
+                )
+            )
         else:
+            assert "kb.source_view" in sql
             result.mappings.return_value.one.return_value = row
         return result
 

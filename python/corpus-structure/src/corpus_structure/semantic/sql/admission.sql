@@ -111,7 +111,7 @@ BEGIN
  WHERE relation.oid IS NULL OR relation.relkind<>'r' OR relation.relpersistence<>'p'
  OR relation.relrowsecurity OR relation.relforcerowsecurity
  OR pg_get_userbyid(relation.relowner) IS DISTINCT FROM item.value->>'owner'
- OR (SELECT jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'not_null',a.attnotnull,'identity',a.attidentity::text,'generated',a.attgenerated::text,'default',pg_get_expr(default_value.adbin,default_value.adrelid)) ORDER BY a.attnum)
+ OR (SELECT jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'not_null',a.attnotnull,'identity',a.attidentity::text,'generated',a.attgenerated::text,'default',pg_get_expr(default_value.adbin,default_value.adrelid)) ORDER BY a.attname COLLATE "C")
      FROM pg_attribute a LEFT JOIN pg_attrdef default_value ON default_value.adrelid=a.attrelid AND default_value.adnum=a.attnum
      WHERE a.attrelid=relation.oid AND a.attnum>0 AND NOT a.attisdropped) IS DISTINCT FROM item.value->'columns'
  OR (SELECT to_jsonb(ARRAY(SELECT a.attname::text FROM unnest(c.conkey) WITH ORDINALITY cols(num,position) JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=cols.num ORDER BY cols.position)) FROM pg_constraint c WHERE c.conrelid=relation.oid AND c.contype='p') IS DISTINCT FROM item.value->'primary_key'

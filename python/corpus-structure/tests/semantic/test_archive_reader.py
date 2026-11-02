@@ -128,7 +128,9 @@ def test_historical_analysis_capture_refuses_without_rewriting_evidence():
     historical = reconstruct_release(
         data["products"], bytes.fromhex(data["manifest"]), bundle, profile, artifacts
     )
-    with pytest.raises(PreparationError, match="only live semantic-1/compiler-13 pure preparation"):
+    with pytest.raises(
+        PreparationError, match="only live semantic-1/compiler-13 or compiler-14 pure preparation"
+    ):
         prepare_capture_policy(historical)
     assert fixture.read_bytes() == original
     assert historical.release_id == data["products"]["release_id"]

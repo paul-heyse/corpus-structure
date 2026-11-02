@@ -124,7 +124,7 @@ def _retain_page(
         product = ctx.reader.prepare_integrated_pdf_product(
             observation, prepared_original, recipe.to_bytes(), artifacts=artifacts
         )
-        pin = ctx.retain_integrated_pdf(unit, product)
+        pin = ctx.retain_pdf_observation(unit, product)
         observations.append((pin.values(), product.values(), raw))
     return observations
 
@@ -220,29 +220,13 @@ class IngestPdfIntegrated:
                 if cfg.integrated_product is not None:
                     # The reader checks the integrated role and exact original/project custody
                     # before returning the selected content body under the producing archive.
-                    retained = ctx.reader.native_document(
-                        cfg.integrated_product, include_candidate_pages=False
-                    )
-                    content = retained.values()
-                    if (
-                        content.get("source_scope") != "whole_document"
-                        or content["health"]["conversion"] != "success"
-                    ):
-                        raise ValueError("retained integrated source is not a whole PDF product")
-                    snapshot = _snapshot_from_values(content)
-                    document = load_snapshot(snapshot)
-                    nodes = native_nodes(document)
-                    drafts = _drafts(
-                        unit.ref.unit_id,
+                    drafts = ctx.reader.native_section_drafts(
                         cfg.integrated_product,
-                        snapshot,
-                        content["health"],
-                        _select_sections(nodes, cfg, scope=ctx.run.options.get("scope")),
-                        cfg.membership,
-                        consumer_release,
-                        recognition_coverage=content.get("recognition_coverage", ()),
-                        document=document,
-                        node_index=nodes,
+                        document_id=unit.ref.unit_id,
+                        selections=tuple(cfg.sections),
+                        membership=cfg.membership,
+                        scope=ctx.run.options.get("scope"),
+                        consumer_release=consumer_release,
                     )
                     outputs.append(
                         UnitResult(
@@ -266,10 +250,6 @@ class IngestPdfIntegrated:
                         finally:
                             self._selector.close()
                         native = None
-                        for captured in standard.native_products:
-                            reference = ctx.retain_native_pdf(unit.ref, captured)
-                            if captured.values()["product_key"] == "organized":
-                                native, native_reference = captured, reference
                         if native is None and standard.source_views:
                             native_reference = standard.source_views[0].native_product
                             native = ctx.reader.native_document(

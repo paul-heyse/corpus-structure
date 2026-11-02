@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.method import SourceViewDraft
+from corpus_structure.semantic.operation_results import MethodConfigId, RunId
 from corpus_structure.semantic.operations import (
     OperationBinding,
     claim_tasks,
@@ -22,7 +23,6 @@ from corpus_structure.semantic.operations import (
 from corpus_structure.semantic.pdf_contracts import (
     prepare_pdf_product,
     store_pdf_original,
-    store_pdf_product,
 )
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.source_views import (
@@ -32,6 +32,7 @@ from corpus_structure.semantic.source_views import (
     store_source_view,
 )
 
+from .native_record_fixtures import publish_native_record_fixture
 from .test_operations import setup
 
 
@@ -195,7 +196,9 @@ def test_native_source_view_is_real_unit_with_exact_context(
             unit_key="view-source",
             input_hash=sha256(original).hexdigest(),
         )
-        claim = claim_tasks(conn, run_id=run, config_id=config, holder="view-fixture")[0]
+        claim = claim_tasks(
+            conn, run_id=RunId(run), config_id=MethodConfigId(config), holder="view-fixture"
+        )[0]
         store_pdf_original(
             conn,
             task_id=task,
@@ -204,14 +207,21 @@ def test_native_source_view_is_real_unit_with_exact_context(
             original=original,
             recipe_bytes=recipe,
         )
+    published = publish_native_record_fixture(
+        semantic_writer_engine,
+        tmp_path / "native-records",
+        task_id=task,
+        attempt=claim.attempt,
+        holder="view-fixture",
+        product=product,
+        document=doc,
+    )
+    native_reference = ProductReference(task, "native", published.logical_digest)
     with semantic_writer_engine.begin() as conn:
-        store_pdf_product(
-            conn, task_id=task, attempt=claim.attempt, holder="view-fixture", product=product
-        )
         draft = SourceViewDraft(
             "view-independent",
             document,
-            ProductReference(task, "native", product.digest),
+            native_reference,
             section.self_ref,
             "direct",
             "Independent source.\nf(x)=x",
@@ -258,7 +268,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
         child_draft = SourceViewDraft(
             "view-child",
             document,
-            ProductReference(task, "native", product.digest),
+            native_reference,
             child.self_ref,
             "direct",
             "f(2)\nProbability",
@@ -303,28 +313,15 @@ def test_native_source_view_is_real_unit_with_exact_context(
             draft=child_draft,
             position=1,
         )
-        assert (
-            conn.execute(
-                text("SELECT count(*) FROM kb.native_document_coverage WHERE task_id=:task"),
-                {"task": task},
-            ).scalar_one()
-            == 6
-        )
-        report = conn.execute(
-            text(
-                "SELECT classification,outcome FROM "
-                "kb.native_document_cell_report WHERE task_id=:task"
-            ),
-            {"task": task},
-        ).one()
-        assert tuple(report) == ("prose", "not_requested")
-        assert (
-            conn.execute(
-                text("SELECT report FROM kb.native_document_runtime WHERE task_id=:task"),
-                {"task": task},
-            ).scalar_one()
-            == payload["runtime_report"]
-        )
+        from corpus_structure.semantic.pdf_record_reader import published_record_reader
+
+        record_reader = published_record_reader(conn, native_reference, projection_context=prepared)
+        assert record_reader is not None
+        assert list(record_reader.native_metadata("recognition_coverage")) == coverage
+        reports = list(record_reader.native_metadata("cell_reports"))
+        assert len(reports) == 1
+        assert (reports[0]["classification"], reports[0]["outcome"]) == ("prose", "not_requested")
+        assert list(record_reader.native_metadata("runtime_report")) == [payload["runtime_report"]]
         from copy import deepcopy
 
         bad = deepcopy(payload)
@@ -332,14 +329,11 @@ def test_native_source_view_is_real_unit_with_exact_context(
         bad["cell_reports"][0].update(
             classification="unknown", basis="unresolved-native-evidence", outcome="unknown"
         )
-        malformed = prepare_pdf_product(bad, original, schema, recipe)
-        with (
-            pytest.raises(DBAPIError, match="unresolved recognition/classification"),
-            conn.begin_nested(),
-        ):
-            store_pdf_product(
-                conn, task_id=task, attempt=claim.attempt, holder="view-fixture", product=malformed
-            )
+        from corpus_structure.semantic.pdf_contracts import validate_pdf_report_metadata
+
+        with pytest.raises(ValueError, match="unresolved recognition/classification"):
+            malformed = prepare_pdf_product(bad, original, schema, recipe)
+            validate_pdf_report_metadata(malformed.values())
         assert selected_source_views(conn, run)[0].id == identity
         loaded = load_source_view(conn, identity)
         assert loaded.text == "Independent source.\nf(x)=x"
@@ -528,13 +522,20 @@ def test_native_source_view_is_real_unit_with_exact_context(
             unit_key="adopted-original",
             input_hash="adopted-source",
         )
-        claim_tasks(conn, run_id=adopted, config_id=config_id, holder="adopter")
+        claim_tasks(
+            conn, run_id=RunId(adopted), config_id=MethodConfigId(config_id), holder="adopter"
+        )
         reader = BoundReader(conn, adopted, prepared)
         with pytest.raises(OperationConflict):
             reader.native_document(loaded.ref.native_product)
         reader.bind_source_tasks({document: adoption_task})
         archived = reader.native_document(loaded.ref.native_product)
-        assert archived.digest == product.digest and archived.original == original
+        assert loaded.ref.native_product == native_reference
+        assert archived.original == original
+        assert (
+            DoclingDocument.model_validate(archived.values()["document"]).export_to_dict()
+            == product.values()["document"]
+        )
 
     from corpus_structure.semantic.native_requests import request_source_view
 
@@ -595,7 +596,10 @@ def test_native_source_view_is_real_unit_with_exact_context(
             input_hash="parent-context-fixture",
         )
         parent_claim = claim_tasks(
-            conn, run_id=run, config_id=parent_config, holder="context-fixture"
+            conn,
+            run_id=RunId(run),
+            config_id=MethodConfigId(parent_config),
+            holder="context-fixture",
         )[0]
         parent_payload = native.NativeContextPayload(
             source_view_id=identity,

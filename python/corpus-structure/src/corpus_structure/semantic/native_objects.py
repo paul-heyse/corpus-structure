@@ -105,10 +105,24 @@ class NativeDefinition:
     grants: tuple[tuple[str, str, bool], ...] = ()
     enabled: str = "O"
     role_bindings: tuple[tuple[str, str], ...] = ()
+    bind_owner: bool = False
+
+    @property
+    def catalog_version(self) -> int:
+        statement = prepare_sql(self.sql, source=self.source).statements[0].stmt
+        return (
+            2
+            if isinstance(statement, ast.CreateFunctionStmt) and statement.sql_body is not None
+            else 1
+        )
 
     def __post_init__(self):
         if self.role_bindings not in ((), (("$migration_owner", "sem_namespace_owner"),)):
             raise NativeAuthoringError(f"{self.source}: unsupported native role binding")
+        if self.bind_owner and not self.role_bindings:
+            raise NativeAuthoringError(
+                f"{self.source}: owner binding requires its semantic namespace"
+            )
         tree = prepare_sql(self.sql, source=self.source).statements
         expected = {
             "function": ast.CreateFunctionStmt,
@@ -245,8 +259,12 @@ def definition_from_sql(
     return NativeDefinition(identity, sql, source, owner, grants, enabled)
 
 
-def observe_native(connection: Connection, identity: NativeIdentity) -> dict | None:
+def observe_native(
+    connection: Connection, identity: NativeIdentity, *, catalog_version: int | None = 1
+) -> dict | None:
     """Read selected properties independently from catalog fields; NULL ACL uses acldefault."""
+    if catalog_version not in {None, 1, 2}:
+        raise NativeAuthoringError("unsupported native catalog comparison profile")
     args = {
         "schema": identity.schema,
         "name": identity.name,
@@ -308,9 +326,43 @@ def observe_native(connection: Connection, identity: NativeIdentity) -> dict | N
     if row is None:
         return None
     result = dict(row)
-    if result.pop("sql_body", False):
+    sql_body = result.pop("sql_body", False)
+    selected_version = (2 if sql_body else 1) if catalog_version is None else catalog_version
+    if sql_body and selected_version == 1:
         raise NativeAuthoringError(
             f"{identity.qualified}: SQL-standard body normalization is unsupported"
+        )
+    if selected_version == 2:
+        from .native_sql_body import (
+            SQL_STANDARD_MAJOR,
+            SQL_STANDARD_PROFILE,
+            catalog_path,
+            dependency_query,
+        )
+
+        if identity.kind != "function" or not sql_body:
+            raise NativeAuthoringError(
+                "SQL-standard comparison profile requires a parsed SQL function body"
+            )
+        major = connection.scalar(
+            text("SELECT current_setting('server_version_num')::integer/10000")
+        )
+        if major != SQL_STANDARD_MAJOR:
+            raise NativeAuthoringError(
+                "unsupported PostgreSQL major for SQL-standard body comparison"
+            )
+        with catalog_path(connection):
+            result["body"] = connection.scalar(
+                text("SELECT pg_get_functiondef(CAST(:signature AS regprocedure))"), args
+            )
+            dependencies = connection.scalar(
+                text(dependency_query("CAST(:signature AS regprocedure)")), args
+            )
+        result.update(
+            body_kind="sql_standard",
+            body_profile=SQL_STANDARD_PROFILE,
+            server_major=major,
+            dependencies=dependencies,
         )
     # Bind cast syntax explicitly: SQLAlchemy text does not parse :parameter::type reliably.
     acl = connection.execute(
@@ -338,9 +390,11 @@ def semantic_namespace_owner(connection: Connection) -> str:
     return owner
 
 
-def set_native_acl(connection: Connection, identity: NativeIdentity, grants) -> None:
+def set_native_acl(
+    connection: Connection, identity: NativeIdentity, grants, *, catalog_version=1
+) -> None:
     """Replace the selected function/view ACL using PostgreSQL's ACL projections."""
-    installed = observe_native(connection, identity)
+    installed = observe_native(connection, identity, catalog_version=catalog_version)
     if installed is None:
         raise NativeAuthoringError(f"cannot grant an absent native object: {identity.qualified}")
     target = ("FUNCTION" if identity.kind == "function" else "TABLE") + " " + identity.qualified
@@ -384,6 +438,33 @@ class NativeObject:
     statements: tuple[str, ...]
     catalog_json: str
     role_bindings: tuple[tuple[str, str], ...] = ()
+    catalog_version: int = 1
+    binding_version: int = 1
+
+    def __post_init__(self):
+        if self.binding_version not in {1, 2}:
+            raise NativeAuthoringError("unsupported frozen native owner binding")
+        if self.binding_version == 2 and (
+            self.role_bindings != (("$migration_owner", "sem_namespace_owner"),)
+            or self.catalog.get("owner") != "$migration_owner"
+        ):
+            raise NativeAuthoringError("v2 native owner requires its semantic namespace binding")
+        if self.catalog_version not in {1, 2}:
+            raise NativeAuthoringError("unsupported frozen native catalog profile")
+        if self.catalog_version == 2:
+            from .native_sql_body import SQL_STANDARD_MAJOR, SQL_STANDARD_PROFILE
+
+            catalog = self.catalog
+            if (
+                self.identity.kind != "function"
+                or catalog.get("body_kind") != "sql_standard"
+                or catalog.get("body_profile") != SQL_STANDARD_PROFILE
+                or catalog.get("server_major") != SQL_STANDARD_MAJOR
+                or not isinstance(catalog.get("dependencies"), list)
+            ):
+                raise NativeAuthoringError("unsupported frozen SQL-standard comparison profile")
+        elif "body_profile" in self.catalog:
+            raise NativeAuthoringError("v1 native catalog cannot carry a SQL-standard profile")
 
     @property
     def catalog(self) -> dict:
@@ -396,6 +477,10 @@ class NativeObject:
         if self.role_bindings != (("$migration_owner", "sem_namespace_owner"),):
             raise NativeAuthoringError(f"{self.source}: unsupported frozen native role binding")
         owner = semantic_namespace_owner(connection)
+        if self.binding_version == 2:
+            catalog["owner"] = owner
+        if self.identity.kind == "trigger":
+            return catalog
         acl = {}
         for grantee, privilege, option in catalog["acl"]:
             grantee = owner if grantee == "$migration_owner" else grantee
@@ -405,6 +490,10 @@ class NativeObject:
         ]
         return catalog
 
+    @property
+    def payload_version(self) -> int:
+        return max(self.catalog_version, self.binding_version)
+
     def payload(self) -> dict:
         return {
             "identity": self.identity.payload(),
@@ -412,6 +501,8 @@ class NativeObject:
             "statements": list(self.statements),
             "catalog": self.catalog,
             "role_bindings": dict(self.role_bindings),
+            **({"catalog_version": self.catalog_version} if self.catalog_version != 1 else {}),
+            **({"binding_version": self.binding_version} if self.binding_version != 1 else {}),
         }
 
     @classmethod
@@ -422,6 +513,8 @@ class NativeObject:
             tuple(value["statements"]),
             json.dumps(value["catalog"], sort_keys=True),
             tuple(value.get("role_bindings", {}).items()),
+            value.get("catalog_version", 1),
+            value.get("binding_version", 1),
         )
 
 
@@ -493,7 +586,7 @@ def prepare_native_authoring(
             # Union order is explicit dependency order; dependencies absent from the scope
             # make PostgreSQL refuse, rather than silently authorizing a dependent drop.
             for identity in reversed(scope):
-                installed = observe_native(connection, identity)
+                installed = observe_native(connection, identity, catalog_version=None)
                 if installed is not None:
                     with native_owner(connection, installed.get("owner")):
                         execute_native_sql(connection, identity.drop_sql)
@@ -519,10 +612,17 @@ def prepare_native_authoring(
                     for statement in item.install_sql:
                         execute_native_sql(connection, statement)
                     if item.identity.kind != "trigger":
-                        set_native_acl(connection, item.identity, _declared_acl(connection, item))
+                        set_native_acl(
+                            connection,
+                            item.identity,
+                            _declared_acl(connection, item),
+                            catalog_version=item.catalog_version,
+                        )
             result = []
             for item in items:
-                catalog = observe_native(connection, item.identity)
+                catalog = observe_native(
+                    connection, item.identity, catalog_version=item.catalog_version
+                )
                 if catalog is None:
                     raise NativeAuthoringError(
                         f"{item.source}: declaration did not create {item.identity.qualified}"
@@ -530,17 +630,24 @@ def prepare_native_authoring(
                 statements = item.install_sql
                 if item.role_bindings:
                     migration_owner = semantic_namespace_owner(connection)
+                    if item.bind_owner:
+                        if item.owner != migration_owner:
+                            raise NativeAuthoringError(
+                                "native owner binding differs from semantic namespace"
+                            )
+                        catalog["owner"] = "$migration_owner"
                     # Bind only the historical ACL grantee. SQL bodies, names and other
                     # text remain exact. Complete frozen ACL execution supplies this grant.
-                    catalog["acl"] = [
-                        [
-                            "$migration_owner" if grantee == migration_owner else grantee,
-                            privilege,
-                            option,
+                    if "acl" in catalog:
+                        catalog["acl"] = [
+                            [
+                                "$migration_owner" if grantee == migration_owner else grantee,
+                                privilege,
+                                option,
+                            ]
+                            for grantee, privilege, option in catalog["acl"]
                         ]
-                        for grantee, privilege, option in catalog["acl"]
-                    ]
-                    if migration_owner == item.owner:
+                    if "acl" in catalog and migration_owner == item.owner and not item.bind_owner:
                         catalog["acl"].extend(
                             [
                                 list(grant)
@@ -556,6 +663,16 @@ def prepare_native_authoring(
                             f"TO {_quote(migration_owner)}"
                         )
                     )
+                    if item.bind_owner:
+                        owner_statement = (
+                            "ALTER "
+                            + item.identity.kind.upper()
+                            + " "
+                            + item.identity.qualified
+                            + " OWNER TO "
+                            + _quote(migration_owner)
+                        )
+                        statements = tuple(s for s in statements if s != owner_statement)
                 result.append(
                     NativeObject(
                         item.identity,
@@ -563,6 +680,8 @@ def prepare_native_authoring(
                         statements,
                         json.dumps(catalog, sort_keys=True),
                         item.role_bindings,
+                        item.catalog_version,
+                        2 if item.bind_owner else 1,
                     )
                 )
             return tuple(result)
@@ -580,7 +699,7 @@ def prepare_native_authoring(
 
 def admit_native(connection: Connection, objects: tuple[NativeObject, ...]) -> None:
     for item in objects:
-        actual = observe_native(connection, item.identity)
+        actual = observe_native(connection, item.identity, catalog_version=item.catalog_version)
         expected = item.expected_catalog(connection)
         if actual != expected:
             changed = sorted(

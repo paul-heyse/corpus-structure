@@ -13,7 +13,7 @@ from hashlib import sha256
 from types import MappingProxyType
 
 import pyarrow as pa
-from sqlalchemy import Connection, Engine, text
+from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 
@@ -421,7 +421,9 @@ def stage_arrow(
     *,
     cancellation: BorrowerCancellation | None = None,
 ) -> None:
-    connection.execute(text("SELECT data.begin_stage()"))
+    from ._operation_calls import begin_stage
+
+    begin_stage(connection)
     owned = batch.transport if isinstance(batch, SnapshotDerivedPublication) else batch
     for name, relation in batch.relations.items():
         try:
@@ -452,31 +454,35 @@ def publish_arrow_on_connection(
         stage_arrow(connection, batch)
     else:
         stage_arrow(connection, batch, cancellation=cancellation)
-    function = "data.publish_batch(:r,:z,:b,:c)"
-    params: dict[str, str | bytes | int | None] = {
-        "r": batch.release_id,
-        "z": batch.realization_id,
-        "b": batch.batch_id,
-        "c": batch.content,
-    }
-    if isinstance(batch, SnapshotDerivedPublication):
-        function = (
-            "data.publish_derived_batch_v2("
-            ":r,:z,:b,:c,:sr,:sz,:revision,:capture,:operation,:projection,:contract,:cut,:profile)"
-        )
-        params.update(
-            sr=batch.source.release_id,
-            sz=batch.source.realization_id,
-            revision=batch.source.data_revision,
-            capture=batch.source.capture_id,
-            operation=batch.operation_id,
-            projection=batch.projection_id,
-            contract=batch.contract_id,
-            cut=batch.cut_id,
-            profile=batch.profile_digest,
-        )
+    from ._operation_calls import publish_batch, publish_derived_batch
+    from ._operation_ids import CutId, RealizationId, ReleaseId
+
     try:
-        revision = connection.execute(text("SELECT " + function), params).scalar_one()
+        if isinstance(batch, SnapshotDerivedPublication):
+            revision = publish_derived_batch(
+                connection,
+                release_id=ReleaseId(batch.release_id),
+                realization_id=RealizationId(batch.realization_id),
+                batch_id=batch.batch_id,
+                content=batch.content,
+                source_release_id=ReleaseId(batch.source.release_id),
+                source_realization_id=RealizationId(batch.source.realization_id),
+                source_revision=batch.source.data_revision,
+                source_capture_id=batch.source.capture_id,
+                operation=batch.operation_id,
+                projection=batch.projection_id,
+                contract_id=batch.contract_id,
+                cut_id=CutId(batch.cut_id) if batch.cut_id is not None else None,
+                profile_digest=batch.profile_digest,
+            )
+        else:
+            revision = publish_batch(
+                connection,
+                release_id=ReleaseId(batch.release_id),
+                realization_id=RealizationId(batch.realization_id),
+                batch_id=batch.batch_id,
+                content=batch.content,
+            )
     except Exception as exc:
         if getattr(getattr(exc, "orig", exc), "sqlstate", None) == "P0004":
             raise StaleAnalysisError(

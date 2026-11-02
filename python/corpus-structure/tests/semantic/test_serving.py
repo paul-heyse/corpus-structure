@@ -16,6 +16,7 @@ from corpus_structure.semantic.analytics import SPINE, load_packet
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import Explanation as FactExplanation
 from corpus_structure.semantic.query import read_session
+from corpus_structure.semantic.query_compatibility import acquire_query_inputs, open_query_registry
 from corpus_structure.semantic.refusals import StaleSnapshot, WrongBinding
 from corpus_structure.serve.explain import UnitExplanation, explain
 from corpus_structure.serve.export import export_packet
@@ -34,9 +35,16 @@ from corpus_structure.serve.results import (
 from .test_agent_resubmission import lease_and_read, source_task
 
 
-def completed(admin, writer, tmp_path, *, complete_coverage=False):
+def completed(admin, writer, tmp_path, *, complete_coverage=False, query_pack=None):
     prepared, run, task, locator = source_task(
-        admin, writer, tmp_path / "source.html", composed=True, domain="statistics"
+        admin,
+        writer,
+        tmp_path / "source.html",
+        composed=True,
+        domain="statistics",
+        query_inputs=acquire_query_inputs(
+            query_pack or Path(__file__).resolve().parents[4] / "domains/statistics"
+        ),
     )
 
     async def submit():
@@ -75,7 +83,9 @@ def completed(admin, writer, tmp_path, *, complete_coverage=False):
                 },
             )
             assert result.structured_content is not None
-            assert result.structured_content["submission_disposition"] == "completed_accepted"
+            assert result.structured_content["submission_disposition"] == "completed_accepted", (
+                json.dumps(result.structured_content, sort_keys=True)
+            )
 
     anyio.run(submit)
     if complete_coverage:
@@ -143,7 +153,9 @@ def test_named_semantic_pages_explanations_and_source_search(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
 ):
     prepared, run, _task, locator = completed(semantic_db_engine, semantic_writer_engine, tmp_path)
-    registry = build_registry(GENERIC)
+    registry = open_query_registry(
+        prepared, Path(__file__).resolve().parents[4] / "domains/statistics"
+    )
     with (
         semantic_reader_engine.connect().execution_options(
             isolation_level="REPEATABLE READ"
@@ -629,6 +641,8 @@ def test_real_cli_query_explain_and_export_dispatch(
         "--json",
         settings=lambda: settings,
     )
+    if queried.exception is not None:
+        raise queried.exception.with_traceback(queried.exc_info[2] if queried.exc_info else None)
     assert queried.exit_code == 0, queried.output
     page = json.loads(queried.stdout)
     assert page["binding"]["realization_id"] == "served-result" and page["next_page_token"]
@@ -723,15 +737,162 @@ def test_real_cli_query_explain_and_export_dispatch(
     assert (tmp_path / "cli-export" / "manifest.json").is_file()
 
 
+def test_real_cli_query_implementation_edit_and_bound_followups(
+    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, cli, monkeypatch
+):
+    from corpus_structure.schema import pack as pack_module
+    from corpus_structure.settings import Settings
+
+    packs = tmp_path / "packs"
+    pack = packs / "statistics"
+    pack.mkdir(parents=True)
+    plugin = (
+        "from corpus_structure.serve.queries import Claims\n"
+        "class Probe(Claims):\n    name, version = 'probe', '1'\nQUERIES=[Probe()]\n"
+    )
+    (pack / "queries.py").write_text(plugin)
+    prepared, run, _, locator = completed(
+        semantic_db_engine, semantic_writer_engine, tmp_path, query_pack=pack
+    )
+    original = open_query_registry(prepared, pack)
+    monkeypatch.setattr(pack_module, "DOMAINS", packs)
+    settings = Settings(
+        database={
+            "url": semantic_reader_engine.url.set(drivername="postgresql").render_as_string(
+                hide_password=False
+            )
+        }
+    )
+
+    def invoke(*args):
+        result = cli(*args, settings=lambda: settings)
+        # Expected semantic refusals are Click exits and retain their JSON envelope;
+        # unexpected implementation errors need their full owning trace immediately.
+        if result.exception is not None and not isinstance(result.exception, SystemExit):
+            raise result.exception.with_traceback(result.exc_info[2] if result.exc_info else None)
+        return result
+
+    args = (
+        "query",
+        "probe",
+        "--run",
+        str(run),
+        "--param",
+        "predicate=https://example.org/name",
+        "--max-rows",
+        "1",
+        "--json",
+    )
+    first = invoke(*args)
+    assert first.exit_code == 0, first.output
+    page = json.loads(first.stdout)
+    assert page["query_contract"] == original["probe"].contract
+    continued = invoke(
+        "query",
+        "probe",
+        "--page-token",
+        page["next_page_token"],
+        "--param",
+        "predicate=https://example.org/name",
+        "--json",
+    )
+    assert continued.exit_code == 0, continued.output
+    assert {
+        page["rows"][0]["fact"]["object"],
+        json.loads(continued.stdout)["rows"][0]["fact"]["object"],
+    } == {"Alice", "Bob"}
+    (pack / "queries.py").write_text("raise AssertionError('unadmitted import')\n" + plugin)
+    for request in (
+        args,
+        ("query", "probe", "--page-token", page["next_page_token"], "--json"),
+        ("explain", "unit", locator, "--query-token", page["next_page_token"], "--json"),
+    ):
+        refused = invoke(*request)
+        assert refused.exit_code == 1, refused.output
+        assert json.loads(refused.stdout)["error"]["reason"] == "incompatible_query"
+    # Primitive export remains independent of named-query support.
+    exported = invoke(
+        "export",
+        "--out",
+        str(tmp_path / "independent-export"),
+        "--run",
+        str(run),
+        "--format",
+        "jsonl",
+        "--json",
+    )
+    assert exported.exit_code == 0, exported.output
+
+    (pack / "queries.py").write_text("# explicitly reviewed source-only change\n" + plugin)
+    entries = [
+        dict(
+            query=name,
+            contract=original[name].contract,
+            implementation=original[name].producing_implementation,
+            evidence="independent Alice/Bob rows and retained unit/evidence",
+        )
+        for name in ("probe", "evidence")
+    ]
+    (pack / "query-bundle.json").write_text(json.dumps({"compatibility": entries}))
+    supported = invoke(*args)
+    assert supported.exit_code == 0, supported.output
+    current = json.loads(supported.stdout)
+    assert current["query_contract"] == page["query_contract"]
+    assert current["implementation"] != page["implementation"]
+    explained = invoke(
+        "explain", "unit", locator, "--query-token", current["next_page_token"], "--json"
+    )
+    assert explained.exit_code == 0, explained.output
+    assert json.loads(explained.stdout)["query_binding"]["contract"] == page["query_contract"]
+    evidence = invoke(
+        "query",
+        "evidence",
+        "--origin-token",
+        current["next_page_token"],
+        "--param",
+        "key=" + current["rows"][0]["fact"]["fact_id"],
+        "--json",
+    )
+    assert evidence.exit_code == 0, evidence.output
+    assert json.loads(evidence.stdout)["origin_binding"]["contract"] == page["query_contract"]
+    assert json.loads(evidence.stdout)["rows"]
+    wrong_run = invoke(
+        "query",
+        "evidence",
+        "--origin-token",
+        current["next_page_token"],
+        "--run",
+        str(run + 1),
+        "--param",
+        "key=" + current["rows"][0]["fact"]["fact_id"],
+        "--json",
+    )
+    assert wrong_run.exit_code == 1, wrong_run.output
+    assert json.loads(wrong_run.stdout)["error"]["reason"] == "wrong_realization"
+    old = invoke(
+        "query",
+        "probe",
+        "--page-token",
+        page["next_page_token"],
+        "--param",
+        "predicate=https://example.org/name",
+        "--json",
+    )
+    assert old.exit_code == 1
+    assert json.loads(old.stdout)["error"]["reason"] == "incompatible_query"
+
+
 def test_empty_named_continuation_does_not_assert_whole_query_absence(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
 ):
     from corpus_structure.semantic.query import read_snapshot
 
-    _, run, _, _ = completed(
+    prepared, run, _, _ = completed(
         semantic_db_engine, semantic_writer_engine, tmp_path, complete_coverage=True
     )
-    registry = build_registry(GENERIC)
+    registry = open_query_registry(
+        prepared, Path(__file__).resolve().parents[4] / "domains/statistics"
+    )
     params = {"predicate": "https://example.org/name"}
     with read_snapshot(semantic_reader_engine) as conn:
         first = serve_query(conn, registry, "claims", params, run=run, max_rows=1)

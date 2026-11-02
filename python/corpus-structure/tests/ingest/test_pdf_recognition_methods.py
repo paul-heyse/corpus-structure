@@ -45,10 +45,23 @@ def test_retained_integrated_projection_keeps_pin_without_inference_or_reconcili
     reference = ProductReference(12, "integrated", "c" * 64)
     seen = []
 
-    def retained(pin, *, include_candidate_pages=True):
+    def retained(pin, *, document_id, selections, membership, scope, consumer_release):
         seen.append(pin)
-        assert include_candidate_pages is False
-        return SimpleNamespace(values=lambda: payload)
+        assert document_id == 1 and selections == () and membership == "descendants"
+        assert scope is None and consumer_release == "d" * 64
+        from corpus_structure.ingest.pdf_hierarchy import native_nodes
+
+        return methods._drafts(
+            document_id,
+            pin,
+            native,
+            payload["health"],
+            (section.self_ref,),
+            membership,
+            consumer_release,
+            document=document,
+            node_index=native_nodes(document),
+        )
 
     def refuse(*args, **kwargs):
         raise AssertionError("retained integrated adoption cannot perform inference")
@@ -58,14 +71,13 @@ def test_retained_integrated_projection_keeps_pin_without_inference_or_reconcili
     cfg = methods.PdfIntegratedIngestConfig(integrated_product=reference, membership="descendants")
     unit: Any = SimpleNamespace(ref=UnitRef(TaskUnitType.DOCUMENT, 1, "retained"))
     ctx: Any = SimpleNamespace(
-        reader=SimpleNamespace(native_document=retained),
+        reader=SimpleNamespace(native_section_drafts=retained, native_document=refuse),
         run=SimpleNamespace(options={}),
         logger=logging.getLogger(__name__),
     )
     result = methods.IngestPdfIntegrated().run([unit], cfg, ctx)[0]
     assert result.outcome == ObservationOutcome.EMPTY, result.error
     assert seen == [reference]
-    assert not result.native_products
     assert len(result.source_views) == 1
     assert result.source_views[0].native_product == reference
     assert "selected content" in result.source_views[0].text

@@ -8,212 +8,325 @@ imports:
 - pdf-staging
 default_range: string
 annotations:
-  cp:version: pdf-companion-projection-v1
+  cp:version: pdf-companion-projection-v3
+  cp:json_materialization: '{"python":"jsonb-text-v1","arrow":"jsonb-arrow-json-v1"}'
+  cp:parameters: '[{"name":"project_id","native_name":"p_project","source":"physical:ops.run.project_id"},{"name":"run_id","native_name":"p_run","source":"physical:ops.run.id"},{"name":"selection_release_id","native_name":"p_selection_release","source":"physical:ops.run.release_id"},{"name":"task_id","native_name":"p_task","source":"PdfPublishedRevision.task_id"},{"name":"product_key","native_name":"p_product","source":"PdfPublishedRevision.product_key"},{"name":"content_digest","native_name":"p_digest","source":"PdfPublishedRevision.logical_digest"}]'
+  cp:helpers: '[{"name":"companion_body","function":"ops.pdf_companion_body","arguments":["physical:kb.pdf_record_companion.product_id","physical:kb.pdf_record_companion.revision_id","physical:kb.pdf_record_companion.family","physical:kb.pdf_record_companion.local_id","physical:kb.pdf_record_companion.body"],"result_source":"physical:kb.pdf_record_companion.body"}]'
+  cp:sources: '[{"name":"raw_companion","relation":"kb.pdf_record_companion"},{"name":"endpoint","relation":"kb.pdf_record_endpoint"},{"name":"companions","input":{"name":"raw_companion","alias":"raw"},"fields":[{"name":"product_id","source":"physical:kb.pdf_record_companion.product_id","expression":{"field":["raw","product_id"]}},{"name":"revision_id","source":"physical:kb.pdf_record_companion.revision_id","expression":{"field":["raw","revision_id"]}},{"name":"family","source":"physical:kb.pdf_record_companion.family","expression":{"field":["raw","family"]}},{"name":"local_id","source":"physical:kb.pdf_record_companion.local_id","expression":{"field":["raw","local_id"]}},{"name":"ordinal","source":"physical:kb.pdf_record_companion.ordinal","expression":{"field":["raw","ordinal"]}},{"name":"body","source":"physical:kb.pdf_record_companion.body","expression":{"call":{"helper":"companion_body","arguments":[{"field":["raw","product_id"]},{"field":["raw","revision_id"]},{"field":["raw","family"]},{"field":["raw","local_id"]},{"field":["raw","body"]}]}}}],"predicate":{"all":[{"equal":[{"field":["raw","product_id"]},{"internal":"published_build_id"}]},{"equal":[{"field":["raw","revision_id"]},{"internal":"published_build_id"}]},{"one_of":{"value":{"field":["raw","family"]},"choices":{"context":"families"}}}]},"materialized":true}]'
 classes:
+  PublishedItemIndexRow:
+    description: Bounded published item metadata without whole native objects.
+    attributes:
+      product_id:
+        annotations: {cp:source: 'physical:kb.pdf_record_access.product_id'}
+      revision_id:
+        annotations: {cp:source: 'physical:kb.pdf_record_access.revision_id'}
+      pointer:
+        annotations: {cp:source: 'physical:kb.pdf_record_access.pointer'}
+      ordinal:
+        annotations: {cp:source: 'physical:kb.pdf_record_access.ordinal'}
+      label:
+        annotations: {cp:source: 'physical:kb.pdf_record_access.label'}
+      parent_pointer:
+        annotations: {cp:source: 'physical:kb.pdf_record_access.parent_pointer'}
+      section_pointer:
+        annotations: {cp:source: 'physical:kb.pdf_record_access.section_pointer'}
+      content_layer:
+        annotations: {cp:source: 'physical:kb.pdf_record_access.content_layer'}
+      text:
+        annotations: {cp:source: 'physical:kb.pdf_record_access.text'}
+  PublishedSectionRow:
+    description: Ordered organizational metadata resolved from one exact published revision.
+    attributes:
+      pointer: {range: string, required: true}
+      parent_pointer: {range: string, required: false}
+      ordinal: {range: integer, required: true}
+      label: {range: string, required: true}
+      content_layer: {range: string, required: true}
+      name: {range: string, required: false}
+      ancestors: {range: string, multivalued: true, value_presence: PRESENT}
+      section_pointer: {range: string, required: false}
+      text: {range: string, required: false}
+  PublishedSectionNodeRow:
+    is_a: PdfRecordAccess
+    attributes:
+      role: {range: PublishedSectionRole, required: true}
+  PublishedSectionReportRow:
+    attributes:
+      local_id: {range: string, required: true}
+      ordinal: {range: integer, required: true}
+      body: {range: json_payload, required: true}
   PublishedCompanionProvenance:
     abstract: true
     attributes:
       project_id:
         annotations:
           cp:source: physical:ops.run.project_id
-          cp:sql: p_project
+          cp:expr: '{"parameter":"project_id"}'
+          cp:role: provenance
       run_id:
         annotations:
           cp:source: physical:ops.run.id
-          cp:sql: p_run
-      release_id:
+          cp:expr: '{"parameter":"run_id"}'
+          cp:role: provenance
+      selection_release_id:
+        annotations:
+          cp:source: physical:ops.run.release_id
+          cp:expr: '{"parameter":"selection_release_id"}'
+          cp:role: provenance
+      producer_release_id:
         annotations:
           cp:source: PdfPublishedRevision.release_id
-          cp:sql: p_release
+          cp:expr: '{"internal":"published_release_id"}'
+          cp:role: provenance
       task_id:
         annotations:
           cp:source: PdfPublishedRevision.task_id
-          cp:sql: p_task
+          cp:expr: '{"parameter":"task_id"}'
+          cp:role: provenance
       product_key:
         annotations:
           cp:source: PdfPublishedRevision.product_key
-          cp:sql: p_product
+          cp:expr: '{"parameter":"product_key"}'
+          cp:role: provenance
       content_digest:
         annotations:
           cp:source: PdfPublishedRevision.logical_digest
-          cp:sql: p_digest
+          cp:expr: '{"parameter":"content_digest"}'
+          cp:role: provenance
       projection_id:
         annotations:
           cp:source: PdfRecordCompanion.product_id
-          cp:sql: '''{projection_id}''::text'
+          cp:expr: '{"context":"projection_id"}'
+          cp:role: provenance
   PublishedInputRow:
     is_a: PublishedCompanionProvenance
     annotations:
       cp:family: input
       cp:function: ops.read_published_input_batch
+      cp:consumers: '["ops.read_published_input_batch","corpus_structure.serve.companion_export.export_companion_parquet"]'
       cp:keys: '[''input_ordinal'']'
+      cp:recipe: '{"source":{"name":"companions","alias":"c"},"families":["input"],"joins":[],"predicate":{"equal":[{"field":["c","family"]},{"constant":"input"}]}}'
+      cp:order: '[{"field":"input_ordinal"}]'
     attributes:
       input_ordinal:
         annotations:
           cp:source: PdfRecordCompanion.ordinal
-          cp:sql: c.ordinal
+          cp:expr: '{"field":["c","ordinal"]}'
+          cp:role: identity
       input_role:
         annotations:
           cp:source: PdfProductInput.role
-          cp:sql: c.body->>'role'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["role"]}}'
+          cp:role: value
       input_task_id:
         annotations:
           cp:source: physical:ops.pdf_product_input.input_task_id
-          cp:sql: (c.body->>'task_id')::bigint
+          cp:expr: '{"cast":{"value":{"json_text":{"value":{"field":["c","body"]},"path":["task_id"]}},"type":"bigint"}}'
+          cp:role: value
       input_product_key:
         annotations:
           cp:source: PdfProductInput.product_key
-          cp:sql: c.body->>'product_key'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["product_key"]}}'
+          cp:role: value
       input_content_digest:
         annotations:
           cp:source: PdfProductInput.content_digest
-          cp:sql: c.body->>'content_digest'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["content_digest"]}}'
+          cp:role: value
   PublishedRelationRow:
     is_a: PublishedCompanionProvenance
     annotations:
       cp:family: relation
       cp:function: ops.read_published_relation_batch
+      cp:consumers: '["ops.read_published_relation_batch","corpus_structure.serve.companion_export.export_companion_parquet"]'
       cp:keys: '[''relation_id'', ''endpoint_ordinal'']'
+      cp:recipe: '{"source":{"name":"companions","alias":"c"},"families":["relation"],"joins":[{"source":{"name":"endpoint","alias":"e"},"keys":[{"left":{"field":["c","product_id"]},"right":{"field":["e","product_id"]}},{"left":{"field":["c","revision_id"]},"right":{"field":["e","revision_id"]}},{"left":{"field":["c","local_id"]},"right":{"field":["e","relation_id"]}}],"relationship":"PdfRecordEndpoint.relation_id","left_role":"relation","right_role":"endpoint","multiplicity":"one_to_many"}],"predicate":{"equal":[{"field":["c","family"]},{"constant":"relation"}]}}'
+      cp:order: '[{"field":"relation_id","collation":"C"},{"field":"endpoint_ordinal"}]'
     attributes:
       relation_id:
         annotations:
           cp:source: PdfProductRelation.relation_id
-          cp:sql: c.local_id
+          cp:expr: '{"field":["c","local_id"]}'
+          cp:role: identity
       relation_kind:
         annotations:
           cp:source: PdfProductRelation.kind
-          cp:sql: c.body->>'kind'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["kind"]}}'
+          cp:role: value
       relation_outcome:
         annotations:
           cp:source: PdfProductRelation.outcome
-          cp:sql: c.body->>'outcome'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["outcome"]}}'
+          cp:role: value
       comparison:
         annotations:
           cp:source: PdfProductRelation.comparison
-          cp:sql: c.body->>'comparison'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["comparison"]}}'
+          cp:role: value
       policy:
         annotations:
           cp:source: PdfProductRelation.policy
-          cp:sql: c.body->>'policy'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["policy"]}}'
+          cp:role: value
       evidence:
         annotations:
           cp:source: PdfProductRelation.evidence
-          cp:sql: c.body->>'evidence'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["evidence"]}}'
+          cp:role: value
       endpoint_ordinal:
         annotations:
           cp:source: PdfRecordEndpoint.ordinal
-          cp:sql: e.ordinal
+          cp:expr: '{"field":["e","ordinal"]}'
+          cp:role: identity
       endpoint_role:
         annotations:
           cp:source: PdfRelationEndpoint.role
-          cp:sql: e.role
+          cp:expr: '{"field":["e","role"]}'
+          cp:role: value
       target_task_id:
         annotations:
           cp:source: PdfRecordEndpoint.target_task_id
-          cp:sql: CASE WHEN e.target_task_id=0 THEN p_task ELSE e.target_task_id END
+          cp:expr: '{"case":{"when":{"equal":[{"field":["e","target_task_id"]},{"constant":0}]},"then":{"parameter":"task_id"},"else":{"field":["e","target_task_id"]}}}'
+          cp:role: value
       target_product_key:
         annotations:
           cp:source: PdfRecordEndpoint.target_product_key
-          cp:sql: CASE WHEN e.target_task_id=0 THEN p_product ELSE e.target_product_key END
+          cp:expr: '{"case":{"when":{"equal":[{"field":["e","target_task_id"]},{"constant":0}]},"then":{"parameter":"product_key"},"else":{"field":["e","target_product_key"]}}}'
+          cp:role: value
       target_content_digest:
         annotations:
           cp:source: PdfRecordEndpoint.target_content_digest
-          cp:sql: CASE WHEN e.target_task_id=0 THEN p_digest ELSE e.target_content_digest END
+          cp:expr: '{"case":{"when":{"equal":[{"field":["e","target_task_id"]},{"constant":0}]},"then":{"parameter":"content_digest"},"else":{"field":["e","target_content_digest"]}}}'
+          cp:role: value
       target_occurrence_id:
         annotations:
           cp:source: PdfRelationEndpoint.occurrence_id
-          cp:sql: e.occurrence_id
+          cp:expr: '{"field":["e","occurrence_id"]}'
+          cp:role: value
   PublishedCoverageRow:
     is_a: PublishedCompanionProvenance
     annotations:
       cp:family: coverage
       cp:function: ops.read_published_coverage_batch
+      cp:consumers: '["ops.read_published_coverage_batch","corpus_structure.serve.companion_export.export_companion_parquet"]'
       cp:keys: '[''coverage_id'']'
+      cp:recipe: '{"source":{"name":"companions","alias":"c"},"families":["coverage"],"joins":[],"predicate":{"equal":[{"field":["c","family"]},{"constant":"coverage"}]}}'
+      cp:order: '[{"field":"coverage_id","collation":"C"}]'
     attributes:
       coverage_id:
         annotations:
           cp:source: PdfProductCoverage.coverage_id
-          cp:sql: c.local_id
+          cp:expr: '{"field":["c","local_id"]}'
+          cp:role: identity
       scope:
         annotations:
           cp:source: PdfProductCoverage.scope
-          cp:sql: c.body->>'scope'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["scope"]}}'
+          cp:role: value
       coverage_family:
         annotations:
           cp:source: PdfProductCoverage.family
-          cp:sql: c.body->>'family'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["family"]}}'
+          cp:role: value
       discovery_policy:
         annotations:
           cp:source: PdfProductCoverage.discovery_policy
-          cp:sql: c.body->>'discovery_policy'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["discovery_policy"]}}'
+          cp:role: value
       outcome:
         annotations:
           cp:source: PdfProductCoverage.outcome
-          cp:sql: c.body->>'outcome'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["outcome"]}}'
+          cp:role: value
       detail:
         annotations:
           cp:source: PdfProductCoverage.detail
-          cp:sql: c.body->>'detail'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["detail"]}}'
+          cp:role: value
       supports_json:
         annotations:
           cp:source: PdfProductCoverage.supports
-          cp:sql: c.body->'supports'
+          cp:expr: '{"json":{"value":{"field":["c","body"]},"path":["supports"]}}'
+          cp:role: value
   PublishedMappingReportRow:
     is_a: PublishedCompanionProvenance
     annotations:
       cp:family: mapping_report
       cp:function: ops.read_published_mapping_report_batch
+      cp:consumers: '["ops.read_published_mapping_report_batch","corpus_structure.serve.companion_export.export_companion_parquet"]'
       cp:keys: '[''report_ordinal'']'
+      cp:recipe: '{"source":{"name":"companions","alias":"c"},"families":["mapping_report","input"],"joins":[{"source":{"name":"companions","alias":"i"},"keys":[{"left":{"field":["c","product_id"]},"right":{"field":["i","product_id"]}},{"left":{"field":["c","revision_id"]},"right":{"field":["i","revision_id"]}},{"left":{"json_text":{"value":{"field":["c","body"]},"path":["input_index"]}},"right":{"field":["i","local_id"]}}],"predicate":{"equal":[{"field":["i","family"]},{"constant":"input"}]},"relationship":"PdfMappingDisposition.input_index","left_role":"mapping_report","right_role":"input","multiplicity":"many_to_one"}],"predicate":{"equal":[{"field":["c","family"]},{"constant":"mapping_report"}]}}'
+      cp:order: '[{"field":"report_ordinal"}]'
     attributes:
       report_ordinal:
         annotations:
           cp:source: PdfRecordCompanion.ordinal
-          cp:sql: c.ordinal
+          cp:expr: '{"field":["c","ordinal"]}'
+          cp:role: identity
       input_index:
         annotations:
           cp:source: PdfMappingDisposition.input_index
-          cp:sql: (c.body->>'input_index')::integer
+          cp:expr: '{"cast":{"value":{"json_text":{"value":{"field":["c","body"]},"path":["input_index"]}},"type":"integer"}}'
+          cp:role: value
       input_task_id:
         annotations:
           cp:source: physical:ops.pdf_product_input.input_task_id
-          cp:sql: (i.body->>'task_id')::bigint
+          cp:expr: '{"cast":{"value":{"json_text":{"value":{"field":["i","body"]},"path":["task_id"]}},"type":"bigint"}}'
+          cp:role: value
       input_product_key:
         annotations:
           cp:source: PdfProductInput.product_key
-          cp:sql: i.body->>'product_key'
+          cp:expr: '{"json_text":{"value":{"field":["i","body"]},"path":["product_key"]}}'
+          cp:role: value
       input_content_digest:
         annotations:
           cp:source: PdfProductInput.content_digest
-          cp:sql: i.body->>'content_digest'
+          cp:expr: '{"json_text":{"value":{"field":["i","body"]},"path":["content_digest"]}}'
+          cp:role: value
       occurrence_id:
         annotations:
           cp:source: PdfMappingDisposition.occurrence_id
-          cp:sql: c.body->>'occurrence_id'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["occurrence_id"]}}'
+          cp:role: value
       outcome:
         annotations:
           cp:source: PdfMappingDisposition.outcome
-          cp:sql: c.body->>'outcome'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["outcome"]}}'
+          cp:role: value
       label:
         annotations:
           cp:source: PdfMappingDisposition.label
-          cp:sql: c.body->>'label'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["label"]}}'
+          cp:role: value
       reason:
         annotations:
           cp:source: PdfMappingDisposition.reason
-          cp:sql: c.body->>'reason'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["reason"]}}'
+          cp:role: value
       raw_start:
         annotations:
           cp:source: PdfMappingDisposition.raw_start
-          cp:sql: c.body->>'raw_start'
+          cp:expr: '{"cast":{"value":{"json_text":{"value":{"field":["c","body"]},"path":["raw_start"]}},"type":"integer"}}'
+          cp:role: value
       coordinate_frame:
         annotations:
           cp:source: PdfMappingDisposition.coordinate_frame
-          cp:sql: c.body->>'coordinate_frame'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["coordinate_frame"]}}'
+          cp:role: value
       coordinate_scale:
         annotations:
           cp:source: PdfMappingDisposition.coordinate_scale
-          cp:sql: c.body->>'coordinate_scale'
+          cp:expr: '{"cast":{"value":{"json_text":{"value":{"field":["c","body"]},"path":["coordinate_scale"]}},"type":"double"}}'
+          cp:role: value
       normalization:
         annotations:
           cp:source: PdfMappingDisposition.normalization
-          cp:sql: c.body->>'normalization'
+          cp:expr: '{"json_text":{"value":{"field":["c","body"]},"path":["normalization"]}}'
+          cp:role: value
+
+enums:
+  PublishedSectionRole:
+    permissible_values:
+      selected:
+      ancestor:

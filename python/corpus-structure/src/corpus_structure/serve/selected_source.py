@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any, Literal
 import ijson
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import text
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.identity import canonical_bytes
@@ -61,6 +60,7 @@ class SelectedSourceExportReceipt(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     format: Literal["selected-source-v1"] = "selected-source-v1"
     pin: PublishedSourcePin
+    producer_release_id: str = Field(min_length=1)
     selection: SelectedSourceSelection
     context_policy: str
     projection_id: str
@@ -155,6 +155,7 @@ def _write_selected_package(
     header = dict(
         format=spec["format"],
         pin=request.pin.model_dump(),
+        producer_release_id=reader.revision["release_id"],
         selection=request.selection.model_dump(),
         context_policy=request.context_policy,
         schema_digest=schema,
@@ -302,6 +303,7 @@ def _write_selected_package(
         )
     receipt = SelectedSourceExportReceipt(
         pin=request.pin,
+        producer_release_id=header["producer_release_id"],
         selection=request.selection,
         context_policy=request.context_policy,
         projection_id=header["projection_id"],
@@ -347,7 +349,7 @@ def export_selected_source(
             ) as engine,
             read_snapshot(engine, cancellation=cancellation) as connection,
         ):
-            release = open_release(connection, request.pin.release_id)
+            release = open_release(connection, request.pin.selection_release_id)
             if release.execution_model_id is None:
                 raise SelectedSourceUnavailable(
                     "selected source requires an admitted retained interpretation model"
@@ -359,32 +361,47 @@ def export_selected_source(
                     request.pin.task_id, request.pin.product_key, request.pin.content_digest
                 ),
                 cancellation=cancellation,
+                projection_context=release,
             )
             if reader is None:
                 raise SelectedSourceUnavailable(
                     "selected source requires a published record-backed product"
                 )
-            parameters = dict(
-                project=request.pin.project_id,
-                run=request.pin.run_id,
-                release=request.pin.release_id,
-                task=request.pin.task_id,
-                product=request.pin.product_key,
-                digest=request.pin.content_digest,
+            from corpus_structure.semantic._operation_calls import (
+                materialize_read_pdf_selected_source_events,
+                prepare_read_pdf_selected_source_events,
+            )
+            from corpus_structure.semantic._operation_ids import (
+                ContentDigest,
+                ProductKey,
+                ProjectId,
+                ReleaseId,
+                RunId,
+                TaskId,
+            )
+            from corpus_structure.semantic.pdf_record_reader import _record_envelope
+
+            statement = prepare_read_pdf_selected_source_events(
+                project_id=ProjectId(request.pin.project_id),
+                run_id=RunId(request.pin.run_id),
+                selection_release_id=ReleaseId(request.pin.selection_release_id),
+                task_id=TaskId(request.pin.task_id),
+                product_key=ProductKey(request.pin.product_key),
+                content_digest=ContentDigest(request.pin.content_digest),
                 section=request.selection.root,
                 membership=request.selection.membership,
                 policy=spec["context_policy"],
+                projection_context=release,
             )
             with connection.execute(
-                text(
-                    "SELECT * FROM ops.read_pdf_selected_source_events(:project,:run,:release,"
-                    ":task,:product,:digest,:section,:membership,:policy)"
-                ).execution_options(yield_per=128),
-                parameters,
+                statement.execution_options(yield_per=128),
             ) as result:
                 receipt = _write_selected_package(
                     reader,
-                    (row[0] for row in result),
+                    (
+                        _record_envelope(materialize_read_pdf_selected_source_events(row))
+                        for row in result
+                    ),
                     request,
                     temporary,
                     interpretation_model_id=model.model_id,
@@ -502,6 +519,7 @@ class SelectedSourceReader:
                             or self.receipt.context_policy != header["context_policy"]
                             or self.receipt.schema_digest != header["schema_digest"]
                             or self.receipt.projection_id != header["projection_id"]
+                            or header["producer_release_id"] != self.receipt.producer_release_id
                             or PublishedSourcePin.model_validate(header["pin"]) != self.receipt.pin
                             or SelectedSourceSelection.model_validate(header["selection"])
                             != self.receipt.selection
@@ -778,7 +796,7 @@ class SelectedSourceReader:
         if self._closed or not self._verified:
             raise SelectedSourceUnavailable("selected source reader is closed/unverified")
         if (
-            context.release_id != self.receipt.pin.release_id
+            context.release_id != self.receipt.pin.selection_release_id
             or context.model_id != self.header["interpretation_model_id"]
             or [list(value) for value in context.implementation_digests]
             != self.header["implementation_digests"]
@@ -881,7 +899,7 @@ def export_selected_native_source(
     selected = SelectedSourceExportRequest(
         pin=PublishedSourcePin(
             project_id=row.project_id,
-            release_id=row.release_id,
+            selection_release_id=row.release_id,
             run_id=request.run_id,
             task_id=request.task_id,
             product_key=request.product_key,

@@ -217,7 +217,9 @@ def admit_sql(
         from sqlalchemy.exc import DBAPIError
 
         try:
-            conn.execute(text("SELECT data.require_runtime_principal('read')"))
+            from ._operation_calls import require_runtime_principal
+
+            require_runtime_principal(conn, purpose="read")
         except DBAPIError as exc:
             raise SQLAdmissionError(
                 "catalog admission requires restricted read capabilities"
@@ -381,20 +383,16 @@ def admit_archived_sql(
                 metadata=metadata,
                 physical_id=PHYSICAL_MODEL_ID,
             )
-        values = dict(
-            release_id=release_id,
+        from ._operation_calls import record_sql_admission
+        from ._operation_ids import ReleaseId
+
+        record_sql_admission(
+            conn,
+            release_id=ReleaseId(release_id),
             input_kind="dependency",
             input_name=name,
             physical_id=PHYSICAL_MODEL_ID,
             content=artifact.content,
-            content_digest=artifact.digest,
-        )
-        conn.execute(
-            text(
-                "SELECT sem.record_sql_admission("
-                ":release_id,:input_kind,:input_name,:physical_id,:content)"
-            ),
-            {key: value for key, value in values.items() if key != "content_digest"},
         )
         prior = conn.execute(
             select(admitted.c.content).where(

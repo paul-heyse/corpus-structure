@@ -20,26 +20,36 @@ from corpus_structure.serve.companion_export import (
 )
 
 
-def _export(root, rows, *, release="r", projection_id=None, task=1, include_inputs=False):
+def _export(
+    root,
+    rows,
+    *,
+    release="r",
+    producer_release="producer-r",
+    projection_id=None,
+    task=1,
+    include_inputs=False,
+):
     from corpus_structure.semantic.companion_projection import projection
 
     root.mkdir()
     pin = PublishedSourcePin(
         project_id="p",
         run_id=1,
-        release_id=release,
+        selection_release_id=release,
         task_id=task,
         product_key="integrated",
         content_digest="a" * 64,
     )
     spec = projection("relation")
     projection_id = projection_id or spec.projection_id
-    schema = _export_schema(spec, pin)
+    schema = _export_schema(spec, pin, producer_release_id=producer_release)
     schema = schema.with_metadata({**schema.metadata, b"cs.projection": projection_id.encode()})
     batch = pa.RecordBatch.from_pylist(
         [
             dict(
                 **pin.model_dump(),
+                producer_release_id=producer_release,
                 projection_id=projection_id,
                 relation_outcome="unknown",
                 comparison="fixture",
@@ -62,6 +72,7 @@ def _export(root, rows, *, release="r", projection_id=None, task=1, include_inpu
             [
                 dict(
                     **pin.model_dump(),
+                    producer_release_id=producer_release,
                     projection_id=projection_id,
                     input_ordinal=0,
                     input_role="structural",
@@ -70,7 +81,7 @@ def _export(root, rows, *, release="r", projection_id=None, task=1, include_inpu
                     input_content_digest="b" * 64,
                 ),
             ],
-            schema=_export_schema(projection("input"), pin),
+            schema=_export_schema(projection("input"), pin, producer_release_id=producer_release),
         )
     entries = {}
     for family, family_batch in batches.items():
@@ -90,8 +101,9 @@ def _export(root, rows, *, release="r", projection_id=None, task=1, include_inpu
         )
     manifest = CompanionExportManifest(
         pin=pin,
+        producer_release_id=producer_release,
         projection_id=projection_id,
-        profile_id="flat-exact-companion-v1",
+        profile_id="flat-exact-companion-v2",
         created_at=datetime.now(UTC),
         families=entries,
         not_requested=tuple(
@@ -135,7 +147,7 @@ def test_compare_preserves_multiset_difference(tmp_path):
     other_release = _export(tmp_path / "other", [row], release="other")
     assert not compare_companion_exports(left, other_release)["comparable"]
     changed = json.loads(right.read_text())
-    changed["pin"]["release_id"] = "other"
+    changed["pin"]["selection_release_id"] = "other"
     right.write_text(json.dumps(changed))
     with pytest.raises(SemanticRefusal, match="pin binding"):
         compare_companion_exports(left, right)
@@ -176,3 +188,39 @@ def test_publication_refuses_existing_empty_directory(tmp_path):
     with pytest.raises(FileExistsError):
         _publish_directory(source, destination)
     assert source.exists() and list(destination.iterdir()) == []
+
+
+def test_producer_binding_is_independent_and_manifest_tampering_refuses(tmp_path):
+    row = dict(relation_id="r1", relation_kind="support", endpoint_ordinal=0)
+    path = _export(tmp_path / "source", [row], release="consumer", producer_release="producer")
+    inventory = inventory_companion_export(path)
+    assert inventory["pin"]["selection_release_id"] == "consumer"
+    assert inventory["producer_release_id"] == "producer"
+    value = json.loads(path.read_bytes())
+    value["producer_release_id"] = "substituted"
+    path.write_text(json.dumps(value))
+    with pytest.raises(SemanticRefusal, match="pin binding"):
+        inventory_companion_export(path)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("relation_id", None),
+        ("selection_release_id", "producer"),
+        ("producer_release_id", "consumer"),
+    ],
+)
+def test_projection_batch_refuses_missing_values_and_misbound_releases(tmp_path, field, value):
+    from corpus_structure.semantic.companion_projection import projection
+    from corpus_structure.serve.companion_export import _admit_batch
+
+    path = _export(
+        tmp_path / "source", [dict(relation_id="r1", relation_kind="support", endpoint_ordinal=0)]
+    )
+    manifest = CompanionExportManifest.model_validate_json(path.read_bytes())
+    batch = pq.read_table(path.parent / "relation.parquet").to_batches()[0]
+    index = batch.schema.get_field_index(field)
+    batch = batch.set_column(index, batch.schema.field(index), pa.array([value], type=pa.string()))
+    with pytest.raises(SemanticRefusal, match=r"null|binding differs"):
+        _admit_batch(projection("relation"), batch, manifest.pin, manifest.producer_release_id)

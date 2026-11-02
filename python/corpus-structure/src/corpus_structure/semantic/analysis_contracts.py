@@ -427,14 +427,14 @@ def _profile(prepared: PreparedRelease | None):
         model = _standalone_model()
     elif prepared.execution_model_id is None:
         manifest_profile = json.loads(prepared.manifest).get("profile", {})
-        if (
-            manifest_profile.get("version") != "semantic-1"
-            or manifest_profile.get("compiler_version") != "13"
-        ):
+        if manifest_profile.get("version") != "semantic-1" or manifest_profile.get(
+            "compiler_version"
+        ) not in {"13", "14"}:
             _fail(
                 "unsupported_analysis_base",
                 prepared.release_id,
-                "only live semantic-1/compiler-13 pure preparation uses the fixed base profile",
+                "only live semantic-1/compiler-13 or compiler-14 pure preparation "
+                "uses the fixed base profile",
             )
         model = _standalone_model()
     else:

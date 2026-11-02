@@ -19,10 +19,13 @@ from typing import Any, Protocol
 import pyarrow as pa
 import yaml
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
-from sqlalchemy import and_, case, func, select, text, tuple_
+from sqlalchemy import and_, case, func, select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine
 
+from corpus_structure.settings import AnalyticsSettings
+
+from ._operation_ids import CutId, RunId
 from .analytics import AnalysisScope, CandidateInput, compile_projection
 from .consolidation import FactItem, FactValueLowerer, SourceItem, assemble
 from .identity import canonical_bytes, occurrence_key
@@ -203,8 +206,8 @@ def _evidence_source_text(descriptor, locator):
 
 @dataclass(frozen=True)
 class CutInput:
-    cut_id: int
-    run_id: int
+    cut_id: CutId
+    run_id: RunId
     project_id: str
     prepared: PreparedRelease
     output_realization_id: str
@@ -235,8 +238,8 @@ class DomainPolicy(Protocol):
 
 @dataclass(frozen=True)
 class DomainResult:
-    run_id: int
-    cut_id: int
+    run_id: RunId
+    cut_id: CutId
     realization_id: str
     receipt: PublicationReceipt
     reports: int
@@ -261,7 +264,7 @@ def _source_batch_id(release_id, output, observations):
     )
 
 
-def _completed_result(engine, cut_id, output, policy):
+def _completed_result(engine, cut_id: CutId, output, policy):
     """Read an immutable completed result without reinterpreting a changed live input."""
     with (
         engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
@@ -321,7 +324,7 @@ def _completed_result(engine, cut_id, output, policy):
             if row["batch_id"] != batch_id
         )
         return DomainResult(
-            job["id"], cut_id, output, receipt, len(observations), count, revision, proofs
+            RunId(job["id"]), cut_id, output, receipt, len(observations), count, revision, proofs
         )
 
 
@@ -651,7 +654,7 @@ def _known_input(conn, prepared, job, observations):
     return metadata, copied
 
 
-def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
+def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
     with (
         engine.connect().execution_options(
             isolation_level="REPEATABLE READ", postgresql_readonly=True
@@ -2022,8 +2025,8 @@ def _project_cut(
     # Bind once to those final rows before exposing the input to transport consumers.
     batch = batch.bind_preparation(prepared)
     return CutInput(
-        cut["id"],
-        job["id"],
+        CutId(cut["id"]),
+        RunId(job["id"]),
         job["project_id"],
         prepared,
         output,
@@ -2049,9 +2052,10 @@ def _project_cut(
 
 def consolidate_cut(
     engine: Engine,
-    cut_id: int,
+    cut_id: CutId,
     output_realization_id: str,
     *,
+    analytics: AnalyticsSettings | None = None,
     policy: DomainPolicy | None = None,
     attempts: int = 3,
 ) -> DomainResult:
@@ -2071,7 +2075,13 @@ def consolidate_cut(
     packet = CandidateInput.from_admitted_cut(
         inputs.prepared, inputs, decision_universe=policy.version
     )
-    with AnalysisScope(packet) as scope:
+    resources = AnalyticsSettings() if analytics is None else analytics
+    with AnalysisScope(
+        packet,
+        threads=resources.threads,
+        memory_limit=resources.memory_limit,
+        scratch_path=resources.scratch_path,
+    ) as scope:
         fused = scope.fuse(scope.relation("candidate_input")).to_arrow_table()
         decision = policy.evaluate(inputs, scope, fused)
     facts = {f.fact_id for f in inputs.batch.fact}
@@ -2087,9 +2097,11 @@ def consolidate_cut(
     source_links = inputs.source_links
 
     def publish(conn, batch):
-        conn.execute(
-            text("SELECT data.begin_evaluation(:cut,:output)"),
-            {"cut": cut_id, "output": output_realization_id},
+        from ._operation_calls import begin_evaluation, end_stage, finish_evaluation
+        from ._operation_ids import CutId, RealizationId
+
+        begin_evaluation(
+            conn, cut_id=CutId(cut_id), output_realization_id=RealizationId(output_realization_id)
         )
         done = (
             conn.execute(
@@ -2106,7 +2118,7 @@ def consolidate_cut(
         # source receipt remains its own identity even when inference advances the final revision.
         from .inference import derive
 
-        conn.execute(text("SELECT data.end_stage()"))
+        end_stage(conn)
         inferred = derive(
             conn,
             SnapshotBinding(
@@ -2123,9 +2135,11 @@ def consolidate_cut(
                     projection_id="accepted",
                 ),
             )
-        conn.execute(
-            text("SELECT data.finish_evaluation(:cut,:output,:batch)"),
-            {"cut": cut_id, "output": output_realization_id, "batch": batch.batch_id},
+        finish_evaluation(
+            conn,
+            cut_id=CutId(cut_id),
+            output_realization_id=RealizationId(output_realization_id),
+            batch_id=batch.batch_id,
         )
         return receipt
 
@@ -2273,6 +2287,9 @@ class ReleasedRulesPolicy:
             if row.kind == "operation_property":
                 body = json.loads(row.body)
                 self.metadata[body["class"], body["property"]] = body
+        from .comparison_projection import comparison_projection
+
+        self.comparison_projection = comparison_projection(prepared)
         self.prefixes = {
             row.name: json.loads(row.body)["uri"]
             for row in prepared.registry_rows
@@ -2582,17 +2599,11 @@ class ReleasedRulesPolicy:
         unresolved = set()
         equivalent_components = []
         for c in inputs.candidates:
-            props = {
-                p.name: p
-                for p in self.prepared.qualification_definition(c.qualification_class).properties
-            }
-            qual = {n: v for n, v in c.qualification.items() if props[n].key_role != "provenance"}
-            meta = self.metadata.get((c.class_name, c.predicate), {})
-            meaning_names = set(str(meta.get("cs:qualifiers", "")).split()) - set(
-                str(meta.get("cs:identity_qualifiers", "")).split()
+            qual, identity, compared = self.comparison_projection.partition(
+                c.class_name, c.predicate, c.qualification_class, c.qualification
             )
+            meta = self.metadata.get((c.class_name, c.predicate), {})
             # Scope, modality, conditions and time stay exact context boundaries.
-            identity = {n: v for n, v in qual.items() if n not in meaning_names}
             key = sha256(
                 canonical_bytes(
                     _meaning(
@@ -2603,7 +2614,7 @@ class ReleasedRulesPolicy:
             meaning = canonical_bytes(
                 _meaning(
                     {
-                        "qualifiers": {n: v for n, v in qual.items() if n in meaning_names},
+                        "qualifiers": compared,
                         "bindings": _bindings([c.object, c.qualification]),
                     }
                 )

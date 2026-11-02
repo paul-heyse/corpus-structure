@@ -122,15 +122,16 @@ classes:
             metadata={"page": "source.html"},
             mime="application/pdf",
         )
-        (view,) = publish_controlled_pdf_views(
-            conn,
-            prepared=prepared,
-            run_id=run,
-            document_id=document,
-            original=original,
-            paragraphs=(text,),
-            keys=("source.html#detail",),
-        )
+    (view,) = publish_controlled_pdf_views(
+        engine,
+        prepared=prepared,
+        run_id=run,
+        document_id=document,
+        original=original,
+        paragraphs=(text,),
+        keys=("source.html#detail",),
+    )
+    with engine.begin() as conn:
         locator = view.ref.key
         (agent_task,) = queue_agent(
             conn,

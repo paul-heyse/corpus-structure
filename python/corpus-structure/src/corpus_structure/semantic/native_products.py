@@ -13,6 +13,7 @@ from sqlalchemy.schema import (
     CheckConstraint,
     CreateIndex,
     CreateTable,
+    DefaultClause,
     UniqueConstraint,
 )
 
@@ -88,6 +89,85 @@ def current_authoring_provenance(model=None) -> NativeAuthoringProvenance:
     )
 
 
+def relation_descriptor(relation) -> dict:
+    """Complete named physical row shape; PK/FK vectors retain their declared order."""
+    columns = []
+    for column in sorted(relation.columns, key=lambda column: column.name):
+        kind = column.type.compile(dialect=dialect()).lower()
+        if kind == "float":
+            kind = "double precision"
+        default = None
+        generated = ""
+        if column.computed is not None:
+            default = str(
+                column.computed.sqltext.compile(
+                    dialect=dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+            generated = "v" if column.computed.persisted is False else "s"
+        elif column.identity is None and column.server_default is not None:
+            if not isinstance(column.server_default, DefaultClause):
+                raise ValueError(f"native physical default requires explicit SQL: {column}")
+            value = column.server_default.arg
+            default = (
+                value
+                if isinstance(value, str)
+                else str(
+                    value.compile(
+                        dialect=dialect(),
+                        compile_kwargs={"literal_binds": True},
+                    )
+                )
+            )
+        columns.append(
+            dict(
+                name=column.name,
+                type=kind,
+                not_null=not column.nullable,
+                default=default,
+                identity=("a" if column.identity.always else "d")
+                if column.identity is not None
+                else "",
+                generated=generated,
+            )
+        )
+    result = dict(
+        relation=relation.fullname,
+        read_roles=relation.info.get(
+            "read_roles",
+            [
+                "corpus_sem_writer",
+                "corpus_sem_reader",
+                "corpus_sem_admitter",
+                "corpus_sem_evaluator",
+            ],
+        ),
+        owner="corpus_sem_publisher",
+        columns=columns,
+        primary_key=[c.name for c in relation.primary_key.columns],
+        foreign_keys=[
+            dict(
+                name=dialect().identifier_preparer.format_constraint(c),
+                columns=[v.name for v in c.columns],
+                target=c.elements[0].target_fullname.rsplit(".", 1)[0],
+                remote_columns=[e.target_fullname.rsplit(".", 1)[1] for e in c.elements],
+                on_delete="a",
+                on_update="a",
+                match="s",
+                deferrable=False,
+                deferred=False,
+                validated=True,
+            )
+            for c in sorted(
+                relation.foreign_key_constraints,
+                key=lambda c: str(dialect().identifier_preparer.format_constraint(c)),
+            )
+        ],
+    )
+    return result
+
+
 def physical_products() -> tuple[NativeProduct, ...]:
     """Render fixed DDL from the single physical model, in dependency order."""
     pg = dialect()
@@ -131,7 +211,7 @@ def physical_products() -> tuple[NativeProduct, ...]:
     return tuple(products)
 
 
-def function_bodies(sql: str | PreparedSQL) -> dict[str, str]:
+def function_bodies(sql: str | PreparedSQL, *, by_signature: bool = False) -> dict[str, str]:
     """Inspect emitted function declarations structurally; never scrape a live deployment."""
     result = {}
     from .prepared_sql import prepare_sql
@@ -139,9 +219,16 @@ def function_bodies(sql: str | PreparedSQL) -> dict[str, str]:
     for raw in prepare_sql(sql, source="<native function bodies>").statements:
         statement = raw.stmt
         if isinstance(statement, ast.CreateFunctionStmt):
-            name = ".".join(part.sval for part in statement.funcname or ())
-            body = next(option for option in statement.options or () if option.defname == "as")
-            result[name] = body.arg[0].sval
+            from .native_function_signatures import function_signature
+
+            name = (
+                function_signature(statement)
+                if by_signature
+                else ".".join(part.sval for part in statement.funcname or ())
+            )
+            from .native_sql_body import body_source
+
+            result[name] = body_source(statement)
     return result
 
 
@@ -605,45 +692,10 @@ def closure_products(model=None) -> tuple[NativeProduct, ...]:
                 }
             )
     for name in sorted(new_tables):
-        relation = metadata.tables[name]
-        descriptor["tables"].append(
-            {
-                "relation": name,
-                "owner": "corpus_sem_publisher",
-                "columns": [
-                    {
-                        "name": column.name,
-                        "type": column.type.compile(dialect=dialect()).lower(),
-                        "not_null": not column.nullable,
-                        "default": None,
-                        "identity": "",
-                        "generated": "",
-                    }
-                    for column in relation.columns
-                ],
-                "primary_key": [column.name for column in relation.primary_key.columns],
-                "foreign_keys": [
-                    {
-                        "name": dialect().identifier_preparer.format_constraint(constraint),
-                        "columns": [column.name for column in constraint.columns],
-                        "target": constraint.elements[0].target_fullname.rsplit(".", 1)[0],
-                        "remote_columns": [
-                            item.target_fullname.rsplit(".", 1)[1] for item in constraint.elements
-                        ],
-                        "on_delete": "a",
-                        "on_update": "a",
-                        "match": "s",
-                        "deferrable": False,
-                        "deferred": False,
-                        "validated": True,
-                    }
-                    for constraint in sorted(
-                        relation.foreign_key_constraints,
-                        key=lambda item: str(dialect().identifier_preparer.format_constraint(item)),
-                    )
-                ],
-            }
-        )
+        descriptor["tables"].append(relation_descriptor(metadata.tables[name]))
+    descriptor["tables"] = [
+        relation_descriptor(metadata.tables[item["relation"]]) for item in descriptor["tables"]
+    ]
     descriptor["checks"] = []
     for name in ("eval.document_split", "eval.reference_set"):
         for check in metadata.tables[name].constraints:
@@ -733,10 +785,10 @@ def reference_source_products(base: tuple[NativeProduct, ...]) -> tuple[NativePr
     if not isinstance(cast.arg.val, ast.String) or cast.arg.val.sval is None:
         raise ValueError("native descriptor must be a literal string")
     descriptor = json.loads(cast.arg.val.sval)
-    bodies = function_bodies(kernels)
+    bodies = function_bodies(kernels, by_signature=True)
     updated = set()
     for function in descriptor["functions"]:
-        name = function["signature"].split("(", 1)[0]
+        name = function["signature"]
         if name in bodies:
             function["body_sha256"] = sha256(bodies[name].encode()).hexdigest()
             updated.add(name)

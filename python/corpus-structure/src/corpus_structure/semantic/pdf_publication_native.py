@@ -166,6 +166,184 @@ corpus_sem_reader,corpus_sem_evaluator,corpus_sem_writer;
 """
 
 
+def _coverage_support_violation_sql() -> str:
+    """Set-shaped resolution of the existing exact-pin support/complete rule."""
+    from sqlalchemy import (
+        and_,
+        cast,
+        column,
+        false,
+        func,
+        literal,
+        literal_column,
+        or_,
+        select,
+        true,
+        union_all,
+    )
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    companion = metadata.tables["kb.pdf_record_companion"]
+    frozen = metadata.tables["ops.pdf_frozen_build"]
+    pin = metadata.tables["ops.pdf_product"].alias("support_pin")
+    publication = metadata.tables["ops.pdf_published_revision"].alias("support_publication")
+    retained = metadata.tables["kb.pdf_product_coverage"].alias("retained_coverage")
+    input_ = companion.alias("support_input")
+    recorded = companion.alias("recorded_coverage")
+    build = literal_column("p_build", type_=companion.c.product_id.type)
+    claims = (
+        select(
+            companion.c.local_id.label("claim_id"),
+            companion.c.body,
+            frozen.c.kind.label("product_kind"),
+        )
+        .select_from(companion.join(frozen, frozen.c.build_id == companion.c.product_id))
+        .where(
+            companion.c.product_id == build,
+            companion.c.revision_id == build,
+            companion.c.family == "coverage",
+        )
+        .cte("coverage_claims")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    support = (
+        func.jsonb_array_elements(
+            func.coalesce(
+                func.nullif(
+                    claims.c.body["supports"], literal_column("'null'::jsonb", type_=JSONB)
+                ),
+                literal_column("'[]'::jsonb", type_=JSONB),
+            )
+        )
+        .table_valued(column("value", JSONB))
+        .lateral("support")
+    )
+    edges = (
+        select(
+            claims.c.claim_id,
+            claims.c.body["scope"].astext.label("scope"),
+            claims.c.body["family"].astext.label("family"),
+            support.c.value["coverage_id"].astext.label("coverage_id"),
+            pin.c.task_id,
+            pin.c.product_key,
+            publication.c.build_id,
+        )
+        .select_from(
+            claims.join(support, true())
+            .outerjoin(
+                input_,
+                and_(
+                    input_.c.product_id == build,
+                    input_.c.revision_id == build,
+                    input_.c.family == "input",
+                    input_.c.local_id == support.c.value["input_index"].astext,
+                ),
+            )
+            .outerjoin(
+                pin,
+                and_(
+                    pin.c.task_id == cast(input_.c.body["task_id"].astext, pin.c.task_id.type),
+                    pin.c.product_key == input_.c.body["product_key"].astext,
+                    pin.c.content_digest == input_.c.body["content_digest"].astext,
+                ),
+            )
+            .outerjoin(
+                publication,
+                and_(
+                    publication.c.task_id == pin.c.task_id,
+                    publication.c.product_key == pin.c.product_key,
+                    publication.c.logical_digest == pin.c.content_digest,
+                ),
+            )
+        )
+        .cte("coverage_support_edges")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    resolved = union_all(
+        select(
+            edges.c.claim_id,
+            edges.c.scope,
+            edges.c.family,
+            recorded.c.local_id.label("coverage_id"),
+            recorded.c.body,
+        )
+        .select_from(
+            edges.outerjoin(
+                recorded,
+                and_(
+                    recorded.c.product_id == edges.c.build_id,
+                    recorded.c.revision_id == edges.c.build_id,
+                    recorded.c.family == "coverage",
+                    recorded.c.local_id == edges.c.coverage_id,
+                ),
+            )
+        )
+        .where(edges.c.build_id.is_not(None)),
+        select(
+            edges.c.claim_id, edges.c.scope, edges.c.family, retained.c.coverage_id, retained.c.body
+        )
+        .select_from(
+            edges.outerjoin(
+                retained,
+                and_(
+                    retained.c.task_id == edges.c.task_id,
+                    retained.c.product_key == edges.c.product_key,
+                    retained.c.coverage_id == edges.c.coverage_id,
+                ),
+            )
+        )
+        .where(edges.c.build_id.is_(None)),
+    ).cte("resolved_coverage_supports")
+    compatible = and_(
+        resolved.c.coverage_id.is_not(None),
+        resolved.c.scope.is_not_distinct_from(resolved.c.body["scope"].astext),
+        resolved.c.family.is_not_distinct_from(resolved.c.body["family"].astext),
+    )
+    summary = (
+        select(
+            resolved.c.claim_id,
+            func.bool_or(~compatible).label("invalid_support"),
+            func.bool_or(and_(compatible, resolved.c.body["outcome"].astext == "complete")).label(
+                "complete_support"
+            ),
+        )
+        .group_by(resolved.c.claim_id)
+        .cte("coverage_support_summary")
+    )
+    invalid = (
+        select(literal(1))
+        .select_from(claims.outerjoin(summary, summary.c.claim_id == claims.c.claim_id))
+        .where(
+            or_(
+                func.coalesce(summary.c.invalid_support, false()),
+                and_(
+                    claims.c.product_kind == "integrated",
+                    claims.c.body["outcome"].astext == "complete",
+                    ~func.coalesce(summary.c.complete_support, false()),
+                ),
+            )
+        )
+    )
+    return str(invalid.compile(dialect=dialect(), compile_kwargs={"literal_binds": True}))
+
+
+def _published_validation_sql() -> str:
+    from .native_sql_body import published_validation_statement
+
+    body = str(
+        published_validation_statement().compile(
+            dialect=dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    return (
+        "CREATE OR REPLACE FUNCTION ops.read_pdf_published_validation("
+        "p_task bigint,p_key text,p_digest text) RETURNS SETOF ops.pdf_build_validation "
+        "LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$\n"
+        + body
+        + "\n$$;\n"
+    )
+
+
 def publication_sql() -> str:
     from .pdf_record_reader_native import (
         pdf_companion_export_sql,
@@ -527,7 +705,7 @@ igest);",
     sql += """
 CREATE OR REPLACE FUNCTION ops.pdf_validation_contract(p_release text)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE item_ record; state_ bytea:=ops.pdf_identity_fold_start('pdf-validation-contract-v4');
+DECLARE item_ record; state_ bytea:=ops.pdf_identity_fold_start('pdf-validation-contract-v5');
  count_ bigint:=0; length_ bigint:=0; frame_ bytea;
 BEGIN
  FOR item_ IN SELECT input_name,content FROM sem.input WHERE release_id=p_release
@@ -775,13 +953,9 @@ BEGIN
  run_.project_id IS DISTINCT FROM (SELECT project_id FROM ops.run WHERE id=b.run_id))) THEN
  RAISE EXCEPTION 'PDF input outside exact admitted source/project custody' USING
  ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM kb.pdf_record_companion c CROSS JOIN LATERAL
- jsonb_array_elements(COALESCE(c.body->'supports','[]')) support
- WHERE c.product_id=p_build AND c.revision_id=p_build AND c.family='coverage' AND NOT
- EXISTS(SELECT FROM kb.pdf_record_companion i
- WHERE i.product_id=p_build AND i.revision_id=p_build AND i.family='input' AND
- i.local_id=support->>'input_index')) THEN
- RAISE EXCEPTION 'coverage support references missing input' USING ERRCODE='23514'; END IF;
+ IF EXISTS({pdf_coverage_support_violation_query}) THEN
+ RAISE EXCEPTION 'coverage support differs from exact input coverage scope/family/outcome'
+ USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM kb.pdf_record_companion o LEFT JOIN kb.pdf_record_access a ON
  a.product_id=p_build AND a.revision_id=p_build AND a.pointer=o.body->>'pointer' WHERE
  o.product_id=p_build AND o.revision_id=p_build AND o.family='occurrence'
@@ -1051,7 +1225,8 @@ b WHERE p.kind='integrated'
  contract_input.content_digest,p.schema_digest,p.recipe_digest,
  NULL::bigint,NULL::text,NULL::text,NULL::jsonb,(SELECT \
 c.body-ARRAY['source_scope','page_start','page_end'] FROM kb.pdf_record_companion c WHERE \
-c.product_id=p.build_id AND c.family='health' AND c.body ? 'source_scope' ORDER BY \
+c.product_id=p.build_id AND c.revision_id=p.build_id AND c.family='health' AND \
+c.body ? 'source_scope' ORDER BY \
 c.ordinal,c.local_id LIMIT 1),NULL::bytea
  FROM ops.pdf_published_revision p JOIN ops.pdf_build_validation v ON v.build_id=p.build_id
  JOIN sem.input contract_input ON contract_input.release_id=p.release_id
@@ -1143,11 +1318,11 @@ come')||CASE WHEN c.body->'has_diagnostic'='true'::jsonb THEN \
 jsonb_build_object('diagnostic_ref',jsonb_build_object('task_id',p.task_id,'product_key',p.produc\
 t_key,'content_digest',p.logical_digest,'family','native_metadata','local_id',c.local_id)) ELSE \
 '{}'::jsonb END ORDER BY c.ordinal,c.local_id) FROM kb.pdf_record_companion c WHERE \
-c.product_id=p.build_id
+c.product_id=p.build_id AND c.revision_id=p.build_id
  AND c.family='native_metadata' AND c.body->>'kind'='formula_outcomes' AND \
 c.body->>'pointer'=ANY(p_pointers)),'[]'::jsonb))
  FROM ops.pdf_published_revision p JOIN kb.pdf_record_companion h ON h.product_id=p.build_id AND \
-h.family='health'
+h.revision_id=p.build_id AND h.family='health'
  AND h.body ? 'source_scope' WHERE p.task_id=p_task AND p.product_key=p_key AND \
 p.logical_digest=p_digest
 $$;
@@ -1155,6 +1330,7 @@ REVOKE ALL ON FUNCTION ops.pdf_record_scope_health(bigint,text,text,text[]) FROM
 GRANT EXECUTE ON FUNCTION ops.pdf_record_scope_health(bigint,text,text,text[]) TO \
 corpus_sem_writer,corpus_sem_reader;
 """
+    sql += _published_validation_sql()
     signatures = [
         "pdf_validation_contract(text)",
         "pdf_projection_contract(text,text)",
@@ -1174,6 +1350,7 @@ corpus_sem_writer,corpus_sem_reader;
         "validate_pdf_build(text,bigint,bigint,text,text)",
         "seal_pdf_build(text,bigint,bigint,text,text,text)",
         "read_pdf_published_revision(bigint,text,text)",
+        "read_pdf_published_validation(bigint,text,text)",
     ]
     for signature in signatures:
         sql += f"REVOKE ALL ON FUNCTION ops.{signature} FROM PUBLIC;\n"
@@ -1181,6 +1358,12 @@ corpus_sem_writer,corpus_sem_reader;
             sql += f"GRANT EXECUTE ON FUNCTION ops.{signature} TO corpus_sem_writer;\n"
     sql += "GRANT EXECUTE ON FUNCTION ops.read_pdf_published_revision(bigint,text,text) TO \
 corpus_sem_reader,corpus_sem_evaluator;\n"
+    sql += "GRANT EXECUTE ON FUNCTION ops.read_pdf_published_validation(bigint,text,text) TO \
+corpus_sem_reader,corpus_sem_evaluator;\n"
+    marker = "{pdf_coverage_support_violation_query}"
+    if sql.count(marker) != 1:
+        raise ValueError("PDF validation requires its declared coverage support query")
+    sql = sql.replace(marker, _coverage_support_violation_sql())
     return (
         sql.replace("'{pdf_payload_profile}'", _quote(PROFILE))
         .replace("'{pdf_payload_family}'", _quote(FAMILY))
@@ -1196,6 +1379,35 @@ def pdf_record_logical_identity_sql() -> str:
     return sql.replace("'{pdf_payload_profile}'", _quote(PROFILE)).replace(
         "'{pdf_payload_family}'", _quote(FAMILY)
     )
+
+
+def source_view_sql() -> str:
+    # Existing source guards consume the same published-only item authority.
+    source = Path(__file__).with_name("sql") / "source_views.sql"
+    from .native_shapes import record_shape_guards
+    from .pdf_contracts import trusted_pdf_context
+
+    view_sql = source.read_text().replace(
+        "-- {source_view_shape_guard}",
+        record_shape_guards(trusted_pdf_context().boundary, "PdfSourceViewPublication", "product"),
+    )
+    view_sql = (
+        view_sql.replace("kb.native_document_item", "ops.pdf_published_item")
+        .replace("kb.native_document_region", "ops.pdf_published_region")
+        .replace("kb.native_document_coverage", "ops.pdf_published_coverage")
+    )
+    marker = " SELECT * INTO STRICT native FROM ops.pdf_selected_product WHERE \
+task_id=(product->>'native_task_id')::bigint AND product_key=product->>'native_product_key' AND \
+content_digest=product->>'native_content_digest';"
+    view_sql = view_sql.replace(
+        marker,
+        marker
+        + "\n IF EXISTS(SELECT FROM ops.pdf_published_revision WHERE task_id=native.task_id AND \
+product_key=native.product_key AND logical_digest=native.content_digest) THEN \
+native.health:=ops.pdf_record_scope_health(native.task_id,native.product_key,native.content_diges\
+t,ARRAY(SELECT jsonb_array_elements_text(projection->'items'))); END IF;",
+    )
+    return view_sql
 
 
 def pdf_publication_products(model=None, *, authoring_provenance=None):
@@ -1283,32 +1495,10 @@ sr.stage_recipe_digest=p_recipe)))",
         + "\n"
         + publication_sql()
     )
-    # Existing source guards consume the same published-only item authority.
-    source = Path(__file__).with_name("sql") / "source_views.sql"
-    from .native_shapes import record_shape_guards
-    from .pdf_contracts import trusted_pdf_context
+    view_sql = source_view_sql()
+    from .published_document import published_readers_sql
 
-    view_sql = source.read_text().replace(
-        "-- {source_view_shape_guard}",
-        record_shape_guards(trusted_pdf_context().boundary, "PdfSourceViewPublication", "product"),
-    )
-    view_sql = (
-        view_sql.replace("kb.native_document_item", "ops.pdf_published_item")
-        .replace("kb.native_document_region", "ops.pdf_published_region")
-        .replace("kb.native_document_coverage", "ops.pdf_published_coverage")
-    )
-    marker = " SELECT * INTO STRICT native FROM ops.pdf_selected_product WHERE \
-task_id=(product->>'native_task_id')::bigint AND product_key=product->>'native_product_key' AND \
-content_digest=product->>'native_content_digest';"
-    view_sql = view_sql.replace(
-        marker,
-        marker
-        + "\n IF EXISTS(SELECT FROM ops.pdf_published_revision WHERE task_id=native.task_id AND \
-product_key=native.product_key AND logical_digest=native.content_digest) THEN \
-native.health:=ops.pdf_record_scope_health(native.task_id,native.product_key,native.content_diges\
-t,ARRAY(SELECT jsonb_array_elements_text(projection->'items'))); END IF;",
-    )
-    sql += view_sql
+    sql += published_readers_sql() + "\n" + view_sql
     from .native_products import closure_products
 
     physical, _, _ = closure_products(model)

@@ -33,7 +33,7 @@ classes:
     attributes:
       project_id: {required: true}
       run_id: {range: SourceInteger, required: true, minimum_value: 1}
-      release_id: {required: true}
+      selection_release_id: {required: true}
       task_id: {range: SourceInteger, required: true, minimum_value: 1}
       product_key: {required: true}
       content_digest: {range: SourceDigest, required: true}

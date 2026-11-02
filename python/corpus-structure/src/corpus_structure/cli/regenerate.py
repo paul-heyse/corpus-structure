@@ -234,7 +234,7 @@ def regenerate(
             extracted = None if completed else extract_run(engine, settings, run_id)
             provider = None if extracted is None else extracted.model_dump(mode="json")
             output = completed or f"result:{project}:{run_id}"
-            finalize_bound_run(engine, run_id, output)
+            finalize_bound_run(engine, run_id, output, analytics=settings.analytics)
         generation = None
         if select_result:
             assert prepared is not None

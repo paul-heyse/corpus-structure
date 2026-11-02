@@ -13,6 +13,7 @@ from typing import Any, Literal
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import Connection
 
+from corpus_structure.semantic._operation_ids import TaskAttempt, TaskId
 from corpus_structure.semantic.operation_results import CompletionResult, OperationResult
 from corpus_structure.semantic.proposals import (
     LocatedProposal,
@@ -56,8 +57,8 @@ type ProposalCommit = HeldProposalCommit | CompletedProposalCommit
 class ProposalSession:
     prepared: PreparedRelease
     packet: ProposalPacket
-    task_id: int
-    attempt: int
+    task_id: TaskId
+    attempt: TaskAttempt
     holder: str
     _read: set[tuple[str, int]] = field(default_factory=set, init=False, repr=False)
     _checked: LocatedProposal | RefusedProposal | None = field(default=None, init=False, repr=False)
@@ -156,7 +157,9 @@ class ProposalSession:
             "issues": TypeAdapter(tuple[ProposalIssue, ...]).dump_python(
                 checked.issues, mode="json"
             ),
-            "authored": source_value(authored),
+            "authored": self.prepared.validate_python(
+                "SourceObject", source_value(authored)
+            ).model_dump(mode="json"),
         }
         holding = hold_agent_result(
             conn,

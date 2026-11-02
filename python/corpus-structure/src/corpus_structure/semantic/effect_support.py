@@ -6,6 +6,12 @@ They are compatibility requirements, never evidence that hashing code proves its
 """
 
 SUPPORTED_EFFECTS = {
+    "record_direction": {
+        "effects": ("atomic_protected_insert",),
+        "implementation": "record_direction",
+        "transitions": {},
+        "version": "1",
+    },
     "begin_pdf_build": {
         "effects": ("atomic_private_pdf_stage",),
         "implementation": "begin_pdf_build",
@@ -105,12 +111,6 @@ SUPPORTED_EFFECTS = {
     "retain_pdf_original": {
         "effects": ("atomic_native_publication", "preserve_original_normalized_distinction"),
         "implementation": "retain_pdf_original",
-        "transitions": {},
-        "version": "1",
-    },
-    "publish_native_document": {
-        "effects": ("atomic_native_publication", "preserve_original_normalized_distinction"),
-        "implementation": "publish_native_document",
         "transitions": {},
         "version": "1",
     },
@@ -500,9 +500,9 @@ SUPPORTED_EFFECTS.update(
             "transitions": {},
             "version": "1",
         },
-        "publish_integrated_pdf": {
-            "effects": ("atomic_native_publication", "preserve_original_normalized_distinction"),
-            "implementation": "publish_integrated_pdf",
+        "publish_pdf_observation": {
+            "effects": ("atomic_native_publication",),
+            "implementation": "publish_pdf_observation",
             "transitions": {},
             "version": "1",
         },

@@ -2,6 +2,7 @@
 CREATE OR REPLACE FUNCTION ops.pdf_record_context_rows(p_task bigint,p_key text,p_digest text,p_pointers text[],p_section text)
 RETURNS TABLE(family text,local_id text,ordinal bigint,body jsonb)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ -- BEGIN pdf-context-selection
  WITH RECURSIVE published AS MATERIALIZED (
   SELECT * FROM ops.read_pdf_published_revision(p_task,p_key,p_digest)
  ), access AS MATERIALIZED (
@@ -52,7 +53,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
    WHERE c.family='relation' AND c.local_id IN (SELECT relation_id FROM related)
   UNION ALL SELECT c.* FROM kb.pdf_record_companion c JOIN published p ON c.product_id=p.build_id AND c.revision_id=p.build_id
    WHERE c.family='mapping_report' AND c.body->>'input_index' IN (SELECT local_id FROM inputs)
- ) SELECT c.family,c.local_id,c.ordinal,ops.pdf_companion_body(c.product_id,c.revision_id,c.family,c.local_id,c.body) FROM chosen c
+ )
+ -- END pdf-context-selection
+ SELECT c.family,c.local_id,c.ordinal,ops.pdf_companion_body(c.product_id,c.revision_id,c.family,c.local_id,c.body) FROM chosen c
 $$;
 
 CREATE OR REPLACE FUNCTION ops.record_integrated_source_context(p_task bigint,p_key text,p_digest text,

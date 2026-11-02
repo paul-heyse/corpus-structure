@@ -373,5 +373,65 @@ def native_candidate_(
         )
 
 
+@schema_app.command("explain-operation")
+def explain_operation_(
+    ctx: typer.Context,
+    operation: str,
+    release: Annotated[str, typer.Option("--release")],
+    subject: Annotated[Path | None, typer.Option("--subject")] = None,
+    json_: JsonOpt = False,
+):
+    """Explain a declared operation; an observation never authorizes later effects."""
+    from corpus_structure.cli.output import state
+    from corpus_structure.semantic.operation_reporting import (
+        explain_operation,
+        parse_operation_subject,
+    )
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.releases import open_release
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    with refusal(json_, expected=(SemanticRefusal, ValueError, OSError)):
+        raw_subject = subject.read_bytes() if subject is not None else None
+        with (
+            open_runtime_engine(
+                state(ctx).settings(), "ci-explain-operation", purpose="read"
+            ) as engine,
+            read_snapshot(engine) as conn,
+        ):
+            prepared = open_release(conn, release)
+            reference = (
+                parse_operation_subject(prepared, operation, raw_subject, connection=conn)
+                if raw_subject is not None
+                else None
+            )
+            report = explain_operation(prepared, operation, subject=reference, connection=conn)
+        emit(report, json=json_)
+
+
+@schema_app.command("diff")
+def diff_(ctx: typer.Context, before: str, after: str, json_: JsonOpt = False):
+    """Explain declared semantic changes with unknown dependency coverage explicit."""
+    from corpus_structure.cli.output import state
+    from corpus_structure.semantic.operation_reporting import compare_semantic_releases
+    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.releases import open_release
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    with refusal(json_, expected=(SemanticRefusal,)):
+        with (
+            open_runtime_engine(
+                state(ctx).settings(), "ci-semantic-diff", purpose="read"
+            ) as engine,
+            read_snapshot(engine) as conn,
+        ):
+            report = compare_semantic_releases(
+                open_release(conn, before), open_release(conn, after)
+            )
+        emit(report, json=json_)
+
+
 def register(app: typer.Typer):
     app.add_typer(schema_app, name="schema")

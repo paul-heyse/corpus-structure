@@ -334,7 +334,7 @@ def test_actual_global_helper_requires_its_bound_operation(operation, semantic_w
     from pathlib import Path
 
     from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.operations import record_method, register_document
+    from corpus_structure.semantic.operations import register_document
     from corpus_structure.semantic.regeneration import prepare_packs
     from corpus_structure.semantic.types import PreparationError
 
@@ -351,7 +351,12 @@ def test_actual_global_helper_requires_its_bound_operation(operation, semantic_w
     )
     with semantic_writer_engine.connect() as connection, pytest.raises(PreparationError) as refused:
         if operation == "configure_method":
-            record_method(connection, None, "test", {}, "test", prepared=missing)
+            from corpus_structure.semantic import operations
+
+            # Deliberate dynamic invalid input must reach the missing-operation guard first.
+            vars(operations)["record_method"](
+                connection, None, "test", {}, "test", prepared=missing
+            )
         else:
             register_document(
                 connection,

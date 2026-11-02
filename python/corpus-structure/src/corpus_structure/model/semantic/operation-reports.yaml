@@ -1,0 +1,340 @@
+id: https://corpus-structure.dev/semantic/operation-reports
+name: operation_reports
+imports:
+- pdf_products
+- observations
+prefixes:
+  ur: https://corpus-structure.dev/unified-reports/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: ur
+default_range: UrString
+types:
+  UrString:
+    base: str
+    uri: xsd:string
+  UrInteger:
+    base: int
+    uri: xsd:integer
+  UrBoolean:
+    base: bool
+    uri: xsd:boolean
+enums:
+  OperationApplicability:
+    permissible_values:
+      applicable: {}
+      unavailable: {}
+      unresolved: {}
+  LocatedFailureCategory:
+    permissible_values:
+      invalid_input: {}
+      invalid_shape: {}
+      state_violation: {}
+      validator_failure: {}
+      unassessed: {}
+  SemanticChangeKind:
+    permissible_values:
+      added: {}
+      removed: {}
+      changed: {}
+      unknown: {}
+classes:
+  PublishedDocumentSubject:
+    is_a: PdfProductReference
+    attributes:
+      run_id:
+        range: UrInteger
+        minimum_value: 1
+        slot_uri: ur:PublishedDocumentSubject_run_id
+      section_pointer:
+        range: PdfPointer
+        slot_uri: ur:PublishedDocumentSubject_section_pointer
+      pointer:
+        range: PdfPointer
+        slot_uri: ur:PublishedDocumentSubject_pointer
+      region_index:
+        range: UrInteger
+        minimum_value: 0
+        slot_uri: ur:PublishedDocumentSubject_region_index
+  OperationCheck:
+    attributes:
+      contract_ref:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationCheck_contract_ref
+      owner:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationCheck_owner
+      scope:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationCheck_scope
+      status:
+        range: OperationApplicability
+        required: true
+        slot_uri: ur:OperationCheck_status
+      reason:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationCheck_reason
+      expected:
+        range: UrString
+        slot_uri: ur:OperationCheck_expected
+      actual:
+        range: UrString
+        slot_uri: ur:OperationCheck_actual
+  OperationExplanation:
+    attributes:
+      report_version:
+        range: UrInteger
+        required: true
+        minimum_value: 1
+        maximum_value: 1
+        slot_uri: ur:OperationExplanation_report_version
+      report_schema_digest:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_report_schema_digest
+      release_id:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_release_id
+      model_id:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_model_id
+      operation:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_operation
+      implementation:
+        range: UrString
+        slot_uri: ur:OperationExplanation_implementation
+      inputs:
+        range: UrString
+        multivalued: true
+        slot_uri: ur:OperationExplanation_inputs
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      results:
+        range: UrString
+        multivalued: true
+        slot_uri: ur:OperationExplanation_results
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      effects:
+        range: UrString
+        multivalued: true
+        slot_uri: ur:OperationExplanation_effects
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      transitions:
+        range: UrString
+        multivalued: true
+        slot_uri: ur:OperationExplanation_transitions
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      checks:
+        range: OperationCheck
+        multivalued: true
+        inlined: true
+        slot_uri: ur:OperationExplanation_checks
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      observed_at:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_observed_at
+      observed_revision:
+        range: UrString
+        slot_uri: ur:OperationExplanation_observed_revision
+      complete:
+        range: UrBoolean
+        required: true
+        slot_uri: ur:OperationExplanation_complete
+  LocatedObservation:
+    attributes:
+      category:
+        range: LocatedFailureCategory
+        required: true
+        slot_uri: ur:LocatedObservation_category
+      code:
+        range: UrString
+        required: true
+        slot_uri: ur:LocatedObservation_code
+      model_path:
+        range: UrString
+        required: true
+        slot_uri: ur:LocatedObservation_model_path
+      input_path:
+        range: UrString
+        slot_uri: ur:LocatedObservation_input_path
+      operation:
+        range: UrString
+        slot_uri: ur:LocatedObservation_operation
+      scope:
+        range: UrString
+        required: true
+        slot_uri: ur:LocatedObservation_scope
+      message:
+        range: UrString
+        required: true
+        slot_uri: ur:LocatedObservation_message
+      expected:
+        range: UrString
+        slot_uri: ur:LocatedObservation_expected
+      actual:
+        range: UrString
+        slot_uri: ur:LocatedObservation_actual
+      remedy:
+        range: UrString
+        slot_uri: ur:LocatedObservation_remedy
+      native_sqlstate:
+        range: UrString
+        slot_uri: ur:LocatedObservation_native_sqlstate
+      native_constraint:
+        range: UrString
+        slot_uri: ur:LocatedObservation_native_constraint
+      original_report:
+        range: UrString
+        slot_uri: ur:LocatedObservation_original_report
+  LocatedValidationReport:
+    attributes:
+      report_version:
+        range: UrInteger
+        required: true
+        minimum_value: 1
+        maximum_value: 1
+        slot_uri: ur:LocatedValidationReport_report_version
+      report_schema_digest:
+        range: UrString
+        required: true
+        slot_uri: ur:LocatedValidationReport_report_schema_digest
+      release_id:
+        range: UrString
+        slot_uri: ur:LocatedValidationReport_release_id
+      model_id:
+        range: UrString
+        slot_uri: ur:LocatedValidationReport_model_id
+      observations:
+        range: LocatedObservation
+        multivalued: true
+        inlined: true
+        slot_uri: ur:LocatedValidationReport_observations
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      complete:
+        range: UrBoolean
+        required: true
+        slot_uri: ur:LocatedValidationReport_complete
+  SemanticMemberChange:
+    abstract: true
+    attributes:
+      kind:
+        range: string
+        required: true
+        slot_uri: ur:SemanticMemberChange_kind
+      model_path:
+        range: UrString
+        required: true
+        slot_uri: ur:SemanticMemberChange_model_path
+  AddedSemanticMember:
+    is_a: SemanticMemberChange
+    attributes:
+      kind: {range: string, equals_string: added}
+      after:
+        range: SourceValue
+        inlined: true
+        required: true
+        slot_uri: ur:AddedSemanticMember_after
+  RemovedSemanticMember:
+    is_a: SemanticMemberChange
+    attributes:
+      kind: {range: string, equals_string: removed}
+      before:
+        range: SourceValue
+        inlined: true
+        required: true
+        slot_uri: ur:RemovedSemanticMember_before
+  ChangedSemanticMember:
+    is_a: SemanticMemberChange
+    attributes:
+      kind: {range: string, equals_string: changed}
+      before:
+        range: SourceValue
+        inlined: true
+        required: true
+        slot_uri: ur:ChangedSemanticMember_before
+      after:
+        range: SourceValue
+        inlined: true
+        required: true
+        slot_uri: ur:ChangedSemanticMember_after
+  SemanticChange:
+    attributes:
+      kind:
+        range: SemanticChangeKind
+        required: true
+        slot_uri: ur:SemanticChange_kind
+      model_ref:
+        range: UrString
+        required: true
+        slot_uri: ur:SemanticChange_model_ref
+      aspect:
+        range: UrString
+        required: true
+        slot_uri: ur:SemanticChange_aspect
+      consumers:
+        range: UrString
+        multivalued: true
+        slot_uri: ur:SemanticChange_consumers
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      reason:
+        range: UrString
+        required: true
+        slot_uri: ur:SemanticChange_reason
+      members:
+        range: SemanticMemberChange
+        multivalued: true
+        inlined: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+        slot_uri: ur:SemanticChange_members
+  SemanticImpactReport:
+    attributes:
+      report_version:
+        range: UrInteger
+        required: true
+        minimum_value: 1
+        maximum_value: 1
+        slot_uri: ur:SemanticImpactReport_report_version
+      report_schema_digest:
+        range: UrString
+        required: true
+        slot_uri: ur:SemanticImpactReport_report_schema_digest
+      before_release:
+        range: UrString
+        required: true
+        slot_uri: ur:SemanticImpactReport_before_release
+      after_release:
+        range: UrString
+        required: true
+        slot_uri: ur:SemanticImpactReport_after_release
+      changes:
+        range: SemanticChange
+        multivalued: true
+        inlined: true
+        slot_uri: ur:SemanticImpactReport_changes
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      unknowns:
+        range: UrString
+        multivalued: true
+        slot_uri: ur:SemanticImpactReport_unknowns
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      complete:
+        range: UrBoolean
+        required: true
+        slot_uri: ur:SemanticImpactReport_complete

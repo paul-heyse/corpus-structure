@@ -9,6 +9,7 @@ from sqlalchemy import insert, select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic._operation_ids import TaskAttempt
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import (
     OperationBinding,
@@ -258,7 +259,7 @@ def test_binding_revision_and_wrong_attempt(semantic_db_engine, semantic_writer_
         complete_task(
             c,
             task_id=task,
-            attempt=2,
+            attempt=TaskAttempt(2),
             holder="worker",
             prepared=p,
             observations=[],
@@ -616,7 +617,7 @@ def test_reuse_requires_complete_bound_meaning(semantic_db_engine, semantic_writ
         complete_task(
             c,
             task_id=task,
-            attempt=1,
+            attempt=TaskAttempt(1),
             holder="worker",
             prepared=p,
             observations=[],
@@ -770,7 +771,7 @@ def test_native_role_cannot_forge_reuse_binding(
         complete_task(
             c,
             task_id=origin,
-            attempt=1,
+            attempt=TaskAttempt(1),
             holder="worker",
             prepared=p,
             observations=[],
@@ -896,7 +897,7 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
         complete_task(
             c,
             task_id=task,
-            attempt=1,
+            attempt=TaskAttempt(1),
             holder="worker",
             prepared=p,
             observations=[],
@@ -936,7 +937,7 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
         complete_task(
             c,
             task_id=task,
-            attempt=2,
+            attempt=TaskAttempt(2),
             holder="worker",
             prepared=p,
             observations=[
@@ -1009,11 +1010,16 @@ def test_logical_invocation_distinguishes_fresh_reports_but_not_retries(
             }
         ]
         one = complete_task(
-            c, task_id=first, attempt=1, holder="worker", prepared=p, observations=rows
+            c, task_id=first, attempt=TaskAttempt(1), holder="worker", prepared=p, observations=rows
         )
         assert (
             complete_task(
-                c, task_id=first, attempt=1, holder="worker", prepared=p, observations=rows
+                c,
+                task_id=first,
+                attempt=TaskAttempt(1),
+                holder="worker",
+                prepared=p,
+                observations=rows,
             ).receipt
             == one.receipt
         )
@@ -1028,7 +1034,7 @@ def test_logical_invocation_distinguishes_fresh_reports_but_not_retries(
         )
         claim_tasks(c, run_id=run, config_id=cfg, holder="worker")
         two = complete_task(
-            c, task_id=fresh, attempt=1, holder="worker", prepared=p, observations=rows
+            c, task_id=fresh, attempt=TaskAttempt(1), holder="worker", prepared=p, observations=rows
         )
         assert one != two
         keys = c.execute(select(table("kb.observation").c.observation_key)).scalars().all()
@@ -1076,7 +1082,7 @@ def test_native_cancel_drains_claims_and_blocks_late_completion(
         complete_task(
             c,
             task_id=task,
-            attempt=1,
+            attempt=TaskAttempt(1),
             holder="worker",
             prepared=p,
             observations=[],

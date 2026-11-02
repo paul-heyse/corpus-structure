@@ -19,9 +19,11 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from corpus_structure._query_custody import record_plugin, verify_plugin
 from corpus_structure.serve.protocol import DomainQuery
 
 PLUGIN = "queries.py"
+_UNREAD = object()
 
 
 class QueryRegistryError(ValueError):
@@ -48,14 +50,22 @@ def _problems(query: Any, where: str) -> list[str]:
     return out
 
 
-def load_plugin(pack: Path) -> list[Any]:
+def load_plugin(
+    pack: Path, *, source: bytes | object | None = _UNREAD, implementation: str | None = None
+) -> list[Any]:
     """The pack's `QUERIES`, or none when it has no `queries.py`."""
     path = pack / PLUGIN
-    if not path.exists():
+    if source is None or (source is _UNREAD and not path.exists()):
         return []
-    identity = hashlib.sha256(str(path.resolve()).encode() + path.read_bytes()).hexdigest()[:20]
+    content = path.read_bytes() if source is _UNREAD else source
+    if not isinstance(content, bytes):
+        raise TypeError("query plugin source must be captured bytes")
+    identity = hashlib.sha256(
+        str(path.resolve()).encode() + content + (implementation or "").encode()
+    ).hexdigest()[:20]
     module_name = f"corpus_pack_{pack.name}_queries_{identity}"
     if module_name in sys.modules:
+        verify_plugin(sys.modules[module_name], path, content)
         queries = getattr(sys.modules[module_name], "QUERIES", None)
         if not isinstance(queries, list | tuple):
             raise QueryRegistryError([f"{path}: no QUERIES sequence"])
@@ -66,7 +76,10 @@ def load_plugin(pack: Path) -> list[Any]:
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     try:
-        spec.loader.exec_module(module)
+        # Execute the exact captured installed bytes admitted by the caller, rather
+        # than reopening a possibly changed pathname after compatibility preflight.
+        exec(compile(content, str(path), "exec"), module.__dict__)
+        record_plugin(module, path, content)
     except BaseException:
         sys.modules.pop(module_name, None)
         raise
@@ -77,14 +90,21 @@ def load_plugin(pack: Path) -> list[Any]:
 
 
 def build_registry(
-    generic: Iterable[DomainQuery] = (), pack: Path | None = None
+    generic: Iterable[DomainQuery] = (),
+    pack: Path | None = None,
+    *,
+    plugin_source: bytes | object | None = _UNREAD,
+    implementation: str | None = None,
 ) -> Mapping[str, DomainQuery]:
     """Every query by name (module doc)."""
     out: dict[str, DomainQuery] = {}
     problems: list[str] = []
     sources = [("serve", q) for q in generic]
     if pack is not None:
-        sources += [(str(pack / PLUGIN), q) for q in load_plugin(pack)]
+        sources += [
+            (str(pack / PLUGIN), q)
+            for q in load_plugin(pack, source=plugin_source, implementation=implementation)
+        ]
     for where, query in sources:
         found = _problems(query, where)
         if found:

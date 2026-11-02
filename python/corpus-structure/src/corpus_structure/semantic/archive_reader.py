@@ -201,7 +201,7 @@ def reconstruct_release(
     if profile.compiler_version == "10":
         aliases, descendants = _v10_aliases(bundle, definitions)
         primitive_types = _v10_primitives(rows)
-    elif profile.compiler_version in {"11", "12", "13"}:
+    elif profile.compiler_version in {"11", "12", "13", "14"}:
         recipe = json.loads(artifact_map["boundary_recipe.json"].content)
         if set(recipe) != {
             "abi",
@@ -235,13 +235,13 @@ def reconstruct_release(
             conditional_fragments=fragments,
             conditional_scope=profile.constraint_scope,
             legacy_v10=profile.compiler_version == "10",
-            finite_fields=profile.compiler_version in {"12", "13"},
+            finite_fields=profile.compiler_version in {"12", "13", "14"},
             descendant_order=descendants,
             models_out=models if target_models is None else target_models,
             class_names=class_names,
         )
 
-    adapters = () if profile.compiler_version in {"12", "13"} else build()
+    adapters = () if profile.compiler_version in {"12", "13", "14"} else build()
 
     def check_schema(name, adapter):
         actual_schema = json.loads(canonical_bytes(adapter.json_schema()))
@@ -277,7 +277,7 @@ def reconstruct_release(
         models.update(staged_models)
         return adapter
 
-    return PreparedRelease(
+    prepared = PreparedRelease(
         release_id=products["release_id"],
         manifest=manifest,
         definitions=definitions,
@@ -292,8 +292,13 @@ def reconstruct_release(
         _adapters=adapters,
         execution_model_id=products.get("execution_model_id"),
         _boundary_models=models,
-        _adapter_loader=load_adapter if profile.compiler_version in {"12", "13"} else None,
+        _adapter_loader=load_adapter if profile.compiler_version in {"12", "13", "14"} else None,
     )
+    if profile.compiler_version == "14":
+        from .comparison_projection import comparison_projection
+
+        comparison_projection(prepared)
+    return prepared
 
 
 def _archive_header(conn: Any, release_id: str):

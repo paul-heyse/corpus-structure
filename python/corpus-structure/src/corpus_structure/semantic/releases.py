@@ -7,7 +7,7 @@ only an explicit archive load recompiles the archived, entirely local inputs.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 import yaml
 from cattrs.errors import BaseValidationError
+from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import Connection, select
 
 from .determinants import BYTE_LIBRARIES as _LIBRARIES
@@ -59,6 +60,27 @@ def _digest(content: bytes) -> str:
     return sha256(content).hexdigest()
 
 
+def _archive_wire_payload(relations: Mapping[str, Sequence[Mapping[str, Any]]]) -> JsonValue:
+    """Export owned archive rows to their JSON/bytea wire representation once.
+
+    Prepared products retain immutable tuples. Their archive JSON representation uses
+    arrays; byte content remains exact PostgreSQL hex. Unsupported Python values refuse
+    rather than acquiring a presentation serializer or semantic value transformation.
+    """
+    rows = {
+        name: [
+            {
+                key: "\\x" + bytes(value).hex() if isinstance(value, (bytes, memoryview)) else value
+                for key, value in row.items()
+            }
+            for row in records
+        ]
+        for name, records in relations.items()
+    }
+    encoded = json.dumps(rows, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    return TypeAdapter(JsonValue).validate_json(encoded, strict=True)
+
+
 def _products(prepared: PreparedRelease) -> dict[str, Any]:
     products = {
         "release_id": prepared.release_id,
@@ -88,7 +110,8 @@ def _archive_bytes(
         {
             "format": (
                 "semantic-release-archive-3"
-                if json.loads(prepared.manifest)["profile"]["compiler_version"] in {"12", "13"}
+                if json.loads(prepared.manifest)["profile"]["compiler_version"]
+                in {"12", "13", "14"}
                 else "semantic-release-archive-2"
                 if prepared.execution_model_id is not None
                 else "semantic-release-archive-1"
@@ -113,7 +136,7 @@ def _validate_manifest(
         "libraries": {
             name: determinant_version(name)
             for name in (
-                _LIBRARIES if profile.compiler_version in {"12", "13"} else BYTE_LIBRARIES_V11
+                _LIBRARIES if profile.compiler_version in {"12", "13", "14"} else BYTE_LIBRARIES_V11
             )
         },
         "sources": sorted((s.name, s.digest) for s in bundle.sources),
@@ -386,7 +409,7 @@ def persist_release(
 
     _validate_manifest(bundle, dependencies, profile, prepared)
     require_bound_operation(prepared, "archive")
-    if profile.compiler_version == "13":
+    if profile.compiler_version == SEMANTIC_COMPILER_VERSION:
         from .prepare import prepare_release
 
         derived = prepare_release(bundle, dependencies, profile)
@@ -454,33 +477,21 @@ def persist_release(
     )
     projections = _projection_rows(prepared)
 
-    def transport(row: dict[str, Any]) -> dict[str, Any]:
-        return {
-            key: "\\x" + bytes(value).hex() if isinstance(value, (bytes, memoryview)) else value
-            for key, value in row.items()
-        }
-
-    from sqlalchemy import text
-
-    payload = {
-        "release": [transport(release_row)],
-        "input": [transport(row) for row in inputs],
-        "artifact": [transport(row) for row in artifacts],
-        **{name: [transport(row) for row in rows] for name, rows in projections.items()},
-    }
     from sqlalchemy.exc import DBAPIError
 
+    from ._operation_calls import publish_release_archive
+
+    payload = _archive_wire_payload(
+        {"release": [release_row], "input": inputs, "artifact": artifacts, **projections}
+    )
     try:
         with conn.begin_nested():
-            archived = conn.execute(
-                text("SELECT sem.publish_release_archive(CAST(:payload AS jsonb))"),
-                {"payload": json.dumps(payload)},
-            ).scalar_one()
+            archived = publish_release_archive(conn, payload=payload)
     except DBAPIError as error:
         if getattr(error.orig, "sqlstate", None) in {"23505", "23514"}:
             raise ReleaseConflict(str(error.orig).splitlines()[0]) from error
         raise
-    return str(archived)
+    return archived
 
 
 def open_release(conn: Connection, release_id: str) -> PreparedRelease:
@@ -629,19 +640,19 @@ def activate_release(
     with conn.begin_nested():
         admit_archived_sql(conn, release_id, reader_conn=sql_reader, analyzed=sql_admissions)
         admit_release(prepared, connection=conn)
-        from sqlalchemy import text
         from sqlalchemy.exc import DBAPIError
 
+        from ._operation_calls import activate_release as invoke
+        from ._operation_ids import ProjectId, ReleaseId
+
         try:
-            generation = conn.execute(
-                text("SELECT sem.activate_release(:project,:release,:parent,:generation)"),
-                {
-                    "project": project_id,
-                    "release": release_id,
-                    "parent": expected_parent,
-                    "generation": expected_generation,
-                },
-            ).scalar_one()
+            generation = invoke(
+                conn,
+                project_id=ProjectId(project_id),
+                release_id=ReleaseId(prepared.release_id),
+                expected_parent=None if expected_parent is None else ReleaseId(expected_parent),
+                expected_generation=expected_generation,
+            )
         except DBAPIError as exc:
             if getattr(exc.orig, "sqlstate", None) == "40001":
                 raise ActivationConflict(

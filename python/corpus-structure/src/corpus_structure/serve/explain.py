@@ -10,6 +10,11 @@ from sqlalchemy import and_, select
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import Explanation as FactExplanation
 from corpus_structure.semantic.query import SnapshotBinding
+from corpus_structure.semantic.query_compatibility import (
+    BoundQuery,
+    QueryBindingReference,
+    QueryCompatibilityError,
+)
 from corpus_structure.serve.journey import QueryRefused, bind_session
 
 
@@ -37,10 +42,13 @@ class Explanation(BaseModel):
     kind: Literal["claim", "unit"]
     identifier: str
     detail: FactExplanation | UnitExplanation
+    query_binding: QueryBindingReference | None = None
 
 
-def explain(conn, run_id, kind: Literal["claim", "unit"], key):
+def explain(conn, run_id, kind: Literal["claim", "unit"], key, *, query: BoundQuery | None = None):
     session = bind_session(conn, run_id)
+    if query is not None and query.release_id != session.binding.release_id:
+        raise QueryCompatibilityError("explanation belongs to another producing query release")
     if kind == "claim":
         try:
             detail = session.explain(key)
@@ -119,5 +127,10 @@ def explain(conn, run_id, kind: Literal["claim", "unit"], key):
             observations=observations,
         )
     return Explanation(
-        run_id=run_id, binding=session.binding, kind=kind, identifier=key, detail=detail
+        run_id=run_id,
+        binding=session.binding,
+        kind=kind,
+        identifier=key,
+        detail=detail,
+        query_binding=query.reference if query is not None else None,
     )

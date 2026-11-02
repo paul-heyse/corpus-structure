@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import json
 from collections.abc import Sequence
+from contextlib import nullcontext
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
@@ -166,10 +167,50 @@ def read_native_items(
     pointer: str | None = None,
     after: int = -1,
     limit: int = 100,
+    projection_context=None,
 ) -> list[dict[str, Any]]:
     """Read a pinned page of item projections; an incorrect pin always refuses."""
     if not 1 <= limit <= 1000 or after < -1 or membership not in {"direct", "descendants"}:
         raise ValueError("native item page requires limit 1..1000 and after >= -1")
+    from .pdf_record_reader import (
+        PublishedSchemaUnavailable,
+        published_native_table,
+        published_record_reader,
+    )
+    from .product_reference import ProductReference
+
+    published = published_record_reader(
+        conn,
+        ProductReference(task_id, product_key, content_digest),
+        projection_context=projection_context,
+    )
+    if published is not None:
+        _record_product_identity(conn, task_id, product_key, content_digest, published)
+        try:
+            published._native_schema_mapping()
+        except PublishedSchemaUnavailable as error:
+            raise NativeDocumentUnavailable(str(error)) from error
+        rows = published.item_page(
+            section=section_pointer,
+            membership=membership,
+            pointer=pointer,
+            after=after,
+            limit=limit,
+        )
+        return [
+            dict(
+                task_id=task_id,
+                product_key=product_key,
+                **{
+                    key: value
+                    for key, value in row.items()
+                    if key not in {"product_id", "revision_id"}
+                },
+            )
+            for row in rows
+        ]
+
+    # Only explicitly archived aggregate products use the legacy schema qualification.
     product = table("ops.pdf_selected_product")
     actual = conn.execute(
         select(
@@ -207,7 +248,7 @@ def read_native_items(
             "inspect ci db describe --schema ops and the native-candidate/admission output; "
             "rebuild from compatible retained evidence instead of changing stored pins"
         )
-    from .pdf_record_reader import published_native_table
+    # Explicit historical products retain their archived legacy reader route.
 
     item = published_native_table(conn)
     query = select(*[c for c in item.columns if c.name != "native_json"]).where(
@@ -290,6 +331,7 @@ def read_native_regions(
     product_key: str,
     content_digest: str,
     pointer: str,
+    projection_context=None,
 ) -> list[dict[str, Any]]:
     """Resolve only regions attached to a pinned native occurrence."""
     if not read_native_items(
@@ -299,9 +341,30 @@ def read_native_regions(
         content_digest=content_digest,
         pointer=pointer,
         limit=1,
+        projection_context=projection_context,
     ):
         raise ValueError("native occurrence unavailable")
-    from .pdf_record_reader import published_native_table
+    from .pdf_record_reader import published_native_table, published_record_reader
+    from .product_reference import ProductReference
+
+    published = published_record_reader(
+        conn,
+        ProductReference(task_id, product_key, content_digest),
+        projection_context=projection_context,
+    )
+    if published is not None:
+        return [
+            dict(
+                task_id=task_id,
+                product_key=product_key,
+                **{
+                    key: value
+                    for key, value in row.items()
+                    if key not in {"product_id", "revision_id"}
+                },
+            )
+            for row in published.regions(pointer)
+        ]
 
     region = published_native_table(conn, "region")
     return [
@@ -316,6 +379,61 @@ def read_native_regions(
             .order_by(region.c.region_index)
         ).mappings()
     ]
+
+
+def _record_product_identity(conn, task_id, product_key, content_digest, record_reader):
+    product = table("ops.pdf_product")
+    row = (
+        conn.execute(
+            select(product).where(
+                product.c.task_id == task_id,
+                product.c.product_key == product_key,
+                product.c.content_digest == content_digest,
+            )
+        )
+        .mappings()
+        .one()
+    )
+    from .contracts import approved_implementations
+    from .pdf_contracts import pdf_context_for_task
+    from .types import PreparationError
+
+    # The producer archive owns decoding. The independently supplied consumer
+    # context owns selected projections; neither substitutes for this custody.
+    context = pdf_context_for_task(conn, task_id)
+    try:
+        operation = context.execution.require_operation("read_pdf_product")
+    except (PreparationError, StopIteration) as error:
+        raise NativeDocumentUnavailable(
+            "PDF read ABI is unsupported; qualify an archived reader"
+        ) from error
+    binding = next(
+        item for item in context.execution.implementations if item.id == operation.implementation
+    )
+    implementation = approved_implementations()["read_pdf_product"]
+    if (binding.owner, binding.symbol) != (
+        implementation.__module__.removeprefix("corpus_structure."),
+        implementation.__qualname__,
+    ):
+        raise NativeDocumentUnavailable("PDF read ABI owner differs from the qualified reader")
+    revision = record_reader.revision
+    if revision["release_id"] != context.release_id or revision["kind"] != row["kind"]:
+        raise NativeDocumentUnavailable("PDF record identity differs from its producer archive")
+    if revision["schema_digest"] != context.native_schema_digest:
+        raise NativeDocumentUnavailable("PDF record schema differs from its producer archive")
+    receipt = record_reader.validation_receipt()
+    if receipt is None:
+        raise NativeDocumentUnavailable("PDF publication validation receipt is unavailable")
+    if (
+        (receipt.build_id, receipt.frozen_digest, receipt.logical_digest)
+        != (revision["build_id"], revision["frozen_digest"], content_digest)
+        or not receipt.native_callbacks
+        or row["contract_digest"] != receipt.contract_digest
+    ):
+        raise NativeDocumentUnavailable(
+            "PDF record identity differs from its sealed validation receipt"
+        )
+    return dict(row)
 
 
 def _pdf_product_identity(
@@ -333,19 +451,7 @@ def _pdf_product_identity(
         conn, ProductReference(task_id, product_key, content_digest), cancellation=cancellation
     )
     if record_reader is not None:
-        product = table("ops.pdf_product")
-        row = (
-            conn.execute(
-                select(product).where(
-                    product.c.task_id == task_id,
-                    product.c.product_key == product_key,
-                    product.c.content_digest == content_digest,
-                )
-            )
-            .mappings()
-            .one()
-        )
-        return dict(row)
+        return _record_product_identity(conn, task_id, product_key, content_digest, record_reader)
     product = table("ops.pdf_product")
     identity = (
         conn.execute(
@@ -452,7 +558,7 @@ def _pdf_descriptors(
             current.append(
                 dict(
                     identity,
-                    descriptor=dict(version=2, kind=identity["kind"], revision=reader.revision),
+                    descriptor=reader.product_descriptor(),
                 )
             )
     if not archived:
@@ -541,6 +647,8 @@ def read_pdf_product(
                     "companion", {"family": "occurrence", "local_id": occurrence_id}
                 )
             )
+            if pointers is not None:
+                selected = [row for row in selected if row["body"].get("pointer") in pointers]
             if not selected:
                 raise NativeDocumentUnavailable("PDF occurrence is unavailable under exact pin")
         elif pointers is None:
@@ -564,9 +672,18 @@ def read_pdf_product(
                 r["body"].get("pointer") for r in selected if r["body"].get("pointer") is not None
             ]
         )
-        context = record_reader.source_context(
-            chosen, section_pointer or "#/body", row_budget=row_budget
+        context = (
+            record_reader.occurrence_context(
+                selected, section_pointer or "#/body", row_budget=row_budget
+            )
+            if pointers is None or occurrence_id is not None
+            else record_reader.source_context(
+                chosen, section_pointer or "#/body", row_budget=row_budget
+            )
         )
+        if occurrence_id is not None:
+            for occurrence in context["occurrences"]:
+                occurrence["body"] = _record_occurrence_value(record_reader, occurrence["body"])
         count = sum(
             len(context[name])
             for name in ("occurrences", "relations", "inputs", "coverage", "mapping_reports")
@@ -576,6 +693,7 @@ def read_pdf_product(
             raise ValueError("PDF mandatory companion exceeds requested row budget")
         result = dict(
             context,
+            descriptor=record_reader.product_descriptor(),
             identity=identity,
             cursor=selected[-1]["local_id"] if len(selected) == limit else None,
             manifest={
@@ -774,6 +892,25 @@ def read_pdf_product(
     return result
 
 
+def _record_occurrence_value(reader, body):
+    """Explicit occurrence detail demands only its selected native address."""
+    pointer = body.get("pointer")
+    if pointer is None:
+        return body
+    address = pointer
+    if body["kind"] == "cell":
+        if pointer.startswith("#/tables/"):
+            cells = "/data/table_cells/"
+        elif pointer.startswith("#/pictures/"):
+            cells = "/meta/tabular_chart/chart_data/table_cells/"
+        else:
+            raise NativeDocumentUnavailable(
+                "cell pointer has no declared native table/chart address"
+            )
+        address += cells + str(body["cell_index"])
+    return dict(body, native_value=reader.native_items((address,))[address])
+
+
 def trace_pdf_occurrence(
     conn: Connection,
     *,
@@ -787,7 +924,7 @@ def trace_pdf_occurrence(
     """Follow the selected occurrence's attributed inputs, with bounded node materialization."""
     if not 1 <= limit <= 10000:
         raise ValueError("PDF trace limit must be 1..10000")
-    from .pdf_record_reader import published_record_reader
+    from .pdf_record_reader import PublishedRecordUnavailable, published_record_reader
     from .product_reference import ProductReference
 
     record_reader = published_record_reader(
@@ -829,7 +966,12 @@ def trace_pdf_occurrence(
                     }:
                         nodes.append(node)
             else:
-                row = reader._one("companion", {"family": "occurrence", "local_id": occurrence})
+                try:
+                    row = reader._one("companion", {"family": "occurrence", "local_id": occurrence})
+                except PublishedRecordUnavailable as error:
+                    raise NativeDocumentUnavailable(
+                        "PDF occurrence is unavailable under the exact pin"
+                    ) from error
                 identity = _pdf_product_identity(conn, task, key, digest, cancellation=cancellation)
                 nodes.append(
                     dict(
@@ -837,15 +979,12 @@ def trace_pdf_occurrence(
                         product_key=key,
                         content_digest=digest,
                         occurrence_id=occurrence,
-                        body=reader.decode_companion_row(row),
+                        body=_record_occurrence_value(reader, reader.decode_companion_row(row)),
                         kind=identity["kind"],
                         artifact_digest=reader.revision["source_digest"],
                     )
                 )
-                pointer = row["body"].get("pointer")
-                context = reader.source_context(
-                    [pointer] if pointer is not None else [], "#/body", row_budget=limit
-                )
+                context = reader.occurrence_context((row,), "#/body", row_budget=limit)
                 for relation in context["relations"]:
                     if any(
                         e["role"] == "output" and e["occurrence_id"] == occurrence
@@ -1074,26 +1213,31 @@ def integrated_source_context(
         raise NativeDocumentUnavailable("recognition observations are not selected source content")
     if membership not in {"direct", "descendants"}:
         raise ValueError("source membership is not qualified")
-    from sqlalchemy import text
+    from ._operation_calls import (
+        materialize_integrated_source_context,
+        prepare_integrated_source_context,
+    )
+    from ._operation_ids import ContentDigest, ProductKey, TaskId
+    from .pdf_record_reader import _record_envelope
 
-    result = conn.execute(
-        text(
-            "SELECT ops.integrated_source_context(:task,:key,:d"
-            "igest,CAST(:pointers AS text[]),:section,:membersh"
-            "ip)"
-        ),
-        dict(
-            task=task_id,
-            key=product_key,
-            digest=content_digest,
-            pointers=list(pointers),
-            section=section_pointer,
-            membership=membership,
-        ),
-    ).scalar_one()
+    scope = cancellation.borrow(conn) if cancellation is not None else nullcontext()
+    with (
+        scope,
+        conn.execute(
+            prepare_integrated_source_context(
+                task_id=TaskId(task_id),
+                product_key=ProductKey(product_key),
+                content_digest=ContentDigest(content_digest),
+                pointers=tuple(pointers),
+                section=section_pointer,
+                membership=membership,
+            ),
+        ) as rows,
+    ):
+        result = materialize_integrated_source_context(rows.one())
     if result is None:
         raise NativeDocumentUnavailable("integrated source companion is unavailable")
-    return result
+    return _record_envelope(result)
 
 
 def read_pdf_artifact(

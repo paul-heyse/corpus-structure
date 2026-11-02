@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, JsonValue
 from sqlalchemy import Connection
 
 from corpus_structure.semantic.query import Coverage, ReadSession, SnapshotBinding
+from corpus_structure.semantic.query_compatibility import QueryBindingReference
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,11 @@ class QueryResult(BaseModel):
     arithmetic_profile: str = "exact"
     query: str
     version: str
+    query_contract: str
+    producing_implementation: str
+    implementation: str
+    compatibility: str
+    origin_binding: QueryBindingReference | None = None
     params: dict[str, JsonValue]
     coverage: tuple[Coverage, ...]
     knowledge: Literal["observed", "unknown", "absent"]

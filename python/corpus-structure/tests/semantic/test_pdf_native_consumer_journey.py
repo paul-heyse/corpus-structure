@@ -36,6 +36,7 @@ from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.domain_operations import domain_rule_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.operation_results import MethodConfigId, RunId
 from corpus_structure.semantic.operations import (
     OperationBinding,
     claim_tasks,
@@ -48,13 +49,13 @@ from corpus_structure.semantic.operations import (
 from corpus_structure.semantic.pdf_contracts import (
     prepare_pdf_product,
     store_pdf_original,
-    store_pdf_product,
 )
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.proposals import native_source_frame, proposal_inputs
 from corpus_structure.semantic.releases import activate_release, persist_release
 from corpus_structure.semantic.source_views import load_source_view, store_source_view
 
+from .native_record_fixtures import publish_native_record_fixture
 from .test_agent_resubmission import lease_and_read
 
 
@@ -213,7 +214,9 @@ def native_source_task(admin, writer, tmp_path, *, ancestor=False):
             unit_key="source.pdf",
             input_hash=sha256(original).hexdigest(),
         )
-        claim = claim_tasks(conn, run_id=run, config_id=config, holder="native-fixture")[0]
+        claim = claim_tasks(
+            conn, run_id=RunId(run), config_id=MethodConfigId(config), holder="native-fixture"
+        )[0]
         store_pdf_original(
             conn,
             task_id=source,
@@ -222,15 +225,23 @@ def native_source_task(admin, writer, tmp_path, *, ancestor=False):
             original=original,
             recipe_bytes=recipe,
         )
-        store_pdf_product(
-            conn, task_id=source, attempt=claim.attempt, holder="native-fixture", product=product
-        )
+    published = publish_native_record_fixture(
+        writer,
+        tmp_path / "native-records",
+        task_id=source,
+        attempt=claim.attempt,
+        holder="native-fixture",
+        product=product,
+        document=doc,
+    )
+    native_reference = ProductReference(source, "native", published.logical_digest)
+    with writer.begin() as conn:
         if parent is not None:
             assert parent_text is not None and sibling is not None and sibling_text is not None
             parent_draft = SourceViewDraft(
                 "native-parent-section",
                 document,
-                ProductReference(source, "native", product.digest),
+                native_reference,
                 parent.self_ref,
                 "direct",
                 parent_text.text,
@@ -261,7 +272,7 @@ def native_source_task(admin, writer, tmp_path, *, ancestor=False):
             sibling_draft = SourceViewDraft(
                 "native-sibling-section",
                 document,
-                ProductReference(source, "native", product.digest),
+                native_reference,
                 sibling.self_ref,
                 "direct",
                 sibling_text.text,
@@ -292,7 +303,7 @@ def native_source_task(admin, writer, tmp_path, *, ancestor=False):
         draft = SourceViewDraft(
             "native-person-section",
             document,
-            ProductReference(source, "native", product.digest),
+            native_reference,
             section.self_ref,
             "direct",
             "Alice is here.",

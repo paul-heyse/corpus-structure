@@ -57,7 +57,11 @@ def prepare_sql(sql: str | PreparedSQL, *, source: str = "<authored SQL>") -> Pr
     except ParseError as exc:
         position = exc.args[1] if len(exc.args) > 1 else None
         raise SQLSyntaxError(source, sql, str(exc.args[0]), position) from exc
-    # The grammar has already been validated. Scanner slices preserve exact original text
-    # without another grammar parse, including dollar-quoted bodies and embedded semicolons.
-    slices = split(sql, with_parser=False, only_slices=True)
+    # Scanner slices handle AS/dollar-quoted bodies, but SQL-standard BEGIN ATOMIC
+    # semicolons belong to the function grammar, not to separate declarations.
+    standard_body = any(
+        isinstance(raw.stmt, ast.CreateFunctionStmt) and raw.stmt.sql_body is not None
+        for raw in statements
+    )
+    slices = split(sql, with_parser=standard_body, only_slices=True)
     return PreparedSQL(source, sql, statements, slices, version("pglast"))

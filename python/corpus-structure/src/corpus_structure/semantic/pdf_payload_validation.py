@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Collection, Iterator, Mapping
+from functools import lru_cache
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,37 @@ def metadata_classes() -> dict[str, str]:
         files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml").read_bytes()
     )
     return json.loads(model["annotations"]["pds:metadata_classes"])
+
+
+class _FrozenCompanions:
+    """Repeatable disk view; only indexed input-pin metadata receives bounded decoded reuse."""
+
+    def __init__(self, store: FrozenPayloadStore, family: str):
+        self.store, self.family = store, family
+        where, parameters = store._selection(family, None, None)
+        self.count = store.db.execute(
+            "SELECT count(*) FROM entry WHERE " + where, parameters
+        ).fetchone()[0]
+        self._indexed = lru_cache(maxsize=256)(self._one)
+
+    def __len__(self):
+        return self.count
+
+    def __iter__(self):
+        for row in self.store.companions(self.family):
+            yield self.store.companion_value(row)
+
+    def _one(self, index: int):
+        key = json.dumps([self.family, str(index)])
+        row = self.store.db.execute(
+            "SELECT body FROM entry WHERE family='companion' AND key=?", (key,)
+        ).fetchone()
+        if row is None:
+            raise ValueError("frozen companion input index is absent")
+        return self.store.companion_value(json.loads(row[0]))
+
+    def __getitem__(self, index: int):
+        return self._indexed(index)
 
 
 class FrozenPayloadStore:
@@ -136,6 +168,30 @@ class FrozenPayloadStore:
                 "SELECT EXISTS(SELECT 1 FROM entry WHERE " + where + ")", parameters
             ).fetchone()[0]
         )
+
+    def companion_value(self, row: Mapping[str, Any]) -> dict[str, Any]:
+        """Decode the declared occurrence text field without a JSONB body conversion."""
+        from .pdf_records import _decode_scalar
+
+        body = dict(row["body"])
+        if row["family"] != "occurrence":
+            return body
+        key = json.dumps([row["family"], row["local_id"], "text"])
+        field = self.db.execute(
+            "SELECT body FROM entry WHERE family='companion_field' AND key=?", (key,)
+        ).fetchone()
+        if field is not None:
+            if "text" in body:
+                raise ValueError("occurrence text has both inline and byte-owned values")
+            field = json.loads(field[0])
+            descriptor, payload = self.stream(field["stream_id"])
+            if (
+                field["scalar_kind"] != "s"
+                or descriptor["encoding_profile"] != "pdf-record-scalar-v1:s"
+            ):
+                raise ValueError("frozen occurrence text encoding differs")
+            body["text"] = _decode_scalar((payload,), descriptor["encoding_profile"])
+        return body
 
     def _prepare(self, kind: str):
         from .pdf_payloads import FAMILY, prepare_payload_schema, prepare_schema_validator
@@ -300,3 +356,26 @@ class FrozenPayloadStore:
             )
         validate_pdf_report_metadata(product, integrated_policy=self.integrated_metadata_policy)
         validate_pdf_page_payloads(product)
+        if self.publication_kind == "integrated":
+            self.validate_integrated_meaning(document)
+
+    def validate_integrated_meaning(self, document: Mapping[str, Any]) -> None:
+        """Apply the shared selected-content rules over disk-backed companion families."""
+        from .pdf_integrated import validate_pdf_product_meaning
+
+        validate_pdf_product_meaning(
+            dict(
+                kind="integrated",
+                content={"document": document},
+                **{
+                    name: _FrozenCompanions(self, family)
+                    for name, family in (
+                        ("inputs", "input"),
+                        ("occurrences", "occurrence"),
+                        ("relations", "relation"),
+                        ("coverage", "coverage"),
+                        ("mapping_reports", "mapping_report"),
+                    )
+                },
+            )
+        )

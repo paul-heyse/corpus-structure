@@ -388,6 +388,9 @@ def validate_pdf_report_metadata(
                 or outcomes.get(pointer) != "succeeded"
             ):
                 raise ValueError("successful math cell lacks qualified rich formula recognition")
+    from .pdf_ocr_contracts import validate_pdf_cell_coverage
+
+    validate_pdf_cell_coverage(value)
     runtime = value.get("runtime_report")
     if runtime is not None:
         if not isinstance(json.loads(runtime["effective_options"]), dict):
@@ -627,10 +630,19 @@ def store_pdf_original(
     require_database_operation(conn, context.release_id, "retain_pdf_original")
     if not original.startswith(b"%PDF-"):
         raise ValueError("PDF original has no PDF header")
-    return conn.execute(
-        text("SELECT ops.retain_pdf_original(:task,:attempt,:holder,:original,:recipe)"),
-        dict(task=task_id, attempt=attempt, holder=holder, original=original, recipe=recipe_bytes),
-    ).scalar_one()
+    from ._operation_calls import retain_pdf_original
+    from ._operation_ids import TaskAttempt, TaskId
+    from .releases import open_release
+
+    return retain_pdf_original(
+        conn,
+        task_id=TaskId(task_id),
+        attempt=TaskAttempt(attempt),
+        holder=holder,
+        original=original,
+        recipe_bytes=recipe_bytes,
+        projection_context=open_release(conn, context.release_id),
+    )
 
 
 def pdf_shape_guard_sql() -> str:

@@ -91,6 +91,7 @@ class Reader(ReaderPort):
         raise AssertionError("this native consumer control does not supply that reader capability")
 
     native_document = _unavailable
+    native_section_drafts = _unavailable
     capture_pdf_candidates = _unavailable
     native_product_reference = _unavailable
     prepare_pdf_product = _unavailable
