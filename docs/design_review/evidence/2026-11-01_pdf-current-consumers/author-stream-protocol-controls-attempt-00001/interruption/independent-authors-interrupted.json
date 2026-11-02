@@ -1,0 +1,1 @@
+{"C_started":false,"cleanup_failures":[],"completed_admissions":[],"error":"controlled main-thread interruption","error_type":"KeyboardInterrupt","pass_settlements":{"A":{"state":"returned"},"B":{"error":"independent author group cancelled","error_type":"CancelledError","state":"failed"}},"pending_cleanup":[]}

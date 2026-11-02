@@ -239,6 +239,39 @@ def _communicate_provider(process, message, timeout, cancelled):
             continue
 
 
+def provider_result(stdout: bytes, *, session: str, returncode: int | None, kind: str) -> dict:
+    """Admit the single terminal result; never treat assistant text as structured data."""
+    response = None
+    last_event = None
+    result_count = 0
+    for line in stdout.splitlines():
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except ValueError as error:
+            raise RuntimeError("provider stdout is not a JSONL event stream") from error
+        if not isinstance(event, dict):
+            raise RuntimeError("provider stdout event is not an object")
+        last_event = event
+        if event.get("type") == "result":
+            result_count += 1
+            response = event
+    if result_count != 1 or response is None or response is not last_event:
+        raise RuntimeError("provider stream requires exactly one terminal result")
+    if response.get("session_id") != session:
+        raise RuntimeError("provider response differs from independent session identity")
+    if (
+        returncode != 0
+        or response.get("subtype") != "success"
+        or response.get("is_error") is not False
+        or response.get("stop_reason") not in (None, "end_turn", "stop_sequence", "tool_use")
+        or not isinstance(response.get("structured_output"), dict)
+    ):
+        raise RuntimeError(f"reference author {kind} failed/refused; retained raw response")
+    return response["structured_output"]
+
+
 def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, max_output_tokens: int, sources: dict, schema: dict, previous: dict | None = None, cancelled: threading.Event | None = None) -> dict:
     command = shutil.which("claude")
     if command is None:
@@ -279,8 +312,8 @@ def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, max
     with tempfile.TemporaryDirectory(prefix=f"source-reference-{kind}-") as isolated:
         config = Path(isolated) / "mcp.json"
         config.write_text('{"mcpServers":{}}')
-        argv = [command, "-p", "--model", model, "--input-format", "stream-json", "--output-format", "json", "--json-schema", schema_text, "--session-id", session, "--tools", "", "--strict-mcp-config", "--mcp-config", str(config), "--permission-mode", "dontAsk", "--no-session-persistence", "--max-turns", "8", "--restricted", "--disable-slash-commands", "--setting-sources", "", "--settings", json.dumps({"disableAllHooks": True, "claudeMdExcludes": ["**"], "autoMemoryEnabled": False})]
-        write_new(directory / f"{kind}.invocation.json", canonical_bytes({"session_id": session, "model": model, "pass_kind": kind, "prompt_digest": sha256(message).hexdigest(), "schema_digest": sha256(canonical_bytes(schema)).hexdigest(), "independent_prior_passes": [] if previous is None else list(previous), "database_credentials_forwarded": False, "tools": [], "mcp_servers": [], "timeout": timeout, "requested_max_output_tokens": max_output_tokens}))
+        argv = [command, "-p", "--model", model, "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--json-schema", schema_text, "--session-id", session, "--tools", "", "--strict-mcp-config", "--mcp-config", str(config), "--permission-mode", "dontAsk", "--no-session-persistence", "--max-turns", "8", "--restricted", "--disable-slash-commands", "--setting-sources", "", "--settings", json.dumps({"disableAllHooks": True, "claudeMdExcludes": ["**"], "autoMemoryEnabled": False})]
+        write_new(directory / f"{kind}.invocation.json", canonical_bytes({"session_id": session, "model": model, "pass_kind": kind, "prompt_digest": sha256(message).hexdigest(), "schema_digest": sha256(canonical_bytes(schema)).hexdigest(), "independent_prior_passes": [] if previous is None else list(previous), "database_credentials_forwarded": False, "input_format": "stream-json", "output_format": "stream-json", "verbose": True, "tools": [], "mcp_servers": [], "timeout": timeout, "requested_max_output_tokens": max_output_tokens}))
         environment = provider_environment()
         environment["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(max_output_tokens)
         if cancelled is not None and cancelled.is_set():
@@ -300,7 +333,7 @@ def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, max
                     "error_type": type(error).__name__, "error": str(error),
                     "cleanup_error": str(cleanup), "pid": process.pid,
                 }))
-            write_new(directory / f"{kind}.interrupted.stdout.json", stdout)
+            write_new(directory / f"{kind}.interrupted.stdout.jsonl", stdout)
             write_new(directory / f"{kind}.interrupted.stderr.txt", stderr)
             if cleanup_error is not None:
                 raise BaseExceptionGroup(
@@ -310,14 +343,9 @@ def provider_pass(directory: Path, kind: str, *, model: str, timeout: float, max
         finally:
             with suppress(ProcessLookupError):
                 os.killpg(process.pid, signal.SIGKILL)
-        write_new(directory / f"{kind}.stdout.json", stdout)
+        write_new(directory / f"{kind}.stdout.jsonl", stdout)
         write_new(directory / f"{kind}.stderr.txt", stderr)
-    response = json.loads(stdout)
-    if process.returncode or response.get("is_error") or not isinstance(response.get("structured_output"), dict):
-        raise RuntimeError(f"reference author {kind} failed/refused; retained raw response")
-    if response.get("session_id") != session:
-        raise RuntimeError("provider response differs from independent session identity")
-    value = response["structured_output"]
+    value = provider_result(stdout, session=session, returncode=process.returncode, kind=kind)
     validator_class(schema).validate(value)
     write_new(directory / f"{kind}.structured.json", canonical_bytes(value))
     return value

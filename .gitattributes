@@ -18,6 +18,7 @@ docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.png filter=lfs
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.bin filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/exports-attempt-*/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.stdout.json filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.stdout.jsonl filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-01_pdf-current-consumers/**/*.stderr.txt filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-10-30_data-capture/run.log filter=lfs diff=lfs merge=lfs -text
 

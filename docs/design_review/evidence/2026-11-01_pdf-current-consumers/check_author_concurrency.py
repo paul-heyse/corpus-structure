@@ -32,6 +32,9 @@ kind = "C" if "You are fresh adjudicator C." in text else (
 payload = json.loads(text.split("\n", 1)[1])
 session = sys.argv[sys.argv.index("--session-id") + 1]
 assert sys.argv[sys.argv.index("--tools") + 1] == ""
+assert sys.argv[sys.argv.index("--input-format") + 1] == "stream-json"
+assert sys.argv[sys.argv.index("--output-format") + 1] == "stream-json"
+assert "--verbose" in sys.argv and "--json-schema" in sys.argv
 assert "--strict-mcp-config" in sys.argv and "--restricted" in sys.argv
 images = [v["source"] for v in message["message"]["content"] if v["type"] == "image"]
 assert len(images) == 2
@@ -56,15 +59,20 @@ if kind in {"A", "B"}:
     while not all((root / (other + ".started")).exists() for other in ("A", "B")):
         assert time.monotonic() < deadline, "both independent children must start"
         time.sleep(.01)
+print(json.dumps({"type": "system", "subtype": "init", "session_id": session}), flush=True)
 if mode == "both_refusals" or (mode == "failure" and kind == "A"):
-    print(json.dumps({"session_id": session, "is_error": True,
-                      "error": "controlled-provider-refusal"}), flush=True)
+    print(json.dumps({"type": "result", "subtype": "error_during_execution",
+                      "session_id": session, "is_error": True,
+                      "errors": ["controlled-provider-refusal"]}), flush=True)
 elif kind == "B" and mode != "success":
     print("controlled partial B", flush=True)
     while True:
         time.sleep(1)
 else:
-    print(json.dumps({"session_id": session, "structured_output": {
+    print(json.dumps({"type": "assistant", "session_id": session,
+                      "message": {"content": [{"type": "text", "text": "control"}]}}))
+    print(json.dumps({"type": "result", "subtype": "success", "is_error": False,
+                      "stop_reason": "end_turn", "session_id": session, "structured_output": {
         "author": kind, "complete_batches": ["sampling-full", "normal-full"]
     }}), flush=True)
 '''
@@ -142,10 +150,12 @@ def control(root: Path, executable: Path, mode: str) -> dict:
         assert set(children) == {"A", "B", "C"}
         for kind in children:
             assert (root / f"{kind}.input.jsonl").exists()
-            assert (root / f"{kind}.stdout.json").exists()
+            assert (root / f"{kind}.stdout.jsonl").exists()
             assert (root / f"{kind}.structured.json").exists()
             invocation = json.loads((root / f"{kind}.invocation.json").read_bytes())
             assert invocation["independent_prior_passes"] == (["A", "B"] if kind == "C" else [])
+            assert invocation["input_format"] == invocation["output_format"] == "stream-json"
+            assert invocation["verbose"] is True
             assert invocation["prompt_digest"] == sha256(
                 (root / f"{kind}.input.jsonl").read_bytes()
             ).hexdigest()
@@ -163,13 +173,70 @@ def control(root: Path, executable: Path, mode: str) -> dict:
             assert all(row["state"] == "failed" and row["error_type"] == "RuntimeError"
                        for row in custody["pass_settlements"].values())
             for kind in ("A", "B"):
-                assert b"controlled-provider-refusal" in (root / f"{kind}.stdout.json").read_bytes()
+                raw = (root / f"{kind}.stdout.jsonl").read_bytes()
+                assert b"controlled-provider-refusal" in raw
         else:
-            assert b"controlled partial B" in (root / "B.interrupted.stdout.json").read_bytes()
+            assert b"controlled partial B" in (root / "B.interrupted.stdout.jsonl").read_bytes()
         if mode == "failure":
-            assert b"controlled-provider-refusal" in (root / "A.stdout.json").read_bytes()
+            assert b"controlled-provider-refusal" in (root / "A.stdout.jsonl").read_bytes()
     return {"mode": mode, "outcome": "passed", "children": children,
             "expected_error": type(failure).__name__ if failure else None}
+
+
+def protocol_controls(root: Path) -> list[dict]:
+    root.mkdir()
+    expected = {"complete_batches": ["sampling-full", "normal-full"]}
+    result = {
+        "type": "result", "subtype": "success", "session_id": "control-session",
+        "is_error": False, "stop_reason": "end_turn", "structured_output": expected,
+    }
+    init = {"type": "system", "subtype": "init", "session_id": "control-session"}
+    bait = {"type": "assistant", "structured_output": {"must_not_be_admitted": True}}
+    cases = {
+        "success": ([init, bait, result], 0, True),
+        "null_stop_reason": ([{**result, "stop_reason": None}], 0, True),
+        "structured_tool_use": ([{**result, "stop_reason": "tool_use"}], 0, True),
+        "stop_sequence": ([{**result, "stop_reason": "stop_sequence"}], 0, True),
+        "unknown_stop_reason": ([{**result, "stop_reason": "unrecognized"}], 0, False),
+        "missing_result": ([init, bait], 0, False),
+        "duplicate_result": ([init, result, result], 0, False),
+        "nonterminal_result": ([result, init], 0, False),
+        "wrong_session": ([{**result, "session_id": "another-session"}], 0, False),
+        "refusal": ([{**result, "stop_reason": "refusal"}], 0, False),
+        "max_tokens": ([{**result, "stop_reason": "max_tokens"}], 0, False),
+        "context_exceeded": (
+            [{**result, "stop_reason": "model_context_window_exceeded"}], 0, False
+        ),
+        "pause_turn": ([{**result, "stop_reason": "pause_turn"}], 0, False),
+        "error_flag": ([{**result, "is_error": True}], 0, False),
+        "unknown_error_flag": ([{k: v for k, v in result.items() if k != "is_error"}], 0, False),
+        "error_subtype": ([{**result, "subtype": "error_max_turns"}], 0, False),
+        "missing_structured": (
+            [{k: v for k, v in result.items() if k != "structured_output"}], 0, False
+        ),
+        "nonzero_exit": ([result], 1, False),
+        "nonobject_event": ([[], result], 0, False),
+    }
+    raw_cases = {
+        name: (b"".join(json.dumps(event).encode() + b"\n" for event in events), code, admitted)
+        for name, (events, code, admitted) in cases.items()
+    }
+    raw_cases["malformed_json"] = (b'{"type":"result"\n', 0, False)
+    checks = []
+    for name, (raw, returncode, admitted) in raw_cases.items():
+        (root / f"{name}.stdout.jsonl").write_bytes(raw)
+        try:
+            actual = author.provider_result(
+                raw, session="control-session", returncode=returncode, kind="CONTROL"
+            )
+        except RuntimeError as error:
+            assert not admitted, repr(error)
+            checks.append({"case": name, "outcome": "passed", "refusal": str(error)})
+        else:
+            assert admitted, f"invalid protocol admitted: {name}"
+            assert actual == expected
+            checks.append({"case": name, "outcome": "passed", "admitted": True})
+    return checks
 
 
 def main() -> None:
@@ -190,6 +257,7 @@ def main() -> None:
             "no actual provider, database, source reference or performance qualification"
         ),
         "controls": controls,
+        "protocol_controls": protocol_controls(root / "protocol"),
     }
     (root / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps(receipt, indent=2))

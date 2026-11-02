@@ -1,0 +1,164 @@
+{
+  "verified_at": "2026-11-02T01:16:59.727059+00:00",
+  "outcome": "passed",
+  "scope": "controlled subprocess concurrency/custody/cleanup only; no actual provider, database, source reference or performance qualification",
+  "controls": [
+    {
+      "mode": "success",
+      "outcome": "passed",
+      "children": {
+        "B": {
+          "pid": 849611,
+          "session": "138348aa-cecc-43c0-9c35-caa2cb39b36b",
+          "cwd": "/tmp/source-reference-B-4lrhixsk"
+        },
+        "A": {
+          "pid": 849612,
+          "session": "e45f8d8e-cadc-440e-b188-f478b1ba1766",
+          "cwd": "/tmp/source-reference-A-808epa1l"
+        },
+        "C": {
+          "pid": 849613,
+          "session": "e90c211c-310a-4e34-acbb-2e1c1e388855",
+          "cwd": "/tmp/source-reference-C-mzhwqi9f"
+        }
+      },
+      "expected_error": null
+    },
+    {
+      "mode": "failure",
+      "outcome": "passed",
+      "children": {
+        "B": {
+          "pid": 849616,
+          "session": "759c4998-5f5d-475b-b20c-4398b57219ea",
+          "cwd": "/tmp/source-reference-B-sxbqzt33"
+        },
+        "A": {
+          "pid": 849617,
+          "session": "180be9d2-1e18-4b3b-8ca7-e35e3092d6fa",
+          "cwd": "/tmp/source-reference-A-xz5fivgo"
+        }
+      },
+      "expected_error": "RuntimeError"
+    },
+    {
+      "mode": "both_refusals",
+      "outcome": "passed",
+      "children": {
+        "B": {
+          "pid": 849620,
+          "session": "f12dc73b-f4b5-4394-b318-bf4811f7c339",
+          "cwd": "/tmp/source-reference-B-ozrvxqkw"
+        },
+        "A": {
+          "pid": 849621,
+          "session": "260a0178-dfa9-4266-9d75-ceb321eb8234",
+          "cwd": "/tmp/source-reference-A-cj603sei"
+        }
+      },
+      "expected_error": "RuntimeError"
+    },
+    {
+      "mode": "interruption",
+      "outcome": "passed",
+      "children": {
+        "B": {
+          "pid": 849625,
+          "session": "b1efe2ce-d254-407e-ba2d-2c912e1a8bfc",
+          "cwd": "/tmp/source-reference-B-h1631nst"
+        },
+        "A": {
+          "pid": 849624,
+          "session": "b6750a29-5661-4647-b452-d9761248a40e",
+          "cwd": "/tmp/source-reference-A-ynb993lt"
+        }
+      },
+      "expected_error": "KeyboardInterrupt"
+    },
+    {
+      "mode": "timeout",
+      "outcome": "passed",
+      "children": {
+        "B": {
+          "pid": 849635,
+          "session": "95cb5acc-e45b-4a65-9da4-b026486f3b90",
+          "cwd": "/tmp/source-reference-B-etpw3wbv"
+        },
+        "A": {
+          "pid": 849636,
+          "session": "bca3ac23-0d00-45cc-8bd2-ae33f85fca0a",
+          "cwd": "/tmp/source-reference-A-0w872i56"
+        }
+      },
+      "expected_error": "TimeoutExpired"
+    }
+  ],
+  "protocol_controls": [
+    {
+      "case": "success",
+      "outcome": "passed",
+      "admitted": true
+    },
+    {
+      "case": "missing_result",
+      "outcome": "passed",
+      "refusal": "provider stream requires exactly one terminal result"
+    },
+    {
+      "case": "duplicate_result",
+      "outcome": "passed",
+      "refusal": "provider stream requires exactly one terminal result"
+    },
+    {
+      "case": "nonterminal_result",
+      "outcome": "passed",
+      "refusal": "provider stream requires exactly one terminal result"
+    },
+    {
+      "case": "wrong_session",
+      "outcome": "passed",
+      "refusal": "provider response differs from independent session identity"
+    },
+    {
+      "case": "refusal",
+      "outcome": "passed",
+      "refusal": "reference author CONTROL failed/refused; retained raw response"
+    },
+    {
+      "case": "error_flag",
+      "outcome": "passed",
+      "refusal": "reference author CONTROL failed/refused; retained raw response"
+    },
+    {
+      "case": "unknown_error_flag",
+      "outcome": "passed",
+      "refusal": "reference author CONTROL failed/refused; retained raw response"
+    },
+    {
+      "case": "error_subtype",
+      "outcome": "passed",
+      "refusal": "reference author CONTROL failed/refused; retained raw response"
+    },
+    {
+      "case": "missing_structured",
+      "outcome": "passed",
+      "refusal": "reference author CONTROL failed/refused; retained raw response"
+    },
+    {
+      "case": "nonzero_exit",
+      "outcome": "passed",
+      "refusal": "reference author CONTROL failed/refused; retained raw response"
+    },
+    {
+      "case": "nonobject_event",
+      "outcome": "passed",
+      "refusal": "provider stdout event is not an object"
+    },
+    {
+      "case": "malformed_json",
+      "outcome": "passed",
+      "refusal": "provider stdout is not a JSONL event stream"
+    }
+  ]
+}

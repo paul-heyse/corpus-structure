@@ -85,9 +85,34 @@ establishes no actual provider, rich reference validation, database, semantic gr
 performance result. Earlier control receipts remain intact. Explicit control-module Ruff,
 author-helper F checks and both helper Pyrefly checks passed (0 errors).
 
+The current author helper uses `--input-format stream-json --output-format stream-json
+--verbose`. Read-only inspection of installed Claude Code 2.1.316 found executable startup
+guards requiring that combination (binary SHA-256
+`fd13c70000fec3f2116dfbcbb6121210b4a29328bf0e46210a59dd594a67d824`, guard offsets
+293414668 and 311984502). The official CLI-reference example combining stream input with
+`json` output conflicts with those installed guards. The helper retains exact raw
+`<pass>.stdout.jsonl` and `<pass>.interrupted.stdout.jsonl` bytes and admits exactly one
+terminal `result` event with the matching session, success subtype, explicit `is_error: false`,
+no refusal, an admitted completion reason (`None`, `end_turn`, `stop_sequence` or internal
+`tool_use`), a structured object, and a zero process exit status. Complete local
+schema and source-placement validation still follow. See the primary
+[stream-output documentation](https://code.claude.com/docs/en/headless#stream-responses),
+[image message example](https://code.claude.com/docs/en/agent-sdk/streaming-vs-single-mode),
+and [structured-output contract](https://code.claude.com/docs/en/agent-sdk/structured-outputs).
+
+`author-stream-protocol-controls-attempt-00004/receipt.json` is the 2026-11-01 current-helper
+control receipt: the same five subprocess cases plus twenty protocol controls, including
+missing, duplicate and nonterminal results, a wrong session, refusals, unknown/error flags,
+error subtype, missing structured data, nonzero exit, nonobject events and malformed JSON.
+Nominal success with any of the three known incomplete stop reasons refuses even when the
+structured object is complete; unknown stop reasons also refuse. `None`, `end_turn`,
+`stop_sequence` and internal `tool_use` completions admit.
+Prior JSON-output control receipts remain unchanged. These are controlled readiness results;
+actual provider authoring remains `not_run` pending the current source pin.
+
 ```bash
 uv run python docs/design_review/evidence/2026-11-01_pdf-current-consumers/check_author_concurrency.py \
-  --output docs/design_review/evidence/2026-11-01_pdf-current-consumers/author-concurrency-controls-attempt-00004
+  --output docs/design_review/evidence/2026-11-01_pdf-current-consumers/author-stream-protocol-controls-attempt-00004
 ```
 
 After the exact five-section extraction is completed, the evaluator-only operation below
