@@ -3,8 +3,8 @@ _Updated2026-11-02; [UM current execution](docs/plans/unified-domain-model_2026-
 
 ## Current checkpoint
 
-- [Test audit](docs/design_review/test-audit/README.md) refreshed2026-11-02 across292 Python files;
-  static diagnosis and evidence limits only. Product/provider tests not_run for this audit.
+- [Test architecture/evidence plan](docs/plans/test-architecture-and-evidence_2026-11-02.md) proposed;
+  all20 audit IDs have routes. TA-00/01 are next after implementation authorization; no code or host changes.
 
 - ADR-0047 selects current composed execution and record PDF publications. Compiler14, boundary12,
   execution23/archive3, recursive typed identifiers and separate model-owned read shapes landed.

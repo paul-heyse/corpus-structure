@@ -133,6 +133,10 @@ semantic or native evidence. No new library selection or version change is made 
 
 ## Finding ownership and history
 
+Scheduled DTA disposition and correction/investigation packages now have one owner in the
+[test architecture and evidence coordinator](../../plans/test-architecture-and-evidence_2026-11-02.md).
+Its Proposed execution state does not upgrade this account's source baseline or close findings.
+
 Each structural cause has one primary home. DTA identities and existing anchors are preserved,
 including compact closure explanations where a source premise has changed. IDs are never reused.
 Changes to assessment preserve their prior evidence recoverably in Git. Scheduled disposition is
