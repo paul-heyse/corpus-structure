@@ -2,8 +2,8 @@
 
 ## Current adoption target and shared readiness
 
-**Accepted planning target, 2026-11-01; realization Proposed and new implementation/acceptance
-not_run.** This document integrates the [PostgreSQL capability-integration review
+**Accepted target, 2026-11-01; implemented mechanisms have scoped verification, while current-book
+operational adoption and assembled acceptance remain with the coordinator.** This document integrates the [PostgreSQL capability-integration review
 I01–I09](../../plan_improvement_reviews/pdf-postgresql-capability-integration_2026-11-01.md).
 The [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns package state, scheduled finding
 disposition and the confirmed rule-change routes. PDF-25 supplies current-realization products;
@@ -35,12 +35,11 @@ current analytical behavior and evidence fidelity remain within their declared c
 | PDF-22–24 with PG-06/10 | Working producers, bounded owned reads and one selected-context membership account with demanded payload closure; selected context, full native export and full integrated export retain distinct completeness meanings. |
 | PDF-25 with PG-08/09/11 | Settled native authoring operation, source-qualified syntax and affected consumer/admission evidence at the actual integration head; author new forward artifacts after that head. |
 
-The source review reports the PG worktree clean at `24b22756`; its combined final-source qualification
-remains open. That source-inspected availability is neither main integration nor imported PG
-qualification. Agree contracts before dependent design; use working integrated capabilities and
-their affected evidence before live adoption. PDF design does not wait for all PG-12 work, and
-PDF-10/11 receive no completion credit from PG receipts alone. This revision performs no merge,
-production/database change, provider run or broad qualification.
+The shared PostgreSQL capabilities are merged and consumed through their actual interfaces.
+PDF-specific native authoring, Arrow transport, frozen semantic validation and reader controls
+have their own scoped receipts; the [coordinator](../pdf-docling-pipeline_2026-10-31.md) owns
+current deployment, book publication and acceptance. PDF-10/11 receive no completion credit from
+PG receipts alone. Use the current source-specific evidence before live adoption.
 
 Reuse the PG-08/09/11 native authoring route rather than another migration runner: Alembic
 Plugin comparison → `NativeTransitionOp` → frozen rendering → execution on

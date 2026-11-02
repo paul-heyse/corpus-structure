@@ -48,7 +48,7 @@ from corpus_structure.settings import Settings
 PROJECT = "pdf-docling-adoption"
 TARGET = "corpus_pdf_20261101"
 SOURCE = "corpus_pdf_20261031"
-HEAD = "semantic_pdf_snapshot_20261101"
+HEAD = "semantic_pdf_retire_20261101"
 SOURCE_DIGEST = "e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9"
 CHAIN = ((2, "native"), (2, "organized"), (7, "math-enriched"))
 

@@ -1399,3 +1399,829 @@ Its most distinctive strength is the combination of a common memory representati
 It occupies a valuable position between low-level memory handling and full analytical database engines: capable enough to perform substantial processing itself, but sufficiently interoperable to let specialized engines handle SQL optimization, database connectivity, tensor computation, or durable transaction management.
 
 For advanced systems, the important question is therefore not merely where PyArrow can replace a serializer or improve a file reader. It is which combinations of its data model, compute kernels, batch execution, dataset facilities, and interchange protocols allow entire layers of custom data-processing machinery to be avoided, while retaining the specialized responsibilities of the surrounding engines.
+
+# PyArrow 26.0.0 — Advanced Capability Addendum
+
+Apache Arrow Python bindings | Research date: November 1, 2026 | Baseline: PyArrow 26.0.0
+
+Companion to: PyArrow 26.0.0 — Comprehensive Library Capability Reference (October 20, 2026)
+
+This addendum documents advanced functionality that was absent or insufficiently developed in the original reference. It supplements the existing discussions of Arrow's data model, native computation, datasets, Parquet, IPC, memory management, interoperability, and Flight without reproducing their foundational explanations.
+
+The capabilities described here have been checked against the released PyArrow 26.0.0 documentation and relevant upstream source. Version 26.0.0 remains the current stable Apache Arrow C++/Python release as of this research date.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow
+
+
+
+## A. Physical data representations, validation, and schema composition
+
+Supplements original §§2.1–2.3 and 8.1.
+
+### A.1 Constructing and interpreting arrays from physical buffers
+
+PyArrow exposes mechanisms for working directly with Arrow's physical memory layouts, beyond constructing arrays from Python or NumPy values.
+
+`pa.Array.from_buffers()` constructs an Arrow array from a declared `DataType`, logical length, physical buffers, and—where necessary—nested child arrays. Its inputs can include a validity bitmap, values buffer, offsets, logical offset, and null count, depending on the type.
+
+Complementary methods include `Array.buffers()`, which exposes the buffers underlying an existing array, and `Array.validate(full=True)`, which performs more extensive structural checks than the default inexpensive validation.
+
+These facilities make it possible to construct Arrow representations around memory produced by native libraries, specialized parsers, or externally managed data structures without first materializing every value as a Python object.
+
+The critical distinction is between constructing a valid Arrow representation and verifying the semantic correctness of its contents. Buffer lengths, offsets, validity bitmaps, and child-array layouts must satisfy Arrow's physical invariants. Structural validation does not establish application-specific constraints such as numerical ranges, units, referential integrity, or domain consistency.
+
+Two other methods make the physical-versus-logical distinction explicit:
+
+- `Array.view(target_type)` reinterprets existing buffers as another compatible type without performing ordinary value conversion. It requires a compatible physical layout.
+- `Array.copy_to(destination)` copies array buffers, including nested child buffers, to a supported device or memory manager. This is a data-movement capability, not a guarantee that Arrow's normal CPU compute kernels can execute on the destination device.
+
+An ordinary cast and a physical view therefore solve different problems. Casting expresses a value-level type conversion, potentially allocating new storage; viewing changes the interpretation of compatible existing storage.
+
+These interfaces are particularly relevant to native interoperation, binary-format integration, and memory-layout inspection, although incorrect buffer construction can lead to invalid arrays and unsafe downstream behavior.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary references:
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.Array.html](https://arrow.apache.org/docs/python/generated/pyarrow.Array.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/python/data.html](https://arrow.apache.org/docs/python/data.html?utm_source=chatgpt.com)
+
+### A.2 Concatenation with controlled schema promotion
+
+`pa.concat_tables()` provides a more expressive schema-reconciliation mechanism than simple concatenation of identically typed tables.
+
+Its `promote_options` parameter distinguishes three behaviors:
+
+| Mode           | Behavior                                                                      | Consequence                                       |
+| -------------- | ----------------------------------------------------------------------------- | ------------------------------------------------- |
+| `"none"`       | Requires matching schemas, apart from permitted metadata differences          | Zero-copy concatenation of existing column chunks |
+| `"default"`    | Promotes null-typed fields and creates null-valued columns for missing fields | Supports limited structural evolution             |
+| `"permissive"` | Extends default behavior with compatible type promotion toward a common type  | Supports broader schema heterogeneity             |
+
+The distinction matters because schema reconciliation can be separated from expensive reconstruction of an entire table. With identical schemas, concatenation can preserve existing chunks. With promotion, PyArrow may need to cast values or allocate null arrays.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+A related capability, `Dataset.replace_schema()`, creates a dataset view over the same fragments with a compatible replacement schema. Unlike permissive table concatenation, it does not implement arbitrary type evolution; incompatible replacement schemas are rejected.
+
+Taken together, these interfaces provide distinct mechanisms for schema adjustment depending on whether data is already materialized or remains represented as dataset fragments.
+
+Primary references:
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.concat_tables.html](https://arrow.apache.org/docs/python/generated/pyarrow.concat_tables.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Dataset.html](https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Dataset.html?utm_source=chatgpt.com)
+
+## B. Advanced native analytical computation
+
+Supplements original §§3.1–3.3.
+
+### B.1 Grouped collection, selection, and pivot operations
+
+The grouped-aggregation interface supports several capabilities beyond conventional sums, counts, and statistical summaries.
+
+| Native aggregation                           | Additional functionality                                           |
+| -------------------------------------------- | ------------------------------------------------------------------ |
+| `hash_list`                                  | Collects group members into list-valued results                    |
+| `hash_distinct`                              | Collects distinct values for each group                            |
+| `hash_count_distinct`                        | Counts distinct values within groups                               |
+| `hash_first`, `hash_last`, `hash_first_last` | Selects boundary values according to the aggregation's input order |
+| `hash_one`                                   | Selects one value from each group                                  |
+| `hash_pivot_wider`                           | Pivots key/value categories into a structured wider representation |
+| `hash_tdigest`                               | Computes approximate distributional quantiles within groups        |
+
+The collection operators are particularly significant. A grouped result need not consist solely of scalar reductions: it can retain multiple values as an Arrow nested array.
+
+For example, flat observations can be organized into groups whose values are list arrays, allowing subsequent Arrow operations to work with the grouped representation without constructing Python lists or dictionaries for each entity.
+
+This is different from a scalar aggregate, which deliberately collapses each group to one numerical or categorical result. It also differs from a relational join, which retains relationships across rows through a combined table.
+
+Grouped pivoting deserves special attention. `hash_pivot_wider` uses `PivotWiderOptions`, including explicit `key_names`, to establish the expected output categories. The output is a struct with fields corresponding to those categories. Unexpected keys can be ignored or rejected.
+
+The pivot operation does not silently aggregate arbitrary duplicate cells. When more than one non-null value appears for the same pivot key in a group, it raises an error. This preserves a useful distinction between pivoting uniquely keyed values and aggregating multiple observations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0+1
+
+
+
+These operations expand the native options for reshaping and organizing records. However, hash-based grouping and parallel execution should not be assumed to preserve source order. Order-sensitive selection and list aggregation require particular care when deterministic sequencing is important.
+
+Primary references:
+
+[https://arrow.apache.org/docs/python/compute.html](https://arrow.apache.org/docs/python/compute.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.compute.PivotWiderOptions.html](https://arrow.apache.org/docs/python/generated/pyarrow.compute.PivotWiderOptions.html?utm_source=chatgpt.com)
+
+### B.2 Prefix computations and state-dependent transformations
+
+PyArrow provides native cumulative kernels that operate on ordered input sequences:
+
+- `cumulative_sum` and `cumulative_sum_checked`
+- `cumulative_prod` and `cumulative_prod_checked`
+- `cumulative_mean`
+- `cumulative_min` and `cumulative_max`
+
+These calculate progressively accumulated results rather than independent element-wise transformations.
+
+The checked arithmetic variants are consequential for integer correctness. For example, `cumulative_sum` can wrap on integer overflow, whereas `cumulative_sum_checked` raises an error rather than silently producing a wrapped result.
+
+The cumulative kernels also expose null-handling policies. For `cumulative_sum`, the default `skip_nulls=False` causes nulls to propagate from the first encountered null; setting `skip_nulls=True` changes that behavior. Optional starting values allow some computations to incorporate an initial state.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Additional state-dependent operations include:
+
+| Function                               | Purpose                                                                       |
+| -------------------------------------- | ----------------------------------------------------------------------------- |
+| `pairwise_diff`                        | Computes differences between values at specified relative positions           |
+| `fill_null_forward`                    | Propagates preceding valid values into null positions                         |
+| `fill_null_backward`                   | Uses subsequent valid values to fill null positions                           |
+| `rank_normal`                          | Computes normal-score ranks                                                   |
+| `rank_quantile`                        | Computes quantile ranks                                                       |
+| `partition_nth_indices`                | Performs nth-element partitioning without requiring a complete ordering       |
+| `top_k_unstable` / `bottom_k_unstable` | Selects extreme elements without promising stable ordering                    |
+| `winsorize`                            | Limits extreme values according to specified bounds or quantile-based options |
+
+These functions cover useful portions of ordered analytical processing without requiring Python-level iteration. Their behavior nevertheless depends on which sequence is supplied and, for applicable operations, how ties, nulls, and NaNs are handled.
+
+These kernels do not constitute a general SQL window-function system.
+
+An array-level cumulative function calculates over its supplied sequence. It does not automatically partition by entity, sort by timestamp, maintain state across independently processed input batches, or implement arbitrary SQL window frames.
+
+Likewise, availability in `pyarrow.compute` does not establish that a function can be embedded in a dataset scanner's row-aligned projection expression.
+
+The architectural opportunity is therefore strongest when the desired ordering and grouping have already been established, or when the surrounding execution system explicitly supplies them.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0+1
+
+
+
+Primary reference:
+
+[https://arrow.apache.org/docs/python/api/compute.html](https://arrow.apache.org/docs/python/api/compute.html?utm_source=chatgpt.com)
+
+## C. Dataset-level relational operations and scan composition
+
+Supplements original §§4.1–4.2 and 5.1–5.3.
+
+### C.1 Relational operations directly on datasets
+
+The `pyarrow.dataset.Dataset` abstraction supports relational operations in addition to scanning and fragment discovery.
+
+Its native methods include:
+
+| Method                 | Capability                                                 |
+| ---------------------- | ---------------------------------------------------------- |
+| `Dataset.join()`       | Performs equality joins against another dataset            |
+| `Dataset.join_asof()`  | Matches records by proximity along an ordered key          |
+| `Dataset.filter()`     | Produces a dataset with an additional filtering expression |
+| `Dataset.sort_by()`    | Sorts records by one or more fields                        |
+| `Dataset.count_rows()` | Counts rows, potentially exploiting source metadata        |
+| `Dataset.head()`       | Retrieves an initial subset of rows                        |
+| `Dataset.take()`       | Retrieves rows by positional index                         |
+
+`Dataset.join()` supports inner, outer, semi, and anti joins, together with differing left/right key names, suffixes, and key coalescing. This allows relational operations to be initiated from a file-backed dataset without an explicit application-level `to_table()` conversion.
+
+`Dataset.join_asof()` supports proximity-based matching on integer, date, or timestamp keys. Both inputs must be sorted by the ordered key, and optional `by` keys constrain matching to equivalent groups.
+
+Its tolerance is directional: a negative tolerance searches backward, a positive tolerance searches forward, and zero requires an exact ordered-key match. The allowed difference is calculated as the right key minus the left key, in the key's units.
+
+The materialization boundary is essential. In PyArrow 26, `Dataset.join()`, `Dataset.join_asof()`, and `Dataset.sort_by()` return an `InMemoryDataset`. They are not deferred relational-plan nodes that automatically preserve the original dataset's lazy file-scanning behavior.
+
+By contrast, `Dataset.filter()` returns a filtered dataset abstraction that can subsequently be scanned. `count_rows()` may exploit metadata and pruning, but a filtered count is not guaranteed to be metadata-only. `take()` and `head()` avoid requesting a complete result table, although the underlying access may still require reading preceding data.
+
+These distinctions make the dataset API useful for relational composition while preserving a clear understanding of when execution and materialization occur.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary reference:
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Dataset.html](https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Dataset.html?utm_source=chatgpt.com)
+
+### C.2 Scanner construction from existing streams
+
+`Scanner` provides several construction and consumption interfaces that are not covered by the original scanner discussion.
+
+`Scanner.from_batches()` creates a scanner from an existing record-batch source, including an appropriate `RecordBatchReader` or batch iterator. The resulting scanner can use familiar projection and filtering options.
+
+The most important lifecycle characteristic is that a scanner created from batches is single-use. This reflects the fact that its underlying stream or generator may be consumed only once. It is not an independently restartable dataset definition.
+
+This is consequential when connecting custom producers to native dataset writing: the producer can supply record batches without constructing a full table, but replay and retry behavior remain the responsibility of the surrounding system.
+
+`Scanner.from_fragment()` creates an independently configured scan for a single fragment, while `Scanner.from_dataset()` builds one over an existing dataset.
+
+On the consumption side:
+
+- `to_reader()` exposes the scan as a `RecordBatchReader`, facilitating integration with other Arrow streaming APIs.
+- `scan_batches()` yields `TaggedRecordBatch` objects associating each emitted batch with its source fragment.
+- `projected_schema` exposes the schema after calculated projections, while `dataset_schema` describes the source-side schema.
+- `head()` and `take()` provide selective materialization from a configured scanner.
+
+The distinction between `to_batches()` and `scan_batches()` is particularly valuable for provenance. A plain `RecordBatch` contains its schema and values but not an explicit association with its originating dataset fragment. A tagged batch preserves that relationship in the scanner's output.
+
+This can make file-level lineage, partition attribution, diagnostic grouping, and fragment-aware downstream processing more straightforward.
+
+Source tags identify the fragment, not necessarily a permanently stable row identifier. Batch boundaries and fragment enumeration should not be treated as durable identities across independent scans unless the surrounding system establishes that guarantee.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary reference:
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Scanner.html](https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Scanner.html?utm_source=chatgpt.com)
+
+### C.3 Parquet fragments as units of independent processing
+
+`ParquetFileFragment` exposes row-group-level operations that provide more precise control than scanning an entire file as one indivisible source.
+
+`split_by_row_group()` creates separate fragments for individual row groups. An optional filter can exclude row groups whose statistics prove that they cannot satisfy the predicate.
+
+`subset()` instead constructs a fragment covering selected row groups, specified either through row-group identifiers or a compatible predicate.
+
+`ensure_complete_metadata()` explicitly populates the fragment's Parquet metadata, making information such as the row-group structure available for inspection.
+
+These operations permit a dataset's physical processing units to be decomposed more precisely than its file boundaries. They can support workload partitioning, selective rereads, and metadata-driven processing decisions without first decoding all the row values.
+
+Crucially, splitting a Parquet fragment does not split or rewrite the physical file. It constructs fragment descriptions identifying which existing row groups should be read. Likewise, statistics-based filtering is conservative: a row group is excluded only when its metadata establishes that it cannot match.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+The complementary constructor `ds.parquet_dataset()` can build a dataset directly from a Parquet `_metadata` file containing aggregated row-group metadata and file paths.
+
+This can avoid some repeated filesystem discovery and metadata reads, particularly when the data occupies many files in remote storage. The metadata file must nevertheless correspond to the actual dataset contents; PyArrow does not turn it into a transactional catalog.
+
+Together, these capabilities offer a progression from dataset-level discovery to file-level fragments to row-group-level work units, while remaining within native PyArrow interfaces.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary references:
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.dataset.ParquetFileFragment.html](https://arrow.apache.org/docs/python/generated/pyarrow.dataset.ParquetFileFragment.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.dataset.parquet_dataset.html](https://arrow.apache.org/docs/python/generated/pyarrow.dataset.parquet_dataset.html?utm_source=chatgpt.com)
+
+## D. Storage configuration and ingestion semantics
+
+Supplements original §§6.2–6.4 and 7.1–7.3.
+
+### D.1 Parquet sortedness metadata and canonical logical types
+
+Parquet writer options include `sorting_columns`, which records that a file's row groups follow a specified column ordering.
+
+This option is a declaration, not an execution mechanism. It does not sort the input rows or independently validate their ordering.
+
+Consequently, accurate sorting metadata can describe a useful property of an existing physical layout, but incorrect metadata does not become correct merely because the writer was instructed to emit it.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Parquet also carries logical-type annotations that can be interpreted as Arrow extension types.
+
+PyArrow 26 recognizes several important mappings:
+
+| Parquet logical type | Arrow representation            |
+| -------------------- | ------------------------------- |
+| JSON                 | `arrow.json`                    |
+| UUID                 | `arrow.uuid`                    |
+| Geometry             | `geoarrow.wkb`, when registered |
+| Geography            | `geoarrow.wkb`, when registered |
+
+`arrow_extensions_enabled` controls this interpretation in relevant Parquet readers. The default is enabled; setting it to `False` requests the corresponding storage types.
+
+Geometry and Geography require special care. Their extension representation requires a registered `geoarrow.wkb` type, which can be supplied by the separate `geoarrow-pyarrow` package. PyArrow itself does not thereby acquire a complete spatial query engine.
+
+These distinctions are important when interpreting what survives a file-format boundary: the Parquet annotation, the Arrow extension representation, and the library implementing semantic operations over that representation are separate capabilities.
+
+Serialized Arrow schema metadata may also affect type reconstruction, so the effective interpretation is not determined by the Parquet logical annotation alone.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary references:
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.parquet.write_table.html](https://arrow.apache.org/docs/python/generated/pyarrow.parquet.write_table.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/python/parquet/parquet_type_handling.html](https://arrow.apache.org/docs/python/parquet/parquet_type_handling.html?utm_source=chatgpt.com)
+
+### D.2 IPC dictionary evolution and serialization control
+
+`ipc.IpcWriteOptions` exposes several controls that materially affect IPC compatibility and representation.
+
+Among them:
+
+- `emit_dictionary_deltas`, allowing dictionary updates to be expressed as deltas where supported.
+- `unify_dictionaries`, consolidating dictionary-encoded columns into a compatible common dictionary.
+- `compression`, supporting IPC body compression with supported LZ4 or ZSTD codecs.
+- `metadata_version`, controlling the IPC metadata representation.
+- `use_legacy_format`, for compatibility with older IPC consumers.
+- `allow_64bit`, governing serialization of structures requiring 64-bit lengths.
+
+Dictionary evolution is the most important conceptual addition.
+
+Arrow dictionary arrays can use different dictionaries across batches. IPC streams have mechanisms for communicating dictionary updates, while IPC files impose more restrictive rules about dictionary replacement. Writer-side dictionary unification can reconcile batches for file serialization, potentially remapping indices and allocating new data.
+
+This means preserving dictionary encoding across batch boundaries is not simply a matter of serializing each batch independently. The surrounding IPC representation imposes additional constraints.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+On the reading side, `ipc.IpcReadOptions` includes `included_fields` for top-level field selection, together with controls for native endianness, alignment, and threaded decompression.
+
+Field selection can avoid materializing unwanted fields. Alignment correction or endianness conversion can introduce copies even when the underlying IPC data would otherwise be shareable.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary references:
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.ipc.IpcWriteOptions.html](https://arrow.apache.org/docs/python/generated/pyarrow.ipc.IpcWriteOptions.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.ipc.IpcReadOptions.html](https://arrow.apache.org/docs/python/generated/pyarrow.ipc.IpcReadOptions.html?utm_source=chatgpt.com)
+
+### D.3 Message-level Arrow IPC interfaces
+
+PyArrow also exposes interfaces beneath its ordinary IPC file and stream readers.
+
+`ipc.Message` represents an IPC message with its metadata and body. `ipc.MessageReader` iterates over messages in an IPC stream, while functions such as `ipc.read_message()` and `ipc.read_record_batch()` support lower-level message processing.
+
+These interfaces are useful for inspecting serialized data structures, implementing specialized transports, and diagnosing message boundaries or dictionary/schema coordination.
+
+Unlike a high-level `RecordBatchReader`, a message reader exposes the framing layer instead of immediately abstracting it away.
+
+The additional control comes with additional obligations. A record-batch message cannot always be interpreted independently of its schema and relevant dictionaries. Likewise, serializing individual messages is not automatically equivalent to constructing a valid, complete IPC stream or file.
+
+For specialized interchange implementations, this message-level access can avoid rebuilding Arrow IPC framing logic from scratch while still allowing deliberate control over the transport and message lifecycle.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0+2
+
+
+
+Primary references:
+
+[https://arrow.apache.org/docs/python/api/ipc.html](https://arrow.apache.org/docs/python/api/ipc.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.ipc.MessageReader.html](https://arrow.apache.org/docs/python/generated/pyarrow.ipc.MessageReader.html?utm_source=chatgpt.com)
+
+### D.4 CSV and JSON input policies
+
+Beyond native parsing and type inference, PyArrow provides explicit policies for handling selected categories of structurally unexpected input.
+
+For CSV, `csv.ParseOptions.invalid_row_handler` allows an application callback to determine whether a row with an unexpected number of columns should be skipped or treated as an error.
+
+This supports selective rejection of malformed records without replacing the native CSV parser.
+
+The handler's scope is deliberately limited: it is not a universal recovery callback for arbitrary type-conversion failures, invalid values, or business-level validation errors.
+
+Other CSV parsing controls, such as allowing newlines inside quoted values, influence how the parser interprets record boundaries.
+
+On the output side, `csv.CSVWriter` provides a stateful writer capable of accepting successive record batches, so CSV output need not first be assembled into one complete table.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+For JSON, `json.ParseOptions` exposes an explicit schema and an `unexpected_field_behavior` policy:
+
+| Policy   | Behavior                                          |
+| -------- | ------------------------------------------------- |
+| `infer`  | Includes unexpected fields through type inference |
+| `ignore` | Omits fields not present in the supplied schema   |
+| `error`  | Rejects unexpected fields                         |
+
+This is particularly consequential when an ingestion process needs to distinguish schema evolution from unexpected input.
+
+The behavior is not merely a performance option. It determines whether newly encountered structure is incorporated, discarded, or treated as an error. As with CSV, these are parsing and structural policies, not a complete application validation system.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary references:
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.csv.ParseOptions.html](https://arrow.apache.org/docs/python/generated/pyarrow.csv.ParseOptions.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.csv.CSVWriter.html](https://arrow.apache.org/docs/python/generated/pyarrow.csv.CSVWriter.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.json.ParseOptions.html](https://arrow.apache.org/docs/python/generated/pyarrow.json.ParseOptions.html?utm_source=chatgpt.com)
+
+## E. Native memory allocation, runtime diagnostics, and observability
+
+Supplements original §§8.2–8.3.
+
+### E.1 Allocator backends and allocation-lifecycle diagnostics
+
+PyArrow exposes multiple native memory-pool backends, subject to how the underlying Arrow libraries were compiled.
+
+The principal interfaces include:
+
+- `pa.jemalloc_memory_pool()`
+- `pa.mimalloc_memory_pool()`
+- `pa.system_memory_pool()`
+- `pa.supported_memory_backends()`
+- `pa.jemalloc_set_decay_ms()`
+
+This functionality makes allocator choice an explicit part of the native Arrow runtime rather than a property determined exclusively by the operating system's default allocator.
+
+Different allocators can exhibit different behavior under repeated allocation, release, fragmentation, and concurrent access. However, the availability of a particular allocator does not establish that it will improve performance for every workload.
+
+`MemoryPool` exposes further diagnostic information:
+
+| Interface                 | Information or operation                                           |
+| ------------------------- | ------------------------------------------------------------------ |
+| `backend_name`            | Identifies the allocator implementation                            |
+| `bytes_allocated()`       | Reports currently live allocations tracked by the pool             |
+| `max_memory()`            | Reports peak tracked allocation, where supported                   |
+| `num_allocations()`       | Counts allocations and reallocations                               |
+| `total_bytes_allocated()` | Reports cumulative allocated bytes                                 |
+| `print_stats()`           | Provides allocator-specific statistics                             |
+| `release_unused()`        | Attempts to release retained unused memory to the operating system |
+
+The distinction between current live allocation and cumulative allocation volume is particularly useful. A pipeline can have stable live memory while repeatedly allocating and releasing substantial intermediate buffers.
+
+`release_unused()` should not be treated as a routine memory-management requirement. The upstream documentation describes it as best-effort and potentially expensive, with benchmarking and debugging as its main uses. It cannot guarantee that fragmented or allocator-retained pages will be returned to the operating system.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0+1
+
+
+
+Primary references:
+
+[https://arrow.apache.org/docs/python/api/memory.html](https://arrow.apache.org/docs/python/api/memory.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.MemoryPool.html](https://arrow.apache.org/docs/python/generated/pyarrow.MemoryPool.html?utm_source=chatgpt.com)
+
+### E.2 Build, SIMD, and component introspection
+
+PyArrow exposes runtime inspection facilities that help establish which capabilities are actually present in a deployed native build.
+
+Important interfaces include:
+
+- `pa.show_versions()` — reports PyArrow and Arrow C++ version/build information.
+- `pa.show_info()` — reports platform, memory allocator, SIMD, optional components, filesystems, and available compression codecs.
+- `pa.runtime_info()` — provides runtime CPU capability information, including detected and selected SIMD levels.
+- `pa.is_opentelemetry_enabled()` — reports whether the linked Arrow libraries were built with OpenTelemetry support.
+
+These facilities are more informative than checking `pa.__version__` alone. Two installations of the same PyArrow version can differ in their native components, allocator configuration, CPU instruction support, and optional features.
+
+Arrow also recognizes runtime environment variables that affect operational behavior:
+
+| Variable                    | Purpose                                                          |
+| --------------------------- | ---------------------------------------------------------------- |
+| `ARROW_DEFAULT_MEMORY_POOL` | Selects an available default allocator backend                   |
+| `ARROW_DEBUG_MEMORY_POOL`   | Enables basic native allocation-overflow diagnostics             |
+| `ARROW_USER_SIMD_LEVEL`     | Limits runtime-selected SIMD dispatch on supported x86 platforms |
+| `ACERO_ALIGNMENT_HANDLING`  | Controls behavior when Acero encounters unaligned buffers        |
+| `ARROW_S3_LOG_LEVEL`        | Adjusts native S3 client logging verbosity                       |
+
+For `ACERO_ALIGNMENT_HANDLING`, the options include warning, ignoring, rejecting, or reallocating unaligned buffers. Reallocation can make the operation safer with respect to alignment but introduces copying overhead.
+
+`ARROW_USER_SIMD_LEVEL` is useful for investigating differences between CPU-dispatched execution paths. It does not disable instructions that the native binary requires because of its compile-time configuration.
+
+Similarly, Arrow's debug memory-pool checks are not a substitute for comprehensive memory-safety instrumentation such as AddressSanitizer.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Primary references:
+
+[https://arrow.apache.org/docs/cpp/env_vars.html](https://arrow.apache.org/docs/cpp/env_vars.html?utm_source=chatgpt.com)
+
+[https://github.com/apache/arrow/blob/apache-arrow-26.0.0/python/pyarrow/\_\_init\_\_.py](https://github.com/apache/arrow/blob/apache-arrow-26.0.0/python/pyarrow/__init__.py?utm_source=chatgpt.com)
+
+### E.3 OpenTelemetry tracing in native Arrow execution
+
+Apache Arrow's C++ implementation contains OpenTelemetry instrumentation that can expose aspects of execution below the Python call boundary.
+
+This capability is distinct from Python-level profilers and memory-pool statistics. It can provide traces of instrumented native operations rather than merely observing the invocation of a Python method.
+
+Arrow 24.0.0 enabled OpenTelemetry support in official PyArrow wheels. For custom Arrow C++ builds, tracing support is controlled by the `ARROW_WITH_OPENTELEMETRY` build option.
+
+Once tracing support is compiled in, exporting traces requires an appropriate tracer configuration. Arrow supports configuration through `ARROW_TRACING_BACKEND`, including:
+
+- `ostream` for textual output.
+- `arrow_otlp_stdout` and `arrow_otlp_stderr` for structured JSON output.
+- `otlp_http` for exporting traces to an OpenTelemetry-compatible HTTP endpoint.
+
+An existing OpenTelemetry tracer provider can also be used in applicable native integrations.
+
+Three conditions must be distinguished:
+
+1. OpenTelemetry support is compiled into the native libraries.
+2. Trace export is configured and active.
+3. The operation being investigated is actually instrumented.
+
+The first does not imply the second or third. `pa.is_opentelemetry_enabled()` checks build availability, not completeness of tracing coverage or successful delivery of exported traces.
+
+This mechanism can provide valuable visibility into native execution that is otherwise difficult to infer from Python stack traces or wall-clock timings. It does not, however, automatically establish complete tracing across Python application code, external databases, and other execution engines.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0+1
+
+
+
+Primary references:
+
+[https://arrow.apache.org/docs/cpp/opentelemetry.html](https://arrow.apache.org/docs/cpp/opentelemetry.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/cpp/env_vars.html](https://arrow.apache.org/docs/cpp/env_vars.html?utm_source=chatgpt.com)
+
+## F. Additional conversion and interchange protocols
+
+Supplements original §§9.3–9.5 and 10.4.
+
+### F.1 Bidirectional DLPack integration
+
+PyArrow 26's DLPack functionality extends beyond exporting Arrow data to numerical frameworks. It also provides native import interfaces:
+
+| Interface                                | Accepted representation                                          |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| `pa.Array.from_dlpack()`                 | One-dimensional contiguous numerical data                        |
+| `pa.Tensor.from_dlpack()`                | Multidimensional numerical tensor data                           |
+| `pa.FixedShapeTensorArray.from_dlpack()` | Multidimensional tensor data represented as Arrow array elements |
+
+These methods consume objects implementing the DLPack protocol without copying the underlying data when the documented requirements are met.
+
+For example, `Tensor.from_dlpack()` preserves a multidimensional tensor representation, including shape and strides. `FixedShapeTensorArray.from_dlpack()` instead treats the outermost dimension as the Arrow array length and the remaining dimensions as each element's tensor shape.
+
+This distinction allows the same general numerical memory representation to participate either as a standalone tensor or as a column of tensor-valued elements.
+
+DLPack interoperability remains constrained by the representation involved. It does not preserve Arrow null bitmaps, heterogeneous fields, arbitrary nested structures, or application-specific extension semantics.
+
+In PyArrow 26, the implementation is CPU-only. The fact that DLPack is a device-aware protocol generally does not establish that PyArrow can import or export arbitrary GPU-resident DLPack objects.
+
+The import interfaces are nevertheless an important complement to the existing NumPy, pandas, and Arrow C Data integrations, particularly when the source already owns numerical buffers in a compatible layout.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary reference:
+
+[https://arrow.apache.org/docs/python/dlpack.html](https://arrow.apache.org/docs/python/dlpack.html?utm_source=chatgpt.com)
+
+### F.2 Device-aware Arrow C interchange
+
+The Arrow C Device Interface extends Arrow's language-independent data interchange model to device-resident arrays and streams.
+
+The corresponding Python PyCapsule protocols include:
+
+- `__arrow_c_device_array__`
+- `__arrow_c_device_stream__`
+
+These complement the existing CPU-oriented `__arrow_c_array__` and `__arrow_c_stream__` protocols.
+
+The device-aware forms exchange `ArrowDeviceArray` and `ArrowDeviceArrayStream` structures, retaining Arrow's schema-based representation while identifying device-resident storage and its ownership requirements.
+
+This capability is fundamentally different from DLPack.
+
+DLPack is primarily designed around homogeneous numerical tensors. The Arrow C Device Interface retains Arrow's structured array model and is designed for interchange between implementations that understand the corresponding device-aware Arrow layouts.
+
+A producer implementing the device-aware protocol does not need to pretend that its non-CPU memory is host-accessible. Conversely, a CPU-only export method must provide valid CPU-accessible pointers or decline the operation.
+
+The protocol is intended to avoid unnecessary device transfers during interchange, but whether a particular exchange is zero-copy depends on the cooperating implementations and their memory-management obligations.
+
+Protocol support should not be confused with device-native computation. Exchanging an Arrow structure that references device memory does not mean that PyArrow's ordinary compute kernels can safely operate on that memory.
+
+This distinction is especially important when combining independently developed Arrow-compatible libraries with GPU-oriented native systems.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary references:
+
+[https://arrow.apache.org/docs/format/CDataInterface/PyCapsuleInterface.html](https://arrow.apache.org/docs/format/CDataInterface/PyCapsuleInterface.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/format/CDeviceDataInterface.html](https://arrow.apache.org/docs/format/CDeviceDataInterface.html?utm_source=chatgpt.com)
+
+### F.3 Custom Python conversion through `__arrow_array__`
+
+PyArrow supports a Python-specific conversion hook for third-party array-like objects.
+
+An object implementing `__arrow_array__(self, type=None)` can control how `pa.array()` converts it into an Arrow array. The method may return a `pa.Array` or `pa.ChunkedArray`, and the optional `type` argument allows the caller's requested Arrow type to influence conversion.
+
+This mechanism can integrate specialized Python containers, domain-specific collection classes, and alternative array implementations without requiring each caller to implement bespoke conversion logic.
+
+Its architectural role is distinct from the Arrow PyCapsule protocol:
+
+| Mechanism                  | Principal responsibility                                               |
+| -------------------------- | ---------------------------------------------------------------------- |
+| `__arrow_array__`          | PyArrow-specific conversion of custom Python array-like objects        |
+| `__arrow_c_array__`        | Standardized Arrow array interchange across compatible implementations |
+| `__arrow_c_stream__`       | Standardized interchange of Arrow record-batch streams                 |
+| `__arrow_c_device_array__` | Device-aware Arrow array interchange                                   |
+
+`__arrow_array__` may perform real conversion work and does not independently guarantee zero-copy results.
+
+For broader interoperability, particularly where a producing library should not depend on PyArrow, the standardized Arrow PyCapsule interfaces provide a less Python-implementation-specific contract.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary reference:
+
+[https://arrow.apache.org/docs/python/extending_types.html](https://arrow.apache.org/docs/python/extending_types.html?utm_source=chatgpt.com)
+
+### F.4 Consuming the DataFrame Interchange Protocol
+
+The original guide identifies the outward-facing `Table.__dataframe__()` and `RecordBatch.__dataframe__()` methods. The corresponding input capability is `pyarrow.interchange.from_dataframe()`.
+
+This function constructs an Arrow table from a DataFrame implementation that exposes the Python DataFrame Interchange Protocol.
+
+It provides an additional route for interoperability when a producer implements `__dataframe__()` but not Arrow's C Data/PyCapsule interfaces.
+
+This is useful as a compatibility mechanism, though the protocol's type representation is less expressive than Arrow's complete type system. The upstream PyArrow documentation recommends using Arrow PyCapsule interchange where supported.
+
+The distinction is not merely about performance. A conversion route with a narrower type vocabulary may be unable to represent certain nested structures, extension semantics, or other Arrow-specific information without translation or loss.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary reference:
+
+[https://arrow.apache.org/docs/python/interchange_protocol.html](https://arrow.apache.org/docs/python/interchange_protocol.html?utm_source=chatgpt.com)
+
+## G. Transport metadata and cloud-storage operational control
+
+Supplements original §§11.1–11.2.
+
+### G.1 Metadata-aware Arrow Flight streams
+
+Arrow Flight supports application-defined metadata alongside streamed record batches.
+
+The writer interfaces include:
+
+| Interface                                  | Additional capability                                                        |
+| ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `FlightStreamWriter.write_with_metadata()` | Writes a record batch with associated metadata                               |
+| `FlightStreamWriter.write_metadata()`      | Sends metadata independently of a record batch                               |
+| `FlightStreamWriter.done_writing()`        | Closes the outgoing direction while leaving the incoming direction available |
+| `FlightStreamWriter.stats`                 | Exposes current IPC write statistics                                         |
+
+On the receiving side, `FlightStreamReader.read_chunk()` returns a `FlightStreamChunk` containing a batch and its associated metadata, where present.
+
+`FlightStreamReader.cancel()` allows an active read to be cancelled. Its `to_reader()` method adapts a Flight stream into a conventional `RecordBatchReader`, although this conversion can fail if the schema cannot be obtained from the remote endpoint.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0+1
+
+
+
+These capabilities expand Flight from a mechanism for delivering batches into one capable of carrying application-defined information alongside a data stream.
+
+That information can be used to express acknowledgments, progress, sequence markers, or other service-specific coordination semantics.
+
+However, Flight itself does not interpret these metadata values as durable acknowledgments or transactional guarantees. Those semantics must be implemented by the communicating applications.
+
+The distinction between `done_writing()` and closing the whole exchange is particularly consequential for bidirectional operations: the sender may have completed its input while still expecting the remote service to produce additional results.
+
+Primary references:
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.flight.FlightStreamWriter.html](https://arrow.apache.org/docs/python/generated/pyarrow.flight.FlightStreamWriter.html?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.flight.FlightStreamReader.html](https://arrow.apache.org/docs/python/generated/pyarrow.flight.FlightStreamReader.html?utm_source=chatgpt.com)
+
+### G.2 Native S3 operational configuration
+
+`pyarrow.fs.S3FileSystem` exposes substantially more control than the basic ability to access S3 paths.
+
+Its configuration covers several operational families:
+
+Identity and credentials. The filesystem supports explicit credentials, automatic credential discovery, and role assumption through `role_arn`, `session_name`, and `external_id`. Temporary role credentials can be refreshed according to `load_frequency`.
+
+Endpoint and transport configuration. `endpoint_override`, `scheme`, connection and request timeouts, proxy configuration, TLS settings, and virtual-host addressing controls support different S3-compatible endpoints and network environments.
+
+I/O scheduling and error behavior. `background_writes`, `allow_delayed_open`, and retry strategies influence when network operations occur and how failures are surfaced.
+
+Filesystem mutation controls. Explicit flags govern whether bucket creation and deletion are permitted.
+
+`allow_delayed_open` illustrates a consequential tradeoff. It can reduce initial request latency by allowing an open operation to return before all remote checks have completed. However, failures such as nonexistent remote locations may then be reported only during later I/O or closure.
+
+These controls make the native filesystem more than a uniform wrapper around object-store APIs. They allow connection, authentication, retry, and write behavior to be configured within Arrow's own I/O layer.
+
+They do not turn S3 into a conventional transactional filesystem, and operational differences across storage providers remain important.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow v26.0.0
+
+
+
+Primary reference:
+
+[https://arrow.apache.org/docs/python/generated/pyarrow.fs.S3FileSystem.html](https://arrow.apache.org/docs/python/generated/pyarrow.fs.S3FileSystem.html?utm_source=chatgpt.com)
+
+## H. Version-status correction: Gandiva Python bindings
+
+Corrects the lifecycle classification in original §§12–13.
+
+Apache Arrow 24.0.0 explicitly deprecated `pyarrow.gandiva`, stating that the Python binding will be removed in a future version.
+
+This status remains relevant to a PyArrow 26.0.0 capability reference.
+
+The original discussion of Gandiva as an optional LLVM-based native expression compiler remains conceptually useful. However, it should distinguish the native Gandiva component from the lifecycle status of its Python bindings.
+
+The appropriate classification is:
+
+- Native Gandiva: A separate, optional LLVM-based expression-compilation component within the Arrow C++ ecosystem.
+- `pyarrow.gandiva`: Deprecated Python binding, not a recommended stable interface for new long-lived integrations.
+- `pyarrow.compute` and Acero: Distinct native computation and execution interfaces, not replacements that necessarily reproduce every Gandiva implementation detail.
+
+Deprecation does not mean that the Python binding has already been removed from every PyArrow 26 distribution. It means that continued availability and API compatibility should not be assumed indefinitely.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://arrow.apache.org\&sz=32)
+
+Apache Arrow
+
+
+
+Primary references:
+
+[https://arrow.apache.org/blog/2026/04/21/24.0.0-release/](https://arrow.apache.org/blog/2026/04/21/24.0.0-release/?utm_source=chatgpt.com)
+
+[https://arrow.apache.org/docs/cpp/gandiva.html](https://arrow.apache.org/docs/cpp/gandiva.html?utm_source=chatgpt.com)
+
+## Addendum synthesis
+
+The additional capabilities extend PyArrow's usefulness in several architectural directions that are not fully apparent from its most familiar APIs.
+
+Native relational processing is accessible at more levels than tables alone, but the distinction between dataset abstractions, scanner execution, and in-memory relational results determines whether an operation preserves incremental execution.
+
+Native computation also encompasses more than row-wise kernels and scalar aggregates. Grouped collections, pivots, cumulative functions, and ordered transformations can eliminate bespoke calculations, provided their ordering, grouping, and state requirements are respected.
+
+Storage interfaces expose more than file serialization. Parquet fragments and metadata enable finer-grained physical work decomposition; IPC options govern dictionary evolution, buffer compatibility, and serialized message handling; and parser policies make selected ingestion decisions explicit.
+
+Interoperability is bidirectional and increasingly device-aware. DLPack import, custom Python conversion hooks, DataFrame interchange consumption, and the Arrow C Device protocols each address a different integration boundary. Their guarantees should not be conflated.
+
+Finally, the native runtime provides more operational visibility and control than memory allocation totals alone. Allocator statistics, build inspection, SIMD configuration, OpenTelemetry, and transport-specific diagnostics can reveal implementation behavior that would otherwise require additional custom instrumentation.
+
+These additions complete the most consequential capability gaps identified in the original PyArrow 26.0.0 reference while preserving its distinction between Arrow's native functionality, experimental or deprecated interfaces, and the responsibilities of adjacent execution and storage systems.

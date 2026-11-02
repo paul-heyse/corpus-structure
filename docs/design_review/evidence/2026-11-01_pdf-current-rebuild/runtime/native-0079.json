@@ -1,0 +1,30 @@
+{
+  "revision": "semantic_pdf_journal_20261101",
+  "state_sha256": "575174795fe5bfd69ed2045ad38d9cb2d04eecc4faa0df4b58e5e2f531e72ac4",
+  "admission_sha256": "ad55bc4f89446e3385f59053d0f05282a2b0a51c9353bdd3e28eb9f9de1f809d",
+  "descriptor_sha256": "972e3825b54e9d77d1497435782346d5f224261992d34091dec3a2259b1a9b91",
+  "native_operations": 1,
+  "ordinary_operations": 0,
+  "desired_objects": 27,
+  "observed_at": "2026-11-01T21:47:54.882948+00:00",
+  "outcome": "passed",
+  "scope": "native-authoring-and-affected-functional-cases-only",
+  "predecessor": "semantic_pdf_snapshot_20261101",
+  "physical_id_unchanged": "physical:a421ce2f95e22be09db50bd3ac68d374d9a56c22cc9963da4f798d7a02611e4e",
+  "native_controls": 3,
+  "native_controls_log": "build/pdf79-native-controls.log",
+  "reconciliation_cases": 34,
+  "reconciliation_log": "build/pdf79-reconciliation-package.log",
+  "publication_cases": 1,
+  "publication_log": "build/pdf79-publication-python-module.log",
+  "invocation_failures_retained": [
+    "build/pdf79-reconciliation.log",
+    "build/pdf79-reconciliation-package.log"
+  ],
+  "current_empty_candidate_native_operations": 0,
+  "current_empty_candidate_ordinary_operations": 0,
+  "current_empty_candidate_log": "build/pdf79-empty-current.log",
+  "target_migration_log": "target-migrate-0079.log",
+  "actual_integration_retry": "not_run",
+  "retry_hold_reason": "Reviewer requested concrete cross-observation correspondence-evidence alias control before actual retry."
+}

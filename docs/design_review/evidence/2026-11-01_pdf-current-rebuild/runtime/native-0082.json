@@ -1,0 +1,27 @@
+{
+  "revision": "semantic_pdf_retire_20261101",
+  "predecessor": "semantic_pdf_validate_20261101",
+  "observed_at": "2026-11-01T23:42:20.108177+00:00",
+  "outcome": "passed",
+  "scope": "native-authoring-retirement-authority-and-fresh-head-controls-only",
+  "state_sha256": "cb9a1457f9e51dd71cd8b96642ff6e14835eea4dd2d9bcb19a245beccc321407",
+  "admission_sha256": "d743ec7be989cb527e58e8ab550673de5f879a6cbf3634d9bd274c2edf5bfb46",
+  "descriptor_sha256": "065df67097b65d0e18658e0bea644355ff95e559106a82760d27d825f13ee998",
+  "desired_objects": 30,
+  "native_operations": 1,
+  "ordinary_operations": 0,
+  "native_controls": 3,
+  "retirement_authority_controls": 3,
+  "current_empty_candidate_native_operations": 0,
+  "current_empty_candidate_ordinary_operations": 0,
+  "target_migration_log": "target-migrate-0082.log",
+  "physical_id_unchanged_from81": "physical:f013362d38e0d97a8a63da35fe3d0ad11a6a09d0d0d292f018cd69a988ff1d28",
+  "logs": {
+    "pdf81-fresh-controls.log": "56c70b8f8d3cd0dd417993bcd1722d98ecce7824b238235497bc2e7b0da21018",
+    "pdf82-fresh-controls.log": "6af5b6d7db8b440f4612fda176949a98b6d872a76b949832eb076795d691bfad",
+    "pdf82-current-empty.log": "b0ca104d86af3d73b5b05b41f1c494cdc0f9a77c6e003a1fc7324ab9255d6177",
+    "pdf82-source-freeze.log": "60d2edb448541ab3fd17f95ee82b69ba41709c52589bd3028e9f96051415b1e4",
+    "pdf82-authority-owner-controls.log": "07253a0fc47892cd55777bb0f4af318d71b00cc477baaabeb005d807d93f03eb",
+    "pdf82-authoring-types-final.log": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+  }
+}

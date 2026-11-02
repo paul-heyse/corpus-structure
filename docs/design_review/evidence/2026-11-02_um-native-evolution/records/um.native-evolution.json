@@ -1,0 +1,248 @@
+{
+  "schema_version": 1,
+  "id": "um.native-evolution",
+  "title": "Scoped native87\u201389 evolution and retained receipt authority",
+  "group": "unified-domain-model",
+  "package": "UM-06/07/14",
+  "finalized": "2026-11-02",
+  "status": "superseded",
+  "supersedes": [],
+  "superseded_by": "um.native-evolution90",
+  "question": "Do the frozen support/receipt and descriptor successors preserve exact admission, drift/stale-state refusal, rollback and original retained receipt identity?",
+  "answers": [
+    "UM-06",
+    "UM-07",
+    "UM-14"
+  ],
+  "method": "Owned native authoring and exact frozen82-to89 replay with actual current23 admission, drift/stale-state and rollback controls; separately execute exact new Core read body read-only against retained task10 and compare independent stored receipt scalars. No book migration or body hydration.",
+  "commands": [
+    "uv run python build/um87_author.py",
+    "uv run python build/um87_frozen_wrapper.py",
+    "uv run python build/um87_retained_validation_body.py",
+    "uv run python build/um88_author.py",
+    "uv run python build/um88_frozen_wrapper.py",
+    "uv run python build/um89_author.py",
+    "uv run python build/um89_frozen_wrapper.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "sources/author87.py",
+      "role": "exact executed source",
+      "sha256": "31cef9ce0a15d749b6de05700611a96c3de62e2578db5a1d03ba8d303a98a1dd"
+    },
+    {
+      "path": "sources/author88.py",
+      "role": "exact executed source",
+      "sha256": "d5a6da190714e8a6fd5c5d7587b844a1153e0ab11aa070c264d99cf5fc6024ec"
+    },
+    {
+      "path": "sources/author89.py",
+      "role": "exact executed source",
+      "sha256": "2b5cf7e3182ea36d57d4c521040b14bb5711c0c2e937943900d4a316c9736405"
+    },
+    {
+      "path": "sources/freeze87.py",
+      "role": "exact executed source",
+      "sha256": "85da37303f0ac13a638c83b8094f63c5fd64e3aa2edea1d75a090e9dde8b676f"
+    },
+    {
+      "path": "sources/freeze88.py",
+      "role": "exact executed source",
+      "sha256": "713e4cc1f280dfbfa2471ec1cb0e9e61fcd088b394a502901195531de5f3ab05"
+    },
+    {
+      "path": "sources/freeze89.py",
+      "role": "exact executed source",
+      "sha256": "ec8ee59ae8f9726acd3411420ea141b6657d96b52f6c75bad8c55d755a3f7414"
+    },
+    {
+      "path": "sources/post_callback_candidate.py",
+      "role": "exact executed source",
+      "sha256": "0967942436d2288fabc3827de69ad61bf85e658bb1b12c181585a1c0e51bf97d"
+    },
+    {
+      "path": "sources/post_callback_delta.py",
+      "role": "exact executed source",
+      "sha256": "7e8975a435b72d48b6b9fa617a4cb5a484d519db18dbf1e32dea51fed3ee48e0"
+    },
+    {
+      "path": "sources/replay87.py",
+      "role": "exact executed source",
+      "sha256": "e27b70ceeb3bf21bd2ba822afe20ea72a281908816eab644aa9121777c7a1dcc"
+    },
+    {
+      "path": "sources/replay88.py",
+      "role": "exact executed source",
+      "sha256": "89683c2ebb5fd978603d76a6ff296355fe9e4d632d5983677769f67b81f72f4c"
+    },
+    {
+      "path": "sources/replay89.py",
+      "role": "exact executed source",
+      "sha256": "f363e6be6fb16a72ca7e43f1de904d9ca7a9a5e9456a71420a05c82a2be838f5"
+    },
+    {
+      "path": "sources/retained_body.py",
+      "role": "exact executed source",
+      "sha256": "0c5adaf002d3af746ffa0e444bc1d30fff5c26cffb62685de52d492b31165811"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/author87-result.json",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "641b37af7422844b550dda1867848cca7a9c86c4d2053ed1e9bf854a429d1698"
+    },
+    {
+      "path": "raw/author87-source-hashes.json",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "a614c42ebc9f20b36e0d194f4db0193edcd4c2341f2f92d52dbe9b888a70947a"
+    },
+    {
+      "path": "raw/author87.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "ed14151e8467f0da024cd9d606a2081b4b414ae97fbabb7eeac7f841d1f1fd18"
+    },
+    {
+      "path": "raw/author88-result.json",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "cc4d810467584c3324bafe08ba6a099f22ef9acb6c1a6b843c98d343faa5681f"
+    },
+    {
+      "path": "raw/author88-source-hashes.json",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "0cac9167a649bf05710b7acb800b1a980939e250cca750d868b7087c5bc3a4de"
+    },
+    {
+      "path": "raw/author88.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "d56711a0e64e174d4e050e709468e9ac8c5e3b959bf66b94c42013ae954c5382"
+    },
+    {
+      "path": "raw/author89-result.json",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "e5c5421128cd10e26e52b16558cd5a2cc2ea41db47659bc1697adcc1ff41145f"
+    },
+    {
+      "path": "raw/author89-source-delta.json",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "85c481d0e43389a27980a610fd996ef064a33ccf23828e3961a16affcb28b33a"
+    },
+    {
+      "path": "raw/author89-source-hashes.json",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "3ee549750d39c0050a4319e6f01e92126a2de39aa9811679e85076a671744c28"
+    },
+    {
+      "path": "raw/author89.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "546c5c2712aa8b9b93f979925de74d3315fb3ed998cb7fbbdeb99af03b7452ec"
+    },
+    {
+      "path": "raw/freeze87.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "39dd9c09aa8584382a7f65c444345ae3fa4e743a9c757b7f4623f12acd52c606"
+    },
+    {
+      "path": "raw/freeze88.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "33f8629e7c853aec5b9a193da342cf68c8d81394864687c78faa472e2c78cf3a"
+    },
+    {
+      "path": "raw/freeze89.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "4374487d572311dbf0562c38437e4850ba3e3d545275912aa671219599b28ab3"
+    },
+    {
+      "path": "raw/post-callback-candidate-failed.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "fab63e7207492e247fe232527783f896d702a6273672d0ea8ceb837441a09925"
+    },
+    {
+      "path": "raw/post-callback-delta-failed.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "a1082b0eb02a817c627bb444b091a5445f378c32de3f322a9761422b2ff36847"
+    },
+    {
+      "path": "raw/post-callback-provenance.json",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "47b0d0964582b18c33a45fe9e82277ed6c4936a39e589409b88403a832d3e30f"
+    },
+    {
+      "path": "raw/post-callback-provenance.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "bc84c7d77f1281695d0526dc08db3a8b4c53d80bb07ff73746b06cd9f2b13e2d"
+    },
+    {
+      "path": "raw/replay87.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "19a48496219c64d13f83304031df7678ce9cc08948868d6c3cbc6516fce4191e"
+    },
+    {
+      "path": "raw/replay88.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "7d4a9973cf67ffb509d36dee59d2242c7f64af7880ee952524f0ff2b4c4b0fe1"
+    },
+    {
+      "path": "raw/replay89.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "0191fe3e518bf4dc963e72c8b0259dba9805517b746b3866699896360cec59fe"
+    },
+    {
+      "path": "raw/retained-body.json",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "84d32fb3a228964f65d25d4596c0297f54cbc2e33ccdada2661fc1d3501ea4f3"
+    },
+    {
+      "path": "raw/retained-body.log",
+      "role": "bounded original output or source/result manifest",
+      "sha256": "7c23be5fb99acbccaafe731542282558edebe9666a659af9fa95b68f1c99127f"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Native87 scoped evolution/replay",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Descriptor88 and89 scoped evolution/replay",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Retained task10 original receipt body read",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Book database revision after read",
+      "value": "semantic_pdf_retire_20261101",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Ordinary DDL in successors",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The selected owned native evolutions pass actual admission/refusal/replay/rollback controls. The exact read body preserves original retained v4 receipt identity without recomputing v5 or mutating the book. Strict source changes required explicit descriptor successors rather than rewriting frozen revisions. These are bounded authoring/body results, not assembled consumer, provider or complete UM qualification.",
+  "consumed_by": [
+    "UM-06",
+    "UM-07",
+    "UM-14",
+    "unified-domain-model native companion"
+  ]
+}

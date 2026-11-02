@@ -1,0 +1,22 @@
+{
+  "observed_at": "2026-11-01T21:41:00.996159+00:00",
+  "outcome": "failed",
+  "run_id": 8,
+  "release_id": "release:0df838beaf2ed6b228c01a8abb0be9aed0eb1d01b842dc2d145cb177c2cf0a93",
+  "native_revision": "semantic_pdf_snapshot_20261101",
+  "argv_file": "source-prepare-command.json",
+  "log": "source-prepare-attempt-002.log",
+  "source_pin_file": "math-enriched.pin.json",
+  "source_ready": false,
+  "integrated_publication": null,
+  "prior_failed_attempt": "source-prepare-attempt-001.json",
+  "source_context_boundary": "user commit bc29df1c captured the already frozen78 source unchanged during execution",
+  "settled_at": "2026-11-01T21:42:15.162320+00:00",
+  "exit_code": 1,
+  "error": "TypeError: cannot use list as a dict key",
+  "error_path": "ingest/pdf_reconciliation.py:1033",
+  "root_cause": "Current JSON-backed reconciliation journal restores candidate identity pairs as lists; a consumer uses the pair as a mapping key without reconstructing its qualified tuple.",
+  "task_id": 8,
+  "task_status": "failed",
+  "lease_until": null
+}

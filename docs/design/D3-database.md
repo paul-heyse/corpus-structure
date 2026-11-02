@@ -2052,6 +2052,14 @@ preview generation is separate. Committed revisions execute byte-bound payloads,
 calling mutable generators. The new head `semantic_pg_20261101` supplies the current projections
 and compiler18 admission. A head marker alone does not establish native admission.
 
+**Implemented; scoped authoring controls Tested (2026-11-01).** Forward authoring resolves one
+declared predecessor for both transitions and admission, including its descriptor, enforcing
+guard and explicit retirements. Retired overloads remain absent across unchanged successors;
+intentional reintroduction starts from absence. Baseline backfill requires the predecessor's
+admission to still assert that identity. Explicit predecessor selection cannot silently acquire
+admission meaning from the caller database's current revision. Frozen81's failed admission is
+preserved; forward82 supplies the corrected current PDF deployment.
+
 `companion-projections.yaml` derives four protected input/relation/coverage/mapping-report
 functions, their static Core columns and directional Arrow schemas from existing model fields.
 Six-part published pins are checked natively. Prepared Core shapes retain named binds and final

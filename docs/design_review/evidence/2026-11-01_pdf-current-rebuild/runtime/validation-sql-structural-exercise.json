@@ -1,0 +1,600 @@
+{
+  "observed_at": "2026-11-01T22:52:46.297245+00:00",
+  "outcome": "passed",
+  "scope": "three read-only structural predicates only; interrupted run9 remains unqualified",
+  "build_id": "9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c",
+  "checks": {
+    "ownership_and_reachability": {
+      "query": "WITH RECURSIVE owner_edges AS MATERIALIZED (\n SELECT n.record_id parent_id,f.value->>'target' child_id FROM kb.pdf_record_native n\n CROSS JOIN LATERAL jsonb_each(n.structure_json->'fields') f\n WHERE n.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND n.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND f.value->>'kind'='object'\n UNION ALL SELECT parent_id,record_id FROM kb.pdf_record_membership\n WHERE product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND value_kind='record'\n ), owner_counts AS (\n SELECT child_id,count(parent_id) owners FROM owner_edges GROUP BY child_id\n ), reachable(record_id) AS (\n SELECT root_id FROM ops.pdf_record_document\n WHERE product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'\n UNION SELECT e.child_id FROM reachable r JOIN owner_edges e ON e.parent_id=r.record_id\n ) SELECT COALESCE(bool_or(COALESCE(owners.owners,0)<>CASE WHEN n.record_id=(\n SELECT root_id FROM ops.pdf_record_document\n WHERE product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c') THEN 0 ELSE 1 END),true),\n COALESCE(bool_or(reachable.record_id IS NULL),true) \n FROM kb.pdf_record_native n LEFT JOIN owner_counts owners ON owners.child_id=n.record_id\n LEFT JOIN reachable ON reachable.record_id=n.record_id\n WHERE n.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND n.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'\n ",
+      "result": [
+        false,
+        false
+      ],
+      "elapsed_seconds": 2.6833514619793277,
+      "explain": [
+        {
+          "Plan": {
+            "Node Type": "Aggregate",
+            "Strategy": "Plain",
+            "Partial Mode": "Simple",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Disabled": false,
+            "Plans": [
+              {
+                "Node Type": "Append",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "CTE owner_edges",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Disabled": false,
+                "Subplans Removed": 0,
+                "Plans": [
+                  {
+                    "Node Type": "Nested Loop",
+                    "Parent Relationship": "Member",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Inner",
+                    "Disabled": false,
+                    "Inner Unique": false,
+                    "Plans": [
+                      {
+                        "Node Type": "Index Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Scan Direction": "Forward",
+                        "Index Name": "uq_pdf_record_native_product_id_revision_id_native_address",
+                        "Relation Name": "pdf_record_native",
+                        "Alias": "n_1",
+                        "Disabled": false,
+                        "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text))"
+                      },
+                      {
+                        "Node Type": "Memoize",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Disabled": false,
+                        "Cache Key": "n_1.structure_json",
+                        "Cache Mode": "binary",
+                        "Plans": [
+                          {
+                            "Node Type": "Function Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Function Name": "jsonb_each",
+                            "Alias": "f",
+                            "Disabled": false,
+                            "Filter": "((value ->> 'kind'::text) = 'object'::text)"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "Node Type": "Index Scan",
+                    "Parent Relationship": "Member",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Scan Direction": "Forward",
+                    "Index Name": "pk_pdf_record_membership",
+                    "Relation Name": "pdf_record_membership",
+                    "Alias": "pdf_record_membership",
+                    "Disabled": false,
+                    "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text))",
+                    "Filter": "(value_kind = 'record'::text)"
+                  }
+                ]
+              },
+              {
+                "Node Type": "Recursive Union",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "CTE reachable",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Disabled": false,
+                "Plans": [
+                  {
+                    "Node Type": "Index Scan",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Scan Direction": "Forward",
+                    "Index Name": "pk_pdf_record_document",
+                    "Relation Name": "pdf_record_document",
+                    "Alias": "pdf_record_document",
+                    "Disabled": false,
+                    "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text))"
+                  },
+                  {
+                    "Node Type": "Hash Join",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Inner",
+                    "Disabled": false,
+                    "Inner Unique": false,
+                    "Hash Cond": "(e.parent_id = r.record_id)",
+                    "Plans": [
+                      {
+                        "Node Type": "CTE Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "CTE Name": "owner_edges",
+                        "Alias": "e",
+                        "Disabled": false
+                      },
+                      {
+                        "Node Type": "Hash",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Disabled": false,
+                        "Plans": [
+                          {
+                            "Node Type": "WorkTable Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "CTE Name": "reachable",
+                            "Alias": "r",
+                            "Disabled": false
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Node Type": "Index Scan",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 3",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Scan Direction": "Forward",
+                "Index Name": "pk_pdf_record_document",
+                "Relation Name": "pdf_record_document",
+                "Alias": "pdf_record_document_1",
+                "Disabled": false,
+                "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text))"
+              },
+              {
+                "Node Type": "Hash Join",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Join Type": "Left",
+                "Disabled": false,
+                "Inner Unique": true,
+                "Hash Cond": "(n.record_id = owners.child_id)",
+                "Plans": [
+                  {
+                    "Node Type": "Hash Join",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Right",
+                    "Disabled": false,
+                    "Inner Unique": true,
+                    "Hash Cond": "(reachable.record_id = n.record_id)",
+                    "Plans": [
+                      {
+                        "Node Type": "CTE Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "CTE Name": "reachable",
+                        "Alias": "reachable",
+                        "Disabled": false
+                      },
+                      {
+                        "Node Type": "Hash",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Disabled": false,
+                        "Plans": [
+                          {
+                            "Node Type": "Index Only Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Scan Direction": "Forward",
+                            "Index Name": "pk_pdf_record_native",
+                            "Relation Name": "pdf_record_native",
+                            "Alias": "n",
+                            "Disabled": false,
+                            "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text))"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "Node Type": "Hash",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Disabled": false,
+                    "Plans": [
+                      {
+                        "Node Type": "Subquery Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Alias": "owners",
+                        "Disabled": false,
+                        "Plans": [
+                          {
+                            "Node Type": "Aggregate",
+                            "Strategy": "Hashed",
+                            "Partial Mode": "Simple",
+                            "Parent Relationship": "Subquery",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Disabled": false,
+                            "Group Key": [
+                              "owner_edges.child_id"
+                            ],
+                            "Plans": [
+                              {
+                                "Node Type": "CTE Scan",
+                                "Parent Relationship": "Outer",
+                                "Parallel Aware": false,
+                                "Async Capable": false,
+                                "CTE Name": "owner_edges",
+                                "Alias": "owner_edges",
+                                "Disabled": false
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "ordered_membership": {
+      "query": "SELECT EXISTS(WITH member_counts AS (\n SELECT parent_id,field_name,count(*) count_,min(ordinal) min_,max(ordinal) max_\n FROM kb.pdf_record_membership WHERE product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'\n GROUP BY parent_id,field_name\n ) SELECT FROM kb.pdf_record_native n CROSS JOIN LATERAL jsonb_each(n.structure_json->'fields') f LEFT JOIN member_counts members\n ON members.parent_id=n.record_id AND members.field_name=f.key\n WHERE n.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND n.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND f.value->>'kind' IN ('array','map') AND\n (COALESCE(members.count_,0)<>(f.value->>'length')::bigint OR\n (members.count_>0 AND (members.min_<>0 OR members.max_<>members.count_-1))))",
+      "result": [
+        false
+      ],
+      "elapsed_seconds": 1.1885233980137855,
+      "explain": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Disabled": false,
+            "Plans": [
+              {
+                "Node Type": "Merge Join",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 1",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Join Type": "Left",
+                "Disabled": false,
+                "Inner Unique": true,
+                "Merge Cond": "(n.record_id = pdf_record_membership.parent_id)",
+                "Join Filter": "(pdf_record_membership.field_name = f.key)",
+                "Filter": "((COALESCE((count(*)), '0'::bigint) <> ((f.value ->> 'length'::text))::bigint) OR (((count(*)) > 0) AND (((min(pdf_record_membership.ordinal)) <> 0) OR ((max(pdf_record_membership.ordinal)) <> ((count(*)) - 1)))))",
+                "Plans": [
+                  {
+                    "Node Type": "Nested Loop",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Inner",
+                    "Disabled": false,
+                    "Inner Unique": false,
+                    "Plans": [
+                      {
+                        "Node Type": "Index Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Scan Direction": "Forward",
+                        "Index Name": "pk_pdf_record_native",
+                        "Relation Name": "pdf_record_native",
+                        "Alias": "n",
+                        "Disabled": false,
+                        "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text))"
+                      },
+                      {
+                        "Node Type": "Memoize",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Disabled": false,
+                        "Cache Key": "n.structure_json",
+                        "Cache Mode": "binary",
+                        "Plans": [
+                          {
+                            "Node Type": "Function Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Function Name": "jsonb_each",
+                            "Alias": "f",
+                            "Disabled": false,
+                            "Filter": "((value ->> 'kind'::text) = ANY ('{array,map}'::text[]))"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "Node Type": "Materialize",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Disabled": false,
+                    "Plans": [
+                      {
+                        "Node Type": "Aggregate",
+                        "Strategy": "Sorted",
+                        "Partial Mode": "Simple",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Disabled": false,
+                        "Group Key": [
+                          "pdf_record_membership.parent_id",
+                          "pdf_record_membership.field_name"
+                        ],
+                        "Plans": [
+                          {
+                            "Node Type": "Index Only Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Scan Direction": "Forward",
+                            "Index Name": "pk_pdf_record_membership",
+                            "Relation Name": "pdf_record_membership",
+                            "Alias": "pdf_record_membership",
+                            "Disabled": false,
+                            "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text))"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "region_counts_and_page_map": {
+      "query": "SELECT EXISTS(WITH region_counts AS (\n SELECT pointer,count(*) count_ FROM kb.pdf_record_region\n WHERE product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' GROUP BY pointer\n ) SELECT FROM kb.pdf_record_access a LEFT JOIN region_counts counts ON counts.pointer=a.pointer\n WHERE a.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND a.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND\n COALESCE(counts.count_,0)<>jsonb_array_length(COALESCE(a.native_json->'prov','[]'))) OR\n EXISTS(WITH page_sizes AS MATERIALIZED (\n SELECT pages.member_key,page_size.scalars_json AS dimensions\n FROM ops.pdf_record_document h JOIN kb.pdf_record_membership pages\n ON pages.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND pages.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'\n AND pages.parent_id=h.root_id AND pages.field_name='pages'\n LEFT JOIN kb.pdf_record_native page ON page.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND page.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'\n AND page.record_id=pages.record_id\n LEFT JOIN kb.pdf_record_native page_size ON page_size.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'\n AND page_size.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'\n AND page_size.record_id=page.structure_json->'fields'->'size'->>'target'\n WHERE h.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND h.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'\n ) SELECT FROM kb.pdf_record_region r LEFT JOIN kb.pdf_record_access a ON a.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND a.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND a.pointer=r.pointer\n LEFT JOIN LATERAL (SELECT a.native_json->'prov'->r.region_index::integer value) prov ON true\n LEFT JOIN page_sizes size ON size.member_key=r.page_no::text\n WHERE r.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND (r.revision_id<>'9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' OR a.pointer IS NULL OR prov.value IS NULL OR\n (prov.value->>'page_no')::bigint IS DISTINCT FROM r.page_no OR\n ops.pdf_projection_scalar_matches(to_jsonb(r.page_width),size.dimensions->'width') IS NOT TRUE OR\n ops.pdf_projection_scalar_matches(to_jsonb(r.page_height),size.dimensions->'height') IS NOT TRUE OR\n to_jsonb(r.left) IS DISTINCT FROM prov.value->'bbox'->'l' OR to_jsonb(r.top) IS DISTINCT FROM prov.value->'bbox'->'t' OR\n to_jsonb(r.right) IS DISTINCT FROM prov.value->'bbox'->'r' OR to_jsonb(r.bottom) IS DISTINCT FROM prov.value->'bbox'->'b' OR\n r.origin IS DISTINCT FROM CASE prov.value->'bbox'->>'coord_origin' WHEN 'TOPLEFT' THEN 'top_left' WHEN 'BOTTOMLEFT' THEN 'bottom_left' END))",
+      "result": [
+        false
+      ],
+      "elapsed_seconds": 0.43198717798804864,
+      "explain": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Disabled": false,
+            "Plans": [
+              {
+                "Node Type": "Merge Join",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 1",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Join Type": "Right",
+                "Disabled": false,
+                "Inner Unique": true,
+                "Merge Cond": "(pdf_record_region.pointer = a.pointer)",
+                "Filter": "(COALESCE((count(*)), '0'::bigint) <> jsonb_array_length(COALESCE((a.native_json -> 'prov'::text), '[]'::jsonb)))",
+                "Plans": [
+                  {
+                    "Node Type": "Aggregate",
+                    "Strategy": "Sorted",
+                    "Partial Mode": "Simple",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Disabled": false,
+                    "Group Key": [
+                      "pdf_record_region.pointer"
+                    ],
+                    "Plans": [
+                      {
+                        "Node Type": "Index Only Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Scan Direction": "Forward",
+                        "Index Name": "pk_pdf_record_region",
+                        "Relation Name": "pdf_record_region",
+                        "Alias": "pdf_record_region",
+                        "Disabled": false,
+                        "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text))"
+                      }
+                    ]
+                  },
+                  {
+                    "Node Type": "Index Scan",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Scan Direction": "Forward",
+                    "Index Name": "pk_pdf_record_access",
+                    "Relation Name": "pdf_record_access",
+                    "Alias": "a",
+                    "Disabled": false,
+                    "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text))"
+                  }
+                ]
+              },
+              {
+                "Node Type": "Hash Join",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 3",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Join Type": "Left",
+                "Disabled": false,
+                "Inner Unique": false,
+                "Hash Cond": "((r.page_no)::text = size.member_key)",
+                "Filter": "((r.revision_id <> '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) OR (a_1.pointer IS NULL) OR ((((a_1.native_json -> 'prov'::text) -> (r.region_index)::integer)) IS NULL) OR ((((((a_1.native_json -> 'prov'::text) -> (r.region_index)::integer)) ->> 'page_no'::text))::bigint IS DISTINCT FROM r.page_no) OR (ops.pdf_projection_scalar_matches(to_jsonb(r.page_width), (size.dimensions -> 'width'::text)) IS NOT TRUE) OR (ops.pdf_projection_scalar_matches(to_jsonb(r.page_height), (size.dimensions -> 'height'::text)) IS NOT TRUE) OR (to_jsonb(r.\"left\") IS DISTINCT FROM (((((a_1.native_json -> 'prov'::text) -> (r.region_index)::integer)) -> 'bbox'::text) -> 'l'::text)) OR (to_jsonb(r.top) IS DISTINCT FROM (((((a_1.native_json -> 'prov'::text) -> (r.region_index)::integer)) -> 'bbox'::text) -> 't'::text)) OR (to_jsonb(r.\"right\") IS DISTINCT FROM (((((a_1.native_json -> 'prov'::text) -> (r.region_index)::integer)) -> 'bbox'::text) -> 'r'::text)) OR (to_jsonb(r.bottom) IS DISTINCT FROM (((((a_1.native_json -> 'prov'::text) -> (r.region_index)::integer)) -> 'bbox'::text) -> 'b'::text)) OR (r.origin IS DISTINCT FROM CASE (((((a_1.native_json -> 'prov'::text) -> (r.region_index)::integer)) -> 'bbox'::text) ->> 'coord_origin'::text) WHEN 'TOPLEFT'::text THEN 'top_left'::text WHEN 'BOTTOMLEFT'::text THEN 'bottom_left'::text ELSE NULL::text END))",
+                "Plans": [
+                  {
+                    "Node Type": "Nested Loop",
+                    "Parent Relationship": "InitPlan",
+                    "Subplan Name": "CTE page_sizes",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Left",
+                    "Disabled": false,
+                    "Inner Unique": true,
+                    "Plans": [
+                      {
+                        "Node Type": "Nested Loop",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Join Type": "Left",
+                        "Disabled": false,
+                        "Inner Unique": true,
+                        "Plans": [
+                          {
+                            "Node Type": "Nested Loop",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Join Type": "Inner",
+                            "Disabled": false,
+                            "Inner Unique": false,
+                            "Plans": [
+                              {
+                                "Node Type": "Index Scan",
+                                "Parent Relationship": "Outer",
+                                "Parallel Aware": false,
+                                "Async Capable": false,
+                                "Scan Direction": "Forward",
+                                "Index Name": "pk_pdf_record_document",
+                                "Relation Name": "pdf_record_document",
+                                "Alias": "h",
+                                "Disabled": false,
+                                "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text))"
+                              },
+                              {
+                                "Node Type": "Index Scan",
+                                "Parent Relationship": "Inner",
+                                "Parallel Aware": false,
+                                "Async Capable": false,
+                                "Scan Direction": "Forward",
+                                "Index Name": "pk_pdf_record_membership",
+                                "Relation Name": "pdf_record_membership",
+                                "Alias": "pages",
+                                "Disabled": false,
+                                "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (parent_id = h.root_id) AND (field_name = 'pages'::text))"
+                              }
+                            ]
+                          },
+                          {
+                            "Node Type": "Index Scan",
+                            "Parent Relationship": "Inner",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Scan Direction": "Forward",
+                            "Index Name": "pk_pdf_record_native",
+                            "Relation Name": "pdf_record_native",
+                            "Alias": "page",
+                            "Disabled": false,
+                            "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (record_id = pages.record_id))"
+                          }
+                        ]
+                      },
+                      {
+                        "Node Type": "Index Scan",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Scan Direction": "Forward",
+                        "Index Name": "pk_pdf_record_native",
+                        "Relation Name": "pdf_record_native",
+                        "Alias": "page_size",
+                        "Disabled": false,
+                        "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (record_id = (((page.structure_json -> 'fields'::text) -> 'size'::text) ->> 'target'::text)))"
+                      }
+                    ]
+                  },
+                  {
+                    "Node Type": "Nested Loop",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Left",
+                    "Disabled": false,
+                    "Inner Unique": true,
+                    "Plans": [
+                      {
+                        "Node Type": "Seq Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Relation Name": "pdf_record_region",
+                        "Alias": "r",
+                        "Disabled": false,
+                        "Filter": "(product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text)"
+                      },
+                      {
+                        "Node Type": "Index Scan",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Scan Direction": "Forward",
+                        "Index Name": "pk_pdf_record_access",
+                        "Relation Name": "pdf_record_access",
+                        "Alias": "a_1",
+                        "Disabled": false,
+                        "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (pointer = r.pointer))"
+                      }
+                    ]
+                  },
+                  {
+                    "Node Type": "Hash",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Disabled": false,
+                    "Plans": [
+                      {
+                        "Node Type": "CTE Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "CTE Name": "page_sizes",
+                        "Alias": "size",
+                        "Disabled": false
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

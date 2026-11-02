@@ -1,0 +1,398 @@
+{
+  "observed_at": "2026-11-01T22:31:00.332755+00:00",
+  "outcome": "passed",
+  "scope": "read-only inventory and planner shape, no execution timing",
+  "build_id": "9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c",
+  "owner": "python/corpus-structure/src/corpus_structure/semantic/sql/pdf_record_access_correspondence.sql",
+  "query": "SELECT EXISTS(SELECT FROM kb.pdf_record_access a WHERE a.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND\n (SELECT count(*) FROM kb.pdf_record_region r WHERE r.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND r.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND r.pointer=a.pointer)<>jsonb_array_length(COALESCE(a.native_json->'prov','[]'))) OR\n EXISTS(SELECT FROM kb.pdf_record_region r LEFT JOIN kb.pdf_record_access a ON a.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND a.pointer=r.pointer\n LEFT JOIN LATERAL (SELECT a.native_json->'prov'->r.region_index::integer value) prov ON true\n LEFT JOIN ops.pdf_record_document h ON h.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND h.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'\n LEFT JOIN kb.pdf_record_membership pages ON pages.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND pages.revision_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND pages.parent_id=h.root_id AND pages.field_name='pages' AND pages.member_key=r.page_no::text\n LEFT JOIN kb.pdf_record_native page ON page.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND page.record_id=pages.record_id\n LEFT JOIN kb.pdf_record_native size ON size.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND size.record_id=page.structure_json->'fields'->'size'->>'target'\n WHERE r.product_id='9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' AND (r.revision_id<>'9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c' OR a.pointer IS NULL OR prov.value IS NULL OR\n (prov.value->>'page_no')::bigint IS DISTINCT FROM r.page_no OR\n ops.pdf_projection_scalar_matches(to_jsonb(r.page_width),size.scalars_json->'width') IS NOT TRUE OR\n ops.pdf_projection_scalar_matches(to_jsonb(r.page_height),size.scalars_json->'height') IS NOT TRUE OR\n to_jsonb(r.left) IS DISTINCT FROM prov.value->'bbox'->'l' OR to_jsonb(r.top) IS DISTINCT FROM prov.value->'bbox'->'t' OR\n to_jsonb(r.right) IS DISTINCT FROM prov.value->'bbox'->'r' OR to_jsonb(r.bottom) IS DISTINCT FROM prov.value->'bbox'->'b' OR\n r.origin IS DISTINCT FROM CASE prov.value->'bbox'->>'coord_origin' WHEN 'TOPLEFT' THEN 'top_left' WHEN 'BOTTOMLEFT' THEN 'bottom_left' END))",
+  "counts": {
+    "native": 780702,
+    "membership": 569604,
+    "reference": 419358,
+    "access": 209439,
+    "region": 48279,
+    "companion": 544392,
+    "endpoint": 780400
+  },
+  "settings": {
+    "jit": "off",
+    "max_parallel_workers": "8",
+    "max_parallel_workers_per_gather": "4",
+    "max_worker_processes": "16",
+    "work_mem": "65536"
+  },
+  "functions": [
+    [
+      "ops",
+      "pdf_check_access_correspondence",
+      "u",
+      "s",
+      false
+    ],
+    [
+      "ops",
+      "pdf_identity_byte_root",
+      "u",
+      "i",
+      false
+    ],
+    [
+      "ops",
+      "pdf_identity_verify_artifact",
+      "u",
+      "s",
+      false
+    ],
+    [
+      "ops",
+      "pdf_native_record_shape",
+      "u",
+      "i",
+      false
+    ],
+    [
+      "ops",
+      "pdf_projection_contract",
+      "u",
+      "s",
+      true
+    ],
+    [
+      "ops",
+      "pdf_record_logical_identity",
+      "u",
+      "s",
+      false
+    ],
+    [
+      "ops",
+      "pdf_reference_bytes_equal",
+      "u",
+      "s",
+      false
+    ],
+    [
+      "ops",
+      "validate_pdf_build",
+      "u",
+      "v",
+      true
+    ]
+  ],
+  "indexes": [
+    [
+      "pdf_record_membership",
+      "CREATE UNIQUE INDEX pk_pdf_record_membership ON kb.pdf_record_membership USING btree (product_id, revision_id, parent_id, field_name, ordinal)"
+    ],
+    [
+      "pdf_record_native",
+      "CREATE UNIQUE INDEX pk_pdf_record_native ON kb.pdf_record_native USING btree (product_id, revision_id, record_id)"
+    ],
+    [
+      "pdf_record_native",
+      "CREATE UNIQUE INDEX uq_pdf_record_native_product_id_revision_id_native_address ON kb.pdf_record_native USING btree (product_id, revision_id, native_address)"
+    ],
+    [
+      "pdf_record_region",
+      "CREATE UNIQUE INDEX pk_pdf_record_region ON kb.pdf_record_region USING btree (product_id, revision_id, pointer, region_index)"
+    ]
+  ],
+  "explain": [
+    {
+      "Plan": {
+        "Node Type": "Result",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Startup Cost": 11.47,
+        "Total Cost": 11.48,
+        "Plan Rows": 1,
+        "Plan Width": 1,
+        "Disabled": false,
+        "Plans": [
+          {
+            "Node Type": "Index Scan",
+            "Parent Relationship": "InitPlan",
+            "Subplan Name": "InitPlan 2",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Scan Direction": "Forward",
+            "Index Name": "pk_pdf_record_access",
+            "Relation Name": "pdf_record_access",
+            "Alias": "a",
+            "Startup Cost": 0.55,
+            "Total Cost": 622902.6,
+            "Plan Rows": 208470,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text)",
+            "Filter": "((SubPlan 1) <> jsonb_array_length(COALESCE((native_json -> 'prov'::text), '[]'::jsonb)))",
+            "Plans": [
+              {
+                "Node Type": "Aggregate",
+                "Strategy": "Plain",
+                "Partial Mode": "Simple",
+                "Parent Relationship": "SubPlan",
+                "Subplan Name": "SubPlan 1",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 2.77,
+                "Total Cost": 2.78,
+                "Plan Rows": 1,
+                "Plan Width": 8,
+                "Disabled": false,
+                "Plans": [
+                  {
+                    "Node Type": "Index Only Scan",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Scan Direction": "Forward",
+                    "Index Name": "pk_pdf_record_region",
+                    "Relation Name": "pdf_record_region",
+                    "Alias": "r",
+                    "Startup Cost": 0.55,
+                    "Total Cost": 2.77,
+                    "Plan Rows": 1,
+                    "Plan Width": 0,
+                    "Disabled": false,
+                    "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (pointer = a.pointer))"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Node Type": "Nested Loop",
+            "Parent Relationship": "InitPlan",
+            "Subplan Name": "InitPlan 3",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Join Type": "Left",
+            "Startup Cost": 2.76,
+            "Total Cost": 478191.44,
+            "Plan Rows": 92580,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Inner Unique": false,
+            "Filter": "((r_1.revision_id <> '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) OR (a_1.pointer IS NULL) OR ((((a_1.native_json -> 'prov'::text) -> (r_1.region_index)::integer)) IS NULL) OR ((((((a_1.native_json -> 'prov'::text) -> (r_1.region_index)::integer)) ->> 'page_no'::text))::bigint IS DISTINCT FROM r_1.page_no) OR (ops.pdf_projection_scalar_matches(to_jsonb(r_1.page_width), (size.scalars_json -> 'width'::text)) IS NOT TRUE) OR (ops.pdf_projection_scalar_matches(to_jsonb(r_1.page_height), (size.scalars_json -> 'height'::text)) IS NOT TRUE) OR (to_jsonb(r_1.\"left\") IS DISTINCT FROM (((((a_1.native_json -> 'prov'::text) -> (r_1.region_index)::integer)) -> 'bbox'::text) -> 'l'::text)) OR (to_jsonb(r_1.top) IS DISTINCT FROM (((((a_1.native_json -> 'prov'::text) -> (r_1.region_index)::integer)) -> 'bbox'::text) -> 't'::text)) OR (to_jsonb(r_1.\"right\") IS DISTINCT FROM (((((a_1.native_json -> 'prov'::text) -> (r_1.region_index)::integer)) -> 'bbox'::text) -> 'r'::text)) OR (to_jsonb(r_1.bottom) IS DISTINCT FROM (((((a_1.native_json -> 'prov'::text) -> (r_1.region_index)::integer)) -> 'bbox'::text) -> 'b'::text)) OR (r_1.origin IS DISTINCT FROM CASE (((((a_1.native_json -> 'prov'::text) -> (r_1.region_index)::integer)) -> 'bbox'::text) ->> 'coord_origin'::text) WHEN 'TOPLEFT'::text THEN 'top_left'::text WHEN 'BOTTOMLEFT'::text THEN 'bottom_left'::text ELSE NULL::text END))",
+            "Plans": [
+              {
+                "Node Type": "Nested Loop",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Join Type": "Left",
+                "Startup Cost": 2.07,
+                "Total Cost": 372352.53,
+                "Plan Rows": 72713,
+                "Plan Width": 324,
+                "Disabled": false,
+                "Inner Unique": false,
+                "Plans": [
+                  {
+                    "Node Type": "Nested Loop",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Join Type": "Left",
+                    "Startup Cost": 1.38,
+                    "Total Cost": 360511.75,
+                    "Plan Rows": 72713,
+                    "Plan Width": 243,
+                    "Disabled": false,
+                    "Inner Unique": false,
+                    "Join Filter": "(pages.member_key = (r_1.page_no)::text)",
+                    "Plans": [
+                      {
+                        "Node Type": "Nested Loop",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Join Type": "Left",
+                        "Startup Cost": 0.7,
+                        "Total Cost": 148189.79,
+                        "Plan Rows": 72713,
+                        "Plan Width": 210,
+                        "Disabled": false,
+                        "Inner Unique": false,
+                        "Plans": [
+                          {
+                            "Node Type": "Nested Loop",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Join Type": "Left",
+                            "Startup Cost": 0.56,
+                            "Total Cost": 147278.51,
+                            "Plan Rows": 72713,
+                            "Plan Width": 178,
+                            "Disabled": false,
+                            "Inner Unique": false,
+                            "Plans": [
+                              {
+                                "Node Type": "Seq Scan",
+                                "Parent Relationship": "Outer",
+                                "Parallel Aware": false,
+                                "Async Capable": false,
+                                "Relation Name": "pdf_record_region",
+                                "Alias": "r_1",
+                                "Startup Cost": 0.0,
+                                "Total Cost": 8735.56,
+                                "Plan Rows": 48507,
+                                "Plan Width": 154,
+                                "Disabled": false,
+                                "Filter": "(product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text)"
+                              },
+                              {
+                                "Node Type": "Memoize",
+                                "Parent Relationship": "Inner",
+                                "Parallel Aware": false,
+                                "Async Capable": false,
+                                "Startup Cost": 0.56,
+                                "Total Cost": 3.76,
+                                "Plan Rows": 1,
+                                "Plan Width": 452,
+                                "Disabled": false,
+                                "Cache Key": "r_1.pointer",
+                                "Cache Mode": "logical",
+                                "Plans": [
+                                  {
+                                    "Node Type": "Index Scan",
+                                    "Parent Relationship": "Outer",
+                                    "Parallel Aware": false,
+                                    "Async Capable": false,
+                                    "Scan Direction": "Forward",
+                                    "Index Name": "pk_pdf_record_access",
+                                    "Relation Name": "pdf_record_access",
+                                    "Alias": "a_1",
+                                    "Startup Cost": 0.55,
+                                    "Total Cost": 3.75,
+                                    "Plan Rows": 1,
+                                    "Plan Width": 452,
+                                    "Disabled": false,
+                                    "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (pointer = r_1.pointer))"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "Node Type": "Materialize",
+                            "Parent Relationship": "Inner",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Startup Cost": 0.15,
+                            "Total Cost": 2.37,
+                            "Plan Rows": 1,
+                            "Plan Width": 32,
+                            "Disabled": false,
+                            "Plans": [
+                              {
+                                "Node Type": "Index Scan",
+                                "Parent Relationship": "Outer",
+                                "Parallel Aware": false,
+                                "Async Capable": false,
+                                "Scan Direction": "Forward",
+                                "Index Name": "pk_pdf_record_document",
+                                "Relation Name": "pdf_record_document",
+                                "Alias": "h",
+                                "Startup Cost": 0.15,
+                                "Total Cost": 2.37,
+                                "Plan Rows": 1,
+                                "Plan Width": 32,
+                                "Disabled": false,
+                                "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text))"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "Node Type": "Index Scan",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Scan Direction": "Forward",
+                        "Index Name": "pk_pdf_record_membership",
+                        "Relation Name": "pdf_record_membership",
+                        "Alias": "pages",
+                        "Startup Cost": 0.68,
+                        "Total Cost": 2.9,
+                        "Plan Rows": 1,
+                        "Plan Width": 134,
+                        "Disabled": false,
+                        "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (revision_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (parent_id = h.root_id) AND (field_name = 'pages'::text))"
+                      }
+                    ]
+                  },
+                  {
+                    "Node Type": "Memoize",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Startup Cost": 0.69,
+                    "Total Cost": 9.83,
+                    "Plan Rows": 1,
+                    "Plan Width": 211,
+                    "Disabled": false,
+                    "Cache Key": "pages.record_id",
+                    "Cache Mode": "logical",
+                    "Plans": [
+                      {
+                        "Node Type": "Index Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Scan Direction": "Forward",
+                        "Index Name": "pk_pdf_record_native",
+                        "Relation Name": "pdf_record_native",
+                        "Alias": "page",
+                        "Startup Cost": 0.68,
+                        "Total Cost": 9.82,
+                        "Plan Rows": 1,
+                        "Plan Width": 211,
+                        "Disabled": false,
+                        "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (record_id = pages.record_id))"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Node Type": "Memoize",
+                "Parent Relationship": "Inner",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 0.7,
+                "Total Cost": 3.69,
+                "Plan Rows": 1,
+                "Plan Width": 164,
+                "Disabled": false,
+                "Cache Key": "(((page.structure_json -> 'fields'::text) -> 'size'::text) ->> 'target'::text)",
+                "Cache Mode": "logical",
+                "Plans": [
+                  {
+                    "Node Type": "Index Scan",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Scan Direction": "Forward",
+                    "Index Name": "pk_pdf_record_native",
+                    "Relation Name": "pdf_record_native",
+                    "Alias": "size",
+                    "Startup Cost": 0.69,
+                    "Total Cost": 3.68,
+                    "Plan Rows": 1,
+                    "Plan Width": 164,
+                    "Disabled": false,
+                    "Index Cond": "((product_id = '9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c'::text) AND (record_id = (((page.structure_json -> 'fields'::text) -> 'size'::text) ->> 'target'::text)))"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

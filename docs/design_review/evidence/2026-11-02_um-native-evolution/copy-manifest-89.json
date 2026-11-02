@@ -1,0 +1,38 @@
+{
+  "raw/author89-result.json": {
+    "bytes": 587,
+    "sha256": "e5c5421128cd10e26e52b16558cd5a2cc2ea41db47659bc1697adcc1ff41145f"
+  },
+  "raw/author89-source-delta.json": {
+    "bytes": 498,
+    "sha256": "85c481d0e43389a27980a610fd996ef064a33ccf23828e3961a16affcb28b33a"
+  },
+  "raw/author89-source-hashes.json": {
+    "bytes": 59200,
+    "sha256": "3ee549750d39c0050a4319e6f01e92126a2de39aa9811679e85076a671744c28"
+  },
+  "raw/author89.log": {
+    "bytes": 7646,
+    "sha256": "546c5c2712aa8b9b93f979925de74d3315fb3ed998cb7fbbdeb99af03b7452ec"
+  },
+  "raw/freeze89.log": {
+    "bytes": 245,
+    "sha256": "4374487d572311dbf0562c38437e4850ba3e3d545275912aa671219599b28ab3"
+  },
+  "raw/replay89.log": {
+    "bytes": 6375,
+    "sha256": "0191fe3e518bf4dc963e72c8b0259dba9805517b746b3866699896360cec59fe"
+  },
+  "sources/author89.py": {
+    "bytes": 8600,
+    "sha256": "2b5cf7e3182ea36d57d4c521040b14bb5711c0c2e937943900d4a316c9736405"
+  },
+  "sources/freeze89.py": {
+    "bytes": 2120,
+    "sha256": "ec8ee59ae8f9726acd3411420ea141b6657d96b52f6c75bad8c55d755a3f7414"
+  },
+  "sources/replay89.py": {
+    "bytes": 4525,
+    "sha256": "f363e6be6fb16a72ca7e43f1de904d9ca7a9a5e9456a71420a05c82a2be838f5"
+  }
+}

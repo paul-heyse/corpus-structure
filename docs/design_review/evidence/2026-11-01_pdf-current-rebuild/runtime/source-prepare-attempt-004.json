@@ -1,0 +1,27 @@
+{
+  "observed_at": "2026-11-01T23:44:29.790687+00:00",
+  "outcome": "running",
+  "run_id": 10,
+  "release_id": "release:143908b452ff569d277197926ddb2f11481a94ea9aca7308340a325ff77b02fa",
+  "native_revision": "semantic_pdf_retire_20261101",
+  "argv_file": "source-prepare-command.json",
+  "log": "source-prepare-attempt-004.log",
+  "source_pin_file": "math-enriched.pin.json",
+  "source_ready": false,
+  "integrated_publication": null,
+  "prior_failed_attempts": [
+    "source-prepare-attempt-001.json",
+    "source-prepare-attempt-002.json",
+    "source-prepare-attempt-003.json"
+  ],
+  "session_id": 39322,
+  "task_id": 10,
+  "process_id": 684631,
+  "build_id": "15ddbeff9ecd29bff113dc62710b30c8975fede06f20976b77766d588f3927af",
+  "phase": "frozen native callback passed; final PostgreSQL validate_pdf_build active",
+  "implementation_commit": "5cf6c4d6",
+  "implementation_note": "Run started from the same dirty implementation bytes later committed unchanged; release archives exact determinants.",
+  "native_callback_passed": true,
+  "final_validation_recorded": false,
+  "writer_backend_pid": 684930
+}

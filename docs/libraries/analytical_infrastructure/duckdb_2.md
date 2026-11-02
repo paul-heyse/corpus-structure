@@ -1918,3 +1918,1477 @@ The Python package is particularly significant because it exposes these capabili
 DuckDB 2.0's important qualifications concern transaction ownership, remote security, extension maturity, storage compatibility, memory behavior and the still-evolving client/extension APIs. Preserving those distinctions is essential to understanding both the breadth of what the library can now accomplish and where other systems remain necessary.
 
 This reference is based on the DuckDB 2.0 release announcement and versioned upstream documentation available on October 21, 2026. Code fragments are illustrative; no runtime execution or benchmarks were performed.
+
+# DuckDB 2.0.0 — Advanced Capabilities Addendum
+
+Version: DuckDB 2.0.0 LTS (“Cinnamon Teal”) | Research date: November 1, 2026
+
+Scope: Supplemental reference covering advanced functionality, consequential API semantics, extension capabilities, and operational distinctions not sufficiently developed in DuckDB 2.0.0 — Comprehensive Python Library and Engine Capability Reference (`duckdb_2.md`).
+
+This addendum is intended to accompany the original guide. It does not repeat the existing coverage of relational APIs, vectorized execution, standard file interoperability, native storage, or the major DuckDB 2.0 release features.
+
+Features are described against DuckDB 2.0.0 and its versioned documentation. Capabilities supplied by extensions are distinguished from those of the core engine, particularly where extension availability, compatibility, or stability differs. Code examples are illustrative unless otherwise indicated.
+
+## 1. Advanced Python mutation and interoperability capabilities
+
+### 1.1 The Python appender is a general buffered mutation interface
+
+DuckDB 2.0 introduces a Python appender that supports substantially more than buffered inserts. Its `action` parameter selects among four relational mutation operations:
+
+| Action   | Behavior                                         | Important semantics                                                             |
+| -------- | ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `insert` | Inserts buffered records                         | Default operation; supports column subsets and defaults                         |
+| `upsert` | Inserts records or replaces matching records     | Uses `INSERT OR REPLACE`; requires exactly one primary-key or unique constraint |
+| `update` | Updates existing records matching specified keys | Updates the non-key columns supplied by the appender                            |
+| `delete` | Deletes records matching supplied keys           | Expects key-column values in the declared key order                             |
+
+The interface provides a native alternative to constructing individual SQL statements for every Python-generated mutation.
+
+For example:
+
+```
+with con.appender("measurements", action="upsert") as app:    app.append_rows([        (101, 25.4),        (102, 26.1),    ])with con.appender(    "measurements",    action="update",    key=["measurement_id"],    columns=["measurement_id", "value"],) as app:    app.append_row(101, 25.8)
+```
+
+This assumes an existing table with `measurement_id` as its primary key and a numeric `value` column.
+
+The appender's semantics are not identical across operations. A `NULL` key matches no existing row; duplicate keys within a flush are resolved according to the selected action; and upserts do not guarantee preservation of append order. `MERGE INTO` instead raises an error when its incoming batch contains conflicting duplicate matches.
+
+Custom query appenders
+
+`query_appender(statement, columns, source=...)` extends buffered mutation to arbitrary supported DML statements.
+
+The input buffer is exposed as a relational source named `appender_buffer`. An optional SQL transformation supplied through `source` can join, filter, calculate, or reshape incoming records; its output becomes `appender_data`, which the final mutation statement consumes.
+
+```
+app = con.query_appender(    "INSERT INTO normalized_events FROM appender_data",    {        "source_id": "INTEGER",        "raw_value": "DOUBLE",    },    source="""        SELECT            b.source_id,            b.raw_value * c.factor AS normalized_value        FROM appender_buffer AS b        JOIN calibration AS c USING (source_id)    """,)app.append_rows([(1, 10.0), (2, 12.0)])app.flush()
+```
+
+Here the input records are normalized using relational reference data before insertion. The buffer's input schema and the destination schema need not be identical.
+
+Custom statements can be `INSERT`, `UPDATE`, `DELETE`, or `MERGE INTO`, subject to the documented restrictions. This creates a more general interface between imperative Python producers and set-oriented SQL mutations.
+
+Execution and resource semantics
+
+An appender flush executes within an existing explicit transaction, or commits independently when no transaction is active. The appender remains reusable after a flush.
+
+Error handling deserves particular attention:
+
+- Successful context-manager exit flushes buffered records; exceptional exit discards the buffered records.
+- A flush blocked by an active result or concurrent connection operation retains its buffer.
+- Other execution errors generally discard buffered rows.
+- Interrupted flushes inside explicit transactions can leave the transaction aborted, requiring rollback before retrying.
+- Buffered records count toward DuckDB's memory management and can spill to temporary storage; concurrent calls to the same appender are not supported.
+
+The interface is most useful when records originate incrementally from Python computation. When data already exists in Arrow or a DataFrame, direct relational ingestion generally avoids unnecessary conversion and buffering overhead.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/clients/python/appender`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+### 1.2 Shared in-memory databases and default-connection identity
+
+The Python integration supports named in-memory databases, providing a connection-sharing mechanism distinct from both ordinary independent in-memory instances and persistent database files.
+
+```
+con1 = duckdb.connect(":memory:shared_analytics")con2 = duckdb.connect(":memory:shared_analytics")
+```
+
+Connections using the same in-memory name share the database instance, including catalog objects such as tables, views, and macros. By contrast, separate `duckdb.connect(":memory:")` calls create independent databases.
+
+The module-level default database is accessible through `duckdb.connect(":default:")` or `duckdb.default_connection()`.
+
+This distinction matters for libraries that create connections internally, for concurrency coordination within a Python process, and for avoiding unintended separation or sharing of database state. A shared database instance does not imply a shared session: connection-scoped state and connection-level execution lifecycles still require separate consideration.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/clients/python/dbapi`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+### 1.3 Python-defined filesystem interoperability through fsspec
+
+DuckDB's Python client supports registering `fsspec`-compatible filesystems through `register_filesystem()`.
+
+```
+from fsspec import filesystemimport duckdbcon = duckdb.connect()con.register_filesystem(filesystem("gcs"))result = con.sql("""    SELECT *    FROM read_parquet('gcs://bucket/path/data.parquet')""")
+```
+
+This extends SQL file access to Python filesystem implementations beyond those supported by DuckDB's native storage extensions. The filesystem is registered at the Python integration boundary, but DuckDB can still use its SQL processing facilities over data obtained through that filesystem.
+
+There is an important performance distinction. An fsspec implementation executes through Python-defined filesystem machinery, whereas native `httpfs` integrations are implemented within DuckDB's native engine. Equivalent URI support does not imply equivalent I/O concurrency, caching, pushdown, or transfer overhead.
+
+Native storage extensions generally offer stronger integration for frequently accessed supported services; fsspec provides an extensibility path for unusual storage protocols and Python-specific authentication mechanisms.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/guides/python/filesystems`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+## 2. SQL property-graph processing through DuckPGQ
+
+DuckDB can expose relational tables as a property graph using DuckPGQ, a community extension implementing portions of the SQL/PGQ functionality standardized in SQL:2023.
+
+This introduces a graph-oriented query abstraction distinct from ordinary joins, recursive CTEs, or the `USING KEY` recursive-state mechanism.
+
+### 2.1 Graph definitions over existing relational tables
+
+DuckPGQ defines vertices and edges using existing database tables and their relational key relationships.
+
+```
+INSTALL duckpgq FROM community;
+LOAD duckpgq;
+
+SET active_grammar_extensions = ['duckpgq'];
+
+CREATE PROPERTY GRAPH dependency_graph
+VERTEX TABLES (
+    components
+)
+EDGE TABLES (
+    dependencies
+        SOURCE KEY (source_id) REFERENCES components (id)
+        DESTINATION KEY (target_id) REFERENCES components (id)
+);
+```
+
+The property graph provides a graph interpretation of existing relational data. Conceptually, this allows graph queries without first maintaining a separate application-level adjacency-list database or duplicating the relational records into another graph engine.
+
+DuckPGQ also illustrates an important DuckDB 2.0 parser capability: extensions can register SQL grammar, but users must explicitly activate an extension's grammar through `active_grammar_extensions`.
+
+### 2.2 Declarative graph patterns and path queries
+
+The `GRAPH_TABLE` construct expresses graph relationships using vertex and edge patterns.
+
+```
+FROM GRAPH_TABLE (
+    dependency_graph
+    MATCH
+        (a:components)-[e:dependencies]->(b:components)
+    COLUMNS (
+        a.id AS source,
+        b.id AS target
+    )
+);
+```
+
+More complex patterns can express variable-length traversal and shortest-path selection.
+
+```
+FROM GRAPH_TABLE (
+    dependency_graph
+    MATCH p = ANY SHORTEST
+        (a:components)-[e:dependencies]->{1,5}(b:components)
+    COLUMNS (
+        a.id AS start_node,
+        b.id AS end_node,
+        path_length(p) AS hops
+    )
+);
+```
+
+This is a fundamentally different representation of traversal logic from manually joining multiple copies of an edge table or implementing iterative graph traversal in Python.
+
+DuckPGQ additionally exposes graph algorithms, including:
+
+- `pagerank` for vertex centrality.
+- `local_clustering_coefficient` for neighborhood connectivity.
+- `weakly_connected_component` for component identification.
+
+The extension also provides graph-related functions for constructing and inspecting graph representations.
+
+### 2.3 Architectural significance and boundaries
+
+Property-graph SQL offers a useful complement to DuckDB's existing relational capabilities. Relational operations remain suitable for aggregation, filtering, and joining structured metadata, while property-graph patterns can describe graph navigation more naturally.
+
+The distinction from keyed recursive CTEs is important:
+
+| Mechanism                   | Principal strength                                                                                             |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Recursive SQL / `USING KEY` | General iterative relational computation and keyed fixed-point state                                           |
+| DuckPGQ                     | Declarative graph schema, path-pattern matching, graph traversal, and graph-specific algorithms                |
+| External graph libraries    | Potentially richer specialized algorithms, graph representations, and independently optimized execution models |
+
+DuckPGQ does not imply that DuckDB has a native, independently managed graph-storage engine equivalent to a purpose-built graph database. The extension is still evolving, and SQL/PGQ coverage is incomplete. Extension binaries are also version- and platform-dependent.
+
+The official community-extension catalog includes DuckDB 2.0.0 compatibility information, but supported combinations should be confirmed for the intended platform.
+
+Primary sources:\
+`https://duckdb.org/docs/2.0/guides/sql_features/graph_queries`\
+`https://duckdb.org/community_extensions/extensions/duckpgq`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+1
+
+
+
+## 3. Spatial indexing and geospatial data processing
+
+DuckDB's `spatial` extension provides a considerably broader execution capability than simple geometry functions. The most important omitted mechanism is its native R-tree spatial index.
+
+### 3.1 R-tree indexing of geometry columns
+
+R-trees organize spatial objects by minimum bounding rectangles. Internal tree nodes summarize the spatial extent of their children, enabling DuckDB to eliminate groups of geometries whose bounding rectangles cannot intersect a query region.
+
+```
+INSTALL spatial;
+LOAD spatial;
+
+CREATE INDEX geometry_idx
+ON spatial_features
+USING RTREE (geom);
+
+EXPLAIN
+SELECT *
+FROM spatial_features
+WHERE ST_Intersects(
+    geom,
+    ST_MakeEnvelope(0, 0, 10, 10)
+);
+```
+
+The optimizer can use an `RTREE_INDEX_SCAN` to reduce the number of geometries fetched and evaluated.
+
+R-tree indexing is particularly relevant for spatial filtering and region-of-interest queries. It does not simply accelerate every operation involving a geometry column.
+
+The documented restrictions are specific:
+
+- R-tree indexes apply to `GEOMETRY` columns.
+- Index scans support a defined set of spatial predicates, including `ST_Intersects`, `ST_Within`, `ST_Contains`, `ST_Covers`, `ST_Crosses`, and related relationships.
+- One argument of the spatial predicate must be constant at query-planning time.
+- Arbitrary spatial joins are not automatically accelerated by the R-tree index.
+
+The index is therefore especially effective for filtering stored geometries against a known region, rather than for every pairwise geometry comparison.
+
+### 3.2 Index construction, maintenance, and memory
+
+DuckDB supports creating an R-tree over an existing table using bottom-up bulk loading. This is generally more efficient than maintaining an index while inserting a large dataset row by row.
+
+The structure can be tuned using `max_node_capacity` and `min_node_capacity`, affecting the tradeoff between tree granularity, memory consumption, and traversal cost.
+
+R-tree indexes support an inspection function:
+
+```
+SELECT *
+FROM rtree_index_dump('geometry_idx');
+```
+
+This exposes index levels, node bounds, and row identifiers for inspection.
+
+R-tree index buffers can be loaded lazily from disk, but once loaded they remain resident for the connection's lifetime unless the index is dropped. Their memory is accounted for under DuckDB's memory limit.
+
+Heavy mutations may degrade index organization; rebuilding an index can restore the advantages of bulk loading. These characteristics make index size, geometry distribution, and mutation patterns consequential parts of spatial-query performance.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/core_extensions/spatial/r-tree_indexes`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+### 3.3 GeoJSON and GeoJSONL as native export formats
+
+DuckDB 2.0 also supports writing GeoJSON and GeoJSON Lines through `COPY`, with geometry serialization supplied by the spatial extension.
+
+```
+COPY (
+    SELECT
+        id,
+        category,
+        geom
+    FROM spatial_features
+)
+TO 'features.geojson'
+(FORMAT GEOJSON, ID_COLUMN 'id', GEOMETRY_COLUMN 'geom');
+```
+
+`FORMAT GEOJSON` produces a GeoJSON `FeatureCollection`, whereas `FORMAT GEOJSONL` provides line-delimited features suitable for stream-oriented consumption.
+
+`ID_COLUMN` and `GEOMETRY_COLUMN` identify the source columns used for feature identity and geometry. This allows SQL transformations and geometry operations to feed standardized geospatial outputs without an intermediate Python GIS serialization layer.
+
+The spatial extension additionally includes geometry construction, transformation, measurement, topological predicates, coordinate reference system operations, and file-format readers. These capabilities belong to the extension rather than DuckDB's default scalar-function set.
+
+Primary sources:\
+`https://duckdb.org/docs/2.0/core_extensions/spatial/functions`\
+`https://duckdb.org/2026/10/26/gems-of-duckdb-200`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+1
+
+
+
+## 4. Row-level error recovery and SQL session variables
+
+### 4.1 Generalized expression error recovery with `TRY`
+
+DuckDB's `TRY(expression)` provides row-level error recovery for scalar expressions. This is more general than `TRY_CAST`, which only addresses failed type conversions.
+
+When an eligible expression fails for a particular row, `TRY` substitutes `NULL` for that row instead of aborting the entire query.
+
+```
+SELECT
+    record_id,
+    TRY(raw_value::DOUBLE) AS parsed_value,
+    TRY(numerator // denominator) AS integer_quotient
+FROM raw_records;
+```
+
+This allows selected conversion and arithmetic failures to be represented in the relational result.
+
+The mechanism can be combined with `CASE`, `COALESCE`, validation predicates, and aggregations to distinguish successful computations from rejected or undefined results.
+
+For example:
+
+```
+WITH parsed AS (
+    SELECT
+        record_id,
+        raw_value,
+        TRY(raw_value::DOUBLE) AS numeric_value
+    FROM raw_records
+)
+SELECT
+    count(*) AS total_rows,
+    count(*) FILTER (
+        WHERE numeric_value IS NULL AND raw_value IS NOT NULL
+    ) AS failed_conversions
+FROM parsed;
+```
+
+This expresses a simple validation metric without a Python exception-handling loop.
+
+Limits of error suppression
+
+`TRY` is not an unrestricted exception-catching construct. DuckDB 2.0 does not permit its use with volatile functions, aggregate functions, or scalar subqueries. It also does not convert arbitrary SQL failures, binder errors, or external I/O failures into null results.
+
+The distinction is between recoverable row-dependent errors within an eligible scalar expression and failures of query planning, execution infrastructure, or other SQL operations.
+
+A further consequence is that `NULL` alone does not preserve the reason an expression failed. If detailed diagnostics matter, source values, validation indicators, and error categories may need to be retained separately.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/sql/expressions/try`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+### 4.2 Session variables as implicit prepared-statement parameters
+
+DuckDB supports session variables through `SET VARIABLE`, `RESET VARIABLE`, and `getvariable()`.
+
+DuckDB 2.0 introduces the `$name` shorthand and allows a matching session variable to supply a missing named parameter when a prepared statement is executed.
+
+```
+SET VARIABLE multiplier = 10;
+
+PREPARE scale_value AS
+    SELECT $input_value * $multiplier AS result;
+
+EXECUTE scale_value(input_value := 12);
+```
+
+The statement uses the explicitly supplied `input_value` and the session's `multiplier`.
+
+If a prepared-statement parameter is explicitly supplied, that value takes precedence over the session variable. Variables are resolved when the statement executes, meaning a subsequent variable change can affect later executions of the same prepared statement.
+
+This provides a useful distinction among three mechanisms:
+
+| Mechanism                 | Semantics                                                                   |
+| ------------------------- | --------------------------------------------------------------------------- |
+| Explicit SQL parameter    | Value supplied with a particular statement execution                        |
+| Session variable fallback | Value obtained from current session state when a named parameter is omitted |
+| `getvariable('name')`     | Explicit lookup of a session variable, yielding `NULL` if undefined         |
+
+By contrast, an unresolved `$name` raises a missing-parameter error.
+
+Session variables can also contain lists, maps, dates, and values derived from scalar subqueries. They can therefore parameterize SQL transformations, file collections, and other relational operations without repeatedly constructing new SQL strings.
+
+The feature does not remove the need for safe parameter binding. Session variables are mutable execution context, and a query that depends on them is not fully specified by its SQL text alone.
+
+Primary sources:\
+`https://duckdb.org/docs/2.0/sql/statements/set_variable`\
+`https://duckdb.org/docs/2.0/sql/statements/prepare`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+2
+
+
+
+### 4.3 Additional SQL utility extensions
+
+Two smaller DuckDB 2.0 additions are worth retaining as API discovery handles.
+
+`setval(sequence, value[, is_called])` changes the value of a sequence. By default, the next `nextval()` advances from the specified value by the sequence increment. Passing `false` as `is_called` instead causes the next `nextval()` to return the specified value itself. This is useful when reconciling a sequence with previously imported identifiers.
+
+`regexp_extract` gains an overload accepting regular-expression options directly as its third argument without explicitly providing a capture-group number. For example, `regexp_extract('ABC', 'abc', 'i')` performs a case-insensitive match.
+
+These are available within native SQL and do not require corresponding Python helper functions.
+
+Primary source:\
+`https://duckdb.org/2026/10/26/gems-of-duckdb-200`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+## 5. Relational integrity, derived columns, and temporary state
+
+DuckDB's persistence model includes several database-native mechanisms that deserve explicit distinction from analytical expressions or application-managed state.
+
+### 5.1 Generated columns
+
+DuckDB supports columns defined by SQL expressions over other columns of the same table.
+
+```
+CREATE TABLE readings (
+    reading_id BIGINT,
+    magnitude DOUBLE,
+    magnitude_squared DOUBLE
+        GENERATED ALWAYS AS (magnitude * magnitude) VIRTUAL
+);
+```
+
+The generated value is computed from its dependencies rather than supplied during insertion.
+
+The distinction between virtual and stored generated columns is consequential. DuckDB's SQL syntax recognizes both variants, but DuckDB 2.0 supports only virtual generated columns. They are computed when referenced rather than physically materialized and maintained on disk.
+
+A generated column can therefore centralize a deterministic transformation in the table definition, but it is not a substitute for a persisted derived table or an automatically maintained materialized view.
+
+DuckDB 2.0 also exposes `is_generated` and `generation_expression` in `duckdb_columns()`, allowing generic schema-inspection systems to distinguish generated data from independently stored columns.
+
+Primary sources:\
+`https://duckdb.org/docs/2.0/sql/statements/create_table`\
+`https://duckdb.org/docs/2.0/sql/meta/duckdb_table_functions`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+1
+
+
+
+### 5.2 Foreign-key constraints and integrity semantics
+
+DuckDB supports foreign keys referencing primary-key or unique-key columns, including composite keys.
+
+Foreign keys provide native referential validation, but DuckDB's implementation has meaningful limitations:
+
+- Cascading deletes with `ON DELETE CASCADE` are unsupported.
+- Certain self-referencing inserts cannot be resolved within a single statement, even when the referenced row is inserted by that same statement.
+- Constraint enforcement uses ART indexes and can encounter overly eager checks when updates are internally rewritten into delete-and-insert operations.
+
+The last limitation is especially relevant to updates involving indexed columns or nested payload columns. A logically valid final table state may still be rejected because constraint validation occurs during intermediate processing.
+
+This means DuckDB's referential constraints are valuable for integrity enforcement, but they do not imply complete PostgreSQL-equivalent mutation behavior.
+
+Primary sources:\
+`https://duckdb.org/docs/2.0/sql/constraints`\
+`https://duckdb.org/docs/2.0/sql/indexes`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+1
+
+
+
+### 5.3 Sequences and session-scoped temporary tables
+
+Sequences provide native identity generation independently of Python-side counters.
+
+```
+CREATE SEQUENCE record_ids START 1;
+
+CREATE TABLE records (
+    id BIGINT PRIMARY KEY DEFAULT nextval('record_ids'),
+    payload VARCHAR
+);
+```
+
+The sequence is a catalog object, and its value can be managed with `nextval`, `currval`, and the DuckDB 2.0 `setval` functionality.
+
+Temporary tables provide a different kind of state. They exist in the `temp.main` schema and are scoped to the creating session. They disappear when the connection closes.
+
+Temporary tables are useful for materialized intermediate relations, validation results, or multi-statement SQL operations that need explicit state without permanent catalog objects. Their session-scoped identity also distinguishes them from Python in-memory relations and persistent DuckDB tables.
+
+Primary sources:\
+`https://duckdb.org/docs/2.0/sql/statements/create_sequence`\
+`https://duckdb.org/docs/2.0/sql/statements/create_table`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+1
+
+
+
+## 6. Additional structured-data, numerical, and temporal capabilities
+
+### 6.1 `VARIANT` has a more extensive relational function system
+
+The original guide explains the `VARIANT` representation and structural shredding, but several functions are important to understanding how dynamically typed values behave within relational operations.
+
+| Function                 | Capability                                                          |
+| ------------------------ | ------------------------------------------------------------------- |
+| `variant_type`           | Returns the top-level type category                                 |
+| `variant_typeof`         | Returns the full type, including nested structure                   |
+| `variant_keys`           | Returns object keys                                                 |
+| `variant_exists`         | Tests whether an object key exists                                  |
+| `variant_contains`       | Tests structural containment of one variant within another          |
+| `variant_extract_string` | Extracts a nested value as text                                     |
+| `variant_array_length`   | Returns array cardinality                                           |
+| `variant_normalize`      | Produces a canonical representation                                 |
+| `variant_comparator`     | Produces a binary sort key consistent with logical variant ordering |
+| `variant_group_object`   | Aggregates key/value pairs into a variant object                    |
+| `variant_group_array`    | Aggregates values into a variant array                              |
+
+Three capabilities deserve special emphasis.
+
+Canonicalization: `variant_normalize()` creates an equivalent canonical representation regardless of the original construction or physical representation. This can assist with equality-oriented normalization and stable value representation without first converting every value into an application-specific JSON representation.
+
+Logical comparison: `variant_comparator()` produces a `BLOB` sort key that reflects DuckDB's logical ordering of variant values rather than their raw internal binary representation. The ordering first distinguishes type categories and then orders values within those categories.
+
+Hierarchical aggregation: `variant_group_object()` and `variant_group_array()` construct hierarchical results directly in SQL. The object aggregator rejects null or duplicate keys. The array aggregator retains nulls as variant null values and has order-sensitive aggregation semantics.
+
+These functions make `VARIANT` more than an opaque semi-structured payload. They enable typed inspection, containment tests, comparison, and construction of nested output from ordinary relational data.
+
+However, canonical representation should not be confused with semantic equivalence under an application-specific schema. For example, two values that an application regards as equivalent after coercion are not necessarily identical variants.
+
+Most of this function family is introduced in DuckDB 2.0, although `variant_extract`, `variant_normalize`, and `variant_typeof` were already present in 1.5.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/sql/functions/variant`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+### 6.2 Exact-decimal division with `decimal_division`
+
+DuckDB's fixed-point `DECIMAL` type supports exact storage and arithmetic for addition, subtraction, and multiplication within its precision limits. Ordinary division involving decimals, however, uses approximate floating-point arithmetic and produces a floating-point result.
+
+DuckDB 2.0 introduces `decimal_division()` to provide a different division contract:
+
+```
+SELECT decimal_division(10.00, 4.00);
+```
+
+The function uses exact-decimal arithmetic with round-half-to-even semantics and returns a `DECIMAL` result. An optional third argument specifies the result scale.
+
+This is valuable when the result must remain within a fixed-decimal numerical model rather than silently crossing into floating-point representation.
+
+The tradeoff is that fixed-decimal arithmetic still has bounded width and scale. Division may require rounding, and exact-decimal representation is not equivalent to arbitrary-precision rational arithmetic.
+
+For computational workloads dominated by nonlinear mathematics rather than exact monetary or fixed-precision quantities, ordinary floating-point operations may remain more appropriate.
+
+Primary sources:\
+`https://duckdb.org/docs/2.0/sql/functions/numeric`\
+`https://duckdb.org/docs/2.0/sql/data_types/numeric`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+1
+
+
+
+### 6.3 Native time-series downsampling with `lttb`
+
+DuckDB 2.0 adds the `lttb(x, y, n)` aggregate, implementing the Largest-Triangle-Three-Buckets algorithm.
+
+The function selects up to `n` representative points intended to preserve the visual shape of an ordered series.
+
+```
+SELECT
+    unnest(lttb(
+        elapsed_time,
+        pressure,
+        500 ORDER BY elapsed_time
+    )) AS point
+FROM measurements;
+```
+
+Its result is a list of structs containing `x` and `y` coordinates.
+
+This is distinct from ordinary sampling or aggregation. Simple fixed-interval sampling can miss short-lived peaks, whereas LTTB attempts to retain visually significant changes in a series.
+
+The algorithm's purpose is visualization-oriented reduction, not the preservation of all statistical properties or extrema. The documentation specifies that the first and last points are retained, null coordinates are ignored, and `n` must be a constant of at least two. Inputs should be ordered by `x`.
+
+Triangle computations use `DOUBLE` arithmetic even where input coordinates use supported temporal types.
+
+This enables database-side reduction of large time series before transferring results to visualization frameworks, avoiding an otherwise separate Python downsampling stage.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/sql/functions/aggregates`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+### 6.4 Nanosecond-precision timezone-aware timestamps
+
+DuckDB 2.0 introduces `TIMESTAMPTZ_NS`, combining timezone-aware instant semantics with nanosecond precision.
+
+This addresses an interoperability limitation involving external data, particularly Parquet timestamps marked as UTC-adjusted and represented at nanosecond resolution.
+
+Earlier DuckDB releases could convert such values to the microsecond-precision `TIMESTAMPTZ`, losing sub-microsecond precision. DuckDB 2.0 can read compatible columns as `TIMESTAMPTZ_NS` and retain the full precision.
+
+The distinction between `TIMESTAMP_NS` and `TIMESTAMPTZ_NS` remains semantic as well as numerical: the latter represents an instant rather than merely a timezone-free local timestamp. Neither should be interpreted as preserving an original named timezone identifier for each value.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/sql/data_types/timestamp`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+## 7. Sampling, positional semantics, and nested relational expansion
+
+### 7.1 Native sampling algorithms and their statistical tradeoffs
+
+DuckDB supports three distinct sampling algorithms. They are not interchangeable approximations of the same operation.
+
+| Method      | Selection mechanism                                                      | Important properties                                                                                                  |
+| ----------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `reservoir` | Maintains a fixed-size reservoir and replaces elements probabilistically | Produces an exact requested row count, subject to available rows; memory and coordination costs grow with sample size |
+| `bernoulli` | Independently includes each row with a specified probability             | Expected sample size follows the requested percentage, but actual cardinality varies                                  |
+| `system`    | Selects entire execution vectors with a specified probability            | Lower selection overhead, but substantially higher variance, especially for small datasets                            |
+
+Examples:
+
+```
+-- Exactly 1,000 rows, assuming the source contains at least 1,000.
+SELECT *
+FROM measurements
+USING SAMPLE reservoir(1000 ROWS);
+
+-- Independently select approximately 5% of rows.
+SELECT *
+FROM measurements
+USING SAMPLE 5% (bernoulli);
+
+-- Select approximately 5% using vector-level sampling.
+SELECT *
+FROM measurements
+USING SAMPLE 5% (system);
+```
+
+`system` is particularly efficient because it does not make an independent random decision for every tuple. However, selecting entire vectors means small datasets can produce unrepresentative samples, potentially yielding either no rows or almost the entire input.
+
+Reservoir sampling avoids that cardinality variability but must retain the sample and coordinate shared state across execution threads. Its advantages diminish when the requested sample approaches the size of the original relation.
+
+Sampling placement is semantically important.
+
+`TABLESAMPLE` applies to an individual table expression before joins. `USING SAMPLE` applies to the result of the complete `FROM` clause, after its joins but logically before subsequent filtering or aggregation.
+
+Sampling before a join changes which input records can participate. Sampling after a join selects from the resulting joined population. These can produce materially different distributions, especially for one-to-many joins.
+
+DuckDB supports repeatable samples through explicit seeds. Reproducibility is affected by parallel execution and source ordering; the documentation advises using one execution thread for reproducible results rather than treating a fixed seed alone as a complete guarantee.
+
+Primary sources:\
+`https://duckdb.org/docs/2.0/sql/query_syntax/sample`\
+`https://duckdb.org/docs/2.0/sql/samples`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+1
+
+
+
+### 7.2 `WITH ORDINALITY` and positional identity
+
+DuckDB supports `WITH ORDINALITY` on table functions.
+
+```
+SELECT *
+FROM range(3) WITH ORDINALITY;
+```
+
+The result includes an `ordinality` column numbering generated rows from one.
+
+This is important when relational processing must preserve an explicitly defined position, particularly when expanding sequences or matching rows back to ordered source data.
+
+An ordinal generated by a table function is not a universal persistent row identifier. It describes the output position of that function invocation. Subsequent joins, filtering, and sorting can change the result order, and independently generated ordinals are not automatically comparable.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/sql/query_syntax/from`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+### 7.3 `UNNEST` as a richer structural transformation
+
+DuckDB's `unnest()` can expand both lists and structs, but the semantics are different.
+
+Unnesting a `LIST` produces rows for its elements. Unnesting a `STRUCT` produces columns for its members. Nested lists and structs can also be recursively unnested using the corresponding options.
+
+Several behaviors are important when processing structured datasets:
+
+- Empty or `NULL` lists produce zero output rows.
+- Multiple lists unnested in the same `SELECT` are aligned positionally, not combined as a Cartesian product.
+- Shorter lists are padded with `NULL` values.
+- Recursive unnesting can expand nested structures, with configurable depth.
+- DuckDB 2.0 permits `unnest()` directly in `GROUP BY`, enabling aggregation over expanded elements without requiring a separate subquery.
+
+For example:
+
+```
+SELECT
+    unnest(tags) AS tag,
+    count(*) AS occurrences
+FROM records
+GROUP BY unnest(tags)
+ORDER BY tag;
+```
+
+This expresses a common nested-data aggregation directly in SQL.
+
+The positional behavior of multiple `unnest()` expressions deserves special attention. It is appropriate for parallel sequences whose elements have corresponding positions; it does not express every possible relationship between two nested collections.
+
+Primary sources:\
+`https://duckdb.org/docs/2.0/sql/query_syntax/unnest`\
+`https://duckdb.org/docs/2.0/sql/query_syntax/groupby`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+## 8. Advanced lakehouse snapshot, metadata, and maintenance capabilities
+
+### 8.1 Delta Lake: snapshot binding and transaction consistency
+
+DuckDB's Delta extension supports different snapshot-binding behaviors when attaching a Delta table.
+
+An attachment can identify a specific historical version or timestamp using `VERSION` or `TIMESTAMP`. Alternatively, `PIN_SNAPSHOT true` resolves the latest snapshot on the attachment's first use and retains it for later queries.
+
+```
+ATTACH 's3://bucket/delta/events'
+AS events (
+    TYPE delta,
+    PIN_SNAPSHOT true
+);
+```
+
+Without snapshot pinning, separate transactions resolve the latest table version. This makes the distinction between a fixed analytical snapshot and an evolving external table explicit.
+
+Snapshot pinning is particularly useful where a sequence of analytical queries must operate against the same source version. It is not equivalent to a distributed transaction spanning arbitrary attached databases.
+
+### 8.2 Idempotent Delta appends
+
+DuckDB 2.0 supports Delta transaction identifiers for coordinating retries without committing the same batch twice.
+
+The mechanism uses an application identifier and an application-specific monotonically managed transaction version.
+
+```
+BEGIN TRANSACTION;
+
+CALL delta_set_transaction_version(
+    'events',
+    'ingestion_worker',
+    1::UBIGINT,
+    NULL::UBIGINT
+);
+
+INSERT INTO events VALUES (101, 'ready');
+
+COMMIT;
+```
+
+In this illustration, `events` is an already attached Delta table, and the expected previous version is `NULL`, meaning no version has yet been recorded for that application identifier.
+
+`delta_get_transaction_version(table, app_id)` allows inspection of the last recorded version.
+
+If another writer commits an incompatible version before the transaction completes, the commit fails rather than silently treating the operation as an independent append.
+
+This is more robust than assuming that retrying an `INSERT` is harmless. It also differs from ordinary SQL uniqueness constraints: the mechanism tracks transaction identity rather than asserting row-level identity.
+
+Its guarantees depend on correct management of application IDs, version progression, expected versions, and Delta transaction commits.
+
+### 8.3 Delta physical-file and metadata introspection
+
+The Delta extension provides `delta_list_files()`, exposing the data files that a scan would read.
+
+```
+SELECT
+    data_file,
+    cardinality,
+    partitions,
+    have_deletes
+FROM delta_list_files('s3://bucket/delta/events');
+```
+
+The function can also inspect earlier versions and report deletion-vector counts.
+
+This supplies a practical connection between logical SQL predicates and the physical files retained after partition pruning and data skipping.
+
+It enables inspection of file cardinalities, partition distribution, deletion-vector exposure, and file-level read amplification without manually parsing the Delta transaction log.
+
+Additional functions include `delta_domain_metadata()`, while `delta_scan_explain_files_filtered` controls whether filtered files are included in explain output. The extension can forward Delta Kernel logging through `delta_kernel_logging`, although doing so can impose overhead.
+
+Primary source for §§8.1–8.3:\
+`https://duckdb.org/docs/2.0/core_extensions/delta`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+2
+
+
+
+### 8.4 Delta schema-mapping and nested projection limitations
+
+DuckDB 2.0 changes the default `delta_column_mapping_policy` from `lenient` to `strict`.
+
+Under Delta's ID-based column mapping, Parquet field IDs are expected to identify fields independently of their names. Some older writers produced files without the required IDs.
+
+The strict policy rejects such files. The lenient policy attempts to resolve fields by physical or logical name, generating a warning.
+
+```
+SET delta_column_mapping_policy = 'lenient';
+```
+
+This may restore compatibility with affected historical files, but it relaxes the field-ID matching guarantee. The distinction is therefore about data-integrity semantics, not merely parser permissiveness.
+
+DuckDB 2.0 also supports nested-field projection pushdown for compatible `STRUCT` and shredded `VARIANT` columns, potentially avoiding reads of unrelated nested fields.
+
+However, this optimization does not apply to a column containing a timezone-aware timestamp field at any depth. DuckDB also writes Delta `VARIANT` data without shredding unless the relevant Delta table property explicitly enables shredding.
+
+Finally, catalog-managed Delta tables cannot necessarily be accessed directly by storage path: transactions governed by a catalog such as Unity Catalog require catalog-aware integration.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/core_extensions/delta`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+### 8.5 Iceberg: native metadata inspection and scan planning
+
+The Iceberg extension exposes considerably more functionality than reading and writing tables through an attached REST catalog.
+
+Its metadata table functions expose table history, branches, tags, partition evolution, and physical data-file composition.
+
+| Function                    | Information or operation                            |
+| --------------------------- | --------------------------------------------------- |
+| `iceberg_files()`           | Data and delete files in a snapshot                 |
+| `iceberg_manifests()`       | Manifest files and associated counts                |
+| `iceberg_history()`         | Snapshot ancestry and history                       |
+| `iceberg_refs()`            | Branches, tags, and reference retention settings    |
+| `iceberg_partition_specs()` | Partition specifications and transform evolution    |
+| `iceberg_column_stats()`    | Per-file column statistics                          |
+| `iceberg_partition_stats()` | Partition-level statistics                          |
+| `iceberg_scan_plan()`       | Planned scan tasks, including data and delete files |
+| `iceberg_view_metadata()`   | Raw REST-catalog view metadata                      |
+
+`iceberg_scan_plan()` is especially consequential because it exposes a physical view of what a query would need to scan.
+
+```
+SELECT *
+FROM iceberg_scan_plan(
+    'lake.default.events',
+    row_filter := 'event_date >= DATE ''2026-10-01'''
+);
+```
+
+The function accepts snapshot selectors and can use server-side planning if supported by the catalog and enabled in configuration.
+
+Together, these functions expose important properties of Iceberg's architecture: logical table history is not simply a directory of Parquet files, partitions can evolve across snapshots, and deletion files influence the interpretation of stored records.
+
+They also allow inspection of physical layout and metadata without building a separate Iceberg manifest parser.
+
+### 8.6 Iceberg catalog maintenance and metadata properties
+
+DuckDB supports maintenance operations against suitably attached Iceberg catalogs.
+
+`iceberg_rewrite_data_files()` compacts data files and applies supported deletes during rewriting. `iceberg_rollback_to_snapshot()` changes the current snapshot to an earlier one.
+
+The extension also exposes table- and schema-property functions for inspecting, updating, and removing metadata.
+
+These are catalog operations with externally visible consequences, not merely local analytical transformations. Their correctness and availability depend on the attached catalog and Iceberg implementation.
+
+DuckDB additionally exposes `iceberg_bucket()` and `iceberg_truncate()`, implementing Iceberg-compatible partition transforms as callable scalar functions.
+
+This is useful when the same partition transformation must be calculated outside an Iceberg table definition while preserving the format's partitioning semantics.
+
+Primary source for §§8.5–8.6:\
+`https://duckdb.org/docs/2.0/core_extensions/iceberg/iceberg_functions`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+2
+
+
+
+### 8.7 Metadata-only Iceberg-to-DuckLake interoperability
+
+DuckDB's Iceberg extension provides `iceberg_to_ducklake()`, which copies Iceberg catalog metadata into a DuckLake catalog.
+
+```
+CALL iceberg_to_ducklake(
+    'iceberg_datalake',
+    'my_ducklake'
+);
+```
+
+This is materially different from copying all table data into a new DuckDB database or rewriting an Iceberg dataset.
+
+It allows a DuckLake catalog to reference the existing underlying Iceberg data through a metadata-only operation, avoiding a full data-copying stage.
+
+The operation should not be interpreted as continuously synchronizing the two catalogs or providing a cross-format distributed transaction. It is a catalog metadata-copying facility whose subsequent consistency must be understood in terms of the participating catalogs and file ownership.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/core_extensions/iceberg/iceberg_functions`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+## 9. Engine observability and optimizer introspection
+
+### 9.1 DuckDB 2.0's structured profiling metrics
+
+The existing guide covers `EXPLAIN`, `EXPLAIN ANALYZE`, and JSON profiling. DuckDB 2.0 adds a more systematically configurable profiling interface.
+
+The `tracked_metrics` setting selects metric families using glob patterns:
+
+```
+SET tracked_metrics = ['query.*', 'optimizer.*'];
+
+SET enable_profiling = 'json';
+SET profiling_output = 'query_profile.json';
+```
+
+The `enable_profiling()` table function can also configure output format, coverage, destination, and metrics together:
+
+```
+CALL enable_profiling(
+    format := 'json',
+    save_location := 'query_profile.json',
+    coverage := 'select',
+    metrics := [
+        'query.sql',
+        'query.total_time',
+        'operator.timing'
+    ]
+);
+```
+
+`duckdb_available_metrics()` discovers available metric names, their data types, descriptions, and units.
+
+```
+SELECT
+    metric_name,
+    description,
+    unit
+FROM duckdb_available_metrics()
+ORDER BY metric_name;
+```
+
+This makes profiler configuration discoverable rather than dependent on a hardcoded list of metrics.
+
+The distinction among metric families is useful: query-level totals, optimizer behavior, and physical-operator measurements describe different stages of execution.
+
+The earlier `profiling_mode` setting is deprecated and has no effect in 2.0. Detailed metrics are collected by the current profiling system and selected through `tracked_metrics`.
+
+### 9.2 Execution-plan rendering and optimized SQL reconstruction
+
+DuckDB supports multiple physical-plan output formats through `EXPLAIN` and `EXPLAIN ANALYZE`, including text, JSON, Graphviz, HTML, and Mermaid.
+
+```
+EXPLAIN (FORMAT JSON)
+SELECT *
+FROM measurements
+WHERE magnitude > 20;
+```
+
+These formats can be consumed by tools that compare plans structurally, render operator dependencies, or inspect optimizer choices.
+
+DuckDB 2.0 also adds `EXPLAIN (SQL)`, which reconstructs an executable SQL representation of the optimized logical plan.
+
+```
+EXPLAIN (SQL)
+SELECT 1 + 2 AS answer;
+```
+
+The result can show transformations such as constant folding and query rewriting rather than merely presenting a physical operator tree.
+
+This is an important distinction:
+
+| Interface         | What it reveals                                           |
+| ----------------- | --------------------------------------------------------- |
+| `EXPLAIN`         | Planned execution operators and estimated cardinalities   |
+| `EXPLAIN ANALYZE` | Executed plan, measured timings, and actual cardinalities |
+| `EXPLAIN (SQL)`   | SQL reconstructed from the optimized logical plan         |
+| JSON profiling    | Structured execution and operator metrics                 |
+
+`EXPLAIN (SQL)` preserves result column names, order, and logical types, but generated alias names and formatting are not stable interfaces. It should not be treated as a canonical SQL serializer or a stable plan-hashing format.
+
+DuckDB also provides a query-graph renderer through the Python package:
+
+```
+python -m duckdb.query_graph query_profile.json
+```
+
+This converts suitable JSON profiling output into an HTML query graph.
+
+Primary sources for §§9.1–9.2:\
+`https://duckdb.org/docs/2.0/dev/profiling`\
+`https://duckdb.org/docs/2.0/sql/statements/profiling`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+2
+
+
+
+### 9.3 Database-native instrumentation through catalog functions
+
+DuckDB provides a substantial set of relational introspection functions beyond ordinary schema catalog queries.
+
+| Function                          | Diagnostic information                                             |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `duckdb_memory()`                 | Buffer-manager allocations and temporary-storage use by memory tag |
+| `duckdb_temporary_files()`        | Temporary files and disk consumption                               |
+| `duckdb_logs()`                   | Engine log entries, levels, timestamps, and messages               |
+| `duckdb_log_contexts()`           | Context for correlating logs with execution activity               |
+| `duckdb_available_metrics()`      | Profiling metric discovery                                         |
+| `duckdb_optimizers()`             | Available optimization rules                                       |
+| `duckdb_prepared_statements()`    | Prepared statements in the session                                 |
+| `duckdb_triggers()`               | Installed triggers and their event configurations                  |
+| `duckdb_grammar_extensions()`     | Available grammar extensions                                       |
+| `duckdb_secret_type_parameters()` | Configuration parameters accepted by registered secret types       |
+
+For example:
+
+```
+SELECT
+    tag,
+    memory_usage_bytes,
+    temporary_storage_bytes
+FROM duckdb_memory()
+ORDER BY memory_usage_bytes DESC;
+
+SELECT *
+FROM duckdb_temporary_files();
+
+SELECT *
+FROM duckdb_optimizers();
+```
+
+`duckdb_memory()` reports allocations managed and categorized by DuckDB's memory subsystem. It is not an exhaustive accounting of process resident memory, Python objects, extension allocations, or operating-system memory use.
+
+Similarly, temporary-file accounting reveals spill behavior but does not establish that all query memory is spillable.
+
+The logging functions can provide a more structured alternative to interpreting console output. Combining execution identifiers, log contexts, and profiler records enables more precise attribution of warnings and failures to query activity.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/sql/meta/duckdb_table_functions`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+## 10. Native extension capabilities and advanced CLI tooling
+
+### 10.1 Native extensions can define window functions
+
+DuckDB 2.0 adds support for extension-defined window functions through its C++ extension API.
+
+Previously, native extensions could define scalar, aggregate, and table functions, while dedicated window-function implementations were largely internal to DuckDB. The new interface permits extensions to register their own window functions as catalog objects.
+
+This distinction is consequential because a window function is not necessarily an aggregate over a window frame. Some operations require access to row positions, frame boundaries, peer groups, or intermediate state in ways that are not naturally expressible as a conventional aggregate.
+
+Examples of this broader class include interpolating missing observations, computing custom rankings, and performing specialized ordered-state calculations.
+
+A native extension can derive from `WindowFunction` and register the implementation through `ExtensionLoader`. The function becomes discoverable through `duckdb_functions()` with function type `window`.
+
+The extension interface provides callbacks for binding and execution, along with declarations governing supported SQL modifiers.
+
+| Modifier capability       | C++ API declaration |
+| ------------------------- | ------------------- |
+| `DISTINCT` arguments      | `SetCanDistinct`    |
+| Aggregate-style `FILTER`  | `SetCanFilter`      |
+| Argument-level `ORDER BY` | `SetCanOrderBy`     |
+| Frame `EXCLUDE` clauses   | `SetCanExclude`     |
+| `IGNORE NULLS`            | `SetCanIgnoreNulls` |
+
+The implementation can participate in DuckDB's window execution machinery, including partition and peer-group handling, frame boundaries, global and thread-local state, and shared argument materialization.
+
+The documented interface distinguishes blocking evaluation, in which input is partitioned and sorted before the function executes, from streaming evaluation for eligible window operations.
+
+Architectural significance
+
+This permits a specialized window computation to be implemented natively and reused through SQL across DuckDB clients, rather than requiring separate Python, Rust, or application-level implementations.
+
+A native window function can benefit from DuckDB's existing partitioning, ordering, and execution infrastructure, although the extension is responsible for its own algorithmic correctness and state management.
+
+The interface is explicitly still evolving. It belongs to the C++ extension API, not Python's `create_function()` interface, and should not be confused with the separate C API v2 development effort.
+
+In particular, the `SetIsRanking` extension method described for the development branch is not part of the released DuckDB 2.0.0 API.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/extensions/window_function_extensions`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+1
+
+
+
+### 10.2 Extension and grammar introspection
+
+DuckDB 2.0 improves the discoverability of functionality introduced by extensions.
+
+`duckdb_functions()` now includes an `extension_name` field, identifying the extension responsible for a registered function. `duckdb_grammar_extensions()` lists grammar extensions registered with the PEG parser.
+
+For example:
+
+```
+SELECT
+    function_name,
+    function_type,
+    extension_name
+FROM duckdb_functions()
+WHERE extension_name IS NOT NULL;
+
+SELECT *
+FROM duckdb_grammar_extensions();
+```
+
+This creates a programmatic distinction among built-in functionality, extension-provided functions, and extension-provided grammar.
+
+That distinction matters because loading an extension can make functions available without necessarily activating an associated grammar extension.
+
+The metadata also supports generic discovery of available functionality without relying solely on a static list of documented SQL functions.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/sql/meta/duckdb_table_functions`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+### 10.3 CLI documentation and query inspection
+
+The DuckDB CLI includes capabilities beyond its SQL execution and agent-output modes.
+
+Several commands are particularly useful for direct inspection of DuckDB functionality.
+
+| CLI capability      | Purpose                                                           |
+| ------------------- | ----------------------------------------------------------------- |
+| `.manual FUNCTION`  | Display function signatures, documentation, and examples          |
+| `-manual FUNCTION`  | Retrieve the same information from a noninteractive invocation    |
+| `.history N`        | Inspect recent command history                                    |
+| `shell_history()`   | Query shell history through SQL                                   |
+| `.schema`           | Inspect SQL definitions of database objects                       |
+| `.indexes TABLE`    | Inspect indexes associated with a table                           |
+| `.web`              | Render the previous suitable query's execution graph in a browser |
+| `-format`           | Format SQL read from standard input                               |
+| `-format-file FILE` | Format SQL from an input file                                     |
+
+The `.manual` capability is especially useful because it provides a direct interface to SQL function documentation, including overloads and examples.
+
+For example:
+
+```
+.manual list_transform
+```
+
+Function discovery can be combined with catalog inspection to identify functions supplied by extensions.
+
+The CLI's query-graph capabilities also provide an interactive complement to the machine-readable profiling interfaces discussed earlier.
+
+`EXPLAIN ANALYZE (FORMAT WEB)` and `.web` render execution-plan visualizations through a browser. These features are CLI-specific and are disabled in safe mode.
+
+Primary sources:\
+`https://duckdb.org/docs/2.0/clients/cli/dot_commands`\
+`https://duckdb.org/docs/2.0/clients/cli/arguments`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+1
+
+
+
+### 10.4 Quack-aware CLI operation
+
+DuckDB 2.0 provides CLI options for starting and connecting to Quack servers directly.
+
+`-serve` starts remote serving for the opened database, while `-connect` establishes a remote connection. Both support the corresponding Quack configuration and named-secret mechanisms.
+
+This removes the need to express every server startup or connection operation through a separately executed SQL script.
+
+The CLI also exposes `-storage-version` for creating databases with a selected compatible storage format, `-safe` for restricted execution, and `-unredacted` for permitting unredacted secret display.
+
+These options affect deployment and security behavior. In particular, allowing unredacted secrets or unsigned extensions changes the trust model of the CLI process.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/clients/cli/arguments`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+## 11. Secrets, asynchronous I/O, durability, and migration qualifications
+
+### 11.1 Connection-scoped secrets and credential isolation
+
+DuckDB 2.0 introduces connection-scoped secret storage.
+
+A secret can be created using the `IN connection` clause:
+
+```
+CREATE SECRET warehouse_credentials IN connection (
+    TYPE s3,
+    PROVIDER credential_chain,
+    REGION 'us-east-1'
+);
+```
+
+Connection-scoped secrets are visible only to queries executing on the connection where they were created.
+
+They are always temporary and do not persist between sessions. This differs from ordinary temporary secrets, which can be shared more broadly within a database instance, and from persistent secrets, which survive process restarts.
+
+Connection-scoped storage is useful when different connections require different credentials for services of the same type or URI scope. It prevents those temporary credentials from conflicting within a shared DuckDB instance.
+
+Secret scope and selection
+
+DuckDB supports URI scopes, allowing separate credentials to be selected according to the resource being accessed.
+
+This can support queries spanning multiple object stores or independently authenticated storage locations.
+
+`which_secret()` identifies the secret that would be selected for a resource, while `duckdb_secrets()` exposes secret metadata with sensitive values redacted.
+
+DuckDB 2.0 additionally provides `duckdb_secret_type_parameters()` to enumerate the accepted parameters of registered secret types and providers.
+
+This is useful because many secret types and credential providers are extension-defined. Credential configuration can be discovered through the running engine rather than inferred from a fixed global schema.
+
+Persistent secret security
+
+Persistent secrets are not encrypted by DuckDB's database-file encryption mechanism.
+
+By default, they are stored in unencrypted binary form under:
+
+`~/.duckdb/stored_secrets`
+
+DuckDB relies on filesystem permissions, normally mode `600`, to restrict access.
+
+Consequently, three separate protections must be distinguished:
+
+| Mechanism                                   | Protection                                                                        |
+| ------------------------------------------- | --------------------------------------------------------------------------------- |
+| Database-file encryption                    | Encrypts supported database storage and associated files                          |
+| Secret scoping                              | Determines which credentials are selected for particular resources or connections |
+| Filesystem protection of persistent secrets | Restricts access to stored credential material                                    |
+
+None of these mechanisms, individually, provides a complete sandbox for untrusted SQL executed with host-process privileges.
+
+Primary sources:\
+`https://duckdb.org/docs/2.0/configuration/secrets_manager`\
+`https://duckdb.org/docs/2.0/operations_manual/securing_duckdb/overview`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+2
+
+
+
+### 11.2 Asynchronous I/O: supported formats and memory-aware read-ahead
+
+The original guide's §8.6 identifies a discrepancy concerning native database storage.
+
+The current DuckDB 2.0 I/O documentation explicitly identifies the following supported asynchronous-read formats:
+
+- Parquet files.
+- Uncompressed, seekable UTF-8 CSV files.
+- DuckDB's native storage format.
+
+JSON file reads remain synchronous.
+
+Asynchronous I/O is enabled automatically for supported formats, including compatible file scans accessed through lakehouse integrations such as DuckLake.
+
+The important architectural distinction is that asynchronous reads and query-processing parallelism consume different resources. Worker threads evaluate operators, while asynchronous I/O threads wait for external or local reads and advance data transfers.
+
+Memory-aware read-ahead
+
+The `read_ahead_depth` setting supports three behaviors.
+
+| Value            | Behavior                                                                        |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `-1`             | Default memory-budgeted adaptive read-ahead                                     |
+| `0`              | Disable speculative read-ahead                                                  |
+| Positive integer | Permit a fixed maximum number of queued jobs without the adaptive memory budget |
+
+The default mode integrates with DuckDB's memory management. Under increasing memory pressure, the read-ahead queue contracts; when memory becomes available, it can expand.
+
+A fixed positive depth removes that adaptive memory-budget behavior, which may improve throughput for particular remote workloads but also increases the risk of excessive memory consumption.
+
+DuckDB 2.0 additionally exposes `http_client_pool_capacity`, controlling the number of reusable HTTP clients. Its automatic value is derived from execution and asynchronous thread counts, constrained by available file descriptors and capped at 256.
+
+Physical parallelism remains source-dependent
+
+For Parquet, row groups are an important unit of scan parallelism. A small number of very large row groups may prevent an asynchronous scan from achieving high concurrency, regardless of the configured number of threads.
+
+Asynchronous I/O therefore improves the ability to overlap data access and computation; it does not guarantee maximum bandwidth or eliminate the importance of physical file layout.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/data/io`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB+2
+
+
+
+### 11.3 Database write durability through `fsync_mode`
+
+DuckDB 2.0 documents an explicit durability control through `fsync_mode`.
+
+This governs how native database changes are synchronized with persistent storage.
+
+| Setting    | Behavior                                                                                |
+| ---------- | --------------------------------------------------------------------------------------- |
+| `STANDARD` | Default platform synchronization mechanism, such as `fsync` or `fdatasync`              |
+| `FULL`     | On macOS, uses `F_FULLFSYNC` where supported; otherwise falls back to standard behavior |
+| `NONE`     | Does not request an explicit synchronization to stable storage                          |
+
+The setting applies to the DuckDB instance, not merely an individual query.
+
+```
+SET fsync_mode = 'STANDARD';
+```
+
+`NONE` can reduce synchronization overhead, but a process or operating-system crash, or power failure, can then cause data loss or database corruption.
+
+This is distinct from the consistency guarantees supplied by SQL transactions. A transaction can be logically committed by the engine while the durability of its physical writes still depends on synchronization semantics.
+
+`FULL` has a meaningful additional effect on supported macOS configurations but is equivalent to `STANDARD` on other platforms.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/data/io`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+### 11.4 Trigger limitations affecting other mutation mechanisms
+
+The original guide correctly describes DuckDB 2.0's initial trigger capabilities. However, the interaction between triggers and other mutation statements requires additional qualification.
+
+In DuckDB 2.0:
+
+- `MERGE INTO` is unsupported on tables with triggers.
+- `INSERT ... ON CONFLICT`, `INSERT OR REPLACE`, and `INSERT OR IGNORE` can fail against tables with `UPDATE` or `DELETE` triggers because these operations are implemented using merge machinery.
+- `ON CONFLICT` is unsupported on tables with row-level triggers.
+- Row-level and statement-level triggers cannot be mixed for the same event on the same table.
+- Multiple triggers for the same event and compatible granularity fire in creation order.
+
+These limits have consequences for the composition of capabilities covered elsewhere in the guide.
+
+For example, trigger-maintained summary tables and an appender configured for upsert semantics are not automatically compatible merely because both are supported individually. The resulting mutation statement must be valid against the target table's trigger configuration.
+
+The distinction between statement-level and row-level triggers also affects `RETURNING`: statement-level triggers permit supported `RETURNING` operations, whereas row-level triggers do not.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/sql/statements/create_trigger`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+### 11.5 Python relation iteration does not imply bounded-memory streaming
+
+DuckDB 2.0's `DuckDBPyRelation.iter_rows()` presents query results through a Python iterator.
+
+However, the method retains the complete result in engine memory. It therefore differs from incremental execution or bounded-memory batch streaming.
+
+This distinction is especially relevant when a query may return a large number of rows.
+
+For incremental columnar consumption, the intended interface is:
+
+```
+reader = con.sql(    "SELECT * FROM measurements").to_arrow_reader()
+```
+
+The Arrow reader supplies record batches instead of requiring the entire result to be retained as a materialized relation.
+
+This does not guarantee that every upstream SQL operator is itself streamable. Operations such as global sorting, certain aggregations, and other blocking operators may still need substantial intermediate memory.
+
+The distinction is therefore between the result-consumption interface and the memory requirements of the query execution plan.
+
+Primary source:\
+`https://duckdb.org/docs/2.0/clients/python/migration`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://duckdb.org\&sz=32)
+
+DuckDB
+
+
+
+## 12. Capability interactions and architectural boundaries
+
+The additional functionality above reveals several combinations that extend DuckDB's usefulness beyond its conventional role as an embedded analytical SQL engine.
+
+| Capability combination                                              | What it enables                                                                              | Principal boundary                                                                          |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Python query appender + SQL transformations + native transactions   | Buffered, set-oriented mutations of Python-generated records                                 | Flush and transaction semantics, constraints, and trigger compatibility                     |
+| Property-graph extension + relational queries + recursive SQL       | Graph navigation, iterative computation, and relational analysis in the same SQL environment | Community-extension maturity and incomplete SQL/PGQ support                                 |
+| Spatial R-tree + native geometry functions + GeoJSON export         | Indexed geographic filtering and standardized geospatial output                              | Index-supported predicates and planning constraints                                         |
+| `TRY` + nested types + SQL aggregation                              | Structured validation and error-tolerant transformations                                     | Not all failures are recoverable; `NULL` may conceal failure reasons                        |
+| Iceberg scan planning + metadata functions + maintenance            | Inspection and modification of lakehouse physical layout and snapshot state                  | Catalog ownership, permissions, and externally visible transactions                         |
+| Delta snapshot pinning + transaction versions + file inspection     | Reproducible reads, retry-aware appends, and physical-scan transparency                      | No general cross-catalog transaction guarantee                                              |
+| Native window extensions + vectorized execution + SQL               | Reusable specialized ordered-state calculations                                              | C++ extension API stability and implementation responsibilities                             |
+| Profiler metrics + catalog metadata + execution-plan reconstruction | Programmatic examination of database behavior and optimizer decisions                        | Profiling overhead, unstable plan representations, and incomplete process-memory accounting |
+| Connection-scoped secrets + remote storage + isolated connections   | Distinct credentials for independently configured SQL sessions                               | Host-process privileges and filesystem security                                             |
+| Asynchronous I/O + adaptive read-ahead + Parquet pruning            | Overlapping remote data access with analytical computation                                   | I/O format support, file layout, network limits, and memory budgets                         |
+
+The broader distinction is between expressing a capability natively within DuckDB and obtaining a new guarantee by composing capabilities.
+
+Native mutation buffering does not create distributed transactions. Native property-graph syntax does not create a dedicated graph-storage engine. Columnar result interchange does not guarantee streaming execution. Native observability does not account for every allocation made by the host application. Scoped credentials do not confine arbitrary SQL.
+
+Understanding those boundaries is as important as knowing which operations DuckDB can express.
+
+The added capabilities nevertheless expand the set of operations that can remain inside DuckDB's SQL, relational, and extension systems instead of requiring independent Python processing loops, custom database metadata parsers, specialized serialization stages, or separate analytical runtimes.
+
+This completes the supplemental capability coverage for DuckDB 2.0.0.

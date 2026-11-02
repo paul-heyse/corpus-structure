@@ -1,0 +1,60 @@
+{
+  "observed_at": "2026-11-01T22:25:17.550398+00:00",
+  "outcome": "cancelled",
+  "authorization": "coordinator: user validation-efficiency priority and confirmed stale inherited report attribution; preserve before seal",
+  "run_id": 9,
+  "task_id": 9,
+  "process_id": 304649,
+  "process": "    PID    PPID STAT WCHAN                        ELAPSED     TIME %CPU   RSS COMMAND\n 304649  304620 Sl   poll_schedule_timeout.co       35:24 00:07:37 21.5 3468004 /home/paul/corpus-structure/.venv/bin/python /home/paul/corpus-structure/.venv/bin/ci regenerate --domain statistics --corpus docs/statistics_corpus/corpus --project pdf-docling-adoption --native-source docs/design_review/evidence/2026-11-01_pdf-current-rebuild/runtime/math-enriched.pin.json --scope pdf-qualification --prepare-only --leave-unselected --json\n",
+  "before": {
+    "observed_at": "2026-11-01T17:25:17.531235-05:00",
+    "activity": [
+      {
+        "pid": 311898,
+        "state": "active",
+        "wait_event_type": null,
+        "wait_event": null,
+        "query_start": "2026-11-01T17:20:00.38873-05:00",
+        "query": "SELECT * FROM ops.validate_pdf_build($1,$2,$3,$4,$5)"
+      }
+    ],
+    "task": {
+      "id": 9,
+      "status": "running",
+      "attempt": 1,
+      "claimed_by": "semantic-source:9",
+      "lease_until": "2026-11-01T17:29:48.662136-05:00"
+    }
+  },
+  "preserved": [
+    {
+      "source": "/tmp/pdf-native-validation-gzndtk0f/frozen.arrow",
+      "retained": "docs/design_review/evidence/2026-11-01_pdf-current-rebuild/runtime/private/integrated/task9-stopped-001/frozen.arrow",
+      "byte_length": 2046527706,
+      "method": "same-filesystem hardlink before normal cancellation cleanup",
+      "sha256": "1c5bfee04a9b8ffa5f8fcfef1c6dcd6c3ed3457ca75d1bef16038e93e19bc2f7",
+      "retained_byte_length": 2046527706
+    },
+    {
+      "source": "/tmp/pdf-native-validation-gzndtk0f/access.jsonl",
+      "retained": "docs/design_review/evidence/2026-11-01_pdf-current-rebuild/runtime/private/integrated/task9-stopped-001/access.jsonl",
+      "byte_length": 128363358,
+      "method": "same-filesystem hardlink before normal cancellation cleanup",
+      "sha256": "2871f78d1280a5f43a0da91eaf67b89938785da0d3aeebcf92d755c03b218001",
+      "retained_byte_length": 128363358
+    },
+    {
+      "source": "/tmp/pdf-native-validation-gzndtk0f/access.sqlite",
+      "retained": "docs/design_review/evidence/2026-11-01_pdf-current-rebuild/runtime/private/integrated/task9-stopped-001/access.sqlite",
+      "byte_length": 28672,
+      "method": "same-filesystem hardlink before normal cancellation cleanup",
+      "sha256": "193772695f1a9b33c2dd49c937d51e8e690129ba1f6557bebb4d22ae447eca05",
+      "retained_byte_length": 28672
+    }
+  ],
+  "signal": "SIGINT",
+  "source_mutations": false,
+  "settled_exit_code": 130,
+  "settled_receipt": "source-prepare-attempt-003-settled.json",
+  "hashes_observed_at": "2026-11-01T23:02:29.982252+00:00"
+}

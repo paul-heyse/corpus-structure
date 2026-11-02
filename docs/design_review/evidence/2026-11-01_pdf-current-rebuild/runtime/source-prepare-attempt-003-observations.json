@@ -1,0 +1,54 @@
+{
+  "observed_at": "2026-11-01T22:00:12.720055+00:00",
+  "outcome": "passed",
+  "scope": "run9 exact retained recognition observation replay only; integrated publication pending",
+  "run_id": 9,
+  "task_id": 9,
+  "journal": "build/pdf-reconciliation/ebe7ea9f58594e5c991abade375f6f34/reconciliation/observations.arrow",
+  "sha256": "24508cd982d202d4a8259f05aeb1097ee77402cad9225d4aea365e224f661c7e",
+  "byte_length": 37352346,
+  "rows": 3441,
+  "outcomes": [
+    {
+      "pass_role": "A",
+      "outcome": "partial",
+      "count": 2
+    },
+    {
+      "pass_role": "A",
+      "outcome": "succeeded",
+      "count": 1589
+    },
+    {
+      "pass_role": "B",
+      "outcome": "succeeded",
+      "count": 1589
+    },
+    {
+      "pass_role": "C",
+      "outcome": "succeeded",
+      "count": 261
+    }
+  ],
+  "pages": {
+    "A": {
+      "count": 1589,
+      "min": 1,
+      "max": 1589,
+      "complete_1_to_1589": true
+    },
+    "B": {
+      "count": 1589,
+      "min": 1,
+      "max": 1589,
+      "complete_1_to_1589": true
+    },
+    "C": {
+      "count": 156,
+      "min": 7,
+      "max": 1525,
+      "complete_1_to_1589": false
+    }
+  },
+  "missing_raw": 0
+}

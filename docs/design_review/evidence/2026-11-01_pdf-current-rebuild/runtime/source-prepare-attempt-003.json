@@ -1,0 +1,27 @@
+{
+  "observed_at": "2026-11-01T21:51:40.196022+00:00",
+  "outcome": "cancelled",
+  "run_id": 9,
+  "task_id": 9,
+  "release_id": "release:6cdfc95cd566c1dd69fac349e087e8ea2c52e1ac4ba29363685549f4d5e0cffa",
+  "native_revision": "semantic_pdf_evidence_20261101",
+  "argv_file": "source-prepare-command.json",
+  "log": "source-prepare-attempt-003.log",
+  "source_pin_file": "math-enriched.pin.json",
+  "source_ready": false,
+  "integrated_publication": null,
+  "prior_failed_attempts": [
+    "source-prepare-attempt-001.json",
+    "source-prepare-attempt-002.json"
+  ],
+  "process_id": 304649,
+  "session_id": 18449,
+  "settled_at": "2026-11-01T22:25:44.267087+00:00",
+  "exit_code": 130,
+  "phase": "final native SQL validation interrupted before seal",
+  "settlement_receipt": "source-prepare-attempt-003-settled.json",
+  "interruption_receipt": "source-prepare-attempt-003-interrupt.json",
+  "attribution_defect_receipt": "source-prepare-attempt-003-parent-report-attribution.json",
+  "frozen_digest": "067946d2d0e3f28c52a2f08b297ba3ae7176fdc60f806370dde2afe98c73eecd",
+  "preserved_validation_artifacts": "private/integrated/task9-stopped-001"
+}

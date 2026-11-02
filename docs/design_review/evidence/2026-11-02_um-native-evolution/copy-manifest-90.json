@@ -1,0 +1,38 @@
+{
+  "raw/author90-result.json": {
+    "bytes": 582,
+    "sha256": "bcd579e126fe0a2eaa72867f6be3a197f992eb80d70063d997cde9006a3f3dd5"
+  },
+  "raw/author90-source-delta.json": {
+    "bytes": 494,
+    "sha256": "92f9ddee2da9b3305f833fc0534bb3dd2650916463be4e8a8d5daaf307929912"
+  },
+  "raw/author90-source-hashes.json": {
+    "bytes": 59200,
+    "sha256": "854429775a56887415335a72d037dcf60eb49a039630d5d310cb2a61c35aeccb"
+  },
+  "raw/author90.log": {
+    "bytes": 7696,
+    "sha256": "539dd51d334254246a9286444d1fa6693ae632711830c1e451d407286844619e"
+  },
+  "raw/freeze90.log": {
+    "bytes": 248,
+    "sha256": "9abe15028edb646a32f0b496eef2a70da7a40423d7c344e1c9f7b320172b6021"
+  },
+  "raw/replay90.log": {
+    "bytes": 6375,
+    "sha256": "4a6505fd8123e6fd4870bc6f0753d103dd55cb009e3a6a399cb1ec2b1fcf01cd"
+  },
+  "sources/author90.py": {
+    "bytes": 8982,
+    "sha256": "3495d086dc5e5e16219272e83ea3e597fc1b6dd0e0c9f24161dcf65d3947af4b"
+  },
+  "sources/freeze90.py": {
+    "bytes": 2081,
+    "sha256": "12bedb498ddf4a42b85042e4a96387c0ddd708f291e4e535881df26dad098692"
+  },
+  "sources/replay90.py": {
+    "bytes": 4518,
+    "sha256": "c821619e33089731532aa5f2853a8d90ebd883e025277e1375cfce4f0cdea98e"
+  }
+}

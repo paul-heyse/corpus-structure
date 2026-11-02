@@ -343,11 +343,124 @@ source authoring are outside that interval. This is an actual-run observation, n
 qualification. Enriched attempt010 completed normally; no publication error or heartbeat failure
 was suppressed.
 
-Integration is intentionally not started yet: the coordinator is settling a grammar deadline/GC
-correction before preparing the current consumer release. This preserves native producing releases
-and avoids capturing an already-known consumer defect into that release. The planned actual source
-command is `runtime/source-prepare-command.json`: it requests `--scope pdf-qualification`,
-`--prepare-only` and `--leave-unselected`, with the owned target and actual retained Nemotron receipts.
-The scope selects five analysis roots after reconciliation; the method still requests all available
-physical pages because `recognition_pages` is unset. The earlier generic `regenerate-command.json`
-remains an unexecuted template; the explicit source-preparation command is the next authorized phase.
+The grammar deadline/GC correction settled before integration release capture. Native77 has
+one descriptor transition, 27 desired objects, zero ordinary DDL and unchanged physical identity;
+its three native closure controls passed and the current candidate reproduced zero changes.
+`runtime/native-0077.json` binds the authoring/deployment logs. The coordinator separately owns
+actual grammar and full-suite qualification; these native controls do not duplicate that claim.
+
+The first current source-preparation invocation created run7 and failed before recognition or
+integration publication. `runtime/source-prepare-attempt-001.*` preserves the refusal. The native
+record representation legitimately omits serialization-only computed table grids, while a native
+export includes them. The hierarchy reader's previous raw serializer-equality check rejected this
+valid declared representation. The read-only diagnostic found `/tables/0/data/grid` as the first
+change; the original retained document and validated export had exactly the same canonical SHA.
+No retained bytes, original artifacts, geometry or supplied field values were rewritten.
+
+Native78 captures the bounded reader correction: verify exact payload SHA and JSON-object shape,
+verify the model-owned serialization projection, and reuse the strict shared native callbacks and
+returned typed model. Supplied computed grids, finite JSON, field presence, geometry and list
+ordering remain checked. Native78 again has one descriptor transition, 27 desired objects, zero
+ordinary DDL and unchanged physical identity. The affected union passed 130 tests, including the
+three native controls; all 12 conversion caller tests also passed. Scoped typing passed. The
+actual sealed enriched input loaded successfully with 1,589 pages and 101 tables and the original
+field-only payload SHA. `runtime/native-0078.json` and
+`runtime/native-snapshot-load-current.json` bind this bounded verification. The exact current
+candidate reproduced zero native and ordinary changes, and normal target migration passed.
+
+The second actual source-preparation invocation created run8 under release
+`release:0df838beaf2ed6b228c01a8abb0be9aed0eb1d01b842dc2d145cb177c2cf0a93`.
+It failed after strict snapshot loading: current JSON-backed reconciliation replay restores
+candidate identity pairs as lists, and a consumer used the list itself as a mapping key.
+`runtime/source-prepare-attempt-002.*` preserves the settled failure; task8 failed with its lease
+cleared, without an integrated publication. The proposed consumer correction reconstructs the
+qualified `(input_index, occurrence_id)` key explicitly, preserving the journal representation.
+The command in
+`runtime/source-prepare-command.json` requests `--scope pdf-qualification`, `--prepare-only` and
+`--leave-unselected`, with the owned target and actual retained Nemotron receipts. The scope
+selects five analysis roots with descendants after reconciliation, while the method requests all
+physical pages because `recognition_pages` is unset. Integrated publication and source readiness
+are separate pending outcomes; no knowledge extraction or default selection is claimed. The earlier
+generic `regenerate-command.json` remains an unexecuted template. User commit `bc29df1c` captured
+the already frozen source78 bytes during this execution; it did not invalidate source admission.
+
+Native79 captures the qualified correspondence-key and completed-row journal boundary.
+Thirty-four reconciliation checks passed, including independent matched/equal/ambiguous endpoint
+expectations and materialized/Arrow parity. The actual PostgreSQL/IPC publication control passed
+using `uv run python -m pytest`; two earlier console-script invocations retained their child-import
+failures and receive no publication credit. Native closure3 passed; current reproduction was 0/0,
+and normal target migration passed. `runtime/native-0079.json` binds these bounded checks.
+No whole-book retry was launched under79: the coordinator's source review requested a concrete
+multiple-observation alias control first.
+
+That control reproduced a second ownership defect: a later equal reading mutated an earlier
+materialized correspondence's evidence through its shared `_Origin` dictionary, whereas the journal
+had already retained the correct earlier bytes. The failed control is
+`build/pdf80-correspondence-alias-red.log`. A completed correspondence now owns a bounded deep copy
+of its evidence, independently of later origin accumulation. It retains original input indices,
+source identities, order and all candidate endpoints. Successor80 qualification passed: 36 affected reconciliation/actual PostgreSQL-IPC cases,
+three native closure controls, scoped typing and lint. Current reproduction was zero native and
+ordinary changes; normal target migration passed (`runtime/native-0080.json`). The actual
+whole-book source retry003 is now running with the same input pin, `--prepare-only` and
+`--leave-unselected`. No native chain pin or original artifact is changed.
+
+The current retry is run9, release
+`release:6cdfc95cd566c1dd69fac349e087e8ea2c52e1ac4ba29363685549f4d5e0cffa`.
+It passed reconciliation and opened integrated build
+`9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c`.
+`runtime/source-prepare-attempt-003-observations.json` binds the exact current task9 replay:
+A has 1,589 successes plus two preserved partial primary responses, B has 1,589 successes,
+and routed C has 261 successes across 156 physical pages. A/B cover every page 1–1,589;
+all 3,441 requests retain raw responses. This verifies request replay only, while integrated
+publication and source readiness remain pending.
+
+The completed reconciliation journal has 3,442 input rows, 213,448 occurrences, 270,423 relations,
+45,018 mapping reports and 3,441 coverage rows. Native lowering/upload completed with 780,702
+staged native rows. Companion upload is active; `runtime/source-progress.jsonl` records actual
+committed milestones. No unsealed build is represented as a published source.
+
+Run9 was gracefully cancelled before sealing after a confirmed metadata-affinity defect. Its
+copied parent formula outcomes still referred to old pointers after native selection renumbering;
+all first20 sampled pointers changed content. The frozen SQL metadata independently confirms
+misattribution. The exact diagnostic, interruption and settled state are retained in
+`runtime/source-prepare-attempt-003-*.json`. Run/task are cancelled with no lease; the build stays
+frozen, one successful native-callback receipt remains and protected publication count is zero.
+Frozen Arrow and access projection were hard-linked into
+`runtime/private/integrated/task9-stopped-001/` before normal cancellation cleanup. No native
+chain pin, staging row or original evidence was abandoned or replaced.
+
+The operator then prioritized avoiding repeated validation work over choosing16 versus32 workers.
+The bounded read-only accounts are [validation capacity](validation_capacity.md) and
+[metadata affinity](metadata_attribution.md). The implemented corrections and their qualification boundary are recorded below. No new
+validation registry or host/database settings change was introduced.
+
+
+## Validation work and admission correction (2026-11-01)
+
+The SQL package now aggregates owner/membership/region inventories once, uses root reachability
+and full composite lookup keys, verifies every immutable artifact stream once at complete identity
+entry, and retains the exact ordered identity fold. Printable ASCII uses PostgreSQL JSON string
+encoding with the previous Unicode/control fallback. Twenty-seven focused SQL controls passed,
+including independent cycle, duplicate edge, missing membership, byte corruption and unreferenced
+stream cases. The capacity note qualifies the result without a numerical speedup claim.
+
+Native81 freezes the integrated metadata policy, validation contract v4 and filtered nine-argument
+private reader. Its fresh-head attempt exposed an authoring defect: the explicit old eight-argument
+retirement executed, while its descriptor entry survived in admission. The immutable81 snapshot
+and its failed setup receipt remain preserved (`runtime/pdf81-fresh-controls.log`). Target80 was
+not migrated until the forward correction was qualified.
+
+Native82 fixes the authoring route rather than adding an old-reader stub: one declared predecessor
+owns both transition and admission inputs; hash-checked predecessor admission and explicit prior
+retirements carry forward; baseline65 backfill requires a currently desired identity still present
+in that predecessor admission. Explicit frozen states derive admission from their own descriptor
+and guard, and incomplete explicit sources refuse clearly. Three focused retirement/authority
+controls passed, including unchanged successor absence and intentional reintroduction.
+
+The ordinary82 candidate has30 desired objects, one descriptor transition and zero ordinary DDL.
+All three fresh-head native controls passed, and the next current candidate has zero native and
+zero ordinary operations with byte-identical admission. The owned target migrated normally
+80→81→82; physical model f013 is unchanged from81. Exact hashes and logs are bound in
+`runtime/native-0082.json`. No failed attempt was removed or assigned acceptance credit.
+Actual integrated book rerun and consumer readiness remain pending the coordinator's publication
+checks; cancelled run9 is still unqualified and its frozen/raw evidence remains preserved.

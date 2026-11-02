@@ -1,6 +1,6 @@
 # Integrated PDF/Docling and Nemotron pipeline
 
-**Status:** Active; fresh owned current realization deployed through0076. Raw, organized and enriched book products are sealed with producing releases preserved. Arrow producers/readers, typed staging and frozen publication have scoped verification. Integrated publication, actual consumer adoption and final qualification remain open. Native global finalization remains materialized.
+**Status:** Active; fresh owned current realization deployed through0080. Raw, organized and enriched book products are sealed with producing releases preserved. Arrow producers/readers, typed staging and frozen publication have scoped verification. Integrated publication, actual consumer adoption and final qualification remain open. Native global finalization remains materialized.
 Whole-book historical recognition remains retained; no current integrated publication or completed knowledge/default adoption is claimed.
 **Created:** 2026-10-31. **Revised:** 2026-11-01.
 **Basis:** Original [PDF review](../functional_reviews/pdf-docling-pipeline_2026-10-31.md)
@@ -471,77 +471,68 @@ independent fidelity assessment separate from pipeline correctness. Resolve subs
 issues at coherent endpoints. Applicable lint-only maintenance does not invalidate prior tests.
 No grading-policy change, human grading or automatic historical re-anchoring is included.
 
-**Current checkpoint (2026-11-01):** Source ABI17/relational compiler4/core0.6.4 includes
-forward0065. Owned `corpus_pdf_20261031` remains0060/compiler14/core0.6.2;0061–0065 are
-undeployed. `pg_jsonschema`0.3.4 is installed in the dedicated cluster templates and owned database,
-with the existing extension version record/provisioner; this is not an application migration.
-[ADR-0043](../adr/0043-segmented-artifact-byte-identity.md) separates verified byte identity from
-optional export SHA; [ADR-0044](../adr/0044-native-pdf-metadata-jsonschema.md) governs native,
-model-derived metadata validation without text substitution.
+**Current checkpoint (2026-11-01):** Owned `corpus_pdf_20261101` is deployed through native0082,
+compiler20, with30 managed native objects. The historical `corpus_pdf_20261031` remains0060 and
+unchanged. Raw task4/native `7326ebf1…`, organized task5 `792b6c86…` and enriched task6
+`e1ffcf06…` are sealed, preserving their original producing releases71/75/76 and exact retained
+envelopes. All three storage tasks are terminal with released leases. Enriched retains1589 candidate
+pages and109933 occurrences. The [current rebuild evidence](../design_review/evidence/2026-11-01_pdf-current-rebuild/README.md)
+owns exact pins, artifact identities, frozen bindings, failed attempts and deployment receipts.
 
-The targeted integrated union exercised121cases:117 passed initially; two stale current-helper
-mutation assertions and two nonimportable spawn fixtures were repaired, and all four affected
-controls passed. They are overlapping corrections, not125cases. Global warning-inclusive Pyrefly,
-Ruff and scoped checks on the corrected fixtures passed. Full current `just test-all` is not_run;
-the earlier0060 broad receipt retains its own scope. Actual whole-book native global replay passed,
-and fresh pages20/1211 exercise current class-preserving replay and exact native raster scale.
-See [publication/producer receipts](../design_review/evidence/2026-11-01_pdf-publication-adoption/README.md).
+Current integration run9 uses release `6cdfc95c…` and the same enriched pin, with the whole original
+and five intact analysis roots. Its actual retained request replay accounts for3441 requests:
+A1589 successes plus two preserved partial primary requests, B1589 successes, and C261 successes
+across156 routed pages. Both A/B page universes are1–1589. This is request/replay evidence;
+selection, seal and source-ready acceptance remain distinct. Run9 stopped before seal when input
+formula health was found attached to changed output pointers. Its task is cancelled with no lease;
+the frozen780702 native records and full companions remain retained, with no public integrated pin.
+Fresh current-graph health and released metadata-affinity policy are implemented. Validation now
+uses indexed payload selectors, one page-local decode, shared current-report enforcement and
+set-based SQL ownership/membership checks. Native82 is deployed; current book attempt004 is active;
+no quantitative speedup claim or additional benchmark campaign is required.
 
-The retained exact558190320-byte witness parses and derives192verified computed grids across
-107tables and85chart tables without changing supplied native cells or historical bytes. Its
-migration driver is prepared but has not written products. Whole-book staged validation/seal,
-current CLI/external MCP/render/export, five-section extraction, independent references/grading,
-completed knowledge and default selection remain open. The inference service remains down;
-all owned workers and native jobs are settled, and no auxiliary worktrees remain.
+The current snapshot reader uses the existing model-bound computed-grid serialization projection
+and strict shared native callback boundary. Exact SHA/version, finite JSON, supplied presence and
+native tree/clamp checks remain; the validated private Docling model is returned without a second
+whole-graph validation. Actual enriched-book strict loading passed with its record snapshot hash
+unchanged. Correspondence selection now consumes declared input/occurrence pairs and captures
+completed per-row evidence independently of later origin updates, making Arrow and in-memory
+attribution agree. Failed runs7/8 and their original diagnostics remain retained.
 
-Source-ready run2/task2 retains native and organized Docling products for all 1,589 pages.
-Run5/task7 retains the selected enrichment as `math-enriched`, digest
-`8468df6fb3af853b1d0757b18facc7ecd2ff25fa301e8f4b8e05aa2930b6948d`.
-It recovered 648 inline anchors and retains 36 source-qualified unresolved reports, with honest
-partial scope coverage. Native word/crop order recovers punctuation and repeated contexts;
-ambiguous cases preserve source geometry and diagnostics rather than invented offsets.
+**Functional verification (2026-11-01):** The fresh broad `just test-all` receipt
+`20261101T204758Z-4060990` retained3091 passes, one failed equation and its teardown error. The
+math deadline had interrupted automatic cyclic GC. Scoped GC-state ownership preserved existing
+budgets/outer timers; focused64, the isolated cold equation and the affected332-case
+math/evaluator/release union passed. [Finalized scoped receipt](../design_review/evidence/2026-11-01_pdf-current-consumers/records/math.deadline-controls.json).
+The earlier3068/16 broad failure and interrupted descriptor-bound follow-up remain intact.
+Corrected native snapshot/record/runtime controls130, conversion callers12, reconciliation and
+PostgreSQL/IPC publication36, and each native-head3-case check passed within their own contexts.
+These selections overlap and are not added into a unique whole-plan count. Original failure
+receipts and exact invocation/source contexts are retained with the consumer/rebuild evidence.
 
-Run6 (`release:743bdc97c3a1390bca0e0485c9ccbc44fb1856495bc038d3b4b69bf5bbcccbdc`)
-passed consumer source preparation over that exact enriched pin without another native inference
-or a relabelled producer. Five analysis views and five direct ancestor-context views are selected;
-M09/M11/M13 completed and five AgentOpus tasks await extraction. View role is included before
-identity construction. Exact recipe/policy/scoped-coverage and existing-view custody guard reuse.
-Native source CLI views/product reads passed. Current-run external MCP/render remains `not_run`.
+Warning-inclusive whole Pyrefly passed with zero errors/warnings after the typed snapshot return
+exposed and corrected the rich-cell caller narrowing; scoped checks passed after reconciliation.
+`just model check` passed revision0.6.4. Applicable `just hygiene` types/Ruff/deps/Clippy/agent/ADR
+checks passed; rule checks are not_run because no rules exist. Documentation publication-link
+cleanup following the library reorganization is deferred. Zero listed Rust tests establish no
+Rust functional coverage. Formatting-only changes and commits did not invalidate applicable
+passing tests or typing evidence.
 
-Independent reference preparation for run6 passed and retains its own native frames, complete
-source/schema/guideline inputs and original page images. No author A/B/C, extraction provider,
-reference registration, grading or completed PDF result/default cutover is claimed. References
-will annotate both selected reference sections fully; six frozen original-PDF facts separately
-challenge source fidelity. Reference bytes and evaluator privileges do not enter extraction.
+**Remaining operational acceptance:** Finish current whole-book frozen validation and seal,
+prepare the five intact section views, then run actual external CLI/MCP/render/exports,
+five-section configured-provider extraction, independent full-section A/B/C references for
+Combinatorial Structures and Normal Distribution, the six frozen original-PDF challenges,
+automated grading, completed-result replay and default selection. The
+[consumer evidence owner](../design_review/evidence/2026-11-01_pdf-current-consumers/README.md)
+records actual commands/outcomes; helper readiness does not count as those journeys. Defaults
+remain `corpus_parsing_20261030` / `parsing-pipeline` until acceptance. No human grading or
+historical regrading is introduced. Native global finalization remains materialized; optional
+recognizers/caches and progressive PDF-26 remain conditional.
 
-**Verification, 2026-11-01:** `just test-all` source-stable0060 baseline passed2643 Python tests/
-10warnings (`20261101T042650Z-4190256`). Earlier failed/interrupted records and the2638-pass0059
-baseline retain their exact outcomes.0060 bounded controls68 and20 passed; subsequent0061 focused
-controls9 and final exact reproduction1 passed. Merged-main warning-inclusive `just types` and
-`uv run ruff check .` passed. Zero listed Rust tests establish no Rust functional coverage.
-`just docs-check` failed on existing parsing-profile/moved logging-library links; existing publisher
-target resolution passed for the seven changed PDF/architecture/evidence pages. No cosmetic
-formatting invalidates applicable passing type/test evidence. Whole-plan acceptance remains open.
-
-**PDF-17–19 verification, 2026-11-01:** the final foundation/schema regression union passed
-394tests/4warnings, including private native tables, record reconstruction, independent identity
-vectors, archive compatibility and frozen forward-product reproduction. Warning-inclusive
-`just types`, `uv run ruff check .` and `just model check` passed. Source core/system0.6.3 records
-relational compiler3; deployed0060 retains core0.6.2.0061–0063 remain undeployed. The earlier
-187-case union and five overlapping controls retain their scope and are not added to the394.
-[Foundation receipts](../design_review/evidence/2026-11-01_pdf-record-foundations/README.md)
-preserve initial failures, corrections and remaining producer/seal/consumer limits.
-
-**Remaining execution:** PDF-27/28 is implemented and targeted Tested as below; PDF-25 owns
-shared-book current-realization rebuild/publication and retained-evidence reuse through the new head.
-Qualify actual integrated seal/read/export and the remaining failure/concurrency controls, then
-complete PDF-10/11 adopted-result/default selection. Preserve
-all retained raw/native products and old pins; reuse inference when recipes remain compatible.
-PDF-10/11 still require exact current consumer views, real external interfaces, five-section
-extraction, independent two-section references, the six frozen original-PDF challenges, automated
-grading, resumed replay and complete final-source qualification. These obligations are extended,
-not credited by document creation or silently duplicated in PDF-25. Defaults remain
-`corpus_parsing_20261030` / `parsing-pipeline`; no audit-premise or grading-policy change is included.
+Earlier [foundation receipts](../design_review/evidence/2026-11-01_pdf-record-foundations/README.md),
+[publication/producer receipts](../design_review/evidence/2026-11-01_pdf-publication-adoption/README.md)
+and [private runtime receipts](../design_review/evidence/2026-11-01_pdf-streaming-runtime/README.md)
+retain their original scope and conclusions. They do not establish the new operational acceptance.
 
 ## PostgreSQL integration plan-authoring verification — 2026-11-01
 

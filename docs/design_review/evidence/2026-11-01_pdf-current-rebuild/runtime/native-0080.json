@@ -1,0 +1,23 @@
+{
+  "revision": "semantic_pdf_evidence_20261101",
+  "state_sha256": "ed04ef6ddf5f2c4724be12b9698cbb52b13e6eb1afe1ef1a0d9a8c084d1311b2",
+  "admission_sha256": "695f069bd13791afebe7f6e235473cd87abbcb60e838f3fdfda9c6830b5e1c6f",
+  "descriptor_sha256": "608d786d79e34641d519b42e8a359e2f9c535c1cf64ea5d914b12de1f54e2810",
+  "native_operations": 1,
+  "ordinary_operations": 0,
+  "desired_objects": 27,
+  "observed_at": "2026-11-01T21:50:06.503729+00:00",
+  "outcome": "passed",
+  "scope": "native-authoring-and-affected-functional-cases-only",
+  "predecessor": "semantic_pdf_journal_20261101",
+  "physical_id_unchanged": "physical:a421ce2f95e22be09db50bd3ac68d374d9a56c22cc9963da4f798d7a02611e4e",
+  "native_controls": 3,
+  "native_controls_log": "build/pdf80-native-controls.log",
+  "affected_reconciliation_and_publication_cases": 36,
+  "affected_log": "build/pdf80-reconciliation.log",
+  "scoped_typing_log": "build/pdf80-types.log",
+  "current_empty_candidate_native_operations": 0,
+  "current_empty_candidate_ordinary_operations": 0,
+  "current_empty_candidate_log": "build/pdf80-empty-current.log",
+  "target_migration_log": "target-migrate-0080.log"
+}

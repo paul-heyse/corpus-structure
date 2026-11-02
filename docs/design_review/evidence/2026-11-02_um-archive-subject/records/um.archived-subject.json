@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "um.archived-subject",
+  "title": "Actual compiler20 static inspection and unsupported live subject",
+  "group": "unified-domain-model",
+  "package": "UM-11/14",
+  "finalized": "2026-11-02",
+  "status": "superseded",
+  "supersedes": [],
+  "superseded_by": "um.archived-subject-23",
+  "question": "Does the actual retained compiler20 release preserve static CLI/MCP inspection while refusing a subject contract it does not declare?",
+  "answers": [
+    "UM-11",
+    "UM-14"
+  ],
+  "method": "Reader-only actual archived release through CLI and in-process FastMCP; inspect retained execution compiler, static operation, and explicit unsupported live-subject refusal. No migration or provider execution.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-02_um-archive-subject/read_archive.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "read_archive.py",
+      "role": "read-only actual archive consumer check",
+      "sha256": "21891e7168d23a5c74c0f60e618dcd6cbacbc52c24028c42b350cb6eaf676192"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "passed final observations and original setup failures",
+      "sha256": "dc6713082bdb46ed4e74f98c8891fac526be3cd3aaffd615f71bacddc4014af8"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Execution compiler",
+      "value": "20",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Static CLI inspection",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "CLI and MCP unsupported subject refusal",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Actual retained compiler20 static inspection succeeds. Both adapters explicitly refuse the absent retained PublishedDocumentSubject with a remedy; no current-schema fallback or provider/database effect is used. This bounded result is not assembled UM qualification.",
+  "consumed_by": [
+    "UM-11",
+    "UM-14",
+    "unified-domain-model report companion"
+  ]
+}

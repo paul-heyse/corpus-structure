@@ -1,0 +1,47 @@
+[11/02/26 06:52:55] Error calling tool 'explain_operation'                      
+{
+  "outcome": "passed",
+  "release": "release:143908b452ff569d277197926ddb2f11481a94ea9aca7308340a325ff77b02fa",
+  "execution_compiler": "20",
+  "static_operation": "read_source_view",
+  "cli_failure": {
+    "error": {
+      "code": "SemanticRefusal",
+      "message": "retained release does not support subject contract PublishedDocumentSubject; inspect the static operation or select a release that declares this subject",
+      "validation": {
+        "report_version": 1,
+        "report_schema_digest": "release:2069100be1acaa451221221c6bc02c793559d1ef8154350df9b7557f3cf9668c",
+        "observations": [
+          {
+            "category": "unassessed",
+            "code": "SemanticRefusal",
+            "model_path": "operation/compatibility",
+            "scope": "boundary",
+            "message": "retained release does not support subject contract PublishedDocumentSubject; inspect the static operation or select a release that declares this subject",
+            "original_report": "refusal:SemanticRefusal"
+          }
+        ],
+        "complete": false
+      }
+    }
+  },
+  "mcp_failure": {
+    "code": "SemanticRefusal",
+    "message": "retained release does not support subject contract PublishedDocumentSubject; inspect the static operation or select a release that declares this subject",
+    "validation": {
+      "report_version": 1,
+      "report_schema_digest": "release:2069100be1acaa451221221c6bc02c793559d1ef8154350df9b7557f3cf9668c",
+      "observations": [
+        {
+          "category": "unassessed",
+          "code": "SemanticRefusal",
+          "model_path": "operation/compatibility",
+          "scope": "boundary",
+          "message": "retained release does not support subject contract PublishedDocumentSubject; inspect the static operation or select a release that declares this subject",
+          "original_report": "refusal:SemanticRefusal"
+        }
+      ],
+      "complete": false
+    }
+  }
+}

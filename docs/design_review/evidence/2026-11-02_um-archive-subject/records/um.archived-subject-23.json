@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "id": "um.archived-subject-23",
+  "title": "Actual compiler20 archive inspection through compiler23 reader",
+  "group": "unified-domain-model",
+  "package": "UM-11/14",
+  "finalized": "2026-11-02",
+  "status": "current",
+  "supersedes": [
+    "um.archived-subject"
+  ],
+  "superseded_by": null,
+  "question": "Does the compiler23 reader retain actual compiler20 static CLI/MCP inspection and explicitly refuse its absent live subject contract?",
+  "answers": [
+    "UM-11",
+    "UM-14"
+  ],
+  "method": "Reader-only actual archived release through CLI and in-process FastMCP; inspect retained execution compiler, static operation, and explicit unsupported live-subject refusal. No migration or provider execution.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-02_um-archive-subject/read_archive.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "read_archive.py",
+      "role": "read-only actual archive consumer check",
+      "sha256": "21891e7168d23a5c74c0f60e618dcd6cbacbc52c24028c42b350cb6eaf676192"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw23/attempt-001.log",
+      "role": "current23 reader actual retained20 CLI/MCP observations",
+      "sha256": "7a1a15bf5825bca941103a0df55858fc2ab8d74fdda021c6fd28f593cfa8e51a"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Producing execution compiler",
+      "value": "20",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Reading implementation execution ABI",
+      "value": "23",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Static CLI and explicit CLI/MCP subject refusal",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The current compiler23 reader preserves actual retained20 static inspection and explicit unsupported-subject CLI/MCP refusal. This verifies archive decoding after the new Core backend format; no current-schema fallback, migration, publication or provider effect is used. The producer remains20, not reinterpreted23. Bounded result, not assembled UM qualification.",
+  "consumed_by": [
+    "UM-11",
+    "UM-14",
+    "unified-domain-model report companion"
+  ]
+}

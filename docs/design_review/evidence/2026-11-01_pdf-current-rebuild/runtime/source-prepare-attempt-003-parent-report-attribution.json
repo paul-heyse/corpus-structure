@@ -1,0 +1,180 @@
+{
+  "observed_at": "2026-11-01T22:22:24.418947+00:00",
+  "outcome": "failed",
+  "scope": "current integrated parent formula recognition attribution after native pointer renumbering",
+  "run_id": 9,
+  "task_id": 9,
+  "build_id": "9372bc8fe8c89ac1d3b3a9ca57959846b81c6d44df78f09ad93402a56632056c",
+  "frozen_digest": "067946d2d0e3f28c52a2f08b297ba3ae7176fdc60f806370dde2afe98c73eecd",
+  "structural_input": {
+    "task_id": 6,
+    "product_key": "math-enriched",
+    "content_digest": "e1ffcf06fe12df156cf893d6b80554257228133bced93549b4cbba3a5016cd65"
+  },
+  "source_retained": "docs/design_review/evidence/2026-11-01_pdf-current-rebuild/runtime/raw/retained-7-math-enriched.json",
+  "source_retained_sha256": "8468df6fb3af853b1d0757b18facc7ecd2ff25fa301e8f4b8e05aa2930b6948d",
+  "current_projection": "/tmp/pdf-native-validation-gzndtk0f/access.jsonl",
+  "current_projection_sha256": "2871f78d1280a5f43a0da91eaf67b89938785da0d3aeebcf92d755c03b218001",
+  "parent_outcomes": 6999,
+  "independent_sample_count": 20,
+  "changed_text_count": 20,
+  "sample": [
+    {
+      "pointer": "#/texts/503",
+      "old_label": "formula",
+      "new_label": "text",
+      "old_text": "A = B \\text { if and only if } x \\in A \\iff x \\in B",
+      "new_text": "Note that union, intersection, and difference are binary set operations, while complement is a unary set operation."
+    },
+    {
+      "pointer": "#/texts/505",
+      "old_label": "formula",
+      "new_label": "section_header",
+      "old_text": "1 \\text { If } A \\text { and } B \\text { are sets then } A \\text { is a subset of } B \\text { if every element of } A \\text { is also an element of } B \\colon \\\\ \\\\ A \\subseteq B \\text { if and only if } x \\in A \\ \\Rightarrow \\ x \\in B",
+      "new_text": "Basic Rules"
+    },
+    {
+      "pointer": "#/texts/567",
+      "old_label": "formula",
+      "new_label": "page_footer",
+      "old_text": "A \\cup B = \\{ x \\in S \\colon x \\in A \\text { or } x \\in B \\}",
+      "new_text": "https://stats.libretexts.org/@go/page/10116"
+    },
+    {
+      "pointer": "#/texts/569",
+      "old_label": "formula",
+      "new_label": "formula",
+      "old_text": "A \\cap B = \\{ x \\in S \\colon x \\in A \\text { and } x \\in B \\}",
+      "new_text": "2 . \\left ( \\bigcap _ { i \\in I } A _ { i } \\right ) ^ { c } = \\bigcup _ { i \\in I } A _ { i } ^ { c }"
+    },
+    {
+      "pointer": "#/texts/573",
+      "old_label": "formula",
+      "new_label": "text",
+      "old_text": "B \\wedge A = \\{ x \\in S \\colon x \\in B \\text { and } x \\not \\in A \\}",
+      "new_text": "The sets in the previous result turn out to be important in the study of probability."
+    },
+    {
+      "pointer": "#/texts/576",
+      "old_label": "formula",
+      "new_label": "text",
+      "old_text": "A ^ { c } = \\{ x \\in S \\colon x \\notin A \\}",
+      "new_text": ""
+    },
+    {
+      "pointer": "#/texts/587",
+      "old_label": "formula",
+      "new_label": "section_header",
+      "old_text": "-",
+      "new_text": "Distributive rules for product sets"
+    },
+    {
+      "pointer": "#/texts/596",
+      "old_label": "formula",
+      "new_label": "page_footer",
+      "old_text": "1 . \\, A \\cup A ^ { c } = S",
+      "new_text": "1.1.8"
+    },
+    {
+      "pointer": "#/texts/605",
+      "old_label": "formula",
+      "new_label": "section_header",
+      "old_text": "\\begin{smallmatrix} 1 . \\\\ 2 . \\end{smallmatrix}",
+      "new_text": "Proof"
+    },
+    {
+      "pointer": "#/texts/616",
+      "old_label": "formula",
+      "new_label": "page_footer",
+      "old_text": "2 .",
+      "new_text": "1.1.9"
+    },
+    {
+      "pointer": "#/texts/622",
+      "old_label": "formula",
+      "new_label": "list_item",
+      "old_text": "1 . \\left ( A \\cup B \\right ) ^ { c } = A ^ { c } \\cap B ^ { c }",
+      "new_text": "3."
+    },
+    {
+      "pointer": "#/texts/630",
+      "old_label": "formula",
+      "new_label": "section_header",
+      "old_text": "3 . \\, A \\cup B = B",
+      "new_text": "Answer"
+    },
+    {
+      "pointer": "#/texts/631",
+      "old_label": "formula",
+      "new_label": "page_footer",
+      "old_text": "4 . A \\cap B = A",
+      "new_text": "1.1.10"
+    },
+    {
+      "pointer": "#/texts/632",
+      "old_label": "formula",
+      "new_label": "page_footer",
+      "old_text": "\\begin{matrix} 1 . 1 \\\\ 2 . 2 \\\\ 3 . 4 \\\\ 5 . 5 \\end{matrix}",
+      "new_text": "https://stats.libretexts.org/@go/page/10116"
+    },
+    {
+      "pointer": "#/texts/651",
+      "old_label": "formula",
+      "new_label": "list_item",
+      "old_text": "2 . \\, A ^ { c } = S \\, \\wedge \\, A",
+      "new_text": "2."
+    },
+    {
+      "pointer": "#/texts/654",
+      "old_label": "formula",
+      "new_label": "list_item",
+      "old_text": "4 . \\, A \\cup B = S \\ \\{ ( S \\ A ) \\ \\lceil ( S \\ A ) \\ \\lceil ( S \\ B ) \\rceil \\}",
+      "new_text": "5."
+    },
+    {
+      "pointer": "#/texts/660",
+      "old_label": "formula",
+      "new_label": "code",
+      "old_text": "A \\cap ( A \\cap B ^ { c } ) ^ { c } = A \\cap ( A ^ { c } \\cup B ) = ( A \\cap A ^ { c } ) \\cup ( A \\cap B ) = \\emptyset \\cup ( A \\cap B ) = A \\cap B",
+      "new_text": "1. 2. 3. 4. 5. 6. 7. 8. 9."
+    },
+    {
+      "pointer": "#/texts/662",
+      "old_label": "formula",
+      "new_label": "page_footer",
+      "old_text": "[ A ^ { c } \\cap ( A ^ { c } \\cap B ) ^ { c } ] ^ { c } = A \\cup ( A ^ { c } \\cap B ) = ( A \\cup A ^ { c } ) \\cap ( A \\cup B ) = S \\cap ( A \\cup B ) = A \\cup B",
+      "new_text": "https://stats.libretexts.org/@go/page/10116"
+    },
+    {
+      "pointer": "#/texts/664",
+      "old_label": "formula",
+      "new_label": "section_header",
+      "old_text": "-",
+      "new_text": "Cards"
+    },
+    {
+      "pointer": "#/texts/667",
+      "old_label": "formula",
+      "new_label": "list_item",
+      "old_text": "( A \\cup B ) \\, ( A \\cap B ) & = ( A \\cup B ) \\cap ( A \\cap B ) ^ { c } = ( A \\cup B ) \\cap ( A ^ { c } \\cup B ^ { c } ) & & ( 1 . 1 . 9 ) \\\\ & = ( A \\cap A ^ { c } ) \\cup ( B \\cap A ^ { c } ) \\cup ( A \\cap B ^ { c } ) \\cup ( B \\cap B ^ { c } ) & & ( 1 . 1 . 1 0 ) \\\\ & = \\emptyset \\cup ( B \\ \\ A ) \\cup ( A \\ \\ B ) \\cup \\emptyset = ( A \\ \\ B ) \\cup ( B \\ \\ A ) & & ( 1 . 1 . 1 1 )",
+      "new_text": "Answer"
+    }
+  ],
+  "actual_frozen_metadata_first": {
+    "family": "native_metadata",
+    "local_id": "formula_outcomes:0",
+    "body": {
+      "kind": "formula_outcomes",
+      "ordinal": 0,
+      "outcome": "succeeded",
+      "pointer": "#/texts/503",
+      "has_diagnostic": false
+    }
+  },
+  "implementation_path": [
+    "ingest/pdf_recognition_methods.py: draft.health=values[health]",
+    "orchestrate/pdf_streaming.py: parent formula_outcomes moved from native_health into captured_metadata"
+  ],
+  "shared_validation_limit": "validate_pdf_report_metadata checks formula pointer existence but not ownership of recognition to the selected output identity",
+  "pipeline_action": "No interruption, source mutation or publication claim; coordinator notified before qualification."
+}

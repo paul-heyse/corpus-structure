@@ -1,0 +1,54 @@
+{
+  "observed_at": "2026-11-01T21:51:09.206039+00:00",
+  "outcome": "partial",
+  "scope": "failed run8 retained actual recognition observations; not integrated-source acceptance",
+  "run_id": 8,
+  "task_id": 8,
+  "journal": "build/pdf-reconciliation/84f9c8e66b1d4634b021a957d25f99e4/reconciliation/observations.arrow",
+  "sha256": "a95ee260eda4849df7c4b5aa9758a37607c83f6bbcb5d619e81f93b3c90585f9",
+  "byte_length": 37352338,
+  "rows": 3441,
+  "outcomes": [
+    {
+      "pass_role": "A",
+      "outcome": "partial",
+      "count": 2
+    },
+    {
+      "pass_role": "A",
+      "outcome": "succeeded",
+      "count": 1589
+    },
+    {
+      "pass_role": "B",
+      "outcome": "succeeded",
+      "count": 1589
+    },
+    {
+      "pass_role": "C",
+      "outcome": "succeeded",
+      "count": 261
+    }
+  ],
+  "pages": {
+    "A": {
+      "count": 1589,
+      "min": 1,
+      "max": 1589,
+      "complete_1_to_1589": true
+    },
+    "B": {
+      "count": 1589,
+      "min": 1,
+      "max": 1589,
+      "complete_1_to_1589": true
+    },
+    "C": {
+      "count": 156,
+      "min": 7,
+      "max": 1525,
+      "complete_1_to_1589": false
+    }
+  },
+  "missing_raw": 0
+}

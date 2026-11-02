@@ -1,0 +1,22 @@
+{
+  "observed_at": "2026-11-01T21:41:00.996005+00:00",
+  "outcome": "passed",
+  "scope": "native-authoring-and-affected-functional-cases-only",
+  "desired_objects": 27,
+  "native_operations": 1,
+  "ordinary_operations": 0,
+  "physical_id_unchanged": "physical:a421ce2f95e22be09db50bd3ac68d374d9a56c22cc9963da4f798d7a02611e4e",
+  "current_empty_candidate_native_operations": 0,
+  "current_empty_candidate_ordinary_operations": 0,
+  "revision": "semantic_grammar_20261101",
+  "predecessor": "semantic_pdf_address_20261101",
+  "state_sha256": "0495b94d760b126e3b6e4b68ec01cbf4530a800098740f3971aaff76e9ac743b",
+  "admission_sha256": "4cff4a10d96e7e5b25649c92aebc3462e68294911880c8e95b3355aff8abdaa2",
+  "descriptor_sha256": "b99205859b51a336adef212802fcb59ee29ed7c076c2653a391945dddba2ee0d",
+  "targeted_tests": 3,
+  "targeted_test_log": "build/pdf77-native-controls.log",
+  "current_empty_candidate_log": "build/pdf77-empty-current.log",
+  "target_migration_log": "target-migrate-0077.log",
+  "additional_caller_tests": 0,
+  "additional_caller_test_log": null
+}
