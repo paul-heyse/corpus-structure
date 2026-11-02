@@ -1,13 +1,13 @@
 # Integration, adoption and qualification
 
-> Current execution (2026-11-02): implementation is integrated under
+> Current execution (2026-11-02): implementation is substantially integrated, with UM-CA13 open, under
 > [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
 > [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
 > owns current disposition and open acceptance. Historical compatibility/repair statements below
 > retain their dated baseline; obsolete runtime formats are retired, while current archive custody
 > and query compatibility remain supported. Final assembled qualification is open.
 
-**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator.
+**Status:** Partial implementation — UM-CA13 cancellation integration remains open; current-only targeted closeout and assembled acceptance remain with the coordinator.
 
 ## Baseline and preservation contract
 
@@ -198,27 +198,11 @@ Proposed until implementation and its actual verification justify stronger claim
 
 ## Completion audit — 2026-11-02
 
-**Bounded judgment:** ordinary callers have substantive typed/native/resource/report migrations,
-with protected publication and explicit historical routes. The maintained inventory is not closed:
-base-protocol initialization/cancellation, derive preview, configured export, graph and failure
-reporting, advice integration, nested result IDs and generated provenance retain the coordinator's
-UM-CA01–12 obligations. The selected model/libraries should govern their structural repairs;
-passing a first consumer does not establish the remaining family migration.
+**Baseline:** `fb84eb8f`; independent source/consumer and library-mechanism inspection, with no new
+product tests, provider runs or database mutations. The coordinator owns all current disposition.
 
-**Verification:** product qualification completed failed,3107 passed/30 failed/0 skipped, rather
-than not_run; the coordinator links its exact invocation/classification/failure nodes. Nine ABI/
-analysis refusal-message assertions and obsolete20/hash/PRESENT assertions are test migrations;
-retired publisher child-edge and legacy export fixtures also fail before their intended behavior.
-Migrate them to actual record publication without weakening independent tree/export expectations.
-The rich mapped-document exact-custody failure remains undiagnosed between fixture and producer;
-retain it open, not relabelled as a harmless expectation. Three supported base-protocol failures,
-two archive failures and nine normalization failures include genuine implementation seams.
+The current-only consumer migration has substantive implementation and232 distinct targeted native passes, with independent pure preparation controls separately scoped. **Integration is not complete:** UM-CA13 leaves cancellation disconnected across SQLAlchemy metadata and ADBC bulk export. UM-CA10 and UM-15 also retain79 unqualified math nodes, corrected fresh PDF intake, five-section actual-provider knowledge/query/report/export/evaluation and full required-union acceptance. Historical failed/interrupted receipts remain immutable. Current test-architecture work retains its own owner; this audit did not refresh its premises.
 
-The receipt's empty declared required-obligation coverage does not certify UM-15. Map remaining
-native/provider/nonfunctional obligations to applicable evidence, including actual stale-preflight
-refusal; use affected checks after repairs and broaden only when shared changes warrant it.
-Root qualification's same2 corrected fixtures passed; no rerun of unaffected281 is required merely
-for documentation or lint. No new tests, provider runs or book/database changes occurred for this
-audit. PDF operational/default/provider acceptance retains its separate owner; all old receipts,
-failed/interrupted attempts and frozen83–90 stay immutable. The coordinator alone owns current
-disposition and the next execution queue.
+See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
+for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
+accepted mechanisms and limits. New improvement proposals are separately published and unadopted.

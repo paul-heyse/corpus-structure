@@ -236,18 +236,11 @@ runtime/provider/native obligations and final acceptance are owned by
 
 ## Completion audit — 2026-11-02
 
-**Bounded judgment:** generated requests, fixed callable signatures, strict row/cardinality
-materializers, reusable TypeAdapters and SQLAlchemy closed column protocols reach actual wrappers;
-independent static-negative and presence/null controls have passing retained evidence. The closed
-protocol supplements SQLAlchemy's dynamic attribute fallback; retaining the small semantic
-serialization/reference visitors remains justified by UM-I03, not a skipped generic dump conversion.
+**Baseline:** `fb84eb8f`; independent source/consumer and library-mechanism inspection, with no new
+product tests, provider runs or database mutations. The coordinator owns all current disposition.
 
-Three transition/continuity gaps prevent broader completion: current numeric-bound schema lowering
-breaks historical reconstruction (UM-CA01); unconditional composed projection admission rejects
-supported semantic-1 cancellation/hold/project initialization (UM-CA02); `_typed_columns.py` has
-stale physical provenance (UM-CA09). Additionally, generated nested CompletionReceipt fields erase
-task/run/attempt identifier distinctions (UM-CA12), although top-level calls are typed. Repair must
-start with the owned model/generator/explicit protocol route, preserving runtime validation and
-archived bytes. The exact-source failure does not demonstrate wrong column values. Current Native90
-is frozen; captured-source changes require proper forward evolution. Final qualification is failed,
-not pending; see the coordinator for the immutable receipt and separate test-migration obligations.
+Generated semantic identifiers, nested completion IDs, typed arguments/Core binds and strict scalar/JSON result materializers reach ordinary operations. The former generated-provenance/nested-ID gaps are corrected by source inspection and retained scoped evidence. Closed-column protocols do not replace runtime validation. No new material UM-03 implementation gap was confirmed; full consumer qualification remains at UM-CA10.
+
+See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
+for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
+accepted mechanisms and limits. New improvement proposals are separately published and unadopted.

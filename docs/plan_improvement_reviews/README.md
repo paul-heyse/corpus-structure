@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Unified domain model — completion-linked improvement review](unified-domain-model_2026-11-02.md):
+  proposed provider lifecycle/deadline/pipelining, report dependency closure and impact knowledge
+  improvements; completion gap UM-CA13 stays owned by the UM coordinator.
+
 - [PDF/PostgreSQL capability integration](pdf-postgresql-capability-integration_2026-11-01.md):
   proposed shared model/transfer, nested Arrow compute, context/lifetime and native-authoring
   amendments for PDF-27/28 and affected owners; plans unchanged, no product qualification.

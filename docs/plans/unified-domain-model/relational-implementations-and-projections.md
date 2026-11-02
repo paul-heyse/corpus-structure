@@ -504,19 +504,11 @@ arbitrary SQL/procedural completeness is claimed.
 
 ## Completion audit — 2026-11-02
 
-**Bounded judgment:** the four checked recipes generate Core/native/Arrow projections and retain
-exact published read/effect binding. Core inference uses set-wise Insert.from_select and grouped
-UPDATE FROM while retaining its fixed-point/proof owners; the retained13 inference cases passed.
-No material mismatch was found in that inspected slice. Current source analysis really performs
-strict qualification, type annotation, reusable scope and output plus relational dependencies.
+**Baseline:** `fb84eb8f`; independent source/consumer and library-mechanism inspection, with no new
+product tests, provider runs or database mutations. The coordinator owns all current disposition.
 
-**Remaining selected capability, UM-CA05:** local finite CTE definitions already reject invalid
-references/ordering. They do not deliver the separately selected external pinned query/view
-composition profile and its nested/collision/missing/opaque/placeholder/nested-type acceptance
-through O02/O03. Absence of an API name alone is not a defect: the current materialized companions
-source must keep its meaning. Implement the selected capability or settle a justified equivalent/
-authorized narrowing; do not expand materialized objects merely to claim exp.expand usage.
-Generated column provenance drift is UM-CA09, shared with UM-03. Native83–90 rehearsal establishes
-its stated scope; earlier per-slice pending labels do not mean no native work occurred. Consumer
-qualification has a completed failed product run and remains open under UM-CA10, rather than an
-unrun final selection. Historical receipt semantics and the PDF deployment boundary remain intact.
+Checked recipes actually lower to typed Core binds/JSON/CTE/join/set DML. SQLGlot MappingSchema, strict qualify, annotate_types, reusable scope/lineage and non-output dependencies reach impact analysis. Unknown helper semantics remain unknown. Prior API-use and consumer gaps are corrected; complete semantic equivalence/provenance is not claimed. I05 in the separate review proposes additional known class dependencies without relabelling conservative unknown as a defect.
+
+See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
+for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
+accepted mechanisms and limits. New improvement proposals are separately published and unadopted.

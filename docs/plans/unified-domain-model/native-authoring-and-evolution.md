@@ -301,19 +301,11 @@ sources/results are retained in [UM native-evolution evidence](../../design_revi
 
 ## Completion audit — 2026-11-02
 
-**Bounded judgment:** pglast/Core structured SQL bodies, exact deployment bytes, PostgreSQL-18
-normalized body/dependency custody and frozen83–90 Alembic replay are substantively implemented.
-Before/after identity, ACL/role, drift/stale-state and rollback controls have bounded passing
-receipts. This is owned rehearsal, not operational book82 deployment. Retained protected procedural
-kernels have explicit family reasons; generic procedural generation is not required.
+**Baseline:** `fb84eb8f`; independent source/consumer and library-mechanism inspection, with no new
+product tests, provider runs or database mutations. The coordinator owns all current disposition.
 
-**UM-CA03:** maintained schema derive still invokes forward_products through publication admission
-without server-normalized objects; the correct missing-dependency refusal breaks nine product
-controls, including actual CLI preview. Integrate/qualify the supported preview or explicitly retire
-and migrate its consumers, preserving deployment refusal. The working native-candidate route does
-not make the broken legacy preview complete. **UM-CA08:** the selected Inspector/typed Core catalog
-observation obligation is unresolved. Existing specialist SQL is not shown functionally wrong, but
-Inspector's incomplete coverage alone does not justify omitting the typed Core part. Complete that
-migration or document a concrete equivalent/necessary retained-kernel disposition. No frozen file
-is to be edited to reconcile current semantics. Product qualification failed; all exact prior
-rehearsal results retain their dates and scope, with combined disposition in the coordinator.
+pglast CreateFunctionStmt.sql_body/RawStream are actual candidate products; native catalog observation is typed Core and the Alembic operation/comparator/renderer chain executes immutable before/after products. Pure derive and server-bound candidate roles are explicit. Native91–94 receipts establish their bounded replay/drift/rollback guarantees. Named retained procedural families are justified; arbitrary procedural compilation was not selected. Fresh runtime admission evidence is distinct from full corpus/provider acceptance.
+
+See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
+for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
+accepted mechanisms and limits. New improvement proposals are separately published and unadopted.

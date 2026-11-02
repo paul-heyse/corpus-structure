@@ -178,12 +178,11 @@ accounting and final maintenance.
 
 ## Completion audit — 2026-11-02
 
-**Bounded judgment:** owner-declared implementation acquisition, producing compatibility before
-registry loading, bound continuation tokens and explanation/evidence origin handling have actual
-maintained routes and retained passing query/CLI controls. No material gap was found in those
-inspected mechanisms. No production named-query MCP execution route was found requiring migration.
-The deliberately unsupported historical unbound route correctly refuses; archived Python is not
-executed. This does not establish all supported historical readers: UM-CA01's numeric schema
-reconstruction fails compiler10 answer retention and historical capture before their intended
-behavior. Keep that single shared defect under UM-03/04/14, without discarding the narrower query
-custody passes. Package/enclosing acceptance remains open, as owned by the coordinator.
+**Baseline:** `fb84eb8f`; independent source/consumer and library-mechanism inspection, with no new
+product tests, provider runs or database mutations. The coordinator owns all current disposition.
+
+Producing query/plugin custody, explicit trusted compatibility and continuation dimensions are checked before installed code execution. Current completed-run query semantics survive ADR-0047; obsolete compiler formats need not be restored. No new material UM-04 implementation gap was confirmed. Actual-provider/completed-result adoption and full required-union evidence remain at the coordinator.
+
+See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
+for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
+accepted mechanisms and limits. New improvement proposals are separately published and unadopted.

@@ -336,19 +336,11 @@ in the coordinated final native consumer selection; these unit/archive results d
 
 ## Completion audit — 2026-11-02
 
-**Bounded judgment:** shared prepared report models and cold schema artifacts reach actual
-CLI/FastMCP explanation/diff routes. Comparison preserves both releases' consumer edges, ordered
-member facts, absence/null and unknown-versus-removed distinctions. Qualified native failures retain
-their bound identity. No material mismatch was found in these narrower inspected mechanisms.
+**Baseline:** `fb84eb8f`; independent source/consumer and library-mechanism inspection, with no new
+product tests, provider runs or database mutations. The coordinator owns all current disposition.
 
-Four obligations remain: the selected source-composition profile (UM-CA05); graph conformance
-projection has no production caller despite a tested graph_validation_report helper (UM-CA06);
-ordinary Pydantic subject failure translation loses known release/model/operation at CLI/MCP
-wrappers (UM-CA07); comparison output is not connected to the accepted compatibility/regeneration
-advice workflow (UM-CA11). Helper tests or category/path-only actual adapter assertions cannot
-close those consumer obligations. Connect the existing owners, preserving raw graph reports,
-trusted known context and explicit unknowns without introducing a new validator or activation
-permission. Current live applicability observers retain declared unresolved checks; live-evaluator
-coverage and stale-preflight→atomic-native-refusal acceptance remain open under UM-CA10. The
-coordinator owns combined gaps; prior bounded passes are retained, not promoted to whole O01–O03
-completion or measured scientific-quality benefit.
+Actual CLI/MCP explanations/diffs, regeneration advice and located graph/native/boundary reports consume shared model products. Known release/model/operation context is retained. Class/helper impact and unsupported live evaluators remain explicitly unknown/unresolved. No newly confirmed material implementation gap in UM-11–13; optional I05 and further qualified observer coverage do not establish universal dependency knowledge. Actual acceptance remains open at UM-CA10.
+
+See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
+for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
+accepted mechanisms and limits. New improvement proposals are separately published and unadopted.

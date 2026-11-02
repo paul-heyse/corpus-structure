@@ -1,13 +1,13 @@
 # Execution resources, ownership and directional transport
 
-> Current execution (2026-11-02): implementation is integrated under
+> Current execution (2026-11-02): implementation is substantially integrated, with UM-CA13 open, under
 > [ADR-0047](../../adr/0047-current-only-domain-runtime.md); the
 > [coordinator checkpoint](../unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02)
 > owns current disposition and open acceptance. Historical compatibility/repair statements below
 > retain their dated baseline; obsolete runtime formats are retired, while current archive custody
 > and query compatibility remain supported. Final assembled qualification is open.
 
-**Status:** Implementation integrated; current-only targeted closeout and assembled acceptance remain with the coordinator. **Created:** 2026-11-01. **Updated:** 2026-11-02. **Maturity:** Implemented; focused Tested evidence
+**Status:** Partial implementation — UM-CA13 cancellation integration remains open; current-only targeted closeout and assembled acceptance remain with the coordinator. **Created:** 2026-11-01. **Updated:** 2026-11-02. **Maturity:** Implemented; focused Tested evidence
 is bounded below, with no measured speedup or universal memory claim.
 The [coordinator](../unified-domain-model_2026-11-01.md) owns
 package state, source disposition and assembled acceptance. This companion owns UM-09/UM-10
@@ -236,17 +236,11 @@ follow complete series scope under the coordinator. No benchmark or new capacity
 
 ## Completion audit — 2026-11-02
 
-**Bounded judgment:** non-default consolidation resources, guarded borrowed rows/delayed
-consumption, independent cleanup/cancellation, caller-owned Psycopg/pgpq COPY and separate
-ADBC imported snapshots are real mechanisms with retained passing controls. Existing finite
-Core/ADBC/Parquet null/presence profiles are substantive; no requirement to add candidate temporal,
-composite or custom-OID profiles is inferred. These findings establish neither a universal memory
-bound nor a measured speedup.
+**Baseline:** `fb84eb8f`; independent source/consumer and library-mechanism inspection, with no new
+product tests, provider runs or database mutations. The coordinator owns all current disposition.
 
-**UM-CA04:** companion_export unconditionally uses default adbc.connect, ignoring the existing
-analytics.adbc_driver_path setting which capture already honors. This is incomplete propagation
-of an accepted invocation resource, not an extra backend request. Closing evidence must show
-non-default driver acquisition on actual companion export while preserving snapshot import,
-batch options, cancellation and lifetime. Earlier native85/86-focused evidence retains its source
-limits; native90/product controls do not by themselves close all transport/resource acceptance.
-The coordinator owns failed product qualification and final-source required-union reconciliation.
+Directional profiles, configured driver acquisition, same-session Psycopg/pgpq writes, imported ADBC snapshots and owned DuckDB lazy results are substantively implemented. **UM-CA13 remains an incomplete consumer seam:** companion export does not register caller cancellation during SQLAlchemy metadata/snapshot work; only ADBC is registered. Coordinate existing backend-specific owners and independently qualify both phases and handoff. Do not weaken lifetime/snapshot guarantees or call partial cancellation complete.
+
+See the [coordinator audit](../unified-domain-model_2026-11-01.md#completion-audit--2026-11-02)
+for combined judgment, UM-CA evidence and remaining obligations. Library tables above retain their
+accepted mechanisms and limits. New improvement proposals are separately published and unadopted.

@@ -1,7 +1,11 @@
 # Status
-_Updated2026-11-02; [UM current execution](docs/plans/unified-domain-model_2026-11-01.md#current-execution-checkpoint--2026-11-02) is integrated. Fresh PDF and assembled acceptance remain open._
+_Updated 2026-11-02; [UM completion audit](docs/plans/unified-domain-model_2026-11-01.md#completion-audit--2026-11-02) confirms substantive implementation with an open cancellation integration gap and assembled acceptance._
 
 ## Current checkpoint
+
+- Completion audit: UM-CA13 keeps UM-09/10/14 partial (SQLAlchemy→ADBC cancellation seam).
+  [Improvement review](docs/plan_improvement_reviews/unified-domain-model_2026-11-02.md) proposes
+  provider lifecycle/deadline/pipelining and generation/impact refinements; none adopted.
 
 - [Test architecture/evidence plan](docs/plans/test-architecture-and-evidence_2026-11-02.md) proposed;
   all20 audit IDs have routes. TA-00/01 are next after implementation authorization; no code or host changes.
@@ -44,13 +48,13 @@ _Updated2026-11-02; [UM current execution](docs/plans/unified-domain-model_2026-
   All232 surviving targeted native cases now have passing evidence, with0 unresolved; four current
   child-graph preparation cases passed separately.79 math nodes remain unqualified.
 - All owned test groups and fixture databases are absent; no further work is queued.
-- **failed, deferred:** just docs-check reports existing library-reorganization links; no UM plan
-  error reported. Rust nextest found0tests, establishing no Rust functional coverage.
+- **passed:** audit publication git diff --check / just turn-end; no new product tests/types run.
+- **failed, deferred:** just docs-check: existing library links; no UM-plan/new-review error.
 - Full-PDF actual-provider recognition, five-section knowledge/query/report/export/evaluation and
   complete applicable functional/nonfunctional qualification remain open at the coordinator.
 
 ## Next
 
-Start the owned Nemotron service, verify API/control readiness, run the corrected full-PDF intake
-once, then resume the five-section knowledge workflow and complete remaining acceptance. Reuse
+Plan the UM-CA13 structural cancellation repair at existing transport/resource owners; consider the
+new improvement proposals separately. Fresh PDF/provider and full acceptance remain open. Reuse
 applicable receipts; formatting/lint alone do not invalidate typing or functional results.
