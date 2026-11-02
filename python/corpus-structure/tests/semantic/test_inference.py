@@ -229,6 +229,37 @@ def test_negative_and_different_context_do_not_compose(
     assert compute(semantic_writer_engine, binding).batch.fact == ()
 
 
+def _inference_publication_state(conn, release_id, realization_id):
+    """Independent persisted effects, receipts and revision of inference publication."""
+    from sqlalchemy import select
+
+    state = {}
+    for name in (
+        "data.realization",
+        "data.batch",
+        "data.fact",
+        "data.typed_value",
+        "data.value_role",
+        "data.selection",
+        "data.support",
+        "data.derivation",
+        "data.derivation_premise",
+    ):
+        relation = table(name)
+        state[name] = tuple(
+            dict(row)
+            for row in conn.execute(
+                select(relation)
+                .where(
+                    relation.c.release_id == release_id,
+                    relation.c.realization_id == realization_id,
+                )
+                .order_by(*relation.primary_key.columns)
+            ).mappings()
+        )
+    return state
+
+
 def test_direct_transport_rejects_undeclared_proof_and_stale_analysis(
     semantic_db_engine, semantic_writer_engine
 ):
@@ -246,11 +277,25 @@ def test_direct_transport_rejects_undeclared_proof_and_stale_analysis(
     with pytest.raises(DBAPIError, match="unadmitted inference"):
         publish_batch(semantic_writer_engine, bad)
     result = compute(semantic_writer_engine, binding)
+    assert result.batch.fact and result.batch.derivation
     publish_batch(semantic_writer_engine, PublicationBatch(binding.release_id, Z, "advance"))
+    with semantic_db_engine.connect() as conn:
+        before = _inference_publication_state(conn, binding.release_id, Z)
+    assert len(before["data.batch"]) == 2
+    assert {row["batch_id"] for row in before["data.batch"]} == {"sources", "advance"}
+    assert before["data.realization"][0]["data_revision"] == binding.data_revision + 1
+    assert {row["fact_id"] for row in before["data.fact"]} == {fact}
     from corpus_structure.semantic.arrow_publication import StaleAnalysisError
 
     with pytest.raises(StaleAnalysisError, match="revision changed"):
         publish_inference(semantic_writer_engine, result)
+    with semantic_db_engine.connect() as conn:
+        after = _inference_publication_state(conn, binding.release_id, Z)
+    assert {name: len(rows) for name, rows in after.items()} == {
+        name: len(rows) for name, rows in before.items()
+    }
+    assert after == before
+    assert result.batch.batch_id not in {row["batch_id"] for row in after["data.batch"]}
 
 
 def proof(head, premises, rule="rule:symmetric"):

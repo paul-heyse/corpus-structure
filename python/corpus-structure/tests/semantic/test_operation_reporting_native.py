@@ -119,6 +119,8 @@ def test_live_preflight_never_authorizes_stale_native_publication(
     from corpus_structure.semantic.publication import PublicationBatch, publish_batch
     from corpus_structure.semantic.query import SnapshotBinding, read_snapshot
 
+    from .test_inference import _inference_publication_state
+
     release = prepared()
     bundle, deps, profile = report_inputs()
     realization = "report-stale-realization"
@@ -150,8 +152,20 @@ def test_live_preflight_never_authorizes_stale_native_publication(
         semantic_writer_engine,
         PublicationBatch(release.release_id, realization, "advance-after-preflight"),
     )
+    with semantic_db_engine.connect() as conn:
+        before = _inference_publication_state(conn, release.release_id, realization)
+    assert len(before["data.batch"]) == 1
+    assert before["data.batch"][0]["batch_id"] == "advance-after-preflight"
+    assert before["data.realization"][0]["data_revision"] == 1
     with pytest.raises(StaleAnalysisError, match="revision changed"):
         publish_inference(semantic_writer_engine, result)
+    with semantic_db_engine.connect() as conn:
+        after = _inference_publication_state(conn, release.release_id, realization)
+    assert {name: len(rows) for name, rows in after.items()} == {
+        name: len(rows) for name, rows in before.items()
+    }
+    assert after == before
+    assert result.batch.batch_id not in {row["batch_id"] for row in after["data.batch"]}
     with read_snapshot(semantic_reader_engine) as conn:
         stale = explain_operation(release, "derive", subject=binding, connection=conn).model_dump(
             mode="json"

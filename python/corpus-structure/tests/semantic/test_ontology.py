@@ -511,6 +511,115 @@ def test_projected_validation_uses_nested_qualified_path():
     assert observation["original_report"] == "sha256:" + sha256(result.report).hexdigest()
 
 
+def test_graph_operation_invalid_shape_retains_bound_diagnostic_through_tool_boundary():
+    import json
+
+    from fastmcp.exceptions import ToolError
+    from pyshacl.errors import ConstraintLoadError
+
+    from corpus_structure.semantic.ontology import (
+        GraphExecutionError,
+        GraphShapeError,
+        validate_projected_graph,
+    )
+    from corpus_structure.semantic.refusals import tool_refusals
+
+    projection = _bound_projection(
+        "release:graph-errors", "realization:graph-errors", 7, "graph-errors", (), {}, {}
+    )
+    invalid = Graph().parse(
+        data="""@prefix sh: <http://www.w3.org/ns/shacl#> .
+<urn:invalid-shape> a sh:NodeShape; sh:targetNode <urn:missing>;
+ sh:property [sh:path <urn:field>; sh:minCount "wrong"] .""",
+        format="turtle",
+    )
+    # This is the maintained generic tool error adapter around the actual
+    # model-owned operation, without registering a new public graph tool.
+    guarded = tool_refusals(GraphShapeError, GraphExecutionError)(validate_projected_graph)
+    with pytest.raises(ToolError) as caught:
+        guarded(projection, invalid)
+    graph_error = caught.value.__cause__
+    assert isinstance(graph_error, GraphShapeError)
+    raw_cause = graph_error.__cause__
+    assert isinstance(raw_cause, ConstraintLoadError)
+    assert "sh:minCount" in str(raw_cause) and "xsd:integer" in str(raw_cause)
+    failure = json.loads(str(caught.value))
+    message = "invalid SHACL shape: " + str(raw_cause)
+    assert failure["code"] == "GraphShapeError"
+    assert failure["message"] == message
+    located = failure["validation"]
+    assert located["release_id"] == "release:graph-errors"
+    assert located["model_id"] == projection.contract_binding.execution_model_id
+    assert located["complete"] is True
+    assert located["observations"] == [
+        {
+            "category": "invalid_shape",
+            "code": "invalid_shape",
+            "model_path": "graph/shapes",
+            "operation": "graph_validate",
+            "scope": "realization:graph-errors@7/graph-errors",
+            "message": message,
+            "original_report": "exception:GraphShapeError",
+        }
+    ]
+
+
+def test_graph_operation_controlled_dependency_failure_reaches_located_cli_boundary(
+    monkeypatch, capsys
+):
+    import json
+
+    import typer
+    from pyshacl.errors import ReportableRuntimeError
+
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic import ontology
+    from corpus_structure.semantic.ontology import GraphExecutionError, GraphShapeError
+
+    projection = _bound_projection(
+        "release:graph-errors", "realization:graph-errors", 7, "graph-errors", (), {}, {}
+    )
+    dependency_error = ReportableRuntimeError("controlled pySHACL dependency failure")
+    calls = []
+
+    def unavailable(data_graph, **kwargs):
+        calls.append(data_graph)
+        raise dependency_error
+
+    # A controlled library-boundary failure tests propagation through the real
+    # operation and adapter; it does not qualify live infrastructure availability.
+    monkeypatch.setattr(ontology, "validate", unavailable)
+    with (
+        pytest.raises(typer.Exit) as caught,
+        failure_boundary(True, expected=(GraphShapeError, GraphExecutionError)),
+    ):
+        ontology.validate_projected_graph(projection)
+    assert len(calls) == 1
+    assert isinstance(calls[0], Graph)
+    graph_error = caught.value.__context__
+    assert isinstance(graph_error, GraphExecutionError)
+    assert graph_error.__cause__ is dependency_error
+    failure = json.loads(capsys.readouterr().out)["error"]
+    message = "SHACL execution failed: controlled pySHACL dependency failure"
+    assert failure["code"] == "GraphExecutionError"
+    assert failure["message"] == message
+    located = failure["validation"]
+    assert located["release_id"] == "release:graph-errors"
+    assert located["model_id"] == projection.contract_binding.execution_model_id
+    assert located["complete"] is True
+    assert located["observations"] == [
+        {
+            "category": "validator_failure",
+            "code": "runtime_failure",
+            "model_path": "graph/validator",
+            "operation": "graph_validate",
+            "scope": "realization:graph-errors@7/graph-errors",
+            "message": message,
+            "original_report": "exception:GraphExecutionError",
+        }
+    ]
+
+
 def test_projected_null_remains_distinct_from_absence_and_literal_text():
 
     row = {
