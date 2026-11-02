@@ -1,7 +1,9 @@
 # Generated typed domain operations
 
-**Status:** Planned; UM-03 is not implemented by this document. **Created:** 2026-11-01.
-**Target:** Proposed. Consumes review [R05](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R05)
+**Status:** In progress; generated native/Core boundaries and public identifier propagation are
+Implemented with focused Tested evidence (2026-11-02). Final native/integrated acceptance remains
+open with the coordinator. **Created:** 2026-11-01.
+**Target:** Implemented/Tested only for the bounded slices below; transition and nested-ID gaps remain. Consumes review [R05](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R05)
 and the construction/serialization portions of R06/R09. The
 [coordinator](../unified-domain-model_2026-11-01.md) owns mutable package state and acceptance.
 
@@ -111,6 +113,81 @@ not replace those existing delivery obligations or make their unrelated work wai
 
 ## Bounded execution investigations
 
+### Maintained consumer migration inventory
+
+**Execution snapshot, 2026-11-02; implementation inventory, not package qualification.**
+The current catalog has 76 generated native fixed-call correspondences and eleven fixed Core
+boundaries, including the existing operator instruction capability now named `record_direction`. A bounded AST/source pass identified and
+migrated the maintained constant native calls in the families below, plus the finite append versus
+snapshot-derived publication branch. Catalog introspection SQL remains an owned native probe;
+the two retained generic document-writer helpers are excluded from current approved operation
+implementations and refuse current use. The fixed registration/source-custody family now has model-derived Core request/value/result
+boundaries. Named selection, replay, hashing and segment traversal algorithms remain ordinary
+Python/Core implementations. This inventory does not require every internal DML statement to
+become an executor contract. The coordinator owns acceptance.
+
+| Consumer family | Current implementation disposition | Remaining acceptance boundary |
+|---|---|---|
+| Task/run operations (`semantic/operations.py`) | Generated creation, claiming, completion, held submission, cut, renewal/release, source-artifact and input/run fences. Creation factories retain semantic IDs. | Public task/run/method-configuration identifiers and attempt counters propagate through maintained callers; CutId now survives cut capture/consolidation. Focused public typing and runtime controls passed, while final native/integrated acceptance remains open. |
+| Registration and source custody (`operations.py`) | Eleven `backend: core` variants derive strict requests, insert/replay values, fixed physical projections and positional result materializers for method/config registration, original descriptor/artifact reads, document registration and rendition content/build/selection/segments. Physical value kinds and semantic IDs come from field references. Named algorithms and dynamic configuration/content adapters remain. | Actual registration/replay/source-custody controls must cover the final wrappers; old producing archives remain outcome authority, separate from an explicitly selected current projection context. |
+| PDF staging/publication (`pdf_staging.py`, `pdf_publication.py`) | Fixed envelopes, scalar/optional/one/many results and bounded companion executemany derive from the catalog. Existing Arrow/profile validation, frozen assembly and transaction/cancellation owners remain. | Actual native producer and publication controls must apply to the final source and current admitted head. |
+| Published record and selected-source reads (`pdf_record_reader.py`, `pdf_storage.py`, `serve/selected_source.py`) | Generated bound `prepare_*` statements and per-row materializers retain bounded pages and live cursor scopes. Nine selected Core ports require explicit consumer context; existing byte ports retain producer-archive decoding. Required JSON text and explicit shared decoding preserve transport presence. | Actual selected-document, frame, renderer, byte fidelity and abandonment/cancellation journeys; existing record/profile validators remain the dynamic family authority. |
+| Source views and native requests (`source_views.py`, `native_requests.py`) | Generated view/artifact publication, capture and both reused/single view-selection effects carry the same exact publication binding. | Composite native FK and replay negatives, actual current caller journeys and selected-body correspondence. |
+| Evaluation, inference and publication (`domain_operations.py`, `inference.py`, `publication.py`, `arrow_publication.py`) | Generated workspace, stage, evaluation and append/derived publication envelopes. Named policy/fixed-point algorithms, checked bulk transfer and caller transactions remain their existing owners. | Actual snapshot/revision/refusal and publication replay controls; fixed Core registration/source custody is separately listed below the task family; named inference/policy algorithms retain their checked extension boundaries. |
+| Release/runtime/admission (`releases.py`, `runtime.py`, `authored_sql.py`, `contracts.py`, `execution_admission.py`) | Generated archive/activation/selection/SQL admission calls and finite bootstrap principal/release/operation helpers. Runtime purpose derives from the model; maintenance remains an explicit separate route. | Helper success is not whole-release admission. Preserve native capability checks and strict archived meaning without re-executing archived Python. |
+| Other current entrypoints | Project initialization, finalization locking, original PDF retention and run-bound authored directions use their named generated envelopes. Direction remains provenance, not a model assertion or a global/admission operation. | Direction's new honest model/native support binding requires its forward native successor and actual positive/negative caller controls. |
+
+The checked extension boundaries already include prepared class/property adapters, declared PDF
+record/payload profiles, captured/candidate analytical inputs and selected query output contracts.
+Those mechanisms preserve dynamic content; they do not by themselves close a wrapper's fixed
+native arguments or result materialization. Pure conversion, comparison, source projection and
+analysis remain named typed implementations with model-derived boundaries; a universal SQL or
+algorithm language is not required. Reconcile remaining concrete callers before claiming UM-03
+or UM-14 complete, including public CLI/MCP and internal rollback/cancellation paths.
+
+### Fixed Core protocol and archived readers
+
+Execution compiler23 records the finite `native` versus `core` backend distinction in each call.
+Closed20–22 readers default absent backend metadata to native and reject an explicit backend field;
+original bytes are not rewritten or readmitted against the current catalog. The Core branch emits
+no SQL executor or native-function identity. Trusted implementation symbols identify the existing
+named owner. The same physical fields derive requests, insert/replay values, typed column classes,
+closed column protocols, projections and positional materializers. `Table.with_cols` retains known
+column types but still allows unknown attributes through its dynamic collection fallback; the
+compiler-derived closed protocol supplies the missing static-name boundary. Its narrowing is at
+that compiler boundary, not a claim that an arbitrary runtime table has been checked. Existing
+physical-model/native admission still owns installed relation compatibility. Nullable JSON-to-text
+CAST has one narrow generic adjustment because SQL CAST preserves SQL NULL while SQLAlchemy's
+Text expression type drops the nullable generic. Native/Core scalar TypeAdapters are prepared once
+at generated module lifetime.
+
+`read_original` and `read_rendition` preserve their producing `prepared` argument as outcome authority.
+Their distinct optional `projection_context` selects current fixed-call admission. An unselected
+projection uses the explicit base fixed physical protocol with strict generated results and the
+existing original-byte hash or `RenditionContent` validation. No installed release is inferred, and
+a supplied incompatible current context is never conditionally skipped. Published PDF custody now
+also has a fixed optional `read_pdf_published_validation` receipt projection: its three exact-pin
+inputs and six existing `PdfBuildValidation` fields derive from the model. It transports the original
+projection/native-validation receipt unchanged, including a supported historical native contract;
+it does not substitute a PDF schema source digest or recompute a current validation epoch. Its
+forward native helper and actual producer-guard integration are qualified separately. Current writes use their
+selected `prepared` context. Compiler23's nullable rendition-build `text_layout=None` means SQL
+NULL through the generated insert helper and `SQL_NULL` in decoded replay comparisons. Literal
+JSON null remains a separate stored JSON value; the previous ad-hoc JSONB bind had encoded Python
+None as JSON null. This versioned presence choice does not reinterpret historical unadmitted
+producer writes, and historical reads retain their own outcome/profile context. Dynamic method configuration and rendition tree/content adapters
+remain checked domain extension boundaries; they are not duplicated in the catalog.
+
+Focused evidence on 2026-11-02: `build/um03-core-contract-controls-00004.log` passed 76 controls on the final generated
+closed-column surface;
+`build/um03-core-static-negative-00002.log` passed the real Pyrefly positive/negative call-site
+control, including wrong IDs and an absent Core column. The initial with_cols-only negative failed
+and remains in `build/um03-core-static-negative-00001.log`. Whole warning-inclusive Pyrefly passed
+with no errors in `build/um03-core-integration-types-00004.log`; scoped Ruff passed in
+`build/um03-core-lint-00003.log`. Earlier identifier controls passed 87 focused cases in
+`build/um03-public-id-controls-00001.log`. These overlapping, bounded receipts are not a sum or
+whole-package qualification. Final current-forward-native and assembled consumer acceptance remain open.
+
 **UM-I02 — Static continuity.** Run the repository's Pyrefly route against generated positive and
 negative call sites: wrong semantic identifier, wrong parameter type/name, missing required field,
 incorrect nullable result use, absent column and incompatible result shape. Tests must exercise
@@ -122,6 +199,21 @@ prepared `model_dump`/`TypeAdapter` output on independently expected omitted/nul
 Decimal/date, tuple/list and nested-reference cases. Replace mechanical dumps only when equivalent;
 otherwise retain the small necessary conversion and explain its contract. The reference visitor
 remains the shared semantic owner in either outcome.
+
+**UM-I03 disposition — tested 2026-11-02:** the small semantic `_plain`/`_native` visitors remain
+necessary. Pydantic2.14.1 `model_dump(mode="python", exclude_unset=True, by_alias=False,
+serialize_as_any=True, exclude_computed_fields=True)` preserves supplied native values, Decimal
+scale, dates, nested subtype fields and tuple collections for ordinary prepared models. The
+semantic list projection still intentionally converts tuples to lists; the native/reference
+projection preserves them. A general dump also invokes presentation serializers, which can turn
+a Decimal into display text; computed fields are not semantic supplied members. The visitors
+therefore continue to read supplied values, and reference rewriting stays under the existing
+compiled-position visitor. Two independent expected-value controls passed in
+`build/test-receipts/um03-presence-lowering-00001.jsonl`, including omitted/null, aliases,
+Decimal/date, tuples, nested reference text, subtype fields and presentation differences.
+This retains semantic conversion with a specific reason. At the authored `SourceObject` wire
+boundary, its released adapter's `model_dump(mode="json")` is selected explicitly, converting
+its owned tuple containers for strict JSON transport.
 
 ## Acceptance, preservation and handoff
 
@@ -136,3 +228,21 @@ constructors must preserve result dimensions and structured invariant outcomes f
 signature fixture does not establish concurrency, native effects or migration completion. Qualified
 runtime/provider/native obligations and final acceptance are owned by
 [integration](integration-adoption-and-qualification.md). No tests or probes ran during plan authoring.
+
+## Completion audit — 2026-11-02
+
+**Bounded judgment:** generated requests, fixed callable signatures, strict row/cardinality
+materializers, reusable TypeAdapters and SQLAlchemy closed column protocols reach actual wrappers;
+independent static-negative and presence/null controls have passing retained evidence. The closed
+protocol supplements SQLAlchemy's dynamic attribute fallback; retaining the small semantic
+serialization/reference visitors remains justified by UM-I03, not a skipped generic dump conversion.
+
+Three transition/continuity gaps prevent broader completion: current numeric-bound schema lowering
+breaks historical reconstruction (UM-CA01); unconditional composed projection admission rejects
+supported semantic-1 cancellation/hold/project initialization (UM-CA02); `_typed_columns.py` has
+stale physical provenance (UM-CA09). Additionally, generated nested CompletionReceipt fields erase
+task/run/attempt identifier distinctions (UM-CA12), although top-level calls are typed. Repair must
+start with the owned model/generator/explicit protocol route, preserving runtime validation and
+archived bytes. The exact-source failure does not demonstrate wrong column values. Current Native90
+is frozen; captured-source changes require proper forward evolution. Final qualification is failed,
+not pending; see the coordinator for the immutable receipt and separate test-migration obligations.

@@ -1,6 +1,6 @@
 # Operation explanations, semantic impact and actionable validation
 
-**Status:** Planned; implementation and verification not_run. **Created:** 2026-11-01.
+**Status:** In progress; actual CLI/MCP and assembled qualification remain open. **Created:** 2026-11-01.
 **Target maturity:** Proposed. The [coordinator](../unified-domain-model_2026-11-01.md) owns
 package state, source disposition and assembled acceptance. This companion owns UM-11–UM-13
 and delivers selected review opportunities [O01](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#O01),
@@ -211,7 +211,7 @@ The [semantic assessment](../../library_leverage/libraries/unified-model-semanti
 [PostgreSQL assessment](../../library_leverage/libraries/unified-model-postgresql_2026-11-01.md)
 retain source/tagged evidence. Use exact supported versions rather than crediting fixes from newer
 addenda: pySHACL 0.40.2, Pydantic 2.14.2 and settings 2.16.2 are separate from researched installed
-pins. SQLGlot 30.27.0 remains a researched candidate until deliberately added and qualified.
+pins. SQLGlot 30.27.0 is installed exactly; current recipe analysis is bounded-tested, with selected source-composition scope still open.
 
 Completion requires all three domain functions and actual CLI/MCP consumers, explicit support
 limits, retirement of superseded adapter interpretation, applicable independent controls and the
@@ -219,3 +219,129 @@ limits, retirement of superseded adapter interpretation, applicable independent 
 operator/agent capabilities, not complete behavioral equivalence, universal dependency knowledge
 or improved extraction quality. Benefit measurements are separate if later claimed. No tests,
 probes, provider journeys or product changes were performed while authoring this plan.
+
+## Execution checkpoint — 2026-11-02
+
+**Implemented, bounded tested:** `model/semantic/operation-reports.yaml` is a trusted LinkML
+source, supplying the actual prepared Pydantic report schemas used by domain functions and
+FastMCP output schemas. Always-present report arrays permit zero members through authored
+`value_presence: PRESENT`, distinct from the existing required/nonempty convention. Reports
+identify their schema digest; normalized operation meaning comes from the exact archived model.
+
+`semantic.operation_reporting` supplies shared explanation, normalized semantic comparison and
+located validator/native projections. CLI `schema explain-operation` / `schema diff` and MCP
+`explain_operation` / `compare_semantic_releases` call these functions. Operation inspection
+preserves unresolved checks; native admission observation uses the existing protected check in a
+savepoint and grants no later effect authority. Publication-pin lookup uses the existing owner.
+Pydantic, JSON Schema, graph shape, graph execution and admitted/unmapped native failures remain
+distinct; original diagnostics/SQLSTATE/constraint and raw graph-report references are retained.
+CLI/MCP refusal rendering now uses the same located report alongside existing error information.
+
+Semantic impact consumes archived qualified projection products, including non-output relational
+changes, declared native/export consumers, expression/model origins and helper limitations.
+Absent/unsupported archives remain unknown or explicitly refused. A changed implementation digest
+is not labeled behaviorally equivalent. The library realization and product lifetime are recorded
+in the [relational companion](relational-implementations-and-projections.md#execution-evidence--2026-11-02).
+
+Focused reporting/analysis passed12 cases and retained-product impact passed4 cases, with an
+8-case affected expression/product union subsequently passing. Scoped warning-inclusive Pyrefly
+and Ruff passed for root-owned report/analysis/CLI/refusal files. These are component results;
+actual native CLI/MCP positive/refusal/stale-state journeys, full maintained validation-consumer
+closure and UM-11/12/13 assembled acceptance remain required. No provider or scientific quality
+claim follows from these report controls.
+
+**Tested, bounded actual adapters:** the actual PostgreSQL archive → CLI explanation/diff →
+FastMCP explanation/diff journey passed as part of17 report/analysis controls on2026-11-02
+(`build/test-receipts/um-actual-reports-00003.jsonl`). The native admission refusal on the older
+head remained explicit; that pass does not establish positive admission to the new native head.
+The earlier invalid numeric output-schema failure is retained. Shared boundary construction now
+uses integer/float numeric bounds, with integer ceilings/floors preserving fractional thresholds;
+Decimal value validation/serialization remains exact. Nine numeric/presence controls passed.
+
+MCP registration reads the generated `model/semantic/operation-report-schemas.json` product,
+identified by the closed source schema, compiler/boundary and library versions. The output schema
+comes from the same prepared adapters as actual reports. This avoids executing ontology/Arrow
+preparation simply to list tools; cold registration passed. A missing/stale artifact refuses with
+an actionable generator command, `uv run python -m corpus_structure.semantic.operation_reporting`.
+There is no current-schema fallback or second editable report schema. The source acquisition
+helper `trusted_execution_schema()` supplies schema bytes without provider/implementation loading.
+
+Published subjects reuse the modeled product pin with optional run/section/region context; snapshot
+subjects reuse the retained `CaptureSnapshotBinding`. Read-only observations use existing owners
+for publication, selected views, exact regions and source realization/revision. Original digest
+metadata is reported separately from byte availability; explanation does not fetch the PDF or
+rasterize it. Missing live evaluators remain explicit.
+
+Subject observation follows the exact bound operation's existing context concepts: a
+`SnapshotBinding` input selects snapshot inspection; a `SourceView` input/result selects published
+document context. Mixed or other concepts refuse a supplied live subject while preserving static
+inspection. Operation names and generic PDF product pins do not determine the observer. This
+keeps recognition observations from being misreported as unavailable document publications.
+
+**Tested, bounded forward-head consumers (2026-11-02):** actual small PostgreSQL publication
+followed by CLI/MCP inspection distinguishes a published pin from an unprepared source context,
+then observes available context after real source-view preparation. A missing exact pin remains
+unavailable. Invalid task input reaches both adapters as `invalid_input` at `/task_id`.
+This case passed in `build/test-receipts/um11-13-native-reports-00001`; the same receipt retains
+two stale test expectations, corrected in the following affected-case run. The two actual
+archive/report adapter cases passed in `um11-13-native-reports-00002`: native84 admits the
+retained operation, and a changed retained coverage predicate reports its WHERE dependency,
+qualified native/export consumers and helper-body unknowns through CLI and MCP. No provider,
+publication effect or arbitrary archived Python is executed by these observations.
+
+Semantic comparison now includes declared concepts, relationships, lifecycle/state composition,
+transitions, effects, outcome domains/translations, native guards, analysis profiles, parser
+adapters and required capabilities. Consumer edges from both compared releases are retained;
+removing a dependency does not erase the old consumer from impact. Projection, invariant and
+transition declarations supply the existing connections; undeclared closure remains unknown.
+The independent relationship/lifecycle/removed-edge control and affected report/analysis unit
+union passed16 cases (`build/test-receipts/um12-contract-edge-impact-00001.jsonl`). These
+are bounded checks, not assembled UM-11–13 or complete-plan qualification.
+
+An absent family in an incomplete archived analysis is unassessed, not a removed projection.
+The retained unsupported-physical-profile control verifies this distinction (four affected
+product/impact cases passed in `build/test-receipts/um12-unknown-not-absent-00001.jsonl`).
+
+**Implemented and tested, bounded review repairs (2026-11-02):** changed normalized definitions
+now expose typed `members` with stable member paths and lossless before/after `SourceValue`
+facts. Added/removed members distinguish absence from explicit null; ordered collection changes
+retain order and multiplicity. Named-member matching applies only where the complete ordered
+identity sequence is unchanged; membership changes retain the actual before/after sequence so
+insertion/removal positions cannot disappear. Report schemas import the existing observations
+model rather than introduce another value representation. The independent report/product unit
+union passed22 cases (`build/test-receipts/um-report-review-repairs-unit-00002.jsonl`).
+Three subsequent independent insertion/removal-position cases passed in
+`build/test-receipts/um-report-ordered-membership-00001.jsonl`; scoped Pyrefly and Ruff passed.
+
+Qualified native diagnostics preserve an available operation release and exact invariant model
+without requiring a separately supplied preparation object; contradictory supplied bindings refuse.
+Live prerequisite observers translate only named absence and expected native admission refusals.
+Malformed result admission, semantic incompatibility and infrastructure failures propagate to their
+existing located diagnostic boundary. They are not reported as a missing document/region.
+
+The actual retained compiler20 task10 release also passed static CLI inspection and explicit
+CLI/MCP refusal of the absent retained `PublishedDocumentSubject`, with actionable static/new-release
+advice ([archive subject evidence](../../design_review/evidence/2026-11-02_um-archive-subject/README.md),
+`um.archived-subject-23`, current compiler23 reader). This read-only check did not migrate or
+republish the operational book.
+Current native property-difference presentation and the actual composite-address diagnostic remain
+in the coordinated final native consumer selection; these unit/archive results do not replace it.
+
+## Completion audit — 2026-11-02
+
+**Bounded judgment:** shared prepared report models and cold schema artifacts reach actual
+CLI/FastMCP explanation/diff routes. Comparison preserves both releases' consumer edges, ordered
+member facts, absence/null and unknown-versus-removed distinctions. Qualified native failures retain
+their bound identity. No material mismatch was found in these narrower inspected mechanisms.
+
+Four obligations remain: the selected source-composition profile (UM-CA05); graph conformance
+projection has no production caller despite a tested graph_validation_report helper (UM-CA06);
+ordinary Pydantic subject failure translation loses known release/model/operation at CLI/MCP
+wrappers (UM-CA07); comparison output is not connected to the accepted compatibility/regeneration
+advice workflow (UM-CA11). Helper tests or category/path-only actual adapter assertions cannot
+close those consumer obligations. Connect the existing owners, preserving raw graph reports,
+trusted known context and explicit unknowns without introducing a new validator or activation
+permission. Current live applicability observers retain declared unresolved checks; live-evaluator
+coverage and stale-preflight→atomic-native-refusal acceptance remain open under UM-CA10. The
+coordinator owns combined gaps; prior bounded passes are retained, not promoted to whole O01–O03
+completion or measured scientific-quality benefit.

@@ -1,7 +1,9 @@
 # Structured native authoring and frozen evolution
 
-**Status:** Planned; implementation and qualification not_run. **Created:** 2026-11-01.
-**Target:** Proposed. The [coordinator](../unified-domain-model_2026-11-01.md) owns current package
+**Status:** In progress; selected native generation/evolution implemented and bounded controls
+passed. Maintained derive-preview admission is broken; catalog-mechanism disposition, consumer adoption and integrated qualification remain open. **Created:** 2026-11-01.
+**Target:** Implemented for the selected versioned SQL body profile; Tested within the scopes below.
+The [coordinator](../unified-domain-model_2026-11-01.md) owns current package
 state, decisions and source dispositions. This companion owns UM-06 and UM-07 design for R07.
 **Basis:** [integrated R07](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md)
 at `370f0643`, with [exact library applicability](../../library_leverage/libraries/unified-model-postgresql_2026-11-01.md).
@@ -15,13 +17,14 @@ and structured PostgreSQL products wherever their complete contracts can be pres
 emitted for deployment is a derived artifact; moving maintained SQL into a template, annotation
 or compiler callback does not eliminate its authoring burden.
 
-**Implemented source, inspected at `370f0643`:** `semantic/native_products.py:91–131` generates
+**Planning baseline, inspected at `370f0643`:** `semantic/native_products.py:91–131` generates
 physical tables/indexes/FKs with Core; `:389–530` compares selected CHECK bodies and UNIQUE
 columns. `semantic/alembic_native.py:21–187` supplies genuine Plugin/comparator/operation/renderer
 integration, explicit recreation and catalog checks. `native_objects.py:98–186` still receives
 SQL definitions; `NativeObject.statements` contains strings. `native_inventory.py:20–26` requires
 one string `AS` body, and `native_objects.py:311–314` rejects observed SQL-standard bodies.
-These are current realization boundaries, not a claim that native bodies are semantically inert.
+These describe the planning baseline, superseded for the selected scope by the execution checkpoint
+below; they are not a claim that native bodies are semantically inert.
 Source paths are relative to `python/corpus-structure/src/corpus_structure/`.
 
 Native body/custody seams describe the inspected snapshot. The PDF/native/model series remains
@@ -194,4 +197,117 @@ UM-06/07 deliver a working generated/native/migration contract, not a source-pri
 Coordinate API/results with [typed operations](typed-domain-operations.md), comparison/invariant
 meaning with [semantic contracts](semantic-contracts-and-policies.md), and relational inputs with
 [UM-05](relational-implementations-and-projections.md). The coordinator owns integrated qualification.
-Implementation, tests, probes, migrations and server qualification were **not_run** during plan creation.
+Implementation, tests, probes, migrations and server qualification were **not_run** during plan creation;
+the dated execution checkpoint below records subsequent work without claiming whole-series closure.
+
+## Execution checkpoint — 2026-11-02
+
+The coordinator remains the single package-state and acceptance owner. This checkpoint records the
+native implementation boundary, procedural disposition and scoped evidence; it does not establish
+PDF-book adoption, default selection or full UM-06/07 qualification.
+
+### Implemented body custody and evolution
+
+`semantic/native_sql_body.py` implements the `postgresql-18-sql-standard-v1` comparison profile.
+It constructs SQL-standard `BEGIN ATOMIC` bodies from resolved Core selections. Catalog version 2
+records the complete PostgreSQL-normalized definition under an explicit search path, server major 18
+and sorted symbolic dependencies from `pg_identify_object`; PostgreSQL OIDs are not persistent hash
+identities. Exact generated source/deployment bytes remain separately frozen. Legacy `AS` catalog
+version 1 semantics remain available for frozen history; its reader refuses SQL-standard bodies.
+
+Inventory, overload identity, declaration/result properties, owner/ACL handling, candidate admission
+and `NativeTransitionOp` consume the profile together. Mixed operation payload versions 1/2 preflight
+all desired objects/directives before effects. Semantic-namespace owner binding is explicit and
+resolves on the caller's connection; it does not hardcode the author login or transfer ownership.
+SQL-standard statement slicing uses parser-owned boundaries, including Unicode and inner semicolons.
+The existing Alembic Plugin/comparator/renderer and caller transaction remain the deployment route.
+
+Frozen 83/84 contain **12 SQL-standard bodies**: the published-revision helper, the private companion
+input body, and ten private finite published-reader bodies. Public published readers retain mandatory
+pin/producer-operation guards before calling their private bodies. Subsequent real diagnostic reads
+exposed that the `item_reports` body incorrectly requested opaque metadata through the JSONB helper.
+Its current Core/model/consumer support is retired in favor of existing lossless byte ports;
+frozen 85 explicitly retires its public/private identities. That leaves **11 selected
+SQL-standard bodies**, rather than claiming the failed body is a supported twelfth consumer.
+Four companion projections carry 85's model-version/representation identity changes.
+Frozen 87/88 contain **12 supported SQL-standard bodies** after adding the exact published
+validation-receipt reader; the unsupported `item_reports` reader remains retired. This new body
+returns the existing immutable receipt under publication/build/release/frozen/logical/product-contract
+and passed-native linkage, without calling the installed validation-contract function.
+Current observation writes use a narrow native entry generated from the existing retained-bundle
+kernel, with an independent recognition-only kind guard before task lookup and explicit writer-only
+EXECUTE. Generic document-writing capabilities are retired from the current model; their frozen
+kernels remain historical implementations. Compiler 23 adds the explicit native/Core call-binding
+format. Closed historical readers retain their original shape and supported read behavior without
+revalidating old archives against today's effect or approved-implementation set. Current call
+context and native admission still establish write support.
+
+The coverage-support correction preserves the existing one-hop contract: every declared edge
+resolves an exact admitted input pin and coverage ID with identical scope/family; an integrated
+complete claim requires at least one matching complete input claim. Matching mixed supports and
+weaker outcomes remain allowed. Native/direct producer coverage may be intrinsically qualified
+without input supports; the actual frozen-kind discriminator owns that distinction. This does
+not recursively revalidate historical input coverage. Published reads retain the original receipt
+and native epoch, and do not relabel historical v4 assurance as current v5 conformance. Current v5
+validation invalidates unfinished old receipts; it does not rewrite published pins.
+
+### Maintained family disposition
+
+| Family | Semantic owner and actual consumers | Selected realization and remaining obligation |
+|---|---|---|
+| Pure SQL helpers/projections | Published placement, finite document reads and companion recipes; `native_sql_body.py`, `published_document.py`, `companion_projection_native.py` | Core-derived SQL-standard private bodies plus explicit properties/dependencies. Guards stay in public wrappers. Extend only for a concrete maintained relational consumer; unsupported opaque diagnostic JSON is removed, not widened. |
+| Set predicate with assertion/mutation | Inference eligibility/context normalization, source-view and artifact correspondence | Core constructs inference seeds/context normalization and shared finite reads. Existing protected native effect kernels retain conflict assertions, exact publication/attempt fences and atomic writes. Revisit a remaining fragment when a finite typed expression preserves its full invariant and failure point. |
+| Trigger `NEW`/`OLD`/`RETURN` | Execution-task state/attempt fence; `sql/execution_guards.sql` and its declared task trigger | Explicit owned trigger/function pair, native guard `execution_task` version 2 and closed invariant DETAIL. Other triggers retain their bound kernels; neither trigger representation nor metadata alone establishes observability. |
+| `IF`/`RAISE`, variable/record assignment | Pin selection, source publication/replay, task completion, validation/seal and typed failure production | Retained bounded PL/pgSQL sequencing under captured source, exact native properties and operation contracts. Mandatory guards cannot move into optimizer-reorderable expressions. No universal procedural interpreter or blanket PL/pgSQL exemption is introduced. |
+| Loops and ordered algorithms | Artifact byte custody, ordered identity folds and publication validation | Retained specialized immutable-stream/identity kernels with their existing independent vectors and global obligations. A generic SQL/printer rewrite is not an improvement merely because it changes syntax. Revisit only with a specific equivalent algorithm and consumer. |
+| Dynamic `EXECUTE` | `sql/closure.sql` archive relation transport and replay | Retain finite declared relation dispatch, archive equality and admission/privilege checks. It is not an arbitrary writable query interface. A change to the archive relation contract is the trigger to reassess finite typed lowering. |
+| Publication/lease/privilege sequencing | Writer attempts, publication fences, native owner/ACL replacement and rollback | Retain protected sequencing; generate relational selection where applicable. Explicit recreation/drop order, native before-state and complete ACL checks remain independent of client request typing. |
+| Named Core algorithms | Existing method/document/rendition/original registration and reads | Compiler-23 Core call metadata generates typed input fields and result materializers. Named algorithms retain their Core statements, normalization and transaction ownership; no generic Core executor or SQL DSL is introduced. These declarations require no new native function DDL. |
+| Catalog observation/admission | `native_objects.py`, native inventory and `source_view_native.py` | Alembic's existing reflection owns ordinary physical DDL comparison. Bounded PostgreSQL-specific catalog kernels retain overload, `prosqlbody`, symbolic dependency, trigger, owner/ACL and settings facts that Inspector alone does not represent completely. Native SQL admission continues to enforce independently of Python preflight; no second desired catalog is added. |
+
+This is the selected finite scope and explicit retained authorship burden. It is not complete SQL
+elimination or a generic PL/pgSQL DSL. Further conversion needs a real consumer and preservation of
+the corresponding invariant, identity, ordering, privilege and failure contract.
+
+### Frozen evolution and scoped results
+
+All claims in this section are dated 2026-11-02. Failed attempts remain alongside passing records.
+
+| Boundary | Observed result and exact scope |
+|---|---|
+| SQL-standard binder/lifecycle | `test_native_sql_body.py` and existing `test_alembic_native.py` controls passed: independently expected selected rows, same-name unrelated overload, symbolic dependency rebinding after OID recreation, result/argument recreation, stale before-state, ACL/search-path drift, unsupported profile/version refusal and caller rollback. Receipts include `build/um06-native-lifecycle-controls.log` and `build/um06-sqlbody-owner-controls.log`. |
+| Frozen 83 | `0083_unified_domain_model.py`, revision `semantic_um_model_20261102`: 60 desired objects,42 native transitions,19 ordinary operations. The exact-pin precondition precedes DDL; four placement columns are added nullable, backfilled from existing exact published pins under only the named immutability-trigger suspension, then made required before composite FKs/checks. Legacy unbound rows refuse; no compatibility publication is invented. Actual owned-author upgrade/catalog admission and rollback/role restoration passed (`build/um83-author-attempt-005.log`, `build/um83-frozen-wrapper-rollback.log`). This catalog pass did **not** establish actual release admission: the first consumer receipt exposed inherited stale relation-column expectations.83 remains byte-exact. |
+| Frozen 84 | `0084_unified_native_admission.py`, revision `semantic_um_admit_20261102`: 2 native transitions, 0 ordinary DDL, 60 desired objects. All admitted relation shapes derive from current physical metadata. Columns compare canonically by name with complete type/nullability/default/identity/generated properties; ordered PK/FK vectors remain strict. No physical-attnum wire contract is claimed for these named rows. Actual finalized current semantic-2 release admission passed; dropping `native_build_id` NOT NULL independently caused the expected native source-frame refusal, and restoring it restored admission (`build/um84-author-attempt-001.log`). The actual frozen82→83→84 wrapper path, caller role and rollback to 82 passed (`build/um84-frozen-wrapper-admission-rollback.log`). |
+| Native claim ABI/observable fence | The call outcome for `test_native_operation_bindings.py::test_native_claim_abi_result_and_observable_trigger_fence` passed in `build/test-receipts/um84-first-native-consumers-00001.jsonl`: actual formal/result correspondence, valid claim and independently invalid attempt trigger. This is a scoped pass; another ancillary fixture case in that composite receipt failed and was separately corrected. |
+| Frozen 85 | `0085_unified_observation.py`, revision `semantic_um_observe_20261102`: 9 native transitions, 59 desired objects, 0 ordinary DDL and no physical receipt alias. Retires both obsolete `item_reports` identities, changes four companion projection identities, adds the observation-only writer and defensively normalizes JSON null during coverage-support traversal; it does not widen the released coverage shape. Actual finalized compiler-22 release admission, independent generic-operation and wrong-kind refusals, wrong-nullability refusal/restored admission and stale retirement replay passed (`build/um85-author-attempt-003.log`). The frozen82→83→84→85 wrapper path, repeated Alembic no-op, exact empty current candidate, caller-role preservation and outer rollback to 82 passed (`build/um85-frozen-wrapper-admission-rollback.log`). Attempt001's omitted PUBLIC revoke refused actual admission; attempt002 passed but its separate companion artifact omitted the retirement input, corrected in attempt003 before freezing.83/84 remain byte-exact. Affected domain callers and admitted JSON transport controls remain separately owned qualification. |
+| Frozen 86 | `0086_unified_core_bindings.py`, revision `semantic_um_core_20261102`: 4 native transitions, 60 desired objects, 11 SQL-standard bodies, 0 ordinary DDL and no physical receipt alias. Captures compiler-23 native/Core call custody; enrolls the existing direction routine from frozen0029 with a locked active-run binding, explicit composed-release/declared-operation guard and native effect/ABI check; changes the shared context helper source and paginated reader so family/continuation/limit precede decoding. Actual finalized current23 admission, exact positive direction inputs, independent wrong-project/actor/session/inactive and genuine semantic-1 refusals, unchanged effect inventory, stale directive and column-drift refusal/restored admission passed (`build/um86-author-attempt-003.log`). Exact frozen82→83→84→85→86 replay, repeated Alembic no-op, empty current candidate, caller role and outer rollback82 passed (`build/um86-frozen-wrapper-admission-rollback.log`). The separate admission artifact, frozen descriptor body and Python constant agree. Attempt001's strict archive-JSON tuple refusal remains retained; passing attempt002 was provisional compiler22 and was not frozen or relabelled as23. The root owns the combined current native caller qualification after this endpoint. |
+| Frozen 87 | `0087_pdf_support_validation.py`, revision `semantic_pdf_support_20261102`: 4 transitions, 61 desired objects, 12 SQL-standard bodies and 0 ordinary DDL. Adds set-shaped one-hop coverage support enforcement and the original published-receipt reader; validation epoch v5 invalidates unfinished old receipts. Actual current23 admission, optional receipt ABI, v4→v5 separation, stale-create/column-drift refusal, exact frozen82→87 replay, repeat no-op, empty candidate and rollback82 passed. The exact new Core body separately returned the original task10 v4 receipt on retained book82 in a read-only transaction, without hydration or migration. Native support/callback integration regressions remain root-owned. |
+| Frozen 88 | `0088_pdf_callback_source.py`, revision `semantic_pdf_callback_20261102`: one descriptor-only transition, 61 desired objects, 12 SQL-standard bodies and 0 ordinary DDL. The later Python optional-support default correction changed the captured `pdf/integrated.py` hash and derived model ID; strict comparison therefore failed at87 and required this forward successor. No native function, policy or epoch changed. Actual current23 admission, exact provenance delta, drift/stale refusal, frozen82→88 replay, repeat no-op, current empty candidate, role preservation and rollback82 passed.87 remains byte-exact; no metadata difference was suppressed to avoid a revision. |
+| Frozen 89 | `0089_operation_read_source.py`, revision `semantic_op_read_20261102`: one descriptor-only transition, 61 desired objects, 12 SQL-standard bodies and 0 ordinary DDL. Captures the two genuine `operations.py` corrections after the root's combined88 run: published reads use producer receipt/schema/read authority rather than a retired write gate, and observation validation retains Python values before JSON metadata serialization. The two separately repaired observer expectations are test changes, not implementation changes. Only captured operations source and derived model ID changed; native functions, policy and epoch v5 did not. Actual current23 admission, exact source delta, drift/stale refusal, frozen82→89 replay, repeat no-op, current empty candidate, role preservation and rollback82 passed.88 remains byte-exact; the coordinator owns affected native regression. |
+| Frozen 90 | `0090_pdf_header_source.py`, revision `semantic_pdf_header_20261102`: one descriptor-only transition, 61 desired objects, 12 SQL-standard bodies and 0 ordinary DDL. Captures the maintained record-first header reader through `pdf/native_source.py` and its derived model ID; the adjacent CLI routing change is not a separate captured input. Native functions, schema, support policy and epoch v5 did not change. Actual current23 admission, precise source delta, drift/stale refusal, frozen82→90 replay, repeat no-op, current empty candidate, role preservation and rollback82 passed.89 remains byte-exact; the coordinator owns affected product qualification. |
+
+Native authoring used the authenticated owned database `cs_sem_pdf68_author_20261101_44132f1db0`
+(OID 14010645); rehearsal effects and the small release archive were rolled back to 82. These are
+functional migration/admission checks, not deployment of the retained book. Actual current-book
+views/providers/default adoption and integrated qualification remain with their coordinator owners.
+The bounded 87–90 authoring, failed post-callback comparison and contrary retained-receipt read
+sources/results are retained in [UM native-evolution evidence](../../design_review/evidence/2026-11-02_um-native-evolution/README.md).
+
+## Completion audit — 2026-11-02
+
+**Bounded judgment:** pglast/Core structured SQL bodies, exact deployment bytes, PostgreSQL-18
+normalized body/dependency custody and frozen83–90 Alembic replay are substantively implemented.
+Before/after identity, ACL/role, drift/stale-state and rollback controls have bounded passing
+receipts. This is owned rehearsal, not operational book82 deployment. Retained protected procedural
+kernels have explicit family reasons; generic procedural generation is not required.
+
+**UM-CA03:** maintained schema derive still invokes forward_products through publication admission
+without server-normalized objects; the correct missing-dependency refusal breaks nine product
+controls, including actual CLI preview. Integrate/qualify the supported preview or explicitly retire
+and migrate its consumers, preserving deployment refusal. The working native-candidate route does
+not make the broken legacy preview complete. **UM-CA08:** the selected Inspector/typed Core catalog
+observation obligation is unresolved. Existing specialist SQL is not shown functionally wrong, but
+Inspector's incomplete coverage alone does not justify omitting the typed Core part. Complete that
+migration or document a concrete equivalent/necessary retained-kernel disposition. No frozen file
+is to be edited to reconcile current semantics. Product qualification failed; all exact prior
+rehearsal results retain their dates and scope, with combined disposition in the coordinator.

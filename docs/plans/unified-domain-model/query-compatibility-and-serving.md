@@ -1,7 +1,8 @@
 # Query implementation compatibility and serving
 
-**Status:** Planned; UM-04 is not implemented by this document. **Created:** 2026-11-01.
-**Target:** Proposed. Source [R02 / DA-028](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R02)
+**Status:** Bounded query custody and actual CLI journeys are implemented/tested; historical archive compatibility has an open shared defect. Assembled series
+qualification remains with the coordinator. **Created:** 2026-11-01.
+**Target:** Implemented / Tested within the execution checkpoint below. Source [R02 / DA-028](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R02)
 is the highest-consequence current correction. The [coordinator](../unified-domain-model_2026-11-01.md)
 owns current disposition and assembled completion. Existing plans and frozen products are unchanged.
 
@@ -125,6 +126,58 @@ and query contract. Current query discovery may show a new capability without ch
 journey. Compare an incompatible result shape and a semantically changed query with identical shape:
 matching Pydantic fields is not sufficient to accept either as equivalent meaning.
 
-These are planned controls, not results. No tests or probes ran while authoring this document.
+The preceding controls describe the accepted delivery scope; observed results follow below.
 The [integration owner](integration-adoption-and-qualification.md) assembles actual CLI/MCP/native
 journeys and final-source evidence, preserving scoped failures and unavailable required obligations.
+
+## Execution checkpoint — 2026-11-02
+
+`semantic/query_compatibility.py` acquires an explicit installed source bundle before plugin import,
+archives its query manifest and normalized bindings through the existing release-product machinery,
+and opens a registry against the producing release. Exact identity is the default. Non-exact support
+requires an explicit compatible producing contract/implementation and evidence; matching name,
+version or result fields alone is insufficient. Archived Python is never executed. Historical named
+routes without this binding refuse explicitly; primitive exports retain their independent route.
+
+The finite import-custody bootstrap records actual helper bytes at their owned import boundary.
+It preserves light CLI help and ordinary imports, refuses uncustodied warm modules or changed loaded
+helpers, and does not treat a later filesystem hash as proof of already-loaded Python objects.
+`BoundQuery` and version-2 named tokens carry producing and executing identities through query pages,
+explanation and evidence. Origin-token resolution passes the validated run into the actual query;
+explicit conflicting run requests refuse. Result validation retains concrete released nested models
+through a shallow field mapping instead of erasing their type before serialization.
+
+Scoped checks passed for exact acquisition/binding, edited or missing source, historical unbound
+refusal, compatible and incompatible declarations, helper imports before first acquisition, changed
+loaded helpers, cold CLI/MCP registration and typed nested-result validation. Logs include
+`build/um04-bootstrap-final-controls.log`, `build/um04-cold-mcp-derived-schema-controls.log`,
+`build/um04-custody-final-source-controls.log` and `build/um04-typed-result-positive-negative.log`.
+
+The actual admitted native-85 CLI journey passed in two scopes:
+
+- `um04-cli-journey-00007.jsonl`: ordinary named query, continuation, malformed/wrong binding
+  refusals, explanation and Parquet export passed. Its separate plugin-edit case failed at the
+  evidence origin-run handoff and prompted the bounded CLI correction.
+- `um04-cli-journey-00008.jsonl`: initial and continued independent Alice/Bob rows; query/page/
+  explanation refusal before an edited plugin could execute; primitive JSONL export during that
+  incompatibility; declared-compatible requery, bound explanation and evidence; explicit wrong-run
+  and old executing-token refusal all passed. Final scoped typing reported zero errors and Ruff
+  passed (`build/um04-origin-context-types.log`).
+
+Receipts are under `build/test-receipts/`; failed attempts remain unchanged. Earlier setup-lock,
+shared typed-JSON lowering, nested-result serialization and stale generated report-schema refusals
+retain their original scope. These results establish the selected query/CLI behavior, not full
+series qualification or operational book/default adoption. The coordinator owns remaining union
+accounting and final maintenance.
+
+## Completion audit — 2026-11-02
+
+**Bounded judgment:** owner-declared implementation acquisition, producing compatibility before
+registry loading, bound continuation tokens and explanation/evidence origin handling have actual
+maintained routes and retained passing query/CLI controls. No material gap was found in those
+inspected mechanisms. No production named-query MCP execution route was found requiring migration.
+The deliberately unsupported historical unbound route correctly refuses; archived Python is not
+executed. This does not establish all supported historical readers: UM-CA01's numeric schema
+reconstruction fails compiler10 answer retention and historical capture before their intended
+behavior. Keep that single shared defect under UM-03/04/14, without discarding the narrower query
+custody passes. Package/enclosing acceptance remains open, as owned by the coordinator.

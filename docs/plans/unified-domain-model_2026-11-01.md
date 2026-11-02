@@ -1,6 +1,6 @@
 # Unified domain model: typed operations and generated realization
 
-**Status:** Active — UM-00 authority amendments and dependency preparation implemented; shared semantic/query/resource slices in progress, qualification open.
+**Status:** Active — completion audit found bounded delivery plus implementation/consumer gaps; product qualification failed, assembled acceptance open (2026-11-02).
 **Created:** 2026-11-01. **Target claims:** Proposed; library interface checks and historical
 implementation evidence retain their stated scope. This coordinator alone owns package state,
 execution queue and source-review disposition for the new series.
@@ -161,17 +161,17 @@ admission/consumer closure are deliberately separate.
 | UM-02 | In progress | Current invariant/enforcer/operation definitions | Observable versus descriptive invariant contract and qualified diagnostic mapping consumed by real enforcers |
 | UM-03 | In progress | Settled request/result concepts; UM-02 only for promised failure mapping | Generated typed domain calls, binds, Core/result projections and materializers, including published-document consumers with private placement bindings |
 | UM-04 | In progress | Existing serving protocol; settled implementation compatibility binding | Archived-run query/continuation/explanation/evidence meaning is compatible or explicitly refused |
-| UM-05 | Planned | UM-03 signature/projection contract slice, not full caller migration; working PDF foundation for its consumer case | Model-bound Core companion/inference recipes plus published-address read/effect bindings and selected-section projection |
-| UM-06 | Planned | UM-02 enforcement contract and UM-05 selected native expression recipes | Structured native declarations and eligible SQL-language bodies with versioned identity/dependency/admission |
-| UM-07 | Planned | UM-06 first qualified desired product plus existing Alembic lifecycle | Frozen forward native transitions including changed consumer constraints/inserts/replay, before/after drift/ACL/recreation controls; old revisions unchanged |
-| UM-08 | Planned | One settled UM-05 companion recipe and model/native signature metadata | Qualified projection type/dependency analysis with SQLGlot, unknowns explicit, used by UM-12 |
+| UM-05 | In progress | UM-03 signature/projection contract slice, not full caller migration; working PDF foundation for its consumer case | Model-bound Core companion/inference recipes plus published-address read/effect bindings and selected-section projection |
+| UM-06 | In progress | UM-02 enforcement contract and UM-05 selected native expression recipes | Structured native declarations and eligible SQL-language bodies with versioned identity/dependency/admission |
+| UM-07 | In progress | UM-06 first qualified desired product plus existing Alembic lifecycle | Frozen forward native transitions including changed consumer constraints/inserts/replay, before/after drift/ACL/recreation controls; old revisions unchanged |
+| UM-08 | In progress | One settled UM-05 companion recipe and model/native signature metadata | Qualified projection type/dependency analysis with SQLGlot, unknowns explicit, used by UM-12 |
 | UM-09 | In progress | Existing Settings and AnalysisScope owners | Non-default resources reach operations; supported lazy results enforce owner lifetime |
-| UM-10 | Planned | UM-03/05 directional operation contracts and relevant UM-09 owners | Model-derived exact transfer/decoding used in actual publication and analytical read/export |
-| UM-11 | Planned | Operation/state/binding contracts plus actual owner checks | CLI/MCP operation/prerequisite explanations; effects recheck atomically |
-| UM-12 | Planned | UM-01/02 semantics, UM-05 projection dependencies, relevant UM-08 analysis | CLI/MCP semantic impact and declared consumer changes, with conservative unknowns |
-| UM-13 | Planned | Existing validator outputs and an early shared diagnostic contract | Model/path/operation/scope-located diagnostic consumers preserving failure categories |
-| UM-14 | Planned | Working producer and affected consumer products from each package | Remaining maintained callers migrated; replacement paths retired and supported archives/adoption reconciled |
-| UM-15 | Planned | All selected functional scope and UM-14 final-source integration | Required functional/native/provider/nonfunctional union has applicable evidence; honest unresolved/benefit limits |
+| UM-10 | In progress | UM-03/05 directional operation contracts and relevant UM-09 owners | Model-derived exact transfer/decoding used in actual publication and analytical read/export |
+| UM-11 | In progress | Operation/state/binding contracts plus actual owner checks | CLI/MCP operation/prerequisite explanations; effects recheck atomically |
+| UM-12 | In progress | UM-01/02 semantics, UM-05 projection dependencies, relevant UM-08 analysis | CLI/MCP semantic impact and declared consumer changes, with conservative unknowns |
+| UM-13 | In progress | Existing validator outputs and an early shared diagnostic contract | Model/path/operation/scope-located diagnostic consumers preserving failure categories |
+| UM-14 | In progress | Working producer and affected consumer products from each package | Remaining maintained callers migrated; replacement paths retired and supported archives/adoption reconciled |
+| UM-15 | In progress | All selected functional scope and UM-14 final-source integration | Required functional/native/provider/nonfunctional union has applicable evidence; honest unresolved/benefit limits |
 
 Useful order: begin UM-00 and shared contract definition; UM-04 and UM-09 can progress independently.
 Develop UM-01/02 and UM-03 contracts early, then UM-05/06/07 and UM-10 as working products become
@@ -223,7 +223,7 @@ Exact versions are not silently promoted from newer addenda: current review pins
 LinkML/runtime1.12.1, RDFLib7.6.0, pySHACL0.40.1, Valuesets0.4.2, Pydantic2.14.1,
 settings2.16.1, jsonschema4.26.0, Arrow26.0.0, DuckDB2.0.0; SQLAlchemy2.1.6,
 Alembic1.20.1, pglast8.7, Psycopg3.3.6/pool3.3.3, pgpq0.12.0, ADBC1.13.0.
-SQLGlot30.27.0 is researched but uninstalled. UM-00 reconciles actual pins before execution;
+SQLGlot30.27.0 is now installed exactly (2026-11-02). UM-00 reconciled actual pins;
 needed version moves are deliberate, exact and affected-test scoped, not a wholesale upgrade.
 
 ## Investigations, acceptance and current boundary
@@ -241,7 +241,7 @@ annotation existence or self-round-tripping does not establish correctness. Run 
 during implementation; final maintenance precedes integrated qualification at complete scope.
 No speed, memory, capacity or quality improvement is established by these plan documents.
 
-**Next:** finish and integrate the shared-contract, query-compatibility and resource/lifetime slices, then continue the ready dependent packages. Historical PDF/PG receipts retain their scope and do not qualify UM replacements.
+**Next:** resolve the completion-audit obligations below through their existing package owners, then reassess affected functional evidence and the required acceptance union. Historical PDF/PG receipts retain their scope and do not qualify UM replacements.
 
 ## Execution checkpoint — 2026-11-02
 
@@ -249,4 +249,138 @@ The operator authorized the complete UM-00–15 execution approach. ADR-0046 rec
 
 One writer owns shared model/preparation/archive/generation changes; separate owners implement query compatibility and resource/lifetime consumers. Current source/body profiles, frozen migrations, book task10 pin and dirty concurrent PDF/library files remain preserved. Independent focused checks precede complete-scope qualification. Available disk was about6GB at kickoff; small owned tests and retained products avoid full database/book copies. No cache/database/evidence cleanup was performed.
 
-Product qualification and provider journeys for this series remain open.
+Product qualification has a failed completed attempt; required-union and applicable provider obligations remain open, as assessed below.
+
+### Integrated implementation checkpoint — 2026-11-02
+
+The working tree implements checked comparison/PRESENT contracts, qualified invariant diagnostics,
+87 fixed correspondences (76 native and11 Core), query implementation custody, execution resources
+and lazy ownership, finite relational/projection analysis, and model-bound reports. Core registration
+and document/rendition/original custody retain their named algorithms while generated requests,
+TypedColumns/closed column protocols, value projections and strict materializers own correspondence.
+Dynamic configuration, domain records, fixed-point working relations and Arrow families retain their
+existing checked boundaries. Static continuity is not a claim to infer every algorithm from schema.
+
+Compiler23 distinguishes native versus Core binding products. Exact20–22 archive decoding remains
+separate from current source/effect admission; immutable products are not re-normalized through
+current capabilities. Actual old20 static CLI/MCP inspection and explicit unsupported subject refusal
+passed with the current23 reader. Full query continuation/plugin-edit/compatibility journeys passed
+under their scoped custody owner. Report changes retain exact member facts, absence/null and ordered
+membership; native diagnostics retain available producing model/release and original failure scope.
+
+Forward83–90 are frozen. The current desired native state has61 objects and12 SQL-standard bodies.
+The original published-address constraints/backfill remain unchanged; observation-only retention
+replaces current aggregate document writes. Current native support checks resolve every declared
+edge against exact input pin, coverage ID, scope and family; integrated complete coverage needs a
+complete witness. Native intrinsic coverage and weaker/mixed cases retain their declared meanings.
+Validation epochv5 rejects stale unfinished receipts. Published reads instead use their original
+immutable receipt, keeping projection and schema-source contracts distinct. The final descriptor-only
+successors bind the actual callback/operation source; they do not change native policy or epoch.
+See the [native evidence](../design_review/evidence/2026-11-02_um-native-evolution/README.md).
+
+Scoped tests include76 shared Core/archive/resource controls,28 added receipt-call controls,
+19 optional-support callback controls and25 current report/product controls. Native authoring,
+actual admission, frozen82→90 replay, drift/stale-state refusals, exact empty candidates and outer
+rollback passed. Counts overlap and are not added. Failed/interrupted receipts remain unchanged;
+formatting does not itself invalidate typing or functional results.
+
+Assembled acceptance is still open. Earlier native88 failures and their affected repairs retain
+individual receipts. Repository-root qualification initially passed281 cases with2 fixture failures
+(`build/test-receipts/qualification/20261102T131710Z-2800697`); those same2 corrected fixtures passed
+in `build/um-root-retained-fixtures-00001.log`, without repeating unaffected cases. The product run
+completed with3107 passed/30 failed/0 skipped. Its exact failures and applicability are assessed in
+the completion audit below. Rust exited0 with zero tests, establishing no Rust functional coverage.
+Package/local passes do not close UM-14/15 or import PDF provider/book/default acceptance.
+
+No target deployment occurred. Actual task10 retained-v4 receipt inspection was read-only; the book
+remains at82 and was neither recognized again nor republished. The PDF coordinator retains its
+operational/provider/evaluator/default-adoption obligations.
+
+## Completion audit — 2026-11-02
+
+**Boundary and source.** Assessed every claimed Implemented/Tested or completed subscope in this
+coordinator and all eight companions, including claims inside In-progress packages. No package
+was declared wholly complete: UM-00–14 remain In progress; UM-15 now records the qualification
+attempt as In progress. Read-only independent reviews covered semantic/Core contracts, native/
+resource realization and query/report consumers; the coordinator reconciled authority/adoption
+and acceptance. Inspected HEAD `4a95c219b444c70c46d9cdb997cf70c2f6989c3a` plus staged/unstaged UM
+implementation and frozen83–90. Pre-publication tracked `git diff HEAD --binary` SHA256 was
+`3da300dc7c4d8ba269ce7bb104498f93444e81be895860ebae6374330ca45e24`.
+Concurrent PDF/library changes were preserved. No production repairs, tests, database changes,
+provider calls or broad diagnostic-audit updates were performed for this completion audit.
+
+**Implementation judgment.** ADR-0046 and D2/D3/D8 implement the selected authority amendments.
+Checked comparison/invariant declarations, generated fixed-call boundaries, Core inference,
+query implementation custody, bounded native authoring/evolution, resource/lazy ownership,
+directional transfer and report products have real maintained consumers. This is substantive
+partial delivery, not annotations alone. It is not complete delivery of the accepted series:
+archive compatibility, base-protocol caller migration, native preview and selected export settings
+have concrete defects. Selected analysis and diagnostic consumer capabilities remain unfinished.
+
+**Library judgment.** Pydantic reusable adapters/strict boundaries, SQLAlchemy typed Core plus
+closed column protocols, pglast SQL-standard bodies and PostgreSQL-normalized dependencies,
+Alembic frozen transitions, Psycopg/pgpq caller-owned writes, Arrow/ADBC snapshot reads and DuckDB
+borrowed-result guards are used substantively. The retained small semantic serialization visitors
+have a concrete supplied-value/reference/presentation rationale (UM-I03), and specialized protected
+procedural kernels have explicit family dispositions; neither is a missing-library finding.
+Current SQLGlot qualification/type/scope/lineage is real for materialized recipes, but does not
+settle the selected nested source-composition profile. Graph reporting and typed catalog
+observation also need the dispositions below. Candidate LinkML-Map/Datalog/ORM and new transport
+profiles are not library-adoption quotas.
+
+### Remaining obligations and disposition
+
+All rows below are **open**, owned here for current disposition; companions retain technical detail.
+These refine R01–R09/O01–O03 delivery without changing their source IDs or older finding homes.
+
+| ID / owner | Missing obligation and source evidence | Repair or settling evidence required |
+|---|---|---|
+| UM-CA01 — UM-03/04/14 | Historical schema reconstruction applies current numeric-bound lowering: `semantic/archive_reader.py:229–264`, `boundary.py:33–43,200–203`. Retained compiler10 and historical capture fail on `38` versus `{'decimal':'38'}`. Exact archived bytes alone do not preserve an executable supported reader. | Version-aware reconstruction preserving producing schema meaning/identity; independently expected historical query/capture and current numeric-schema controls. Never rewrite archives or skip schema comparison. |
+| UM-CA02 — UM-03/14 | `operations.end_source_run:1696–1706` and `orchestrate/project.py:57–62` unconditionally select composed projection admission for semantic-1 runs, although the native base protocol remains supported. Native cancellation/hold and explicit project-init cases fail before effects. | Restore an explicit supported base route or settle an authorized transition, retaining strict current composed context checks; actual cancellation/late-completion/hold and project-init controls. |
+| UM-CA03 — UM-06/07/14 | `cli/schema.py:160` → `forward_products` → `pdf_publication_native.py:1507` requests admission without server-normalized dependencies. `source_view_native.py:327–328` correctly refuses. Nine product failures include actual `schema derive` routes. | Integrate a supported preview with the normalized native pipeline, or explicitly retire/migrate its maintained callers; CLI and changed-model preview controls, preserving unbound deployment refusal. The working native-candidate/replay route remains valid bounded evidence. |
+| UM-CA04 — UM-09/14 | `serve/companion_export.py:129–133` ignores `analytics.adbc_driver_path` and uses the default driver, unlike capture. Driver selection is an accepted invocation resource. | Configured driver reaches actual export acquisition with snapshot import, batch options, cancellation and lifetime preserved. |
+| UM-CA05 — UM-08/12/13 | `projection_analysis.py:148–185` lowers current derived sources as CTEs and runs qualification/types/scope/lineage. The selected finite external-source expansion profile and nested/collision/opaque/placeholder/type controls are not delivered. Current materialized-recipe lineage is not thereby wrong. | Deliver the selected source-map capability and its actual impact/diagnostic consumers, or document a justified equivalent/authorized narrowing preserving its guarantees; do not expand materialized objects merely to use `exp.expand`. |
+| UM-CA06 — UM-13/14 | `graph_validation_report` has no production caller; `ontology.validate_projected_graph:983–995` returns raw GraphValidation. Direct adapter tests do not migrate graph-validation/CLI/MCP consumers. | Connect existing validator outcomes to the shared located projection at maintained consumers; independent actual nonconformance, shape and execution-failure responses retaining raw RDF report identity and scope. |
+| UM-CA07 — UM-13/14 | `cli/failures.py:59–61` and `semantic/refusals.py:66–73` call failure projection without available release/operation context. Invalid live subject after `cli/schema.py:403–409` opened the release yields path/category but loses release/model/operation. | Preserve known context across actual CLI/MCP failure translation; assert independent release/model/operation/path/category, retaining unknown context when genuinely unavailable and native cause distinctions. |
+| UM-CA08 — UM-06 | Selected Inspector/typed Core catalog observation remains unresolved: specialist catalog SQL in `native_objects.py:277–317,368–386` and `native_sql_body.py:170–178` remains textual. Inspector incompleteness explains partial retention, not the entire typed-Core substitution. No runtime-invalidity claim follows. | Complete applicable typed observation migration or reconcile a concrete equivalent/necessary retained-kernel rationale against the selected target. Metadata parity alone cannot establish independent admission. |
+| UM-CA09 — UM-03/14 | `test_typed_realization.py:28` detects stale `_typed_columns.py` physical-model identity. Generated-field correctness is not established by leaving the drift check failed. | Reconcile generation with the authoritative physical model, inspect the actual generated delta and pass drift plus relevant static positive/negative controls. |
+| UM-CA11 — UM-12/14 | `compare_semantic_releases` reaches standalone CLI diff/MCP comparison, but no compatibility/regeneration-advice consumer. The accepted advice workflow in the report companion remains unimplemented. | Feed the shared impact result into existing advice, retaining changed definitions and explicit unknowns without granting activation/migration authority. |
+| UM-CA12 — UM-03/14 | Public nested `CompletionReceipt` still declares task/run/attempt as `int` and release as `str` (`_operation_calls.py:78–85`, `contracts.yaml:35–43`, nested generator:400–421). Top-level call IDs do not establish nested identifier continuity. No runtime corruption is established. | Model-derived nested identifier distinctions and real positive/negative typing of completion results, alongside unchanged native wire validation. |
+| UM-CA10 — UM-14/15 | Failed product qualification, unmigrated retired-writer/export test paths and empty declared required-obligation coverage leave acceptance open. UM-11 live-evaluator and stale-preflight→atomic-refusal acceptance is still explicitly outstanding. Nine obsolete-message assertions and obsolete compiler/hash/PRESENT assumptions are test migration, not proof the corresponding refusal/feature is defective. Rich mapped-document custody refusal still needs fixture-versus-producer diagnosis. | Faithfully migrate tests without weakening independent expectations; resolve remaining real defects, diagnose custody, map the required union and rerun only affected scope unless shared changes require broader reassessment. Preserve all failed receipts. |
+
+### Verification, benefits and next work
+
+**Failed, completed product attempt:**
+`uv run python scripts/test_receipts.py run --python-only --out-dir build/test-receipts/qualification/20261102-um-product-agent -- python/corpus-structure/tests --failed-first`.
+The retained classification reports3137 selected,3107 passed,30 failed,0 skipped; all failures are
+call-phase, with no collection errors, worker loss or active phases. Exact nodes and causes live
+in that directory's `failure-summary.json`. Its empty `required`/coverage lists do not establish
+the UM-15 required union. The receipt source hash differs from this audit's dirty baseline;
+retain its recorded context and assess affected applicability rather than asserting final-source
+qualification or discarding all passing results. The audit itself introduced documentation only.
+
+**Passed, bounded prior evidence:** query/plugin-edit/continuation/explanation/evidence journeys,
+frozen83–90 authoring/admission/replay/drift/role/rollback, current recipe analysis and Core/ADBC/
+Parquet presence controls retain their original dates and limits. Frozen rehearsal is not book
+deployment. Query-specific controls do not close the shared historical reader defect. Counts
+from overlapping selections are not added. Types passed at recorded shared/scoped endpoints;
+no new type/test run was needed for this document audit, and formatting does not invalidate them.
+Final applicable hygiene and required-union acceptance remain open, not falsely reported passed.
+
+**Benefits:** structural single-source correspondence, bounded selected reads and shared adapters
+are source-inspected; no quantified speed/memory/quality benefit is established or required here.
+Complete behavioral equivalence, universal lineage and PDF provider/default adoption are not
+inferred. No new benchmark, validator framework, alignment lint or audit-premise refresh is needed.
+
+**Next execution:** address UM-CA01/02/03/04/06/07/11/12 and generated drift at their existing model/consumer
+owners; settle UM-CA05/08 capability realization without silently reducing accepted scope; then
+finish UM-CA10 acceptance. Changes to captured native inputs require proper forward evolution,
+not edits to frozen83–90. The audit authorizes these plan corrections, not production repairs.
+
+**Audit publication checks (2026-11-02):** `git diff --check -- STATUS.md
+ docs/plans/unified-domain-model docs/plans/unified-domain-model_2026-11-01.md` passed;
+static document inspection found twelve unique owned obligations and audit conclusions in all eight
+companions. `just docs-check` failed on deferred library-reorganization links, including pre-existing
+links in the UM plans; log: `build/um-completion-audit-docs-check.log`. These references are not newly
+introduced audit links and were not repaired as part of this audit. No product/type tests were
+rerun. Root `just turn-end` passed (`build/um-completion-audit-turn-end.log`): all779 Python files were unchanged. This maintenance neither repaired product defects nor invalidated prior type/functional evidence.

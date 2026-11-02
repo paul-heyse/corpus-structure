@@ -1,7 +1,9 @@
 # Execution resources, ownership and directional transport
 
-**Status:** Planned; implementation and verification not_run. **Created:** 2026-11-01.
-**Target maturity:** Proposed. The [coordinator](../unified-domain-model_2026-11-01.md) owns
+**Status:** In progress; resource/lifetime and directional transport slices have focused passing evidence; companion-export driver propagation is incomplete. Final-source integration and series qualification remain open.
+**Created:** 2026-11-01. **Updated:** 2026-11-02. **Maturity:** Implemented; focused Tested evidence
+is bounded below, with no measured speedup or universal memory claim.
+The [coordinator](../unified-domain-model_2026-11-01.md) owns
 package state, source disposition and assembled acceptance. This companion owns UM-09/UM-10
 and realizes review [R04](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R04)
 and [R09](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md#R09).
@@ -14,20 +16,23 @@ paths below are relative to `python/corpus-structure/src/corpus_structure/`. The
 original research has older source baselines; implementation must reconcile changed callers
 before treating their evidence as current.
 
-`settings.py:98–143` already supplies validated, frozen analytics settings from one process root.
-`semantic/domain_operations.py:2050–2075` still constructs `AnalysisScope(packet)` with its own
-resource defaults. `semantic/analytics.py:1018–1061` owns the actual DuckDB connection and scratch
-workspace. Export already consumes capture settings, so the missing propagation is a bounded
-consolidation/invocation correction, not justification for another settings system.
+The original review identified missing resource propagation from the validated process settings
+to consolidation and unguarded delayed row generators. Current source passes `Settings.analytics`
+through CLI finalization/regeneration and `orchestrate.commands.finalize_bound_run` into
+`semantic.domain_operations.consolidate_cut`, which supplies threads, memory and scratch parent to
+the actual `AnalysisScope`. Explicit standalone scope defaults remain available. No second settings
+system or resource registry was introduced.
 
-`analytics.py:419–462,1170–1217` tracks borrowed relations, connections and Arrow readers and
-settles independent teardown actions before propagating errors. Python generators are not
-wrapped. DuckDB `iter_rows` submits when iteration starts; passing the initial method guard
-does not establish guarded later consumption. No successful post-close escape has been observed.
+`semantic.analytics.BorrowedRows` now owns the supported `iter_rows` generator, checks its scope
+before first/resumed consumption and retires it on exhaustion, explicit close or failure. The
+existing scope settles row generators, readers, child connections and scratch independently.
+Lazy Polars output and unowned Arrow capsules refuse explicitly. Detached Arrow/Python values
+remain usable after closure. These are ownership properties, not constant-memory guarantees for
+arbitrary native joins or sorts.
 
 The current `semantic/arrow_transfer.py:41–171` derives explicit directional profiles, checks the
 pgpq wire schema and creates a fresh encoder for each stream inside the caller's Core/Psycopg
-transaction. `analytics.py:860–908` and `serve/companion_export.py:73–168` own a separate ADBC
+transaction. `semantic/analytics.py` and `serve/companion_export.py` own a separate ADBC
 read session with an imported snapshot. Preserve these existing boundaries.
 
 ## 2. Target contracts and selected library composition
@@ -172,6 +177,35 @@ new transfer profile or extra ADBC session is required just to claim columnar in
 explicit full exports and genuinely global validation distinct. Qualitative work removal is the
 claim; no speedup measurement or new benchmark obligation is introduced.
 
+### Current implementation and bounded evidence
+
+The four companion recipes now declare `pdf-companion-projection-v3` and the directional JSON
+policy once: Python/Core reads cast JSONB to text (`str | None`), while ADBC statements retain the
+JSONB OID and Arrow JSON's separate null bitmap. Generated operation row materializers retain the
+text until the shared explicit decoder is requested. Required SQL-null fields refuse; JSON text
+`null` remains a distinct value. Source JSON provenance and Python transport type remain separate.
+JSON effect inputs still use strict `JsonValue`; this read policy does not widen input coercion.
+
+Coverage's optional `supports` collection permits omission or an array, not explicit null. The
+actual native control preserves that domain refusal in both the released Python model and native
+adoption, tests admitted omitted/empty-array export, and independently checks SQL NULL/JSON
+null/array/object through Core, ADBC and Parquet. A failed earlier null-coverage assumption is
+retained; it is not evidence of an accepted nullable coverage value.
+
+| Evidence, checked 2026-11-02 | Outcome and limit |
+|---|---|
+| `build/test-receipts/um09-functional-attempt-00004.jsonl` | **passed**, 44 recorded DB-free resource/analytics/capture calls. This earlier receipt is component evidence, not final native-consumer qualification. |
+| `uv run pytest -x -q python/corpus-structure/tests/semantic/test_analysis_resources.py`; `build/um09-resource-current-adapter-00001.log` | **passed**, 12 current resource/lifetime cases, including actual non-default DuckDB scope configuration, CLI forwarding, delayed consumption and independent cleanup/cancellation. The forwarding fixture now supplies the generated native row shape. |
+| `build/test-receipts/um10-json-native-tristate-00002/classification.json` | **passed**, actual protected publication plus Core/ADBC/Parquet domain and transport controls on native85. `...00001` remains **failed** for the invalid test assumption above. Final23/86 source applicability remains part of the coordinator's union. |
+| `build/test-receipts/um03-pdf-envelopes-00001/classification.json` | **passed**, scoped native staging/publication envelopes before later Core/backend changes; not an enclosing UM-10 exit. |
+| `build/test-receipts/um05-fixed-byte-reader-lifetime-attempt-00001.jsonl` | **passed**, 20 DB-free fixed-byte/cursor lifetime calls; named prepared statements preserve page closure and live event cursor ownership. |
+
+Actual selected-cell/context corrections and final native86 consumer checks remain with their
+UM-05/integration owners. Current evidence does not establish new temporal/composite/OID profiles,
+global memory bounds, a speedup, provider adoption or current-book acceptance. Unsupported
+directions remain refused. Existing native/ADBC cancellation and write rollback obligations still
+need the coordinator's final-source applicability assessment; component counts are not summed.
+
 ## 5. Integration, references and completion
 
 [Typed operations](typed-domain-operations.md) own request/result meaning;
@@ -193,3 +227,20 @@ Completion requires current maintained callers migrated, obsolete independent re
 retired, the selected success/failure controls applicable to final source, and no unsupported lazy
 interface advertised. Targeted checks occur during implementation; full functional/hygiene routes
 follow complete series scope under the coordinator. No benchmark or new capacity claim is required.
+
+## Completion audit — 2026-11-02
+
+**Bounded judgment:** non-default consolidation resources, guarded borrowed rows/delayed
+consumption, independent cleanup/cancellation, caller-owned Psycopg/pgpq COPY and separate
+ADBC imported snapshots are real mechanisms with retained passing controls. Existing finite
+Core/ADBC/Parquet null/presence profiles are substantive; no requirement to add candidate temporal,
+composite or custom-OID profiles is inferred. These findings establish neither a universal memory
+bound nor a measured speedup.
+
+**UM-CA04:** companion_export unconditionally uses default adbc.connect, ignoring the existing
+analytics.adbc_driver_path setting which capture already honors. This is incomplete propagation
+of an accepted invocation resource, not an extra backend request. Closing evidence must show
+non-default driver acquisition on actual companion export while preserving snapshot import,
+batch options, cancellation and lifetime. Earlier native85/86-focused evidence retains its source
+limits; native90/product controls do not by themselves close all transport/resource acceptance.
+The coordinator owns failed product qualification and final-source required-union reconciliation.

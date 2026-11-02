@@ -1,6 +1,6 @@
 # Integration, adoption and qualification
 
-**Status:** Planned; target Proposed. Package state and source-review disposition belong only to
+**Status:** Integration in progress; product qualification failed (3107 passed/30 failed), required-union acceptance open. Package state and source-review disposition belong only to
 [the coordinator](../unified-domain-model_2026-11-01.md). This companion owns UM-14/15 design and
 the combined acceptance boundary, not a duplicate progress ledger.
 
@@ -67,6 +67,23 @@ SQLGlot analysis can serve one settled projection, and the early diagnostic cont
 call generation before all operator tooling ships. Each state must say what works and what still
 uses an older supported contract. No dual-write or universal compatibility layer is introduced
 without a concrete migration need.
+
+**Current writer retirement, identified during UM-14 integration (2026-11-02):**
+`UnitResult.native_products` / `integrated_products` and their method-context retention callbacks
+still reached aggregate writers that populate legacy `native_document_*` / `pdf_product_body`
+rows without `pdf_published_revision`. Current stock document producers use the record pipeline;
+merely generating typed envelopes for those obsolete writers would preserve the incompatible
+authority split. Retire these terminal fields/callbacks and their current operation bindings,
+adapt maintained fixtures to actual record publication, and refuse legacy native adoption early
+with an actionable record-publication remedy. Preserve explicit historical reads and frozen SQL.
+Recognition observation publication remains active and distinct: `_retain_page` publishes immutable
+input bodies through the old generic callback. Preserve it as an observation-only named contract
+and protected native kind guard; an observation is not a document requiring source-view placement.
+Removing the entire generic implementation without migrating this caller would break recognition.
+Keep raw-record recovery through the existing explicitly global organize operation when qualified
+sections are absent; ordinary organized-record adoption uses selected records without hydration.
+An aggregate-to-record importer is not selected. The [database owner](../../design/D3-database.md#relational-document-realization-and-publication)
+records the consistent go-forward target; completion still requires actual affected-consumer checks.
 
 ### Concrete library composition
 
@@ -173,3 +190,30 @@ UM-15 closes only with applicable required-union evidence and resolved required 
 The coordinator records final package/source disposition, residual native-authoring families and
 supported limits. Plans and evidence are retained after completion. Their design text remains
 Proposed until implementation and its actual verification justify stronger claims.
+
+## Completion audit — 2026-11-02
+
+**Bounded judgment:** ordinary callers have substantive typed/native/resource/report migrations,
+with protected publication and explicit historical routes. The maintained inventory is not closed:
+base-protocol initialization/cancellation, derive preview, configured export, graph and failure
+reporting, advice integration, nested result IDs and generated provenance retain the coordinator's
+UM-CA01–12 obligations. The selected model/libraries should govern their structural repairs;
+passing a first consumer does not establish the remaining family migration.
+
+**Verification:** product qualification completed failed,3107 passed/30 failed/0 skipped, rather
+than not_run; the coordinator links its exact invocation/classification/failure nodes. Nine ABI/
+analysis refusal-message assertions and obsolete20/hash/PRESENT assertions are test migrations;
+retired publisher child-edge and legacy export fixtures also fail before their intended behavior.
+Migrate them to actual record publication without weakening independent tree/export expectations.
+The rich mapped-document exact-custody failure remains undiagnosed between fixture and producer;
+retain it open, not relabelled as a harmless expectation. Three supported base-protocol failures,
+two archive failures and nine normalization failures include genuine implementation seams.
+
+The receipt's empty declared required-obligation coverage does not certify UM-15. Map remaining
+native/provider/nonfunctional obligations to applicable evidence, including actual stale-preflight
+refusal; use affected checks after repairs and broaden only when shared changes warrant it.
+Root qualification's same2 corrected fixtures passed; no rerun of unaffected281 is required merely
+for documentation or lint. No new tests, provider runs or book/database changes occurred for this
+audit. PDF operational/default/provider acceptance retains its separate owner; all old receipts,
+failed/interrupted attempts and frozen83–90 stay immutable. The coordinator alone owns current
+disposition and the next execution queue.
