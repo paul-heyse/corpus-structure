@@ -24,7 +24,7 @@ from corpus_structure.semantic.operations import (
 )
 
 
-def setup(engine, *, observations=False, archive=False, composed=False, evaluation=False):
+def setup(engine, *, observations=False, archive=False, composed=True, evaluation=False):
     bundle = SourceBundle(
         "m",
         (
@@ -269,90 +269,6 @@ def test_binding_revision_and_wrong_attempt(semantic_db_engine, semantic_writer_
         assert not c.execute(select(table("kb.observation"))).first()
 
 
-def test_source_rendition_fidelity_and_original_change(
-    semantic_db_engine, semantic_writer_engine, tmp_path
-):
-    from corpus_structure.core.evidence import RenditionContent, Segment
-    from corpus_structure.core.vocab import SegmentKind
-    from corpus_structure.semantic.operations import (
-        read_original,
-        read_rendition,
-        register_document,
-        store_rendition,
-    )
-
-    p = setup(semantic_db_engine)
-    e = semantic_writer_engine
-    original = tmp_path / "source.html"
-    original.write_bytes(b"<p>source</p>")
-    content = RenditionContent(
-        canonical_text="é🙂\n",
-        document=Segment(
-            kind=SegmentKind.DOCUMENT,
-            start=0,
-            end=3,
-            children=(Segment(kind=SegmentKind.PARAGRAPH, start=0, end=2),),
-        ),
-    )
-    with e.begin() as c:
-        run = create_run(
-            c,
-            project_id="p",
-            binding=OperationBinding(p.release_id, "z", 0, b"{}"),
-            kind="full",
-            options={},
-            code_commit="test",
-        )
-        cfg = record_method(
-            c,
-            SimpleNamespace(
-                name="read",
-                version="1",
-                family="ingest",
-                tier="deterministic",
-                confidence_source=None,
-            ),
-            "default",
-            {},
-            "config",
-        )
-        task = create_task(
-            c, run_id=run, config_id=cfg, stage="ingest", unit_type="run", input_hash="same"
-        )
-        doc = register_document(
-            c,
-            project_id="p",
-            source_uri="file:source",
-            original_path=str(original),
-            original=original.read_bytes(),
-            mime="text/html",
-        )
-        ren = store_rendition(
-            c,
-            run_id=run,
-            document_id=doc,
-            content=content,
-            task_id=task,
-            config_id=cfg,
-            parse_detail={"diagnostic": "kept"},
-        )
-        assert read_rendition(c, ren) == content
-        assert read_original(c, doc) == original.read_bytes()
-        assert (
-            store_rendition(
-                c,
-                run_id=run,
-                document_id=doc,
-                content=content,
-                task_id=task,
-                config_id=cfg,
-                parse_detail={"diagnostic": "kept"},
-            )
-            == ren
-        )
-    original.write_bytes(b"changed")
-    with e.connect() as c:
-        assert read_original(c, doc) == b"<p>source</p>"
 
 
 def test_recognizer_terminal_source_boundary_and_coverage(

@@ -9,10 +9,7 @@ from __future__ import annotations
 import base64
 import json
 from collections.abc import Sequence
-from contextlib import nullcontext
-from functools import lru_cache
 from hashlib import sha256
-from importlib.resources import files
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -147,15 +144,6 @@ class NativeDocumentUnavailable(ValueError):
     """The pinned product has no qualified reader for its archived contract."""
 
 
-@lru_cache(maxsize=1)
-def _reader_schema_digest() -> str:
-    return sha256(
-        files("corpus_structure")
-        .joinpath("model/semantic/docling-validation.schema.json")
-        .read_bytes()
-    ).hexdigest()
-
-
 def read_native_items(
     conn: Connection,
     *,
@@ -172,11 +160,7 @@ def read_native_items(
     """Read a pinned page of item projections; an incorrect pin always refuses."""
     if not 1 <= limit <= 1000 or after < -1 or membership not in {"direct", "descendants"}:
         raise ValueError("native item page requires limit 1..1000 and after >= -1")
-    from .pdf_record_reader import (
-        PublishedSchemaUnavailable,
-        published_native_table,
-        published_record_reader,
-    )
+    from .pdf_record_reader import PublishedSchemaUnavailable, published_record_reader
     from .product_reference import ProductReference
 
     published = published_record_reader(
@@ -210,69 +194,7 @@ def read_native_items(
             for row in rows
         ]
 
-    # Only explicitly archived aggregate products use the legacy schema qualification.
-    product = table("ops.pdf_selected_product")
-    actual = conn.execute(
-        select(
-            product.c.content_digest,
-            product.c.contract_digest,
-            product.c.schema_digest,
-            product.c.release_id,
-        ).where(
-            product.c.task_id == task_id,
-            product.c.product_key == product_key,
-        )
-    ).one_or_none()
-    if actual is None:
-        raise NativeDocumentUnavailable("selected native content is unavailable")
-    if actual.content_digest != content_digest:
-        raise ValueError("native product digest differs from selected pin")
-    from .pdf_contracts import pdf_context_for_task
-
-    contexts = conn.info.setdefault("native_reader_contexts", {})
-    if actual.release_id not in contexts:
-        contexts[actual.release_id] = pdf_context_for_task(conn, task_id)
-    context = contexts[actual.release_id]
-    if (
-        actual.contract_digest != context.contract_digest
-        or actual.schema_digest != context.native_schema_digest
-        or actual.schema_digest != _reader_schema_digest()
-    ):
-        raise NativeDocumentUnavailable(
-            "native contract/schema requires a qualified archived reader: "
-            f"stored_contract={actual.contract_digest}, "
-            f"released_contract={context.contract_digest}, "
-            f"stored_schema={actual.schema_digest}, "
-            f"released_schema={context.native_schema_digest}, "
-            f"installed_schema={_reader_schema_digest()}, release={actual.release_id}; "
-            "inspect ci db describe --schema ops and the native-candidate/admission output; "
-            "rebuild from compatible retained evidence instead of changing stored pins"
-        )
-    # Explicit historical products retain their archived legacy reader route.
-
-    item = published_native_table(conn)
-    query = select(*[c for c in item.columns if c.name != "native_json"]).where(
-        item.c.task_id == task_id, item.c.product_key == product_key, item.c.ordinal > after
-    )
-    if section_pointer is not None:
-        if membership == "direct":
-            query = query.where(item.c.section_pointer == section_pointer)
-        else:
-            query = query.where(
-                item.c.pointer.in_(
-                    native_descendant_pointers(
-                        task_id=task_id,
-                        product_key=product_key,
-                        section_pointer=section_pointer,
-                        conn=conn,
-                    )
-                )
-            )
-    if pointer is not None:
-        query = query.where(item.c.pointer == pointer)
-    return [
-        dict(row) for row in conn.execute(query.order_by(item.c.ordinal).limit(limit)).mappings()
-    ]
+    raise NativeDocumentUnavailable("current native content requires a published record")
 
 
 def native_descendant_pointers(
@@ -281,7 +203,7 @@ def native_descendant_pointers(
     """An indexed containment selection, preserving native ordinals in its caller."""
     from .pdf_record_reader import published_native_table
 
-    item = published_native_table(conn) if conn is not None else table("kb.native_document_item")
+    item = published_native_table(conn)
     members = (
         select(item.c.pointer)
         .where(
@@ -344,7 +266,7 @@ def read_native_regions(
         projection_context=projection_context,
     ):
         raise ValueError("native occurrence unavailable")
-    from .pdf_record_reader import published_native_table, published_record_reader
+    from .pdf_record_reader import published_record_reader
     from .product_reference import ProductReference
 
     published = published_record_reader(
@@ -366,19 +288,7 @@ def read_native_regions(
             for row in published.regions(pointer)
         ]
 
-    region = published_native_table(conn, "region")
-    return [
-        dict(row)
-        for row in conn.execute(
-            select(region)
-            .where(
-                region.c.task_id == task_id,
-                region.c.product_key == product_key,
-                region.c.pointer == pointer,
-            )
-            .order_by(region.c.region_index)
-        ).mappings()
-    ]
+    raise NativeDocumentUnavailable("current native regions require a published record")
 
 
 def _record_product_identity(conn, task_id, product_key, content_digest, record_reader):
@@ -471,67 +381,9 @@ def _pdf_product_identity(
     context = pdf_context_for_task(conn, task_id)
     if identity["contract_digest"] != context.contract_digest:
         raise NativeDocumentUnavailable("PDF product differs from its archived contract")
-    if identity["kind"] == "native":
-        native = table("ops.native_document_product")
-        schema_digest = conn.execute(
-            select(native.c.schema_digest).where(
-                native.c.task_id == task_id,
-                native.c.product_key == product_key,
-            )
-        ).scalar_one_or_none()
-        if (
-            schema_digest != context.native_schema_digest
-            or schema_digest != _reader_schema_digest()
-        ):
-            raise NativeDocumentUnavailable(
-                "native PDF schema requires a qualified archived reader"
-            )
-    else:
-        from .contracts import approved_implementations
-        from .types import PreparationError
-
-        try:
-            operation = context.execution.require_operation("read_pdf_product")
-        except (PreparationError, StopIteration) as error:
-            raise NativeDocumentUnavailable(
-                "PDF read ABI is unsupported; qualify an archived reader"
-            ) from error
-        binding = next(
-            b for b in context.execution.implementations if b.id == operation.implementation
-        )
-        implementation = approved_implementations()["read_pdf_product"]
-        if (binding.owner, binding.symbol) != (
-            implementation.__module__.removeprefix("corpus_structure."),
-            implementation.__qualname__,
-        ):
-            raise NativeDocumentUnavailable("PDF read ABI owner differs from the qualified reader")
-        if "PdfIntegratedProduct" not in {d.name for d in context.boundary.definitions}:
-            raise NativeDocumentUnavailable(
-                "companion contract requires a qualified archived reader"
-            )
-        descriptor = _pdf_descriptors(
-            conn, [(task_id, product_key, content_digest)], cancellation=cancellation
-        )[0]["descriptor"]
-        # Version 1 is the qualified immutable body/relational read ABI. Changes to helper
-        # implementation bytes do not change stored meaning; a new body ABI requires a
-        # new declared binding and an explicitly qualified reader.
-        if (
-            type(descriptor.get("version")) is not int
-            or descriptor["version"] != 1
-            or descriptor.get("kind") != identity["kind"]
-        ):
-            raise NativeDocumentUnavailable(
-                "PDF body version/kind requires a qualified archived reader"
-            )
-        if identity["kind"] == "integrated":
-            schema_digest = descriptor.get("content_metadata", {}).get("schema_digest")
-            if (
-                schema_digest != context.native_schema_digest
-                or schema_digest != _reader_schema_digest()
-            ):
-                raise NativeDocumentUnavailable(
-                    "selected Docling schema requires a qualified archived reader"
-                )
+    if identity["kind"] != "recognition_observation":
+        raise NativeDocumentUnavailable("current source content requires a published record")
+    context.execution.require_operation("read_pdf_product")
     return dict(identity)
 
 
@@ -564,46 +416,20 @@ def _pdf_descriptors(
     if not archived:
         return current
     pins = archived
-    from sqlalchemy import case, func, tuple_
+    from sqlalchemy import tuple_
 
-    products, bodies, native = map(
-        table, ("ops.pdf_product", "ops.pdf_product_body", "ops.native_document_product")
-    )
-    descriptor = case(
-        (
-            products.c.kind == "native",
-            func.jsonb_build_object(
-                "health",
-                func.jsonb_build_object("conversion", native.c.health["conversion"]),
-                "schema_digest",
-                native.c.schema_digest,
-                "recipe_digest",
-                native.c.recipe_digest,
-            ),
-        ),
-        else_=bodies.c.descriptor,
-    ).label("descriptor")
+    products, bodies = map(table, ("ops.pdf_product", "ops.pdf_product_body"))
+    for task, key, digest in pins:
+        _pdf_product_identity(conn, task, key, digest, cancellation=cancellation)
     query = (
-        select(products, descriptor)
-        .outerjoin(
-            bodies,
-            (bodies.c.task_id == products.c.task_id)
-            & (bodies.c.product_key == products.c.product_key),
-        )
-        .outerjoin(
-            native,
-            (native.c.task_id == products.c.task_id)
-            & (native.c.product_key == products.c.product_key),
-        )
-        .where(
-            tuple_(products.c.task_id, products.c.product_key, products.c.content_digest).in_(pins)
-        )
-        .order_by(products.c.task_id, products.c.product_key)
+        select(products, bodies.c.descriptor)
+        .join(bodies, (bodies.c.task_id == products.c.task_id)
+              & (bodies.c.product_key == products.c.product_key))
+        .where(products.c.kind == "recognition_observation",
+               tuple_(products.c.task_id, products.c.product_key, products.c.content_digest)
+               .in_(pins))
     )
-    for row in conn.execute(query).mappings():
-        value: dict[str, Any] = {column.key: row[column.key] for column in products.columns}
-        value["descriptor"] = row["descriptor"]
-        current.append(value)
+    current.extend(dict(row) for row in conn.execute(query).mappings())
     return sorted(current, key=lambda r: (r["task_id"], r["product_key"]))
 
 
@@ -877,11 +703,7 @@ def read_pdf_product(
     if include_body:
         import json
 
-        body = table(
-            "ops.native_document_product"
-            if identity["kind"] == "native"
-            else "ops.pdf_product_body"
-        )
+        body = table("ops.pdf_product_body")
         result["body"] = json.loads(
             conn.execute(
                 select(body.c.payload).where(
@@ -1204,40 +1026,8 @@ def integrated_source_context(
         if identity["kind"] == "native":
             return None
         return record_reader.source_context(pointers, section_pointer, membership=membership)
-    identity = _pdf_product_identity(
-        conn, task_id, product_key, content_digest, cancellation=cancellation
-    )
-    if identity["kind"] == "native":
-        return None
-    if identity["kind"] != "integrated":
-        raise NativeDocumentUnavailable("recognition observations are not selected source content")
-    if membership not in {"direct", "descendants"}:
-        raise ValueError("source membership is not qualified")
-    from ._operation_calls import (
-        materialize_integrated_source_context,
-        prepare_integrated_source_context,
-    )
-    from ._operation_ids import ContentDigest, ProductKey, TaskId
-    from .pdf_record_reader import _record_envelope
-
-    scope = cancellation.borrow(conn) if cancellation is not None else nullcontext()
-    with (
-        scope,
-        conn.execute(
-            prepare_integrated_source_context(
-                task_id=TaskId(task_id),
-                product_key=ProductKey(product_key),
-                content_digest=ContentDigest(content_digest),
-                pointers=tuple(pointers),
-                section=section_pointer,
-                membership=membership,
-            ),
-        ) as rows,
-    ):
-        result = materialize_integrated_source_context(rows.one())
-    if result is None:
-        raise NativeDocumentUnavailable("integrated source companion is unavailable")
-    return _record_envelope(result)
+    _pdf_product_identity(conn, task_id, product_key, content_digest, cancellation=cancellation)
+    raise NativeDocumentUnavailable("recognition observations are not selected source content")
 
 
 def read_pdf_artifact(

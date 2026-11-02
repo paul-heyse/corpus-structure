@@ -34,10 +34,10 @@ classes:
       kind: {range: PdfObservationKind}
   CompletionReceipt:
     attributes:
-      task_id: {range: integer, required: true}
-      run_id: {range: integer, required: true}
-      release_id: {range: string, required: true}
-      attempt: {range: integer, required: true}
+      task_id: {range: integer, required: true, annotations: {cp:source: "physical:ops.task.id"}}
+      run_id: {range: integer, required: true, annotations: {cp:source: "physical:ops.task.run_id"}}
+      release_id: {range: string, required: true, annotations: {cp:source: "physical:ops.task.release_id"}}
+      attempt: {range: integer, required: true, annotations: {cp:source: "physical:ops.task.attempt"}}
       protocol: {range: CompletionProtocol, required: true}
       observation_ids: {range: integer, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       result_digest: {range: string, required: true}

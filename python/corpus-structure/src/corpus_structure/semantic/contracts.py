@@ -133,8 +133,6 @@ def approved_implementations() -> Mapping[str, Any]:
             "end_run": operations.end_source_run,
             "register_document": operations.register_document,
             "read_original": operations.read_original,
-            "store_rendition": operations.store_rendition,
-            "read_rendition": operations.read_rendition,
             "prepare_parsing_text": capture_text,
             "interpret_parsing_math": interpret_parsing_math,
             "assess_parsing_math": assess_parsing_math,
@@ -195,7 +193,6 @@ def approved_implementations() -> Mapping[str, Any]:
             "reference_set": references.create_reference_set,
             "reference_pass": references.record_pass,
             "reference_items": references.ensure_items,
-            "reference_frame": references.relocate_frame,
             "reference_grade": references.reference_evaluate,
             "reference_split": references.split_documents,
             "select_result": runtime.select_completed_result,
@@ -779,7 +776,7 @@ def require_payload_operation(payload: bytes | None, model_id: str | None, name:
     if model_id is None:
         if payload is not None:
             _fail("execution_binding", name, "execution payload requires its model identity")
-        return  # Explicit historical semantic-1 base protocol.
+        _fail("missing_execution_model", name, "operation requires a composed execution binding")
     if payload is None:
         _fail(
             "missing_execution_model",
@@ -830,36 +827,19 @@ def _bound_execution_model(body: bytes, model_id: str) -> ExecutionModelProducts
     if not isinstance(data, dict) or not isinstance(data.get("inputs"), dict):
         _fail("contract_product", model_id, "execution product and inputs must be objects")
     compiler = data["inputs"].get("compiler_version")
-    if not isinstance(compiler, str) or compiler not in {"20", "21", "22", "23"}:
+    if compiler != EXECUTION_COMPILER_VERSION:
         _fail(
             "unsupported_execution_abi",
             model_id,
-            "execution product requires a supported closed reader profile",
+            "execution product requires current compiler 23; regenerate the release",
         )
     if data.get("model_id") != model_id:
         _fail("execution_binding", model_id, "execution product identity differs")
     # Archived products are normalized at their original preparation boundary. Reading
     # verified immutable bytes must not re-admit them against installed capability sets.
     # Actual execution still requires effect support, fixed-call continuity and native
-    # release admission. Missing21 JSON representation remains the original native form.
+    # release admission.
     try:
-        if compiler == "20" and (
-            any({"observable", "diagnostics"}.intersection(item) for item in data["invariants"])
-            or any({"call", "calls"}.intersection(item) for item in data["operations"])
-        ):
-            _fail("unsupported_execution_abi", model_id, "compiler20 contains newer contracts")
-        if compiler == "21" and any(
-            "json_read" in call
-            for operation in data["operations"]
-            for call in operation.get("calls", ())
-        ):
-            _fail("unsupported_execution_abi", model_id, "compiler21 contains newer contracts")
-        if compiler in {"20", "21", "22"} and any(
-            "backend" in call
-            for operation in data["operations"]
-            for call in operation.get("calls", ())
-        ):
-            _fail("unsupported_execution_abi", model_id, "archived profile contains newer backend")
         if "content" in data:
             _fail("contract_product", model_id, "encoded execution product cannot contain content")
         return _PRODUCT_CONVERTER.structure(
@@ -957,7 +937,6 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
                 ("pdf/regions.py", "serve/native_regions.py"),
                 ("alignment/semantic_alignment.py", "evaluate/semantic_alignment.py"),
                 ("alignment/preparation.py", "evaluate/alignment_preparation.py"),
-                ("text/layouts.py", "semantic/text_layouts.py"),
                 ("ingest/methods.py", "ingest/methods.py"),
                 ("pdf/converter.py", "ingest/pdf.py"),
                 ("pdf/worker.py", "ingest/pdf_worker.py"),
@@ -987,6 +966,7 @@ def analysis_implementation_inputs() -> tuple[SourceArtifact, ...]:
             SourceArtifact(name, root.joinpath(*path.split("/")).read_bytes())
             for name, path in (
                 ("pdf/record-physical.yaml", "model/semantic/physical.yaml"),
+                ("pdf/read-projections.yaml", "model/semantic/read-projections.yaml"),
                 ("pdf/record-relational.py", "schema/relational.py"),
                 ("pdf/record-boundaries.py", "semantic/pdf_record_model.py"),
                 ("pdf/records.py", "semantic/pdf_records.py"),
@@ -1515,7 +1495,6 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "alignment/semantic_alignment.py",
         "placement/cascade.py",
         "alignment/preparation.py",
-        "text/layouts.py",
         "ingest/methods.py",
         "text/model.json",
         "grammar/grammar.py",
@@ -1529,6 +1508,7 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
         "pdf/record-model.yaml",
         "unified/linkml-types.yaml",
         "pdf/record-physical.yaml",
+        "pdf/read-projections.yaml",
         "pdf/record-relational.py",
         "pdf/record-boundaries.py",
         "pdf/records.py",

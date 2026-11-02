@@ -344,7 +344,6 @@ concepts:
   relationships:
   - run_consumes
   - task_belongs
-  - run_rendition
   - entity_input
   - fact_input
   - run_result
@@ -379,7 +378,6 @@ concepts:
   - task_belongs
   - task_reuses
   - attempt_owns
-  - rendition_build
   - held_submission
   - measurement_context
   - cut_origin
@@ -505,71 +503,7 @@ concepts:
     range: text
     required: true
     multivalued: false
-  relationships:
-  - rendition_build
-  - run_rendition
-- id: Rendition
-  family: source
-  scope: global
-  meaning: Rendition in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label
-    identity
-  attributes:
-  - name: id
-    range: integer
-    required: true
-    multivalued: false
-  - name: normalized_text
-    range: text
-    required: true
-    multivalued: false
-  relationships:
-  - rendition_build
-  - rendition_segments
-  - run_rendition
-- id: RenditionBuild
-  family: source
-  scope: global
-  meaning: RenditionBuild in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label
-    identity
-  attributes:
-  - name: provider
-    range: Provider
-    required: true
-    multivalued: false
-  - name: configuration
-    range: MethodConfiguration
-    required: true
-    multivalued: false
-  - name: build_digest
-    range: text
-    required: true
-    multivalued: false
-  relationships:
-  - rendition_build
-  - run_rendition
-- id: Segment
-  family: source
-  scope: global
-  meaning: Segment in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label
-    identity
-  attributes:
-  - name: id
-    range: text
-    required: true
-    multivalued: false
-  - name: kind
-    range: text
-    required: true
-    multivalued: false
-  - name: ordinal
-    range: integer
-    required: true
-    multivalued: false
-  relationships:
-  - rendition_segments
+  relationships: []
 - id: Span
   family: source
   scope: global
@@ -589,8 +523,7 @@ concepts:
     range: text
     required: true
     multivalued: false
-  relationships:
-  - rendition_segments
+  relationships: []
 - id: Provider
   family: source
   scope: global
@@ -2398,7 +2331,7 @@ concepts:
     multivalued: false
   relationships:
   - reference_set_unit
-  - reference_unit_rendition
+  - reference_unit_source_view
   - reference_unit_pass
 - id: ReferenceDocumentSplit
   family: decision
@@ -3129,123 +3062,6 @@ relationships:
   reference_scope: execution
   invariants:
   - completed_source
-- id: rendition_build
-  kind: ownership
-  direction: nary
-  endpoints:
-  - role: document
-    concept: Document
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: build
-    concept: RenditionBuild
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: rendition
-    concept: Rendition
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: task
-    concept: TaskInvocation
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  cardinality_scope: per subject in the declared bound context
-  identity_kind: ordered_roles
-  identity_roles:
-  - document
-  - build
-  - rendition
-  - task
-  identity_context:
-  - binding
-  qualifications: []
-  multiplicity: set
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: rendition_segments
-  kind: ownership
-  direction: nary
-  endpoints:
-  - role: rendition
-    concept: Rendition
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: segment
-    concept: Segment
-    minimum: 1
-    ordered: true
-    unresolved: false
-  - role: span
-    concept: Span
-    minimum: 1
-    ordered: true
-    unresolved: false
-  cardinality_scope: per subject in the declared bound context
-  identity_kind: ordered_roles
-  identity_roles:
-  - rendition
-  - segment
-  - span
-  identity_context:
-  - binding
-  qualifications: []
-  multiplicity: sequence
-  reference_scope: execution
-  invariants:
-  - qualified_reference
-- id: run_rendition
-  kind: ownership
-  direction: nary
-  endpoints:
-  - role: run
-    concept: Run
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: document
-    concept: Document
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: rendition
-    concept: Rendition
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: build
-    concept: RenditionBuild
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  cardinality_scope: per subject in the declared bound context
-  identity_kind: ordered_roles
-  identity_roles:
-  - run
-  - document
-  - rendition
-  - build
-  identity_context:
-  - binding
-  qualifications: []
-  multiplicity: set
-  reference_scope: execution
-  invariants:
-  - qualified_reference
 - id: packet_obligations
   kind: ownership
   direction: nary
@@ -4501,7 +4317,7 @@ relationships:
   reference_scope: execution
   invariants:
   - reference_binding
-- id: reference_unit_rendition
+- id: reference_unit_source_view
   kind: provenance
   direction: directed
   endpoints:
@@ -4512,7 +4328,7 @@ relationships:
     ordered: false
     unresolved: false
   - role: object
-    concept: Rendition
+    concept: SourceView
     minimum: 1
     maximum: 1
     ordered: false
@@ -4774,9 +4590,6 @@ invariants:
   - dependencies_capture
   - release_prepared_from
   - realization_interprets
-  - rendition_build
-  - rendition_segments
-  - run_rendition
   - entity_membership
   - value_member
   - fact_denotes
@@ -5117,7 +4930,7 @@ invariants:
   relationships:
   - reference_source_result
   - reference_set_unit
-  - reference_unit_rendition
+  - reference_unit_source_view
   - reference_unit_pass
   - reference_pass_frame
   - reference_pass_item
@@ -6223,280 +6036,6 @@ operations:
     backend: core
     requires_context: false
     json_read: json-text-v1
-- id: store_rendition
-  inputs: &id052
-  - Document
-  - Provider
-  - MethodConfiguration
-  - TaskInvocation
-  results: &id053
-  - Rendition
-  - RenditionBuild
-  - Segment
-  - Span
-  applicability:
-  - immutable_binding
-  universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id054
-  - preserve_original_normalized_distinction
-  outcomes:
-  - applied
-  - replay
-  - conflict
-  outcome_domain: transaction
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Exact authored/canonical values; no implicit rounding
-  implementation: store_rendition
-  transitions: []
-  projections: []
-  calls:
-  - id: rendition_source_key
-    symbol: semantic.operations.store_rendition
-    parameters:
-    - name: id
-      source: physical:kb.document.id
-      nullable: false
-      semantic_type: DocumentId
-    result_fields:
-    - name: key
-      source: physical:kb.document.key
-      nullable: false
-    result_mode: scalar
-    cardinality: one
-    ordered: false
-    order_by: []
-    backend: core
-    requires_context: false
-  - id: rendition_definition
-    symbol: semantic.operations.store_rendition
-    parameters:
-    - name: document_id
-      source: physical:kb.rendition.document_id
-      nullable: false
-      semantic_type: DocumentId
-    - name: key
-      source: physical:kb.rendition.key
-      nullable: false
-    - name: content_digest
-      source: physical:kb.rendition.content_digest
-      nullable: false
-    - name: canonical_text
-      source: physical:kb.rendition.canonical_text
-      nullable: false
-    - name: content
-      source: physical:kb.rendition.content
-      nullable: false
-    - name: parse_status
-      source: physical:kb.rendition.parse_status
-      nullable: false
-    result_fields:
-    - name: id
-      source: physical:kb.rendition.id
-      nullable: false
-      semantic_type: RenditionId
-    - name: document_id
-      source: physical:kb.rendition.document_id
-      nullable: false
-      semantic_type: DocumentId
-    - name: key
-      source: physical:kb.rendition.key
-      nullable: false
-    - name: content_digest
-      source: physical:kb.rendition.content_digest
-      nullable: false
-    - name: canonical_text
-      source: physical:kb.rendition.canonical_text
-      nullable: false
-    - name: content
-      source: physical:kb.rendition.content
-      nullable: false
-    - name: parse_status
-      source: physical:kb.rendition.parse_status
-      nullable: false
-    result_mode: table
-    cardinality: one
-    ordered: false
-    order_by: []
-    backend: core
-    requires_context: false
-    result_class: StoredRendition
-    json_read: json-text-v1
-  - id: rendition_build
-    symbol: semantic.operations.store_rendition
-    parameters:
-    - name: document_id
-      source: physical:ops.rendition_build.document_id
-      nullable: false
-      semantic_type: DocumentId
-    - name: method_config_id
-      source: physical:ops.rendition_build.method_config_id
-      nullable: false
-      semantic_type: MethodConfigId
-    - name: rendition_id
-      source: physical:ops.rendition_build.rendition_id
-      nullable: false
-      semantic_type: RenditionId
-    - name: task_id
-      source: physical:ops.rendition_build.task_id
-      nullable: false
-      semantic_type: TaskId
-    - name: parse_detail
-      source: physical:ops.rendition_build.parse_detail
-      nullable: false
-    - name: text_layout
-      source: physical:ops.rendition_build.text_layout
-      nullable: true
-    result_fields:
-    - name: document_id
-      source: physical:ops.rendition_build.document_id
-      nullable: false
-      semantic_type: DocumentId
-    - name: method_config_id
-      source: physical:ops.rendition_build.method_config_id
-      nullable: false
-      semantic_type: MethodConfigId
-    - name: rendition_id
-      source: physical:ops.rendition_build.rendition_id
-      nullable: false
-      semantic_type: RenditionId
-    - name: task_id
-      source: physical:ops.rendition_build.task_id
-      nullable: false
-      semantic_type: TaskId
-    - name: parse_detail
-      source: physical:ops.rendition_build.parse_detail
-      nullable: false
-    - name: text_layout
-      source: physical:ops.rendition_build.text_layout
-      nullable: true
-    result_mode: table
-    cardinality: one
-    ordered: false
-    order_by: []
-    backend: core
-    requires_context: false
-    result_class: StoredRenditionBuild
-    json_read: json-text-v1
-  - id: rendition_segment
-    symbol: semantic.operations.store_rendition
-    parameters:
-    - name: rendition_id
-      source: physical:kb.segment.rendition_id
-      nullable: false
-      semantic_type: RenditionId
-    - name: segment_key
-      source: physical:kb.segment.segment_key
-      nullable: false
-    - name: parent_key
-      source: physical:kb.segment.parent_key
-      nullable: true
-    - name: kind
-      source: physical:kb.segment.kind
-      nullable: false
-    - name: ordinal
-      source: physical:kb.segment.ordinal
-      nullable: false
-    - name: start_offset
-      source: physical:kb.segment.start_offset
-      nullable: false
-    - name: end_offset
-      source: physical:kb.segment.end_offset
-      nullable: false
-    - name: attrs
-      source: physical:kb.segment.attrs
-      nullable: false
-    - name: parse_status
-      source: physical:kb.segment.parse_status
-      nullable: false
-    - name: parse_reason
-      source: physical:kb.segment.parse_reason
-      nullable: true
-    result_fields:
-    - name: segment_key
-      source: physical:kb.segment.segment_key
-      nullable: false
-    result_mode: scalar
-    cardinality: one
-    ordered: false
-    order_by: []
-    backend: core
-    requires_context: false
-  - id: run_rendition_selection
-    symbol: semantic.operations.store_rendition
-    parameters:
-    - name: run_id
-      source: physical:ops.run_rendition.run_id
-      nullable: false
-      semantic_type: RunId
-    - name: document_id
-      source: physical:ops.run_rendition.document_id
-      nullable: false
-      semantic_type: DocumentId
-    - name: rendition_id
-      source: physical:ops.run_rendition.rendition_id
-      nullable: false
-      semantic_type: RenditionId
-    result_fields:
-    - name: rendition_id
-      source: physical:ops.run_rendition.rendition_id
-      nullable: false
-      semantic_type: RenditionId
-    result_mode: scalar
-    cardinality: one
-    ordered: false
-    order_by: []
-    backend: core
-    requires_context: false
-- id: read_rendition
-  inputs: &id055
-  - Rendition
-  results: &id056
-  - Rendition
-  - Segment
-  - Span
-  applicability: []
-  universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id057 []
-  outcomes:
-  - source_ready
-  - missing
-  - invalid
-  outcome_domain: read
-  result_dimensions:
-  - {id: outcome, field: outcome, outcome_domain: read}
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Exact authored/canonical values; no implicit rounding
-  implementation: read_rendition
-  transitions: []
-  projections: []
-  calls:
-  - id: rendition_content
-    symbol: semantic.operations.read_rendition
-    parameters:
-    - name: id
-      source: physical:kb.rendition.id
-      nullable: false
-      semantic_type: RenditionId
-    result_fields:
-    - name: content
-      source: physical:kb.rendition.content
-      nullable: false
-    result_mode: table
-    cardinality: optional
-    ordered: false
-    order_by: []
-    backend: core
-    requires_context: false
-    result_class: StoredRenditionContent
-    json_read: json-text-v1
 - id: bind_report
   inputs: &id058
   - TaskResultEnvelope
@@ -7564,32 +7103,6 @@ operations:
   implementation: reference_items
   transitions: []
   projections: []
-- id: reference_frame
-  inputs:
-  - ReferenceCitationFrame
-  - Rendition
-  results:
-  - ReferenceCitationFrame
-  applicability:
-  - reference_binding
-  universe: Explicit release, project, completed source and immutable reference context
-  effects:
-  - protected_independent_reference_operation
-  outcomes:
-  - applied
-  - replay
-  - conflict
-  outcome_domain: transaction
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Exact authored bytes and values; undecided formula equivalence remains
-    undecided
-  implementation: reference_frame
-  transitions: []
-  projections: []
 - id: reference_grade
   inputs:
   - EvaluationResult
@@ -8549,47 +8062,6 @@ operations:
       nullable: false
     result_mode: scalar
     cardinality: one
-    ordered: false
-    order_by: []
-    result_class: NativeJsonEnvelope
-    json_read: json-text-v1
-  - id: integrated_source_context
-    symbol: ops.integrated_source_context
-    parameters:
-    - name: task_id
-      source: physical:ops.pdf_published_revision.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: product_key
-      source: physical:ops.pdf_published_revision.product_key
-      nullable: false
-      native_parameter: p_key
-      semantic_type: ProductKey
-    - name: content_digest
-      source: physical:ops.pdf_published_revision.logical_digest
-      nullable: false
-      native_parameter: p_digest
-      semantic_type: ContentDigest
-    - name: pointers
-      source: physical:kb.pdf_record_access.pointer
-      nullable: false
-      native_parameter: p_pointers
-      multivalued: true
-    - name: section
-      source: primitive:string
-      nullable: false
-      native_parameter: p_section
-    - name: membership
-      source: primitive:string
-      nullable: false
-      native_parameter: p_membership
-    result_fields:
-    - name: body
-      source: primitive:json_payload
-      nullable: false
-    result_mode: scalar
-    cardinality: optional
     ordered: false
     order_by: []
     result_class: NativeJsonEnvelope
@@ -10515,30 +9987,6 @@ implementations:
   - explicit_outcomes
   effects: *id051
   required_capabilities: []
-- id: store_rendition
-  owner: semantic.operations
-  symbol: store_rendition
-  version: '1'
-  placement: core
-  input_concepts: *id052
-  result_concepts: *id053
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: *id054
-  required_capabilities: []
-- id: read_rendition
-  owner: semantic.operations
-  symbol: read_rendition
-  version: '1'
-  placement: core
-  input_concepts: *id055
-  result_concepts: *id056
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: *id057
-  required_capabilities: []
 - id: bind_report
   owner: semantic.observations
   symbol: bind_result
@@ -10882,23 +10330,6 @@ implementations:
   - ReferenceCitationFrame
   result_concepts:
   - ReferenceItem
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects:
-  - protected_independent_reference_operation
-  required_capabilities:
-  - execution.reference_evaluation.v1
-- id: reference_frame
-  owner: evaluate.semantic
-  symbol: relocate_frame
-  version: '1'
-  placement: python
-  input_concepts:
-  - ReferenceCitationFrame
-  - Rendition
-  result_concepts:
-  - ReferenceCitationFrame
   features:
   - typed_bound_inputs
   - explicit_outcomes
@@ -13329,7 +12760,7 @@ analysis_profiles:
   builtin_functions: [Gamma]
   local_declaration_rules: [function-definition-1]
   ownership:
-  - {id: source, concept: Rendition, operation: execute_source, lifetime: batch, dependencies: [release, rendition, profile]}
+  - {id: source, concept: SourceView, operation: execute_source, lifetime: batch, dependencies: [release, source_view, profile]}
   - {id: comparison, concept: CandidateInput, operation: evaluate, lifetime: scope, dependencies: [release, snapshot, universe, policy]}
   - {id: publication, concept: AppendPublication, operation: publish, lifetime: operation, dependencies: [release, snapshot, content]}
   - {id: capture, concept: CapturedPacket, operation: capture_analytics, lifetime: detached, dependencies: [release, snapshot, projection, content]}

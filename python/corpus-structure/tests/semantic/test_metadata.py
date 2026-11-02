@@ -167,3 +167,22 @@ def test_large_scalars_do_not_require_btree_index_entries() -> None:
             str(index.dialect_options["postgresql"]["where"])
             == f"octet_length({column}{cast}) <= 1024"
         )
+
+
+def test_read_shapes_never_supply_stored_table_ddl():
+    from corpus_structure.semantic.metadata import READ_MODEL
+
+    read = compile_metadata(SchemaView(str(READ_MODEL)), target="semantic-read")
+    expected = {
+        "ops.pdf_selected_product", "ops.pdf_published_item", "ops.pdf_published_region",
+        "ops.pdf_published_coverage", "ops.pdf_published_derivation",
+    }
+    assert set(read.tables) == expected
+    assert expected.isdisjoint(metadata.tables)
+    assert table("ops.pdf_published_item").c.pointer.type.python_type is str
+    assert table("ops.pdf_published_region").c.left.type.python_type is Decimal
+    assert table("ops.pdf_selected_product").c.payload.nullable
+    for relation in ("kb.rendition", "kb.segment", "kb.span", "ops.source_frame",
+                     "ops.rendition_build", "ops.run_rendition", "ops.native_document_product",
+                     "kb.native_document_item", "ops.parsing_product", "ops.parsing_layer_product"):
+        assert relation not in metadata.tables

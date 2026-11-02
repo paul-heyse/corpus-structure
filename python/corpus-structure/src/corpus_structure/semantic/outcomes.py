@@ -101,7 +101,7 @@ class PreparedCoverageLowerer:
     @classmethod
     def from_release(cls, prepared) -> PreparedCoverageLowerer:
         if prepared.execution_model_id is None:
-            return cls(_BASE_TRANSLATIONS)
+            raise ValueError("coverage translation requires a composed execution binding")
         rows = [r for r in prepared.registry_rows if r.kind == "execution_model"]
         if len(rows) != 1 or rows[0].name != prepared.execution_model_id:
             raise ValueError("composed coverage requires its exact execution products")
@@ -143,5 +143,5 @@ _BASE_LOWERER = PreparedCoverageLowerer(_BASE_TRANSLATIONS)
 def lower_source_coverage(
     outcome: str, reason: str | None = None, required_capability: str | None = None
 ) -> CoverageConversion:
-    """Baseline translation for non-composed releases; composed operations bind their product."""
+    """Internal pure-value translation; execution consumers bind their release product."""
     return _BASE_LOWERER.lower(outcome, reason, required_capability)

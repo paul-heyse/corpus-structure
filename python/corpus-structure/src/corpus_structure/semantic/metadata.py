@@ -15,7 +15,7 @@ from types import MappingProxyType
 
 import yaml
 from linkml_runtime.utils.schemaview import SchemaView
-from sqlalchemy import MetaData, Table
+from sqlalchemy import Table
 
 from corpus_structure.schema.relational import compile_metadata
 
@@ -60,34 +60,16 @@ SCHEMAS = frozenset({"sem", "data", "ops", "kb", "eval"})
 _DECIMAL = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
 
 
-_read_metadata = MetaData()
-_selected_product = metadata.tables["ops.native_document_product"].to_metadata(
-    _read_metadata, name="pdf_selected_product"
-)
-
-
-_published_items = metadata.tables["kb.native_document_item"].to_metadata(
-    _read_metadata, name="pdf_published_item", schema="ops"
-)
-_published_regions = metadata.tables["kb.native_document_region"].to_metadata(
-    _read_metadata, name="pdf_published_region", schema="ops"
-)
-
-_published_coverage = metadata.tables["kb.native_document_coverage"].to_metadata(
-    _read_metadata, name="pdf_published_coverage", schema="ops"
-)
+# Released view/record projections are modeled separately from stored-table authority.
+# Alembic and physical admission consume only metadata above, never this read selection.
+READ_MODEL = PHYSICAL_MODEL.with_name("read-projections.yaml")
+_read_metadata = compile_metadata(SchemaView(str(READ_MODEL)), target="semantic-read")
 
 
 def table(name: str) -> Table:
-    """Return a shared, explicitly schema-qualified Table."""
-    if name == "ops.pdf_selected_product":
-        return _selected_product
-    if name == "ops.pdf_published_item":
-        return _published_items
-    if name == "ops.pdf_published_region":
-        return _published_regions
-    if name == "ops.pdf_published_coverage":
-        return _published_coverage
+    """Return a shared, explicitly qualified stored relation or owned read shape."""
+    if name in _read_metadata.tables:
+        return _read_metadata.tables[name]
     return tables[name]
 
 

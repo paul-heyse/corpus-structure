@@ -61,14 +61,13 @@ def decode_continuation(token: str, *, kind: Literal["primitive", "named"]) -> d
 
 
 def _record_reason(prepared: PreparedRelease | None, reason: str) -> None:
-    if prepared is None or prepared.execution_model_id is None:
-        return  # The fixed semantic-1 read protocol has no release-owned execution catalog.
+    if prepared is None:
+        return
+    if prepared.execution_model_id is None:
+        raise ValueError("continuation requires a composed execution binding")
     rows = [row for row in prepared.registry_rows if row.kind == "execution_model"]
     if len(rows) != 1 or rows[0].name != prepared.execution_model_id:
         raise ValueError("continuation requires its exact execution binding")
-    product = json.loads(rows[0].body)
-    if product.get("inputs", {}).get("compiler_version") in {"1", "2", "3"}:
-        return  # Preserved historical read ABI; never borrow current declarations.
     from .contracts import bound_execution_model
     from .operation_results import validate_result_dimension
 

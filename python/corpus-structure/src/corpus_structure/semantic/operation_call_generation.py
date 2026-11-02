@@ -46,6 +46,7 @@ def _source_view(inputs):
     artifacts = {item.name: item.content for item in inputs.implementations}
     names = {
         "physical": "pdf/record-physical.yaml",
+        "read_projections": "pdf/read-projections.yaml",
         "pdf_records": "pdf/record-model.yaml",
         "pdf_staging": "pdf/staging-model.yaml",
         "companion_projections": "capture/companion-projection-model.yaml",
@@ -156,6 +157,31 @@ def validate_call_bindings(model, inputs):
 
     view = _source_view(inputs)
     aliases, identifiers, result_shapes = {}, set(), {}
+    # Reuse the identifier owned by an explicit physical correspondence, including
+    # through model projections. Nested records must retain the same distinctions.
+    semantic_sources = {}
+    for operation in model.operations:
+        for call in operation.calls:
+            for field in (*call.parameters, *call.result_fields):
+                if field.semantic_type and field.source.startswith("physical:"):
+                    previous = semantic_sources.setdefault(field.source, field.semantic_type)
+                    if previous != field.semantic_type:
+                        _fail("operation_field", field.source, "semantic identifiers differ")
+
+    def model_field(name, slot):
+        reference = f"model:{name}.{slot.name}"
+        source = reference
+        seen = set()
+        while source.startswith("model:"):
+            if source in seen:
+                _fail("operation_source", reference, "cyclic model field projection")
+            seen.add(source)
+            cls, field_name = source.removeprefix("model:").split(".")
+            owner = next(s for s in view.class_induced_slots(cls) if s.name == field_name)
+            source = ci_annotations(owner).get("cp:source", "")
+        return OperationFieldBinding(
+            str(slot.name), reference, False, semantic_type=semantic_sources.get(source)
+        )
 
     def resolve(field, parameters, stack=()):
         reference = field.source
@@ -375,7 +401,7 @@ def validate_call_bindings(model, inputs):
                     _fail("operation_source", location, "result source class is unavailable")
                 derived = []
                 for slot in view.class_induced_slots(cls):
-                    field = OperationFieldBinding(str(slot.name), f"model:{cls}.{slot.name}", False)
+                    field = model_field(cls, slot)
                     typ, _ = resolve(field, parameter_map)
                     derived.append(replace(field, nullable=projected_nullable(slot, typ)))
                 if fields and tuple(replace(f, resolved=None) for f in fields) != tuple(derived):
@@ -399,9 +425,7 @@ def validate_call_bindings(model, inputs):
                     return
                 fields = []
                 for slot in view.class_induced_slots(name):
-                    field = OperationFieldBinding(
-                        str(slot.name), f"model:{name}.{slot.name}", False
-                    )
+                    field = model_field(name, slot)
                     typ, _ = resolve(field, parameter_map)
                     fields.append(replace(field, nullable=projected_nullable(slot, typ)))
                 resolved, record_sources = resolve_fields(
@@ -506,13 +530,17 @@ def _enum_alias(field):
     return "".join(part[0].upper() + part[1:] for part in parts if part)
 
 
+def _all_call_fields(call):
+    return (*call.parameters, *call.result_fields, *(f for r in call.records for f in r.fields))
+
+
 def render_operation_identifiers(model):
     """Keep semantic identifiers importable without SQL, models, or Arrow initialization."""
     aliases = {
         field.semantic_type: _PRIMITIVES[field.resolved.kind]
         for operation in model.operations
         for call in operation.calls
-        for field in (*call.parameters, *call.result_fields)
+        for field in _all_call_fields(call)
         if field.semantic_type
     }
     enums = {
@@ -663,7 +691,7 @@ def render_operation_calls(model, metadata=None):
         return value
 
     for _, call in calls:
-        for field in (*call.parameters, *call.result_fields):
+        for field in _all_call_fields(call):
             if field.semantic_type:
                 aliases[field.semantic_type] = _PRIMITIVES[field.resolved.kind]
     out += [f"from ._operation_ids import {name} as {name}" for name in sorted(aliases)]

@@ -21,7 +21,7 @@ from corpus_structure.semantic.proposals import (
 
 
 @cache
-def prepared(*, composed=False):
+def prepared(*, composed=True):
     path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     domain = {
         "id": "https://example.org/domain",
@@ -338,7 +338,7 @@ def test_identity_exclusions_require_composed_profile():
 
     from corpus_structure.semantic.proposals import proposal_packet
 
-    packet = proposal_packet(prepared(), frame(), guideline="test", configuration={})
+    packet = proposal_packet(prepared(composed=False), frame(), guideline="test", configuration={})
     assert "identity_exclusions" not in json.loads(packet.schema)["properties"]
     composed_packet = proposal_packet(
         prepared(composed=True), frame(), guideline="test", configuration={}
@@ -355,4 +355,4 @@ def test_identity_exclusions_require_composed_profile():
         }
     ]
     with pytest.raises(ProposalRefused, match="semantic-2"):
-        locate_proposal(prepared(), proposal, frame())
+        locate_proposal(prepared(composed=False), proposal, frame())

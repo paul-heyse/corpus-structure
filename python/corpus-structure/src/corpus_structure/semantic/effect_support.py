@@ -324,18 +324,6 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
-    "read_rendition": {
-        "effects": (),
-        "implementation": "read_rendition",
-        "transitions": {},
-        "version": "1",
-    },
-    "reference_frame": {
-        "effects": ("protected_independent_reference_operation",),
-        "implementation": "reference_frame",
-        "transitions": {},
-        "version": "1",
-    },
     "reference_grade": {
         "effects": ("protected_independent_reference_operation",),
         "implementation": "reference_grade",
@@ -428,12 +416,6 @@ SUPPORTED_EFFECTS = {
     "start_run": {
         "effects": ("construct_new_run",),
         "implementation": "start_run",
-        "transitions": {},
-        "version": "1",
-    },
-    "store_rendition": {
-        "effects": ("preserve_original_normalized_distinction",),
-        "implementation": "store_rendition",
         "transitions": {},
         "version": "1",
     },

@@ -1,7 +1,6 @@
-"""Versioned read-boundary reconstruction from exact archived products.
+"""Current read-boundary reconstruction from exact archived products.
 
-Opening is not compilation or admission. The sole historical adapter recovers the
-missing v10 aliases from supplied source bytes; vocabulary and constraints stay archived.
+Opening is not compilation or admission. Archived recipes retain their exact meaning.
 """
 
 from __future__ import annotations
@@ -11,15 +10,12 @@ from collections import OrderedDict
 from datetime import date
 from decimal import Decimal
 from threading import RLock
-from typing import Any, cast
+from typing import Any
 from weakref import WeakKeyDictionary
 
 import yaml
 from cattrs import Converter
 from cattrs.errors import BaseValidationError
-from linkml_runtime.linkml_model import SchemaDefinition, SchemaDefinitionName
-from linkml_runtime.loaders import yaml_loader
-from linkml_runtime.utils.schemaview import SchemaView
 from pydantic import AwareDatetime
 
 from .types import (
@@ -71,84 +67,6 @@ def _converter() -> Converter:
 _CONVERTER = _converter()
 
 
-def _v10_aliases(bundle: SourceBundle, definitions: tuple[ClassDefinition, ...]):
-    """Recover only missing alias/dispatch recipes with a closed, offline import map.
-
-    This intentionally does not call current preparation inspection or generators.
-    Imported attributes retain their source defaults before imports are merged, as v10 did.
-    """
-    schemas: dict[str, SchemaDefinition] = {}
-    for source in bundle.sources:
-        body = yaml.safe_load(source.content)
-        if not isinstance(body, dict):
-            raise ValueError("archived schema must be a mapping")
-        schema = cast(SchemaDefinition, yaml_loader.load(body, SchemaDefinition))
-        for cls in cast(dict[str, Any], schema.classes or {}).values():
-            for slot in cast(dict[str, Any], cls.attributes or {}).values():
-                if slot.range is None:
-                    slot.range = schema.default_range or "string"
-        for slot in cast(dict[str, Any], schema.slots or {}).values():
-            if slot.range is None:
-                slot.range = schema.default_range or "string"
-        schemas[source.name] = schema
-    if len(schemas) != len(bundle.sources) or bundle.root not in schemas:
-        raise ValueError("invalid archived source identity")
-    for schema in schemas.values():
-        if any(str(name) not in schemas for name in schema.imports or ()):
-            raise ValueError("archived alias recipe has an unavailable import")
-    view = SchemaView(schemas[bundle.root])
-    view.schema_map = {cast(SchemaDefinitionName, name): schema for name, schema in schemas.items()}
-    view.schema_map[SchemaDefinitionName(str(schemas[bundle.root].name))] = schemas[bundle.root]
-    view.merge_imports()
-    assert view.schema is not None
-    view.schema.imports = []
-    view = SchemaView(view.schema)
-    aliases: dict[tuple[str, str], str] = {}
-    descendants: dict[str, tuple[str, ...]] = {}
-    if set(view.all_classes()) != {definition.name for definition in definitions}:
-        raise ValueError("archived alias classes differ from normalized products")
-    for definition in definitions:
-        slots = {str(slot.name): slot for slot in view.class_induced_slots(definition.name)}
-        if set(slots) != {prop.name for prop in definition.properties}:
-            raise ValueError("archived alias properties differ from normalized products")
-        for prop in definition.properties:
-            slot = slots[prop.name]
-            if str(slot.range or "string") != prop.range:
-                raise ValueError("archived alias range differs from normalized products")
-            aliases[definition.name, prop.name] = slot.alias or prop.name
-        concrete = []
-        for name in view.class_descendants(definition.name, reflexive=False):
-            child = view.get_class(name)
-            if child is None:
-                raise ValueError("unavailable archived descendant")
-            if not child.abstract:
-                concrete.append(str(name))
-        descendants[definition.name] = tuple(concrete)
-    return aliases, descendants
-
-
-def _v10_primitives(rows: tuple[RegistryRow, ...]) -> dict[str, Any]:
-    types = {row.name: json.loads(row.body) for row in rows if row.kind == "type"}
-    result = dict(_PRIMITIVES)
-
-    def resolve(name: str, seen: tuple[str, ...] = ()) -> Any:
-        if name in result:
-            return result[name]
-        if name in seen or name not in types:
-            raise ValueError(f"unavailable archived primitive recipe {name}")
-        declaration = types[name]
-        base = declaration.get("typeof") or declaration.get("base") or "string"
-        base = {"str": "string", "int": "integer", "bool": "boolean", "Decimal": "decimal"}.get(
-            base, base
-        )
-        result[name] = resolve(base, (*seen, name))
-        return result[name]
-
-    for name in types:
-        resolve(name)
-    return result
-
-
 def reconstruct_release(
     products: dict[str, Any],
     manifest: bytes,
@@ -198,32 +116,22 @@ def reconstruct_release(
         if "conditional_rules.json" in artifact_map
         else {}
     )
-    if profile.compiler_version == "10":
-        aliases, descendants = _v10_aliases(bundle, definitions)
-        primitive_types = _v10_primitives(rows)
-    elif profile.compiler_version in {"11", "12", "13", "14"}:
-        recipe = json.loads(artifact_map["boundary_recipe.json"].content)
-        if set(recipe) != {
-            "abi",
-            "primitives",
-            "aliases",
-            "descendants",
-            "conditional_scope",
-        } or recipe["abi"] != "semantic-boundary-" + (
-            "11" if profile.compiler_version == "11" else BOUNDARY_ABI_VERSION
-        ):
-            raise ValueError("unsupported archived boundary ABI")
-        if recipe["conditional_scope"] != profile.constraint_scope:
-            raise ValueError("archived boundary placement differs from profile")
-        primitive_types = {name: _PRIMITIVES[token] for name, token in recipe["primitives"].items()}
-        aliases = {
-            (cls, slot): alias
-            for cls, fields in recipe["aliases"].items()
-            for slot, alias in fields.items()
-        }
-        descendants = {name: tuple(items) for name, items in recipe["descendants"].items()}
-    else:
+    if profile.compiler_version != "14":
         raise ValueError(f"unsupported archived compiler {profile.compiler_version}")
+    recipe = json.loads(artifact_map["boundary_recipe.json"].content)
+    if set(recipe) != {
+        "abi", "primitives", "aliases", "descendants", "conditional_scope"
+    } or recipe["abi"] != "semantic-boundary-" + BOUNDARY_ABI_VERSION:
+        raise ValueError("unsupported archived boundary ABI")
+    if recipe["conditional_scope"] != profile.constraint_scope:
+        raise ValueError("archived boundary placement differs from profile")
+    primitive_types = {name: _PRIMITIVES[token] for name, token in recipe["primitives"].items()}
+    aliases = {
+        (cls, slot): alias
+        for cls, fields in recipe["aliases"].items()
+        for slot, alias in fields.items()
+    }
+    descendants = {name: tuple(items) for name, items in recipe["descendants"].items()}
     models = {}
 
     def build(class_names=None, target_models=None):
@@ -234,14 +142,13 @@ def reconstruct_release(
             aliases=aliases,
             conditional_fragments=fragments,
             conditional_scope=profile.constraint_scope,
-            legacy_v10=profile.compiler_version == "10",
-            finite_fields=profile.compiler_version in {"12", "13", "14"},
+            finite_fields=True,
             descendant_order=descendants,
             models_out=models if target_models is None else target_models,
             class_names=class_names,
         )
 
-    adapters = () if profile.compiler_version in {"12", "13", "14"} else build()
+    adapters = ()
 
     def check_schema(name, adapter):
         actual_schema = json.loads(canonical_bytes(adapter.json_schema()))
@@ -292,12 +199,11 @@ def reconstruct_release(
         _adapters=adapters,
         execution_model_id=products.get("execution_model_id"),
         _boundary_models=models,
-        _adapter_loader=load_adapter if profile.compiler_version in {"12", "13", "14"} else None,
+        _adapter_loader=load_adapter,
     )
-    if profile.compiler_version == "14":
-        from .comparison_projection import comparison_projection
+    from .comparison_projection import comparison_projection
 
-        comparison_projection(prepared)
+    comparison_projection(prepared)
     return prepared
 
 
@@ -383,11 +289,7 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
         if release_id != "release:" + _digest(manifest_bytes):
             raise ReleaseConflict("archive or manifest identity differs")
         archive, manifest = json.loads(archive_bytes), json.loads(manifest_bytes)
-        if archive["format"] not in {
-            "semantic-release-archive-1",
-            "semantic-release-archive-2",
-            "semantic-release-archive-3",
-        }:
+        if archive["format"] != "semantic-release-archive-3":
             raise ReleaseConflict("unsupported archive format")
         if not boundary_compatible(
             manifest["libraries"], str(manifest["profile"]["compiler_version"])

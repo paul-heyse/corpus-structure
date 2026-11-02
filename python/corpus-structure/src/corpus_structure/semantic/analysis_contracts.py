@@ -79,7 +79,7 @@ _REQUIRED_COMPONENTS = {
 # Independent implementation support: declarations cannot change resource semantics
 # without changing the producer/consumer that implements this bounded profile.
 _OWNERSHIP_SUPPORT = {
-    "source": ("Rendition", "execute_source", "batch", ("release", "rendition", "profile")),
+    "source": ("SourceView", "execute_source", "batch", ("release", "source_view", "profile")),
     "comparison": (
         "CandidateInput",
         "evaluate",
@@ -426,17 +426,10 @@ def _profile(prepared: PreparedRelease | None):
     if prepared is None:
         model = _standalone_model()
     elif prepared.execution_model_id is None:
-        manifest_profile = json.loads(prepared.manifest).get("profile", {})
-        if manifest_profile.get("version") != "semantic-1" or manifest_profile.get(
-            "compiler_version"
-        ) not in {"13", "14"}:
-            _fail(
-                "unsupported_analysis_base",
-                prepared.release_id,
-                "only live semantic-1/compiler-13 or compiler-14 pure preparation "
-                "uses the fixed base profile",
-            )
-        model = _standalone_model()
+        _fail(
+            "missing_execution_model", prepared.release_id,
+            "analysis requires a composed execution binding",
+        )
     else:
         model = bound_execution_model(prepared)
         payload = execution_payload(prepared)

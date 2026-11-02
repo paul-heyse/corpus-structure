@@ -226,7 +226,7 @@ def _inspect(value: Any, location: str, profile: PreparationProfile | None = Non
                             str(annotation),
                             "unsupported",
                         )
-                    if annotation not in _SAFE_ANNOTATIONS:
+                    if annotation not in _SAFE_ANNOTATIONS and annotation != "cp:source":
                         _fail("unsupported_annotation", child, str(annotation), "unsupported")
             _inspect(item, child, profile)
     elif isinstance(value, list):
@@ -750,8 +750,7 @@ def _prepare_release_uncached(
             aliases=aliases,
             conditional_fragments=rule_fragments,
             conditional_scope=profile.constraint_scope,
-            legacy_v10=profile.compiler_version == "10",
-            finite_fields=profile.compiler_version in {"12", "13", "14"},
+            finite_fields=True,
             descendant_order=descendants,
             models_out=boundary_models,
         )
@@ -788,8 +787,6 @@ def _prepare_release_uncached(
             },
             effective_bindings["qualification"],
         )
-        if profile.compiler_version == "14"
-        else None
     )
     manifest = canonical_bytes(
         {
@@ -1049,18 +1046,14 @@ def _prepare_release_uncached(
         rows += (RegistryRow("execution_model", execution.model_id, execution.content),)
     from .query_compatibility import prepare_query_bindings
 
-    query_products = (
-        prepare_query_bindings(dependencies) if profile.compiler_version == "14" else None
-    )
+    query_products = prepare_query_bindings(dependencies)
     if query_products is not None:
         query_artifact, query_rows = query_products
         artifacts.append(query_artifact)
         rows += query_rows
     from .projection_analysis_products import prepare_projection_analysis
 
-    projection_analysis = (
-        prepare_projection_analysis(dependencies) if profile.compiler_version == "14" else None
-    )
+    projection_analysis = prepare_projection_analysis(dependencies)
     if projection_analysis is not None:
         artifacts.append(projection_analysis)
     required = ("semantic_registry", "scoped_publication", "typed_values")

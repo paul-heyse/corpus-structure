@@ -111,16 +111,14 @@ def build_boundary_adapters(
     aliases: Mapping[tuple[str, str], str],
     conditional_fragments: Mapping[str, dict[str, Any]],
     conditional_scope: str = "shape",
-    legacy_v10: bool = False,
-    finite_fields: bool = False,
+    finite_fields: bool = True,
     class_names: tuple[str, ...] | None = None,
     descendant_order: Mapping[str, tuple[str, ...]] | None = None,
     models_out: dict[str, type[BaseModel]] | None = None,
 ) -> tuple[tuple[str, TypeAdapter[BaseModel]], ...]:
     """Reuse exactly the same model construction for preparation and archive opening.
 
-    Legacy dispatch preserves v10's unconditional conditional-rule validators. New callers
-    select structural or accepted-value validation through their owned entry point.
+    Callers select structural or accepted-value validation through their owned entry point.
     """
     classes = {definition.name: definition for definition in definitions}
     enums = {v.enum: _LITERAL[tuple(m.value for m in v.members)] for v in vocabularies}
@@ -237,10 +235,8 @@ def build_boundary_adapters(
         namespace = conditional_model_namespace(
             conditional_fragments.get(definition.name, {}),
             scope=conditional_scope,
-            legacy_v10=legacy_v10,
         )
-        if not legacy_v10:
-            namespace.update(_projection_namespace(definition))
+        namespace.update(_projection_namespace(definition))
         models[definition.name] = create_model(
             definition.name,
             __namespace__=namespace,

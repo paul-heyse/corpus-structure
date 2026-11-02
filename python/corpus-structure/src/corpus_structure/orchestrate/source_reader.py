@@ -130,21 +130,6 @@ class ScopedSourceReader:
     def source_view_coverage(self, source_view_id, method):
         return self._read(lambda reader: reader.source_view_coverage(source_view_id, method))
 
-    def renditions(self):
-        return self._read(lambda reader: reader.renditions())
-
-    def content(self, rendition_id):
-        return self._read(lambda reader: reader.content(rendition_id))
-
-    def segments(self, rendition_id):
-        return self._read(lambda reader: reader.segments(rendition_id))
-
-    def observations(self, rendition_id, method, kind):
-        return self._read(lambda reader: reader.observations(rendition_id, method, kind))
-
-    def source_coverage(self, rendition_id, method):
-        return self._read(lambda reader: reader.source_coverage(rendition_id, method))
-
     def measurements(self, method, metric):
         return self._read(lambda reader: reader.measurements(method, metric))
 

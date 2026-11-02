@@ -21,7 +21,7 @@ from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import Connection, select
 
 from .determinants import BYTE_LIBRARIES as _LIBRARIES
-from .determinants import BYTE_LIBRARIES_V11, determinant_version
+from .determinants import determinant_version
 from .identity import canonical_bytes
 from .types import (
     SEMANTIC_COMPILER_VERSION,
@@ -108,14 +108,7 @@ def _archive_bytes(
 ) -> bytes:
     return canonical_bytes(
         {
-            "format": (
-                "semantic-release-archive-3"
-                if json.loads(prepared.manifest)["profile"]["compiler_version"]
-                in {"12", "13", "14"}
-                else "semantic-release-archive-2"
-                if prepared.execution_model_id is not None
-                else "semantic-release-archive-1"
-            ),
+            "format": "semantic-release-archive-3",
             "root": bundle.root,
             "sources": [s.name for s in bundle.sources],
             "dependencies": [s.name for s in dependencies.artifacts],
@@ -135,9 +128,7 @@ def _validate_manifest(
         "profile": asdict(profile),
         "libraries": {
             name: determinant_version(name)
-            for name in (
-                _LIBRARIES if profile.compiler_version in {"12", "13", "14"} else BYTE_LIBRARIES_V11
-            )
+            for name in _LIBRARIES
         },
         "sources": sorted((s.name, s.digest) for s in bundle.sources),
         "dependencies": sorted((s.name, s.digest) for s in dependencies.artifacts),
@@ -519,11 +510,7 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
         if _digest(archive_bytes) != row["content_digest"]:
             raise ReleaseConflict("archive digest differs")
         archive = json.loads(archive_bytes)
-        if archive["format"] not in {
-            "semantic-release-archive-1",
-            "semantic-release-archive-2",
-            "semantic-release-archive-3",
-        }:
+        if archive["format"] != "semantic-release-archive-3":
             raise ReleaseConflict("unsupported archive format")
         inputs = _table("sem.input")
         source: dict[tuple[str, str], bytes] = {}

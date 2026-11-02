@@ -11,13 +11,11 @@ from sqlalchemy import insert, select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.evaluate.semantic import (
-    ReferenceError,
     agreement,
     create_reference_set,
     ensure_items,
     record_pass,
     reference_evaluate,
-    relocate_frame,
     split_documents,
 )
 from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
@@ -341,14 +339,6 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(
             )
     with semantic_writer_engine.connect() as conn, pytest.raises(DBAPIError):
         conn.execute(select(table("eval.reference_pass")))
-    # A native reference keeps its exact source-view pin and cannot acquire scalar
-    # rendition coordinates through the old relocation form.
-    with evaluator.begin() as conn:
-        before = ensure_items(conn, new_c)
-        with pytest.raises(ReferenceError, match="native PDF reference anchors"):
-            relocate_frame(conn, new_c, rendition_id=999999)
-        after = ensure_items(conn, new_c)
-        assert after == before and after.authored == before.authored
     # Actual Typer dispatch uses the evaluator credential purpose and persistent native APIs.
     from dataclasses import asdict
 

@@ -19,8 +19,7 @@ from typing import Any, Protocol
 import pyarrow as pa
 import yaml
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
-from sqlalchemy import and_, case, func, select, tuple_
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 
 from corpus_structure.settings import AnalyticsSettings
@@ -684,114 +683,45 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
             conn, conn.execute(select(required_origins.c.id).distinct()).scalars()
         )
         descriptors: dict[int, dict[str, Any] | None] = {}
-        o, t, seg = table("kb.observation"), table("ops.task"), table("kb.segment")
+        o, t = table("kb.observation"), table("ops.task")
         config, method = table("ops.method_config"), table("ops.method")
-        effective = func.coalesce(
-            o.c.rendition_id, seg.c.rendition_id, case((t.c.unit_type == "rendition", t.c.unit_id))
-        )
         cut_tasks = table("ops.cut_task")
-        selected_renditions = table("ops.run_rendition")
         source_selection = (
-            select(
-                o.c.id,
-                o.c.source_view_id,
-                t.c.unit_key,
-                effective.label("rendition_id"),
-                method.c.name.label("provider"),
-                method.c.version,
-                config.c.params,
-                select(selected_renditions.c.rendition_id)
-                .where(
-                    selected_renditions.c.run_id == job["id"],
-                    selected_renditions.c.rendition_id == effective,
-                )
-                .correlate(o, t, seg)
-                .exists()
-                .label("selected_rendition"),
-            )
-            .select_from(
-                o.join(t, t.c.id == o.c.task_id)
-                .join(config, config.c.id == t.c.method_config_id)
-                .join(method, method.c.id == config.c.method_id)
-                .outerjoin(seg, and_(t.c.unit_type == "segment", seg.c.id == t.c.unit_id))
-            )
-            .where(
-                o.c.task_id.in_(
-                    select(cut_tasks.c.origin_task_id).where(cut_tasks.c.cut_id == cut_id)
-                )
-            )
+            select(o.c.id, o.c.source_view_id, t.c.unit_key,
+                   method.c.name.label("provider"), method.c.version, config.c.params)
+            .select_from(o.join(t, t.c.id == o.c.task_id)
+                         .join(config, config.c.id == t.c.method_config_id)
+                         .join(method, method.c.id == config.c.method_id))
+            .where(o.c.task_id.in_(select(cut_tasks.c.origin_task_id)
+                                  .where(cut_tasks.c.cut_id == cut_id)))
         )
         source_rows = conn.execute(source_selection).mappings().all()
-        cut_sources = source_selection.subquery("cut_sources")
-        renditions = {}
-        r, d = table("kb.rendition"), table("kb.document")
-        for row in conn.execute(
-            select(r, d.c.source_uri, d.c.meta)
-            .join(d, d.c.id == r.c.document_id)
-            .where(r.c.id.in_(select(cut_sources.c.rendition_id)))
-        ).mappings():
-            renditions[row["id"]] = row
+        d = table("kb.document")
         reports_by_id = {row["id"]: row for row in observations}
         for source in source_rows:
-            rid = source["rendition_id"]
-            if rid is None:
-                from .proposals import NativeProposalFrame
-                from .source_views import load_source_view
+            from .proposals import NativeProposalFrame
+            from .source_views import load_source_view
 
-                report = reports_by_id[source["id"]]
-                frame = source_frames.get(report["task_id"])
-                if isinstance(frame, NativeProposalFrame) or source["source_view_id"] is not None:
-                    view = load_source_view(
-                        conn,
-                        frame.source_view_id
-                        if isinstance(frame, NativeProposalFrame)
-                        else source["source_view_id"],
-                    )
-                    document = (
-                        conn.execute(select(d).where(d.c.id == view.ref.document_id))
-                        .mappings()
-                        .one()
-                    )
-                    descriptors[source["id"]] = {
-                        "rendition_id": None,
-                        "source_view_id": view.ref.id,
-                        "source_uri": document["source_uri"],
-                        "text": view.text,
-                        "provider": source["provider"],
-                        "version": source["version"],
-                        "rendition_key": view.ref.key,
-                        "content": {"macros": {}},
-                        "page": document["source_uri"],
-                        "math": source["params"].get("math"),
-                        "frame": frame,
-                        "native_view": view,
-                    }
-                else:
-                    descriptors[source["id"]] = None
-                continue
-            if not source["selected_rendition"]:
-                raise DomainOperationRefused(
-                    "reused proposal is not located on this run selected rendition"
-                )
-            ren = renditions[rid]
-            descriptor = {
-                "rendition_id": rid,
-                "source_uri": ren["source_uri"],
-                "text": ren["canonical_text"],
-                "provider": source["provider"],
-                "version": source["version"],
-                "rendition_key": ren["key"],
-                "content": ren["content"],
-                "page": ren["meta"].get("page", ren["source_uri"]),
-                "math": source["params"].get("math"),
-            }
-            descriptors[source["id"]] = descriptor
             report = reports_by_id[source["id"]]
-            if (
-                report["payload_definition"] == "AgentStoredBatch"
-                and report["task_id"] in source_frames
-            ):
-                descriptor["frame"] = source_frames[report["task_id"]]
+            frame = source_frames.get(report["task_id"])
+            if isinstance(frame, NativeProposalFrame) or source["source_view_id"] is not None:
+                view = load_source_view(
+                    conn, frame.source_view_id if isinstance(frame, NativeProposalFrame)
+                    else source["source_view_id"],
+                )
+                document = (
+                    conn.execute(select(d).where(d.c.id == view.ref.document_id)).mappings().one()
+                )
+                descriptors[source["id"]] = {
+                    "rendition_id": None, "source_view_id": view.ref.id,
+                    "source_uri": document["source_uri"], "text": view.text,
+                    "provider": source["provider"], "version": source["version"],
+                    "rendition_key": view.ref.key, "content": {"macros": {}},
+                    "page": document["source_uri"], "math": source["params"].get("math"),
+                    "frame": frame, "native_view": view,
+                }
+            else:
+                descriptors[source["id"]] = None
 
         tasks = (
             conn.execute(select(table("ops.task")).where(table("ops.task").c.run_id == job["id"]))
@@ -2143,55 +2073,19 @@ def consolidate_cut(
         )
         return receipt
 
-    # Span sequence IDs must not alter immutable retry/receipt content. Resolve them before the
-    # replay owner, then retain that exact frozen batch for all attempts.
     if source_links:
-        with engine.begin() as conn:
-            rows = []
-            span = table("kb.span")
-            coordinates = sorted(
-                {
-                    (link[1], link[2], link[3])
-                    for link in source_links.values()
-                    if not isinstance(link, NativeEvidenceLink)
-                }
+        rows = []
+        for eid, link in sorted(source_links.items()):
+            if not isinstance(link, NativeEvidenceLink):
+                raise DomainOperationRefused(
+                    "publication requires current SourceView evidence custody"
+                )
+            rows.append(
+                EvidenceSourceRow(
+                    eid, link.observation_id, None, None,
+                    source_view_id=link.source_view_id, native_address=link.native_address,
+                )
             )
-            if coordinates:
-                conn.execute(
-                    pg_insert(span)
-                    .values(
-                        [
-                            {"rendition_id": rid, "start_offset": start, "end_offset": end}
-                            for rid, start, end in coordinates
-                        ]
-                    )
-                    .on_conflict_do_nothing()
-                )
-            ids = {
-                (row.rendition_id, row.start_offset, row.end_offset): row.id
-                for row in conn.execute(
-                    select(span).where(
-                        tuple_(span.c.rendition_id, span.c.start_offset, span.c.end_offset).in_(
-                            coordinates
-                        )
-                    )
-                )
-            }
-            for eid, link in sorted(source_links.items()):
-                if isinstance(link, NativeEvidenceLink):
-                    rows.append(
-                        EvidenceSourceRow(
-                            eid,
-                            link.observation_id,
-                            None,
-                            None,
-                            source_view_id=link.source_view_id,
-                            native_address=link.native_address,
-                        )
-                    )
-                else:
-                    oid, rid, start, end = link
-                    rows.append(EvidenceSourceRow(eid, oid, rid, ids[rid, start, end]))
         batch = replace(
             batch,
             evidence_source=tuple(

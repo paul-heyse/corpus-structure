@@ -652,10 +652,7 @@ class ReadSession:
         if artifact is not None:
             if json.loads(artifact.content) != recipe:
                 raise SemanticRefusal("unsupported archived query coverage recipe")
-        elif str(json.loads(self.prepared.manifest)["profile"]["compiler_version"]) not in {
-            "10",
-            "11",
-        }:
+        else:
             raise SemanticRefusal("release lacks its query coverage recipe")
 
         def unknown(reason):
@@ -668,7 +665,6 @@ class ReadSession:
         )
         run, origin = table("ops.run"), logical.alias("coverage_origin")
         config, method = table("ops.method_config"), table("ops.method")
-        segment, span, rendition = table("kb.segment"), table("kb.span"), table("kb.rendition")
         source_view = table("kb.source_view")
         source = self.connection.execute(
             select(run.c.dependencies)
@@ -695,15 +691,9 @@ class ReadSession:
             return unknown("coverage family has no archived source-operation binding")
         # Unit identity follows the recorded origin, including reused completed reports.
         member = func.coalesce(origin.c.unit_key, func.cast(origin.c.id, Text))
-        physical_rendition = func.coalesce(
-            segment.c.rendition_id,
-            span.c.rendition_id,
-            case((origin.c.unit_type == "rendition", origin.c.unit_id)),
-        )
         document = case(
             (origin.c.unit_type == "document", origin.c.unit_id),
             (origin.c.unit_type == "source_view", source_view.c.document_id),
-            else_=rendition.c.document_id,
         )
         stmt = (
             select(
@@ -720,11 +710,6 @@ class ReadSession:
                 .join(origin, origin.c.id == func.coalesce(cut.c.origin_task_id, logical.c.id))
                 .join(config, config.c.id == origin.c.method_config_id)
                 .join(method, method.c.id == config.c.method_id)
-                .outerjoin(
-                    segment, and_(origin.c.unit_type == "segment", segment.c.id == origin.c.unit_id)
-                )
-                .outerjoin(span, and_(origin.c.unit_type == "span", span.c.id == origin.c.unit_id))
-                .outerjoin(rendition, rendition.c.id == physical_rendition)
                 .outerjoin(
                     source_view,
                     and_(origin.c.unit_type == "source_view", source_view.c.id == origin.c.unit_id),

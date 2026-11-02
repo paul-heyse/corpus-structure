@@ -172,9 +172,10 @@ def test_owned_input_enforces_exact_release_and_dependencies():
         owner.prepare(release="release:1", content="sha256:1")
 
 
-def test_explicit_live_base_and_archived_composed_refusal():
+def test_schema_only_and_retired_composed_profiles_refuse_execution():
     base = prepare_release(trusted_execution_inputs().schema)
-    assert prepare_interpretation_context(base, macros={}).profile.version == "6"
+    with pytest.raises(PreparationError, match="composed execution binding"):
+        prepare_interpretation_context(base, macros={})
     import json
 
     from corpus_structure.semantic.identity import canonical_bytes
@@ -200,7 +201,7 @@ def test_explicit_live_base_and_archived_composed_refusal():
             RegistryRow("execution_model", model.model_id, canonical_bytes(historic)),
         ),
     )
-    with pytest.raises(PreparationError, match="current compiler ABI; regenerate the release"):
+    with pytest.raises(PreparationError, match="current compiler 23; regenerate the release"):
         prepare_interpretation_context(archived, macros={})
 
 
@@ -239,7 +240,7 @@ def test_unknown_execution_abi_refuses_before_model_binding():
     model = compile_execution_model(trusted_execution_inputs())
     changed = json.loads(model.content)
     changed["inputs"]["compiler_version"] = "999"
-    with pytest.raises(PreparationError, match="current compiler ABI; regenerate the release"):
+    with pytest.raises(PreparationError, match="current compiler 23; regenerate the release"):
         _bound_execution_model(canonical_bytes(changed), model.model_id)
 
 
@@ -271,7 +272,7 @@ def test_historical_abi_cannot_self_attest_analysis_capabilities():
             RegistryRow("execution_model", model.model_id, canonical_bytes(changed)),
         ),
     )
-    with pytest.raises(PreparationError, match="current compiler ABI; regenerate the release"):
+    with pytest.raises(PreparationError, match="current compiler 23; regenerate the release"):
         prepare_interpretation_context(archived, macros={})
 
 
@@ -386,9 +387,8 @@ def test_current_compilation_and_preparation_refuse_retained_analysis_profile():
             RegistryRow("execution_model", current.model_id, canonical_bytes(body)),
         ),
     )
-    # Relabeling the current stage graph is invalid before the historical-read-only
-    # preparation guard: profile 1 does not declare syntax/structure demands.
-    with pytest.raises(PreparationError, match=r"declare .*demands"):
+    # Retained profiles cannot supply current analytical execution authority.
+    with pytest.raises(PreparationError, match="admitted analysis profile"):
         prepare_interpretation_context(altered, macros={})
 
 

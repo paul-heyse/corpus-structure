@@ -1,0 +1,183 @@
+id: https://corpus-structure.org/model/semantic/read-projections
+name: semantic_read_projections
+description: Trusted read-only projection shapes. These describe released views and streamed record projections;
+  they never supply stored-table DDL.
+imports:
+- physical
+default_range: string
+classes:
+  pdf_selected_product:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      contract_digest:
+        range: string
+        required: true
+      schema_digest:
+        range: string
+        required: true
+      recipe_digest:
+        range: string
+        required: true
+      parent_task_id:
+        range: integer
+        required: false
+      parent_product_key:
+        range: string
+        required: false
+      parent_digest:
+        range: string
+        required: false
+      native_json:
+        range: json_payload
+        required: false
+      health:
+        range: json_payload
+        required: true
+      payload:
+        range: bytes
+        required: false
+  pdf_published_item:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      pointer:
+        range: string
+        required: true
+      ordinal:
+        range: integer
+        required: true
+      label:
+        range: string
+        required: true
+      parent_pointer:
+        range: string
+        required: false
+      section_pointer:
+        range: string
+        required: false
+      content_layer:
+        range: string
+        required: true
+      text:
+        range: string
+        required: false
+      native_json:
+        range: json_payload
+        required: true
+  pdf_published_region:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      pointer:
+        range: string
+        required: true
+      region_index:
+        range: integer
+        required: true
+      page_no:
+        range: integer
+        required: true
+      page_width:
+        range: exact_numeric
+        required: true
+      page_height:
+        range: exact_numeric
+        required: true
+      left:
+        range: exact_numeric
+        required: true
+      top:
+        range: exact_numeric
+        required: true
+      right:
+        range: exact_numeric
+        required: true
+      bottom:
+        range: exact_numeric
+        required: true
+      origin:
+        range: string
+        required: true
+  pdf_published_coverage:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      section_pointer:
+        range: string
+        required: true
+      membership:
+        range: string
+        required: true
+      universe:
+        range: string
+        required: true
+      outcome:
+        range: string
+        required: true
+      policy:
+        range: string
+        required: true
+  pdf_published_derivation:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      pointer:
+        range: string
+        required: true
+      mapping_index:
+        range: integer
+        required: true
+      origin_pointer:
+        range: string
+        required: true
+      source_field:
+        range: string
+        required: true
+      start_offset:
+        range: integer
+        required: true
+      end_offset:
+        range: integer
+        required: true
+      cell_index:
+        range: integer
+      kind:
+        range: string
+        required: true

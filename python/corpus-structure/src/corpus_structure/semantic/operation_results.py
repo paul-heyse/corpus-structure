@@ -32,29 +32,7 @@ def validate_result_dimension(
         return
     rows = [row for row in prepared.registry_rows if row.kind == "execution_model"]
     if prepared.execution_model_id is None:
-        # semantic-1 is the explicitly supported fixed base protocol, not a current-model rebind.
-        from .outcomes import CODE_OUTCOME_DOMAINS
-
-        base = {
-            ("execute_source", "readiness"): "readiness",
-            ("hold_submission", "decision"): "hold_decision",
-            ("check_submission", "disposition"): "submission",
-            ("scientific_policy", "finding"): "assessment_finding",
-            ("scientific_policy", "comparison"): "scientific_comparison",
-            ("scientific_policy", "selection"): "selection",
-            ("read_original", "outcome"): "read",
-            ("read_rendition", "outcome"): "read",
-            ("complete", "protocol"): "protocol",
-            ("complete", "transaction"): "transaction",
-            ("complete_unit", "protocol"): "protocol",
-            ("complete_unit", "transaction"): "transaction",
-        }
-        members = CODE_OUTCOME_DOMAINS[base[operation, dimension]]
-        if value not in members:
-            raise ValueError(
-                f"{operation}/{dimension}: result {value!r} is outside the base protocol"
-            )
-        return
+        raise ValueError("operation result requires a composed execution binding")
     if len(rows) != 1 or rows[0].name != prepared.execution_model_id:
         raise ValueError("operation result requires its exact archived execution binding")
     adapter = _result_adapter(rows[0].body, operation, dimension, field)
@@ -79,21 +57,15 @@ def _result_adapter(
     from pydantic import TypeAdapter
 
     product = json.loads(content)
+    from .contracts import _bound_execution_model
+
+    _bound_execution_model(content, product["model_id"])
     contract = next((item for item in product["operations"] if item["id"] == operation), None)
     if contract is None:
         raise ValueError(f"{operation}: operation is not declared by the bound execution model")
     field = next(
         (item for item in contract.get("result_dimensions", ()) if item["id"] == dimension), None
     )
-    if (
-        field is None
-        and operation in {"read_original", "read_rendition"}
-        and dimension == "outcome"
-        and product.get("inputs", {}).get("compiler_version") == "2"
-    ):
-        # Explicit historical read ABI: these operations already declared their primary
-        # source-read outcomes. This does not admit old write/activation contracts.
-        field = {"outcome_domain": contract["outcome_domain"], "field": "outcome"}
     if field is None:
         raise ValueError(
             f"{operation}/{dimension}: no enforcing result contract; derive a supported release"

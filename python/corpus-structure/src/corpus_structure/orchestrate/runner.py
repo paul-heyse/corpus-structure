@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection
 
 from corpus_structure.core.method import UnitRef, UnitView
 from corpus_structure.core.vocab import RunKind, Stage, TaskStatus, TaskUnitType
@@ -69,23 +69,10 @@ class Graph:
 
 
 def unit_view(conn: Connection, view: Any, ref: UnitRef) -> UnitView:
-    """A unit with its document and rendition, where they apply."""
-    document = rendition = None
+    """A unit with its original document under the selected source binding."""
+    document = None
     if ref.unit_type == TaskUnitType.DOCUMENT:
         document = ref.unit_id
-    elif ref.unit_type == TaskUnitType.RENDITION and ref.unit_id is not None:
-        rendition = ref.unit_id
-        document = conn.execute(
-            text("SELECT document_id FROM kb.rendition WHERE id = :r"), {"r": rendition}
-        ).scalar()
-    elif ref.unit_type == TaskUnitType.SEGMENT and ref.unit_id is not None:
-        row = conn.execute(
-            text(
-                "SELECT s.rendition_id, r.document_id FROM kb.segment s JOIN "
-                "kb.rendition r ON r.id = s.rendition_id WHERE s.id = :s"
-            ),
-            {"s": ref.unit_id},
-        ).first()
-        if row is not None:
-            rendition, document = row
-    return UnitView(ref, view, document_id=document, rendition_id=rendition)
+    elif ref.unit_type == TaskUnitType.SOURCE_VIEW and ref.unit_id is not None:
+        document = view.reader.source_view(ref.unit_id).ref.document_id
+    return UnitView(ref, view, document_id=document)

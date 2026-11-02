@@ -16,13 +16,10 @@ from pydantic import BaseModel, JsonValue
 from sqlalchemy import Connection, func, insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.method import (
     MeasurementView,
     Method,
-    ObservationReading,
     Reader,
-    RunRendition,
     SourceObservationReference,
     UnitResult,
 )
@@ -34,7 +31,6 @@ from ._operation_ids import (
     DocumentId,
     MethodConfigId,
     ProjectId,
-    RenditionId,
     RunId,
     TaskAttempt,
     TaskId,
@@ -295,17 +291,6 @@ def create_task(
         )
         .returning(t.c.id)
     ).scalar_one()
-    if twin is not None:
-        build = table("ops.rendition_build")
-        rr = table("ops.run_rendition")
-        for item in conn.execute(
-            select(build.c.document_id, build.c.rendition_id).where(build.c.task_id == twin)
-        ):
-            conn.execute(
-                pg_insert(rr)
-                .values(run_id=run_id, document_id=item.document_id, rendition_id=item.rendition_id)
-                .on_conflict_do_nothing()
-            )
     return TaskId(task_id)
 
 
@@ -339,11 +324,9 @@ def claim_tasks(
         if prepared.execution_model_id is not None:
             model = bound_execution_model(prepared)
             call = model.require_operation("claim").call
-            # Compiler20 has the supported fixed claim shape but no generated-call
-            # or observable failure promise. New declarations must match the adapter.
             if (
-                call is not None
-                and sha256(canonical_bytes([asdict(call)])).hexdigest()
+                call is None
+                or sha256(canonical_bytes([asdict(call)])).hexdigest()
                 != CLAIM_TASKS_CONTRACT_DIGEST
             ):
                 raise ValueError("claim call correspondence differs from this generated adapter")
@@ -416,14 +399,8 @@ def complete_task(
         definition = data.pop("payload_definition")
         item = data.pop("item_key")
         payload = prepared.validate_python(definition, data.pop("payload")).model_dump(mode="json")
-        if data.get("rendition_id") is None and task["unit_type"] == "segment":
-            segments = table("kb.segment")
-            data["rendition_id"] = conn.execute(
-                select(segments.c.rendition_id).where(segments.c.id == task["unit_id"])
-            ).scalar_one()
-            data.setdefault("segment_id", task["unit_id"])
-        elif data.get("rendition_id") is None and task["unit_type"] == "rendition":
-            data["rendition_id"] = task["unit_id"]
+        if any(data.get(field) is not None for field in ("rendition_id", "segment_id", "span_id")):
+            raise OperationConflict("source observations require current SourceView custody")
         if task["unit_type"] == "source_view":
             if data.get("source_view_id") not in (None, task["unit_id"]) or any(
                 data.get(field) is not None for field in ("rendition_id", "segment_id", "span_id")
@@ -572,12 +549,9 @@ class SourceReadRefused(OperationConflict):
 
 def _source_read_outcome(prepared: PreparedRelease | None, operation: str, outcome: str) -> None:
     from .operation_results import validate_result_dimension
-    from .outcomes import CODE_OUTCOME_DOMAINS
-
-    if prepared is not None:
-        validate_result_dimension(prepared, operation, "outcome", outcome, field="outcome")
-    elif outcome not in CODE_OUTCOME_DOMAINS["read"]:
-        raise ValueError("source-read outcome is outside the supported base protocol")
+    if prepared is None:
+        raise ValueError("source reads require a composed execution binding")
+    validate_result_dimension(prepared, operation, "outcome", outcome, field="outcome")
 
 
 def read_original(
@@ -589,13 +563,17 @@ def read_original(
 ) -> bytes:
     """Read fixed physical custody; producer outcomes and consumer admission stay separate.
 
-    Without a selected projection context this is the fixed base Core read protocol, not
-    admission against an inferred installed release. A supplied context must declare the call.
+    The producer release supplies execution authority; a separate consumer context may
+    additionally qualify the fixed projection call.
     """
     from pathlib import Path
 
     from . import _operation_calls as calls
+    from .contracts import require_bound_operation
 
+    if prepared is None:
+        raise ValueError("source reads require a composed execution binding")
+    require_bound_operation(prepared, "read_original")
     request = calls.prepare_original_descriptor(
         id=document_id, projection_context=projection_context
     )
@@ -634,191 +612,6 @@ def read_original(
         raise SourceReadRefused("invalid", "retained original content changed")
     _source_read_outcome(prepared, "read_original", "source_ready")
     return data
-
-
-def store_rendition(
-    conn: Connection,
-    *,
-    run_id: RunId,
-    document_id: DocumentId,
-    content: RenditionContent,
-    task_id: TaskId,
-    config_id: MethodConfigId,
-    parse_detail: Mapping[str, Any],
-    text_layout: Mapping[str, Any] | None = None,
-    prepared: PreparedRelease | None = None,
-) -> RenditionId:
-    """Preserve physical content sharing separately from method build provenance."""
-    from . import _operation_calls as calls
-    from .contracts import require_database_operation
-
-    require_database_operation(conn, binding_of(conn, run_id).release_id, "store_rendition")
-    if text_layout is not None:
-        from .text_layouts import load_text_layouts
-
-        if prepared is None or not load_text_layouts(text_layout, content, prepared, config_id):
-            raise OperationConflict("token artifact requires its admitted source release")
-    payload = content.model_dump(mode="json")
-    from corpus_structure.core.evidence import content_digest, rendition_key, segment_key
-
-    digest = content_digest(content)
-    d = table("kb.document")
-    source_request = calls.prepare_rendition_source_key(id=document_id, projection_context=prepared)
-    source = calls.collect_rendition_source_key(
-        conn.execute(
-            select(*calls.projection_rendition_source_key).where(d.c.id == source_request.id)
-        )
-    )
-    key = rendition_key(source, digest)
-    t = table("kb.rendition")
-    request = calls.prepare_rendition_definition(
-        document_id=document_id,
-        key=key,
-        content_digest=digest,
-        canonical_text=content.canonical_text,
-        content=payload,
-        parse_status=str(content.parse_status),
-        projection_context=prepared,
-    )
-    values = calls.values_rendition_definition_kb_rendition(request)
-    conn.execute(pg_insert(t).values(**values).on_conflict_do_nothing())
-    row = calls.collect_rendition_definition(
-        conn.execute(select(*calls.projection_rendition_definition).where(t.c.key == request.key))
-    )
-    actual = row.decoded_json_fields(operation="store_rendition")
-    if any(
-        actual[k] != value
-        for k, value in calls.expected_rendition_definition_kb_rendition(request).items()
-    ):
-        raise OperationConflict("rendition identity denotes different content")
-    rendition_id = row.id
-    st = table("kb.segment")
-    counter = [0]
-
-    def put(segment: Segment, parent: str | None = None) -> None:
-        skey = segment_key(key, segment.kind, segment.start, segment.end)
-        request = calls.prepare_rendition_segment(
-            rendition_id=rendition_id,
-            segment_key=skey,
-            parent_key=parent,
-            kind=str(segment.kind),
-            ordinal=counter[0],
-            start_offset=segment.start,
-            end_offset=segment.end,
-            attrs=dict(segment.attrs),
-            parse_status=str(segment.parse_status),
-            parse_reason=segment.parse_reason,
-            projection_context=prepared,
-        )
-        conn.execute(
-            pg_insert(st)
-            .values(**calls.values_rendition_segment_kb_segment(request))
-            .on_conflict_do_nothing()
-        )
-        counter[0] += 1
-        for child in segment.children:
-            put(child, skey)
-
-    put(content.document)
-    b = table("ops.rendition_build")
-    build = calls.prepare_rendition_build(
-        document_id=document_id,
-        method_config_id=config_id,
-        rendition_id=rendition_id,
-        task_id=task_id,
-        parse_detail=dict(parse_detail),
-        text_layout=dict(text_layout) if text_layout is not None else None,
-        projection_context=prepared,
-    )
-    conn.execute(
-        pg_insert(b)
-        .values(**calls.values_rendition_build_ops_rendition_build(build))
-        .on_conflict_do_nothing()
-    )
-    stored_build = calls.collect_rendition_build(
-        conn.execute(select(*calls.projection_rendition_build).where(b.c.task_id == build.task_id))
-    )
-    actual_build = stored_build.decoded_json_fields(operation="store_rendition")
-    if any(
-        actual_build[k] != value
-        for k, value in calls.expected_rendition_build_ops_rendition_build(build).items()
-    ):
-        raise OperationConflict("rendition build artifact differs on retry")
-    tasks = table("ops.task")
-    current_hash = conn.execute(
-        select(tasks.c.input_hash).where(tasks.c.id == task_id)
-    ).scalar_one()
-    previous = (
-        conn.execute(
-            select(b.c.rendition_id)
-            .join(tasks, b.c.task_id == tasks.c.id)
-            .where(
-                b.c.document_id == document_id,
-                b.c.method_config_id == config_id,
-                tasks.c.input_hash == current_hash,
-            )
-        )
-        .scalars()
-        .all()
-    )
-    if any(value != rendition_id for value in previous):
-        raise OperationConflict("deterministic rendition build changed content")
-    rr = table("ops.run_rendition")
-    selection = calls.prepare_run_rendition_selection(
-        run_id=run_id,
-        document_id=document_id,
-        rendition_id=rendition_id,
-        projection_context=prepared,
-    )
-    conn.execute(
-        pg_insert(rr)
-        .values(**calls.values_run_rendition_selection_ops_run_rendition(selection))
-        .on_conflict_do_nothing()
-    )
-    chosen = calls.collect_run_rendition_selection(
-        conn.execute(
-            select(*calls.projection_run_rendition_selection).where(
-                rr.c.run_id == selection.run_id, rr.c.document_id == selection.document_id
-            )
-        )
-    )
-    if chosen != rendition_id:
-        raise OperationConflict("run already selected another source rendition")
-    return rendition_id
-
-
-def read_rendition(
-    conn: Connection,
-    rendition_id: RenditionId,
-    *,
-    prepared: PreparedRelease | None = None,
-    projection_context: PreparedRelease | None = None,
-) -> RenditionContent:
-    """Use fixed Core custody, with separate producer outcome and consumer call authority."""
-    from pydantic import ValidationError
-
-    from corpus_structure.core.evidence import RenditionContent
-
-    from . import _operation_calls as calls
-
-    request = calls.prepare_rendition_content(
-        id=rendition_id, projection_context=projection_context
-    )
-    t = table("kb.rendition")
-    row = calls.collect_rendition_content(
-        conn.execute(select(*calls.projection_rendition_content).where(t.c.id == request.id))
-    )
-    if row is None:
-        _source_read_outcome(prepared, "read_rendition", "missing")
-        raise SourceReadRefused("missing", "retained rendition is missing")
-    try:
-        payload = row.decoded_json_fields(operation="read_rendition")["content"]
-        content = RenditionContent.model_validate(payload)
-    except ValidationError as exc:
-        _source_read_outcome(prepared, "read_rendition", "invalid")
-        raise SourceReadRefused("invalid", "retained rendition content is invalid") from exc
-    _source_read_outcome(prepared, "read_rendition", "source_ready")
-    return content
 
 
 def complete_unit_result(
@@ -868,42 +661,6 @@ def complete_unit_result(
     # observation through the Python boundary. Keep those representations separate.
     envelope = bound.model_dump(mode="json", exclude={"observations"})
     items = bound.model_dump(mode="python", include={"observations"})["observations"]
-    rendition_id = None
-    if result.rendition is not None and task["status"] == "running":
-        if result.ref.unit_type is not TaskUnitType.DOCUMENT or result.ref.unit_id is None:
-            raise ValueError("ingest result requires document id")
-        from .text_layouts import freeze_text_layouts
-
-        rendition_id = store_rendition(
-            conn,
-            run_id=task["run_id"],
-            document_id=DocumentId(result.ref.unit_id),
-            content=result.rendition,
-            task_id=task_id,
-            config_id=task["method_config_id"],
-            parse_detail=result.parse_detail or {},
-            prepared=prepared,
-            text_layout=freeze_text_layouts(
-                result.text_layouts, result.rendition, prepared, task["method_config_id"]
-            ),
-        )
-    elif result.rendition is not None:
-        builds = table("ops.rendition_build")
-        from .text_layouts import freeze_text_layouts
-
-        previous_build = (
-            conn.execute(select(builds).where(builds.c.task_id == task_id)).mappings().one()
-        )
-        rendition_id = previous_build["rendition_id"]
-        artifact = freeze_text_layouts(
-            result.text_layouts, result.rendition, prepared, task["method_config_id"]
-        )
-        if previous_build["text_layout"] != artifact or previous_build["parse_detail"] != dict(
-            result.parse_detail or {}
-        ):
-            raise OperationConflict("terminal rendition build artifact differs")
-        if read_rendition(conn, rendition_id, prepared=prepared) != result.rendition:
-            raise OperationConflict("terminal rendition result differs from published content")
     if result.source_views:
         from .source_views import store_source_view
 
@@ -919,24 +676,6 @@ def complete_unit_result(
             )
     rows = []
     for item in items:
-        rid = item.get("rendition_id", rendition_id)
-        span_id = None
-        if rid is not None and item.get("span_start") is not None:
-            st = table("kb.span")
-            vals = dict(
-                rendition_id=rid,
-                start_offset=item["span_start"],
-                end_offset=item["span_end"],
-                segment_id=item.get("segment_id"),
-            )
-            conn.execute(pg_insert(st).values(**vals).on_conflict_do_nothing())
-            span_id = conn.execute(
-                select(st.c.id).where(
-                    st.c.rendition_id == rid,
-                    st.c.start_offset == item["span_start"],
-                    st.c.end_offset == item["span_end"],
-                )
-            ).scalar_one()
         rows.append(
             dict(
                 payload_definition="SourceObservation",
@@ -944,17 +683,16 @@ def complete_unit_result(
                 observation_key=item["observation_key"],
                 payload=item,
                 kind=item["family"],
-                rendition_id=rid,
+                rendition_id=None,
                 source_view_id=item.get("source_view_id"),
                 segment_id=item.get("segment_id"),
-                span_id=span_id,
+                span_id=None,
                 score=source_python(item["score"]) if item.get("score") is not None else None,
                 outcome=item["outcome"],
             )
         )
     outcome = {"produced": "done", "empty": "empty", "failed": "failed"}[result.outcome.value]
-    # Rendition-only ingestion is a successful read without extracted assertions. The operation
-    # envelope preserves that distinction; native completion still uses empty observations.
+    # Source-view-only ingestion completes with an empty observation collection.
     ids = complete_task(
         conn,
         task_id=task_id,
@@ -1020,23 +758,8 @@ class BoundReader:
     ):
         self.conn, self.run_id, self.prepared, self.cut_id = conn, run_id, prepared, cut_id
         self._analysis_enabled = analysis
-        import json
-
-        from .contracts import EXECUTION_COMPILER_VERSION, execution_payload
-
-        payload = execution_payload(prepared)
-        self._source_contract = None
-        self._source_inputs = {}
         self.math_readings_batch = None
         self.source_tasks: dict[int, int] = {}
-        if (
-            analysis
-            and payload is not None
-            and json.loads(payload)["inputs"]["compiler_version"] == EXECUTION_COMPILER_VERSION
-        ):
-            from .analysis_contracts import bind_analysis_family
-
-            self._source_contract = bind_analysis_family(prepared, "source")
 
     def pdf_contract(self):
         from .pdf_contracts import pdf_context_for_release
@@ -1103,7 +826,6 @@ class BoundReader:
         from .pdf_record_reader import PublishedSchemaUnavailable, published_record_reader
         from .pdf_storage import (
             NativeDocumentUnavailable,
-            _pdf_product_identity,
             _record_product_identity,
         )
 
@@ -1133,38 +855,7 @@ class BoundReader:
                 original_digest=published.revision["source_digest"],
             )
         else:
-            # Explicit historical reads retain their qualified legacy protocol.
-            # New section preparation below still requires a published record binding.
-            _pdf_product_identity(
-                self.conn, reference.task_id, reference.product_key, reference.content_digest
-            )
-            identity_table = table("ops.pdf_product")
-            product, build = table("ops.pdf_selected_product"), table("ops.source_build")
-            row = dict(
-                self.conn.execute(
-                    select(
-                        product.c.payload,
-                        product.c.contract_digest,
-                        product.c.schema_digest,
-                        product.c.recipe_digest,
-                        identity_table.c.kind.label("product_kind"),
-                        build.c.artifact_digest.label("original_digest"),
-                    )
-                    .join(
-                        identity_table,
-                        (identity_table.c.task_id == product.c.task_id)
-                        & (identity_table.c.product_key == product.c.product_key),
-                    )
-                    .join(build, build.c.task_id == product.c.task_id)
-                    .where(
-                        product.c.task_id == reference.task_id,
-                        product.c.product_key == reference.product_key,
-                        product.c.content_digest == reference.content_digest,
-                    )
-                )
-                .mappings()
-                .one()
-            )
+            raise NativeDocumentUnavailable("current native input requires a published record")
         from .source_views import selected_source_views
 
         # Custody is bound to selected pins or a claimed input, before analysis-unit filtering.
@@ -1232,8 +923,6 @@ class BoundReader:
         return row, context, published
 
     def native_document(self, reference, *, include_candidate_pages: bool = True):
-        import json
-
         from .pdf_contracts import PreparedPdfProduct
 
         row, _, published = self._native_product_input(reference)
@@ -1260,21 +949,7 @@ class BoundReader:
                 bytes(contents[row["recipe_digest"]]),
                 row["contract_digest"],
             )
-        payload = bytes(row["payload"])
-        values = json.loads(payload)
-        if values.get("kind") == "integrated":
-            payload = canonical_bytes(values["content"])
-        if not include_candidate_pages:
-            values = json.loads(payload)
-            values.pop("inline_candidate_pages", None)
-            payload = canonical_bytes(values)
-        return PreparedPdfProduct(
-            payload,
-            bytes(contents[row["original_digest"]]),
-            bytes(contents[row["schema_digest"]]),
-            bytes(contents[row["recipe_digest"]]),
-            row["contract_digest"],
-        )
+        raise OperationConflict("current native input requires a published record")
 
     def native_section_drafts(
         self, reference, *, document_id, selections, membership, scope, consumer_release
@@ -1286,8 +961,7 @@ class BoundReader:
             raise OperationConflict("section projection consumer release differs from its reader")
         if reader is None:
             raise OperationConflict(
-                "current source preparation requires a record-backed publication; "
-                "legacy aggregate products are historical reads only"
+                "current source preparation requires a record-backed publication"
             )
         return published_section_drafts(
             reader,
@@ -1375,33 +1049,6 @@ class BoundReader:
             self._pdf_context = context
         return prepare_pdf_product(payload, original, schema_bytes, recipe_bytes, context=context)
 
-    def renditions(self) -> Sequence[RunRendition]:
-        from corpus_structure.core.method import RunRendition
-
-        rr, d, r = table("ops.run_rendition"), table("kb.document"), table("kb.rendition")
-        q = (
-            select(d.c.id, d.c.key, r.c.id.label("rendition_id"), r.c.key.label("rendition_key"))
-            .join_from(rr, d, rr.c.document_id == d.c.id)
-            .join(r, rr.c.rendition_id == r.c.id)
-            .where(rr.c.run_id == self.run_id)
-            .order_by(d.c.key)
-        )
-        return [
-            RunRendition(row.id, row.key, row.rendition_id, row.rendition_key)
-            for row in self.conn.execute(q)
-        ]
-
-    def content(self, rendition_id: int) -> RenditionContent:
-        if not self._analysis_enabled:
-            raise OperationConflict("retained source reader cannot prepare analytical inputs")
-        if self._source_contract is not None:
-            self._source_inputs[rendition_id] = self._source_contract.prepare(
-                release=self.prepared.release_id,
-                rendition=rendition_id,
-                profile=self.prepared.execution_model_id,
-            )
-        return read_rendition(self.conn, RenditionId(rendition_id), prepared=self.prepared)
-
     def original(self, document_id: int) -> bytes:
         """Read retained source bytes only within this reader's run/project binding."""
         document, run = table("kb.document"), table("ops.run")
@@ -1424,25 +1071,11 @@ class BoundReader:
             raise ValueError("source task binding requires real document/task identities")
         self.source_tasks = dict(tasks)
 
-    def segments(self, rendition_id: int) -> Mapping[str, int]:
-        s = table("kb.segment")
-        return {
-            row.segment_key: row.id
-            for row in self.conn.execute(
-                select(s.c.segment_key, s.c.id).where(s.c.rendition_id == rendition_id)
-            )
-        }
-
     def source_observations(self, source_view_id: int, method: str, kind: ObservationKind):
         self.source_view(source_view_id)
-        return self._observations(source_view_id, method, kind, native=True)
+        return self._observations(source_view_id, method, kind)
 
-    def observations(
-        self, rendition_id: int, method: str, kind: ObservationKind
-    ) -> Sequence[ObservationReading]:
-        return self._observations(rendition_id, method, kind, native=False)
-
-    def _observations(self, source_id: int, method: str, kind: ObservationKind, *, native: bool):
+    def _observations(self, source_id: int, method: str, kind: ObservationKind):
         from corpus_structure.core.method import payload_hash
         from corpus_structure.core.vocab import ObservationKind, ObservationOutcome
 
@@ -1462,7 +1095,7 @@ class BoundReader:
             .join(m, c.c.method_id == m.c.id)
             .where(
                 t.c.run_id == self.run_id,
-                (o.c.source_view_id == source_id if native else o.c.rendition_id == source_id),
+                o.c.source_view_id == source_id,
                 m.c.name == method,
                 o.c.kind == str(kind),
             )
@@ -1552,66 +1185,6 @@ class BoundReader:
             for position, item in enumerate(row["body"].get("coverage", ()))
             if item["family"] == method
         )
-
-    def source_coverage(self, rendition_id: int, method: str):
-        """Read immutable source coverage through this run's effective task origins."""
-        from corpus_structure.core.method import CoverageDraft, SourceCoverageReading
-
-        task, result, config, producer = map(
-            table, ("ops.task", "ops.task_result", "ops.method_config", "ops.method")
-        )
-        rendition = table("kb.rendition")
-        query = (
-            select(
-                result.c.body,
-                result.c.task_id,
-                result.c.release_id,
-                rendition.c.key,
-                func.length(rendition.c.canonical_text).label("source_length"),
-            )
-            .select_from(task)
-            .join(result, result.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id))
-            .join(config, task.c.method_config_id == config.c.id)
-            .join(producer, config.c.method_id == producer.c.id)
-            .join(rendition, rendition.c.id == task.c.unit_id)
-            .where(
-                task.c.run_id == self.run_id,
-                task.c.unit_type == "rendition",
-                task.c.unit_id == rendition_id,
-                producer.c.name == method,
-            )
-            .order_by(result.c.task_id)
-        )
-        if self.cut_id is not None:
-            cut = table("ops.cut_task")
-            query = query.join(cut, cut.c.origin_task_id == result.c.task_id).where(
-                cut.c.cut_id == self.cut_id
-            )
-        segment = table("kb.segment")
-        extents = {
-            row.segment_key: (row.start_offset, row.end_offset)
-            for row in self.conn.execute(
-                select(segment.c.segment_key, segment.c.start_offset, segment.c.end_offset).where(
-                    segment.c.rendition_id == rendition_id
-                )
-            )
-        }
-        out = []
-        for row in self.conn.execute(query).mappings():
-            for position, item in enumerate(row["body"].get("coverage", ())):
-                if item.get("family") != method:
-                    continue
-                bounds = (
-                    (0, row["source_length"])
-                    if item["scope"] == row["key"]
-                    else extents.get(item["scope"], (None, None))
-                )
-                out.append(
-                    SourceCoverageReading(
-                        CoverageDraft(**item), row["task_id"], row["release_id"], position, *bounds
-                    )
-                )
-        return tuple(out)
 
     def measurements(self, method: str, metric: str) -> Sequence[MeasurementView]:
         from corpus_structure.core.method import MeasurementView

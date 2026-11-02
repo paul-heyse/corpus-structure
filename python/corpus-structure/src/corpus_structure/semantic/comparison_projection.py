@@ -221,33 +221,6 @@ def _read_projection(
     return projection
 
 
-class _LegacyComparisonProjection:
-    """Explicit compiler-10..13 read semantics, using only that release's archived products."""
-
-    def __init__(self, prepared: PreparedRelease):
-        self.prepared = prepared
-        self.meaning = {}
-        for row in prepared.registry_rows:
-            if row.kind == "operation_property":
-                body = json.loads(row.body)
-                self.meaning[body["class"], body["property"]] = set(
-                    str(body.get("cs:qualifiers", "")).split()
-                ) - set(str(body.get("cs:identity_qualifiers", "")).split())
-
-    def partition(self, class_name, predicate, qualification_class, values):
-        properties = {
-            p.name: p
-            for p in self.prepared.qualification_definition(qualification_class).properties
-        }
-        meaningful = {n: v for n, v in values.items() if properties[n].key_role != "provenance"}
-        compared = self.meaning.get((class_name, predicate), set())
-        return (
-            meaningful,
-            {n: v for n, v in meaningful.items() if n not in compared},
-            {n: v for n, v in meaningful.items() if n in compared},
-        )
-
-
 def comparison_projection(prepared: PreparedRelease):
     compiler = json.loads(prepared.manifest)["profile"]["compiler_version"]
     artifacts = [a for a in prepared.artifacts if a.kind == ARTIFACT]
@@ -255,6 +228,4 @@ def comparison_projection(prepared: PreparedRelease):
         if len(artifacts) != 1:
             raise ValueError("compiler-14 comparison requires its exact resolved projection")
         return _read_projection(artifacts[0].content, prepared.definitions)
-    if compiler in {"10", "11", "12", "13"} and not artifacts:
-        return _LegacyComparisonProjection(prepared)
     raise ValueError(f"unsupported comparison projection compiler {compiler}")

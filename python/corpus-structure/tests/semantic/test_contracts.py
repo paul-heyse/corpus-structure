@@ -423,13 +423,16 @@ def test_named_graph_operations_are_resolved_and_qualified(products):
 @pytest.mark.parametrize(
     "operation", ["query", "compile_projection", "read_native_source", "publish_arrow"]
 )
-def test_obsolete_execution_abi_requires_regeneration_for_reads_and_writes(products, operation):
+@pytest.mark.parametrize("compiler", ["17", "20", "21", "22"])
+def test_obsolete_execution_abi_requires_regeneration_for_reads_and_writes(
+    products, operation, compiler
+):
     from corpus_structure.semantic.contracts import require_payload_operation
     from corpus_structure.semantic.identity import canonical_bytes
 
     require_payload_operation(products.content, products.model_id, "compile_projection")
     obsolete = json.loads(products.content)
-    obsolete["inputs"]["compiler_version"] = "17"
+    obsolete["inputs"]["compiler_version"] = compiler
     with pytest.raises(PreparationError, match="regenerate the release") as error:
         require_payload_operation(canonical_bytes(obsolete), products.model_id, operation)
     assert error.value.diagnostics[0].code == "unsupported_execution_abi"

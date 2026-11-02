@@ -76,3 +76,9 @@ def test_changed_result_field_refuses_at_actual_constructor_binding():
     validate_result_dimension(
         release, "execute_source", "readiness", "source_ready", field="status"
     )
+
+
+def test_schema_only_preparation_has_no_operational_result_authority():
+    release = prepared(composed=False)
+    with pytest.raises(ValueError, match="composed execution binding"):
+        validate_result_dimension(release, "complete", "protocol", "done")

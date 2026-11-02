@@ -260,10 +260,15 @@ def test_actual_typed_public_call_refuses_wrong_semantic_identifier_parameter_an
         "from sqlalchemy import Connection\n"
         "from corpus_structure.semantic.operations import claim_tasks, create_task, renew_claim\n"
         "from corpus_structure.semantic._operation_ids import "
-        "RunId, MethodConfigId, TaskId, TaskAttempt, DocumentId\n"
+        "RunId, MethodConfigId, TaskId, TaskAttempt, DocumentId, ReleaseId\n"
         "from corpus_structure.semantic._operation_calls import "
         "prepare_original_descriptor, materialize_document_registration, "
-        "_document_registration_kb_document_columns\n"
+        "_document_registration_kb_document_columns, CompletionResult\n"
+        "def receipt(result: CompletionResult) -> None:\n"
+        "    task: TaskId = result.receipt.task_id\n"
+        "    run: RunId = result.receipt.run_id\n"
+        "    release: ReleaseId = result.receipt.release_id\n"
+        "    attempt: TaskAttempt = result.receipt.attempt\n"
         "def good(conn: Connection) -> None:\n"
         "    descriptor = prepare_original_descriptor(id=DocumentId(1))\n"
         "    doc: DocumentId = descriptor.id\n"
@@ -289,6 +294,10 @@ def test_actual_typed_public_call_refuses_wrong_semantic_identifier_parameter_an
     assert good.returncode == 0, good.stdout + good.stderr
     with source.open("a") as stream:
         stream.write(
+            "def wrong_receipt(result: CompletionResult) -> None:\n"
+            "    task: RunId = result.receipt.task_id\n"
+            "    attempt: TaskId = result.receipt.attempt\n"
+            "    release: RunId = result.receipt.release_id\n"
             "def bad(conn: Connection) -> None:\n"
             "    rows = claim_tasks(conn, run_id=MethodConfigId(1), "
             "config_id=RunId(2), holder='w')\n"

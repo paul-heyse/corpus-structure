@@ -250,8 +250,7 @@ def require_scientific_policy(prepared) -> None:
     from .contracts import bound_execution_model
     from .determinants import scientific_compatible
 
-    if prepared.execution_model_id is not None:
-        bound_execution_model(prepared).require_operation("scientific_policy")
+    bound_execution_model(prepared).require_operation("scientific_policy")
 
     artifact = next((a for a in prepared.artifacts if a.kind == SCIENTIFIC_POLICY_INPUT), None)
     if artifact is None or artifact.content != canonical_bytes(scientific_policy_recipe(prepared)):

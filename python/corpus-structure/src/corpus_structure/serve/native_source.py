@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from pydantic_core import to_jsonable_python
-from sqlalchemy import Connection, select, text
+from sqlalchemy import Connection, select
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.product_reference import ProductReference
@@ -110,39 +110,6 @@ class NativeSourceResponse(BaseModel):
     rows: list[dict[str, JsonValue]]
     next_cursor: str | None = None
     companion: dict[str, JsonValue] | None = None
-
-
-def _inline_alignment_reports(conn: Connection, *, task_id: int, product_key: str, pointer: str):
-    """Read one item's own/ancestor prose diagnostics through fixed bounded projections."""
-    rows = conn.execute(
-        text("""
-        WITH RECURSIVE ancestors(pointer) AS (
-          SELECT pointer FROM kb.native_document_item
-          WHERE task_id=:task AND product_key=:key AND pointer=:pointer
-          UNION
-          SELECT item.parent_pointer FROM kb.native_document_item item
-          JOIN ancestors parent ON parent.pointer=item.pointer
-          WHERE item.task_id=:task AND item.product_key=:key
-            AND item.parent_pointer IS NOT NULL
-        )
-        SELECT report.page_no,report.candidate_index,report.outcome,report.basis,
-          report.detail,report.candidate_basis,
-          (SELECT jsonb_agg(endpoint.item_pointer ORDER BY endpoint.item_pointer)
-           FROM kb.native_document_inline_alignment_item endpoint
-           WHERE endpoint.task_id=report.task_id AND endpoint.product_key=report.product_key
-             AND endpoint.page_no=report.page_no
-             AND endpoint.candidate_index=report.candidate_index) AS item_pointers
-        FROM kb.native_document_inline_alignment_report report
-        WHERE report.task_id=:task AND report.product_key=:key AND EXISTS(
-          SELECT FROM kb.native_document_inline_alignment_item linked
-          WHERE linked.task_id=report.task_id AND linked.product_key=report.product_key
-            AND linked.page_no=report.page_no AND linked.candidate_index=report.candidate_index
-            AND linked.item_pointer IN (SELECT pointer FROM ancestors))
-        ORDER BY report.page_no,report.candidate_index
-    """),
-        dict(task=task_id, key=product_key, pointer=pointer),
-    ).mappings()
-    return [dict(row) for row in rows]
 
 
 def _published_derivations(reader, pointers):
@@ -245,7 +212,6 @@ def _inspect_native_source(
 ) -> NativeSourceResponse:
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.pdf_record_reader import (
-        published_native_table,
         published_record_reader,
     )
     from corpus_structure.semantic.pdf_storage import read_native_items, read_native_regions
@@ -288,53 +254,17 @@ def _inspect_native_source(
         cancellation=cancellation,
         projection_context=projection_context,
     )
+    if published is None:
+        raise ValueError("native source requires a current published record")
     origin = runs.alias("native_origin_run")
-    if published is not None:
-        origin_run = conn.execute(
-            select(tasks.c.run_id)
-            .join(origin, origin.c.id == tasks.c.run_id)
-            .where(tasks.c.id == request.task_id, origin.c.project_id == run.project_id)
-        ).scalar_one_or_none()
-        if origin_run is None:
-            raise ValueError("native source is unavailable in the requested project")
-        header = _published_native_header(published, origin_run, runtime=request.view == "products")
-    else:
-        from corpus_structure.semantic.pdf_storage import _pdf_product_identity
-
-        # A missing exact record pin is not evidence of a historical product.
-        # Qualify that explicit retained route before touching its legacy metadata.
-        _pdf_product_identity(conn, **pin, cancellation=cancellation)
-        products, builds, runtime = map(
-            table, ("ops.pdf_selected_product", "ops.source_build", "kb.native_document_runtime")
-        )
-        header = conn.execute(
-            select(
-                products.c.release_id,
-                products.c.health.op("-")("formula_outcomes").label("health"),
-                products.c.content_digest,
-                products.c.parent_task_id,
-                products.c.parent_product_key,
-                products.c.parent_digest,
-                runtime.c.report.label("runtime_report"),
-                builds.c.artifact_digest,
-                tasks.c.run_id.label("origin_run"),
-            )
-            .select_from(
-                products.join(tasks, tasks.c.id == products.c.task_id)
-                .join(origin, origin.c.id == tasks.c.run_id)
-                .join(builds, builds.c.task_id == products.c.task_id)
-                .outerjoin(
-                    runtime,
-                    (runtime.c.task_id == products.c.task_id)
-                    & (runtime.c.product_key == products.c.product_key),
-                )
-            )
-            .where(
-                products.c.task_id == request.task_id,
-                products.c.product_key == request.product_key,
-                origin.c.project_id == run.project_id,
-            )
-        ).one_or_none()
+    origin_run = conn.execute(
+        select(tasks.c.run_id)
+        .join(origin, origin.c.id == tasks.c.run_id)
+        .where(tasks.c.id == request.task_id, origin.c.project_id == run.project_id)
+    ).scalar_one_or_none()
+    if origin_run is None:
+        raise ValueError("native source is unavailable in the requested project")
+    header = _published_native_header(published, origin_run, runtime=request.view == "products")
     if header is None:
         raise ValueError("native source is unavailable in the requested project")
     if header.content_digest != request.content_digest:
@@ -367,17 +297,7 @@ def _inspect_native_source(
             after = cursor["after"]
         except (KeyError, ValueError, TypeError) as error:
             raise ValueError("invalid native continuation") from error
-    parent_product = (
-        _published_parent_product(published)
-        if published is not None
-        else None
-        if header.parent_task_id is None
-        else dict(
-            task_id=header.parent_task_id,
-            product_key=header.parent_product_key,
-            content_digest=header.parent_digest,
-        )
-    )
+    parent_product = _published_parent_product(published)
     # The storage reader checks the admitted archive even for metadata-only selections.
     rows = read_native_items(
         conn,
@@ -401,70 +321,31 @@ def _inspect_native_source(
             )
         ]
     elif request.view == "sections":
-        if published is not None:
-            sections = published.sections()
-            selected = [
-                row
-                for row in sections
-                if row["ordinal"] > after
-                and (
-                    request.section_pointer is None
-                    or (
-                        request.membership == "descendants"
-                        and request.section_pointer in row["ancestors"]
-                    )
-                    or (
-                        request.membership != "descendants"
-                        and row["parent_pointer"] == request.section_pointer
-                    )
+        sections = published.sections()
+        selected = [
+            row
+            for row in sections
+            if row["ordinal"] > after
+            and (
+                request.section_pointer is None
+                or (
+                    request.membership == "descendants"
+                    and request.section_pointer in row["ancestors"]
                 )
-            ][: request.limit]
-            rows = [
-                dict(
-                    task_id=request.task_id,
-                    product_key=request.product_key,
-                    **{key: value for key, value in row.items() if key != "ancestors"},
+                or (
+                    request.membership != "descendants"
+                    and row["parent_pointer"] == request.section_pointer
                 )
-                for row in selected
-            ]
-        else:
-            item = published_native_table(conn)
-            if request.section_pointer is None:
-                scope = []
-            elif request.membership == "descendants":
-                from corpus_structure.semantic.pdf_storage import native_descendant_pointers
-
-                scope = [
-                    item.c.pointer.in_(
-                        native_descendant_pointers(
-                            task_id=request.task_id,
-                            product_key=request.product_key,
-                            section_pointer=request.section_pointer,
-                            conn=conn,
-                        )
-                    ),
-                    item.c.pointer != request.section_pointer,
-                ]
-            else:
-                scope = [item.c.parent_pointer == request.section_pointer]
-            rows = [
-                dict(r)
-                for r in conn.execute(
-                    select(
-                        *[c for c in item.columns if c.name != "native_json"],
-                        item.c.native_json["name"].as_string().label("name"),
-                    )
-                    .where(
-                        item.c.task_id == request.task_id,
-                        item.c.product_key == request.product_key,
-                        item.c.label.in_(["section", "chapter"]),
-                        item.c.ordinal > after,
-                        *scope,
-                    )
-                    .order_by(item.c.ordinal)
-                    .limit(request.limit)
-                ).mappings()
-            ]
+            )
+        ][: request.limit]
+        rows = [
+            dict(
+                task_id=request.task_id,
+                product_key=request.product_key,
+                **{key: value for key, value in row.items() if key != "ancestors"},
+            )
+            for row in selected
+        ]
     elif request.view in {"item", "formula", "cell", "regions", "trace"}:
         if request.pointer is None or len(rows) != 1:
             raise ValueError("native occurrence inspection requires one existing pointer")
@@ -472,13 +353,6 @@ def _inspect_native_source(
         if request.view in {"item", "formula", "trace"}:
             alignment = (
                 _published_alignment_reports(published, request.pointer)
-                if published is not None
-                else _inline_alignment_reports(
-                    conn,
-                    task_id=request.task_id,
-                    product_key=request.product_key,
-                    pointer=request.pointer,
-                )
             )
         for report in alignment or ():
             report["source_product"] = parent_product
@@ -487,26 +361,11 @@ def _inspect_native_source(
                 conn, **pin, pointer=request.pointer, projection_context=projection_context
             )
             if request.view == "trace":
-                if published is not None:
-                    mappings = (
-                        list(_published_derivations(published, (request.pointer,)))
-                        if published.has_native_metadata("derivation_mappings")
-                        else None
-                    )
-                else:
-                    derivation = table("kb.native_document_derivation")
-                    mappings = [
-                        dict(row)
-                        for row in conn.execute(
-                            select(derivation)
-                            .where(
-                                derivation.c.task_id == request.task_id,
-                                derivation.c.product_key == request.product_key,
-                                derivation.c.pointer == request.pointer,
-                            )
-                            .order_by(derivation.c.mapping_index)
-                        ).mappings()
-                    ]
+                mappings = (
+                    list(_published_derivations(published, (request.pointer,)))
+                    if published.has_native_metadata("derivation_mappings")
+                    else None
+                )
                 rows = [
                     dict(
                         pointer=request.pointer,
@@ -520,17 +379,7 @@ def _inspect_native_source(
                 ]
         else:
             # Transfer only the selected native object, not its containing document.
-            if published is not None:
-                native = published.selected_native_items((request.pointer,))[request.pointer]
-            else:
-                item = published_native_table(conn)
-                native = conn.execute(
-                    select(item.c.native_json).where(
-                        item.c.task_id == request.task_id,
-                        item.c.product_key == request.product_key,
-                        item.c.pointer == request.pointer,
-                    )
-                ).scalar_one()
+            native = published.selected_native_items((request.pointer,))[request.pointer]
             if not isinstance(native, dict):
                 raise ValueError("native item object unavailable")
             if request.view == "cell":
@@ -543,32 +392,17 @@ def _inspect_native_source(
                 )
                 if request.cell_index is None or request.cell_index >= len(cells):
                     raise ValueError("table cell index unavailable")
-                if published is not None:
-                    matches = [
-                        row["body"]["value"]
-                        for row in published.selected_item_reports(
-                            (request.pointer,), kinds=("cell_reports",)
-                        )
-                        if row["body"]["kind"] == "cell_reports"
-                        and row["body"]["value"]["cell_index"] == request.cell_index
-                    ]
-                    if len(matches) > 1:
-                        raise ValueError("cell recognition report is ambiguous")
-                    report = matches[0] if matches else None
-                else:
-                    reports = table("kb.native_document_cell_report")
-                    report = (
-                        conn.execute(
-                            select(reports).where(
-                                reports.c.task_id == request.task_id,
-                                reports.c.product_key == request.product_key,
-                                reports.c.table_pointer == request.pointer,
-                                reports.c.cell_index == request.cell_index,
-                            )
-                        )
-                        .mappings()
-                        .one_or_none()
+                matches = [
+                    row["body"]["value"]
+                    for row in published.selected_item_reports(
+                        (request.pointer,), kinds=("cell_reports",)
                     )
+                    if row["body"]["kind"] == "cell_reports"
+                    and row["body"]["value"]["cell_index"] == request.cell_index
+                ]
+                if len(matches) > 1:
+                    raise ValueError("cell recognition report is ambiguous")
+                report = matches[0] if matches else None
                 rows = [
                     dict(
                         pointer=request.pointer,
@@ -581,36 +415,12 @@ def _inspect_native_source(
             elif request.view == "formula":
                 if native.get("label") != "formula":
                     raise ValueError("native pointer is not a formula")
-                record_reader = published_record_reader(
-                    conn,
-                    ProductReference(request.task_id, request.product_key, request.content_digest),
-                    cancellation=cancellation,
+                outcomes = list(
+                    published.native_metadata("formula_outcomes", pointer=request.pointer)
                 )
-                if record_reader is not None:
-                    outcomes = list(
-                        record_reader.native_metadata("formula_outcomes", pointer=request.pointer)
-                    )
-                    if len(outcomes) > 1:
-                        raise ValueError("formula outcome metadata is ambiguous")
-                    health = outcomes[0] if outcomes else {"outcome": "unknown"}
-                else:
-                    health = conn.execute(
-                        text(
-                            "SELECT outcome.value FROM ops.pdf_selected_product p\n"
-                            "                    CROSS JOIN LATERAL "
-                            "jsonb_array_elements(COALESCE(p.health->'formula_outcomes"
-                            "','[]'::jsonb)) outcome(value)\n"
-                            "                    WHERE p.task_id=:task AND "
-                            "p.product_key=:key AND p.content_digest=:digest AND "
-                            "outcome.value->>'pointer'=:pointer LIMIT 1"
-                        ),
-                        dict(
-                            task=request.task_id,
-                            key=request.product_key,
-                            digest=request.content_digest,
-                            pointer=request.pointer,
-                        ),
-                    ).scalar_one_or_none() or {"outcome": "unknown"}
+                if len(outcomes) > 1:
+                    raise ValueError("formula outcome metadata is ambiguous")
+                health = outcomes[0] if outcomes else {"outcome": "unknown"}
                 rows = [
                     dict(
                         pointer=request.pointer,
@@ -669,7 +479,6 @@ def _inspect_companion(
     """Authorize the exact selected graph before reading retained companion/observation data."""
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.pdf_record_reader import (
-        published_native_table,
         published_record_reader,
     )
     from corpus_structure.semantic.pdf_storage import (
@@ -786,42 +595,21 @@ def _inspect_companion(
         if request.pointer is not None:
             pointers = [request.pointer]
         elif request.section_pointer is not None:
-            from corpus_structure.semantic.pdf_storage import native_descendant_pointers
-
             published = published_record_reader(
                 conn,
                 ProductReference(**pin),
                 cancellation=cancellation,
                 projection_context=projection_context,
             )
-            if published is not None:
-                pointers = [
-                    node["pointer"]
-                    for node in published.section_nodes(
-                        request.section_pointer, request.membership or "direct"
-                    )
-                    if node["role"] == "selected"
-                ]
-            else:
-                item = published_native_table(conn)
-                query = select(item.c.pointer).where(
-                    item.c.task_id == request.task_id, item.c.product_key == request.product_key
+            if published is None:
+                raise ValueError("native section requires a current published record")
+            pointers = [
+                node["pointer"]
+                for node in published.section_nodes(
+                    request.section_pointer, request.membership or "direct"
                 )
-                query = (
-                    query.where(
-                        item.c.pointer.in_(
-                            native_descendant_pointers(
-                                task_id=request.task_id,
-                                product_key=request.product_key,
-                                section_pointer=request.section_pointer,
-                                conn=conn,
-                            )
-                        )
-                    )
-                    if request.membership == "descendants"
-                    else query.where(item.c.section_pointer == request.section_pointer)
-                )
-                pointers = list(conn.execute(query).scalars())
+                if node["role"] == "selected"
+            ]
         result = read_pdf_product(
             conn,
             **pin,
@@ -936,12 +724,7 @@ def _export_native_source(
     from collections import defaultdict
     from pathlib import Path
 
-    from sqlalchemy import Text
-
-    from corpus_structure.semantic.pdf_record_reader import (
-        published_native_table,
-        published_record_reader,
-    )
+    from corpus_structure.semantic.pdf_record_reader import published_record_reader
 
     destination = Path(destination)
     if format == "selected-source-v1":
@@ -985,88 +768,38 @@ def _export_native_source(
             ProductReference(request.task_id, request.product_key, request.content_digest),
             cancellation=cancellation,
         )
-        if record_reader is not None:
-            temporary = destination.with_name(destination.name + ".partial")
-            try:
-                with temporary.open("xb") as sink:
-                    receipt = (
-                        record_reader.write_integrated_json(sink, binding=binding)
-                        if format == "integrated-json"
-                        else record_reader.write_native_json(sink)
-                    )
-                manifest = destination.with_name(destination.name + ".manifest.json")
-                with manifest.open("x", encoding="utf-8") as stream:
-                    json.dump(
-                        dict(
-                            binding,
-                            byte_length=receipt.byte_length,
-                            serialization_sha256=receipt.serialization_sha256,
-                            logical_digest=request.content_digest,
-                            projection="integrated-document"
-                            if format == "integrated-json"
-                            else "docling-content-only",
-                            omissions=[]
-                            if format == "integrated-json"
-                            else ["mandatory evidence companions"],
-                        ),
-                        stream,
-                    )
-                    stream.write("\n")
-                cancellation.check_active()
-                os.link(temporary, destination)
-            finally:
-                temporary.unlink(missing_ok=True)
-            return
-        products = table("ops.pdf_selected_product")
-        native = conn.execute(
-            select(products.c.native_json.cast(Text)).where(
-                products.c.task_id == request.task_id,
-                products.c.product_key == request.product_key,
-                products.c.content_digest == request.content_digest,
-            )
-        ).scalar_one()
-        if format == "integrated-json":
-            from corpus_structure.semantic.pdf_storage import read_pdf_product
-
-            bundle = read_pdf_product(
-                conn,
-                task_id=request.task_id,
-                product_key=request.product_key,
-                content_digest=request.content_digest,
-                limit=1,
-                include_body=True,
-                cancellation=cancellation,
-            )
-            if bundle["identity"]["kind"] != "integrated":
-                raise ValueError("integrated JSON export requires an integrated product")
-            native = json.dumps(
-                to_jsonable_python(dict(binding=binding, product=bundle["body"])),
-                ensure_ascii=False,
-            )
-        else:
+        if record_reader is None:
+            raise ValueError("native export requires a current published record")
+        temporary = destination.with_name(destination.name + ".partial")
+        try:
+            with temporary.open("xb") as sink:
+                receipt = (
+                    record_reader.write_integrated_json(sink, binding=binding)
+                    if format == "integrated-json"
+                    else record_reader.write_native_json(sink)
+                )
             manifest = destination.with_name(destination.name + ".manifest.json")
             with manifest.open("x", encoding="utf-8") as stream:
                 json.dump(
                     dict(
                         binding,
-                        projection="docling-content-only",
-                        omissions=[
-                            "integration decisions",
-                            "alternative observations",
-                            "coverage",
-                            "input provenance",
-                        ],
+                        byte_length=receipt.byte_length,
+                        serialization_sha256=receipt.serialization_sha256,
+                        logical_digest=request.content_digest,
+                        projection="integrated-document"
+                        if format == "integrated-json"
+                        else "docling-content-only",
+                        omissions=[]
+                        if format == "integrated-json"
+                        else ["mandatory evidence companions"],
                     ),
                     stream,
-                    ensure_ascii=False,
                 )
                 stream.write("\n")
-        temporary = destination.with_name(destination.name + ".partial")
-        with temporary.open("x", encoding="utf-8") as stream:
-            stream.write(native)
-            stream.write("\n")
-        os.link(temporary, destination)
-        temporary.unlink()
+            cancellation.check_active()
+            os.link(temporary, destination)
+        finally:
+            temporary.unlink(missing_ok=True)
         return
     if format not in {"jsonl", "parquet"}:
         raise ValueError("unsupported native export format")
@@ -1092,38 +825,14 @@ def _export_native_source(
         cancellation=cancellation,
         projection_context=projection_context,
     )
-    has_derivations = (
-        published.has_native_metadata("derivation_mappings") if published is not None else True
-    )
+    if published is None:
+        raise ValueError("native source requires a current published record")
+    has_derivations = published.has_native_metadata("derivation_mappings")
     # This is the public export shape; placement coordinates remain private to its reader.
-    relation = table("kb.native_document_item")
-    derivation = table("kb.native_document_derivation")
-    products, builds = table("ops.pdf_selected_product"), table("ops.source_build")
-    source = conn.execute(
-        select(
-            builds.c.artifact_digest,
-            products.c.parent_task_id,
-            products.c.parent_product_key,
-            products.c.parent_digest,
-        )
-        .join(products, products.c.task_id == builds.c.task_id)
-        .where(
-            products.c.task_id == request.task_id,
-            products.c.product_key == request.product_key,
-            products.c.content_digest == request.content_digest,
-        )
-    ).one()
-    parent = (
-        _published_parent_product(published)
-        if published is not None
-        else None
-        if source.parent_task_id is None
-        else dict(
-            task_id=source.parent_task_id,
-            product_key=source.parent_product_key,
-            content_digest=source.parent_digest,
-        )
-    )
+    relation = table("ops.pdf_published_item")
+    derivation = table("ops.pdf_published_derivation")
+    source = _published_native_header(published, request.run_id, runtime=False)
+    parent = _published_parent_product(published)
     schema = pa.schema(
         [
             pa.field(c.name, _sql_arrow(c.type), nullable=bool(c.nullable))
@@ -1204,28 +913,8 @@ def _export_native_source(
                         raise ValueError("native export row requires its string pointer")
                     pointers.append(pointer)
                 by_pointer = defaultdict(list)
-                if published is not None:
-                    region_rows = published.selected_regions(pointers)
-                    native = published.selected_native_items(pointers)
-                else:
-                    region = published_native_table(conn, "region")
-                    region_rows = conn.execute(
-                        select(region).where(
-                            region.c.task_id == request.task_id,
-                            region.c.product_key == request.product_key,
-                            region.c.pointer.in_(pointers),
-                        )
-                    ).mappings()
-                    native = {
-                        r.pointer: r.native_json
-                        for r in conn.execute(
-                            select(relation.c.pointer, relation.c.native_json).where(
-                                relation.c.task_id == request.task_id,
-                                relation.c.product_key == request.product_key,
-                                relation.c.pointer.in_(pointers),
-                            )
-                        )
-                    }
+                region_rows = published.selected_regions(pointers)
+                native = published.selected_native_items(pointers)
                 for r in region_rows:
                     by_pointer[r["pointer"]].append(
                         {
@@ -1249,19 +938,7 @@ def _export_native_source(
                         }
                     )
                 mappings = defaultdict(list)
-                mapping_rows = (
-                    _published_derivations(published, pointers)
-                    if published is not None
-                    else conn.execute(
-                        select(derivation)
-                        .where(
-                            derivation.c.task_id == request.task_id,
-                            derivation.c.product_key == request.product_key,
-                            derivation.c.pointer.in_(pointers),
-                        )
-                        .order_by(derivation.c.pointer, derivation.c.mapping_index)
-                    ).mappings()
-                )
+                mapping_rows = _published_derivations(published, pointers)
                 for row in mapping_rows:
                     mappings[row["pointer"]].append(dict(row))
                 rows = [

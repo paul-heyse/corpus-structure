@@ -294,7 +294,6 @@ def test_typed_condition_and_qualified_fact_identity():
     "field,value",
     [
         ("equals_string_in", ["a", "b"]),
-        ("value_presence", "PRESENT"),
         ("list_elements_unique", True),
         ("list_elements_ordered", True),
         ("bindings", [{"range": "Enum"}]),

@@ -222,7 +222,7 @@ def compile_conditional_rules(view: SchemaView) -> dict[str, dict[str, Any]]:
 
 
 def conditional_model_namespace(
-    fragment: dict[str, Any], *, scope: str = "shape", legacy_v10: bool = False
+    fragment: dict[str, Any], *, scope: str = "shape"
 ) -> dict[str, Any]:
     """Build one compiled rule validator and export the same native fragment."""
     if not fragment:
@@ -232,7 +232,7 @@ def conditional_model_namespace(
 
     def validate_rules(model: Any, info: ValidationInfo) -> Any:
         purpose = (info.context or {}).get("validation_purpose", "structural")
-        if not legacy_v10 and scope != "shape" and purpose != scope:
+        if scope != "shape" and purpose != scope:
             return model
         # Keep exact Python values and field presence. JSON serialization would lose
         # Decimal/date types and can accidentally turn omitted defaults into members.
@@ -256,7 +256,7 @@ def conditional_model_namespace(
 
     def json_schema(cls: Any, core_schema: Any, handler: Any) -> dict[str, Any]:
         result = handler(core_schema)
-        if legacy_v10 or scope == "shape":
+        if scope == "shape":
             result.update(deepcopy(normalized))
         return result
 

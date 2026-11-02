@@ -594,16 +594,17 @@ def compile_metadata(view: View, *, target: str = "legacy") -> MetaData:
     ``semantic`` is an explicit compiler target for the application-owned physical module.
     Runtime candidate schemas are never passed to this target by release preparation.
     """
-    if target == "semantic":
-        return _compile_physical(view)
+    if target in {"semantic", "semantic-read"}:
+        return _compile_physical(view, read_only=target == "semantic-read")
     if target != "legacy":
         raise ModelError([f"unknown relational target {target!r}"])
     return _Compiler(view).compile()
 
 
-def _compile_physical(view: View) -> MetaData:
-    if str(view.schema.id) != "https://corpus-structure.org/model/semantic/physical":
-        raise ModelError(["semantic target requires the trusted physical module"])
+def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
+    expected = "read-projections" if read_only else "physical"
+    if str(view.schema.id) != "https://corpus-structure.org/model/semantic/" + expected:
+        raise ModelError(["semantic target requires its trusted physical module"])
     md = MetaData(naming_convention=dict(NAMING_CONVENTION))
     physical_types = {
         "bytea": BYTEA,

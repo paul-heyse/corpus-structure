@@ -196,8 +196,7 @@ def effective_bindings(prepared: PreparedRelease) -> dict[str, Any]:
     artifact = next((a for a in prepared.artifacts if a.kind == "effective_bindings.json"), None)
     if artifact is not None:
         return json.loads(artifact.content)
-    # The supported historical base protocol is resolved from that release's definitions.
-    return compile_effective_bindings(prepared.definitions, prepared.vocabularies)
+    raise ValueError("current release lacks its resolved effective bindings")
 
 
 def statement_definition(prepared: PreparedRelease) -> ClassDefinition:

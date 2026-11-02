@@ -9,11 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 
 from corpus_structure.semantic import _operation_calls as calls
-from corpus_structure.semantic._operation_ids import DocumentId, MethodConfigId, RenditionId, TaskId
 from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
 from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.operation_call_generation import validate_call_bindings
-from corpus_structure.semantic.operation_value_types import SQL_NULL, NativeResultViolation
+from corpus_structure.semantic.operation_value_types import NativeResultViolation
 from corpus_structure.semantic.types import PreparationError
 
 
@@ -60,26 +59,6 @@ def test_core_registration_request_and_selected_result_are_independently_typed()
         materialize(
             (None, "project", "document", "uri", "hash", "/retained", "text/plain", None, "{}")
         )
-
-
-def test_core_nullable_json_direction_is_shared_by_insert_replay_and_output():
-    request = calls.prepare_rendition_build(
-        document_id=DocumentId(1),
-        method_config_id=MethodConfigId(2),
-        rendition_id=RenditionId(3),
-        task_id=TaskId(4),
-        parse_detail={},
-        text_layout=None,
-    )
-    values = calls.values_rendition_build_ops_rendition_build(request)
-    expected = calls.expected_rendition_build_ops_rendition_build(request)
-    assert str(values["text_layout"]) == "NULL"
-    assert expected["text_layout"] is SQL_NULL
-    absent = calls.materialize_rendition_build((1, 2, 3, 4, "{}", None))
-    null = calls.materialize_rendition_build((1, 2, 3, 4, "{}", "null"))
-    assert absent.decoded_json_fields(operation="store_rendition")["text_layout"] is SQL_NULL
-    assert null.decoded_json_fields(operation="store_rendition")["text_layout"] is None
-    assert absent.decoded_json_fields(operation="store_rendition") == expected
 
 
 def test_core_projections_resolve_actual_physical_columns_without_native_dispatch():

@@ -36,7 +36,6 @@ from typing import Any, Literal, NamedTuple, Protocol
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 from corpus_structure.core.canonical import canonical_json, decimal_of_float
-from corpus_structure.core.evidence import RenditionContent
 from corpus_structure.core.payloads import Cost
 from corpus_structure.core.vocab import (
     ConfidenceSource,
@@ -55,7 +54,6 @@ if typing.TYPE_CHECKING:
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.ingest.pdf_candidate_source import CandidatePageSource
-    from corpus_structure.ingest.sentences import TextLayout
     from corpus_structure.semantic.pdf_contracts import PreparedPdfContext, PreparedPdfProduct
     from corpus_structure.semantic.pdf_integrated import (
         PreparedIntegratedPdfProduct,
@@ -207,16 +205,6 @@ class SourceViewDraft:
         return json.loads(self._projection)
 
 
-class RunRendition(NamedTuple):
-    """One of the run's documents with the rendition the run selected for it
-    (`kb.run_rendition`)."""
-
-    document_id: int
-    document_key: str
-    rendition_id: int
-    rendition_key: str
-
-
 class ObservationView(NamedTuple):
     """One effective observation of the run (`kb.run_observation`), its payload as stored."""
 
@@ -291,7 +279,7 @@ class StableObservationReading(ObservationReading, Protocol):
 
 class Reader(Protocol):
     """What a method reads, already scoped to its run: upstream outputs only through reuse and the
-    run's rendition selection (O1 implements it; P0CL-02)."""
+    run's selected source views."""
 
     @property
     def prepared(self) -> PreparedRelease:
@@ -350,28 +338,6 @@ class Reader(Protocol):
     def prepare_pdf_product(
         self, payload: Mapping[str, Any], original: bytes, schema_bytes: bytes, recipe_bytes: bytes
     ) -> PreparedPdfProduct: ...
-
-    def renditions(self) -> Sequence[RunRendition]:
-        """The run's documents and its rendition of each."""
-        ...
-
-    def content(self, rendition_id: int) -> RenditionContent:
-        """A rendition's content: canonical text, segments (sentences included), macro table."""
-        ...
-
-    def segments(self, rendition_id: int) -> Mapping[str, int]:
-        """A rendition's stored segment keys, each with its `kb.segment` id."""
-        ...
-
-    def observations(
-        self, rendition_id: int, method: str, kind: ObservationKind
-    ) -> Sequence[ObservationReading]:
-        """The run's effective observations of a rendition by method and kind."""
-        ...
-
-    def source_coverage(self, rendition_id: int, method: str) -> tuple[SourceCoverageReading, ...]:
-        """Recorded coverage from effective source tasks, independently of emitted assertions."""
-        ...
 
     def measurements(self, method: str, metric: str) -> Sequence[MeasurementView]:
         """Measurements a method wrote, read through reuse."""
@@ -565,15 +531,11 @@ class UnitResult:
     measurements: tuple[MeasurementDraft, ...] = ()
     error: str | None = None
     cost: Cost | None = None
-    rendition: RenditionContent | None = None
     parse_detail: Mapping[str, JsonValue] | None = None
-    text_layouts: tuple[TextLayout, ...] = ()
     coverage: tuple[CoverageDraft, ...] = ()
     source_views: tuple[SourceViewDraft, ...] = ()
 
     def __post_init__(self) -> None:
-        if self.text_layouts and self.rendition is None:
-            raise ValueError("token layouts require their rendition content")
         match self.outcome:
             case ObservationOutcome.PRODUCED:
                 ok = bool(self.observations) and self.error is None

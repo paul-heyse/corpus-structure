@@ -58,12 +58,8 @@ def admit_execution_release(
                 "release omits required execution capabilities: "
                 + ", ".join(sorted(missing_requirements))
             )
-    if prepared.execution_model_id is None and set(prepared.required_capabilities) & {
-        "execution.lifecycle.v1",
-        "execution.identity_exclusions.v1",
-        "conditional_rules_native",
-    }:
-        raise ExecutionAdmissionError("native execution capabilities require a composed model")
+    if prepared.execution_model_id is None:
+        raise ExecutionAdmissionError("native execution requires a composed model")
     unavailable = set(prepared.required_capabilities) - _NATIVE_CAPABILITIES
     if unavailable:
         raise ExecutionAdmissionError(

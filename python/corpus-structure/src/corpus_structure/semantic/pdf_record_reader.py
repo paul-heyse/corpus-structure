@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, TypedDict
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.core.db.store import (
@@ -114,23 +114,12 @@ class PublishedSchemaUnavailable(ValueError):
 
 
 def published_native_table(conn: Connection, kind: str = "item"):
-    """Use current published projections, retaining the archived deployment route."""
-    from sqlalchemy import MetaData
-
+    """Use the current released projection shape without a legacy deployment fallback."""
     from .metadata import table
 
     if kind not in {"item", "region"}:
         raise ValueError("unknown native access projection")
-    name = "ops.pdf_published_" + kind
-    exists = conn.execute(
-        text("SELECT to_regclass(:name) IS NOT NULL"), {"name": name}
-    ).scalar_one()
-    legacy = table("kb.native_document_" + kind)
-    return (
-        legacy.to_metadata(MetaData(), name="pdf_published_" + kind, schema="ops")
-        if exists
-        else legacy
-    )
+    return table("ops.pdf_published_" + kind)
 
 
 def published_record_reader(
@@ -140,17 +129,9 @@ def published_record_reader(
     cancellation: BorrowerCancellation | None = None,
     projection_context: PreparedRelease | None = None,
 ):
-    """Return the published port, or None for an explicitly archived PDF product."""
+    """Return the current published port, or None for a non-source observation."""
     cancellation = cancellation or BorrowerCancellation()
     with cancellation.borrow(conn):
-        available = conn.execute(
-            text(
-                "SELECT to_regprocedure('ops.read_pdf_published_revision(bigint,te"
-                "xt,text)') IS NOT NULL"
-            )
-        ).scalar_one()
-        if not available:
-            return None
         row = _published_revision(conn, reference)
         return (
             PublishedPdfReader(

@@ -34,47 +34,28 @@ def archived(path: Path = _FIXTURE):
     return data, bundle, artifacts
 
 
-def test_v10_archive_uses_products_without_current_preparation(monkeypatch):
-    import corpus_structure.semantic.prepare as compiler
-
-    def unavailable(*args, **kwargs):
-        raise AssertionError("current preparation is not a read dependency")
-
-    monkeypatch.setattr(compiler, "prepare_release", unavailable)
+@pytest.mark.parametrize("compiler", ["10", "11", "12", "13"])
+def test_retired_archived_compilers_refuse(compiler):
     data, bundle, artifacts = archived()
-    prepared = reconstruct_release(
-        data["products"],
-        bytes.fromhex(data["manifest"]),
-        bundle,
-        PreparationProfile(**data["profile"]),
-        artifacts,
-    )
-    assert (
-        prepared.release_id
-        == "release:948013893dd34047c01e9ee7f423942b4d3e6768f168099e4de5893c44518a8a"
-    )
-    value = prepared.validate_json(
-        "Record",
-        """{"id":"r","values":{"a":{"id":"a","kind":"Circle","exact_amount":"1.2300"}},"shape":{"id":"b","kind":"Circle","exact_amount":"2"}}""",
-    )
-    fields = value.model_dump()
-    assert str(fields["values"]["a"]["amount"]) == "1.2300"
-    assert fields["shape"]["kind"] == "Circle"
-    with pytest.raises(ValidationError):
-        prepared.validate_json("Circle", '{"id":"a","kind":"Circle","exact_amount":"-1"}')
-    with pytest.raises(ValidationError):
-        prepared.validate_json("Circle", '{"id":"a","kind":"Circle","typo":"1"}')
-    with pytest.raises(ValidationError):
-        prepared.validate_json("Record", '{"id":"r","values":{"wrong":{"id":"a","kind":"Circle"}}}')
+    with pytest.raises(ValueError, match="unsupported archived compiler"):
+        reconstruct_release(
+            data["products"], bytes.fromhex(data["manifest"]), bundle,
+            PreparationProfile(compiler_version=compiler), artifacts,
+        )
 
 
 @pytest.mark.parametrize(
     "corruption", ["schema", "artifact", "unknown_product", "unknown_compiler"]
 )
 def test_archive_boundary_corruption_or_unknown_abi_refuses(corruption):
-    data, bundle, artifacts = archived()
-    products = deepcopy(data["products"])
-    profile = PreparationProfile(**data["profile"])
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.releases import _products
+
+    _, bundle, _ = archived()
+    current = prepare_release(bundle)
+    artifacts = current.artifacts
+    products = deepcopy(_products(current))
+    profile = PreparationProfile()
     if corruption == "unknown_product":
         products["future_meaning"] = True
     elif corruption == "unknown_compiler":
@@ -89,7 +70,8 @@ def test_archive_boundary_corruption_or_unknown_abi_refuses(corruption):
                 if item["kind"] == kind:
                     item["digest"] = next(a.digest for a in artifacts if a.kind == kind)
     with pytest.raises((ValueError, KeyError)):
-        reconstruct_release(products, bytes.fromhex(data["manifest"]), bundle, profile, artifacts)
+        opened = reconstruct_release(products, current.manifest, bundle, profile, artifacts)
+        opened.adapter("Record")
 
 
 def test_current_boundary_recipe_opens_without_full_preparation():
@@ -117,23 +99,16 @@ def test_current_boundary_recipe_opens_without_full_preparation():
     )
 
 
-def test_historical_analysis_capture_refuses_without_rewriting_evidence():
-    from corpus_structure.semantic.analysis_contracts import prepare_capture_policy
-    from corpus_structure.semantic.types import PreparationError
-
+def test_historical_analysis_archive_refuses_without_rewriting_evidence():
     fixture = _FIXTURE.with_name("reader-v10-analytics.json")
     original = fixture.read_bytes()
     data, bundle, artifacts = archived(fixture)
-    profile = PreparationProfile(**data["profile"])
-    historical = reconstruct_release(
-        data["products"], bytes.fromhex(data["manifest"]), bundle, profile, artifacts
-    )
-    with pytest.raises(
-        PreparationError, match="only live semantic-1/compiler-13 or compiler-14 pure preparation"
-    ):
-        prepare_capture_policy(historical)
+    with pytest.raises(ValueError, match="unsupported archived compiler"):
+        reconstruct_release(
+            data["products"], bytes.fromhex(data["manifest"]), bundle,
+            PreparationProfile(**data["profile"]), artifacts,
+        )
     assert fixture.read_bytes() == original
-    assert historical.release_id == data["products"]["release_id"]
 
 
 def test_current_snapshot_reads_without_compiler_then_explicit_analytical_capture(

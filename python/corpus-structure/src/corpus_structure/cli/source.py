@@ -181,7 +181,7 @@ def native_products(
     json: JsonOpt = False,
 ):
     """List native pins, or a bounded recognition catalog from one finished source task."""
-    from sqlalchemy import or_, select, tuple_
+    from sqlalchemy import or_, select
 
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.metadata import table
@@ -226,9 +226,6 @@ def native_products(
             ancestors.c.product_key == products.c.product_key,
             ancestors.c.content_digest == products.c.content_digest,
         )
-        # The public selected-product view has a required aggregate payload on its
-        # historical branches and no aggregate payload on the record branch. Test
-        # that discriminator in SQL without selecting body bytes or private tables.
         query = (
             select(
                 products.c.task_id,
@@ -237,56 +234,32 @@ def native_products(
                 products.c.release_id,
                 products.c.health.op("-")("formula_outcomes").label("health"),
                 tasks.c.run_id.label("origin_run"),
-                products.c.payload.is_(None).label("record_backed"),
             )
             .join(tasks, tasks.c.id == products.c.task_id)
             .where(or_(tasks.c.run_id == run, pins.exists()))
             .order_by(products.c.task_id, products.c.product_key)
         )
         catalog = list(conn.execute(query).mappings())
-        historical = [
-            (row["task_id"], row["product_key"]) for row in catalog if not row["record_backed"]
-        ]
-        runtime_reports = {}
-        if historical:
-            runtime = table("kb.native_document_runtime")
-            runtime_reports = {
-                (row.task_id, row.product_key): row.report
-                for row in conn.execute(
-                    select(runtime).where(
-                        tuple_(runtime.c.task_id, runtime.c.product_key).in_(historical)
-                    )
-                )
-            }
         from corpus_structure.semantic.pdf_record_reader import published_record_reader
         from corpus_structure.semantic.pdf_storage import _record_product_identity
         from corpus_structure.semantic.product_reference import ProductReference
         from corpus_structure.semantic.releases import open_release
         from corpus_structure.serve.native_source import _published_native_header
 
-        projection_context = None
-        if any(row["record_backed"] for row in catalog):
-            if context.release_id is None:
-                raise ValueError("native catalog requires its archived run release")
-            projection_context = open_release(conn, context.release_id)
+        if context.release_id is None:
+            raise ValueError("native catalog requires its archived run release")
+        projection_context = open_release(conn, context.release_id)
         rows = []
         for row in catalog:
             pin = ProductReference(row["task_id"], row["product_key"], row["content_digest"])
-            if row["record_backed"]:
-                reader = published_record_reader(conn, pin, projection_context=projection_context)
-                if reader is None:
-                    raise ValueError("catalog publication pin is unavailable")
-                _record_product_identity(
-                    conn, pin.task_id, pin.product_key, pin.content_digest, reader
-                )
-                header = _published_native_header(reader, row["origin_run"], runtime=True)
-                health, report, release_id = header.health, header.runtime_report, header.release_id
-            else:
-                health, report, release_id = (
-                    row["health"],
-                    runtime_reports.get((pin.task_id, pin.product_key)),
-                    row["release_id"],
-                )
+            reader = published_record_reader(conn, pin, projection_context=projection_context)
+            if reader is None:
+                raise ValueError("catalog publication pin is unavailable")
+            _record_product_identity(
+                conn, pin.task_id, pin.product_key, pin.content_digest, reader
+            )
+            header = _published_native_header(reader, row["origin_run"], runtime=True)
+            health, report, release_id = header.health, header.runtime_report, header.release_id
             rows.append(
                 NativeProductReport(
                     task_id=pin.task_id,
