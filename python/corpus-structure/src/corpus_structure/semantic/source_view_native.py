@@ -66,6 +66,31 @@ def native_admission_sql(
         raise ValueError("native admission requires an explicit frozen predecessor")
     descriptor = _admission_descriptor(base_admission)
     descriptor.update(current_admission_fields(model))
+    descriptor.pop("base_derived_protocol", None)
+    descriptor.pop("parsing_relationship_profiles", None)
+    owned_relations = (
+        set(metadata.tables)
+        | {
+            item.identity.schema + "." + item.identity.name
+            for item in native_objects
+            if item.identity.kind == "view"
+        }
+        | {item["relation"] for item in descriptor["views"]}
+    )
+    descriptor["readers"] = [
+        item for item in descriptor["readers"] if item["relation"] in owned_relations
+    ]
+    owned_indexes = {
+        (relation.schema + "." if relation.schema else "") + str(index.name)
+        for relation in metadata.tables.values()
+        for index in relation.indexes
+    }
+    descriptor["indexes"] = [
+        item for item in descriptor["indexes"] if item["index"] in owned_indexes
+    ]
+    descriptor["checks"] = [
+        item for item in descriptor["checks"] if item["relation"] in metadata.tables
+    ]
     if authoring_provenance is not None:
         # This explicit authoring witness affects no enforcement field. In
         # particular, do not inherit predecessor provenance as head provenance.
@@ -121,7 +146,16 @@ def native_admission_sql(
 
     # Existing admitted relations evolve from the same current physical model as
     # explicitly added relations. Frozen predecessor columns are not current authority.
-    tables = {name: relation_descriptor(metadata.tables[name]) for name in tables}
+    tables = {
+        name: relation_descriptor(metadata.tables[name])
+        for name in tables
+        if name in metadata.tables
+    }
+    # Removed stored relations cannot retain trigger or table admission authority.
+    # Current views are separately owned NativeObjects, never stored-table metadata.
+    descriptor["triggers"] = [
+        trigger for trigger in descriptor["triggers"] if trigger["relation"] in metadata.tables
+    ]
     for name in extra_relations:
         relation = metadata.tables[name]
         tables[name] = relation_descriptor(relation)

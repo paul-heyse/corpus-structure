@@ -114,8 +114,12 @@ def update_function_inventory(
                 raise ValueError("unsupported native function privilege")
             if stmt.grant_option:
                 raise ValueError("descriptor EXECUTE roles cannot represent grant options")
-            for obj in stmt.objects or ():
-                signature = _object_signature(obj)
+            if all(isinstance(obj, ast.String) for obj in stmt.objects or ()):
+                prefixes = tuple(qualified_name((obj,)) + "." for obj in stmt.objects or ())
+                signatures = [name for name in functions if name.startswith(prefixes)]
+            else:
+                signatures = [_object_signature(obj) for obj in stmt.objects or ()]
+            for signature in signatures:
                 if signature not in functions:
                     continue
                 roles = set(functions[signature]["execute_roles"])

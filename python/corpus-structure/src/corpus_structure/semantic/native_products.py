@@ -280,13 +280,6 @@ def current_admission_fields(model=None) -> dict:
     descriptor: dict[str, Any] = {
         "physical_checks_source_digest": sha256(canonical_bytes(check_sources)).hexdigest()
     }
-    descriptor["base_derived_protocol"] = {
-        "operation": "publish_inference",
-        "projection": "accepted",
-        "universe": "eligible_positive_accepted",
-        "values": "exact",
-        "target": "same_realization",
-    }
     descriptor["physical_relations"] = sorted(metadata.tables)
     descriptor["views"] = [
         {

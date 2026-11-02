@@ -1,7 +1,7 @@
 CREATE OR REPLACE FUNCTION ops.guard_execution_task() RETURNS trigger LANGUAGE plpgsql SET search_path TO 'pg_catalog', 'pg_temp' AS $$
 DECLARE prior text; result text; agent boolean;
 BEGIN
- IF NOT EXISTS(SELECT 1 FROM sem.release WHERE release_id=NEW.release_id AND profile='semantic-2') THEN RETURN NEW; END IF;
+ IF NOT EXISTS(SELECT 1 FROM sem.release WHERE release_id=NEW.release_id AND profile='semantic-2') THEN RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
  result:=ops.execution_task_state(NEW);
  SELECT (m.tier='agent' OR m.family='agent') INTO STRICT agent FROM ops.method_config c JOIN ops.method m ON m.id=c.method_id WHERE c.id=NEW.method_config_id;
  IF TG_OP='INSERT' THEN
@@ -69,7 +69,7 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.guard_execution_run() RETURNS trigger LANGUAGE plpgsql SET search_path TO 'pg_catalog', 'pg_temp' AS $$
 DECLARE prior text; result text;
 BEGIN
- IF NOT EXISTS(SELECT 1 FROM sem.release WHERE release_id=NEW.release_id AND profile='semantic-2') THEN RETURN NEW; END IF;
+ IF NOT EXISTS(SELECT 1 FROM sem.release WHERE release_id=NEW.release_id AND profile='semantic-2') THEN RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
  IF TG_OP='INSERT' THEN
   PERFORM sem.require_execution_operation(NEW.release_id,'start_run');
   IF NEW.status<>'created' OR NEW.sealed OR NEW.result_realization_id IS NOT NULL THEN
@@ -140,10 +140,8 @@ BEGIN
    RAISE EXCEPTION 'task document is outside bound project';
  ELSIF NEW.unit_type='source_view' AND NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=NEW.run_id AND source_view_id=NEW.unit_id) THEN
    RAISE EXCEPTION 'task source view outside bound run';
- ELSIF NEW.unit_type='rendition' AND NOT EXISTS(SELECT 1 FROM ops.run_rendition WHERE run_id=NEW.run_id AND rendition_id=NEW.unit_id) THEN
-   RAISE EXCEPTION 'task rendition is outside bound run';
- ELSIF NEW.unit_type='segment' AND NOT EXISTS(SELECT 1 FROM kb.segment s JOIN ops.run_rendition rr ON rr.rendition_id=s.rendition_id WHERE rr.run_id=NEW.run_id AND s.id=NEW.unit_id) THEN
-   RAISE EXCEPTION 'task segment is outside bound run';
+ ELSIF NEW.unit_type IN ('rendition','segment','span') THEN
+   RAISE EXCEPTION 'retired source task addressing requires current SourceView custody' USING ERRCODE='23514';
  END IF;
  RETURN NEW;
 END $$;

@@ -233,6 +233,175 @@ def _release_guard_definitions(connection, sql, *, source):
     return tuple(definitions)
 
 
+# Only these retired entry points leave the current runtime. Their definitions are
+# recovered from frozen declarations, never adopted from a deployed catalog.
+_RETIRED_SOURCE_FUNCTIONS = frozenset(
+    {
+        ("kb", "check_offsets"),
+        *(
+            ("eval", name)
+            for name in (
+                "add_reference_unit",
+                "record_reference_evaluation",
+                "record_reference_pass",
+                "relocate_reference_frame",
+                "reference_snapshot",
+            )
+        ),
+        *(
+            ("ops", name)
+            for name in (
+                "parsing_origin_known",
+                "publish_integrated_pdf",
+                "publish_layered_parsing_product",
+                "publish_native_document",
+                "publish_parsing_product",
+                "publish_pdf_inline_reports",
+                "record_source_frame",
+                "register_native_pdf",
+                "register_parsing_source",
+                "require_parsing_product",
+                "source_locator_segment",
+                "source_statement_locator",
+                "validate_pdf_ocr_pages",
+                "legacy_integrated_source_context",
+                "integrated_source_context",
+            )
+        ),
+    }
+)
+_CURRENT_SOURCE_GUARDS = {
+    ("eval", "guard_scientific_decisions"): "execution_projection.sql",
+    ("sem", "require_execution_operation"): "execution_projection.sql",
+    ("ops", "guard_task_method_contract"): "current_operation_guards.sql",
+    ("ops", "require_atomic_evaluation"): "current_operation_guards.sql",
+    ("data", "is_bound_statement"): "closure.sql",
+    ("data", "publish_derived_batch_v2"): "derived_publication.sql",
+    ("data", "check_evidence_source"): "closure.sql",
+    ("data", "validate_occurrence_context"): "closure.sql",
+    ("data", "validate_identity_exclusions"): "exclusions.sql",
+    ("ops", "guard_task_lifecycle"): "execution_guards.sql",
+    ("ops", "guard_execution_run"): "execution_guards.sql",
+    ("ops", "validate_measurement_definition"): "source_views.sql",
+}
+
+
+def _source_guard_predecessors(connection):
+    """Normalize bounded frozen source guards/retirements and their dependent triggers."""
+    from .migrations import ALEMBIC_DIR
+    from .native_function_signatures import function_signature
+    from .native_inventory import update_function_inventory
+
+    owner = semantic_namespace_owner(connection)
+    if owner is None:
+        raise NativeAuthoringError("source guard authoring requires its semantic owner")
+    inventory, functions, triggers = {}, {}, {}
+    selected = (
+        _RETIRED_SOURCE_FUNCTIONS
+        | set(_CURRENT_SOURCE_GUARDS)
+        | {("sem", "require_archive_bytes"), ("sem", "require_execution_projection")}
+    )
+    for path in sorted(ALEMBIC_DIR.joinpath("versions").glob("semantic_0[0-9][0-9][0-9]_*.sql")):
+        sql = path.read_text().replace("__MIGRATION_OWNER__", owner)
+        prepared = update_function_inventory(inventory, sql, owner=owner)
+        for index, raw in enumerate(prepared.statements):
+            stmt = raw.stmt
+            if isinstance(stmt, ast.CreateFunctionStmt):
+                name = tuple(part.sval for part in stmt.funcname or ())
+                if name in selected:
+                    declaration = prepared.excerpt(index)
+                    if not stmt.replace:
+                        declaration = declaration.replace(
+                            "CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", 1
+                        )
+                    functions[function_signature(stmt)] = (path.name, declaration)
+            elif isinstance(stmt, ast.CreateTrigStmt):
+                name = tuple(part.sval for part in stmt.funcname or ())
+                if name in selected:
+                    definition = definition_from_sql(
+                        connection,
+                        prepared.excerpt(index),
+                        source=path.name,
+                    )
+                    from .native_catalog import relation_owner
+
+                    parent = definition.identity.schema + "." + str(definition.identity.relation)
+                    parent_owner = connection.scalar(relation_owner(parent))
+                    if parent_owner is None and parent not in metadata.tables:
+                        continue  # Its explicitly retired table already left this realization.
+                    if parent_owner not in {owner, "corpus_sem_publisher"}:
+                        raise NativeAuthoringError(
+                            "source trigger has an unsupported owning relation"
+                        )
+                    definition = replace(definition, owner=parent_owner)
+                    if parent_owner == owner:
+                        definition = replace(
+                            definition,
+                            bind_owner=True,
+                            role_bindings=(("$migration_owner", "sem_namespace_owner"),),
+                        )
+                    triggers[definition.identity] = (name, definition)
+    definitions = []
+    for signature, (source, sql) in functions.items():
+        if signature not in inventory:
+            continue  # The frozen source explicitly removed that overload.
+        facts = inventory[signature]
+        definition = definition_from_sql(
+            connection,
+            sql,
+            source=source,
+            owner=facts["owner"],
+            grants=tuple((role, "EXECUTE", False) for role in facts["execute_roles"]),
+        )
+        if (definition.identity.schema, definition.identity.name) in {
+            ("sem", "require_archive_bytes"),
+            ("sem", "require_execution_projection"),
+            ("sem", "require_execution_operation"),
+        }:
+            # Frozen0033 creates these under the migration owner before the later
+            # publisher-owned replacements; CREATE OR REPLACE retains that EXECUTE.
+            definition = replace(
+                definition,
+                grants=(*definition.grants, (owner, "EXECUTE", False)),
+                role_bindings=(("$migration_owner", "sem_namespace_owner"),),
+            )
+        if definition.owner == owner:
+            definition = replace(
+                definition,
+                bind_owner=True,
+                role_bindings=(("$migration_owner", "sem_namespace_owner"),),
+            )
+        definitions.append(definition)
+    definitions.extend(item for _, item in triggers.values())
+    return tuple(definitions), triggers
+
+
+def _current_source_guard_definitions(connection):
+    predecessors, triggers = _source_guard_predecessors(connection)
+    result = []
+    for item in predecessors:
+        key = (item.identity.schema, item.identity.name)
+        if item.identity.kind != "function" or key not in _CURRENT_SOURCE_GUARDS:
+            continue
+        path = Path(__file__).with_name("sql").joinpath(_CURRENT_SOURCE_GUARDS[key])
+        if path.name == "derived_publication.sql":
+            from .native_products import derived_publication_sql
+
+            sql = derived_publication_sql()
+        else:
+            sql = path.read_text()
+        prepared = prepare_sql(sql, source=path.name)
+        declaration = next(
+            prepared.excerpt(index)
+            for index, raw in enumerate(prepared.statements)
+            if isinstance(raw.stmt, ast.CreateFunctionStmt)
+            and tuple(part.sval for part in raw.stmt.funcname or ()) == key
+        )
+        result.append(replace(item, sql=declaration, source=path.name + ":current source custody"))
+    result.extend(item for name, item in triggers.values() if name in _CURRENT_SOURCE_GUARDS)
+    return tuple(result)
+
+
 def series_predecessor_definitions(connection):
     """Bounded predecessor source; never infer desired meaning from a deployed catalog."""
     from .migrations import ALEMBIC_DIR
@@ -244,11 +413,6 @@ def series_predecessor_definitions(connection):
     completion = ALEMBIC_DIR / "versions/semantic_0050_native_evidence.sql"
     direction = ALEMBIC_DIR / "versions/semantic_0029_reference_boundaries.sql"
     return (
-        *_release_guard_definitions(
-            connection,
-            ALEMBIC_DIR.joinpath("versions/semantic_0033_kernels.sql").read_text(),
-            source="frozen0033 release guards",
-        ),
         _shape_definition(connection, sql, source=path.name),
         _context_definition(connection, sql, source=path.name),
         *_pdf_payload_definitions(connection, sql, source=path.name),
@@ -404,6 +568,7 @@ def series_native_definitions(connection, *, include_selected=True):
                         ),
                     )
                 )
+    definitions.extend(_current_source_guard_definitions(connection))
     return tuple(definitions)
 
 
@@ -565,6 +730,12 @@ class _PredecessorSource:
     def permits_backfill(self, identity: NativeIdentity) -> bool:
         if identity in self.retirements:
             return False
+        if identity.kind == "trigger":
+            from .source_view_native import _admission_descriptor
+
+            return identity.schema + "." + str(identity.relation) in set(
+                _admission_descriptor(self.admission)["physical_relations"]
+            )
         if identity.kind != "function":
             return True
         from .source_view_native import _admission_descriptor
@@ -637,6 +808,33 @@ def _predecessor_source(connection, *, predecessor=None, predecessor_state=None)
     return _PredecessorSource(objects, admission or state_admission, retirements)
 
 
+def _order_physical_retirement(upgrade_ops):
+    """Remove FK dependencies before native replacement and stored relation retirement."""
+    from alembic.operations import ops
+
+    from .alembic_native import NativeTransitionOp
+
+    native = [item for item in upgrade_ops.ops if isinstance(item, NativeTransitionOp)]
+    drops = [item for item in upgrade_ops.ops if isinstance(item, ops.DropTableOp)]
+    ordinary = [
+        item
+        for item in upgrade_ops.ops
+        if not isinstance(item, (NativeTransitionOp, ops.DropTableOp))
+    ]
+    constraints = []
+    for item in drops:
+        # Alembic's reflected table ordering may contain cycles. These constraints
+        # leave with their explicitly removed table, so retire their edges first.
+        relation = item.to_table()
+        constraints.extend(
+            ops.DropConstraintOp.from_constraint(constraint)
+            for constraint in sorted(
+                relation.foreign_key_constraints, key=lambda constraint: str(constraint.name)
+            )
+        )
+    upgrade_ops.ops[:] = [*ordinary, *constraints, *native, *drops]
+
+
 def prepare_series_candidate(
     connection,
     *,
@@ -683,6 +881,30 @@ def prepare_series_candidate(
                 connection, newly_managed, owned_authoring=owned_authoring
             ).desired
             product_predecessor = (*product_predecessor, *normalized)
+    if frozen_before is not None:
+        extra, _ = _source_guard_predecessors(connection)
+        known = {item.identity for item in product_predecessor}
+        extra = tuple(
+            item
+            for item in extra
+            if item.identity not in known and source.permits_backfill(item.identity)
+        )
+        if extra:
+            normalized = prepare_native_authoring(
+                connection, extra, owned_authoring=owned_authoring
+            ).desired
+            product_predecessor = (*product_predecessor, *normalized)
+    desired_identities = {item.identity for item in products}
+    retired_source = frozenset(
+        item.identity
+        for item in product_predecessor
+        if item.identity not in desired_identities
+        and (
+            (item.identity.schema, item.identity.name) in _RETIRED_SOURCE_FUNCTIONS
+            or item.identity.kind == "trigger"
+        )
+    )
+    retire = retire | retired_source
     product_authoring = prepare_native_authoring(
         connection,
         products,
@@ -767,7 +989,10 @@ def prepare_series_candidate(
             "native_authoring": authoring,
         },
     )
-    return produce_migrations(context, target_metadata), authoring
+    candidate = produce_migrations(context, target_metadata)
+    if candidate.upgrade_ops is not None:
+        _order_physical_retirement(candidate.upgrade_ops)
+    return candidate, authoring
 
 
 def definition_sql(definitions) -> str:

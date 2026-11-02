@@ -12,6 +12,7 @@ from .native_objects import (
     NativeAuthoringError,
     NativeObject,
     execute_native_sql,
+    execute_native_trigger,
     native_owner,
     observe_native,
     set_native_acl,
@@ -123,7 +124,10 @@ def execute_native(operations, operation):
                 raise NativeAuthoringError("native transition lacks its desired catalog material")
             for statement in operation.after.statements:
                 # SQLAlchemy no_parameters preserves archived colon/percent content.
-                execute_native_sql(connection, statement)
+                if operation.identity.kind == "trigger":
+                    execute_native_trigger(connection, statement)
+                else:
+                    execute_native_sql(connection, statement)
             if operation.identity.kind != "trigger":
                 # Frozen complete ACL replaces ambient default grants and prior effects.
                 set_native_acl(
@@ -175,8 +179,14 @@ def compare_native(autogen_context, upgrade_ops, schemas):
         )
         actual = observe_native(autogen_context.connection, identity, catalog_version=None)
         if actual != target and actual != expected:
+            changed = sorted(
+                key
+                for key in set(actual or {}) | set(expected or {})
+                if (actual or {}).get(key) != (expected or {}).get(key)
+            )
             raise NativeAuthoringError(
-                f"unexpected catalog state for managed native object {identity.qualified}"
+                f"unexpected catalog state for managed native object {identity.qualified}: "
+                + ", ".join(changed)
             )
     recreations = (
         authoring.recreate

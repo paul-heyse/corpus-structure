@@ -58,6 +58,45 @@ def native_owner(connection: Connection, owner: str | None):
             execute_native_sql(connection, "SET LOCAL ROLE " + role)
 
 
+def execute_native_trigger(connection: Connection, sql: str) -> None:
+    """Install a declared trigger without changing its function's final EXECUTE ACL.
+
+    Existing triggers may legitimately join a migration-owned relation to a protected
+    publisher-owned trigger function. PostgreSQL checks EXECUTE when creating the
+    trigger, so grant only for that statement and restore it before returning.
+    """
+    tree = prepare_sql(sql, source="native trigger installation").statements
+    if len(tree) != 1 or not isinstance(tree[0].stmt, ast.CreateTrigStmt):
+        execute_native_sql(connection, sql)
+        return
+    statement = tree[0].stmt
+    if not statement.funcname:
+        raise NativeAuthoringError("native trigger function name is absent")
+    signature = ".".join(_quote(part.sval) for part in statement.funcname) + "()"
+    principal = connection.scalar(text("SELECT current_user"))
+    permitted = connection.scalar(
+        select(catalog_queries.pg.has_function_privilege(principal, signature, "EXECUTE"))
+    )
+    if permitted:
+        execute_native_sql(connection, sql)
+        return
+    function = connection.execute(catalog_queries.function_observation(signature)).mappings().one()
+    with native_owner(connection, function["owner"]):
+        execute_native_sql(
+            connection, "GRANT EXECUTE ON FUNCTION " + signature + " TO " + _quote(principal)
+        )
+    try:
+        execute_native_sql(connection, sql)
+    except DBAPIError:
+        # The caller's failed transaction/savepoint rolls back both grant and CREATE.
+        raise
+    else:
+        with native_owner(connection, function["owner"]):
+            execute_native_sql(
+                connection, "REVOKE EXECUTE ON FUNCTION " + signature + " FROM " + _quote(principal)
+            )
+
+
 @dataclass(frozen=True)
 class NativeIdentity:
     kind: str
@@ -556,7 +595,10 @@ def prepare_native_authoring(
                     owner = parent_owner
                 with native_owner(connection, owner):
                     for statement in item.install_sql:
-                        execute_native_sql(connection, statement)
+                        if item.identity.kind == "trigger":
+                            execute_native_trigger(connection, statement)
+                        else:
+                            execute_native_sql(connection, statement)
                     if item.identity.kind != "trigger":
                         set_native_acl(
                             connection,

@@ -42,7 +42,8 @@ BEGIN
     (pa.constraint_scope NOT IN ('shape','accepted_value') OR pa.constraints->>'pattern' IS NOT NULL
      OR COALESCE(pa.constraints->'patterns','[]'::jsonb) NOT IN ('[]'::jsonb,'null'::jsonb))) THEN
    RAISE EXCEPTION 'unsupported required native constraint scope or pattern' USING ERRCODE='23514'; END IF;
- IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN RETURN; END IF;
+ IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN
+  RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
  WITH rules AS (
   SELECT convert_from(body,'UTF8')::jsonb rule FROM sem.registry_row WHERE release_id=r AND kind='inference_rule'
  ), signatures AS (

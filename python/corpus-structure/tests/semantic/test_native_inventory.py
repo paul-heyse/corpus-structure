@@ -22,3 +22,18 @@ ALTER FUNCTION "odd S"."F :%"(int) OWNER TO "owner X";
     assert spec["config"] == ["search_path=pg_catalog, pg_temp", "work_mem=64MB"]
     assert function_bodies(prepared)["odd S.F :%"] == "SELECT 'x:100%'"
     assert prepared.sql == sql
+
+
+def test_schema_wide_execute_effects_preserve_other_schemas():
+    functions = {}
+    update_function_inventory(
+        functions,
+        """
+CREATE OR REPLACE FUNCTION eval.a() RETURNS bigint LANGUAGE sql AS $$SELECT 1$$;
+CREATE OR REPLACE FUNCTION ops.b() RETURNS bigint LANGUAGE sql AS $$SELECT 2$$;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA eval FROM PUBLIC;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA eval TO corpus_sem_evaluator;
+""",
+    )
+    assert functions["eval.a()"]["execute_roles"] == ["corpus_sem_evaluator"]
+    assert functions["ops.b()"]["execute_roles"] == ["PUBLIC"]

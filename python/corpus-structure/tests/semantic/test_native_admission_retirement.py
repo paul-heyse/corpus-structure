@@ -25,7 +25,10 @@ LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$ SELECT p_value $
 ALTER FUNCTION {name}(integer,text) OWNER TO corpus_sem_publisher;
 REVOKE ALL ON FUNCTION {name}(integer,text) FROM PUBLIC;
 """
-    predecessor = native_admission_sql(original)
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR
+
+    frozen = ALEMBIC_DIR / "versions/semantic_pdf_header_20261102_admission.sql"
+    predecessor = native_admission_sql(original, base_admission=frozen.read_text())
     retired = NativeIdentity("function", "ops", "retirement_probe", ("integer",))
     first = native_admission_sql(
         replacement, base_admission=predecessor, retire=frozenset({retired})

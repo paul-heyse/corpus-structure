@@ -3,7 +3,7 @@ CREATE OR REPLACE FUNCTION sem.require_execution_operation(r text,operation text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $operation$
 DECLARE supported jsonb; actual jsonb; expected jsonb; archived_abi text;
 BEGIN
- IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN RETURN; END IF;
+ IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
  SELECT convert_from(body,'UTF8')::jsonb->'inputs'->>'compiler_version' INTO archived_abi
  FROM sem.registry_row WHERE release_id=r AND kind='execution_model';
  IF archived_abi IS DISTINCT FROM data.execution_contract_descriptor()->>'execution_abi'
@@ -76,7 +76,7 @@ BEGIN
  IF p_limit<1 OR nullif(p_holder,'') IS NULL THEN RAISE EXCEPTION 'positive claim limit and nonempty holder required'; END IF;
  SELECT * INTO STRICT job FROM ops.run WHERE id=p_run FOR SHARE;
  PERFORM sem.require_execution_operation(job.release_id,'claim');
- IF job.sealed OR job.status NOT IN ('created','running') THEN RETURN; END IF;
+ IF job.sealed OR job.status NOT IN ('created','running') THEN RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
  RETURN QUERY WITH candidates AS MATERIALIZED (
   SELECT id FROM ops.task WHERE run_id=p_run AND method_config_id=p_config
    AND (status=CASE WHEN p_agent THEN 'awaiting_agent' ELSE 'pending' END OR (status='running' AND lease_until<clock_timestamp()))
@@ -120,7 +120,7 @@ DECLARE r text; recipe jsonb; rule jsonb; parent jsonb;
 BEGIN
  SELECT release_id INTO STRICT r FROM eval.reference_set WHERE id=NEW.set_id;
  PERFORM sem.require_execution_operation(r,'reference_grade');
- IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN RETURN NEW; END IF;
+ IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
  PERFORM sem.require_scientific_layout(r);
  SELECT convert_from(content,'UTF8')::jsonb INTO STRICT recipe FROM sem.artifact
  WHERE release_id=r AND artifact_name='operation/scientific-policy.json';

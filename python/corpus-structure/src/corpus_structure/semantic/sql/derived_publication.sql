@@ -43,13 +43,8 @@ BEGIN
  PERFORM data.require_execution_release(r);
  SELECT convert_from(body,'UTF8')::jsonb INTO model FROM sem.registry_row
   WHERE release_id=r AND kind='execution_model';
- IF model IS NULL THEN
-  SELECT data.execution_contract_descriptor()->'base_derived_protocol' INTO base;
-  IF NOT EXISTS(SELECT FROM sem.release released WHERE released.release_id=r AND released.profile='semantic-1') OR
-   base IS DISTINCT FROM '{"operation":"publish_inference","projection":"accepted","universe":"eligible_positive_accepted","values":"exact","target":"same_realization"}'::jsonb OR
-   operation IS DISTINCT FROM base->>'operation' OR contract_id IS DISTINCT FROM base->>'projection' THEN
-   RAISE EXCEPTION 'release has no admitted derived operation/projection' USING ERRCODE='23514'; END IF;
- ELSE
+ IF model IS NULL THEN RAISE EXCEPTION 'derived publication requires a current composed execution model' USING ERRCODE='23514';
+ END IF;
   SELECT value INTO op FROM jsonb_array_elements(model->'operations') WHERE value->>'id'=operation;
   SELECT value INTO contract FROM jsonb_array_elements(model->'projections') WHERE value->>'id'=contract_id;
   IF op IS NULL OR contract IS NULL OR NOT (op->'projections' ? contract_id) THEN
@@ -65,7 +60,6 @@ BEGIN
     (contract->>'implementation',contract->>'lifetime') IS DISTINCT FROM
     (CASE contract_id WHEN 'candidate' THEN 'analysis' ELSE 'query' END,CASE contract_id WHEN 'candidate' THEN 'scope' ELSE 'snapshot' END) THEN
    RAISE EXCEPTION 'derived analytical projection policy is unsupported' USING ERRCODE='23514'; END IF;
- END IF;
  IF operation='evaluate' AND contract_id='candidate' THEN
   IF cut_id IS NULL OR cut_id<1 OR profile_digest IS NULL OR projection IS NULL THEN
    RAISE EXCEPTION 'candidate projection requires bound cut/profile' USING ERRCODE='23514'; END IF;

@@ -18,9 +18,8 @@ BEGIN
  FOR item IN SELECT value FROM jsonb_array_elements(p_rows) LOOP
    IF t.unit_type='source_view' AND (item->>'source_view_id')::bigint IS DISTINCT FROM t.unit_id THEN
     RAISE EXCEPTION 'native observation differs from producing source-view task unit' USING ERRCODE='23514'; END IF;
-   IF item->>'rendition_id' IS NOT NULL AND NOT EXISTS(SELECT 1 FROM ops.run_rendition rr WHERE rr.run_id=t.run_id AND rr.rendition_id=(item->>'rendition_id')::bigint) THEN
-     RAISE EXCEPTION 'observation rendition outside run';
-   END IF;
+   IF item->>'rendition_id' IS NOT NULL OR item->>'segment_id' IS NOT NULL OR item->>'span_id' IS NOT NULL THEN
+    RAISE EXCEPTION 'observation requires current SourceView custody' USING ERRCODE='23514'; END IF;
    IF item->>'source_view_id' IS NOT NULL THEN
     IF item->>'rendition_id' IS NOT NULL OR item->>'span_id' IS NOT NULL OR item->>'segment_id' IS NOT NULL OR NOT EXISTS(SELECT FROM ops.run_source_view WHERE run_id=t.run_id AND source_view_id=(item->>'source_view_id')::bigint) THEN
      RAISE EXCEPTION 'native observation is outside run or aliases coordinates' USING ERRCODE='23514'; END IF;

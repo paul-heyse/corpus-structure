@@ -34,7 +34,6 @@ BEGIN
  IF EXISTS(SELECT FROM data.identity_exclusion x WHERE x.release_id=r AND x.realization_id=z AND
    NOT EXISTS(SELECT FROM data.identity_exclusion_evidence xe JOIN data.evidence_source es USING(release_id,realization_id,evidence_id)
      JOIN data.evidence ev USING(release_id,realization_id,evidence_id)
-     LEFT JOIN kb.span span ON span.id=es.span_id
      CROSS JOIN LATERAL (SELECT CASE WHEN es.source_view_id IS NOT NULL THEN
        substring(ops.native_source_address(es.source_view_id,es.native_address) FROM 5)::jsonb END address) native
      JOIN kb.observation o ON o.id=x.observation_id AND o.release_id=r
@@ -43,8 +42,8 @@ BEGIN
      WHERE xe.release_id=r AND xe.realization_id=z AND xe.exclusion_id=x.exclusion_id
        AND es.observation_id=x.observation_id AND d->>'id'=x.local_id
        AND e->>'outcome'='located' AND e->>'role'='primary'
-       AND (e->>'start')::bigint=COALESCE(span.start_offset,(native.address->>'start')::bigint)
-       AND (e->>'end')::bigint=COALESCE(span.end_offset,(native.address->>'end')::bigint)
+       AND (e->>'start')::bigint=(native.address->>'start')::bigint
+       AND (e->>'end')::bigint=(native.address->>'end')::bigint
        AND ev.locator::jsonb=jsonb_build_object('locator',e->'locator','start',(e->>'start')::bigint,
          'end',(e->>'end')::bigint,'role',e->'role')))
  THEN RAISE EXCEPTION 'identity exclusion lacks located primary custody' USING ERRCODE='23514'; END IF;
@@ -80,17 +79,17 @@ BEGIN
    WHERE x.release_id=r AND x.realization_id=z AND d->>'id'=x.local_id AND e->>'outcome'='located'
    GROUP BY x.exclusion_id,e->>'start',e->>'end',e->>'role',e->>'locator'
  ), actual AS (
-   SELECT x.exclusion_id,COALESCE(span.start_offset,(native.address->>'start')::bigint) start_offset,
-     COALESCE(span.end_offset,(native.address->>'end')::bigint) end_offset,
+   SELECT x.exclusion_id,(native.address->>'start')::bigint start_offset,
+     (native.address->>'end')::bigint end_offset,
      ev.locator::jsonb->>'role' role,ev.locator::jsonb->>'locator' locator,count(*) n
    FROM data.identity_exclusion x JOIN data.identity_exclusion_evidence xe USING(release_id,realization_id,exclusion_id)
    JOIN data.evidence_source es USING(release_id,realization_id,evidence_id)
-   JOIN data.evidence ev USING(release_id,realization_id,evidence_id) LEFT JOIN kb.span span ON span.id=es.span_id
+   JOIN data.evidence ev USING(release_id,realization_id,evidence_id)
    CROSS JOIN LATERAL (SELECT CASE WHEN es.source_view_id IS NOT NULL THEN
      substring(ops.native_source_address(es.source_view_id,es.native_address) FROM 5)::jsonb END address) native
    WHERE x.release_id=r AND x.realization_id=z AND es.observation_id=x.observation_id
-   GROUP BY x.exclusion_id,COALESCE(span.start_offset,(native.address->>'start')::bigint),
-     COALESCE(span.end_offset,(native.address->>'end')::bigint),ev.locator::jsonb->>'role',ev.locator::jsonb->>'locator'
+   GROUP BY x.exclusion_id,(native.address->>'start')::bigint,
+     (native.address->>'end')::bigint,ev.locator::jsonb->>'role',ev.locator::jsonb->>'locator'
  ) SELECT FROM ((SELECT * FROM expected EXCEPT SELECT * FROM actual)
    UNION ALL (SELECT * FROM actual EXCEPT SELECT * FROM expected)) mismatch)
  THEN RAISE EXCEPTION 'identity exclusion evidence differs from source citations' USING ERRCODE='23514'; END IF;

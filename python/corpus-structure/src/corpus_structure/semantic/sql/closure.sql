@@ -161,45 +161,12 @@ $body$;
 
 CREATE OR REPLACE FUNCTION data.is_bound_statement(r text,c text) RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $body$
-DECLARE bound text; base text; model jsonb;
+DECLARE bound text; model jsonb;
 BEGIN
  SELECT convert_from(body,'UTF8')::jsonb INTO model FROM sem.registry_row
  WHERE release_id=r AND kind='effective_bindings' AND name='effective-bindings-11';
  IF model IS NOT NULL THEN bound:=model->'statement'->>'class_iri';
- ELSE
-  SELECT target.class_id INTO bound FROM sem.class_definition binding
-  JOIN sem.property_applicability field ON field.release_id=binding.release_id AND field.class_id=binding.class_id
-  JOIN sem.class_definition target ON target.release_id=field.release_id AND target.name=field.range_name
-  WHERE binding.release_id=r AND binding.name='AgentStatementBinding' AND field.constraints->>'name'='statement'
-   AND NOT field.multivalued AND NOT COALESCE((field.constraints->>'inlined')::boolean,false);
-  IF bound IS NULL AND EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-1')
-     AND NOT EXISTS(SELECT FROM sem.class_definition WHERE release_id=r AND name='AgentStatementBinding') THEN
-   SELECT class_id INTO bound FROM sem.class_definition WHERE release_id=r AND name='SourceStatement';
-  END IF;
-  IF bound IS NULL THEN RAISE EXCEPTION 'missing archived statement binding' USING ERRCODE='23514'; END IF;
-  -- Historical archives have no v11 effective product. Validate their explicitly
-  -- supported protocol instead of accepting any class named by a legacy binding.
-  SELECT class_id INTO base FROM sem.class_definition WHERE release_id=r AND name='SourceStatement';
-  IF base IS NULL OR NOT (bound=base OR EXISTS(SELECT FROM sem.class_hierarchy
-      WHERE release_id=r AND class_id=bound AND ancestor_id=base))
-     OR NOT EXISTS(SELECT FROM sem.class_definition WHERE release_id=r AND class_id=bound AND NOT abstract)
-     OR NOT EXISTS(SELECT FROM sem.property_applicability p WHERE p.release_id=r AND p.class_id=bound
-       AND p.constraints->>'name'='id' AND NOT p.multivalued
-       AND NOT COALESCE((p.constraints->>'inlined')::boolean,false)
-       AND p.constraints->>'native_range' IN ('string','uri','uriorcurie')
-       AND EXISTS(SELECT FROM sem.identity_slot i WHERE i.release_id=r AND i.class_id=bound
-           AND i.group_id='0' AND i.position=0 AND i.property_id=p.property_id)
-       AND (SELECT count(*) FROM sem.identity_slot i WHERE i.release_id=r AND i.class_id=bound AND i.group_id='0')=1)
-     OR NOT EXISTS(SELECT FROM sem.property_applicability p WHERE p.release_id=r AND p.class_id=bound
-       AND p.constraints->>'name'='locator' AND p.required AND NOT p.multivalued
-       AND NOT COALESCE((p.constraints->>'inlined')::boolean,false)
-       AND p.constraints->>'native_range' IN ('string','uri','uriorcurie'))
-     OR NOT EXISTS(SELECT FROM sem.property_applicability p WHERE p.release_id=r AND p.class_id=bound
-       AND p.constraints->>'name'='statement_kind' AND NOT p.multivalued
-       AND NOT COALESCE((p.constraints->>'inlined')::boolean,false)
-       AND EXISTS(SELECT FROM sem.vocabulary_member v WHERE v.release_id=r AND v.vocabulary_id=p.range_name)) THEN
-   RAISE EXCEPTION 'invalid archived source-statement protocol; derive a supported bound release' USING ERRCODE='23514';
-  END IF;
+ ELSE RAISE EXCEPTION 'missing current resolved statement binding' USING ERRCODE='23514';
  END IF;
  RETURN bound IS NOT NULL AND EXISTS(SELECT FROM sem.class_definition WHERE release_id=r AND class_id=bound)
   AND (c=bound OR EXISTS(SELECT FROM sem.class_hierarchy WHERE release_id=r AND class_id=c AND ancestor_id=bound));
@@ -208,8 +175,8 @@ $body$;
 
 CREATE OR REPLACE FUNCTION data.check_evidence_source() RETURNS trigger LANGUAGE plpgsql
 SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
-DECLARE observation kb.observation; ev data.evidence; span kb.span; method_name text;
- operation_version text; uri text; rendition_key text; matched boolean; locator_matched boolean; synthesis jsonb;
+DECLARE observation kb.observation; ev data.evidence; method_name text;
+ operation_version text; uri text; matched boolean;
  native_view kb.source_view; native_frame ops.native_source_frame; native_source ops.native_source_frame_source; address jsonb; first_offset bigint; last_offset bigint;
 BEGIN
  SELECT * INTO STRICT observation FROM kb.observation WHERE id=NEW.observation_id;
@@ -259,46 +226,7 @@ BEGIN
   IF NOT matched THEN RAISE EXCEPTION 'native evidence differs from a located supplied citation' USING ERRCODE='23514'; END IF;
   RETURN NEW;
  END IF;
- IF NEW.native_address IS NOT NULL THEN
-  RAISE EXCEPTION 'legacy evidence cannot carry a native source address' USING ERRCODE='23514'; END IF;
- IF observation.release_id<>NEW.release_id OR observation.rendition_id IS DISTINCT FROM NEW.rendition_id THEN
-  RAISE EXCEPTION 'evidence source differs from bound observation'; END IF;
- SELECT m.name,m.version,d.source_uri,r.key INTO STRICT method_name,operation_version,uri,rendition_key
-  FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id
-  JOIN ops.method m ON m.id=c.method_id JOIN kb.rendition r ON r.id=NEW.rendition_id
-  JOIN kb.document d ON d.id=r.document_id WHERE t.id=observation.task_id;
- SELECT * INTO STRICT ev FROM data.evidence WHERE evidence_id=NEW.evidence_id
-  AND release_id=NEW.release_id AND realization_id=NEW.realization_id;
- IF ev.source_uri<>uri OR ev.provider<>method_name OR ev.operation_version<>operation_version THEN
-  RAISE EXCEPTION 'evidence provider/source differs from bound observation'; END IF;
- IF NEW.span_id IS NULL THEN
-  IF observation.span_id IS NOT NULL THEN RAISE EXCEPTION 'evidence omitted bound source span'; END IF;
-  IF ev.locator<>'observation:'||observation.observation_key THEN RAISE EXCEPTION 'evidence locator differs from bound observation'; END IF;
-  RETURN NEW;
- END IF;
- IF observation.span_id IS NOT NULL THEN
-  IF observation.span_id<>NEW.span_id THEN RAISE EXCEPTION 'evidence span differs from bound observation'; END IF;
-  SELECT * INTO STRICT span FROM kb.span WHERE id=NEW.span_id;
-  IF ev.locator<>'rendition:'||rendition_key||':span:'||span.start_offset||':'||span.end_offset THEN RAISE EXCEPTION 'evidence locator differs from bound span'; END IF;
-  RETURN NEW;
- END IF;
- SELECT * INTO STRICT span FROM kb.span WHERE id=NEW.span_id AND rendition_id=NEW.rendition_id;
- locator_matched:=ev.locator='rendition:'||rendition_key||':span:'||span.start_offset||':'||span.end_offset;
- matched:=false;
- IF observation.payload_definition='AgentStoredBatch' THEN
-  SELECT EXISTS(SELECT FROM jsonb_array_elements(
-      COALESCE(observation.payload->'claims','[]'::jsonb)||COALESCE(observation.payload->'unsupported','[]'::jsonb)||COALESCE(observation.payload->'identity_exclusions','[]'::jsonb)) item
-      CROSS JOIN LATERAL jsonb_array_elements(item->'evidence') citation
-      WHERE citation->>'outcome'='located' AND (citation->>'start')::bigint=span.start_offset
-       AND (citation->>'end')::bigint=span.end_offset AND (CASE WHEN locator_matched THEN true ELSE ev.locator::jsonb=jsonb_build_object('locator',citation->'locator','start',span.start_offset,'end',span.end_offset,'role',citation->'role') END)) INTO matched;
- ELSIF observation.payload_definition='SourceObservation' AND observation.kind='author_markup' THEN
-  synthesis:=data.report_field(observation.payload->'payload','synthesize');
-  SELECT EXISTS(SELECT FROM jsonb_array_elements(data.report_field(synthesis,'evidence')->'items') citation
-    WHERE (data.report_field(citation,'start')->>'integer')::bigint=span.start_offset
-      AND (data.report_field(citation,'end')->>'integer')::bigint=span.end_offset AND locator_matched) INTO matched;
- END IF;
- IF NOT matched THEN RAISE EXCEPTION 'evidence span is not a located citation in bound source report'; END IF;
- RETURN NEW;
+ RAISE EXCEPTION 'evidence requires current SourceView custody' USING ERRCODE='23514';
 END $fn$;
 
 CREATE OR REPLACE FUNCTION data.end_stage() RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $body$
@@ -343,10 +271,6 @@ BEGIN
     SELECT value INTO STRICT statement FROM jsonb_array_elements(observation.payload->'statements')
      WHERE value->>'id'=claim->>'statement';
     IF statement->>'kind'<>'outside' THEN
-    IF EXISTS(SELECT FROM ops.source_frame WHERE task_id=observation.task_id) AND NOT EXISTS(
-       SELECT FROM ops.source_frame f JOIN ops.task t ON t.id=f.task_id WHERE f.task_id=observation.task_id AND f.packet_hash=t.packet_hash
-        AND f.unit_ref=observation.payload->>'unit_ref' AND f.rendition_id=observation.rendition_id) THEN
-     RAISE EXCEPTION 'statement report differs from its immutable source frame' USING ERRCODE='23514'; END IF;
     IF observation.source_view_id IS NOT NULL THEN
      IF NOT EXISTS(SELECT FROM ops.native_source_frame f WHERE f.task_id=observation.task_id
        AND f.source_view_id=observation.source_view_id AND f.unit_ref=observation.payload->>'unit_ref') THEN
@@ -356,9 +280,7 @@ BEGIN
       jsonb_build_array(r,z,'source-statement',source_rendition_key,
                        ops.native_source_statement_locator(observation.task_id,statement->>'anchor'))),'UTF8')),'hex');
     ELSE
-     SELECT key INTO STRICT source_rendition_key FROM kb.rendition WHERE id=observation.rendition_id;
-     expected_statement:='entity:'||encode(sha256(convert_to(data.canonical_json(
-      jsonb_build_array(r,z,'source-statement',source_rendition_key,ops.source_statement_locator(observation.task_id,statement->>'anchor'))),'UTF8')),'hex');
+     RAISE EXCEPTION 'statement requires current SourceView custody' USING ERRCODE='23514';
     END IF;
     END IF;
    END IF;

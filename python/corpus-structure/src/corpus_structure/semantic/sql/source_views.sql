@@ -334,8 +334,7 @@ BEGIN
  IF bound_release IS NOT NULL AND NEW.scope_type='run' AND NEW.scope_id IS NOT NULL AND NOT EXISTS (SELECT FROM ops.run target JOIN ops.run producer ON producer.id=NEW.run_id WHERE target.id=NEW.scope_id AND target.release_id=bound_release AND target.project_id=producer.project_id) THEN
  RAISE EXCEPTION 'measurement run subject is outside bound project/release' USING ERRCODE='23514'; END IF;
  IF bound_release IS NOT NULL AND NEW.scope_type='source_view' AND NOT EXISTS(SELECT FROM kb.source_view v JOIN ops.run_source_view r ON r.source_view_id=v.id WHERE r.run_id=NEW.run_id AND (NEW.scope_id IS NULL OR v.id=NEW.scope_id) AND (NEW.scope_key IS NULL OR v.key=NEW.scope_key)) THEN RAISE EXCEPTION 'source-view metric outside selected run' USING ERRCODE='23514'; END IF;
- IF bound_release IS NOT NULL AND NEW.scope_type='segment' AND NOT EXISTS (SELECT FROM kb.segment s JOIN kb.rendition rd ON rd.id=s.rendition_id JOIN kb.document doc ON doc.id=rd.document_id JOIN ops.run producer ON producer.id=NEW.run_id WHERE doc.project_id=producer.project_id AND (NEW.scope_id IS NOT NULL OR NEW.scope_key IS NOT NULL) AND (NEW.scope_id IS NULL OR s.id=NEW.scope_id) AND (NEW.scope_key IS NULL OR s.segment_key=NEW.scope_key)) THEN
- RAISE EXCEPTION 'measurement segment subject is outside bound project' USING ERRCODE='23514'; END IF;
+ IF NEW.scope_type='segment' THEN RAISE EXCEPTION 'retired source measurement addressing requires current SourceView custody' USING ERRCODE='23514'; END IF;
  IF bound_release IS NOT NULL AND NOT EXISTS (SELECT FROM sem.metric_definition d WHERE d.release_id=bound_release AND d.metric_id=NEW.metric AND d.subject_kind=NEW.scope_type) THEN
  RAISE EXCEPTION 'unresolved metric or incompatible measurement subject' USING ERRCODE='23514'; END IF;
  RETURN NEW;
