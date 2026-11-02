@@ -3,6 +3,9 @@ _Updated 2026-11-02; [current-only UM execution](docs/plans/unified-domain-model
 
 ## Current checkpoint
 
+- [Test audit](docs/design_review/test-audit/README.md) refreshed2026-11-02 across292 Python files;
+  static diagnosis and evidence limits only. Product/provider tests not_run for this audit.
+
 - ADR-0047 supersedes ADR-0046's historical-result support boundary while retaining model/Core
   authority and restricted native enforcement. The approved scope includes all remaining UM work,
   repository legacy retirement and resetting all seven identified project-result databases.
