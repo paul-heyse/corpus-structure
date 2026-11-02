@@ -75,3 +75,26 @@ body pins and their revision comment in `execution_admission.py`. That module is
 implementation input; the actual composed release ID remains exactly the captured015 release.
 No migration83–90, archived evidence script or executed harness was edited. Actual runtime
 LOGIN qualification remains outside this author transaction and is not claimed here.
+
+The descriptor-only report-cache successor is frozen as `0092_report_cache_source.py`, revision
+`semantic_report_cache_20261102`, after coordinator regeneration of the model-bound report cache.
+`author_descriptor92_v3.py descriptor92-author-003` passed exactly one native descriptor transition,
+zero ordinary DDL, and 85 desired objects. Independent before/after comparison found only `inputs`
+and `model_id` changed; the only changed captured input is
+`execution/implementation/capture/operation-report-schemas.json`. Its schema bodies are unchanged;
+the regenerated source identity is now represented instead of suppressing provenance change.
+The physical metadata, protected physical receipt and native guard body remain unchanged.
+
+`raw/descriptor92-freeze-001.json` records the exact successor artifacts and generated descriptor
+pin. `frozen_descriptor92_v2.py descriptor92-frozen-002` passed full frozen82→91→92 replay,
+repeated no-op, unchanged physical receipt, current archive/Python body-pin/native guard checks,
+exact owned-role catalogs, empty current native/ordinary candidate, source-pin and ACL drift
+refusals, exact catalog restoration and rollback to82 with caller `paul`. These remain publisher
+context checks with session migration owner; actual runtime LOGIN qualification belongs to the
+coordinator. No old lifecycle or table-drop controls were repeated for this descriptor-only delta.
+
+The first two author92 attempts preserve probe mistakes (object attribute and SQL statement join).
+The first frozen92 attempt preserves the drift exception and a cleanup-order failure: the Python
+admission wrapper translated a DBAPI refusal before role cleanup. V2 places the savepoint inside
+the role scope so rollback precedes role restoration. No production policy was changed to pass it.
+All executed probes and failed outputs remain intact; revisions83–91 remain unchanged.
