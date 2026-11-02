@@ -95,8 +95,8 @@ def setup(
     else:
         typed_qualification = True
     from corpus_structure.semantic import PreparationProfile, ResolvedDependencies
-    from corpus_structure.semantic.releases import persist_release
     from corpus_structure.semantic.composed import composed_dependencies
+    from corpus_structure.semantic.releases import persist_release
 
     r = prepared.release_id
     with admin.begin() as conn:
