@@ -122,3 +122,22 @@ identified a remaining analytics/schema-only execution fallback and instructed a
 that source correction. Revision93 and all earlier artifacts remain unchanged; its bounded
 success does not claim closure of the subsequently discovered runtime fallback. Actual runtime
 LOGIN qualification and final cutover remain with the coordinator.
+
+Revision94, `semantic_bound_only_20261102`, captures the final bound-only analytics source after
+removal of the installed analytical fallback. The coordinator also made execution operation
+checks unconditional and retained schema-only artifact custody explicitly in `persist_release`;
+those two source modules are represented in the source-window capture but are not execution
+implementation inputs. The report cache remains current after93; no extra regeneration occurs.
+
+`author_analytics94.py analytics94-author-001` passed exactly one descriptor transition, zero
+ordinary DDL, 85 desired objects and an empty follow-up candidate. Independent descriptor
+comparison found only model ID and inputs changed; the sole captured input delta is
+`execution/implementation/capture/analytics.py`. Native kernel catalog bodies, owners, ACLs,
+argument/result signatures, dependency profiles and physical receipts remain unchanged.
+`raw/analytics94-freeze-001.json` records the two frozen artifacts, wrapper and generated pin.
+`frozen_analytics94.py analytics94-frozen-001` passed actual frozen82→93→94 replay, repeated
+Alembic no-op, current archive/Python source pins/native guard, exact owned-role catalogs,
+empty current native/ordinary candidate, source-pin/ACL drift refusal and exact restoration,
+final-source custody and outer rollback to82 with caller `paul`. Actual runtime LOGIN admission,
+provider work and assembled qualification remain with the coordinator. Revisions83–93 and all
+executed earlier probes remain unchanged.
