@@ -459,8 +459,8 @@ def test_real_archived_binary_release_round_trip(
     )
     from corpus_structure.semantic.publication import admit_release
 
-    with pytest.raises(ValueError, match="binary entity"):
-        admit_release(bad)
+    with semantic_db_engine.connect() as conn, pytest.raises(ValueError, match="binary entity"):
+        admit_release(bad, connection=conn)
 
 
 @pytest.mark.parametrize(
