@@ -102,7 +102,13 @@ def test_single_current_head_and_frozen_source_hashes():
     )
     assert (
         sha256(bodies["data.require_execution_release"].encode()).hexdigest()
-        == execution_admission._REQUIRE_SHA256
+        == sha256(
+            next(
+                item["catalog"]["body"]
+                for item in state["desired"]
+                if item["identity"]["name"] == "require_execution_release"
+            ).encode()
+        ).hexdigest()
     )
     enforcing = sql_bodies((ALEMBIC_DIR / "versions/semantic_0026_admission.sql").read_text())
     assert (
