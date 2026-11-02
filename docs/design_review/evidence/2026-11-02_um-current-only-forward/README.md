@@ -1,6 +1,6 @@
 # Current-only native forward realization
 
-Date: 2026-11-02. Status: implemented and independently reviewed; final-source author rehearsal passed; freeze pending.
+Date: 2026-11-02. Status: implemented and independently reviewed; frozen forward replay passed; actual runtime LOGIN qualification remains with the coordinator.
 
 This evidence belongs to the unified-domain-model coordinator's current-only transition.
 The current physical model retires 36 obsolete rendition, layered-parsing and aggregate PDF
@@ -60,4 +60,18 @@ LOGIN qualification on a fresh committed target, assembled acceptance and final 
 The manual source sweep of current SQL resources found only one intentional semantic-1 occurrence:
 `sem.require_archive_bytes` accepts internal schema-only compiler14/archive3 preparation. All
 execution/effect entry guards require the current composed release; schema-only preparation has
-no execution authority. Final forward artifacts will be captured after source/review integration.
+no execution authority. Frozen `0091_current_only.py` and its five digest-checked artifacts now realize the forward
+revision `semantic_current_only_20261102`. `raw/freeze-001.json` records their exact hashes.
+`frozen_forward_v2.py frozen-002` passed actual frozen82→90→91 replay, repeated Alembic no-op,
+current Python deployment/body-pin and native release guard checks, all 36 absent relations,
+remaining-body scan, the complete publisher-context lifecycle and completed EvaluationResult,
+empty current-revision native/ordinary candidate, drift/stale refusals, final-source custody,
+and outer rollback to82 and `paul`. `raw/frozen-002/result.json` captures final source hashes.
+The first frozen rehearsal is retained: it attempted current archive activation under90 after
+updating the generated91 pins and correctly refused the old deployment. V2 archives after91.
+
+The sole production source delta after author capture015 is the generated frozen descriptor/guard
+body pins and their revision comment in `execution_admission.py`. That module is not a composed
+implementation input; the actual composed release ID remains exactly the captured015 release.
+No migration83–90, archived evidence script or executed harness was edited. Actual runtime
+LOGIN qualification remains outside this author transaction and is not claimed here.

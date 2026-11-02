@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from hashlib import sha256
 from pathlib import Path
 
@@ -106,6 +107,7 @@ for key, suffix in (
 wrapper = wrapper.replace('@ARTIFACT_CONSTANTS@', '\n'.join(constants))
 target = versions / '0091_current_only.py'
 assert not target.exists(), target
+wrapper = subprocess.run(['ruff', 'format', '--stdin-filename', '0091_current_only.py', '-'], input=wrapper, text=True, capture_output=True, check=True).stdout
 target.write_text(wrapper)
 pins = {}
 for obj in state['desired']:
