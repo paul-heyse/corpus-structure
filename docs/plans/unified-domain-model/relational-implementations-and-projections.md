@@ -55,6 +55,60 @@ and SQL NULL. Preserve lexical numeric meaning, exact versus bounded projections
 relationship identity, parallel occurrences, ordering, provenance, source pin and completeness.
 Cast success is not evidence that a stronger domain assertion is valid.
 
+## Published document consumers
+
+**Additional required UM-05/03 integration case; Proposed, reconciled 2026-11-01.** Extend the
+selected projection contract beyond the initial four companion families to source-view preparation,
+selected native context and render-region selection/persistence. The [coordinator reconciliation](../unified-domain-model_2026-11-01.md#pdf-consumer-reconciliation)
+records the current failure and ownership boundary. UM-02 owns the invariant's meaning; this
+section is the single technical owner of its physical binding and section projection.
+
+Resolve the existing `PdfProductReference` `(task_id, product_key, content_digest)` to the exact
+published row. Its build/revision is an internal placement binding, not a new public product
+identity. Use model-owned `native_build_id` and `native_revision_id` on the consuming source-view
+and rendered-artifact records, with the current representation's equality constraint. Declare a
+UNIQUE key on published revision `(build_id, task_id, product_key, logical_digest)` and one composite
+consumer FK to that key. Independent product and build FKs would permit a mismatched pair.
+Reference section addresses through `(native_build_id, native_revision_id, section_pointer)` to
+record access `(product_id, revision_id, pointer)`; rendered regions additionally bind `region_index`
+to the corresponding record-region key. The semantic product-pin FK remains useful but cannot
+replace this joint publication/address binding. Published read joins must include the revision
+binding, not assume equality from today's writer. Preserve original/raw archives and frozen history;
+no compatibility rows, duplicate native JSON or additional identity registry are required.
+
+Derive read joins and effect-side correspondence from this same resolved relationship binding.
+The domain reader resolves the placement from the exact pin; native publication resolves/checks it
+independently under its existing transaction/owner fences. Callers cannot supply an unrelated build.
+Read projection typing alone cannot establish that an insert's FK references the same authority.
+This case consumes a working PDF publication/read foundation; it does not give UM ownership of PDF
+deployment, current-book acceptance or provider/default adoption.
+
+For section preparation, declare pin, direct/descendant membership, body order, ancestors,
+evidence coordinates, selected native values, health and output cardinality once. Use existing
+published-item/context ports and set-based Core selection for the semantically sufficient closure,
+including required ancestors. A shared typed constructor projects text and rich cells/charts,
+inline content and synthetic separators with the existing evidence/health semantics. Keep that
+specialized algorithm in ordinary code behind its bound implementation contract. Do not construct
+a fake partial DoclingDocument, hydrate the whole book merely to prepare selected sections, or
+perform one item query per pointer. Explicit full-native exports and necessary global native
+validation retain their own complete-document contracts.
+
+Use LinkML effective field/relationship resolution, SQLAlchemy Core `select`/`join`/`cte` and
+explicit ordering, and prepared Pydantic adapters under UM-03. Emit grouped
+[`ForeignKeyConstraint`](https://docs.sqlalchemy.org/en/20/core/constraints.html#defining-foreign-keys),
+`UniqueConstraint` and `CheckConstraint` through existing shared metadata/DDL generation. The cited
+Core contract establishes composite pairing; execution still reconciles the selected installed
+version under UM-00. Existing native descriptors already represent FK targets/ordered columns;
+reuse their admission route and verify the changed consumer relations. SQLGlot output lineage is
+not proof of FK correctness, publication visibility or native guard behavior. UM-12 combines
+declared relationship dependencies with qualified query analysis and retains unknown coverage.
+
+Delivery includes source preparation, selected-frame capture, rendering's current published-region
+reader, artifact persistence, inserts with explicit fields and replay of the same resolved binding.
+Downstream reference/evaluation links must consume those actual source views. Consume applicable
+PDF repairs if they land first; inspect their actual contracts instead of implementing a parallel
+route. Required independent controls are owned by [UM-14/15](integration-adoption-and-qualification.md#published-document-consumer-acceptance).
+
 ## Library realization and conditions
 
 | Mechanism | Role and why selected | Material condition / evidence |

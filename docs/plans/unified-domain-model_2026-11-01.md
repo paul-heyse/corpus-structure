@@ -63,6 +63,64 @@ Foundation conclusions:
 - O01–O03 must consume the same contracts and validators as real operations, without a second
   interpreter, schema authority or universal workflow framework.
 
+## PDF consumer reconciliation
+
+**Scoped plan amendment, 2026-11-01; target Proposed, all UM packages remain Planned.**
+The operator selected updating this series only. This is the discrete reconciliation for the
+published-document consumer case; other changed PDF contracts still require focused reinspection
+before dependent execution. It changes no PDF package state or execution scope, architecture,
+database, dependency or operational default. Existing RC01–RC04 decisions remain in force.
+
+Inspected source `5dec0c2f` and identified dirty PDF/status/evidence context. Read-only inspection
+of owned `corpus_pdf_20261101` found published task10/product `integrated`, logical digest
+`d3482c7126a5db75d8bb1962bb34cabd1b8f772bc136cd3f5987744dfec7bce0`.
+The subsequent source-preparation attempt failed constraint
+`fk_source_view_native_task_id_native_product_key_sectio_e425`. Source-view publication reads
+the new published record projection, while the physical model/FK still targets
+`kb.native_document_item`; rendered-artifact FK likewise targets `kb.native_document_region`,
+and rendering still directly selects that old relation. Integrated reuse also reconstructs,
+serializes and reloads the book merely to prepare selected sections. These are inspected
+foundations/gaps, not UM implementation results. The [PDF coordinator](pdf-docling-pipeline_2026-10-31.md)
+retains current deployment, repair and actual consumer/provider/evaluator/default acceptance.
+This amendment does not promote that publication to completed knowledge or full qualification.
+
+The shared target connects an enforced published-address invariant, typed domain operations,
+model-bound selected-section projection and native effect relationships. The
+[relational companion](unified-domain-model/relational-implementations-and-projections.md#published-document-consumers)
+is the single technical owner of binding keys and projection design; UM-02 owns invariant meaning.
+Build/revision placement stays internal, preserving semantic product pins and original/frozen
+evidence. Existing publication can feed newly prepared consumers; consumer-only changes do not
+require recognition or whole-book republication. Necessary global validation and explicit complete
+exports retain their own guarantees. No new identity registry, parallel schema or benchmark follows.
+
+| Existing package | Required contribution to this case |
+|---|---|
+| UM-00/02 | Reconcile actual PDF prerequisite; resolve enforced relationship and operation/state/failure meaning. |
+| UM-03/05 | Typed request/result/bind/materializer continuity, selected projection and shared read/effect endpoint binding. |
+| UM-06/07 | Model-derived composite constraints, native insert/replay correspondence and frozen forward admission. |
+| UM-09/10 | Appropriate selected/batch reads, resource propagation, snapshot/cancellation and retained immutable assurance. |
+| UM-11/12/13 | Shared prerequisite explanation, declared relationship impact and model/address-located native diagnostics. |
+| UM-14/15 | Actual affected-consumer closure and independent small native success/refusal/recovery journeys. |
+
+The case extends R03/R05/R06/R07/R09 and O01–O03 through their existing owners, without inventing
+new review findings or duplicating scheduled PDF obligations. SQLGlot analysis remains qualified
+projection evidence, not proof of native relational enforcement. UM-04's query-compatibility
+contract and UM-01's scientific comparison obligations remain unchanged.
+
+Define shared contracts early; integrate each producer with the consumers it changes once its
+required PDF foundation is usable. Do not defer a broken effect-side relationship to final UM-14
+cleanup or make unrelated UM work wait for the whole PDF series. If PDF repairs land first,
+inspect and reuse their actual binding/reader contracts rather than implement a second route.
+The [UM-14/15 acceptance case](unified-domain-model/integration-adoption-and-qualification.md#published-document-consumer-acceptance)
+owns the additional planned controls. No production test or provider result is established by
+this plan amendment; historical receipts retain their dates, source and scope.
+
+Amendment authoring checks (2026-11-01): `git diff --check` passed; bounded document review
+found no material ownership/status/link issues. `just docs-check` failed on existing deferred
+library-reorganization links, with no reported UM-series error. Product tests and provider
+execution were not_run for these documentation changes. Read-only catalog inspection establishes
+only the publication/constraint baseline above, not assembled UM or PDF acceptance.
+
 ## Rule decisions and architectural routes
 
 | Item | Operator decision, 2026-11-01 | Consequence / route before dependent implementation |
@@ -101,11 +159,11 @@ admission/consumer closure are deliberately separate.
 | UM-00 | Confirmed decisions and current owner/source snapshot | Architecture/rule amendments, explicit supported versions and source-to-consumer baseline for this series; no new audit |
 | UM-01 | Effective property definitions and current comparison policy | Checked comparison context/meaning/evidence projection, used by scientific decisions without changing fact identity |
 | UM-02 | Current invariant/enforcer/operation definitions | Observable versus descriptive invariant contract and qualified diagnostic mapping consumed by real enforcers |
-| UM-03 | Settled request/result concepts; UM-02 only for promised failure mapping | Generated typed domain calls, binds, Core/result projections and materializers used by initial and remaining owned callers |
+| UM-03 | Settled request/result concepts; UM-02 only for promised failure mapping | Generated typed domain calls, binds, Core/result projections and materializers, including published-document consumers with private placement bindings |
 | UM-04 | Existing serving protocol; settled implementation compatibility binding | Archived-run query/continuation/explanation/evidence meaning is compatible or explicitly refused |
-| UM-05 | UM-03 signature/projection contract slice, not full caller migration | Model-bound Core companion and inference recipes replacing independently authored relational text |
+| UM-05 | UM-03 signature/projection contract slice, not full caller migration; working PDF foundation for its consumer case | Model-bound Core companion/inference recipes plus published-address read/effect bindings and selected-section projection |
 | UM-06 | UM-02 enforcement contract and UM-05 selected native expression recipes | Structured native declarations and eligible SQL-language bodies with versioned identity/dependency/admission |
-| UM-07 | UM-06 first qualified desired product plus existing Alembic lifecycle | Frozen forward native transitions, before/after drift/ACL/recreation controls; old revisions unchanged |
+| UM-07 | UM-06 first qualified desired product plus existing Alembic lifecycle | Frozen forward native transitions including changed consumer constraints/inserts/replay, before/after drift/ACL/recreation controls; old revisions unchanged |
 | UM-08 | One settled UM-05 companion recipe and model/native signature metadata | Qualified projection type/dependency analysis with SQLGlot, unknowns explicit, used by UM-12 |
 | UM-09 | Existing Settings and AnalysisScope owners | Non-default resources reach operations; supported lazy results enforce owner lifetime |
 | UM-10 | UM-03/05 directional operation contracts and relevant UM-09 owners | Model-derived exact transfer/decoding used in actual publication and analytical read/export |

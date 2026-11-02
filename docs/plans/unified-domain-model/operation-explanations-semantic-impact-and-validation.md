@@ -173,6 +173,31 @@ missing/null/unsupported distinction, cross-record or relationship failure, inva
 validator infrastructure failure and explicitly unassessed scope. Check exact member/occurrence
 paths and that separate causes remain distinguishable through the actual served response.
 
+### Published document explanations, impact and failures
+
+Use the [UM-02 invariant](semantic-contracts-and-policies.md#published-document-address-invariant)
+and [UM-05 binding](relational-implementations-and-projections.md#published-document-consumers)
+as a required O01–O03 integration case. Explain separately whether the exact document is published,
+its selected source views/context are prepared, rendering has a qualified region/original, and the
+invoked consumer realization supports that address contract. Qualified checks reuse actual owners;
+an unimplemented evaluator reports unresolved. Read-only explanation performs no inference or
+repair, and native effects still recheck current owner/state and resolved bindings atomically.
+
+Impact reporting includes declared relationship targets, composite endpoint correspondence,
+selection membership/order and projection implementation/recipe dependencies. A changed FK target
+or selection predicate can affect consumers without changing output-column types or document
+content identity. Distinguish physical realization changes from changed domain meaning, and retain
+unknown dependencies. SQLGlot supplies only its qualified query coverage; model/native relationship
+facts supply enforcement dependencies, without another catalog or behavior interpreter.
+
+Located diagnostics retain product/model/operation references, section or region coordinates,
+enforcement scope and named native constraint/guard identity. A consumer-preparation failure after
+successful publication must not be reported as invalid document content. Classify incompatible
+realization versus invalid address only when supported by admitted bindings and actual evidence;
+unmapped errors retain native cause/effect knowledge. Recovery advice identifies preparing consumers
+from the retained pin, rather than rerunning OCR by default. Full domain error promises and CLI/MCP
+delivery remain UM-02/11/13 obligations, not implied by preserving an error message.
+
 ## 6. Integration and completion
 
 [Semantic contracts](semantic-contracts-and-policies.md) own meaning and observability;

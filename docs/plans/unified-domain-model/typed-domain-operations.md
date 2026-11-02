@@ -90,6 +90,25 @@ support and generated relational implementations arrive through the correspondin
 The root coordinates shared model/generator files. Independent caller migrations can proceed once
 their actual contracts and implementations work; the whole native document is not a barrier.
 
+### Published document operation continuity
+
+Add source preparation, selected-context reads and rendering to the maintained domain-operation
+inventory. Their requests reuse effective product-reference and address/membership definitions;
+their generated result contracts describe ordered selected values, source views or retained render
+artifacts with explicit absence/failure outcomes. Physical build/revision identifiers remain private
+bindings resolved from the selected pin. Do not add them to `PdfProductReference`, logical content
+identity or ordinary request JSON. Use the [UM-05 shared binding/projection](relational-implementations-and-projections.md#published-document-consumers)
+for parameter correspondence, Core selection and materialization, rather than a second handwritten
+schema. Existing generated types are foundations; complete static call generation remains UM-03 work.
+
+Migrate actual source-view/render callers with their adapters, including frame/evaluator consumers.
+Rendering must stop choosing the old region relation directly. Preserve caller-owned transactions,
+runtime result admission, exact producer pin and operation implementation provenance. A parameter
+or result-shape change must propagate to callable, native invocation and materializer together;
+negative typing controls include incompatible semantic identifiers and exposed placement fields.
+This required integration case supplements task claiming and the four companion families; it does
+not replace those existing delivery obligations or make their unrelated work wait for PDF readiness.
+
 ## Bounded execution investigations
 
 **UM-I02 — Static continuity.** Run the repository's Pyrefly route against generated positive and

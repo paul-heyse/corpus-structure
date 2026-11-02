@@ -154,6 +154,24 @@ For supported temporal/array/composite profiles, independently check timezone/pr
 null elements/layout, and custom-type OID/schema resolution in each actual direction; retain
 explicit refusal controls for unsupported directions without extending the supported type set.
 
+### Selected-section preparation and reuse
+
+The [UM-05 section projection](relational-implementations-and-projections.md#published-document-consumers)
+is an additional UM-09/10 consumer. Pass the existing validated invocation resource snapshot to its
+actual analytical/batch owners. Resolve the exact publication once and obtain selected records,
+required ancestry and companion context through set-shaped reads. Reuse the existing snapshot,
+cancellation and borrower owners; close database/native borrowers before unrelated local work when
+detached immutable selected values suffice. Bound live batches and intermediates across the composed
+operation; do not replace row-by-row lookups with a second whole-book copy.
+
+Carry established immutable publication/custody properties through this controlled projection.
+Validate changed selection, representation and consumer-contract premises at their own boundaries;
+do not rerun whole-book native callbacks or recognition merely because consumer preparation resumes.
+Arrow batch output is appropriate where an actual consumer benefits; no batch-to-Python-object loop,
+new transfer profile or extra ADBC session is required just to claim columnar integration. Keep
+explicit full exports and genuinely global validation distinct. Qualitative work removal is the
+claim; no speedup measurement or new benchmark obligation is introduced.
+
 ## 5. Integration, references and completion
 
 [Typed operations](typed-domain-operations.md) own request/result meaning;

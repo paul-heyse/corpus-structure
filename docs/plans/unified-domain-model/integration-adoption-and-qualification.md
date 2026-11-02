@@ -114,6 +114,39 @@ share the same defect. Reuse production validators to enforce contracts; testing
 correctness needs independent expectations. Preserve deliberate invalid SQL and historical frozen
 artifacts. No second validator, alignment lint or mandatory benchmark framework is introduced.
 
+### Published document consumer acceptance
+
+This required UM-02/03/05/06/07/09/10/11/12/13 integration case follows the
+[single binding/projection design](relational-implementations-and-projections.md#published-document-consumers).
+Changing a producer includes read selection, target FKs, publication bindings, inserts, replay,
+source-frame capture and rendering; typed reads cannot close migration while effects still refer
+to an obsolete physical authority. Reference/evaluation consumers must receive the actual prepared
+source views. UM-14 closes remaining affected callers, not work deliberately deferred from an
+earlier package. PDF retains its implementation/deployment and provider/default acceptance owner.
+Working PDF foundations enable this case; contracts and unrelated UM work need not wait for all PDF
+qualification. If PDF fixes land first, inspect and reuse them, then qualify UM-specific composition.
+
+Use a small actual PostgreSQL record publication followed by source-view preparation, frame capture
+and rendered-artifact persistence. Independent expectations must cover:
+
+- Exact accepted product/build/revision binding; identical pointer spellings in different products
+  remain distinct. Reject mismatched published pin/build even when both separately exist.
+- Unpublished builds, wrong revisions, absent sections, regions belonging to another pointer and
+  stale caller/attempt state. Preserve native failure causes and rollback/no partial consumer effect.
+- Idempotent replay retaining the same resolved binding and artifact/view identity.
+- Successful document publication followed by failed consumer preparation, then recovery from the
+  retained pin without recognition or book republication. Source-ready still requires prepared views.
+- Independently specified direct/descendant membership, body order, rich table/chart cells, inline
+  content/separators, ancestry, evidence positions and health. Exercise selected-record preparation
+  without whole-book reconstruction or per-pointer fetch; full export/global validation stay distinct.
+- Generated typed-call refusal and malformed native-result admission; actual O01/O02/O03 responses
+  preserve prerequisite, relationship-impact and located-failure distinctions with unknowns explicit.
+
+Runtime semantic/native controls establish these properties; producer-generated expected FKs or
+self-round-tripping alone do not. Existing PDF/provider receipts keep their original source and
+scope and are not new UM qualification. Do not rerun the whole book to validate a consumer-only
+binding change. Changed interpretation/native premises still require their affected checks.
+
 ### Verification timing and commands
 
 During implementation run relevant compile, focused Pyrefly/static-negative and functional/native

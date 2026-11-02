@@ -96,6 +96,31 @@ invariant may remain descriptive only when no supported operation relies on it a
 that distinction is explicit in the normalized contract. The model must not advertise an enforced
 requirement merely because its reference resolves.
 
+### Published document address invariant
+
+**Required UM-02 integration case; Proposed, reconciled 2026-11-01.** A source-view section
+or rendered region belongs to its exact published semantic product pin and the record revision
+bound to that publication. Publication visibility, item/region existence, selection membership
+and caller/task authority are separate obligations. Resolve their subjects and enforcing bindings
+from the effective model. The [UM-05 binding design](relational-implementations-and-projections.md#published-document-consumers)
+owns the physical realization; these obligations must govern read selection and effect targets
+together, rather than merely describe independently authored implementations.
+
+Document publication and consumer preparation have independent outcomes. A published document
+remains valid when later source-view preparation fails; a cancelled preparation task is not proof
+of corrupt document content. Recovery may consume the retained exact publication under its
+producer contract without rerunning recognition or publishing the book again. Source-ready status
+still requires the selected views and their context to exist. Use existing operation/result/state
+dimensions; no new workflow interpreter is needed.
+
+Bind promised failures to named native constraints or qualified structured guard identities.
+Distinguish an invalid supplied address, a missing preparation prerequisite and incompatible
+native realization where the actual evidence supports that classification. Preserve an unmapped
+foreign-key/infrastructure failure as such, including its native cause and effect knowledge;
+neither SQLSTATE alone nor message matching establishes which model invariant failed. UM-11/13
+consume these same distinctions. Source declaration, generated constraint and runtime enforcement
+must agree before claiming this invariant is observable and enforced.
+
 ### Concrete composition
 
 LinkML effective definitions supply invariant and operation structure; the existing finite trusted

@@ -156,6 +156,27 @@ of current generators and preserve exact artifacts. Exercise interrupted deploym
 application according to the operation contract, with failed/interrupted evidence retained.
 No operational PDF default or database is changed by this package without its explicit adoption step.
 
+### Published document relationship evolution
+
+UM-06/07 consumes the [UM-05 published-address binding](relational-implementations-and-projections.md#published-document-consumers)
+and UM-02's enforced invariant. Generate composite keys/FKs and revision checks from the shared
+physical model. Include source-view and rendered-artifact relations in the desired/predecessor
+comparison and actual catalog admission, with ordered local/remote columns and referenced relation
+identity. Existing native FK inventory is reused; matching a read signature alone is insufficient.
+
+Use the existing Alembic/native transition route for forward changes, including publication and
+artifact insert/replay implementations. Replace positional inserts affected by new bindings with
+explicit column correspondence. A new consumer binding must not expose private staging through a
+published read, accept another product's build, or weaken native owner/attempt checks. Verify before
+and after state and rollback using existing owned-database controls. Frozen revisions stay byte-exact.
+Resolve old consumer rows only within the actual supported migration scope; the PDF coordinator's
+go-forward/rebuild policy does not require historical compatibility rows or archived-data conversion.
+
+Preserve the already-published document pin and producing release. A changed consumer realization
+may need a newly admitted consumer release and freshly prepared views, not a new book publication.
+Do not reinterpret the failed run's archived source binding. Required consumer integration and
+negative cases are linked from UM-14/15; broader SQL-standard body generation retains its own scope.
+
 ## Alternatives, execution fit and completion boundary
 
 A client-side Core/ORM rewrite would need equivalent independent-writer protection and privileges;
