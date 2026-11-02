@@ -5,6 +5,7 @@ from typing import Any
 
 import psycopg
 import pytest
+from pydantic import create_model
 from sqlalchemy import insert, select, text
 from sqlalchemy.exc import DBAPIError
 
@@ -140,6 +141,8 @@ def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine, semanti
                 family="ingest",
                 tier="deterministic",
                 confidence_source=None,
+                unit_type="run",
+                Config=create_model("ReadConfig"),
             ),
             "default",
             {},
@@ -246,6 +249,8 @@ def test_binding_revision_and_wrong_attempt(semantic_db_engine, semantic_writer_
                 family="ingest",
                 tier="deterministic",
                 confidence_source=None,
+                unit_type="run",
+                Config=create_model("ReadConfig"),
             ),
             "default",
             {},
@@ -507,7 +512,13 @@ def test_reuse_requires_complete_bound_meaning(semantic_db_engine, semantic_writ
     p = setup(semantic_db_engine)
     e = semantic_writer_engine
     method = SimpleNamespace(
-        name="read", version="1", family="ingest", tier="deterministic", confidence_source=None
+        name="read",
+        version="1",
+        family="ingest",
+        tier="deterministic",
+        confidence_source=None,
+        unit_type="run",
+        Config=create_model("ReadConfig"),
     )
 
     def start(c, dependencies):
@@ -666,7 +677,13 @@ def test_native_role_cannot_forge_reuse_binding(
     p = setup(semantic_db_engine)
     e = semantic_writer_engine
     method = SimpleNamespace(
-        name="read", version="1", family="ingest", tier="deterministic", confidence_source=None
+        name="read",
+        version="1",
+        family="ingest",
+        tier="deterministic",
+        confidence_source=None,
+        unit_type="run",
+        Config=create_model("ReadConfig", other=(bool, False)),
     )
     with e.begin() as c:
         origin_run = create_run(
@@ -705,14 +722,17 @@ def test_native_role_cannot_forge_reuse_binding(
                     )
                 )
             elif difference == "release":
+                from corpus_structure.semantic.composed import composed_dependencies
                 from corpus_structure.semantic.releases import persist_release
                 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 
                 from .test_releases import source_bundle
 
                 bundle = source_bundle(b"# independent other release\n")
-                other = prepare_release(bundle, ResolvedDependencies())
-                persist_release(c, bundle, ResolvedDependencies(), PreparationProfile(), other)
+                dependencies = composed_dependencies(ResolvedDependencies())
+                profile = PreparationProfile(version="semantic-2")
+                other = prepare_release(bundle, dependencies, profile)
+                persist_release(c, bundle, dependencies, profile, other)
                 release, z = other.release_id, "other-z"
                 c.execute(
                     insert(table("data.realization")).values(
@@ -799,6 +819,8 @@ def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(
                 family="ingest",
                 tier="deterministic",
                 confidence_source=None,
+                unit_type="run",
+                Config=create_model("ReadConfig"),
             ),
             "default",
             {},
@@ -899,7 +921,13 @@ def test_logical_invocation_distinguishes_fresh_reports_but_not_retries(
     p = setup(semantic_db_engine)
     e = semantic_writer_engine
     method = SimpleNamespace(
-        name="read", version="1", family="ingest", tier="deterministic", confidence_source=None
+        name="read",
+        version="1",
+        family="ingest",
+        tier="deterministic",
+        confidence_source=None,
+        unit_type="run",
+        Config=create_model("ReadConfig"),
     )
     with e.begin() as c:
         run = create_run(
@@ -981,6 +1009,8 @@ def test_native_cancel_drains_claims_and_blocks_late_completion(
                 family="ingest",
                 tier="deterministic",
                 confidence_source=None,
+                unit_type="run",
+                Config=create_model("ReadConfig"),
             ),
             "default",
             {},
@@ -1030,6 +1060,8 @@ def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
                 family="ingest",
                 tier="deterministic",
                 confidence_source=None,
+                unit_type="run",
+                Config=create_model("ReadConfig"),
             ),
             "default",
             {},
