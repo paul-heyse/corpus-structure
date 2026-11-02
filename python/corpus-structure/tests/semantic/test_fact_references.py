@@ -15,6 +15,7 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.consolidation import SourceItem, assemble
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import EvidenceRow, publish_batch
@@ -38,9 +39,11 @@ def fixture(admin):
             SourceArtifact("semantic_core", core.read_bytes()),
         ),
     )
-    prepared = prepare_release(bundle)
+    dependencies = composed_dependencies(ResolvedDependencies())
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, dependencies, profile)
     with admin.begin() as conn:
-        persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), prepared)
+        persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(
