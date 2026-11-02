@@ -12,23 +12,12 @@ import os
 import shutil
 import subprocess
 import sys
-from pathlib import Path
-from typing import Any
 from dataclasses import dataclass
-from corpus_structure.core.keys import KeySchema
+from pathlib import Path
 
 import pytest
-from hypothesis import HealthCheck, given, settings
-from hypothesis import strategies as st
-from hypothesis_jsonschema import from_schema
-from jsonschema import Draft7Validator, Draft202012Validator
-from pydantic import ValidationError
-from referencing import Registry, Resource
 
-from corpus_structure.core.batch import StoredQualifiers
-from corpus_structure.core.candidates import KeyedCandidateSet
-from corpus_structure.core.evidence import RenditionContent, Segment, SegmentKind, document_key
-from corpus_structure.core.keys import KeyContext, LabelRules, key_claims
+from corpus_structure.core.keys import KeySchema
 from corpus_structure.core.vocab import CanonicalForm, CaseRule, KeyRole
 from corpus_structure.schema.lookup import SchemaLookup, build_lookup, compile_key_schema, name_map
 from corpus_structure.schema.pack import CORE_RULES, PackError, load_pack, schema_version

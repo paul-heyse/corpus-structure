@@ -158,12 +158,16 @@ def test_published_json_direction_preserves_declared_values_and_transport_nulls(
     target = tmp_path / "export"
     export_companion_parquet(
         CompanionExportRequest(pin=pin, destination=target, families=("coverage",)),
-        read_settings(native_settings, semantic_db_engine).model_copy(update={
-            "analytics": native_settings.analytics.model_copy(update={
-                "adbc_driver_path": adbc_driver_postgresql._driver_path(),
-                "batch_size_hint_bytes": 1024,
-            })
-        }),
+        read_settings(native_settings, semantic_db_engine).model_copy(
+            update={
+                "analytics": native_settings.analytics.model_copy(
+                    update={
+                        "adbc_driver_path": adbc_driver_postgresql._driver_path(),
+                        "batch_size_hint_bytes": 1024,
+                    }
+                )
+            }
+        ),
     )
     values = pq.read_table(target / "coverage.parquet")["supports_json"]
     assert values.to_pylist() == [None, "[]"]

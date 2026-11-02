@@ -39,17 +39,27 @@ def refused(language, expression):
 
 
 GUIDELINE = {
-    "structural_role_modality", "role_by_kind", "modality_by_role", "structural_no_conditions",
-    "premise_conditions_index_only", "no_claim_nodes_on_form", "references_a_premise",
-    "parameter_role_differs", "formula_excludes_defined_variable", "symbol_keys_no_backslash",
+    "structural_role_modality",
+    "role_by_kind",
+    "modality_by_role",
+    "structural_no_conditions",
+    "premise_conditions_index_only",
+    "no_claim_nodes_on_form",
+    "references_a_premise",
+    "parameter_role_differs",
+    "formula_excludes_defined_variable",
+    "symbol_keys_no_backslash",
     "binding_priority",
 }
 
 
 def test_current_pack_policy_retains_independently_named_domain_and_guideline_rules(policy):
     assert {raw["id"] for raw, _, _ in policy.rules} == {
-        "core.value_kind_matches_slot", "stat.param_keys_known",
-        "stat.one_distribution_per_statement", "stat.domain_is_set", "stat.no_family_on_variable",
+        "core.value_kind_matches_slot",
+        "stat.param_keys_known",
+        "stat.one_distribution_per_statement",
+        "stat.domain_is_set",
+        "stat.no_family_on_variable",
         *("guideline." + name for name in GUIDELINE),
     }
 
@@ -114,19 +124,27 @@ def test_members_and_coalesce_defaults_compile(policy):
 
 def test_a_policy_language_shares_literal_discipline():
     language = Language(
-        objects={"Unit": {"kind": "string", "segments": "number"}}, symbols={"unit": "Unit"},
+        objects={"Unit": {"kind": "string", "segments": "number"}},
+        symbols={"unit": "Unit"},
         values={("Unit", "kind"): Vocabulary("StatementKind", frozenset(StatementKind))},
     )
     language.compile("propose.theorem", "unit.kind == 'theorem' and unit.segments > 2")
-    assert refused(language, "unit.kind == 'theorm'").codes == {RuleErrorCode.LITERAL_OUTSIDE_VOCABULARY}
+    assert refused(language, "unit.kind == 'theorm'").codes == {
+        RuleErrorCode.LITERAL_OUTSIDE_VOCABULARY
+    }
 
 
 def test_current_policy_refuses_duplicate_ids(prepared, policy):
     source = {**policy.source, "rules": [policy.source["rules"][0]] * 2, "guideline": []}
-    changed = replace(prepared, artifacts=tuple(
-        replace(artifact, content=yaml.safe_dump(source).encode())
-        if artifact.kind == RULE_INPUT else artifact for artifact in prepared.artifacts
-    ))
+    changed = replace(
+        prepared,
+        artifacts=tuple(
+            replace(artifact, content=yaml.safe_dump(source).encode())
+            if artifact.kind == RULE_INPUT
+            else artifact
+            for artifact in prepared.artifacts
+        ),
+    )
     with pytest.raises(DomainOperationRefused, match="duplicate released rule id"):
         ReleasedRulesPolicy(changed)
 
@@ -137,9 +155,18 @@ def _rule_cases():
     from types import SimpleNamespace
 
     from corpus_structure.core.vocab import MathKind, ParseOutcome
-    from corpus_structure.semantic.rule_views import BindingView, EntityView, NodeView, Reading, ValueView
+    from corpus_structure.semantic.rule_views import (
+        BindingView,
+        EntityView,
+        NodeView,
+        Reading,
+        ValueView,
+    )
 
-    entity = EntityView("s", None, "stat:DistributionFamily", "normal", "X_i", {"stat:canonical_name": "location"})
+    entity = EntityView(
+        "s", None, "stat:DistributionFamily", "normal", "X_i", {"stat:canonical_name": "location"}
+    )
+
     def node(op, term=None):
         return NodeView(op, None, None, None, term)
 
@@ -148,33 +175,125 @@ def _rule_cases():
 
     def qualifiers(**kw):
         return SimpleNamespace(modality="asserted", polarity=True, **kw)
-    yield "guideline.structural_role_modality", dict(groups=("structural",), statement_role=None), dict(statement_role="conclusion")
-    yield "guideline.role_by_kind", dict(statement_kind="theorem", statement_role="premise"), dict(statement_role="example_value")
-    yield "guideline.modality_by_role", dict(statement_role="premise", qualifiers=SimpleNamespace(modality="supposed", polarity=True)), dict(qualifiers=qualifiers())
-    yield "guideline.structural_no_conditions", dict(condition_nodes=()), dict(condition_nodes=(node("claim"),))
-    yield "guideline.premise_conditions_index_only", dict(statement_role="premise", subject=entity, condition_nodes=(node("member", "i"),)), dict(condition_nodes=(node("member", "a"),))
-    yield "guideline.no_claim_nodes_on_form", dict(groups=("formula_definition",), claim_refs=()), dict(claim_refs=("premise",))
-    yield "guideline.references_a_premise", dict(statement_premises=("premise",), claim_refs=("premise",)), dict(claim_refs=())
-    yield "guideline.parameter_role_differs", dict(subject=entity, value=ValueView("text", None, "scale", None, "text")), dict(value=ValueView("text", None, "location", None, "text"))
-    yield "guideline.formula_excludes_defined_variable", dict(value=value("x+1")), dict(value=value("X = x+1"))
-    yield "guideline.symbol_keys_no_backslash", dict(bindings=(BindingView("mu", "param_of", None, "claim", "location"),)), dict(bindings=(BindingView("\\mu", "param_of", None, "claim", "location"),))
-    yield "guideline.binding_priority", dict(given_by_others=("mu",), bindings=(BindingView("mu", "param_of", None, "claim", "location"),)), dict(bindings=(BindingView("mu", "free", None, None, None),))
-    yield "stat.param_keys_known", dict(family_params=("mean",), qualifiers=qualifiers(param_values={"mean": {"kind": "number", "number": Decimal(1)}})), dict(qualifiers=qualifiers(param_values={"kurtosis": {"kind": "number", "number": Decimal(3)}}))
-    yield "stat.one_distribution_per_statement", dict(same_slot=("other",), alternative_of=("other",)), dict(alternative_of=())
-    yield "stat.domain_is_set", dict(value=value("\\R", Reading(ParseOutcome.OK, MathKind.SET), "set")), dict(value=value("\\frac{", Reading(ParseOutcome.FAILED), "set"))
-    yield "stat.no_family_on_variable", dict(subject=entity), dict(subject=replace(entity, type="stat:RandomVariable"))
-    yield "core.value_kind_matches_slot", dict(value=value("x+1", Reading(ParseOutcome.OK, MathKind.FORMULA))), dict(value=value("x in R", Reading(ParseOutcome.OK, MathKind.MEMBERSHIP)))
+
+    yield (
+        "guideline.structural_role_modality",
+        dict(groups=("structural",), statement_role=None),
+        dict(statement_role="conclusion"),
+    )
+    yield (
+        "guideline.role_by_kind",
+        dict(statement_kind="theorem", statement_role="premise"),
+        dict(statement_role="example_value"),
+    )
+    yield (
+        "guideline.modality_by_role",
+        dict(
+            statement_role="premise", qualifiers=SimpleNamespace(modality="supposed", polarity=True)
+        ),
+        dict(qualifiers=qualifiers()),
+    )
+    yield (
+        "guideline.structural_no_conditions",
+        dict(condition_nodes=()),
+        dict(condition_nodes=(node("claim"),)),
+    )
+    yield (
+        "guideline.premise_conditions_index_only",
+        dict(statement_role="premise", subject=entity, condition_nodes=(node("member", "i"),)),
+        dict(condition_nodes=(node("member", "a"),)),
+    )
+    yield (
+        "guideline.no_claim_nodes_on_form",
+        dict(groups=("formula_definition",), claim_refs=()),
+        dict(claim_refs=("premise",)),
+    )
+    yield (
+        "guideline.references_a_premise",
+        dict(statement_premises=("premise",), claim_refs=("premise",)),
+        dict(claim_refs=()),
+    )
+    yield (
+        "guideline.parameter_role_differs",
+        dict(subject=entity, value=ValueView("text", None, "scale", None, "text")),
+        dict(value=ValueView("text", None, "location", None, "text")),
+    )
+    yield (
+        "guideline.formula_excludes_defined_variable",
+        dict(value=value("x+1")),
+        dict(value=value("X = x+1")),
+    )
+    yield (
+        "guideline.symbol_keys_no_backslash",
+        dict(bindings=(BindingView("mu", "param_of", None, "claim", "location"),)),
+        dict(bindings=(BindingView("\\mu", "param_of", None, "claim", "location"),)),
+    )
+    yield (
+        "guideline.binding_priority",
+        dict(
+            given_by_others=("mu",),
+            bindings=(BindingView("mu", "param_of", None, "claim", "location"),),
+        ),
+        dict(bindings=(BindingView("mu", "free", None, None, None),)),
+    )
+    yield (
+        "stat.param_keys_known",
+        dict(
+            family_params=("mean",),
+            qualifiers=qualifiers(param_values={"mean": {"kind": "number", "number": Decimal(1)}}),
+        ),
+        dict(
+            qualifiers=qualifiers(
+                param_values={"kurtosis": {"kind": "number", "number": Decimal(3)}}
+            )
+        ),
+    )
+    yield (
+        "stat.one_distribution_per_statement",
+        dict(same_slot=("other",), alternative_of=("other",)),
+        dict(alternative_of=()),
+    )
+    yield (
+        "stat.domain_is_set",
+        dict(value=value("\\R", Reading(ParseOutcome.OK, MathKind.SET), "set")),
+        dict(value=value("\\frac{", Reading(ParseOutcome.FAILED), "set")),
+    )
+    yield (
+        "stat.no_family_on_variable",
+        dict(subject=entity),
+        dict(subject=replace(entity, type="stat:RandomVariable")),
+    )
+    yield (
+        "core.value_kind_matches_slot",
+        dict(value=value("x+1", Reading(ParseOutcome.OK, MathKind.FORMULA))),
+        dict(value=value("x in R", Reading(ParseOutcome.OK, MathKind.MEMBERSHIP))),
+    )
 
 
-@pytest.mark.parametrize("rule_id,passing,violating", tuple(_rule_cases()), ids=lambda value: value if isinstance(value, str) else None)
-def test_each_current_rule_retains_independent_positive_and_negative_meaning(policy, rule_id, passing, violating):
+@pytest.mark.parametrize(
+    "rule_id,passing,violating",
+    tuple(_rule_cases()),
+    ids=lambda value: value if isinstance(value, str) else None,
+)
+def test_each_current_rule_retains_independent_positive_and_negative_meaning(
+    policy, rule_id, passing, violating
+):
     from types import SimpleNamespace
 
     base = dict(
-        groups=(), statement_kind="theorem", statement_role="conclusion", establishment="stated",
-        qualifiers=SimpleNamespace(modality="asserted", polarity=True), bindings=(), gives_symbols=(),
-        given_by_others=(), claim_refs=(), statement_premises=(), condition_nodes=(),
-        same_slot=(), alternative_of=(),
+        groups=(),
+        statement_kind="theorem",
+        statement_role="conclusion",
+        establishment="stated",
+        qualifiers=SimpleNamespace(modality="asserted", polarity=True),
+        bindings=(),
+        gives_symbols=(),
+        given_by_others=(),
+        claim_refs=(),
+        statement_premises=(),
+        condition_nodes=(),
+        same_slot=(),
+        alternative_of=(),
     )
     raw, when, check = next(item for item in policy.rules if item[0]["id"] == rule_id)
     accepted = SimpleNamespace(**(base | passing))

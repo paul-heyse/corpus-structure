@@ -549,6 +549,7 @@ class SourceReadRefused(OperationConflict):
 
 def _source_read_outcome(prepared: PreparedRelease | None, operation: str, outcome: str) -> None:
     from .operation_results import validate_result_dimension
+
     if prepared is None:
         raise ValueError("source reads require a composed execution binding")
     validate_result_dimension(prepared, operation, "outcome", outcome, field="outcome")

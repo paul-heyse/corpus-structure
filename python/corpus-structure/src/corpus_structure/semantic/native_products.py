@@ -20,6 +20,7 @@ from sqlalchemy.schema import (
 from .metadata import metadata
 from .prepared_sql import PreparedSQL
 
+
 def selected_fact_query():
     """The fixed accepted-fact projection uses the same scoped relationship keys."""
     from sqlalchemy import and_, select
@@ -276,7 +277,9 @@ def current_admission_fields(model=None) -> dict:
             key=lambda item: str(item.name),
         )
     ]
-    descriptor: dict[str, Any] = {"physical_checks_source_digest": sha256(canonical_bytes(check_sources)).hexdigest()}
+    descriptor: dict[str, Any] = {
+        "physical_checks_source_digest": sha256(canonical_bytes(check_sources)).hexdigest()
+    }
     descriptor["base_derived_protocol"] = {
         "operation": "publish_inference",
         "projection": "accepted",
@@ -286,7 +289,10 @@ def current_admission_fields(model=None) -> dict:
     }
     descriptor["physical_relations"] = sorted(metadata.tables)
     descriptor["views"] = [
-        {"relation": "data.selected_fact", "query": str(selected_fact_query().compile(dialect=dialect()))}
+        {
+            "relation": "data.selected_fact",
+            "query": str(selected_fact_query().compile(dialect=dialect())),
+        }
     ]
     from .effect_support import SUPPORTED_EFFECT_VERSIONS, SUPPORTED_EFFECTS
 

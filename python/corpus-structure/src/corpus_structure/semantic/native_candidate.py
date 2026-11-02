@@ -126,15 +126,21 @@ def _publication_view_definitions(connection, sql, *, source):
             isinstance(statement, ast.ViewStmt)
             and statement.view is not None
             and statement.view.schemaname == "ops"
-            and statement.view.relname in {
-                "pdf_selected_product", "pdf_published_item", "pdf_published_region", "pdf_published_coverage"
+            and statement.view.relname
+            in {
+                "pdf_selected_product",
+                "pdf_published_item",
+                "pdf_published_region",
+                "pdf_published_coverage",
             }
         ):
             roles = ("corpus_sem_writer", "corpus_sem_reader", "corpus_sem_evaluator")
             if statement.view.relname == "pdf_selected_product":
                 roles = (*roles, "corpus_sem_admitter")
             definition = definition_from_sql(
-                connection, prepared.excerpt(index), source=source,
+                connection,
+                prepared.excerpt(index),
+                source=source,
                 owner="corpus_sem_publisher",
                 grants=tuple((role, "SELECT", False) for role in roles),
             )
@@ -214,10 +220,14 @@ def _release_guard_definitions(connection, sql, *, source):
         if isinstance(statement, ast.CreateFunctionStmt) and tuple(
             part.sval for part in statement.funcname or ()
         ) in {("sem", "require_archive_bytes"), ("sem", "require_execution_projection")}:
-            definitions.append(definition_from_sql(
-                connection, prepared.excerpt(index), source=source,
-                owner="corpus_sem_publisher",
-            ))
+            definitions.append(
+                definition_from_sql(
+                    connection,
+                    prepared.excerpt(index),
+                    source=source,
+                    owner="corpus_sem_publisher",
+                )
+            )
     if len(definitions) != 2:
         raise NativeAuthoringError(f"{source}: complete release guards are absent")
     return tuple(definitions)
@@ -234,7 +244,11 @@ def series_predecessor_definitions(connection):
     completion = ALEMBIC_DIR / "versions/semantic_0050_native_evidence.sql"
     direction = ALEMBIC_DIR / "versions/semantic_0029_reference_boundaries.sql"
     return (
-        *_release_guard_definitions(connection, ALEMBIC_DIR.joinpath("versions/semantic_0033_kernels.sql").read_text(), source="frozen0033 release guards"),
+        *_release_guard_definitions(
+            connection,
+            ALEMBIC_DIR.joinpath("versions/semantic_0033_kernels.sql").read_text(),
+            source="frozen0033 release guards",
+        ),
         _shape_definition(connection, sql, source=path.name),
         _context_definition(connection, sql, source=path.name),
         *_pdf_payload_definitions(connection, sql, source=path.name),
@@ -286,7 +300,16 @@ def series_native_definitions(connection, *, include_selected=True):
         + observation_publication_sql()
     )
     definitions = [
-        *_release_guard_definitions(connection, Path(__file__).with_name("sql").joinpath("closure.sql").read_text() + "\n" + Path(__file__).with_name("sql").joinpath("execution_projection_check.sql").read_text(), source="current release guards"),
+        *_release_guard_definitions(
+            connection,
+            Path(__file__).with_name("sql").joinpath("closure.sql").read_text()
+            + "\n"
+            + Path(__file__)
+            .with_name("sql")
+            .joinpath("execution_projection_check.sql")
+            .read_text(),
+            source="current release guards",
+        ),
         _shape_definition(connection, _native_shape_guard(), source="native-record-shape:forward"),
         _context_definition(
             connection,
@@ -348,7 +371,13 @@ def series_native_definitions(connection, *, include_selected=True):
     ]
     # SQL-language readers resolve their provider and PL/pgSQL declarations resolve
     # the view's composite type during CREATE, after the managed scope was dropped.
-    providers = ("read_pdf_published_revision", "pdf_selected_product", "pdf_published_item", "pdf_published_region", "pdf_published_coverage")
+    providers = (
+        "read_pdf_published_revision",
+        "pdf_selected_product",
+        "pdf_published_item",
+        "pdf_published_region",
+        "pdf_published_coverage",
+    )
     definitions = [
         *(item for name in providers for item in definitions if item.identity.name == name),
         *(item for item in definitions if item.identity.name not in providers),

@@ -326,6 +326,7 @@ def record_pass(
         raise ReferenceError("reference recording requires a current SourceView frame")
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.source_views import load_source_view
+
     if frame.unit_ref != unit["unit_key"] or frame.source_view_id != unit["source_view_id"]:
         raise ReferenceError("reference primary source differs from its bound native unit")
     for source in (frame, *frame.context_sources):
@@ -815,14 +816,12 @@ def reference_evaluate(
         raise ReferenceError("every reference unit requires an adjudicated pass C")
     snaps = {s["unit_id"]: s for s in snapshot}
     reports = []
-    targets = {
-        (u["source_view_id"], u["unit_key"])
-        for u in _source_units(conn, run_id)
-    }
+    targets = {(u["source_view_id"], u["unit_key"]) for u in _source_units(conn, run_id)}
     for unit in units:
         snap = snaps[unit["id"]]
         reference = ensure_items(conn, snap["pass_id"], frame_id=snap["frame_id"])
         from corpus_structure.semantic.source_views import load_source_view
+
         if reference.source_view_id is None:
             raise ReferenceError("native reference frame has no source view")
         view = load_source_view(conn, reference.source_view_id)

@@ -549,7 +549,6 @@ def render(model: Model) -> dict[str, str]:
         "core/_model/revision.py": _revision(current),
         # Stage B (P0-M-5): the Pydantic shapes; schema/stage_b.py renders them
         **stage_b.render(model),
-
     }
     out = {path: _format(str(PACKAGE / path), text) for path, text in raw.items()}
     # The core shapes' JSON Schemas carry the revision in their `$id` (P0-M-3), so a model change

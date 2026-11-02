@@ -255,9 +255,7 @@ def native_products(
             reader = published_record_reader(conn, pin, projection_context=projection_context)
             if reader is None:
                 raise ValueError("catalog publication pin is unavailable")
-            _record_product_identity(
-                conn, pin.task_id, pin.product_key, pin.content_digest, reader
-            )
+            _record_product_identity(conn, pin.task_id, pin.product_key, pin.content_digest, reader)
             header = _published_native_header(reader, row["origin_run"], runtime=True)
             health, report, release_id = header.health, header.runtime_report, header.release_id
             rows.append(

@@ -269,8 +269,6 @@ def test_binding_revision_and_wrong_attempt(semantic_db_engine, semantic_writer_
         assert not c.execute(select(table("kb.observation"))).first()
 
 
-
-
 def test_recognizer_terminal_source_boundary_and_coverage(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine
 ):

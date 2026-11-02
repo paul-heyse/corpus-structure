@@ -13,7 +13,10 @@ def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
     assert not (target / "native").exists()
     assert (target / "sources").is_dir()
     assert list(target.glob("*.artifact"))
-    assert json.loads(derived.stdout)["execution_model_id"] == json.loads(checked.stdout)["execution_model_id"]
+    assert (
+        json.loads(derived.stdout)["execution_model_id"]
+        == json.loads(checked.stdout)["execution_model_id"]
+    )
     before = (target / "manifest.json").read_bytes()
     refused = cli("schema", "derive", "--out", str(target))
     assert refused.exit_code == 1
@@ -71,7 +74,9 @@ def test_derive_exports_changed_model_without_entering_native_authoring(cli, tmp
     assert result.exit_code == 0, result.output
     assert (target / "manifest.json").read_bytes() == resolved[0].manifest
     for artifact in resolved[0].artifacts:
-        assert (target / (artifact.kind.replace("/", "_") + ".artifact")).read_bytes() == artifact.content
+        assert (
+            target / (artifact.kind.replace("/", "_") + ".artifact")
+        ).read_bytes() == artifact.content
     assert not (target / "native").exists()
 
 
@@ -80,7 +85,9 @@ def test_derive_refuses_invalid_model_without_partial_output(cli, tmp_path, monk
     from corpus_structure.semantic.types import Diagnostic, PreparationError
 
     def invalid(*args):
-        raise PreparationError((Diagnostic("invalid_model", "fixture", "changed model is invalid"),))
+        raise PreparationError(
+            (Diagnostic("invalid_model", "fixture", "changed model is invalid"),)
+        )
 
     monkeypatch.setattr(regeneration, "prepare_packs", invalid)
     target = tmp_path / "invalid-model"

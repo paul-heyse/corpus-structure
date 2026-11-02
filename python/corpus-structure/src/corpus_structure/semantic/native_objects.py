@@ -13,11 +13,10 @@ from dataclasses import asdict, dataclass, replace
 from pglast import ast, enums
 from pglast.stream import RawStream
 from sqlalchemy import Connection, Integer, cast, func, literal, select, text
-
-from . import native_catalog as catalog_queries
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.exc import DBAPIError
 
+from . import native_catalog as catalog_queries
 from .prepared_sql import prepare_sql
 
 
@@ -271,16 +270,16 @@ def observe_native(
     elif identity.kind == "view":
         statement = catalog_queries.view_observation(identity.schema, identity.name)
     elif identity.kind == "trigger":
-        statement = catalog_queries.trigger_observation(identity.schema, identity.name, identity.relation)
+        statement = catalog_queries.trigger_observation(
+            identity.schema, identity.name, identity.relation
+        )
     else:
         raise NativeAuthoringError(f"unsupported native kind {identity.kind}")
     row = connection.execute(statement).mappings().one_or_none()
     if identity.kind == "trigger":
         return None if row is None else dict(row)
     if row is not None and identity.kind == "view" and row["kind"] != "v":
-        raise NativeAuthoringError(
-            f"{identity.qualified}: selected object is not an ordinary view"
-        )
+        raise NativeAuthoringError(f"{identity.qualified}: selected object is not an ordinary view")
     if row is None:
         return None
     result = dict(row)
@@ -295,7 +294,6 @@ def observe_native(
             SQL_STANDARD_MAJOR,
             SQL_STANDARD_PROFILE,
             catalog_path,
-
         )
 
         if identity.kind != "function" or not sql_body:
@@ -311,7 +309,11 @@ def observe_native(
             )
         with catalog_path(connection):
             result["body"] = connection.scalar(
-                select(catalog_queries.pg.pg_get_functiondef(catalog_queries.pg.to_regprocedure(identity.qualified)))
+                select(
+                    catalog_queries.pg.pg_get_functiondef(
+                        catalog_queries.pg.to_regprocedure(identity.qualified)
+                    )
+                )
             )
             dependencies = connection.scalar(
                 catalog_queries.dependencies(catalog_queries.pg.to_regprocedure(identity.qualified))
@@ -324,7 +326,9 @@ def observe_native(
         )
     aclkind = "f" if identity.kind == "function" else "r"
     acl = connection.execute(
-        catalog_queries.acl_rows(literal(result.pop("acl")), literal(aclkind), literal(result.pop("proowner")))
+        catalog_queries.acl_rows(
+            literal(result.pop("acl")), literal(aclkind), literal(result.pop("proowner"))
+        )
     ).all()
     result.pop("oid")
     result["acl"] = [list(item) for item in acl]

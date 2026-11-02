@@ -113,7 +113,7 @@ class PublishedSchemaUnavailable(ValueError):
     """Retained schema custody or its explicit supported decoding profile is unavailable."""
 
 
-def published_native_table(conn: Connection, kind: str = "item"):
+def published_native_table(kind: str = "item"):
     """Use the current released projection shape without a legacy deployment fallback."""
     from .metadata import table
 

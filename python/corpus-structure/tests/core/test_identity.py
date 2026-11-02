@@ -435,7 +435,6 @@ def test_the_schema_refuses_malformed_specifications() -> None:
         KeySchema.model_validate({"key_scheme": 0})
 
 
-
 def test_values_validated_in_the_value_adapters_keep_their_text_form() -> None:
     phrase = VALUE_ADAPTERS["stored"].validate_python(
         {"t": "phrase", "text": "ΣX", "start": 0, "end": 2}

@@ -126,10 +126,7 @@ def _validate_manifest(
     manifest: dict[str, Any] = {
         "root": bundle.root,
         "profile": asdict(profile),
-        "libraries": {
-            name: determinant_version(name)
-            for name in _LIBRARIES
-        },
+        "libraries": {name: determinant_version(name) for name in _LIBRARIES},
         "sources": sorted((s.name, s.digest) for s in bundle.sources),
         "dependencies": sorted((s.name, s.digest) for s in dependencies.artifacts),
         "ontology_sources": sorted(dependencies.ontology_sources),

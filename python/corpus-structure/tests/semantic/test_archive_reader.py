@@ -39,8 +39,11 @@ def test_retired_archived_compilers_refuse(compiler):
     data, bundle, artifacts = archived()
     with pytest.raises(ValueError, match="unsupported archived compiler"):
         reconstruct_release(
-            data["products"], bytes.fromhex(data["manifest"]), bundle,
-            PreparationProfile(compiler_version=compiler), artifacts,
+            data["products"],
+            bytes.fromhex(data["manifest"]),
+            bundle,
+            PreparationProfile(compiler_version=compiler),
+            artifacts,
         )
 
 
@@ -105,8 +108,11 @@ def test_historical_analysis_archive_refuses_without_rewriting_evidence():
     data, bundle, artifacts = archived(fixture)
     with pytest.raises(ValueError, match="unsupported archived compiler"):
         reconstruct_release(
-            data["products"], bytes.fromhex(data["manifest"]), bundle,
-            PreparationProfile(**data["profile"]), artifacts,
+            data["products"],
+            bytes.fromhex(data["manifest"]),
+            bundle,
+            PreparationProfile(**data["profile"]),
+            artifacts,
         )
     assert fixture.read_bytes() == original
 

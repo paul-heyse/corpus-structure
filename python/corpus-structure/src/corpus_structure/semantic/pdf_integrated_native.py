@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+
 def observation_publication_sql(context=None) -> str:
     """The retained bundle kernel, narrowed to recognition observations at entry.
 

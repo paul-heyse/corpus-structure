@@ -119,9 +119,10 @@ def reconstruct_release(
     if profile.compiler_version != "14":
         raise ValueError(f"unsupported archived compiler {profile.compiler_version}")
     recipe = json.loads(artifact_map["boundary_recipe.json"].content)
-    if set(recipe) != {
-        "abi", "primitives", "aliases", "descendants", "conditional_scope"
-    } or recipe["abi"] != "semantic-boundary-" + BOUNDARY_ABI_VERSION:
+    if (
+        set(recipe) != {"abi", "primitives", "aliases", "descendants", "conditional_scope"}
+        or recipe["abi"] != "semantic-boundary-" + BOUNDARY_ABI_VERSION
+    ):
         raise ValueError("unsupported archived boundary ABI")
     if recipe["conditional_scope"] != profile.constraint_scope:
         raise ValueError("archived boundary placement differs from profile")

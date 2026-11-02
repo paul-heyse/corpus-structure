@@ -10,7 +10,6 @@ from typing import Annotated, Any
 import pytest
 import yaml
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Connection, text
 
 from corpus_structure.core.evidence import config_key
 from corpus_structure.core.method import (
@@ -21,7 +20,6 @@ from corpus_structure.core.method import (
 )
 from corpus_structure.core.vocab import ConfidenceSource, MethodFamily, MethodTier, TaskUnitType
 from corpus_structure.orchestrate import registry as reg
-
 
 REPO = Path(__file__).resolve().parents[4]
 
@@ -177,7 +175,6 @@ def test_the_loader_ignores_the_environment(
     assert {k: v.config_hash for k, v in after.resolve_all(ARTIFACTS).items()} == {
         k: v.config_hash for k, v in before.items()
     }
-
 
 
 def test_literal_configuration_reference_is_validated_as_referenced_value(tmp_path: Path):

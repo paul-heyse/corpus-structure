@@ -23,7 +23,6 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy import Column, Connection, MetaData, Table, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 
-from corpus_structure.core.evidence import RenditionContent, Segment, SegmentKind
 from corpus_structure.core.method import (
     ArtifactRef,
     ConfigRef,

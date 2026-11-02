@@ -288,9 +288,13 @@ def test_previous_execution_abi_requires_regeneration():
     previous["inputs"]["compiler_version"] = "14"
     from corpus_structure.semantic.types import PreparationError
 
-    with pytest.raises(PreparationError, match="supported closed reader profile|current compiler ABI; regenerate"):
+    with pytest.raises(
+        PreparationError, match="execution product requires current compiler 23; regenerate"
+    ):
         _bound_execution_model(json.dumps(previous).encode(), current.model_id)
-    with pytest.raises(PreparationError, match="supported closed reader profile|current compiler ABI; regenerate"):
+    with pytest.raises(
+        PreparationError, match="execution product requires current compiler 23; regenerate"
+    ):
         require_payload_operation(
             json.dumps(previous).encode(), current.model_id, "publish_integrated_pdf"
         )
@@ -432,9 +436,14 @@ def test_table_return_inventory_and_model_owned_read_roles(monkeypatch):
 
     functions = {}
     from pathlib import Path
-    update_function_inventory(functions, Path(__file__).parents[2].joinpath(
-        "src/corpus_structure/semantic/sql/pdf_record_artifact_identity.sql"
-    ).read_text())
+
+    update_function_inventory(
+        functions,
+        Path(__file__)
+        .parents[2]
+        .joinpath("src/corpus_structure/semantic/sql/pdf_record_artifact_identity.sql")
+        .read_text(),
+    )
     signature = "ops.pdf_identity_verify_artifact(text,text,text,bytea)"
     assert functions[signature]["result"] == "pg_catalog.record"
     assert functions[signature]["setof"] is True

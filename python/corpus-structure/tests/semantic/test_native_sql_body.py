@@ -189,11 +189,14 @@ LANGUAGE sql BEGIN ATOMIC SELECT 1; END;"""
 
 def test_current_release_guards_refuse_historical_archive_and_projection_compilers():
     from pathlib import Path
+
     from corpus_structure.semantic.native_products import function_bodies
 
     source = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
     archive = function_bodies((source / "closure.sql").read_text())["sem.require_archive_bytes"]
-    projection = function_bodies((source / "execution_projection_check.sql").read_text())["sem.require_execution_projection"]
+    projection = function_bodies((source / "execution_projection_check.sql").read_text())[
+        "sem.require_execution_projection"
+    ]
     assert "document->>'format' IS DISTINCT FROM 'semantic-release-archive-3'" in archive
     assert "manifest->'profile'->>'compiler_version' IS DISTINCT FROM '14'" in archive
     assert "IS DISTINCT FROM '14' THEN RAISE EXCEPTION" in projection
@@ -201,7 +204,10 @@ def test_current_release_guards_refuse_historical_archive_and_projection_compile
 
 
 def test_current_native_sources_own_release_guards_and_record_only_views(semantic_bare_engine):
-    from corpus_structure.semantic.native_candidate import series_native_definitions, series_predecessor_definitions
+    from corpus_structure.semantic.native_candidate import (
+        series_native_definitions,
+        series_predecessor_definitions,
+    )
 
     with semantic_bare_engine.begin() as conn:
         conn.exec_driver_sql("CREATE SCHEMA sem")
@@ -213,7 +219,12 @@ def test_current_native_sources_own_release_guards_and_record_only_views(semanti
         assert wanted["sem", name].sql != previous["sem", name].sql
         assert wanted["sem", name].owner == "corpus_sem_publisher"
         assert wanted["sem", name].grants == ()
-    for name in ("pdf_selected_product", "pdf_published_item", "pdf_published_region", "pdf_published_coverage"):
+    for name in (
+        "pdf_selected_product",
+        "pdf_published_item",
+        "pdf_published_region",
+        "pdf_published_coverage",
+    ):
         assert "UNION" not in wanted["ops", name].sql
         assert "UNION" in previous["ops", name].sql
     assert ("ops", "legacy_integrated_source_context") not in wanted

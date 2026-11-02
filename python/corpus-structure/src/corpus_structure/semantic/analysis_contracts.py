@@ -427,7 +427,8 @@ def _profile(prepared: PreparedRelease | None):
         model = _standalone_model()
     elif prepared.execution_model_id is None:
         _fail(
-            "missing_execution_model", prepared.release_id,
+            "missing_execution_model",
+            prepared.release_id,
             "analysis requires a composed execution binding",
         )
     else:

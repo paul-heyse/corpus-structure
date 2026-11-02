@@ -60,7 +60,11 @@ classes:
         SourceBundle("example", (SourceArtifact("example", source),))
     )
     dependencies = composed_dependencies(dependencies)
-    return bundle, dependencies, prepare_release(bundle, dependencies, PreparationProfile(version="semantic-2"))
+    return (
+        bundle,
+        dependencies,
+        prepare_release(bundle, dependencies, PreparationProfile(version="semantic-2")),
+    )
 
 
 def empty_packet(prepared):
@@ -249,7 +253,9 @@ def test_native_exported_snapshot_and_decimal_boundary(
     bundle, dependencies, prepared = prepared_inputs()
     rid, realization = prepared.release_id, "z"
     with semantic_db_engine.begin() as owner:
-        persist_release(owner, bundle, dependencies, PreparationProfile(version="semantic-2"), prepared)
+        persist_release(
+            owner, bundle, dependencies, PreparationProfile(version="semantic-2"), prepared
+        )
         owner.execute(insert(table("data.project")).values(project_id="p"))
         owner.execute(
             insert(table("data.realization")).values(
@@ -542,7 +548,9 @@ def test_declared_profile_scale_changes_release_and_packet_shape():
         SourceBundle("example", (bundle.sources[0],)),
         profile=b'{"version":"analytical-1","precision":38,"scale":6,"rounding":"HALF_EVEN","overflow":"refuse"}',
     )
-    prepared6 = prepare_release(bundle6, composed_dependencies(deps6), PreparationProfile(version="semantic-2"))
+    prepared6 = prepare_release(
+        bundle6, composed_dependencies(deps6), PreparationProfile(version="semantic-2")
+    )
     profile6 = AnalyticalProfile.from_release(prepared6)
     assert prepared6.release_id != default.release_id
     assert profile6.decimal("1.1234565") == (Decimal("1.123456"), True)
@@ -727,12 +735,9 @@ def test_projection_policy_fields_drive_compiler_refusal():
     import json
 
     from corpus_structure.semantic import PreparationProfile
-    from corpus_structure.semantic.composed import composed_dependencies
 
     bundle, deps, _ = prepared_inputs()
-    prepared = prepare_release(
-        bundle, deps, PreparationProfile(version="semantic-2")
-    )
+    prepared = prepare_release(bundle, deps, PreparationProfile(version="semantic-2"))
     row = next(r for r in prepared.registry_rows if r.kind == "execution_model")
     body = json.loads(row.body)
     captured = next(p for p in body["projections"] if p["id"] == "captured")

@@ -687,13 +687,24 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
         config, method = table("ops.method_config"), table("ops.method")
         cut_tasks = table("ops.cut_task")
         source_selection = (
-            select(o.c.id, o.c.source_view_id, t.c.unit_key,
-                   method.c.name.label("provider"), method.c.version, config.c.params)
-            .select_from(o.join(t, t.c.id == o.c.task_id)
-                         .join(config, config.c.id == t.c.method_config_id)
-                         .join(method, method.c.id == config.c.method_id))
-            .where(o.c.task_id.in_(select(cut_tasks.c.origin_task_id)
-                                  .where(cut_tasks.c.cut_id == cut_id)))
+            select(
+                o.c.id,
+                o.c.source_view_id,
+                t.c.unit_key,
+                method.c.name.label("provider"),
+                method.c.version,
+                config.c.params,
+            )
+            .select_from(
+                o.join(t, t.c.id == o.c.task_id)
+                .join(config, config.c.id == t.c.method_config_id)
+                .join(method, method.c.id == config.c.method_id)
+            )
+            .where(
+                o.c.task_id.in_(
+                    select(cut_tasks.c.origin_task_id).where(cut_tasks.c.cut_id == cut_id)
+                )
+            )
         )
         source_rows = conn.execute(source_selection).mappings().all()
         d = table("kb.document")
@@ -706,19 +717,27 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
             frame = source_frames.get(report["task_id"])
             if isinstance(frame, NativeProposalFrame) or source["source_view_id"] is not None:
                 view = load_source_view(
-                    conn, frame.source_view_id if isinstance(frame, NativeProposalFrame)
+                    conn,
+                    frame.source_view_id
+                    if isinstance(frame, NativeProposalFrame)
                     else source["source_view_id"],
                 )
                 document = (
                     conn.execute(select(d).where(d.c.id == view.ref.document_id)).mappings().one()
                 )
                 descriptors[source["id"]] = {
-                    "rendition_id": None, "source_view_id": view.ref.id,
-                    "source_uri": document["source_uri"], "text": view.text,
-                    "provider": source["provider"], "version": source["version"],
-                    "rendition_key": view.ref.key, "content": {"macros": {}},
-                    "page": document["source_uri"], "math": source["params"].get("math"),
-                    "frame": frame, "native_view": view,
+                    "rendition_id": None,
+                    "source_view_id": view.ref.id,
+                    "source_uri": document["source_uri"],
+                    "text": view.text,
+                    "provider": source["provider"],
+                    "version": source["version"],
+                    "rendition_key": view.ref.key,
+                    "content": {"macros": {}},
+                    "page": document["source_uri"],
+                    "math": source["params"].get("math"),
+                    "frame": frame,
+                    "native_view": view,
                 }
             else:
                 descriptors[source["id"]] = None
@@ -2082,8 +2101,12 @@ def consolidate_cut(
                 )
             rows.append(
                 EvidenceSourceRow(
-                    eid, link.observation_id, None, None,
-                    source_view_id=link.source_view_id, native_address=link.native_address,
+                    eid,
+                    link.observation_id,
+                    None,
+                    None,
+                    source_view_id=link.source_view_id,
+                    native_address=link.native_address,
                 )
             )
         batch = replace(

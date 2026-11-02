@@ -777,16 +777,14 @@ def _prepare_release_uncached(
     }
     from .comparison_projection import compile_comparison_projection, projection_bytes
 
-    comparison = (
-        compile_comparison_projection(
-            tuple(definitions),
-            {
-                (d.name, p.iri): _annotations(view.induced_slot(p.name, d.name))
-                for d in definitions
-                for p in d.properties
-            },
-            effective_bindings["qualification"],
-        )
+    comparison = compile_comparison_projection(
+        tuple(definitions),
+        {
+            (d.name, p.iri): _annotations(view.induced_slot(p.name, d.name))
+            for d in definitions
+            for p in d.properties
+        },
+        effective_bindings["qualification"],
     )
     manifest = canonical_bytes(
         {

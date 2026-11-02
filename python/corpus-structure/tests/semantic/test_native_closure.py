@@ -405,6 +405,7 @@ def test_current_frozen_head_witness_records_current_authoring_provenance():
 
 def test_current_context_source_and_identity_helper_changes_are_visible(monkeypatch):
     from pathlib import Path
+
     from corpus_structure.semantic.native_products import function_bodies
     from corpus_structure.semantic.pdf_publication_native import publication_sql
 
@@ -414,13 +415,18 @@ def test_current_context_source_and_identity_helper_changes_are_visible(monkeypa
     def changed(path, *args, **kwargs):
         content = original(path, *args, **kwargs)
         if path.name == "pdf_record_context.sql":
-            return content.replace("'descriptor',jsonb_build_object", "'changed_descriptor',jsonb_build_object")
+            return content.replace(
+                "'descriptor',jsonb_build_object", "'changed_descriptor',jsonb_build_object"
+            )
         return content
 
     monkeypatch.setattr(Path, "read_text", changed)
     after = function_bodies(publication_sql())
     assert "'changed_descriptor'" in after["ops.record_integrated_source_context"]
-    assert before["ops.record_integrated_source_context"] != after["ops.record_integrated_source_context"]
+    assert (
+        before["ops.record_integrated_source_context"]
+        != after["ops.record_integrated_source_context"]
+    )
 
 
 def test_current_admission_refuses_unsupported_effect(monkeypatch):
@@ -428,17 +434,23 @@ def test_current_admission_refuses_unsupported_effect(monkeypatch):
     from corpus_structure.semantic.native_products import current_admission_fields
     from corpus_structure.semantic.types import PreparationError
 
-    monkeypatch.setitem(SUPPORTED_EFFECTS["read_pdf_product"], "effects", ("atomic_native_publication",))
+    monkeypatch.setitem(
+        SUPPORTED_EFFECTS["read_pdf_product"], "effects", ("atomic_native_publication",)
+    )
     with pytest.raises(PreparationError, match="effect"):
         current_admission_fields()
 
 
-@pytest.mark.parametrize("relation_name,expression", [
-    ("kb.pdf_record_access", "ordinal >= 2"),
-    ("ops.pdf_product_body", "octet_length(payload) >= 2"),
-])
+@pytest.mark.parametrize(
+    "relation_name,expression",
+    [
+        ("kb.pdf_record_access", "ordinal >= 2"),
+        ("ops.pdf_product_body", "octet_length(payload) >= 2"),
+    ],
+)
 def test_current_physical_constraint_changes_admission_identity(relation_name, expression):
     from sqlalchemy import CheckConstraint
+
     from corpus_structure.semantic.metadata import metadata
     from corpus_structure.semantic.native_products import current_admission_fields
 

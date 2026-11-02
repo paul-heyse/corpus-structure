@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+
 def native_task_completion_sql(context=None) -> str:
     """One rendered completion source for normal products and native authoring."""
     from .native_shapes import record_shape_guards

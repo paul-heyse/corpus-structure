@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Annotated
 
 import pytest
 from pydantic import AfterValidator, TypeAdapter, ValidationError
 
 from corpus_structure.semantic import determinants
-from corpus_structure.semantic.archive_reader import reconstruct_release
-from corpus_structure.semantic.types import PreparationProfile
-
-from .test_archive_reader import archived
 
 
 @pytest.mark.parametrize("compiler", ["14"])
@@ -38,7 +32,8 @@ def test_runtime_compatibility_is_explicit_not_schema_equivalence(monkeypatch, c
     assert determinants.boundary_compatible(recorded, compiler)
     original = determinants.determinant_version
     monkeypatch.setattr(
-        determinants, "determinant_version",
+        determinants,
+        "determinant_version",
         lambda name: "changed" if name == changed else original(name),
     )
     assert not determinants.boundary_compatible(recorded, compiler)
@@ -46,7 +41,9 @@ def test_runtime_compatibility_is_explicit_not_schema_equivalence(monkeypatch, c
 
 @pytest.mark.parametrize("compiler", ["10", "11", "12", "13", "future"])
 def test_retired_or_unknown_boundary_compilers_refuse_even_with_current_versions(compiler):
-    recorded = {name: determinants.determinant_version(name) for name in determinants.BOUNDARY_LIBRARIES}
+    recorded = {
+        name: determinants.determinant_version(name) for name in determinants.BOUNDARY_LIBRARIES
+    }
     assert not determinants.boundary_compatible(recorded, compiler)
 
 

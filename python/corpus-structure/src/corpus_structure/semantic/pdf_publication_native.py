@@ -1348,9 +1348,15 @@ def source_view_sql() -> str:
     from .native_shapes import record_shape_guards
     from .pdf_contracts import trusted_pdf_context
 
-    view_sql = source.read_text().replace("ops.integrated_source_context(", "ops.record_integrated_source_context(").replace(
-        "-- {source_view_shape_guard}",
-        record_shape_guards(trusted_pdf_context().boundary, "PdfSourceViewPublication", "product"),
+    view_sql = (
+        source.read_text()
+        .replace("ops.integrated_source_context(", "ops.record_integrated_source_context(")
+        .replace(
+            "-- {source_view_shape_guard}",
+            record_shape_guards(
+                trusted_pdf_context().boundary, "PdfSourceViewPublication", "product"
+            ),
+        )
     )
     view_sql = (
         view_sql.replace("kb.native_document_item", "ops.pdf_published_item")

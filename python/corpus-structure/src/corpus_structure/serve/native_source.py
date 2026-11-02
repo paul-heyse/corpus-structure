@@ -351,9 +351,7 @@ def _inspect_native_source(
             raise ValueError("native occurrence inspection requires one existing pointer")
         alignment = []
         if request.view in {"item", "formula", "trace"}:
-            alignment = (
-                _published_alignment_reports(published, request.pointer)
-            )
+            alignment = _published_alignment_reports(published, request.pointer)
         for report in alignment or ():
             report["source_product"] = parent_product
         if request.view in {"regions", "trace"}:

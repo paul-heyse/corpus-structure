@@ -203,7 +203,7 @@ def native_descendant_pointers(
     """An indexed containment selection, preserving native ordinals in its caller."""
     from .pdf_record_reader import published_native_table
 
-    item = published_native_table(conn)
+    item = published_native_table()
     members = (
         select(item.c.pointer)
         .where(
@@ -423,11 +423,15 @@ def _pdf_descriptors(
         _pdf_product_identity(conn, task, key, digest, cancellation=cancellation)
     query = (
         select(products, bodies.c.descriptor)
-        .join(bodies, (bodies.c.task_id == products.c.task_id)
-              & (bodies.c.product_key == products.c.product_key))
-        .where(products.c.kind == "recognition_observation",
-               tuple_(products.c.task_id, products.c.product_key, products.c.content_digest)
-               .in_(pins))
+        .join(
+            bodies,
+            (bodies.c.task_id == products.c.task_id)
+            & (bodies.c.product_key == products.c.product_key),
+        )
+        .where(
+            products.c.kind == "recognition_observation",
+            tuple_(products.c.task_id, products.c.product_key, products.c.content_digest).in_(pins),
+        )
     )
     current.extend(dict(row) for row in conn.execute(query).mappings())
     return sorted(current, key=lambda r: (r["task_id"], r["product_key"]))
