@@ -45,7 +45,7 @@ P = "https://example/label"
 
 
 def seed(engine):
-    """Use the immutable archive and the fixed semantic-1 inference protocol."""
+    """Use the immutable archive and the current composed inference protocol."""
     prepared = seed_publication(engine)
     assert prepared.release_id == R
 

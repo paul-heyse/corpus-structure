@@ -74,10 +74,16 @@ def view():
 
 @cache
 def pure_source_release() -> PreparedRelease:
-    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
+    from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.contracts import trusted_execution_inputs
 
-    return prepare_release(trusted_execution_inputs().schema)
+    inputs = trusted_execution_inputs()
+    return prepare_release(
+        inputs.schema,
+        composed_dependencies(ResolvedDependencies(), inputs),
+        PreparationProfile(version="semantic-2"),
+    )
 
 
 class Reader(ReaderPort):

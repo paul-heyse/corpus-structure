@@ -48,7 +48,7 @@ def fixture_model(
     maximum=None,
     qualification=False,
     conditional=False,
-    composed=False,
+    composed=True,
 ):
     from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 
@@ -156,7 +156,7 @@ def seed(
     from corpus_structure.semantic.releases import persist_release
 
     bundle, prepared = fixture_model(scope, unique, **model_options)
-    composed = model_options.get("conditional", False) or model_options.get("composed", False)
+    composed = model_options.get("conditional", False) or model_options.get("composed", True)
     deps = composed_dependencies(ResolvedDependencies()) if composed else ResolvedDependencies()
     profile = PreparationProfile(
         version="semantic-2" if composed else "semantic-1", constraint_scope=scope

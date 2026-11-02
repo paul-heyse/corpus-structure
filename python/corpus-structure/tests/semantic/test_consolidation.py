@@ -5,7 +5,14 @@ from pathlib import Path
 import pytest
 import yaml
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+    prepare_release,
+)
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.consolidation import SourceItem, assemble
 from corpus_structure.semantic.publication import EvidenceRow
 
@@ -29,8 +36,12 @@ def inputs():
     )
 
 
-def prepared():
-    return prepare_release(inputs())
+def prepared(bundle=None):
+    return prepare_release(
+        inputs() if bundle is None else bundle,
+        composed_dependencies(ResolvedDependencies()),
+        PreparationProfile(version="semantic-2"),
+    )
 
 
 def test_repeated_items_keep_occurrences_and_shared_fact_without_selecting_truth():
@@ -108,7 +119,13 @@ def test_assembly_publishes_with_native_identity_and_scoped_source_support(
 
     release = prepared()
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, inputs(), ResolvedDependencies(), PreparationProfile(), release)
+        persist_release(
+            conn,
+            inputs(),
+            composed_dependencies(ResolvedDependencies()),
+            PreparationProfile(version="semantic-2"),
+            release,
+        )
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(
@@ -152,7 +169,13 @@ def test_assessment_confidence_stays_exact_through_arrow_and_native_receipts(
 
     release = prepared()
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, inputs(), ResolvedDependencies(), PreparationProfile(), release)
+        persist_release(
+            conn,
+            inputs(),
+            composed_dependencies(ResolvedDependencies()),
+            PreparationProfile(version="semantic-2"),
+            release,
+        )
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(
@@ -221,9 +244,15 @@ def test_non_utc_instants_publish_with_equivalent_identity(
             *bundle.sources[1:],
         ),
     )
-    release = prepare_release(bundle)
+    release = prepared(bundle)
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), release)
+        persist_release(
+            conn,
+            bundle,
+            composed_dependencies(ResolvedDependencies()),
+            PreparationProfile(version="semantic-2"),
+            release,
+        )
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(
@@ -281,9 +310,15 @@ def test_report_decimal_representations_survive_fact_fusion(
             *bundle.sources[1:],
         ),
     )
-    release = prepare_release(bundle)
+    release = prepared(bundle)
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), release)
+        persist_release(
+            conn,
+            bundle,
+            composed_dependencies(ResolvedDependencies()),
+            PreparationProfile(version="semantic-2"),
+            release,
+        )
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(

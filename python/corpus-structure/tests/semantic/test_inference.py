@@ -59,7 +59,14 @@ def setup(
     selected=True,
 ):
     if prepared is None:
-        from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+        from corpus_structure.semantic import (
+            PreparationProfile,
+            ResolvedDependencies,
+            SourceArtifact,
+            SourceBundle,
+            prepare_release,
+        )
+        from corpus_structure.semantic.composed import composed_dependencies
 
         schema: dict[str, Any] = {
             "id": "https://example/inference-fixture",
@@ -79,17 +86,28 @@ def setup(
             else:
                 schema["slots"]["p"][kind] = True
         bundle = SourceBundle("model", (SourceArtifact("model", yaml.safe_dump(schema).encode()),))
-        prepared = prepare_release(bundle)
+        prepared = prepare_release(
+            bundle,
+            composed_dependencies(ResolvedDependencies()),
+            PreparationProfile(version="semantic-2"),
+        )
         typed_qualification = False
     else:
         typed_qualification = True
     from corpus_structure.semantic import PreparationProfile, ResolvedDependencies
     from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.composed import composed_dependencies
 
     r = prepared.release_id
     with admin.begin() as conn:
         assert bundle is not None
-        persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), prepared)
+        persist_release(
+            conn,
+            bundle,
+            composed_dependencies(ResolvedDependencies()),
+            PreparationProfile(version="semantic-2"),
+            prepared,
+        )
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(realization_id=Z, project_id="p", release_id=r)
@@ -356,7 +374,14 @@ def test_unlocated_stated_support_cannot_seed(semantic_db_engine, semantic_write
 def test_real_archived_binary_release_round_trip(
     semantic_db_engine, semantic_writer_engine, seed_predicate
 ):
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic import (
+        PreparationProfile,
+        ResolvedDependencies,
+        SourceArtifact,
+        SourceBundle,
+        prepare_release,
+    )
+    from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.releases import load_release
 
     schema = {
@@ -384,7 +409,11 @@ def test_real_archived_binary_release_round_trip(
         },
     }
     bundle = SourceBundle("model", (SourceArtifact("model", yaml.safe_dump(schema).encode()),))
-    prepared = prepare_release(bundle)
+    prepared = prepare_release(
+        bundle,
+        composed_dependencies(ResolvedDependencies()),
+        PreparationProfile(version="semantic-2"),
+    )
     binding, _ = setup(
         semantic_db_engine,
         semantic_writer_engine,
@@ -423,7 +452,11 @@ def test_real_archived_binary_release_round_trip(
     # Preserve source modality and prevent required scalar graph flags being admitted.
     schema["slots"]["p"]["range"] = "string"
     bad_bundle = SourceBundle("model", (SourceArtifact("model", yaml.safe_dump(schema).encode()),))
-    bad = prepare_release(bad_bundle)
+    bad = prepare_release(
+        bad_bundle,
+        composed_dependencies(ResolvedDependencies()),
+        PreparationProfile(version="semantic-2"),
+    )
     from corpus_structure.semantic.publication import admit_release
 
     with pytest.raises(ValueError, match="binary entity"):

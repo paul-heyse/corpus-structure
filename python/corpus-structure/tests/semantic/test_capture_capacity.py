@@ -20,7 +20,9 @@ def test_native_spooled_capture_exceeds_resident_bound_and_exports(
 ):
     bundle, dependencies, prepared = prepared_inputs()
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
+        persist_release(
+            conn, bundle, dependencies, PreparationProfile(version="semantic-2"), prepared
+        )
         conn.execute(insert(table("data.project")).values(project_id="capacity"))
         conn.execute(
             insert(table("data.realization")).values(

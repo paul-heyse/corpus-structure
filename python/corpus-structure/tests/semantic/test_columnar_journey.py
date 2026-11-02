@@ -63,10 +63,14 @@ classes:
             ),
         )
     )
-    release = prepare_release(bundle, deps)
+    from corpus_structure.semantic.composed import composed_dependencies
+
+    deps = composed_dependencies(deps)
+    profile = PreparationProfile(version="semantic-2")
+    release = prepare_release(bundle, deps, profile)
     rid, z, p = release.release_id, "z", "https://example.org/label"
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, deps, PreparationProfile(), release)
+        persist_release(conn, bundle, deps, profile, release)
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(

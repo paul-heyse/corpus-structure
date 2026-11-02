@@ -22,14 +22,12 @@ def test_unknown_capture_storage_cannot_self_attest_support():
 
 
 def current_capture_inputs():
-    from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.types import PreparationProfile
 
     from .test_analytics import prepared_inputs
 
     bundle, dependencies, _ = prepared_inputs()
-    dependencies = composed_dependencies(dependencies)
     profile = PreparationProfile(version="semantic-2")
     return bundle, dependencies, profile, prepare_release(bundle, dependencies, profile)
 

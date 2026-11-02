@@ -51,8 +51,10 @@ def test_renderer_admission_is_independent_of_mathematical_implementation(
     prepared, libraries = renderer_archive
     conn = renderer_connection(libraries)
     monkeypatch.setattr(analysis_contracts, "_runtime_implementation_digests", lambda: ())
+    # Creating a reader is lazy; only requesting analytical ownership admits math.
+    reader = BoundReader(conn, 17, prepared)
     with pytest.raises(PreparationError, match="admitted implementation bytes"):
-        BoundReader(conn, 17, prepared)
+        analysis_contracts.bind_analysis_family(reader.prepared, "source")
 
     renderer = native_requests.prepare_native_renderer(conn, prepared)
 

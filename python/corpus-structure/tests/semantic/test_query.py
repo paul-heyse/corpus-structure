@@ -110,7 +110,10 @@ classes:
             ),
         ),
     )
-    deps, profile = ResolvedDependencies(), PreparationProfile()
+    from corpus_structure.semantic.composed import composed_dependencies
+
+    deps = composed_dependencies(ResolvedDependencies())
+    profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, deps, profile)
     with engine.begin() as conn:
         persist_release(conn, bundle, deps, profile, prepared)

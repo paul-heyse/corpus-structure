@@ -3,6 +3,7 @@
 import copy
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import cache
 from typing import Any
 
 import pytest
@@ -14,6 +15,16 @@ from corpus_structure.semantic.types import (
     PropertyDefinition,
     RegistryRow,
 )
+
+
+@cache
+def execution_model():
+    from corpus_structure.semantic.contracts import (
+        compile_execution_model,
+        trusted_execution_inputs,
+    )
+
+    return compile_execution_model(trusted_execution_inputs())
 
 
 @dataclass
@@ -39,17 +50,22 @@ class AlignmentFixture:
             conditional_fragments={},
             models_out=models,
         )
+        execution = execution_model()
         return PreparedRelease(
             "fixture:alignment",
-            b'{"profile":{"version":"semantic-1","compiler_version":"13"}}',
+            b'{"profile":{"version":"semantic-2","compiler_version":"14"}}',
             self.definitions,
             (),
-            self.registry_rows,
+            (
+                *self.registry_rows,
+                RegistryRow("execution_model", execution.model_id, execution.content),
+            ),
             (),
             self.artifacts,
             (),
             (),
             adapters,
+            execution_model_id=execution.model_id,
             _boundary_models=models,
         )
 
@@ -480,7 +496,14 @@ def admitted_scientific_model():
     from dataclasses import replace
     from pathlib import Path
 
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic import (
+        PreparationProfile,
+        ResolvedDependencies,
+        SourceArtifact,
+        SourceBundle,
+        prepare_release,
+    )
+    from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.determinants import SCIENTIFIC_LIBRARIES, determinant_version
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.scientific_evidence import (
@@ -520,7 +543,9 @@ classes:
                 SourceArtifact("alignment", source),
                 SourceArtifact("semantic_core", core.read_bytes()),
             ),
-        )
+        ),
+        composed_dependencies(ResolvedDependencies()),
+        PreparationProfile(version="semantic-2"),
     )
     manifest = json.loads(model.manifest)
     manifest["libraries"].update({name: determinant_version(name) for name in SCIENTIFIC_LIBRARIES})

@@ -144,13 +144,16 @@ def test_current_snapshot_reads_without_compiler_then_explicit_analytical_captur
     from corpus_structure.semantic.types import ResolvedDependencies
 
     data, bundle, _ = archived(_FIXTURE.with_name("reader-v10-analytics.json"))
-    profile = PreparationProfile()
+    profile = PreparationProfile(version="semantic-2")
     dependencies = ResolvedDependencies(
         tuple(
             SourceArtifact(item["name"], bytes.fromhex(item["content"]))
             for item in data["dependencies"]
         )
     )
+    from corpus_structure.semantic.composed import composed_dependencies
+
+    dependencies = composed_dependencies(dependencies)
     # Rebuild current products from compatible retained schema inputs. Existing
     # historical reconstruction vectors above remain independently unchanged.
     prepared = prepare_release(bundle, dependencies, profile)
