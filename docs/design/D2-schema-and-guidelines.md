@@ -4,7 +4,7 @@
 
 **Accepted target, Proposed until implemented (2026-11-02).** The resolved effective model owns explicit comparison-role projections, operation parameter/result correspondence and admitted invariant/diagnostic bindings. Typed callable and projection products derive from these definitions with versioned archive readers; annotation presence alone does not establish enforcement. Existing implementation claims below retain their scope.
 
-> Decision: [ADR-0046](../adr/0046-unified-operation-realization.md)
+> Decision: [ADR-0047](../adr/0047-current-only-domain-runtime.md)
 
 
 **Accepted semantic target (2026-10-29; Proposed until implemented).**

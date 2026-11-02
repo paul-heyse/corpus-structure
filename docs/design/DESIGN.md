@@ -229,7 +229,7 @@ legacy wait barrier rather than implying that every old option is supported.
 
 **Accepted unified-operation target, Proposed implementation (2026-11-02).** Model-derived Core and structured PostgreSQL products extend the existing native authoring/admission route. Protected database enforcement and restricted writers remain mandatory; versioned body profiles preserve frozen predecessors.
 
-> Decision: [ADR-0046](../adr/0046-unified-operation-realization.md)
+> Decision: [ADR-0047](../adr/0047-current-only-domain-runtime.md)
 
 **Accepted PDF target; Proposed implementation (2026-10-31).** PostgreSQL retains original
 PDF bytes, immutable native Docling content and separate conversion health. Application
@@ -384,7 +384,7 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 **Accepted unified-operation target, Proposed implementation (2026-11-02).** Resolved semantic contracts govern comparison roles, typed operation binds/results, relationship endpoints and qualified implementation compatibility. Generated structural representations share those inputs; specialized algorithms remain admitted implementations.
 
-> Decision: [ADR-0046](../adr/0046-unified-operation-realization.md)
+> Decision: [ADR-0047](../adr/0047-current-only-domain-runtime.md)
 
 **Accepted PDF target; Proposed implementation (2026-10-31).** One admitted application semantic
 release governs interpretation-changing behavior and cross-product relationships. It binds the

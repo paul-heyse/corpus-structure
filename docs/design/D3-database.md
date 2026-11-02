@@ -4,7 +4,7 @@
 
 **Accepted target, Proposed until implemented (2026-11-02).** SQLAlchemy Core is the primary relational authoring/execution representation. Model-bound expressions and pglast declarations generate eligible native products under versioned custody/catalog/admission profiles and the existing Alembic lifecycle. Restricted PostgreSQL enforcement remains authoritative. Structured SQL bodies require actual profile qualification; retained specialized kernels are explicitly bound. Published-address consumer constraints and read selection share one model-owned binding.
 
-> Decision: [ADR-0046](../adr/0046-unified-operation-realization.md)
+> Decision: [ADR-0047](../adr/0047-current-only-domain-runtime.md)
 
 
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
@@ -140,6 +140,21 @@ Bounded JSON retains native extension detail; oversized individual values use lo
 The same model drives boundary types, Arrow schemas, Core metadata and native constraints. Exact
 raw byte custody, logical record identity and native export serialization are separate contracts;
 historical pins are not rewritten. Public reads select immutable published revisions only.
+
+**Accepted target; current API retirement in progress (2026-11-02).** Ordinary producers expose
+only the staged record publication route. The old native/integrated aggregate-writing terminal
+fields and context callbacks are retired from current method execution: their legacy tables do
+not supply the published record binding required by source views and rendering. Selecting an old
+aggregate for new source preparation refuses before effects, with a record-backed publication
+remedy. ADR-0047 authorizes removing aggregate runtime readers after resetting selected results;
+immutable frozen migrations remain replay history, without an aggregate-to-record import operation. Recognition observations remain a
+distinct immutable input-product kind, published through a named observation-only contract and
+native kind guard rather than a generic document writer. UM-14 owns this consumer closure.
+
+Published record identity uses its exact protected publication/build/frozen validation receipt.
+The receipt's projection-contract digest and the producer schema-source digest are separate
+authorities. A newer validation epoch qualifies new preparation/seal work; it does not reinterpret
+an immutable published pin or require recomputing that publication's contract with installed policy.
 
 Private append, freeze, frozen-union validation and final seal reuse existing task/attempt fences.
 Membership cannot change under validation; seal rechecks owner, run/task/input/contract premises.
@@ -2053,3 +2068,13 @@ SQLSTATE does not establish a disconnect. Borrower-scoped cancellation remains r
 transaction settlement, with renewal deadlines and actual child/iterator cleanup at their owners.
 ADBC has its own cancellation handle and independently attempts rollback and physical close while
 preserving the primary exception. These mechanisms do not claim a hard end-to-end cleanup deadline.
+
+## Current-only operational baseline
+
+**Accepted target, implementation in progress (2026-11-02).** ADR-0047 retires old result-format
+compatibility and semantic-1 execution after current caller migration. New PDF sources and
+selected-document consumers use record publication only. The seven explicitly selected old result
+databases were dropped after name/OID/owner/client verification; sourcePDFs, evidence, frozen
+migrations and shared model assets remain. New intake targets corpus_pdf_20261102/siegrist-pdf.
+Current release archives, exact pins and restricted writers remain required for fresh results.
+> Decision: [ADR-0047](../adr/0047-current-only-domain-runtime.md)

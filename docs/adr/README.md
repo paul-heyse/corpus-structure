@@ -30,7 +30,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0040](0040-forward-pdf-only-contracts.md) | Maintain the integrated PDF architecture without historical HTML compatibility | 2026-10-31 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0039](0039-integrated-pdf-products.md) |
 | [ADR-0043](0043-segmented-artifact-byte-identity.md) | Separate admitted segmented byte identity from export serialization digests | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 | [ADR-0045](0045-structured-pdf-payload-validation.md) | Validate model-governed PDF page payloads over immutable stored bytes | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0042](0042-relational-pdf-document-records.md), [ADR-0044](0044-native-pdf-metadata-jsonschema.md) |
-| [ADR-0046](0046-unified-operation-realization.md) | Generate domain operations and relational native products from unified contracts | 2026-11-02 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0047](0047-current-only-domain-runtime.md) | Use composed execution and record-backed PDF sources without historical result compatibility | 2026-11-02 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0046](0046-unified-operation-realization.md) |
 
 ## Superseded, still in the tree
 
@@ -55,5 +55,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0041](0041-json-text-pdf-publication.md) | Publish large PDF companions as bounded native records | 2026-10-31 | [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 | [ADR-0042](0042-relational-pdf-document-records.md) | Realize PDF documents as lossless records with versioned streaming identity | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0041](0041-json-text-pdf-publication.md) |
 | [ADR-0044](0044-native-pdf-metadata-jsonschema.md) | Validate lossless PDF metadata with native model-derived JSON Schema | 2026-11-01 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0046](0046-unified-operation-realization.md) | Generate domain operations and relational native products from unified contracts | 2026-11-02 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).

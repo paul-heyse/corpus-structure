@@ -1,10 +1,10 @@
 ---
 id: ADR-0046
 title: Generate domain operations and relational native products from unified contracts
-status: accepted
+status: superseded
 date: 2026-11-02
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0047
 design: [§B4, §B5]
 evidence: Proposed
 revisit: A required operation cannot preserve its admitted semantic, native or transport contract through the finite authoring profiles.

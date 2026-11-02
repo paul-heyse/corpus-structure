@@ -384,3 +384,23 @@ companions. `just docs-check` failed on deferred library-reorganization links, i
 links in the UM plans; log: `build/um-completion-audit-docs-check.log`. These references are not newly
 introduced audit links and were not repaired as part of this audit. No product/type tests were
 rerun. Root `just turn-end` passed (`build/um-completion-audit-turn-end.log`): all779 Python files were unchanged. This maintenance neither repaired product defects nor invalidated prior type/functional evidence.
+
+## Current-only execution amendment — 2026-11-02
+
+The operator approved all remaining scope plus repository legacy retirement, and selected resetting
+all seven identified project-result databases on5434. ADR-0047 changes the supported runtime target:
+current composed execution and record PDF publications only, with immutable current release custody.
+UM-CA01/02 are now authorized retirement/transition work, not promises to repair historical results.
+All other UM-CA obligations remain open until implementation and actual controls close them.
+
+The audited203-file working implementation was committed as63cc99e5 before isolated concurrent work.
+Three sparse worktrees exclude large evidence payloads. A mistaken full checkout was removed before
+work began; no original evidence was deleted. After exact OID/owner/zero-client verification, all
+seven selected result databases were dropped. Receipt build/um-current-result-reset.json records
+24,341,479,424 bytes reclaimed (about22.67GiB); filesystem free space increased from about11GiB to33GiB.
+Templates and the separately owned authoring database were preserved. No fresh intake has run yet.
+
+Execution owners: current-model/generators/runtime and historical document removal; report/analysis/
+graph/advice integration; native observation/authoring/export; root integration, legacy executor
+retirement, forward freezing, fresh bootstrap/intake and final qualification. All reported passing
+predecessor checks retain their limits. Final source must be qualified after broad retirement.

@@ -4,7 +4,7 @@
 
 **Accepted target, Proposed until implemented (2026-11-02).** Ordinary callers use concrete typed domain operations with generated bindings/materializers. Named queries resolve producing and installed implementation compatibility before plugin import and carry it through continuation/evidence journeys. CLI/MCP operation explanations, semantic impact and located diagnostics share domain functions; preflight observations never authorize later effects.
 
-> Decision: [ADR-0046](../adr/0046-unified-operation-realization.md)
+> Decision: [ADR-0047](../adr/0047-current-only-domain-runtime.md)
 
 
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
