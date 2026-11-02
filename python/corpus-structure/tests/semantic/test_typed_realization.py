@@ -121,7 +121,9 @@ def test_two_native_invocations_reuse_preparation_and_return_independent_rows(
     prepared = replace(cached)
     pins = ("first", "second%_o'")
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
+        persist_release(
+            conn, bundle, dependencies, PreparationProfile(version="semantic-2"), prepared
+        )
         conn.execute(insert(table("data.project")).values(project_id="prepared-pins"))
         for realization in pins:
             conn.execute(

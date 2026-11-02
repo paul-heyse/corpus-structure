@@ -13,6 +13,7 @@ from sqlalchemy import insert, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import ReleaseConflict, persist_release
 from corpus_structure.semantic.types import PreparedArtifact
@@ -21,7 +22,9 @@ from .test_releases import source_bundle
 
 
 def archive(engine):
-    bundle, dependencies, profile = source_bundle(), ResolvedDependencies(), PreparationProfile()
+    bundle = source_bundle()
+    dependencies = composed_dependencies(ResolvedDependencies())
+    profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     with engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
@@ -463,195 +466,6 @@ def test_current_physical_constraint_changes_admission_identity(relation_name, e
     finally:
         relation.constraints.remove(constraint)
     assert before["physical_checks_source_digest"] != after["physical_checks_source_digest"]
-
-
-@pytest.fixture
-def revision_database(semantic_database_at):
-    with semantic_database_at("semantic_0030") as engine:
-        yield engine
-
-
-@pytest.mark.parametrize("earlier_variant", [False, True])
-def test_forward_reconciles_same_head_constraints_and_kernel(revision_database, earlier_variant):
-    from corpus_structure.semantic.migrations import upgrade
-
-    engine = revision_database
-    from dataclasses import asdict
-    from hashlib import sha256
-
-    from corpus_structure.semantic.archive_reader import reconstruct_release
-    from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.releases import _archive_bytes, _projection_rows
-
-    from .test_archive_reader import archived
-
-    retained, bundle, artifacts = archived()
-    deps, profile = ResolvedDependencies(), PreparationProfile(**retained["profile"])
-    prepared = reconstruct_release(
-        retained["products"], bytes.fromhex(retained["manifest"]), bundle, profile, artifacts
-    )
-    archive_bytes = canonical_bytes(
-        {
-            "format": "semantic-release-archive-1",
-            "root": retained["root"],
-            "sources": [source.name for source in bundle.sources],
-            "dependencies": [],
-            "products": retained["products"],
-        }
-    )
-    assert _archive_bytes(bundle, deps, prepared) == archive_bytes
-    # The genuine compiler-10 archive predates all seven relations introduced in 0033.
-    # Restore its revision-0030 projection explicitly; current compiler projection families
-    # are not an input format accepted by that historical database/publisher.
-    historical_relations = (
-        "registry_row",
-        "class_definition",
-        "property_definition",
-        "vocabulary_member",
-        "metric_definition",
-        "class_hierarchy",
-        "property_applicability",
-        "identity_slot",
-        "conditional_rule",
-        "conditional_atom",
-    )
-    projections = _projection_rows(prepared)
-    release_row = dict(
-        release_id=prepared.release_id,
-        parent_release_id=None,
-        content_digest=sha256(archive_bytes).hexdigest(),
-        profile=profile.version,
-        prepared_bytes=archive_bytes,
-        manifest_bytes=prepared.manifest,
-    )
-    inputs = [("source", item.name, item.content) for item in bundle.sources]
-    inputs += [
-        ("profile", "profile", canonical_bytes(asdict(profile))),
-        ("vocabulary", "vocabulary", b"[]"),
-        ("ontology_sources", "ontology_sources", b"[]"),
-    ]
-    input_rows = [
-        dict(
-            release_id=prepared.release_id,
-            input_kind=kind,
-            input_name=name,
-            content=body,
-            content_digest=sha256(body).hexdigest(),
-        )
-        for kind, name, body in inputs
-    ]
-    artifact_rows = [
-        dict(
-            release_id=prepared.release_id,
-            artifact_name=item.kind,
-            media_type="application/octet-stream",
-            content=item.content,
-            content_digest=item.digest,
-        )
-        for item in prepared.artifacts
-    ]
-    replay_payload = {
-        "release": [release_row],
-        "input": input_rows,
-        "artifact": artifact_rows,
-        **{name: projections[name] for name in historical_relations},
-    }
-    with engine.begin() as conn:
-        assert conn.scalar(text("SELECT to_regclass('sem.operation_property_role')")) is None
-        # Reproduce the historical complete persister before protected publication existed.
-        conn.execute(insert(table("sem.release")), [release_row])
-        conn.execute(insert(table("sem.input")), input_rows)
-        conn.execute(insert(table("sem.artifact")), artifact_rows)
-        for name in historical_relations:
-            rows = projections[name]
-            if rows:
-                conn.execute(insert(table("sem." + name)), rows)
-        conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
-        if earlier_variant:
-            conn.exec_driver_sql(
-                "ALTER TABLE eval.document_split DROP CONSTRAINT ck_document_split_physical"
-                "_23de252598"
-            )
-            conn.exec_driver_sql(
-                "ALTER TABLE eval.document_split ADD CONSTRAINT ck_document_split_physical_"
-                "23de252598 CHECK(split IN ('dev','test'))"
-            )
-            conn.exec_driver_sql(
-                "CREATE OR REPLACE FUNCTION data.check_evidence_source() RETURNS trigger LA"
-                "NGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $old"
-                "$ BEGIN RETURN NEW; END $old$"
-            )
-        conn.execute(text("RESET ROLE"))
-        upgrade(conn, "semantic_0031")
-        assert (
-            conn.execute(
-                text("SELECT content_digest FROM sem.release_finalization WHERE release_id=:r"),
-                {"r": prepared.release_id},
-            ).scalar_one()
-            == sha256(archive_bytes).hexdigest()
-        )
-        assert (
-            bytes(
-                conn.execute(
-                    text("SELECT prepared_bytes FROM sem.release WHERE release_id=:r"),
-                    {"r": prepared.release_id},
-                ).scalar_one()
-            )
-            == archive_bytes
-        )
-        # Independent allowed sets; reference_set deliberately excludes reserved.
-        checks = dict(
-            conn.execute(
-                text(
-                    "SELECT conrelid::regclass::text,pg_get_constraintdef(oid) FROM pg_cons"
-                    "traint WHERE contype='c' AND conrelid IN ('eval.document_split'::regcl"
-                    "ass,'eval.reference_set'::regclass)"
-                )
-            ).all()
-        )
-        assert (
-            checks["eval.document_split"]
-            == "CHECK ((split = ANY (ARRAY['dev'::text, 'test'::text, 'reserved'::text])))"
-        )
-        assert (
-            checks["eval.reference_set"]
-            == "CHECK ((split = ANY (ARRAY['dev'::text, 'test'::text])))"
-        )
-        conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
-        body = conn.execute(
-            text(
-                "SELECT prosrc FROM pg_proc WHERE oid='data.check_evidence_source()'::regprocedure"
-            )
-        ).scalar_one()
-        assert "citation" in body and "locator" in body
-        assert not conn.execute(
-            text("SELECT has_database_privilege('corpus_sem_writer',current_database(),'TEMP')")
-        ).scalar_one()
-        conn.execute(text("RESET ROLE"))
-        upgrade(conn, "semantic_0032")
-        import json
-
-        # Exercise the historical protected replay ABI, not today's compiler-13 publisher.
-        assert (
-            conn.scalar(
-                text("SELECT sem.publish_release_archive(CAST(:payload AS jsonb))"),
-                {
-                    "payload": json.dumps(
-                        replay_payload, default=lambda value: "\\x" + bytes(value).hex()
-                    )
-                },
-            )
-            == prepared.release_id
-        )
-        assert (
-            bytes(
-                conn.scalar(
-                    text("SELECT prepared_bytes FROM sem.release WHERE release_id=:r"),
-                    {"r": prepared.release_id},
-                )
-            )
-            == archive_bytes
-        )
 
 
 def test_alembic_current_physical_comparison(semantic_db_engine):

@@ -15,6 +15,7 @@ from corpus_structure.semantic import (
     occurrence_key,
     prepare_release,
 )
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import (
     EntityRow,
@@ -61,9 +62,11 @@ classes:
         ),
         ontology_sources=("terms",),
     )
-    prepared = prepare_release(bundle, dependencies)
+    dependencies = composed_dependencies(dependencies)
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, dependencies, profile)
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
+        persist_release(conn, bundle, dependencies, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="p"))
         activate_release(
             conn, "p", prepared.release_id, expected_parent=None, expected_generation=0

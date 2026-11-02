@@ -37,6 +37,7 @@ def test_native_bootstrap_and_subsequent_projection(semantic_bare_engine: Engine
 
 def _seed(conn) -> tuple[str, str]:
     from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.releases import persist_release
     from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 
@@ -55,8 +56,10 @@ def _seed(conn) -> tuple[str, str]:
                 ),
             ),
         )
-        prepared = prepare_release(bundle, ResolvedDependencies())
-        persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), prepared)
+        dependencies = composed_dependencies(ResolvedDependencies())
+        profile = PreparationProfile(version="semantic-2")
+        prepared = prepare_release(bundle, dependencies, profile)
+        persist_release(conn, bundle, dependencies, profile, prepared)
         releases.append(prepared.release_id)
     conn.execute(insert(table("data.project")).values(project_id="p"))
     conn.execute(

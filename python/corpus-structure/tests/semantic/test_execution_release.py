@@ -189,8 +189,16 @@ def test_execution_activation_refuses_missing_native_enforcement_and_preserves_p
 ):
     with semantic_db_engine.begin() as conn:
         bundle = _bundle()
-        dependencies = ResolvedDependencies()
-        profile = PreparationProfile()
+        bundle = replace(
+            bundle,
+            sources=(
+                replace(
+                    bundle.sources[0], content=bundle.sources[0].content + b"\n# Existing release\n"
+                ),
+            ),
+        )
+        dependencies = composed_dependencies(ResolvedDependencies())
+        profile = PreparationProfile(version="semantic-2")
         existing = prepare_release(bundle, dependencies, profile)
         releases.persist_release(conn, bundle, dependencies, profile, existing)
         project_id = _project(conn)

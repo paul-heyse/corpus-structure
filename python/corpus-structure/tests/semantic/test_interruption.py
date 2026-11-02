@@ -13,6 +13,7 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import PublicationBatch, publish_on_connection
 from corpus_structure.semantic.releases import activate_release, persist_release
@@ -35,9 +36,11 @@ classes: {Thing: {}}
             ),
         ),
     )
-    release = prepare_release(bundle)
+    dependencies = composed_dependencies(ResolvedDependencies())
+    profile = PreparationProfile(version="semantic-2")
+    release = prepare_release(bundle, dependencies, profile)
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), release)
+        persist_release(conn, bundle, dependencies, profile, release)
         conn.execute(insert(table("data.project")).values(project_id="p"))
         activate_release(conn, "p", release.release_id, expected_parent=None, expected_generation=0)
         conn.execute(
