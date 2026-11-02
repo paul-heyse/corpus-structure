@@ -546,16 +546,9 @@ def _projection_contract(
     prepared: PreparedRelease, kind: str, *, operation_id: str | None = None
 ) -> dict[str, Any]:
     """Resolve finite projection behavior from the admitted semantic descriptor."""
-    from .contracts import bound_execution_model, compile_execution_model, trusted_execution_inputs
+    from .contracts import bound_execution_model
 
-    if prepared.execution_model_id is None:
-        if operation_id is not None:
-            raise ValueError("candidate operation requires a composed execution model")
-        # The explicit base protocol uses the same normalized trusted companion;
-        # never reparse YAML or invent a second projection-policy translation.
-        model = compile_execution_model(trusted_execution_inputs())
-    else:
-        model = bound_execution_model(prepared)
+    model = bound_execution_model(prepared)
     projection = next((row for row in model.projections if row.id == kind), None)
     if projection is None:
         raise ValueError("missing named analytical projection contract")
@@ -817,12 +810,9 @@ def normalize_relation(
 
 
 def _owned_input(prepared: PreparedRelease, family: str, **dependencies: Any):
-    """Bind the current composed analysis family when the caller supplies one."""
+    """Bind the required composed analysis family to its exact dependencies."""
     from .analysis_contracts import bind_analysis_family
-    from .contracts import execution_payload
 
-    if execution_payload(prepared) is None:
-        return None
     return bind_analysis_family(prepared, family).prepare(**dependencies)
 
 

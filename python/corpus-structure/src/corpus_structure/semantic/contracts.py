@@ -768,8 +768,7 @@ def execution_payload(prepared) -> bytes | None:
 
 def require_bound_operation(prepared, name: str) -> None:
     payload = execution_payload(prepared)
-    if payload is not None:
-        require_payload_operation(payload, prepared.execution_model_id, name)
+    require_payload_operation(payload, prepared.execution_model_id, name)
 
 
 def require_payload_operation(payload: bytes | None, model_id: str | None, name: str) -> None:

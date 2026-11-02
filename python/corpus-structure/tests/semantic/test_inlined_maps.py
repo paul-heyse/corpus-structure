@@ -17,6 +17,7 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.consolidation import SourceItem, assemble
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import (
@@ -78,9 +79,19 @@ def test_keyed_member_shape_rejects_mismatched_identifier():
 def test_map_order_does_not_split_facts_and_native_keys_cannot_be_forged(
     semantic_db_engine, semantic_writer_engine
 ):
-    p = prepare_release(inputs())
+    p = prepare_release(
+        inputs(),
+        composed_dependencies(ResolvedDependencies()),
+        PreparationProfile(version="semantic-2"),
+    )
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, inputs(), ResolvedDependencies(), PreparationProfile(), p)
+        persist_release(
+            conn,
+            inputs(),
+            composed_dependencies(ResolvedDependencies()),
+            PreparationProfile(version="semantic-2"),
+            p,
+        )
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(

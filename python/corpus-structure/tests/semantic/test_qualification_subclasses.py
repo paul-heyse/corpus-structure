@@ -16,6 +16,7 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.consolidation import SourceItem, assemble
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import EvidenceRow, publish_batch
@@ -83,7 +84,11 @@ def items():
 
 
 def test_explicit_subtype_boundary_and_identity_policy():
-    release = prepare_release(inputs())
+    release = prepare_release(
+        inputs(),
+        composed_dependencies(ResolvedDependencies()),
+        PreparationProfile(version="semantic-2"),
+    )
     batch = assemble(release, "z", "b", items())
     assert len(batch.fact) == 2  # identity and label; reporter is provenance, channel casefolds.
     assert len(batch.occurrence) == 3
@@ -105,9 +110,19 @@ def test_explicit_subtype_boundary_and_identity_policy():
 
 def test_native_subtype_shape_and_key_roles(semantic_db_engine, semantic_writer_engine):
     bundle = inputs()
-    release = prepare_release(bundle)
+    release = prepare_release(
+        bundle,
+        composed_dependencies(ResolvedDependencies()),
+        PreparationProfile(version="semantic-2"),
+    )
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), release)
+        persist_release(
+            conn,
+            bundle,
+            composed_dependencies(ResolvedDependencies()),
+            PreparationProfile(version="semantic-2"),
+            release,
+        )
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(
@@ -126,9 +141,19 @@ def test_native_unrelated_record_cannot_pose_as_qualification(
     semantic_db_engine, semantic_writer_engine
 ):
     bundle = inputs()
-    release = prepare_release(bundle)
+    release = prepare_release(
+        bundle,
+        composed_dependencies(ResolvedDependencies()),
+        PreparationProfile(version="semantic-2"),
+    )
     with semantic_db_engine.begin() as conn:
-        persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), release)
+        persist_release(
+            conn,
+            bundle,
+            composed_dependencies(ResolvedDependencies()),
+            PreparationProfile(version="semantic-2"),
+            release,
+        )
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
             insert(table("data.realization")).values(

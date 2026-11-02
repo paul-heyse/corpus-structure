@@ -174,6 +174,18 @@ def test_owned_input_enforces_exact_release_and_dependencies():
 
 def test_schema_only_and_retired_composed_profiles_refuse_execution():
     base = prepare_release(trusted_execution_inputs().schema)
+    from corpus_structure.semantic.analytics import compile_projection
+    from corpus_structure.semantic.consolidation import assemble
+    from corpus_structure.semantic.contracts import require_bound_operation
+    from corpus_structure.semantic.query import SnapshotBinding
+
+    for operation in (
+        lambda: require_bound_operation(base, "complete"),
+        lambda: compile_projection(base, SnapshotBinding(base.release_id, "z", 0, "capture")),
+        lambda: assemble(base, "z", "batch", ()),
+    ):
+        with pytest.raises(PreparationError, match="composed execution binding"):
+            operation()
     with pytest.raises(PreparationError, match="composed execution binding"):
         prepare_interpretation_context(base, macros={})
     import json

@@ -396,7 +396,10 @@ def persist_release(
     from .contracts import require_bound_operation
 
     _validate_manifest(bundle, dependencies, profile, prepared)
-    require_bound_operation(prepared, "archive")
+    # Pure schema artifacts may be archived without granting execution authority.
+    # Executable releases additionally retain their declared archive operation.
+    if prepared.execution_model_id is not None:
+        require_bound_operation(prepared, "archive")
     if profile.compiler_version == SEMANTIC_COMPILER_VERSION:
         from .prepare import prepare_release
 
