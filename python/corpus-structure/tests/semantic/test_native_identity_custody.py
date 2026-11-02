@@ -29,7 +29,7 @@ def test_native_exclusion_primary_and_supporting_custody_use_exact_projection(
             .all()
         )
         assert len(evidence) == 2
-        assert conn.scalar(text("SELECT count(*) FROM kb.span")) == 0
+        assert conn.scalar(text("SELECT to_regclass('kb.span')")) is None
         roles = set()
         for row in evidence:
             assert row["span_id"] is None and row["rendition_id"] is None

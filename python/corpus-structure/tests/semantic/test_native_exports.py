@@ -52,7 +52,7 @@ def test_complete_docling_json_export_preserves_native_shape(
             )
         assert not partial.exists()
         stale = tmp_path / "wrong-pin.json"
-        with pytest.raises(ValueError, match="pin"):
+        with pytest.raises(ValueError, match="requires a current published record"):
             export_native_source(
                 conn,
                 request.model_copy(update={"content_digest": "f" * 64}),

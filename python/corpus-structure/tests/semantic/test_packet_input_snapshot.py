@@ -56,6 +56,8 @@ def test_native_task_configuration_matches_frozen_params_and_version(
 ):
     from types import SimpleNamespace
 
+    from pydantic import create_model
+
     from corpus_structure.semantic.operations import create_task, record_method
 
     prepared = setup(semantic_db_engine)
@@ -68,6 +70,10 @@ def test_native_task_configuration_matches_frozen_params_and_version(
             family="agent" if agent else "ingest",
             tier="agent" if agent else "deterministic",
             confidence_source=None,
+            unit_type="run",
+            Config=create_model(
+                "PacketInputConfig", different=(bool, False), model=(str | None, None)
+            ),
         )
 
     with engine.begin() as conn:
