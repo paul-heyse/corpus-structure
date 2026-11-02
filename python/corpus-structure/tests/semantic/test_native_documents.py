@@ -289,14 +289,9 @@ def test_pdf_original_and_native_product_need_no_rendition(
             regions[0]["left"] == Decimal(str(expected_box.l))
             and regions[0]["origin"] == expected_origin
         )
-        with pytest.raises(ValueError, match="digest"):
+        with pytest.raises(ValueError, match="requires a published record"):
             read_native_items(conn, task_id=task, product_key="native", content_digest="0" * 64)
-        assert (
-            conn.execute(
-                text("SELECT count(*) FROM ops.rendition_build WHERE task_id=:task"), {"task": task}
-            ).scalar_one()
-            == 0
-        )
+        assert conn.scalar(text("SELECT to_regclass('ops.rendition_build')")) is None
 
     if not captured_page:
         from corpus_structure.semantic.operations import end_source_run

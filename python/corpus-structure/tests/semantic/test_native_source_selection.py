@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import psycopg
 import pytest
+from pydantic import create_model
 from sqlalchemy import select, update
 from sqlalchemy.exc import DBAPIError
 
@@ -54,6 +55,8 @@ def test_native_declared_corpus_and_final_open_task_guard(
                 family="ingest",
                 tier="deterministic",
                 confidence_source=None,
+                unit_type="run",
+                Config=create_model("ScopeControlConfig"),
             ),
             "default",
             {},

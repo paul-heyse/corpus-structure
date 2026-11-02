@@ -3,9 +3,7 @@
 import json
 
 import pytest
-from sqlalchemy import select
 
-from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.source_views import load_source_view
 from corpus_structure.serve.native_source import NativeSourceRequest, export_native_source
 
@@ -17,7 +15,7 @@ def test_complete_docling_json_export_preserves_native_shape(
     semantic_writer_engine,
     tmp_path,
 ):
-    from docling_core.types.doc import DoclingDocument
+    from docling_core.types.doc import DocItemLabel, DoclingDocument, GroupLabel
 
     _, run, _, view_id, _ = native_source_task(semantic_db_engine, semantic_writer_engine, tmp_path)
     with semantic_writer_engine.connect() as conn:
@@ -29,15 +27,15 @@ def test_complete_docling_json_export_preserves_native_shape(
             product_key=pin.product_key,
             content_digest=pin.content_digest,
         )
-        products = table("ops.native_document_product")
-        expected = conn.execute(
-            select(products.c.native_json).where(
-                products.c.task_id == pin.task_id, products.c.product_key == pin.product_key
-            )
-        ).scalar_one()
+        # Independent expected native structure; no retired aggregate storage is consulted.
+        expected = DoclingDocument(name="Independent source")
+        section = expected.add_group(label=GroupLabel.SECTION, name="People")
+        expected.add_text(
+            label=DocItemLabel.TEXT, text="Alice is here.", orig="Alice is here.", parent=section
+        )
         output = tmp_path / "native.docling.json"
         export_native_source(conn, request, output, format="docling-json")
-        assert json.loads(output.read_bytes()) == expected
+        assert json.loads(output.read_bytes()) == expected.export_to_dict()
         restored = DoclingDocument.model_validate_json(output.read_bytes())
         assert restored.groups[0].name == "People"
         assert restored.texts[0].text == "Alice is here."

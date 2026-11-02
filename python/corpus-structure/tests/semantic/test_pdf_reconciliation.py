@@ -360,7 +360,7 @@ def test_mapped_rich_document_publishes_with_typed_chart_and_inline_lineage(
     integration_fixtures.publish(db, retained)
     selected = select_pdf_integration(
         db.native.values(),
-        pin(db.job.task, "native", db.native.digest, "structural"),
+        pin(db.job.task, "native", db.native_digest, "structural"),
         [
             (
                 pin(db.job.task, "mapped-rich-a", retained.digest, "recognition"),
@@ -373,7 +373,7 @@ def test_mapped_rich_document_publishes_with_typed_chart_and_inline_lineage(
         db.source.schema,
         product_key="mapped-rich-selected",
     )
-    integration_fixtures.publish(db, selected)
+    selected_digest = integration_fixtures.publish(db, selected)
     values = selected.values()
     chart_cell = next(
         o for o in values["occurrences"] if "/meta/tabular_chart/" in o["occurrence_id"]
@@ -387,7 +387,7 @@ def test_mapped_rich_document_publishes_with_typed_chart_and_inline_lineage(
                 conn,
                 task_id=db.job.task,
                 product_key="mapped-rich-selected",
-                content_digest=selected.digest,
+                content_digest=selected_digest,
                 occurrence_id=occurrence["occurrence_id"],
             )
             assert read["occurrences"][0]["precision"] == "inherited"
@@ -396,7 +396,7 @@ def test_mapped_rich_document_publishes_with_typed_chart_and_inline_lineage(
                 conn,
                 task_id=db.job.task,
                 product_key="mapped-rich-selected",
-                content_digest=selected.digest,
+                content_digest=selected_digest,
                 occurrence_id=occurrence["occurrence_id"],
             )
             assert any(n["product_key"] == "mapped-rich-a" for n in trace["nodes"])

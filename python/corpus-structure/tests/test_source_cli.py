@@ -52,7 +52,7 @@ def source_runtime(monkeypatch):
 
 
 @pytest.mark.parametrize("empty", [False, True])
-def test_native_products_json_retains_report_shape(cli, source_runtime, empty):
+def test_native_products_json_retains_report_shape(cli, source_runtime, empty, monkeypatch):
     row = {
         "task_id": 23,
         "product_key": "native_document",
@@ -62,28 +62,50 @@ def test_native_products_json_retains_report_shape(cli, source_runtime, empty):
         "runtime_report": {"seconds": 1.5, "ocr": {"enabled": True}},
     }
     rows = [] if empty else [row, {**row, "task_id": 24, "runtime_report": None}]
-    catalog = [{**row, "origin_run": 17, "record_backed": False} for row in rows]
+    from corpus_structure.semantic import pdf_record_reader, pdf_storage, releases
+    from corpus_structure.serve import native_source
+
+    catalog = [{**row, "origin_run": 17} for row in rows]
+    by_task = {row["task_id"]: row for row in rows}
+    source_runtime.context.release_id = "release-17"
 
     def execute(statement):
+        assert "ops.pdf_selected_product.payload" not in str(statement)
+        assert "ops.pdf_selected_product" in str(statement)
         result = MagicMock()
-        if "kb.native_document_runtime" in str(statement):
-            assert rows
-            result.__iter__.return_value = [
-                SimpleNamespace(
-                    task_id=row["task_id"],
-                    product_key=row["product_key"],
-                    report=row["runtime_report"],
-                )
-                for row in rows
-                if row["runtime_report"] is not None
-            ]
-        else:
-            assert "ops.pdf_selected_product.payload IS NULL" in str(statement)
-            assert "ops.pdf_published_revision" not in str(statement)
-            result.mappings.return_value = catalog
+        result.mappings.return_value = catalog
         return result
 
+    def open_release(conn, release):
+        assert conn is source_runtime.connection and release == "release-17"
+        return source_runtime.context
+
+    def published(conn, pin, *, projection_context):
+        assert conn is source_runtime.connection and projection_context is source_runtime.context
+        expected = by_task[pin.task_id]
+        assert (pin.product_key, pin.content_digest) == (
+            expected["product_key"],
+            expected["content_digest"],
+        )
+        return SimpleNamespace(reference=pin, header=expected)
+
+    def verify_pin(conn, task, key, digest, reader):
+        assert conn is source_runtime.connection
+        assert (task, key, digest) == (
+            reader.reference.task_id,
+            reader.reference.product_key,
+            reader.reference.content_digest,
+        )
+
+    def header(reader, run, *, runtime):
+        assert run == 17 and runtime
+        return SimpleNamespace(**reader.header)
+
     source_runtime.connection.execute.side_effect = execute
+    monkeypatch.setattr(releases, "open_release", open_release)
+    monkeypatch.setattr(pdf_record_reader, "published_record_reader", published)
+    monkeypatch.setattr(pdf_storage, "_record_product_identity", verify_pin)
+    monkeypatch.setattr(native_source, "_published_native_header", header)
 
     result = cli("source", "native-products", "17", "--json")
 

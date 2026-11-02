@@ -415,12 +415,7 @@ def test_native_source_view_is_real_unit_with_exact_context(
             store_native_source_frame(
                 conn, task_id=agent_task, packet_hash=packet_hash, frame=invalid
             )
-        assert (
-            conn.execute(
-                text("SELECT count(*) FROM ops.rendition_build WHERE task_id=:task"), {"task": task}
-            ).scalar_one()
-            == 0
-        )
+        assert conn.scalar(text("SELECT to_regclass('ops.rendition_build')")) is None
         from corpus_structure.semantic.proposals import native_frame_source
         from corpus_structure.semantic.source_views import load_native_source_frames
 

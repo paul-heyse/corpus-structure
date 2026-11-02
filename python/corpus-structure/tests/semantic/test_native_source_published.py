@@ -538,12 +538,8 @@ def test_published_native_ports_qualify_retained_schema_before_legacy_gate(
         assert kwargs["projection_context"] is consumer
         return reader
 
-    def refuse_installed_gate():
-        raise AssertionError("installed schema digest is not published producer authority")
-
     monkeypatch.setattr(pdf_record_reader, "published_record_reader", published)
     monkeypatch.setattr(pdf_contracts, "pdf_context_for_task", lambda *_: producer)
-    monkeypatch.setattr(pdf_storage, "_reader_schema_digest", refuse_installed_gate)
     read = pdf_storage.read_native_items if port == "items" else pdf_storage.read_native_regions
     arguments = dict(
         task_id=42,
