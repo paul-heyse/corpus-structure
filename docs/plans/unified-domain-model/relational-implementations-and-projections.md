@@ -1,6 +1,6 @@
 # Relational implementations and projection analysis
 
-**Status:** Planned; implementation and qualification not_run. **Created:** 2026-11-01.
+**Status:** In progress; integrated qualification remains open. **Created:** 2026-11-01.
 **Target:** Proposed. The [coordinator](../unified-domain-model_2026-11-01.md) owns package state,
 source disposition and the execution queue. This companion owns UM-05 and UM-08 design.
 **Basis:** integrated review at `370f0643`, [R06/R08](../../design_review/reviews/design_review_unified-domain-model_2026-11-01.md),
@@ -282,3 +282,19 @@ per semantic field. Benefit claims are qualitative until measured.
 UM-05 supplies typed relational products to [native authoring](native-authoring-and-evolution.md)
 and UM-03. UM-08 supplies projection evidence to O02/O03. The coordinator owns global current
 state and whole-series acceptance. No product verification was run while authoring this document.
+
+## Execution evidence — 2026-11-02
+
+**Tested, bounded inference slice:** `semantic.inference` now constructs seed insertion with
+Core `Insert.from_select`, typed table-valued seed columns, qualification `text[]` arguments,
+and grouped canonical contexts. Context representative normalization uses Core `UPDATE FROM`
+over the grouped minimum; both run set-wise on the existing protected private workspace.
+The fixed point, direct proof materialization, scope/qualification semantics, protected workspace
+lifetime and revision-fenced publication remain under their existing owners.
+
+`uv run python -m pytest python/corpus-structure/tests/semantic/test_inference.py -q
+--report-log=build/test-receipts/um05-inference-00001.jsonl` **passed 13 cases**, including actual
+native publication, interacting rules, cycles, canonical contexts, ungrounded proofs and stale
+analysis refusal. Scoped Pyrefly and Ruff for `semantic/inference.py` passed. This establishes
+that inference slice, not completion of UM-05, UM-08 or assembled qualification. The companion
+recipe, publication/read binding and actual impact-consumer work continues under this package.

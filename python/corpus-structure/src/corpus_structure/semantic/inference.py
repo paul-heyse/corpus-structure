@@ -11,7 +11,20 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any
 
-from sqlalchemy import Column, MetaData, Table, Text, and_, func, literal, select, text
+from sqlalchemy import (
+    Column,
+    MetaData,
+    Table,
+    Text,
+    and_,
+    column,
+    func,
+    insert,
+    literal,
+    select,
+    text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import DBAPIError
@@ -53,6 +66,70 @@ def _rules(conn: Connection, release_id: str) -> tuple[dict[str, Any], ...]:
                 rows.c.release_id == release_id, rows.c.kind == "inference_rule"
             )
         ).scalars()
+    )
+
+
+def _seed_statement(work: Table, binding: SnapshotBinding):
+    """One set-shaped recipe for qualified seed values and canonical contexts."""
+    r, z = binding.release_id, binding.realization_id
+    fact, value = table("data.fact"), table("data.typed_value")
+    seed = func.data.inference_seeds(r, z).table_valued(column("fact_id", Text())).alias("seed")
+    context = func.data.canonical_json(
+        func.data.value_meaning(
+            r,
+            z,
+            fact.c.qualification_value_id,
+            literal([], type_=ARRAY(Text())),
+            True,
+            type_=JSONB(),
+        ),
+        type_=Text(),
+    )
+    key = func.encode(func.sha256(func.convert_to(context, "UTF8")), "hex")
+    source = (
+        select(
+            fact.c.subject_id,
+            fact.c.property_id,
+            value.c.entity_id,
+            context,
+            func.min(fact.c.qualification_value_id),
+            key,
+        )
+        .select_from(
+            seed.join(
+                fact,
+                and_(
+                    fact.c.fact_id == seed.c.fact_id,
+                    fact.c.release_id == r,
+                    fact.c.realization_id == z,
+                ),
+            ).join(
+                value,
+                and_(
+                    value.c.release_id == r,
+                    value.c.realization_id == z,
+                    value.c.value_id == fact.c.object_value_id,
+                    value.c.kind == "entity",
+                ),
+            )
+        )
+        .group_by(fact.c.subject_id, fact.c.property_id, value.c.entity_id, context)
+    )
+    return insert(work).from_select(
+        ("subject", "predicate", "object", "context", "qualification", "context_key"), source
+    )
+
+
+def _context_normalization_statement(work: Table):
+    representative = (
+        select(work.c.context, func.min(work.c.qualification).label("qualification"))
+        .group_by(work.c.context)
+        .subquery("representative")
+    )
+    return (
+        work.update()
+        .values(qualification=representative.c.qualification)
+        .where(work.c.context == representative.c.context)
     )
 
 
@@ -100,29 +177,10 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
     database_failed = False
     try:
         r, z = binding.release_id, binding.realization_id
-        connection.execute(
-            text("""INSERT INTO pg_temp.semantic_inference_work
-          (subject,predicate,object,context,qualification,context_key)
-          SELECT f.subject_id,f.property_id,v.entity_id,
-          data.canonical_json(data.value_meaning(:r,:z,f.qualification_value_id,'{}',true)),
-          min(f.qualification_value_id),encode(sha256(convert_to(
-          data.canonical_json(data.value_meaning(:r,:z,f.qualification_value_id,'{}',true)),
-          'UTF8')),'hex')
-          FROM data.inference_seeds(:r,:z) seed JOIN data.fact f ON f.fact_id=seed.fact_id
-           AND f.release_id=:r AND f.realization_id=:z
-          JOIN data.typed_value v ON v.release_id=:r AND v.realization_id=:z
-           AND v.value_id=f.object_value_id AND v.kind='entity'
-          GROUP BY f.subject_id,f.property_id,v.entity_id,
-           data.canonical_json(data.value_meaning(:r,:z,f.qualification_value_id,'{}',true))"""),
-            {"r": r, "z": z},
-        )
+        connection.execute(_seed_statement(work, binding))
         # Choose one stable stored representative for each canonical context. Different source
         # qualification object IDs must not make replay bytes depend on SQL insertion order.
-        connection.execute(
-            text("""UPDATE pg_temp.semantic_inference_work w SET qualification=c.q
-          FROM (SELECT context,min(qualification) q FROM pg_temp.semantic_inference_work
-                GROUP BY context) c WHERE w.context=c.context""")
-        )
+        connection.execute(_context_normalization_statement(work))
         rules = _rules(connection, r)
 
         def conclusions(rule: dict[str, Any]):
