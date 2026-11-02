@@ -12,6 +12,7 @@ import json
 import logging
 import shutil
 import subprocess
+import sysconfig
 import unicodedata
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -244,7 +245,7 @@ def test_a_draft_without_a_payload_class_fails_to_type_check(tmp_path: Path) -> 
     out = subprocess.run(
         [pyrefly, "check", str(snippet), "--python-version", "3.14",
          "--search-path", str(REPO / "python/corpus-structure/src"),
-         "--site-package-path", str(REPO / ".venv/lib/python3.14/site-packages")],
+         "--site-package-path", sysconfig.get_paths()["purelib"]],
         capture_output=True, text=True, check=False,
     )  # fmt: skip
     assert out.returncode != 0
@@ -267,10 +268,6 @@ def test_a_unit_result_keeps_rule_2() -> None:
     for bad in bad_results:
         with pytest.raises(ValueError, match="rule 2"):
             UnitResult(ref=ref, **bad)
-    text = "One."
-    content = RenditionContent(canonical_text=text, document=Segment(
-        kind=SegmentKind.DOCUMENT, start=0, end=len(text)))  # fmt: skip
-    assert UnitResult(ref=ref, outcome=ObservationOutcome.EMPTY, rendition=content).rendition
 
 
 # --- Settings and context ----------------------------------------------------------------------

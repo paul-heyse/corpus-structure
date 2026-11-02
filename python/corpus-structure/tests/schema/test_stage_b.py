@@ -81,9 +81,12 @@ def test_a_shape_changing_edit_generates_and_checks_clean_in_one_pass(tmp_path: 
 
 
 def test_html_profile_and_diagnostics_are_retired() -> None:
-    from corpus_structure.schema import registry
-
     loaded = model.load()
     assert "SourceProfile" not in loaded.system.all_classes()
     assert "ParseDetail" not in loaded.system.all_classes()
-    assert not any(e.kind == "parse_detail" for e in registry.payload_schema_entries(loaded))
+    assert "parse_detail" not in {
+        str(annotation.value)
+        for cls in loaded.system.all_classes().values()
+        for key, annotation in cls.annotations.items()
+        if key == "ci:payload"
+    }

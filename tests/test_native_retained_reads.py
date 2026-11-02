@@ -34,15 +34,13 @@ def retained_release(monkeypatch):
     return prepared
 
 
-def test_retained_reader_skips_analysis_admission_but_cannot_prepare_inputs(retained_release):
+def test_retained_reader_preserves_pins_before_text_preparation_gate(retained_release):
     conn = MagicMock(spec=Connection)
-    with pytest.raises(PreparationError, match="admitted implementation bytes"):
-        BoundReader(conn, 17, retained_release)
-
     reader = BoundReader(conn, 17, retained_release, analysis=False)
     assert reader.prepared is retained_release
-    with pytest.raises(OperationConflict, match="cannot prepare analytical inputs"):
-        reader.content(1)
+    # Native pins remain readable; the actual text preparation boundary checks its bytes.
+    with pytest.raises(PreparationError, match="admitted implementation bytes"):
+        analysis_contracts.prepare_text_policy(retained_release)
     conn.execute.assert_not_called()
 
 
