@@ -5,19 +5,16 @@ Importing this module acquires no settings, database, process or provider resour
 
 from __future__ import annotations
 
-import hashlib
 import re
 import subprocess
 import time
 from collections.abc import Callable, Generator, Mapping
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import Connection, Engine, create_engine, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import DBAPIError, OperationalError
@@ -40,9 +37,6 @@ if TYPE_CHECKING:
 
 
 REPO = Path(__file__).resolve().parents[1]
-PACKAGE = REPO / "python/corpus-structure"
-ALEMBIC_DIR = PACKAGE / "alembic"
-VERSIONS_DIR = ALEMBIC_DIR / "versions"
 EXTENSION_RECORD = extensions.EXTENSION_RECORD
 PROVISION = (
     "run `just db-provision` (the dedicated cluster 18/corpus with cs_template, D3 §13), "
@@ -69,24 +63,6 @@ def server_url(settings: Settings | None = None) -> str:
 def expected_extensions(path: Path = EXTENSION_RECORD) -> dict[str, str]:
     """The record of expected extension versions (DA-018), read by the product's reader."""
     return extensions.expected_extensions(path)
-
-
-def versions_hash(extensions: Mapping[str, str]) -> str:
-    """Hash of the Alembic versions directory and the template's installed extension versions."""
-    sha = hashlib.sha256()
-    for path in sorted(VERSIONS_DIR.rglob("*.py")):
-        if "__pycache__" in path.parts:
-            continue
-        sha.update(path.relative_to(VERSIONS_DIR).as_posix().encode() + b"\0")
-        sha.update(path.read_bytes() + b"\0")
-    for name, version in sorted(extensions.items()):
-        sha.update(f"extension {name} {version}".encode() + b"\0")
-    return sha.hexdigest()[:16]
-
-
-def template_name(extensions: Mapping[str, str]) -> str:
-    """The migrated template for this migration state and these extension versions."""
-    return f"{TEMPLATE_PREFIX}{versions_hash(extensions)}"
 
 
 def quote(name: str) -> str:
@@ -154,7 +130,6 @@ class PgAdmin:
         self.url = url
         self.template = template
         self.expected = dict(expected_extensions() if expected is None else expected)
-        self.current = ""  # the migrated template's name, set by `check`
         # Resolve only the existing purpose credentials, once against the original endpoint.
         # Role-self replay later changes the database to postgres, never the authentication.
         self._purpose_urls: tuple[URL, ...] = ()
@@ -454,13 +429,9 @@ class PgAdmin:
         source: str,
         *,
         policy: DatabasePolicy | None = None,
-        lease: Connection | None = None,
     ) -> Generator[Engine]:
-        """Lease an absent name before CREATE and protect every acquisition/cleanup step.
-
-        The legacy builder lends the exclusive scratch-name lease it already holds.
-        """
-        with self.lease(name) if lease is None else nullcontext(lease):
+        """Lease an absent name before CREATE and protect every acquisition/cleanup step."""
+        with self.lease(name):
             if self.exists(name):
                 raise RuntimeError(f"reserved database name already exists: {name!r}")
             engine: Engine | None = None
@@ -505,7 +476,7 @@ class PgAdmin:
 
     def check(self) -> dict[str, str]:
         """Fail, never skip, when the server is down, `cs_template` is missing, or one of its
-        extensions is absent or at another version than the record; then name the template."""
+        extensions is absent or at another version than the record."""
         try:
             if not self.exists(self.template):
                 raise PrerequisiteUnavailable(
@@ -538,7 +509,6 @@ class PgAdmin:
                 f"{self.template} extensions differ from {EXTENSION_RECORD.relative_to(REPO)}: "
                 f"{', '.join(wrong)}: {PROVISION}",
             )
-        self.current = template_name(installed)
         return installed
 
     @contextmanager
@@ -583,10 +553,7 @@ class PgAdmin:
                 if not owned or not self.owned_comment(comment, oid):
                     continue
                 if name.startswith(TEMPLATE_PREFIX):
-                    if (
-                        not re.fullmatch(r"cs_tpl_[0-9a-f]{16}(?:_build)?", name)
-                        or name == self.current
-                    ):
+                    if not re.fullmatch(r"cs_tpl_[0-9a-f]{16}(?:_build)?", name):
                         continue
                     key = name
                     stamp = STAMP.fullmatch(comment or "")
@@ -617,38 +584,25 @@ class PgAdmin:
             raise BaseExceptionGroup("database sweep failures", failures)
         return dropped
 
-    def ensure_template(self, lease: Connection) -> None:
-        """Build the migrated template unless it exists, one builder at a time on the server."""
-        scratch = f"{self.current}_build"
-        lease.execute(text(lock_sql("pg_advisory_lock")), {"name": scratch})
-        try:
-            if not self.exists(self.current):
-                self.build_template(scratch, lease)
-        finally:
-            lease.execute(text(lock_sql("pg_advisory_unlock")), {"name": scratch})
-        self.stamp(self.current)
-
-    def build_template(self, scratch: str, lease: Connection) -> None:
-        """Clone, migrate and rename under the existing builder lease and cleanup owner."""
-        if self.exists(scratch):
-            self.drop(scratch)
-        with self.database(scratch, self.template, lease=lease) as engine:
-            with engine.begin() as conn:
-                config = Config()
-                config.set_main_option("script_location", str(ALEMBIC_DIR))
-                config.attributes["connection"] = conn
-                command.upgrade(config, "head")
-            engine.dispose()  # templates must have no connection while cloned or renamed
-            with self.connect() as conn:
-                conn.execute(
-                    text(f"ALTER DATABASE {quote(scratch)} RENAME TO {quote(self.current)}")
-                )
-
     @contextmanager
-    def clone(self, name: str) -> Generator[Engine]:
-        """A leased legacy clone, with the same authenticated native cleanup owner."""
-        with self.database(name, self.current) as engine:
-            yield engine
+    def semantic_template(self, name: str) -> Generator[SemanticTemplate]:
+        """Bootstrap and seal a current frozen deployment for owned consumer clones."""
+        from corpus_structure.semantic.migrations import upgrade
+
+        with self.database(name, self.template) as engine:
+            with engine.begin() as conn:
+                extensions.check(conn.execute(text(extensions.FOUND)).all())
+                assert not conn.execute(
+                    text("SELECT 1 FROM pg_namespace WHERE nspname IN ('sem','data','kb','meta')")
+                ).first()
+                upgrade(conn)
+            engine.dispose()
+            policy = self.policy(name)
+            with self.connect() as conn:
+                conn.exec_driver_sql(
+                    f"ALTER DATABASE {quote(name)} ALLOW_CONNECTIONS false IS_TEMPLATE false"
+                )
+            yield SemanticTemplate(name, policy)
 
 
 def principal_engine(settings: Settings, purpose: Purpose, database: str | None) -> Engine:

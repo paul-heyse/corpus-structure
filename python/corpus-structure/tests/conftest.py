@@ -9,9 +9,9 @@
 - External server/template/extension/principal absence or incompatible extensions are reported
   as blocked prerequisites while preserving pytest's setup failure. Authentication, configuration,
   migration, posture and cleanup defects remain failures.
-- The persistent legacy `cs_tpl_<hash>` keeps migration/extension hashing and retention; `db`
-  still uses an outer rollback and `committing_db` still uses an independently committed clone.
-- Semantic consumers clone one sealed session head template and replay normalized database ACLs
+- Generic database utility tests use maintenance connections on current semantic clones; `db`
+  uses an outer rollback and `committing_db` uses an independently committed clone.
+- All consumers clone one sealed session head template and replay normalized database ACLs
   and settings. Cold bootstrap, historical-revision and reserved absent-name routes remain real.
 - PgAdmin owns acquisition, advisory leases and authenticated cleanup for both fixture families.
   The sweeper checks namespace, owner and comment; untagged residue is never adopted. Restricted
@@ -30,7 +30,7 @@ from uuid import uuid4
 
 import pytest
 from hypothesis import settings as hypothesis_settings
-from sqlalchemy import Connection, Engine, text
+from sqlalchemy import Connection, Engine
 from typer.testing import CliRunner, Result
 
 from corpus_structure.cli.app import app
@@ -48,7 +48,6 @@ from native_test_support import (
     record_server_context,
     semantic_principals,
     server_url,
-    template_name,
 )
 
 PACKAGE = Path(__file__).resolve().parents[1]
@@ -141,7 +140,6 @@ class DatabaseSupport:
     PgAdmin = PgAdmin
     server_url = staticmethod(server_url)
     expected_extensions = staticmethod(expected_extensions)
-    template_name = staticmethod(template_name)
     TEMPLATE_RETENTION = TEMPLATE_RETENTION
     semantic_principals = staticmethod(semantic_principals)
     DatabaseGrant = DatabaseGrant
@@ -176,24 +174,9 @@ def native_server(native_settings: Settings) -> PgAdmin:
 @pytest.fixture(scope="session")
 def semantic_head_template(native_server: PgAdmin) -> Iterator[SemanticTemplate]:
     """One package-wide fixture definition, shared by semantic and sibling consumers."""
-    from corpus_structure.core.db import extensions
-    from corpus_structure.semantic.migrations import upgrade
-
     name = f"cs_sem_head_{os.getpid()}_{uuid4().hex[:12]}"
-    with native_server.database(name, native_server.template) as engine:
-        with engine.begin() as conn:
-            extensions.check(conn.execute(text(extensions.FOUND)).all())
-            assert not conn.execute(
-                text("SELECT 1 FROM pg_namespace WHERE nspname IN ('sem','data','kb','meta')")
-            ).first()
-            upgrade(conn)
-        engine.dispose()
-        policy = native_server.policy(name)
-        with native_server.connect() as conn:
-            conn.exec_driver_sql(
-                f'ALTER DATABASE "{name}" ALLOW_CONNECTIONS false IS_TEMPLATE false'
-            )
-        yield SemanticTemplate(name, policy)
+    with native_server.semantic_template(name) as template:
+        yield template
 
 
 @pytest.fixture
@@ -204,29 +187,20 @@ def semantic_absent_database(native_server: PgAdmin) -> Iterator[DatabaseReserva
 
 
 @pytest.fixture(scope="session")
-def db_server() -> Iterator[PgAdmin]:
-    """The test server, checked and swept, with the migrated template for this state, leased for
-    the session: clones and the build happen under the lease, which the sweep honours."""
-    settings = Settings()
-    server = PgAdmin(server_url(settings), settings.database.template, settings=settings)
-    server.check()
-    record_server_context(settings, server)
-    session_db = f"ci_test_{os.getpid()}"
-    with server.lease(server.current, session_db) as lease:
-        if server.exists(session_db):
-            server.drop(session_db)
-        server.sweep()
-        server.ensure_template(lease)
-        yield server
+def db_server(native_server: PgAdmin) -> PgAdmin:
+    """The same authenticated server lifecycle used by semantic role controls."""
+    return native_server
 
 
 _clones = itertools.count(1)
 
 
 @pytest.fixture(scope="session")
-def db_engine(db_server: PgAdmin) -> Iterator[Engine]:
-    """An engine on the session database `ci_test_<pid>`."""
-    with db_server.clone(f"ci_test_{os.getpid()}") as engine:
+def db_engine(db_server: PgAdmin, semantic_head_template: SemanticTemplate) -> Iterator[Engine]:
+    """Maintenance engine on a current frozen semantic clone for utility probe DDL."""
+    with db_server.database(
+        f"ci_test_{os.getpid()}", semantic_head_template.name, policy=semantic_head_template.policy
+    ) as engine:
         yield engine
 
 
@@ -242,7 +216,11 @@ def db(db_engine: Engine) -> Iterator[Connection]:
 
 
 @pytest.fixture
-def committing_db(db_server: PgAdmin) -> Iterator[Engine]:
+def committing_db(db_server: PgAdmin, semantic_head_template: SemanticTemplate) -> Iterator[Engine]:
     """An engine on a clone of its own, for tests that need commits (queue, NOTIFY, COPY)."""
-    with db_server.clone(f"ci_test_{os.getpid()}_{next(_clones)}") as engine:
+    with db_server.database(
+        f"ci_test_{os.getpid()}_{next(_clones)}",
+        semantic_head_template.name,
+        policy=semantic_head_template.policy,
+    ) as engine:
         yield engine

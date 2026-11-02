@@ -17,10 +17,16 @@ MARKER = "f1_isolation_probe"
 _committed: list[str] = []
 
 
-def test_session_database_is_cloned_from_the_migrated_template(db: Connection, db_server) -> None:
+def test_session_database_is_cloned_from_the_migrated_template(
+    db: Connection, db_server, semantic_head_template
+) -> None:
     assert db.execute(text("SELECT current_database()")).scalar_one() == f"ci_test_{os.getpid()}"
-    assert db_server.exists(db_server.current)
-    assert db_server.current.startswith("cs_tpl_")
+    from corpus_structure.semantic.migrations import current_revision, head_revision
+
+    assert db_server.exists(semantic_head_template.name)
+    assert semantic_head_template.name.startswith("cs_sem_head_")
+    assert current_revision(db) == head_revision()
+    assert db.scalar(text("SELECT to_regclass('meta.model_revision')")) is None
     extensions = dict(db.execute(text("SELECT extname, extversion FROM pg_extension")).all())
     assert {"pg_textsearch", "vector", "pg_stat_statements", "pg_jsonschema"} <= set(extensions)
     assert db_server.expected.items() <= extensions.items()
@@ -93,20 +99,26 @@ def test_a_seeded_version_mismatch_fails_the_fixture_check(
         absent.check()
 
 
-def test_the_template_name_changes_with_the_extension_versions(db_support, db_server) -> None:
+def test_extension_version_changes_are_refused_before_current_template_bootstrap(
+    db_support, db_server
+) -> None:
     installed = db_server.installed()
-    assert db_server.current == db_support.template_name(installed)
-    assert db_support.template_name(dict(installed)) == db_server.current
-    upgraded = {**installed, "vector": "0.8.8"}
-    added = {**installed, "postgis": "3.6.0"}
-    names = {db_support.template_name(v) for v in (installed, upgraded, added)}
-    assert len(names) == 3
+    assert db_server.check() == installed
+    changed = {**installed, "vector": "0.0.0"}
+    added = {**installed, "nonexistent_extension": "1.0"}
+    for expected in (changed, added):
+        server = db_support.PgAdmin(db_server.url, db_server.template, expected)
+        with pytest.raises(PrerequisiteUnavailable, match="extensions differ") as caught:
+            server.check()
+        assert caught.value.category == "postgres-extensions"
 
 
 # --- Sweep retention (DA-019) -----------------------------------------------------------------
 
 
-def test_sweep_honours_leases_and_template_age(db_support, db_server) -> None:
+def test_sweep_honours_leases_and_template_age(
+    db_support, db_server, semantic_head_template
+) -> None:
     dead, live = "ci_test_999999999", "ci_test_999999998_9"
     held, aged = "cs_tpl_1111111111111111", "cs_tpl_0000000000000000"
     unstamped, fresh = "cs_tpl_3333333333333333", "cs_tpl_2222222222222222"
@@ -127,7 +139,7 @@ def test_sweep_honours_leases_and_template_age(db_support, db_server) -> None:
         # completed fixture. Assert this test's entire owned universe independently.
         assert set(dropped).intersection(names) == {dead, aged, unstamped}
         assert all(db_server.exists(name) for name in (live, held, fresh, other))
-        assert db_server.exists(db_server.current)
+        assert db_server.exists(semantic_head_template.name)
         # Released and aged, the held template goes on the next sweep.
         assert held in db_server.sweep()
     finally:
@@ -158,23 +170,34 @@ def test_server_url_follows_the_settings_default(
     assert admin.username is None and admin.password is None
 
 
-def test_legacy_template_cold_build_retains_completed_template_and_removes_scratch(
-    db_support, db_server
-) -> None:
+def test_current_template_cold_build_is_sealed_and_disposed(db_support, db_server) -> None:
     from uuid import uuid4
 
+    from corpus_structure.semantic.migrations import current_revision, head_revision
+
+    template_name = f"cs_sem_head_{os.getpid()}_{uuid4().hex[:12]}"
+    clone_name = f"cs_sem_test_{os.getpid()}_{uuid4().hex[:12]}"
     server = db_support.PgAdmin(db_server.url, db_server.template)
-    server.current = "cs_tpl_" + uuid4().hex[:16]
-    scratch = server.current + "_build"
-    try:
-        with server.lease(server.current) as lease:
-            server.ensure_template(lease)
-            assert server.exists(server.current)
-            assert not server.exists(scratch)
-            with server.connect(server.current) as conn:
-                assert conn.exec_driver_sql(
-                    "SELECT to_regclass('meta.model_revision')"
-                ).scalar_one()
-    finally:
-        server.drop(scratch)
-        server.drop(server.current)
+    with server.semantic_template(template_name) as template:
+        assert server.exists(template_name)
+        with server.connect() as conn:
+            assert conn.execute(
+                text("SELECT datallowconn,datistemplate FROM pg_database WHERE datname=:name"),
+                {"name": template_name},
+            ).one() == (False, False)
+            assert (
+                conn.scalar(
+                    text("SELECT count(*) FROM pg_stat_activity WHERE datname=:name"),
+                    {"name": template_name},
+                )
+                == 0
+            )
+        with (
+            server.database(clone_name, template.name, policy=template.policy) as engine,
+            engine.connect() as conn,
+        ):
+            assert current_revision(conn) == head_revision()
+            assert conn.scalar(text("SELECT to_regclass('sem.release')")) is not None
+            assert conn.scalar(text("SELECT to_regclass('meta.model_revision')")) is None
+        assert not server.exists(clone_name)
+    assert not server.exists(template_name)
