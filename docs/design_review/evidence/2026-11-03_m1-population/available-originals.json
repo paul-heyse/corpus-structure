@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-03",
+  "scope": "local source candidate inventory; not release population or reference evidence",
+  "independence": "four distinct named origin groups; statistical independence/sufficiency unestablished",
+  "reference_directories_excluded": true,
+  "sources": [
+    {
+      "origin_group": "siegrist-random",
+      "path": "docs/statistics_corpus/corpus/siegrist_random/Full_PDF/Full.pdf",
+      "bytes": 211502518,
+      "sha256": "e98fe358e74d8905b3491654c8db2354c859dcbbcc4cfe096186f25aa4bb63f9",
+      "admitted_m1_source_pin": null,
+      "split": "development-only",
+      "standing": "available_local_source_candidate"
+    },
+    {
+      "origin_group": "grinstead-snell",
+      "path": "docs/statistics_corpus/corpus/grinstead_snell/Introduction_to_probability_grinstead_and_snell.pdf",
+      "bytes": 2993135,
+      "sha256": "763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e",
+      "admitted_m1_source_pin": null,
+      "split": "unassigned",
+      "standing": "available_local_source_candidate"
+    },
+    {
+      "origin_group": "forbes-statistical-distributions",
+      "path": "docs/statistics_corpus/corpus/forbes_statistical_distributions/STATISTICAL DISTRIBUTIONS  FOURTH EDITION -- Forbes, Catherine, Evans, Merran, Hastings, Nicholas, -- Wiley series in probability and statistics, 4th -- isbn13 9780470390634.pdf",
+      "bytes": 1585055,
+      "sha256": "8b84802f96725d63a5cdc02687cfb57f1f866b2096ec940bdb81ee41f1b55ae9",
+      "admitted_m1_source_pin": null,
+      "split": "unassigned",
+      "standing": "available_local_source_candidate"
+    },
+    {
+      "origin_group": "nist-ehandbook",
+      "path": "docs/statistics_corpus/corpus/nist_ehandbook/pdf/E-Handbook.pdf",
+      "bytes": 12811958,
+      "sha256": "c0d71c6fc65eb0a44bbb11107799cd36ceae1c4d81f0d143c439c3d1849eadda",
+      "admitted_m1_source_pin": null,
+      "split": "unassigned",
+      "standing": "available_local_source_candidate"
+    }
+  ]
+}

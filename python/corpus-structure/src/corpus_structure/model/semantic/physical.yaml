@@ -2026,7 +2026,7 @@ classes:
     annotations:
       ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"},
         {"columns": ["release_id"], "target": "sem.release.release_id"}, {"columns":
-        ["source_run_id"], "target": "ops.completed_result.run_id"}]'
+        ["source_run_id"], "target": "ops.run.id"}]'
       ph:checks: '["split IN (''dev'',''test'')"]'
 
   reference_unit:
@@ -3433,3 +3433,399 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"}]'
+
+  # Finite source-record projection. Semantic roles come from the prepared release.
+  record_report:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      selected_task_id: {range: integer, required: true}
+      origin_task_id: {range: integer, required: true}
+      cut_id: {range: integer, required: true}
+      source: {range: string, required: true}
+      outcome: {range: string, required: true}
+      records_present: {range: boolean, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, selected_task_id]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["selected_task_id"], "target": "ops.task.id"}, {"columns": ["origin_task_id"], "target": "ops.task.id"}, {"columns": ["cut_id"], "target": "ops.input_cut.id"}]'
+  source_record:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      contract: {range: string, required: true}
+      family: {range: string, required: true}
+      occurrence_recipe: {range: string, required: true}
+      source: {range: string, required: true}
+      native_product_task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      product_digest: {range: string, required: true}
+      projection_digest: {range: string, required: true}
+      recipe_digest: {range: string, required: true}
+      source_view_id: {range: integer, required: false}
+      standing: {range: string, required: true}
+      policy_version: {range: string, required: true}
+      evidence_sets_present: {range: boolean, required: true}
+      computation_dependencies_present: {range: boolean, required: true}
+      assertion_members_present: {range: boolean, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
+  record_report_member:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      selected_task_id: {range: integer, required: true}
+      position: {range: integer, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, selected_task_id, position]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}, {"columns": ["realization_id", "release_id", "selected_task_id"], "target": "data.record_report.realization_id,release_id,selected_task_id"}]'
+      ph:checks: '["position >= 0"]'
+  record_field:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      position: {range: integer, required: true}
+      kind: {range: string, required: true}
+      state: {range: string, required: true}
+      meaning_changing: {range: boolean, required: true}
+      evidence_status: {range: string, required: true}
+      value_kind: {range: string, required: false}
+      text_value: {range: string, required: false}
+      decimal_lexical: {range: string, required: false}
+      classification: {range: string, required: false}
+      native_pointer: {range: string, required: false}
+      original: {range: string, required: false}
+      original_pieces_present: {range: boolean, required: true}
+      evidence_sets_present: {range: boolean, required: true}
+      alternatives_present: {range: boolean, required: true}
+      premises_present: {range: boolean, required: true}
+      reason: {range: string, required: false}
+      policy: {range: string, required: false}
+      rule: {range: string, required: false}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}]'
+      ph:checks: '["position >= 0"]'
+  record_field_piece:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      position: {range: integer, required: true}
+      original_piece: {range: string, required: false}
+      value_piece: {range: string, required: false}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, position]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}]'
+      ph:checks: '["position >= 0"]'
+  record_alternative:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      alternative_id: {range: string, required: true}
+      position: {range: integer, required: true}
+      value_kind: {range: string, required: true}
+      text_value: {range: string, required: false}
+      decimal_lexical: {range: string, required: false}
+      classification: {range: string, required: false}
+      native_pointer: {range: string, required: false}
+      evidence_sets_present: {range: boolean, required: true}
+      reason: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, alternative_id]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}]'
+      ph:checks: '["position >= 0"]'
+  record_alternative_piece:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      alternative_id: {range: string, required: true}
+      position: {range: integer, required: true}
+      value_piece: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, alternative_id, position]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role", "alternative_id"], "target": "data.record_alternative.realization_id,release_id,record_id,interpretation_id,role,alternative_id"}]'
+      ph:checks: '["position >= 0"]'
+  record_anchor:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      anchor_id: {range: string, required: true}
+      position: {range: integer, required: true}
+      source: {range: string, required: true}
+      native_product_task_id: {range: integer, required: true}
+      product_key: {range: string, required: true}
+      product_digest: {range: string, required: true}
+      projection_digest: {range: string, required: true}
+      recipe_digest: {range: string, required: true}
+      source_view_id: {range: integer, required: false}
+      space: {range: string, required: true}
+      pointer: {range: string, required: true}
+      precision: {range: string, required: true}
+      start: {range: integer, required: false}
+      end: {range: integer, required: false}
+      source_piece: {range: string, required: false}
+      binding_version: {range: integer, required: false}
+      binding_relationship: {range: string, required: false}
+      binding_policy: {range: string, required: false}
+      recognition_selected_occurrence_id: {range: string, required: false}
+      recognition_task_id: {range: integer, required: false}
+      recognition_product_key: {range: string, required: false}
+      recognition_content_digest: {range: string, required: false}
+      recognition_occurrence_id: {range: string, required: false}
+      recognition_relation_id: {range: string, required: false}
+      recognition_endpoint_role: {range: string, required: false}
+      recognition_relation_kind: {range: string, required: false}
+      recognition_relation_outcome: {range: string, required: false}
+      recognition_provider_occurrence_json: {range: string, required: false}
+      recognition_observation_json: {range: string, required: false}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, anchor_id]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}]'
+      ph:checks: '["position >= 0"]'
+  record_occurrence_anchor:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      position: {range: integer, required: true}
+      anchor_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, position]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "anchor_id"], "target": "data.record_anchor.realization_id,release_id,record_id,interpretation_id,anchor_id"}]'
+      ph:checks: '["position >= 0"]'
+  record_evidence_set:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      set_id: {range: string, required: true}
+      position: {range: integer, required: true}
+      role: {range: string, required: true}
+      ordering: {range: string, required: true}
+      usage: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, set_id]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}]'
+      ph:checks: '["position >= 0"]'
+  record_evidence_member:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      set_id: {range: string, required: true}
+      position: {range: integer, required: true}
+      anchor_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, set_id, position]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "set_id"], "target": "data.record_evidence_set.realization_id,release_id,record_id,interpretation_id,set_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "anchor_id"], "target": "data.record_anchor.realization_id,release_id,record_id,interpretation_id,anchor_id"}]'
+      ph:checks: '["position >= 0"]'
+  record_field_evidence:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      position: {range: integer, required: true}
+      set_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, position]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "set_id"], "target": "data.record_evidence_set.realization_id,release_id,record_id,interpretation_id,set_id"}]'
+      ph:checks: '["position >= 0"]'
+  record_alternative_evidence:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      alternative_id: {range: string, required: true}
+      position: {range: integer, required: true}
+      set_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, alternative_id, position]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role", "alternative_id"], "target": "data.record_alternative.realization_id,release_id,record_id,interpretation_id,role,alternative_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "set_id"], "target": "data.record_evidence_set.realization_id,release_id,record_id,interpretation_id,set_id"}]'
+      ph:checks: '["position >= 0"]'
+  record_premise:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      position: {range: integer, required: true}
+      premise_role: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, position]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "premise_role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}]'
+      ph:checks: '["position >= 0"]'
+  record_dependency:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      position: {range: integer, required: true}
+      dependency: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, position]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}]'
+      ph:checks: '["position >= 0"]'
+  record_private_assertion:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      position: {range: integer, required: true}
+      assertion_ref: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, position]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}]'
+      ph:checks: '["position >= 0"]'
+  record_admission:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      decision: {range: string, required: true}
+      policy_id: {range: string, required: true}
+      policy_version: {range: string, required: true}
+      calibration: {range: string, required: true}
+      reason: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}]'
+  record_assertion:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      record_id: {range: string, required: true}
+      interpretation_id: {range: string, required: true}
+      fact_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, fact_id]}
+    annotations:
+      ph:immutability: admitted
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}, {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
+
+  reference_origin_group:
+    in_subset:
+    - eval
+    attributes:
+      project_id:
+        range: string
+        required: true
+      origin_group:
+        range: string
+        required: true
+      partition:
+        range: string
+        required: true
+      provenance:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - project_id
+        - origin_group
+    annotations:
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["project_id"],"target":"data.project.project_id"}]'
+      ph:checks: '["partition IN (''development'',''feature_fit'',''final_event_calibration'',''final_assessment'')", "origin_group <> ''''", "jsonb_typeof(provenance)=''object'' AND provenance<>''{}''::jsonb"]'
+  reference_origin_source:
+    in_subset:
+    - eval
+    attributes:
+      project_id:
+        range: string
+        required: true
+      source_uri:
+        range: string
+        required: true
+      origin_group:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - project_id
+        - source_uri
+    annotations:
+      ph:immutability: intrinsic
+      ph:foreign_keys: '[{"columns":["project_id","origin_group"],"target":"eval.reference_origin_group.project_id,origin_group"}]'

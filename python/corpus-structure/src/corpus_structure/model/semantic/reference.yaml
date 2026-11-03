@@ -144,7 +144,39 @@ classes:
         range: ReferenceSplit
         required: true
         slot_uri: execution:ReferenceDocumentSplit_split
+  ReferenceOriginGroup:
+    attributes:
+      project_id:
+        required: true
+        slot_uri: execution:ReferenceOriginGroup_project_id
+      origin_group:
+        required: true
+        slot_uri: execution:ReferenceOriginGroup_origin_group
+      partition:
+        range: RecordPopulationPartition
+        required: true
+        slot_uri: execution:ReferenceOriginGroup_partition
+      provenance_json:
+        required: true
+        slot_uri: execution:ReferenceOriginGroup_provenance_json
+  ReferenceOriginSource:
+    attributes:
+      project_id:
+        required: true
+        slot_uri: execution:ReferenceOriginSource_project_id
+      source_uri:
+        required: true
+        slot_uri: execution:ReferenceOriginSource_source_uri
+      origin_group:
+        required: true
+        slot_uri: execution:ReferenceOriginSource_origin_group
 enums:
+  RecordPopulationPartition:
+    permissible_values:
+      development: {}
+      feature_fit: {}
+      final_event_calibration: {}
+      final_assessment: {}
   ReferenceSplit:
     permissible_values:
       dev: {}

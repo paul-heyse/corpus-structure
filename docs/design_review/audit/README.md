@@ -6,6 +6,99 @@ This is the living diagnostic account of design principle misalignment, maintain
 owns its place before a design-review engagement. Ordinary implementation reads its plan and
 architectural owners; this collection is not default production-editing context.
 
+<a id="m1-public-reference-refresh"></a>
+
+## M1 public/reference engagement refresh — M1-20261103-r3
+
+**Source-inspected, 2026-11-03.** Baseline
+`0046d5ceab5f2fd10c7f86c918c27af67c94e7ff` plus the explicitly included dirty M1
+source-evidence, public-projection, protected-reference and consumer integration below.
+This is a source baseline; the audit/review publication commit is separate.
+
+Applied standard: core/template3.3, efficient-architecture heuristics1.0,
+code-intelligence1.4 and test-assessment1.2. The test-assessment companion informs the
+interpretation of controls and future evidence; this refresh does not refresh the separate
+test-audit account.
+
+Paths in the following table are relative to
+`python/corpus-structure/src/corpus_structure/`. SHA-256 identifies the inspected dirty bytes.
+
+| Decisive path | SHA-256 |
+| --- | --- |
+| `semantic/record_projection.py` | `10e14325600596c7f6471670258a070f9d8e59f2ef6c0867afe4c0abbc01fd71` |
+| `semantic/record_queries.py` | `a8238498910a3a03ac46c5c60b6a06b65d6904d9ecf1fbdc45d0f06fc7f6beb4` |
+| `evaluate/record_references.py` | `8c2a4bb95505331677464f6d8cbd368c8e003c0c289c4cb49bf1d8e2187ec7da` |
+| `semantic/sql/record_publication.sql` | `557e5b538c403634462472b80e3386b65c59bf9fe3b1bc45a7a84fc8e110b4ea` |
+| `semantic/sql/record_references.sql` | `fc5c5fa0d01f1939454dcee9833405aa0af0170e34462dc896f53d454eef00a2` |
+| `semantic/sql/execution_projection.sql` | `4e3327beac4a869152231aa20007239968e54655e7025b899b9a261be067f40f` |
+| `semantic/records.py` | `e6c62e0c76a89c47ebc89562348dcf8c31e9927974a94266faf7ea5833bbb95e` |
+| `semantic/native_candidate.py` | `1267f932bf1a16c7c6af4c0400fae07e40d834cec036f04e5546446c4b7004d9` |
+| `semantic/native_objects.py` | `9719687bef8a50bc212ba8f9dafd787b8971963a8d08996c79bf4d77e140e5cd` |
+| `semantic/contracts.py` | `5804d0a5af2457484d1cbf865fa756c8ed646cd784fceabdd200ee03e23ebcba` |
+| `model/semantic/physical.yaml` | `f5017e9fafdf7472d61ee09f586c4ebb2c28140393be31564940232ff3013bce` |
+| `model/semantic/execution-model.yaml` | `5c1c5d3de765403bc2f825cb1659402febd8e77f5ae139b43673b63237746d5c` |
+| `model/semantic/record-references.yaml` | `730381b49ba71d46b713c975cbdf75063e476b728acf2f68e5f5076b53b85ddd` |
+| `serve/record_results.py` | `cbefd2df79ed44369b7d504ff7f64788a9394fcb4735e3cb88afca5d83b4fa88` |
+| `serve/record_export.py` | `993b18328da9d7c891b78472b3027a33f329d0f061ebc729ac029b2c0839a764` |
+| `cli/records.py` | `4a0e3f9e95bcc6c0275abf97e2936d1afe8df3acb0db033a4183ef65e70bcb40` |
+| `intervene/record_tools.py` | `e6735089e1fc9eb3cc443da94c5ca1924546c0ee4ac3d565bc2e42cfe01f7bc0` |
+
+**Post-maintenance reconciliation, 2026-11-03.** Five paths above changed only formatting.
+Independent re-inspection retained the same scoped conclusion; the
+[formatted source manifest](../evidence/2026-11-03_m1-public-record-projection/formatted-sha256.txt)
+identifies all17 final reviewed paths. Original inspected hashes above remain historical evidence.
+
+The inspection followed the M1 coordinator and publication/evaluation companions through D1,
+D2, D3, D5, D7 and D8, ADR-0049/0050/0051/0052, released declarations, private report custody,
+publication, completed-result reading, reference authoring/grading/fitting and the newly integrated
+CLI/MCP/export adapters.
+
+Current observations:
+
+- `semantic/record_projection.py:350` derives family roles, requiredness and meaning-changing
+  distinctions from effective released definitions. Its eighteen finite relations preserve
+  field states, lexical numbers, original pieces, ordered evidence, alternatives, dependencies,
+  admission standing and report absence versus explicit empty. Public assertion links remain
+  empty under the explicit candidate-only policy.
+- `semantic/sql/record_publication.sql:268` authenticates sealed-cut source reports and compares
+  the complete staged finite projection with those immutable reports using symmetric
+  `EXCEPT ALL`. Its transaction and append refusal compose with the existing publisher;
+  `source_record_graph.sql` retains prior validators and product membership/datatype fences.
+- `semantic/record_queries.py:82` reads archived meaning from one immutable completed result.
+  Source-scoped reports and record-root selection are distinct. Serving filters and keyset
+  selection precede record hydration; full-population evaluator/export callers retain their
+  explicit bounded route. Row/canonical-JSON budgets do not establish process RSS.
+- `semantic/record_projection.py:655` supplies one invocation-owned prepared index. The
+  evaluator prepares that index, task-to-view lookup and population lookup outside its unit loop.
+  Consumer presentation reuses the same index.
+- `evaluate/record_references.py:559` and `semantic/sql/record_references.sql:66` freeze source-only
+  sample membership, guideline text, source frames and immutable origin partitions before
+  prediction success. Missing predictions remain eligible inputs. Existing legacy completed-result
+  reference operations retain their separate contracts.
+- `semantic/sql/record_references.sql:336` binds each reported unit uniquely to the exact frozen
+  snapshot and its origin/release/guideline/policy metadata, independently of array order.
+  Shared insert-guard dispatch and the protected entry point consume this same validator.
+- The fitting design exposes only adjudicated feature-fit references through an actual restricted
+  principal. Function execution requires evaluator-schema USAGE, separately represented as a
+  migration effect. Actual host role/authentication and database privilege qualification remain open.
+- `serve/record_results.py:276` validates continuation identity before applying its position.
+  Table-cell handles use the shared finite address parser and the existing parent-item/cell-index
+  contract. JSONL/Parquet export retains the same finite relations and exact lexical values.
+
+Four additional findings arose during this engagement: report-population binding, repeated
+whole-relation reconstruction, late serving selection and incompatible table-cell handles.
+Their source manifestations and re-inspected corrections belong to the
+[public/reference target review](../reviews/design_review_m1-public-reference_2026-11-03.md#7-findings-and-applicability),
+F01–F04. This audit links that dated assessment rather than creating a second disposition ledger.
+No new inherited DA identity, UM defect or inherited-finding closure is asserted.
+
+Coverage excludes full native enforcement/ACL qualification, actual reference/fitting journeys,
+actual CLI/MCP/export journeys, provider execution, statistical family evidence, CPU/RSS
+measurement, accepted assertion lowering and complete M1 release qualification. These activities
+were **not_run by this reviewer**. The M1 coordinator retains their execution and evidence ownership.
+Older broad-account entries below retain their original evidence dates and applicability limits.
+
+
 <a id="m1-source-evidence-refresh"></a>
 
 ## M1 source-evidence engagement refresh — M1-20261103-r2

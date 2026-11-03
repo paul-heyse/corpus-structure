@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "id": "m1.attributed-source-candidate",
+  "title": "Attributed source coordinates, captured context and shared custody candidate",
+  "group": "M1",
+  "package": "M1-03",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can related selected-source and captured-recognition evidence remain independently pinned and protected while context2 preserves genuine pieces and repeated report reads share source preparation?",
+  "answers": [],
+  "method": "Author exact forward candidates from frozen100 in owned disposable databases; preserve candidate4/5 witnesses; bind candidate6 exact catalog descriptor; run99 deterministic controls and19 actual native controls, then2 focused source-only/private/bulk release-parity checks. Preserve all failures and final source hashes.",
+  "commands": [
+    "PYTHONPATH=/home/paul/.cache/corpus-structure-m1-source-evidence/python/corpus-structure/src uv run pytest /home/paul/.cache/corpus-structure-m1-source-evidence/python/corpus-structure/tests/semantic/test_source_contexts.py /home/paul/.cache/corpus-structure-m1-source-evidence/python/corpus-structure/tests/semantic/test_record_contracts.py /home/paul/.cache/corpus-structure-m1-source-evidence/python/corpus-structure/tests/semantic/test_attributed_source_evidence.py /home/paul/.cache/corpus-structure-m1-source-evidence/python/corpus-structure/tests/semantic/test_captured_source_contexts.py /home/paul/.cache/corpus-structure-m1-source-evidence/python/corpus-structure/tests/methods/test_gliner.py::test_actual_context_owner_synthetic_crossing_and_classified_offsets /home/paul/.cache/corpus-structure-m1-source-evidence/python/corpus-structure/tests/methods/test_gliner.py::test_different_pack_cannot_reinterpret_classified_report_as_literal /home/paul/.cache/corpus-structure-m1-source-evidence/python/corpus-structure/tests/methods/test_record_assembly.py -q --tb=short",
+    "PYTHONPATH=/home/paul/.cache/corpus-structure-m1-source-evidence/python/corpus-structure/src uv run pytest /home/paul/.cache/corpus-structure-m1-source-evidence/python/corpus-structure/tests/semantic/test_native_attributed_evidence.py -q --tb=short",
+    "uv run python -m corpus_evidence --root /home/paul/.cache/corpus-structure-m1-source-evidence/docs/design_review/evidence finalize 2026-11-03_m1-attributed-evidence m1.attributed-source-candidate"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "production-source-sha256.txt",
+      "role": null,
+      "sha256": "6e2c7d43df948d70c1549e8ad6c0f57a55d9bc9ef881ee11c090180d13d0e552"
+    },
+    {
+      "path": "final-source-sha256.txt",
+      "role": null,
+      "sha256": "38833b5c835eb0d37bc44aee039c705db68a689914536f4afbe99269105735e3"
+    },
+    {
+      "path": "raw/final-sources",
+      "role": null,
+      "sha256": "bacd124eb3467d705e4a4d6c0f5bef9cac51f95f908045b6741f9463efa29014"
+    },
+    {
+      "path": "candidate-attempt-6/candidate",
+      "role": null,
+      "sha256": "49c8d43bef81f650c78e689b77a54579b35e7339ace77b7e93208f977b24abef"
+    },
+    {
+      "path": "python-final-coordinate-split.log",
+      "role": null,
+      "sha256": "33f9fefa41d9ff26c4dd2c874a9538ac68c4a5872a266425b6e84a7082f28a95"
+    },
+    {
+      "path": "native-final-coordinate-split.log",
+      "role": null,
+      "sha256": "b2118364082a84d998246614cbe4569c4fdf664e1958f149e06200913701d029"
+    },
+    {
+      "path": "native-release-parity-final.log",
+      "role": null,
+      "sha256": "b2cc65a9465dce8f53466fd0552c25f61c6cec599e036fd00e6c871c9017dc8a"
+    },
+    {
+      "path": "ruff-final.log",
+      "role": null,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "pyrefly-final.log",
+      "role": null,
+      "sha256": "7dcd044d1cbfc359908b3a572d0e04695f0cb55424708749c2ceeb6d2684405e"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "deterministic_controls",
+      "value": 99,
+      "of": 99,
+      "unit": "tests",
+      "note": "No model/provider qualification"
+    },
+    {
+      "name": "native_controls",
+      "value": 19,
+      "of": 19,
+      "unit": "tests",
+      "note": "Actual disposable PostgreSQL source custody"
+    },
+    {
+      "name": "release_parity_rechecks",
+      "value": 2,
+      "of": 2,
+      "unit": "tests",
+      "note": "Repeated source-only/private/bulk tests after Python release predicate"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "99 deterministic and19 actual disposable native controls passed for typed captured/native mapping, independently pinned related sources, shared source/report custody and bulk readers;2 final source-only/private/bulk rechecks passed after Python run-release parity. Original provider precision, private accepted refusal, internal ACLs and immutable-origin report binding remain enforced. Final assembled migration, producer/reference/publication adoption and complete M1 qualification remain open.",
+  "consumed_by": [
+    "ADR-0051",
+    "M1-03",
+    "M1-05",
+    "M1-11",
+    "M1-13"
+  ]
+}

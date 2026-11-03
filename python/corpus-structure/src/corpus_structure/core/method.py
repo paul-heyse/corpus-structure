@@ -534,15 +534,22 @@ class UnitResult:
     parse_detail: Mapping[str, JsonValue] | None = None
     coverage: tuple[CoverageDraft, ...] = ()
     source_views: tuple[SourceViewDraft, ...] = ()
+    # None preserves predecessor report absence; () records inspected candidate absence.
+    records: tuple[Mapping[str, Any], ...] | None = None
 
     def __post_init__(self) -> None:
         match self.outcome:
             case ObservationOutcome.PRODUCED:
-                ok = bool(self.observations) and self.error is None
+                ok = bool(self.observations or self.records) and self.error is None
             case ObservationOutcome.EMPTY:
-                ok = not self.observations and self.error is None
+                ok = not self.observations and not self.records and self.error is None
             case ObservationOutcome.FAILED:
-                ok = not self.observations and not self.measurements and bool(self.error)
+                ok = (
+                    not self.observations
+                    and not self.records
+                    and not self.measurements
+                    and bool(self.error)
+                )
             case _:
                 typing.assert_never(self.outcome)
         if not ok:

@@ -835,6 +835,12 @@ def _prepare_release_uncached(
         PreparedArtifact("query_coverage.json", canonical_bytes(coverage_recipe())),
         PreparedArtifact("effective_bindings.json", canonical_bytes(effective_bindings)),
     ]
+    from .record_projection import prepare_record_projection
+
+    record_projection = prepare_record_projection(tuple(definitions))
+    if record_projection is not None:
+        artifacts.append(record_projection)
+
     from .alias_policy import ARTIFACT as ALIAS_ARTIFACT
     from .alias_policy import RULE_INPUT, compile_alias_policy
 

@@ -187,6 +187,45 @@ classes:
       projection_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
       recipe_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
       source_view_id: {range: integer, minimum_value: 1}
+  RecordContextGap:
+    is_a: SourceRecordProduct
+    description: Model-coordinate diagnostic only; never a source locator or quote.
+    attributes:
+      model_start: {range: integer, minimum_value: 0, required: true}
+      model_end: {range: integer, minimum_value: 1, required: true}
+      reason: {required: true}
+  RecordContextReading:
+    is_a: SourceRecordProduct
+    description: Computation diagnostic tied to exact context identity; excluded from source evidence-set identity.
+    attributes:
+      version: {range: integer, minimum_value: 2, maximum_value: 2, required: true}
+      policy: {required: true, equals_string: synthetic-whitespace-1}
+      context_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      model_start: {range: integer, minimum_value: 0, required: true}
+      model_end: {range: integer, minimum_value: 1, required: true}
+      gaps: {range: RecordContextGap, inlined: true, multivalued: true}
+  RecordSourceBinding:
+    is_a: SourceRecordProduct
+    description: Versioned attribution; selected_context asserts selected custody only, never note applicability.
+    attributes:
+      version: {range: integer, required: true, minimum_value: 2, maximum_value: 2}
+      relationship: {range: RecordSourceRelationship, required: true}
+      policy: {required: true, equals_string: attributed-selected-source-2}
+  RecordCapturedRecognition:
+    is_a: SourceRecordProduct
+    description: Exact captured text coordinates remain independent of the unchanged provider occurrence and observation precision.
+    attributes:
+      selected_occurrence_id: {required: true}
+      task_id: {range: integer, minimum_value: 1, required: true}
+      product_key: {required: true}
+      content_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      occurrence_id: {required: true}
+      relation_id: {required: true}
+      endpoint_role: {range: RecordRecognitionRole, required: true}
+      relation_kind: {required: true, equals_string: decision}
+      relation_outcome: {range: RecordRecognitionOutcome, required: true}
+      provider_occurrence_json: {required: true}
+      observation_json: {required: true}
   RecordCoordinateText:
     is_a: SourceRecordProduct
     description: Explicit binding input, not persisted evidence or a claim of native authentication.
@@ -195,6 +234,7 @@ classes:
       space: {range: RecordCoordinateSpace, required: true}
       pointer: {required: true}
       text: {required: true}
+      recognition: {range: RecordCapturedRecognition, inlined: true}
   RecordAnchor:
     is_a: SourceRecordProduct
     attributes:
@@ -206,6 +246,8 @@ classes:
       start: {range: integer, minimum_value: 0}
       end: {range: integer, minimum_value: 0}
       source_piece: {}
+      binding: {range: RecordSourceBinding, inlined: true}
+      recognition: {range: RecordCapturedRecognition, inlined: true}
   RecordEvidenceSet:
     is_a: SourceRecordProduct
     attributes:
@@ -305,6 +347,12 @@ classes:
       computation_dependencies: {multivalued: true}
       assertion_members: {multivalued: true}
 enums:
+  RecordSourceRelationship:
+    permissible_values: {primary: {}, selected_context: {}}
+  RecordRecognitionRole:
+    permissible_values: {input: {}, evidence: {}, alternative: {}}
+  RecordRecognitionOutcome:
+    permissible_values: {selected: {}, added: {}, replaced: {}, retained_alternative: {}}
   RecordFieldState:
     permissible_values: {present: {}, unstated: {}, inapplicable: {}, unresolved: {}}
   RecordFieldKind:
@@ -314,7 +362,7 @@ enums:
   RecordStanding:
     permissible_values: {candidate: {}, accepted: {}, rejected: {}, unresolved: {}}
   RecordCoordinateSpace:
-    permissible_values: {selected_projection: {}, recognized_text: {}, native: {}, model_context: {}}
+    permissible_values: {selected_projection: {}, recognized_text: {}, native: {}, model_context: {}, captured_recognition: {}}
   RecordMappingPrecision:
     permissible_values: {exact: {}, item: {}, coarse: {}, unavailable: {}}
   RecordEvidenceOrdering:

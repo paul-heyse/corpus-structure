@@ -1,0 +1,17 @@
+{
+  "python/corpus-structure/src/corpus_structure/methods/source_preparation.py": "925f3b481ce4758508bd02ed264d997400ac07def2f8ab3dd4c439652a54d9de",
+  "python/corpus-structure/src/corpus_structure/methods/m1_source.py": "386addf6b6233e8810b1d8e3060eb3b692376d358304db31616fb09195f129cf",
+  "python/corpus-structure/src/corpus_structure/orchestrate/m1.py": "49356b0554882f57d4a457a3fbf7283ca2bb5c6c6f1463776c82a611d9313e2f",
+  "python/corpus-structure/src/corpus_structure/core/method.py": "2e35ce943d06c00d5b4245d02b8d88bfb46fb93cd5f40827c798d24084034e00",
+  "python/corpus-structure/src/corpus_structure/orchestrate/semantic.py": "be22cb901d375f02dac71c000a45fbdfe6817afcafa830b7ba1cc239d9cfc224",
+  "python/corpus-structure/src/corpus_structure/orchestrate/commands.py": "a85d4cea8be9b12ba28ef1a42fa68861a492e5e3d0a797fe4134587358c17549",
+  "python/corpus-structure/src/corpus_structure/cli/orchestrate.py": "f98f9b737c75ce72ee5c380b4dff3a22d28032ce92488ff2b89fe6932c8d38b0",
+  "python/corpus-structure/src/corpus_structure/methods/record_assembly.py": "4873db06616ca3ea2ec3ea5e02953298c8857bf530ef86139187ed9ba3d91d92",
+  "python/corpus-structure/src/corpus_structure/methods/record_packs.py": "ffae0776d716dda5c03dcd4608b3582044a6efe799a60aaab7def4ada5d25014",
+  "python/corpus-structure/tests/methods/test_m1_source_preparation.py": "fec427fabc621ca616372d9275bcea50ece234c2440d7e307519f72c4dc55825",
+  "python/corpus-structure/tests/methods/test_m1_cli.py": "b92218576f9fb313bed751ce2a1c2ea19fd0baea21b99b7fb51ab084a34467a0",
+  "python/corpus-structure/tests/methods/test_m1_producer.py": "97088e2a8e2fee7e188aa212de75036da55568ce046a88641992041e75d27c51",
+  "domains/statistics/m1-methods.yaml": "ac6208b27cea8a079c97162cf8188a70e0ae91727d90b820e50ed124abfa58de",
+  "domains/statistics/m1-guideline.md": "8cf2df97e30094a2145a50827a8a977497105bc6a74651f7de033c056110c5d9",
+  "python/corpus-structure/tests/methods/test_m1_review_repairs.py": "b4b077b59f884bfc78e2f41a92e9e4c08a729b0f21cfd9fcf4dcc4e4f826c4b8"
+}

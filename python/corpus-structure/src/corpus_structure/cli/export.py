@@ -21,6 +21,7 @@ def export(
     ] = None,
     run: str = "promoted",
     project: str | None = None,
+    include_records: bool = False,
     json: JsonOpt = False,
 ):
     from corpus_structure.semantic.analytics import load_packet
@@ -57,7 +58,14 @@ def export(
                     else None,
                 )
             )
-        manifest = export_packet(packet, out, format=format)
+            records = None
+            if include_records:
+                from corpus_structure.semantic.record_queries import (
+                    read_completed_record_projection,
+                )
+
+                records = read_completed_record_projection(conn, run_id=rid, project_id=project)
+        manifest = export_packet(packet, out, format=format, records=records)
         typer.echo(
             __import__("json").dumps({"path": str(out), "manifest": manifest}) if json else str(out)
         )

@@ -1,0 +1,3 @@
+python-version = "3.14"
+search-path = ["/home/paul/.cache/corpus-structure-m1-record-consumers/python/corpus-structure/src", "/home/paul/.cache/corpus-structure-m1-record-consumers/python/corpus-structure/tests", "/home/paul/.cache/corpus-structure-m1-record-consumers/scripts", "/home/paul/.cache/corpus-structure-m1-record-consumers/tools/evidence/src"]
+site-package-path = ["/home/paul/corpus-structure/.venv/lib/python3.14/site-packages"]

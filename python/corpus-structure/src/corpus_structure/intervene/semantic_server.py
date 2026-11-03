@@ -327,7 +327,10 @@ def build_semantic_server(
             raise ToolError("this server is bound to a different semantic run")
         return found
 
+    from corpus_structure.intervene.record_tools import register_record_tools
     from corpus_structure.semantic.operation_reporting import report_schema
+
+    register_record_tools(server, bound_run)
 
     @server.tool(
         annotations={"readOnlyHint": True}, output_schema=report_schema("OperationExplanation")

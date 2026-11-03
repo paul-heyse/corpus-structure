@@ -39,6 +39,7 @@ class DatabaseSettings(_Section):
     reader_url: str | None = None
     admission_url: str | None = None
     evaluator_url: str | None = None
+    fitter_url: str | None = None
     template: str = "cs_template"
     pool_min_size: int = Field(default=1, ge=0)
     pool_max_size: int = Field(default=4, ge=1)
@@ -214,7 +215,14 @@ def settings_report(settings: Settings, environ: Mapping[str, str]) -> SettingsR
     for section, values in settings.model_dump(mode="json").items():
         for field, value in values.items():
             resolved[f"{section}.{field}"] = "" if value is None else str(value)
-    for field in ("url", "maintenance_url", "evaluator_url", "reader_url", "admission_url"):
+    for field in (
+        "url",
+        "maintenance_url",
+        "evaluator_url",
+        "reader_url",
+        "admission_url",
+        "fitter_url",
+    ):
         value = getattr(settings.database, field)
         resolved[f"database.{field}"] = "" if value is None else _mask_url_credentials(value)
     resolved["llm.endpoint"] = _mask_url_credentials(settings.llm.endpoint)

@@ -1,0 +1,131 @@
+# Explicit candidate-only CPU policy. Default uses baseline packs.
+# described is an experimental, unqualified role-description policy; default adoption is deferred.
+version: m1-candidate-1
+configs:
+  ingest.pdf_integrated:
+    default:
+      membership: descendants
+  extract.m1_candidates:
+    default:
+      snapshot: /home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d
+      checkpoint: fastino/gliner2.5-base-v1
+      revision: 54785d51df8d86a0d8f2eb212fec15871aad2c4d
+      artifact_hashes:
+      - - config.json
+        - d6b515c21ae2100c12267fb42a3f02c1e99ad87580366aebedb161efd74441c7
+      - - encoder_config/config.json
+        - d36a845b9f25dcaf1ec45a1c4bdf65ea4ac20596537e14530ec9f660a63aeca4
+      - - model.safetensors
+        - 7274094de2e0c2a37a386f55fc4e23061a954da5bd7a335e7dfe56f2743c277a
+      - - tokenizer.json
+        - cbc8ae6037812709c9c26f2a160f8dc48b0440bcb79c8141804259ae2d6adac3
+      - - tokenizer_config.json
+        - 0bf3ea0873234bd9bfdd3853c440395009ac6365a925b91654daed5396d655e1
+      threads: 4
+      parent_threads: 1
+      max_context_chars: 2048
+      max_context_pieces: 64
+      pack_descriptions: {}
+    described:
+      snapshot: /home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d
+      checkpoint: fastino/gliner2.5-base-v1
+      revision: 54785d51df8d86a0d8f2eb212fec15871aad2c4d
+      artifact_hashes:
+      - - config.json
+        - d6b515c21ae2100c12267fb42a3f02c1e99ad87580366aebedb161efd74441c7
+      - - encoder_config/config.json
+        - d36a845b9f25dcaf1ec45a1c4bdf65ea4ac20596537e14530ec9f660a63aeca4
+      - - model.safetensors
+        - 7274094de2e0c2a37a386f55fc4e23061a954da5bd7a335e7dfe56f2743c277a
+      - - tokenizer.json
+        - cbc8ae6037812709c9c26f2a160f8dc48b0440bcb79c8141804259ae2d6adac3
+      - - tokenizer_config.json
+        - 0bf3ea0873234bd9bfdd3853c440395009ac6365a925b91654daed5396d655e1
+      threads: 4
+      parent_threads: 1
+      max_context_chars: 2048
+      max_context_pieces: 64
+      pack_descriptions:
+        definition:
+          term: Exact term explicitly defined or explicitly assigned another name in this passage.
+            Mere mention, use, importance or connection to another result is not a definition.
+          defining_text: Exact local passage that states what the term means, its defining criterion,
+            or an explicit same-concept naming relation. Background, praise, applications and names
+            of related theorems do not define the term.
+          alias: Exact alternate name or abbreviation explicitly stated to denote this same term in
+            this local sense. Do not use a related concept, author or supporting result as an alias.
+          relation_type: 'Choose the released relation label only for the explicit local relation:
+            definition states meaning; alias names the same concept; abbreviation shortens its name;
+            subclass and instance require those stated relations.'
+        assertion:
+          subject: Exact source participant or quantity about which this one local assertion makes
+            a claim. Keep its qualifiers and avoid replacing it with a merely nearby noun.
+          predicate: Exact source wording expressing the relation or property asserted between this
+            record subject and object. Preserve negation and avoid joining clauses from different
+            assertions.
+          object: Exact source participant, value or property completing this same predicate and subject.
+            A related example or result is not automatically its object.
+          polarity: Classify the explicit polarity of this local assertion using the released positive
+            or negative label. Preserve source negation; absence of decoder output is not evidence
+            of positive polarity.
+          modality: Classify the source commitment of this local assertion using a released modality.
+            Preserve hypothetical, possible, probable or required language instead of treating it
+            as an unconditional assertion.
+          attribution: Exact source phrase assigning this assertion to a speaker, author or cited
+            source. Do not turn an unrelated adjacent citation into attribution.
+          condition: Exact condition, antecedent or restriction governing this assertion. Preserve
+            its attachment to the same assertion; do not borrow a condition from a different clause.
+          quantification: Exact quantifier phrase governing these participants, including universal,
+            existential or frequency wording. Keep its source scope; do not invent a quantifier.
+          scope: Exact wording limiting the domain, population, time or local setting of this assertion.
+            Return only stated restrictions associated with this assertion.
+        measurement:
+          referent: Exact source entity, population, sample or outcome to which this particular reported
+            quantity applies. Do not substitute a nearby entity with a different quantity.
+          property: Exact measured or compared attribute, statistic or estimand of this referent.
+            Keep the property attached to this same numeric value.
+          original_value: Exact source spelling of the numeric value or expression, including sign,
+            decimal, scientific notation and bounds. Preserve zero, ranges and approximation marks;
+            do not normalize, calculate or invent a value.
+          value_role: Classify the explicitly stated role of this original value using a released
+            role such as mean, median, dispersion, count or bound. Do not infer a statistic solely
+            from its numeric magnitude.
+          unit: Exact stated unit attached to this value. Do not invent an unstated or dimensionless
+            unit, and do not borrow a unit from a different quantity.
+          comparator: Exact comparison operator or source phrase relating this quantity to its comparison
+            target. Preserve direction, inequality and equivalence distinctions.
+          uncertainty: Exact reported uncertainty, interval, error or confidence qualification associated
+            with this value. Do not reinterpret ordinary population dispersion as uncertainty of an
+            estimate.
+          reference_quantity: Exact explicitly compared baseline or reference quantity for this same
+            comparison. Preserve which quantity is measured and which is the reference.
+          condition: Exact source condition, population restriction or setting governing this measurement
+            or comparison. Keep its attachment to this value.
+        table:
+          row_identity: Exact native row label or complete row header path associated with this cell.
+            Do not infer row identity from flattened proximity or use another row label.
+          header_path: Exact full applicable header path for this cell, including required spanning
+            parent headers and nested child headers. Crossing, ambiguous or missing header structure
+            is unresolved rather than a fabricated path.
+          cell_value: Exact text of this one native data cell, including zero, signs and uncertainty
+            marks. A blank cell is not zero and absent decoder output does not establish a source
+            blank.
+          unit: Exact unit explicitly declared for this cell by an applicable header, caption or scoped
+            note. Do not inherit an unrelated unit.
+          note: Exact note text explicitly attached to this cell, row or column by native scope or
+            a marker. An adjacent note with unknown scope is not automatically applicable.
+          caption: Exact caption belonging to this native table. Do not substitute an unrelated neighboring
+            paragraph or table title.
+        formula_context:
+          formula: Exact source formula occurrence in the supplied canonical projection, preserving
+            the complete expression. Do not rewrite recognized text, simplify it or merge a different
+            occurrence.
+          symbol: Exact symbol occurrence whose meaning is explicitly declared for this formula in
+            this local source scope. Equal spelling in another formula or section does not establish
+            the same binding.
+          meaning: Exact local declaration explaining this symbol in this formula context. Do not
+            infer its meaning from conventional notation or a nearby unrelated declaration.
+          domain: Exact stated domain or range restriction for the formula or declared symbol. Preserve
+            the restricted object and do not assume real, positive or finite values.
+          assumption: Exact stated premise or assumption governing this formula and local declaration.
+            Do not invent an assumption from mathematical convention or omit its condition.

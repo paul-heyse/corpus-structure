@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "id": "m1.integrated-candidate-public-read",
+  "title": "Integrated attributed candidates, public record reads and protected reference machinery",
+  "group": "M1",
+  "package": "M1-11",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the integrated bounded M1 source/public/reference/consumer machinery preserve released records and explicit scope under focused independent controls?",
+  "answers": [],
+  "method": "Integrated main-tree focused controls after independent combined target assessment F01-F04, source-scoped static diagnostics and maintenance; no coherent forward native deployment or actual fitting authentication.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/semantic/test_record_contracts.py python/corpus-structure/tests/semantic/test_source_contexts.py python/corpus-structure/tests/semantic/test_attributed_source_evidence.py python/corpus-structure/tests/semantic/test_captured_source_contexts.py python/corpus-structure/tests/semantic/test_record_projection.py python/corpus-structure/tests/semantic/test_record_interpretation.py python/corpus-structure/tests/semantic/test_record_compiler15.py python/corpus-structure/tests/evaluate/test_record_alignment.py python/corpus-structure/tests/evaluate/test_record_statistics.py python/corpus-structure/tests/evaluate/test_record_references.py python/corpus-structure/tests/methods/test_gliner.py python/corpus-structure/tests/methods/test_record_assembly.py python/corpus-structure/tests/methods/test_m1_cli.py python/corpus-structure/tests/methods/test_m1_producer.py python/corpus-structure/tests/methods/test_m1_review_repairs.py python/corpus-structure/tests/methods/test_m1_source_preparation.py python/corpus-structure/tests/semantic/test_record_consumers.py python/corpus-structure/tests/semantic/test_pack_acquisition.py python/corpus-structure/tests/semantic/test_composed.py -q",
+    "uv run ruff check python/corpus-structure/src/corpus_structure/cli/__init__.py python/corpus-structure/src/corpus_structure/cli/export.py python/corpus-structure/src/corpus_structure/cli/orchestrate.py python/corpus-structure/src/corpus_structure/cli/records.py python/corpus-structure/src/corpus_structure/core/method.py python/corpus-structure/src/corpus_structure/evaluate/record_alignment.py python/corpus-structure/src/corpus_structure/evaluate/record_references.py python/corpus-structure/src/corpus_structure/evaluate/semantic.py python/corpus-structure/src/corpus_structure/intervene/record_tools.py python/corpus-structure/src/corpus_structure/intervene/semantic_server.py python/corpus-structure/src/corpus_structure/methods/gliner.py python/corpus-structure/src/corpus_structure/methods/m1_source.py python/corpus-structure/src/corpus_structure/methods/record_assembly.py python/corpus-structure/src/corpus_structure/methods/source_preparation.py python/corpus-structure/src/corpus_structure/orchestrate/commands.py python/corpus-structure/src/corpus_structure/orchestrate/m1.py python/corpus-structure/src/corpus_structure/orchestrate/semantic.py python/corpus-structure/src/corpus_structure/semantic/archive_reader.py python/corpus-structure/src/corpus_structure/semantic/comparison_projection.py python/corpus-structure/src/corpus_structure/semantic/contracts.py python/corpus-structure/src/corpus_structure/semantic/determinants.py python/corpus-structure/src/corpus_structure/semantic/domain_operations.py python/corpus-structure/src/corpus_structure/semantic/effect_support.py python/corpus-structure/src/corpus_structure/semantic/execution_admission.py python/corpus-structure/src/corpus_structure/semantic/native_candidate.py python/corpus-structure/src/corpus_structure/semantic/native_consumer_native.py python/corpus-structure/src/corpus_structure/semantic/native_objects.py python/corpus-structure/src/corpus_structure/semantic/prepare.py python/corpus-structure/src/corpus_structure/semantic/publication.py python/corpus-structure/src/corpus_structure/semantic/record_contracts.py python/corpus-structure/src/corpus_structure/semantic/record_projection.py python/corpus-structure/src/corpus_structure/semantic/record_queries.py python/corpus-structure/src/corpus_structure/semantic/records.py python/corpus-structure/src/corpus_structure/semantic/regeneration.py python/corpus-structure/src/corpus_structure/semantic/runtime.py python/corpus-structure/src/corpus_structure/semantic/source_contexts.py python/corpus-structure/src/corpus_structure/semantic/types.py python/corpus-structure/src/corpus_structure/serve/export.py python/corpus-structure/src/corpus_structure/serve/record_export.py python/corpus-structure/src/corpus_structure/serve/record_results.py python/corpus-structure/src/corpus_structure/settings.py python/corpus-structure/tests/evaluate/test_record_references.py python/corpus-structure/tests/evaluate/test_record_references_native.py python/corpus-structure/tests/methods/test_m1_cli.py python/corpus-structure/tests/methods/test_m1_producer.py python/corpus-structure/tests/methods/test_m1_review_repairs.py python/corpus-structure/tests/methods/test_m1_source_preparation.py python/corpus-structure/tests/semantic/test_attributed_source_evidence.py python/corpus-structure/tests/semantic/test_captured_source_contexts.py python/corpus-structure/tests/semantic/test_native_attributed_evidence.py python/corpus-structure/tests/semantic/test_record_compiler15.py python/corpus-structure/tests/semantic/test_record_consumers.py python/corpus-structure/tests/semantic/test_record_projection.py python/corpus-structure/tests/semantic/test_record_publication_native.py",
+    "uv run pyrefly check python/corpus-structure/src/corpus_structure/cli/__init__.py python/corpus-structure/src/corpus_structure/cli/export.py python/corpus-structure/src/corpus_structure/cli/orchestrate.py python/corpus-structure/src/corpus_structure/cli/records.py python/corpus-structure/src/corpus_structure/core/method.py python/corpus-structure/src/corpus_structure/evaluate/record_alignment.py python/corpus-structure/src/corpus_structure/evaluate/record_references.py python/corpus-structure/src/corpus_structure/evaluate/semantic.py python/corpus-structure/src/corpus_structure/intervene/record_tools.py python/corpus-structure/src/corpus_structure/intervene/semantic_server.py python/corpus-structure/src/corpus_structure/methods/gliner.py python/corpus-structure/src/corpus_structure/methods/m1_source.py python/corpus-structure/src/corpus_structure/methods/record_assembly.py python/corpus-structure/src/corpus_structure/methods/source_preparation.py python/corpus-structure/src/corpus_structure/orchestrate/commands.py python/corpus-structure/src/corpus_structure/orchestrate/m1.py python/corpus-structure/src/corpus_structure/orchestrate/semantic.py python/corpus-structure/src/corpus_structure/semantic/archive_reader.py python/corpus-structure/src/corpus_structure/semantic/comparison_projection.py python/corpus-structure/src/corpus_structure/semantic/contracts.py python/corpus-structure/src/corpus_structure/semantic/determinants.py python/corpus-structure/src/corpus_structure/semantic/domain_operations.py python/corpus-structure/src/corpus_structure/semantic/effect_support.py python/corpus-structure/src/corpus_structure/semantic/execution_admission.py python/corpus-structure/src/corpus_structure/semantic/native_candidate.py python/corpus-structure/src/corpus_structure/semantic/native_consumer_native.py python/corpus-structure/src/corpus_structure/semantic/native_objects.py python/corpus-structure/src/corpus_structure/semantic/prepare.py python/corpus-structure/src/corpus_structure/semantic/publication.py python/corpus-structure/src/corpus_structure/semantic/record_contracts.py python/corpus-structure/src/corpus_structure/semantic/record_projection.py python/corpus-structure/src/corpus_structure/semantic/record_queries.py python/corpus-structure/src/corpus_structure/semantic/records.py python/corpus-structure/src/corpus_structure/semantic/regeneration.py python/corpus-structure/src/corpus_structure/semantic/runtime.py python/corpus-structure/src/corpus_structure/semantic/source_contexts.py python/corpus-structure/src/corpus_structure/semantic/types.py python/corpus-structure/src/corpus_structure/serve/export.py python/corpus-structure/src/corpus_structure/serve/record_export.py python/corpus-structure/src/corpus_structure/serve/record_results.py python/corpus-structure/src/corpus_structure/settings.py python/corpus-structure/tests/evaluate/test_record_references.py python/corpus-structure/tests/evaluate/test_record_references_native.py python/corpus-structure/tests/methods/test_m1_cli.py python/corpus-structure/tests/methods/test_m1_producer.py python/corpus-structure/tests/methods/test_m1_review_repairs.py python/corpus-structure/tests/methods/test_m1_source_preparation.py python/corpus-structure/tests/semantic/test_attributed_source_evidence.py python/corpus-structure/tests/semantic/test_captured_source_contexts.py python/corpus-structure/tests/semantic/test_native_attributed_evidence.py python/corpus-structure/tests/semantic/test_record_compiler15.py python/corpus-structure/tests/semantic/test_record_consumers.py python/corpus-structure/tests/semantic/test_record_projection.py python/corpus-structure/tests/semantic/test_record_publication_native.py",
+    "just ready",
+    "just turn-end",
+    "just adr-lint"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "root-final-source-sha256.json",
+      "role": null,
+      "sha256": "3db5c1aea8db27c3b410a8631765754ee4d8b0900260627510696f3ac541a0ab"
+    },
+    {
+      "path": "root-final-focused-argv.json",
+      "role": null,
+      "sha256": "876589d8f0034e8dd2c6127ea79761d7557df03189776cbf665881b27cc88a5a"
+    },
+    {
+      "path": "reviewed-sha256.txt",
+      "role": null,
+      "sha256": "1ecd2aed57793ada2059baa8648816d8939b341268f3dffa945128c5cbcd608b"
+    },
+    {
+      "path": "formatted-sha256.txt",
+      "role": null,
+      "sha256": "57c57f8cc981a162f4d4a9b168500613dda3824dc2ab032ae739ec426adfa534"
+    },
+    {
+      "path": "raw/root-final-focused.log",
+      "role": null,
+      "sha256": "9714b0ba1f76f83bf76c896541a07f63121d722a60fdee3c4e87eb514c7bcda4"
+    },
+    {
+      "path": "raw/root-final-scoped-ruff-repaired.log",
+      "role": null,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/root-final-scoped-pyrefly-repaired.log",
+      "role": null,
+      "sha256": "7dcd044d1cbfc359908b3a572d0e04695f0cb55424708749c2ceeb6d2684405e"
+    },
+    {
+      "path": "raw/root-turn-end-final.log",
+      "role": null,
+      "sha256": "0d057913918d23ba60a75db03de2ab22aa186e59fdbb046ab4c5ac62f30853a6"
+    },
+    {
+      "path": "raw/root-ready.log",
+      "role": null,
+      "sha256": "492bb494aa6edd53928f35d8837e3a7608aaefdb78e19b0376bd8eb59c714f65"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "focused_functional_controls",
+      "value": 351,
+      "of": 351,
+      "unit": "tests",
+      "note": "Selected contract/context/assembly/numerical/comparison/reference/adapter machinery, not provider/native release qualification"
+    },
+    {
+      "name": "scoped_python_paths",
+      "value": 54,
+      "of": 54,
+      "unit": "paths",
+      "note": "Ruff passed; Pyrefly zero errors with one retained warning"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "351 final-source focused tests passed. Scoped Ruff and Pyrefly passed, as did ready, turn-end and ADR lint. Target architecture accepted at Proposed strength after static corrections. Actual coherent native publication/reference/fitting and consumer/provider journeys are not run; fitting-role/peer authentication needs explicit approval. Candidate-only standing remains uncalibrated; accepted assertion lowering, interpreted producer coupling, independent labels/population evidence and complete M1 qualification remain open. Failed earlier integration, fixture and typing attempts are retained.",
+  "consumed_by": [
+    "M1-03",
+    "M1-05",
+    "M1-07",
+    "M1-08",
+    "M1-11",
+    "M1-12",
+    "M1-13",
+    "M1-14"
+  ]
+}

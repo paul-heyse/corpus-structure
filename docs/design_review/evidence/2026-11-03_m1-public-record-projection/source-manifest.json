@@ -1,0 +1,60 @@
+{
+  "baseline": "29ebcf31",
+  "worktree": "/home/paul/.cache/corpus-structure-m1-public-records",
+  "files": [
+    {
+      "path": "python/corpus-structure/src/corpus_structure/model/semantic/execution-model.yaml",
+      "sha256": "53c29b3b83a8dac4079533e9fa07fbfe0214502d4b0254c620d873067d7bbbbd"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/model/semantic/physical.yaml",
+      "sha256": "da2ed00c4fd696c8e7304f99065d0cf6a3bbdabff577a8367c525c390bac0582"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/semantic/record_projection.py",
+      "sha256": "5114b60ba5a4c75a9c2b4f34a1b8367d7d9d9395c25ef1e185d5773eeb6f9d2b"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/semantic/publication.py",
+      "sha256": "c6a673f881501c1f0776cdbe88343c320fbd00472ecbfabdb5d4273e9e3e7f07"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/semantic/prepare.py",
+      "sha256": "61104fd52aafa53f7b58807ac756b13c1e42cc7367973e9ec92e1aa4f4799bc9"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/semantic/domain_operations.py",
+      "sha256": "2382b3f76b2bd0986ab5a85fc720c7d8c5aa58141f0f687fda216c707c2a3032"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/semantic/contracts.py",
+      "sha256": "6910c2f591495b67fa26729a8db4f3e2c90768eab7aab51cfb6dc2c36194e439"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/semantic/sql/record_publication.sql",
+      "sha256": "557e5b538c403634462472b80e3386b65c59bf9fe3b1bc45a7a84fc8e110b4ea"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/semantic/sql/source_record_graph.sql",
+      "sha256": "5275aecbb8c345179783b781df5e5eecbcf1090f4dae24ce3eca17771481ecea"
+    },
+    {
+      "path": "python/corpus-structure/src/corpus_structure/semantic/sql/derived_publication.sql",
+      "sha256": "729a211637154daa30cb269c2fcc4466a9d3c55876116ea4fbed9d4c81ba5532"
+    },
+    {
+      "path": "python/corpus-structure/tests/semantic/test_record_projection.py",
+      "sha256": "80ff154512265f1747413f6f3b33701f4e4d968c7ffb5dc914e0e3c04230aa1e"
+    },
+    {
+      "path": "python/corpus-structure/tests/semantic/test_record_publication_native.py",
+      "sha256": "6cdaa57ffb66ca322a6509753dabf0e346c19eb03a267f85b366526119800138"
+    }
+  ],
+  "contracts_merge": "Only records/record-projection.py and records/publication.sql tuples; retain newer root/source helper tuples.",
+  "additional_native_helper": "data.validate_source_record_structure(text,jsonb)",
+  "changed_since_prior_snapshot": [
+    "python/corpus-structure/src/corpus_structure/semantic/sql/record_publication.sql",
+    "python/corpus-structure/tests/semantic/test_record_publication_native.py"
+  ]
+}

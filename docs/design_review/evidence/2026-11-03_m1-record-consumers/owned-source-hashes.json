@@ -1,0 +1,38 @@
+[
+  {
+    "path": "python/corpus-structure/src/corpus_structure/serve/record_results.py",
+    "sha256": "beab7a87d8440dc2d280558e35e18145df9bb6487c671cadfd41ef8d8d7ad49d"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/serve/record_export.py",
+    "sha256": "993b18328da9d7c891b78472b3027a33f329d0f061ebc729ac029b2c0839a764"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/serve/export.py",
+    "sha256": "1b18778ce70f2f26d5b9fe7b03e2df7fb4640cbfa92dac5f8b6186f96e3db5f0"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/cli/records.py",
+    "sha256": "4a0e3f9e95bcc6c0275abf97e2936d1afe8df3acb0db033a4183ef65e70bcb40"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/cli/export.py",
+    "sha256": "6c97352250692b5bffa7772da7795f046ee3a053df80bb60edf7798898a8ab55"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/cli/__init__.py",
+    "sha256": "c2688834b0431b40b78b905078b38171e25a1ceb1c73863b6f5262bd82b71930"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/intervene/record_tools.py",
+    "sha256": "e6735089e1fc9eb3cc443da94c5ca1924546c0ee4ac3d565bc2e42cfe01f7bc0"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/intervene/semantic_server.py",
+    "sha256": "16a83a9aef329e1b1cbcdd3355c2246c0c708c721aac429d47dec7d8a3582327"
+  },
+  {
+    "path": "python/corpus-structure/tests/semantic/test_record_consumers.py",
+    "sha256": "8007ca7e7c889a4809f2849ba28623a485681b0a03f15b43a9cbf9a721d3ad83"
+  }
+]

@@ -93,6 +93,9 @@ BEGIN
  IF actual IS NULL OR source_revision IS NULL OR actual<>source_revision THEN
   RAISE EXCEPTION 'source snapshot changed; recompute required' USING ERRCODE='P0004'; END IF;
  published:=data.publish_contract_batch(r,z,b,p_content);
+ IF operation='evaluate' AND contract_id='candidate' AND NOT EXISTS(SELECT FROM pg_temp.sp_record_report) THEN
+  PERFORM data.validate_record_projection_cut(r,z,cut_id);
+ END IF;
  INSERT INTO data.publication_intent VALUES(r,z,b,source_release,source_realization,source_revision,source_capture,operation,binding);
  RETURN published;
 END $fn$;

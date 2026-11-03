@@ -64,6 +64,16 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("pdf/source-view-native.py", "semantic/source_view_native.py"),
     ("pdf/native-task-completion.sql", "semantic/sql/native_task_completion.sql"),
     ("records/source-record-completion.sql", "semantic/sql/source_record_completion.sql"),
+    ("records/source-record-recognition.sql", "semantic/sql/source_record_recognition.sql"),
+    ("records/source-record-report.sql", "semantic/sql/source_record_report.sql"),
+    ("records/source-record-coordinates.sql", "semantic/sql/source_record_coordinates.sql"),
+    ("records/record-projection.py", "semantic/record_projection.py"),
+    ("records/publication.sql", "semantic/sql/record_publication.sql"),
+    ("records/read.py", "semantic/record_queries.py"),
+    ("records/references.py", "evaluate/record_references.py"),
+    ("records/reference-alignment.py", "evaluate/record_alignment.py"),
+    ("records/reference-model.yaml", "model/semantic/record-references.yaml"),
+    ("records/references.sql", "semantic/sql/record_references.sql"),
     ("records/graph-validation.sql", "semantic/sql/source_record_graph.sql"),
     ("records/release-projection.py", "semantic/releases.py"),
     ("records/graph-publication.py", "semantic/publication.py"),
@@ -77,6 +87,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from types import MappingProxyType
 
     from corpus_structure.core.text_structure import capture_text
+    from corpus_structure.evaluate import record_references
     from corpus_structure.evaluate import semantic as references
     from corpus_structure.ingest import pdf_reconciliation
     from corpus_structure.ingest.pdf import PdfConverter
@@ -110,6 +121,7 @@ def approved_implementations() -> Mapping[str, Any]:
         proposals,
         publication,
         query,
+        record_queries,
         releases,
         runtime,
         source_views,
@@ -202,6 +214,12 @@ def approved_implementations() -> Mapping[str, Any]:
             "reference_items": references.ensure_items,
             "reference_grade": references.reference_evaluate,
             "reference_split": references.split_documents,
+            "reference_record_set": record_references.create_reference_set,
+            "reference_record_pass": record_references.record_pass,
+            "reference_record_grade": record_references.reference_evaluate,
+            "reference_record_partition": record_references.assign_origin,
+            "reference_record_fit": record_references.read_fitting_references,
+            "read_source_records": record_queries.read_completed_record_projection,
             "select_result": runtime.select_completed_result,
         }
     )

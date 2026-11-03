@@ -35,6 +35,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0049](0049-m1-qualified-source-records.md) | Release qualified CPU source records through existing semantic authority | 2026-11-03 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
 | [ADR-0050](0050-source-product-placement.md) | Separate private source-product constraints from knowledge graph realization | 2026-11-03 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0051](0051-m1-attributed-source-evidence.md) | Preserve attributed source bindings and captured recognition coordinates | 2026-11-03 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0052](0052-m1-independent-record-references.md) | Freeze source-only record references before extraction and isolate fitting access | 2026-11-03 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

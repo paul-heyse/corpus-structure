@@ -43,6 +43,8 @@ class RecordEvaluationFrame:
     prediction_policy_version: str
     pin: Mapping[str, Any]
     anchor_ids: frozenset[str]
+    related_pins: tuple[Mapping[str, Any], ...] = ()
+    anchor_scopes: tuple[Mapping[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -132,6 +134,38 @@ def _frame(prepared: PreparedRelease, frame: RecordEvaluationFrame) -> dict[str,
             "record evaluation requires explicit region, guideline and policy versions"
         )
     pin = prepared.validate_python("RecordSourcePin", frame.pin).model_dump(mode="python")
+    related = tuple(
+        prepared.validate_python("RecordSourcePin", value).model_dump(mode="python")
+        for value in frame.related_pins
+    )
+    closure = (pin, *related)
+    if len({canonical_bytes(value) for value in closure}) != len(closure):
+        raise ValueError("record evaluation source closure contains duplicate pins")
+    product = ("native_product_task_id", "product_key", "product_digest")
+    if any(
+        tuple(value[key] for key in product) != tuple(pin[key] for key in product)
+        for value in related
+    ):
+        raise ValueError("related evaluation source requires the same native product")
+    scopes = tuple(
+        prepared.validate_python("RecordReferenceAnchorScope", value).model_dump(mode="python")
+        for value in frame.anchor_scopes
+    )
+    for scope in scopes:
+        if canonical_bytes(scope["pin"]) not in {canonical_bytes(value) for value in closure}:
+            raise ValueError("evaluation scope is outside its frozen source closure")
+        start, end = scope.get("start"), scope.get("end")
+        if (
+            scope["space"] == "model_context"
+            or (
+                scope["precision"] == "exact"
+                and (not isinstance(start, int) or not isinstance(end, int) or not 0 <= start < end)
+            )
+            or (scope["precision"] != "exact" and (start is not None or end is not None))
+        ):
+            raise ValueError("evaluation scope has unsupported coordinate precision or bounds")
+        if (scope["space"] == "captured_recognition") != ("recognition" in scope):
+            raise ValueError("evaluation scope must retain its actual recognition coordinate")
     return {
         "unit": frame.unit,
         "release_id": frame.release_id,
@@ -140,7 +174,26 @@ def _frame(prepared: PreparedRelease, frame: RecordEvaluationFrame) -> dict[str,
         "prediction_policy_version": frame.prediction_policy_version,
         "pin": pin,
         "anchor_ids": sorted(frame.anchor_ids),
+        "related_pins": sorted(related, key=canonical_bytes),
+        "anchor_scopes": sorted(scopes, key=canonical_bytes),
     }
+
+
+def anchor_in_scope(anchor, anchor_ids, scopes):
+    """Frozen source-derived extent closure, independent of either side's predictions."""
+    if anchor["anchor_id"] in anchor_ids:
+        return True
+    for scope in scopes:
+        if any(
+            anchor.get(key) != scope.get(key)
+            for key in ("pin", "space", "pointer", "precision", "recognition")
+        ):
+            continue
+        if scope["precision"] != "exact" or (
+            scope["start"] <= anchor["start"] < anchor["end"] <= scope["end"]
+        ):
+            return True
+    return False
 
 
 def _records(prepared, side, frame, contexts, contracts, *, reference):
@@ -157,6 +210,7 @@ def _records(prepared, side, frame, contexts, contracts, *, reference):
         "reference_policy_version" if reference else "prediction_policy_version"
     ]
     allowed = frozenset(frame["anchor_ids"])
+    pins = {canonical_bytes(value) for value in (frame["pin"], *frame["related_pins"])}
     accepted = {}
     standings = Counter()
     for row in rows:
@@ -167,7 +221,12 @@ def _records(prepared, side, frame, contexts, contracts, *, reference):
             raise ValueError("record has a stale or mismatched source pin")
         if row["policy_version"] != expected_policy:
             raise ValueError("record acceptance policy differs from its evaluation binding")
-        if not {anchor["anchor_id"] for anchor in row["anchors"]} <= allowed:
+        if any(canonical_bytes(anchor["pin"]) not in pins for anchor in row["anchors"]):
+            raise ValueError("record anchor source is outside the frozen source closure")
+        if any(
+            not anchor_in_scope(anchor, allowed, frame["anchor_scopes"])
+            for anchor in row["anchors"]
+        ):
             raise ValueError("record anchor is outside the explicit evaluation cut")
         if reference and row["standing"] != "accepted":
             raise ValueError("reference denominator requires accepted independent readings")
@@ -241,7 +300,8 @@ def align_records(
         prepared.validate_python("RecordCoordinateText", raw).model_dump(mode="python")
         for raw in coordinate_texts
     )
-    if any(context["pin"] != ref_frame["pin"] for context in contexts):
+    pins = {canonical_bytes(value) for value in (ref_frame["pin"], *ref_frame["related_pins"])}
+    if any(canonical_bytes(context["pin"]) not in pins for context in contexts):
         raise ValueError("coordinate text has a stale or mismatched source pin")
     rr, _ = _records(prepared, reference, ref_frame, contexts, contracts, reference=True)
     pp, standings = _records(prepared, prediction, ref_frame, contexts, contracts, reference=False)

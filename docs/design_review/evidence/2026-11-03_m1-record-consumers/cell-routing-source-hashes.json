@@ -1,0 +1,10 @@
+[
+  {
+    "path": "python/corpus-structure/src/corpus_structure/serve/record_results.py",
+    "sha256": "f25f1e8efb8a873605de2f6d32ef6f5acd1e8a7a0aca9082e85709a2ab722c5a"
+  },
+  {
+    "path": "python/corpus-structure/tests/semantic/test_record_consumers.py",
+    "sha256": "2d1b67a9b6b06373c9c106f1206a1c187ae00dd85d22c7c0bc22d4e553c789f0"
+  }
+]

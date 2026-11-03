@@ -15,7 +15,7 @@ from corpus_structure.settings import Settings
 
 from ._operation_ids import NativeAdmissionParametersPurpose
 
-type Purpose = NativeAdmissionParametersPurpose | Literal["maintenance"]
+type Purpose = NativeAdmissionParametersPurpose | Literal["maintenance", "fit"]
 
 
 def connection_settings(settings: Settings, purpose: Purpose = "write") -> Settings:
@@ -29,6 +29,7 @@ def connection_settings(settings: Settings, purpose: Purpose = "write") -> Setti
     declared = {
         "read": database.reader_url,
         "evaluate": database.evaluator_url,
+        "fit": database.fitter_url,
         "admit": database.admission_url,
         "maintenance": database.maintenance_url,
     }
@@ -37,6 +38,7 @@ def connection_settings(settings: Settings, purpose: Purpose = "write") -> Setti
     role = {
         "read": "corpus_sem_reader",
         "evaluate": "corpus_sem_evaluator",
+        "fit": "corpus_sem_fitter",
         "admit": "corpus_sem_admitter",
         "maintenance": None,
     }[purpose]
@@ -83,7 +85,12 @@ def open_runtime_engine(
                 from ._operation_calls import require_runtime_principal
 
                 with store.engine.connect() as conn:
-                    require_runtime_principal(conn, purpose=purpose)
+                    if purpose == "fit":
+                        from sqlalchemy import text
+
+                        conn.execute(text("SELECT eval.require_record_fitting_principal()"))
+                    else:
+                        require_runtime_principal(conn, purpose=purpose)
             yield store.engine
         except BaseException as error:
             from corpus_structure.core.db.store import operation_failure

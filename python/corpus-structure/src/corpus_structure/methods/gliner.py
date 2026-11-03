@@ -243,6 +243,12 @@ def map_literal(
     The existing context owner enforces synthetic crossings and occurrence coordinates.
     Provider-added suffix material is never allowed to become source evidence.
     """
+    from corpus_structure.semantic.source_contexts import ContextRefused
+
+    try:
+        context.require_native_projection()
+    except ContextRefused as error:
+        raise GlinerRefused(str(error)) from error
     if report.context_digest != context.dependency_digest:
         raise GlinerRefused("report belongs to another source context")
     if report.preparation.consumed_text != context.text + report.preparation.synthetic_suffix:

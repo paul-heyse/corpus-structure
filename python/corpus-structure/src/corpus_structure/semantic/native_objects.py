@@ -556,6 +556,7 @@ def prepare_native_authoring(
         "corpus_sem_writer",
         "corpus_sem_admitter",
         "corpus_sem_evaluator",
+        "corpus_sem_fitter",
     }:
         raise NativeAuthoringError("native preparation cannot use a runtime principal")
     frozen_predecessor = bool(predecessor) and all(

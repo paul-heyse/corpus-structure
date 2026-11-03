@@ -1,5 +1,19 @@
 # D7 · Evaluation, goldens and the outer loop
 
+## M1 independent record references
+
+**Accepted target, Proposed until native qualification (2026-11-03).** A distinct released
+source-record protocol reuses the protected reference store. Freeze selected source membership,
+source-only frames, guideline text and immutable credible origin partitions at reference-set
+creation from a named sealed source-ready cut. Missing/empty producers remain in the denominator.
+Record grading consumes immutable completed publication; reference readings do not authorize
+production acceptance. Legacy Agent reference contracts and historical grades retain their meanings.
+A restricted actual fitting login can read only adjudicated feature-fit references through its
+protected capability; held-out partitions and evaluator tables remain inaccessible.
+
+> Decision: [ADR-0052](../adr/0052-m1-independent-record-references.md)
+
+
 **Proposed (2026-10-28).** How quality is measured without per-item human verification: the
 versioned guideline, blind two-pass golden authoring by Sonnet with adjudication, splits and
 leakage rules, alignment and scoring, witnesses that do not depend on the golden author, experiments and

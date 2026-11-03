@@ -223,6 +223,7 @@ class CutInput:
     entity_metadata: Mapping[str, Mapping[str, Any]]
     source_links: Mapping[str, tuple[int, int, int, int] | NativeEvidenceLink]
     source_binding: SnapshotBinding
+    record_reports: tuple[Mapping[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -766,9 +767,55 @@ def _cut_input(engine: Engine, cut_id: CutId, output: str) -> CutInput:
             .mappings()
             .all()
         )
+        # Records belong to sealed task-result envelopes, including completed-empty
+        # reports with no kb.observation row. One bound reader owns the whole cut.
+        record_reports = ()
+        from .record_projection import ARTIFACT as RECORD_PROJECTION
+
+        if any(artifact.kind == RECORD_PROJECTION for artifact in prepared.artifacts):
+            from .operations import BoundReader
+            from .records import read_private_record_reports
+
+            selected_tasks = (
+                conn.execute(
+                    select(cut_tasks.c.task_id, cut_tasks.c.origin_task_id, t.c.unit_key)
+                    .join(t, t.c.id == cut_tasks.c.task_id)
+                    .where(
+                        cut_tasks.c.cut_id == cut_id, t.c.status.in_(("done", "empty", "reused"))
+                    )
+                    .order_by(cut_tasks.c.task_id)
+                )
+                .mappings()
+                .all()
+            )
+            bound = BoundReader(conn, job["id"], prepared, cut_id, analysis=False)
+            private = read_private_record_reports(
+                bound, tuple(row["task_id"] for row in selected_tasks)
+            )
+            record_reports = tuple(
+                dict(
+                    selected_task_id=report.selected_task_id,
+                    origin_task_id=report.origin_task_id,
+                    cut_id=cut_id,
+                    source=report.source or selected["unit_key"],
+                    outcome=report.outcome or "unknown",
+                    records=report.records,
+                )
+                for selected, report in zip(selected_tasks, private, strict=True)
+            )
         known, copied = _known_input(conn, prepared, job, observations)
     return _project_cut(
-        prepared, job, cut, observations, descriptors, tasks, envelopes, output, known, copied
+        prepared,
+        job,
+        cut,
+        observations,
+        descriptors,
+        tasks,
+        envelopes,
+        output,
+        known,
+        copied,
+        record_reports=record_reports,
     )
 
 
@@ -1010,7 +1057,18 @@ def _entity_mappings(prepared, observations, output, known, contexts):
 
 
 def _project_cut(
-    prepared, job, cut, observations, descriptors, tasks, envelopes, output, known, copied
+    prepared,
+    job,
+    cut,
+    observations,
+    descriptors,
+    tasks,
+    envelopes,
+    output,
+    known,
+    copied,
+    *,
+    record_reports=(),
 ):
     definitions = {d.iri: d for d in prepared.definitions}
     by_name = {d.name: d for d in prepared.definitions}
@@ -1965,6 +2023,10 @@ def _project_cut(
     }
     # Assembly was extended with cut-specific selections, provenance and coverage.
     # Bind once to those final rows before exposing the input to transport consumers.
+    if record_reports:
+        from .record_projection import project_record_reports
+
+        batch = replace(batch, **project_record_reports(prepared, record_reports))
     batch = batch.bind_preparation(prepared)
     return CutInput(
         CutId(cut["id"]),
@@ -1989,6 +2051,7 @@ def _project_cut(
             job["input_revision"],
             "cut:" + str(cut["id"]),
         ),
+        tuple(record_reports),
     )
 
 

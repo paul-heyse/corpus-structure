@@ -150,6 +150,21 @@ def run(
     domain: Annotated[
         str, typer.Option(help="Method pack for explicit semantic source execution.")
     ] = "statistics",
+    extraction_policy: Annotated[
+        str, typer.Option(help="Explicit source policy: phase0 or m1-candidate.")
+    ] = "phase0",
+    m1_configuration: Annotated[
+        str, typer.Option(help="M1 named policy: default or described (experimental, unqualified).")
+    ] = "default",
+    integrated_product_task: Annotated[
+        int | None, typer.Option(help="Exact retained integrated producing task.")
+    ] = None,
+    integrated_product_key: Annotated[
+        str | None, typer.Option(help="Exact retained integrated product key.")
+    ] = None,
+    integrated_product_digest: Annotated[
+        str | None, typer.Option(help="Exact retained integrated SHA-256 digest.")
+    ] = None,
     json: JsonOpt = False,
 ) -> None:
     """Start a run over the project's corpus and run it to its end."""
@@ -159,6 +174,35 @@ def run(
     from corpus_structure.orchestrate import commands
 
     settings = state(ctx).settings()
+    from corpus_structure.semantic.product_reference import ProductReference
+
+    product_fields = (integrated_product_task, integrated_product_key, integrated_product_digest)
+    if any(value is not None for value in product_fields) and not all(
+        value is not None for value in product_fields
+    ):
+        raise typer.BadParameter(
+            "integrated product task, key and digest must be supplied together"
+        )
+    if extraction_policy not in {"phase0", "m1-candidate"}:
+        raise typer.BadParameter("unknown extraction policy")
+    if m1_configuration not in {"default", "described"}:
+        raise typer.BadParameter("M1 configuration must be default or described")
+    if extraction_policy == "phase0" and m1_configuration != "default":
+        raise typer.BadParameter("nondefault M1 configuration requires the m1-candidate policy")
+    if extraction_policy == "m1-candidate" and integrated_product_task is None:
+        raise typer.BadParameter("M1 requires an exact retained integrated product pin")
+    try:
+        integrated_product = (
+            ProductReference(
+                integrated_product_task, integrated_product_key, integrated_product_digest
+            )
+            if integrated_product_task is not None
+            and integrated_product_key is not None
+            and integrated_product_digest is not None
+            else None
+        )
+    except (TypeError, ValueError) as error:
+        raise typer.BadParameter(str(error)) from error
     from corpus_structure.semantic.runtime import resolve_source_binding
 
     method_settings = MethodSettings(
@@ -192,7 +236,19 @@ def run(
             corpus=corpus,
             agent_mode=str(agent_mode or AgentMode.COMPLETE),
             agent_reuse=str(agent_reuse or AgentReuse.FULL),
-            **{k: v for k, v in PHASE0().items() if k in {"registry_for", "graph", "domains"}},
+            extraction_policy=extraction_policy,
+            m1_configuration=m1_configuration,
+            integrated_product=integrated_product,
+            **{
+                k: v
+                for k, v in PHASE0().items()
+                if k
+                in (
+                    {"domains"}
+                    if extraction_policy == "m1-candidate"
+                    else {"registry_for", "graph", "domains"}
+                )
+            },
         )
     emit(report, json=json)
 

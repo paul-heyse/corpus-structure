@@ -563,6 +563,15 @@ The currently selected installed projection remains until its dependent packages
 
 <a id="section-b6"></a>
 
+**Accepted target, Proposed until native qualification (2026-11-03).** M1 source-record references
+freeze source-ready membership independently of predictions in the existing protected reference
+store. A distinct released protocol preserves empty/missing denominators, immutable credible
+origin partitions and guideline/source closure. Actual fitting authentication exposes only
+adjudicated feature-fit references; extraction and held-out labels remain isolated. Legacy
+Agent reference operations retain their completed-result contract and historical meaning.
+
+> Decision: [ADR-0052](../adr/0052-m1-independent-record-references.md)
+
 ### §B6 Escalation is routed by versioned policies over measurements
 
 **Accepted target, Proposed until implemented (2026-11-03).** M1 selects a separate CPU extraction allowlist and run-owned resident admission policy,

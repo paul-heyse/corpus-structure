@@ -16,6 +16,7 @@ import pyarrow.parquet as pq
 
 from corpus_structure.semantic.analytics import SPINE, CapturedPacket
 from corpus_structure.semantic.capture_storage import FileRelation, LogicalRows
+from corpus_structure.semantic.record_queries import CompletedRecordProjection
 
 
 def _json(value):
@@ -29,7 +30,11 @@ def _json(value):
 
 
 def export_packet(
-    packet: CapturedPacket, destination: Path, *, format: Literal["jsonl", "parquet"] = "parquet"
+    packet: CapturedPacket,
+    destination: Path,
+    *,
+    format: Literal["jsonl", "parquet"] = "parquet",
+    records: CompletedRecordProjection | None = None,
 ) -> dict:
     """Write a fresh directory atomically; cancellation never publishes a partial export."""
     if format not in {"jsonl", "parquet"}:
@@ -117,6 +122,16 @@ def export_packet(
                     "ascii"
                 ),
             }
+        if records is not None:
+            from corpus_structure.serve.record_export import write_record_relations
+
+            record_manifest, record_relations = write_record_relations(
+                records, root, packet.binding, format=format
+            )
+            manifest["format"] = "semantic-export-3"
+            manifest["logical_digest_scope"] = "captured_semantic_spine"
+            manifest["record_projection"] = record_manifest
+            manifest["relations"].update(record_relations)
         (root / "manifest.json").write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )

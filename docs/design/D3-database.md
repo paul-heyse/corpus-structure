@@ -1,5 +1,18 @@
 # D3 · Database
 
+## M1 protected reference storage
+
+**Accepted target, Proposed until native qualification (2026-11-03).** Existing reference
+set/unit/pass/frame/evaluation relations also hold the distinct source-record protocol. The
+source-run foreign key permits source-ready runs; each protected creation operation enforces
+its own completed-result or source-ready contract. Two finite origin relations enforce immutable
+source-to-group partition membership. A dedicated restricted fitting login has no direct evaluator
+reads and only a partition-checking feature-fit capability. Host authentication provisioning is
+separate from database migration; neither selects a release or changes application defaults.
+
+> Decision: [ADR-0052](../adr/0052-m1-independent-record-references.md)
+
+
 ## M1 record evidence custody
 
 **Accepted target, Proposed until implemented (2026-11-03).** Expanded record custody authenticates

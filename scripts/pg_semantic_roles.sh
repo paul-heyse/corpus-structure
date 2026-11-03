@@ -6,14 +6,21 @@ readonly PUBLISHER=corpus_sem_publisher
 readonly WRITER=corpus_sem_writer
 readonly READER=corpus_sem_reader
 readonly EVALUATOR=corpus_sem_evaluator
+readonly FITTER=corpus_sem_fitter
 readonly ADMITTER=corpus_sem_admitter
 
 # Machine-readable inventory is safe even on hosts without PostgreSQL or sudo.
 if [[ $# == 1 && "$1" == --principals ]]; then
-  printf '%s %s\n' publisher "$PUBLISHER" write "$WRITER" read "$READER" evaluate "$EVALUATOR" admit "$ADMITTER"
+  printf '%s %s\n' publisher "$PUBLISHER" write "$WRITER" read "$READER" evaluate "$EVALUATOR" fit "$FITTER" admit "$ADMITTER"
   exit 0
 fi
-[[ $# == 0 ]] || { echo 'usage: pg_semantic_roles.sh [--principals]' >&2; exit 2; }
+FITTER_ONLY=false
+if [[ $# == 1 && "$1" == --fitter-only ]]; then
+  FITTER_ONLY=true
+elif [[ $# != 0 ]]; then
+  echo 'usage: pg_semantic_roles.sh [--principals|--fitter-only]' >&2
+  exit 2
+fi
 
 PORT=5434
 CONF=/etc/postgresql/18/corpus
@@ -22,7 +29,23 @@ OPERATOR=$(id -un)
 pg_lsclusters -h | awk '$1==18 && $2=="corpus" && $3==5434 {found=1} END {exit !found}'
 pg() { sudo -n -u postgres psql -p "$PORT" -X -q -v ON_ERROR_STOP=1 -d postgres "$@"; }
 
-pg <<SQL
+if "$FITTER_ONLY"; then
+  pg <<SQL
+DO \$\$ BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='${FITTER}') THEN
+    CREATE ROLE ${FITTER} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+      NOREPLICATION NOBYPASSRLS;
+  END IF;
+  IF EXISTS (SELECT FROM pg_roles WHERE rolname='${FITTER}' AND
+             (NOT rolcanlogin OR rolinherit OR rolsuper OR rolcreatedb OR rolcreaterole
+              OR rolreplication OR rolbypassrls))
+     OR EXISTS (SELECT FROM pg_auth_members WHERE member='${FITTER}'::regrole) THEN
+    RAISE EXCEPTION 'existing fitting role differs from restricted provisioning contract';
+  END IF;
+END \$\$;
+SQL
+else
+  pg <<SQL
 DO \$\$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='${PUBLISHER}') THEN
     CREATE ROLE ${PUBLISHER} NOLOGIN;
@@ -39,25 +62,40 @@ DO \$\$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='${EVALUATOR}') THEN
     CREATE ROLE ${EVALUATOR} LOGIN;
   END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='${FITTER}') THEN
+    CREATE ROLE ${FITTER} LOGIN NOINHERIT;
+  END IF;
 END \$\$;
 ALTER ROLE ${PUBLISHER} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE ${WRITER} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE ${READER} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE ${ADMITTER} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE ${EVALUATOR} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE ${FITTER} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 DO \$\$ BEGIN
   IF EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member
-             WHERE r.rolname IN ('${WRITER}','${READER}','${EVALUATOR}','${ADMITTER}','${PUBLISHER}')) THEN
+             WHERE r.rolname IN ('${WRITER}','${READER}','${EVALUATOR}','${FITTER}','${ADMITTER}','${PUBLISHER}')) THEN
     RAISE EXCEPTION 'semantic principals must not inherit any role';
   END IF;
 END \$\$;
 GRANT ${PUBLISHER} TO "$OPERATOR" WITH INHERIT FALSE, SET TRUE;
 SQL
+fi
 
 # Prepend a dedicated include; preserve every existing authentication rule.
 TASK_TMP=$(mktemp -d)
 trap 'rm -rf "$TASK_TMP"' EXIT
-printf 'local all %s peer map=corpus_semantic\n' "$WRITER,$READER,$EVALUATOR,$ADMITTER" >"$TASK_TMP/semantic_hba.conf"
+if "$FITTER_ONLY"; then
+  sudo cat "$CONF/semantic_hba.conf" >"$TASK_TMP/semantic_hba.conf"
+  line="local all $FITTER peer map=corpus_semantic"
+  if ! grep -Fxq "$line" "$TASK_TMP/semantic_hba.conf"; then
+    printf '%s\n' "$line" >>"$TASK_TMP/semantic_hba.conf"
+  fi
+  AUTH_PRINCIPALS=("$FITTER")
+else
+  printf 'local all %s peer map=corpus_semantic\n' "$WRITER,$READER,$EVALUATOR,$FITTER,$ADMITTER" >"$TASK_TMP/semantic_hba.conf"
+  AUTH_PRINCIPALS=("$WRITER" "$READER" "$EVALUATOR" "$FITTER" "$ADMITTER")
+fi
 sudo install -o postgres -g postgres -m 640 "$TASK_TMP/semantic_hba.conf" "$CONF/semantic_hba.conf"
 if ! sudo grep -Fxq "include_if_exists semantic_hba.conf" "$CONF/pg_hba.conf"; then
   printf "include_if_exists semantic_hba.conf\n" >"$TASK_TMP/pg_hba.conf"
@@ -65,7 +103,7 @@ if ! sudo grep -Fxq "include_if_exists semantic_hba.conf" "$CONF/pg_hba.conf"; t
   sudo install -o postgres -g postgres -m 640 "$TASK_TMP/pg_hba.conf" "$CONF/pg_hba.conf"
 fi
 sudo cat "$CONF/pg_ident.conf" >"$TASK_TMP/pg_ident.conf"
-for principal in "$WRITER" "$READER" "$EVALUATOR" "$ADMITTER"; do
+for principal in "${AUTH_PRINCIPALS[@]}"; do
   line="corpus_semantic $OPERATOR $principal"
   if ! grep -Fxq "$line" "$TASK_TMP/pg_ident.conf"; then
     printf '%s\n' "$line" >>"$TASK_TMP/pg_ident.conf"

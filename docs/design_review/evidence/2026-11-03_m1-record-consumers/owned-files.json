@@ -1,0 +1,11 @@
+[
+  "python/corpus-structure/src/corpus_structure/serve/record_results.py",
+  "python/corpus-structure/src/corpus_structure/serve/record_export.py",
+  "python/corpus-structure/src/corpus_structure/serve/export.py",
+  "python/corpus-structure/src/corpus_structure/cli/records.py",
+  "python/corpus-structure/src/corpus_structure/cli/export.py",
+  "python/corpus-structure/src/corpus_structure/cli/__init__.py",
+  "python/corpus-structure/src/corpus_structure/intervene/record_tools.py",
+  "python/corpus-structure/src/corpus_structure/intervene/semantic_server.py",
+  "python/corpus-structure/tests/semantic/test_record_consumers.py"
+]

@@ -34,7 +34,7 @@
     }
   ],
   "depends_on": [
-    "m1.cpu-mapped-source-operation"
+    "2026-11-03_m1-gliner-runtime/m1.cpu-mapped-source-operation"
   ],
   "results": [],
   "outcome": "passed",

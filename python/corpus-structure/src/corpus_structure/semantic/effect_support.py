@@ -6,6 +6,42 @@ They are compatibility requirements, never evidence that hashing code proves its
 """
 
 SUPPORTED_EFFECTS = {
+    "read_source_records": {
+        "effects": (),
+        "implementation": "read_source_records",
+        "transitions": {},
+        "version": "1",
+    },
+    "reference_record_set": {
+        "effects": ("protected_independent_reference_operation",),
+        "implementation": "reference_record_set",
+        "transitions": {},
+        "version": "1",
+    },
+    "reference_record_pass": {
+        "effects": ("protected_independent_reference_operation",),
+        "implementation": "reference_record_pass",
+        "transitions": {},
+        "version": "1",
+    },
+    "reference_record_grade": {
+        "effects": ("protected_independent_reference_operation",),
+        "implementation": "reference_record_grade",
+        "transitions": {},
+        "version": "1",
+    },
+    "reference_record_partition": {
+        "effects": ("protected_independent_reference_operation",),
+        "implementation": "reference_record_partition",
+        "transitions": {},
+        "version": "1",
+    },
+    "reference_record_fit": {
+        "effects": (),
+        "implementation": "reference_record_fit",
+        "transitions": {},
+        "version": "1",
+    },
     "record_direction": {
         "effects": ("atomic_protected_insert",),
         "implementation": "record_direction",

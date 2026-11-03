@@ -890,3 +890,18 @@ def reference_evaluate(
         reference_snapshot=snapshot,
         result=result,
     )
+
+
+# Explicit five-family routes preserve the historical AgentStoredBatch evaluator ABI.
+def record_reference_pass(conn: Connection, **kwargs) -> int:
+    from .record_references import record_pass as invoke
+
+    return invoke(conn, **kwargs)
+
+
+def evaluate_record_references(
+    conn: Connection, *, project_id: str, run_id: int, set_id: int
+) -> ReferenceReport:
+    from .record_references import reference_evaluate as invoke
+
+    return invoke(conn, project_id=project_id, run_id=run_id, set_id=set_id)

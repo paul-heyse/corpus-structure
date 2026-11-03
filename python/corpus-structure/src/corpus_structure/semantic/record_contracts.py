@@ -7,6 +7,7 @@ inputs; authenticating those pins against persisted custody remains native admis
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from graphlib import CycleError, TopologicalSorter
 from hashlib import sha256
@@ -162,8 +163,51 @@ def _unique(rows, key: str, meaning: str):
     return result
 
 
-def _text_key(pin, space, pointer):
-    return canonical_bytes([_pin(pin), space, pointer])
+def _text_key(pin, space, pointer, recognition=None):
+    values = [_pin(pin), space, pointer]
+    if recognition is not None:
+        values.append(recognition)
+    return canonical_bytes(values)
+
+
+def validate_anchor_binding(anchor, primary_pin):
+    """Released v2 meanings; persisted custody remains the ingress owner's obligation."""
+    binding = anchor.get("binding")
+    if binding is None:
+        if anchor["pin"] != primary_pin or anchor["space"] == "captured_recognition":
+            raise ValueError("record anchor source pin differs from record without v2 binding")
+    else:
+        if binding != dict(
+            version=2, relationship=binding["relationship"], policy="attributed-selected-source-2"
+        ):
+            raise ValueError("unsupported released source binding")
+        if binding["relationship"] == "primary":
+            if anchor["pin"] != primary_pin:
+                raise ValueError("primary source binding differs from record pin")
+        elif binding["relationship"] == "selected_context":
+            keys = ("native_product_task_id", "product_key", "product_digest")
+            if any(anchor["pin"][key] != primary_pin[key] for key in keys):
+                raise ValueError("related selected context requires the same native product")
+        else:
+            raise ValueError("unsupported source binding relationship")
+    recognition = anchor.get("recognition")
+    if anchor["space"] == "captured_recognition":
+        if recognition is None or anchor["precision"] != "exact":
+            raise ValueError("captured recognition requires its distinct exact text address")
+        provider = json.loads(recognition["provider_occurrence_json"])
+        observation = json.loads(recognition["observation_json"])
+        if (
+            not isinstance(provider, dict)
+            or not isinstance(observation, dict)
+            or provider.get("occurrence_id") != recognition["occurrence_id"]
+            or not isinstance(provider.get("text"), str)
+            or provider.get("precision") not in {"unknown", "coarse", "block"}
+            or ("start" in provider)
+            or ("end" in provider)
+        ):
+            raise ValueError("captured recognition must preserve supported provider occurrence")
+    elif recognition is not None:
+        raise ValueError("recognition address cannot reinterpret a canonical coordinate space")
 
 
 def bind_record_candidates(
@@ -177,14 +221,14 @@ def bind_record_candidates(
 
     No missing role/state, evidence, classification cue or diagnostic is fabricated.
     A complete source-reading claim needs an independent producer's pinned coordinate
-    input. This version supports one source/product/projection/recipe pin per record;
-    typed related-source mappings are a later context contract. This pure check does
+    input. V2 bindings admit same-product selected context and separately typed captured
+    recognition; occurrence-defining anchors remain primary. This pure check does
     not qualify provider inference or persisted publication.
     """
     contexts = {}
     for raw in coordinate_texts:
         row = prepared.validate_python("RecordCoordinateText", raw).model_dump(mode="python")
-        key = _text_key(row["pin"], row["space"], row["pointer"])
+        key = _text_key(row["pin"], row["space"], row["pointer"], row.get("recognition"))
         if key in contexts and contexts[key] != row["text"]:
             raise ValueError("conflicting pinned coordinate text")
         contexts[key] = row["text"]
@@ -218,8 +262,7 @@ def bind_record_candidates(
         for identity, anchor in anchors.items():
             if anchor_identity(anchor) != identity:
                 raise ValueError("record anchor identity differs from content")
-            if anchor["pin"] != row["pin"]:
-                raise ValueError("record anchor source pin differs from record")
+            validate_anchor_binding(anchor, row["pin"])
             start, end = anchor.get("start"), anchor.get("end")
             if (start is None) != (end is None):
                 raise ValueError("record anchor needs paired coordinate bounds")
@@ -228,7 +271,9 @@ def bind_record_candidates(
             if anchor["precision"] == "exact":
                 if start is None or not start < end:
                     raise ValueError("exact record anchor needs a nonempty source interval")
-                key = _text_key(anchor["pin"], anchor["space"], anchor["pointer"])
+                key = _text_key(
+                    anchor["pin"], anchor["space"], anchor["pointer"], anchor.get("recognition")
+                )
                 if key not in contexts:
                     raise ValueError("exact record anchor lacks pinned coordinate text")
                 text = contexts[key]
@@ -239,6 +284,13 @@ def bind_record_candidates(
         occurrence = tuple(row["occurrence_anchors"])
         if len(set(occurrence)) != len(occurrence) or not set(occurrence) <= anchors.keys():
             raise ValueError("invalid record occurrence anchor membership")
+        if any(
+            anchors[key]["pin"] != row["pin"]
+            or anchors[key]["space"] == "captured_recognition"
+            or anchors[key].get("binding", {}).get("relationship", "primary") != "primary"
+            for key in occurrence
+        ):
+            raise ValueError("occurrence anchors must retain the primary source pin")
         if record_identity(prepared.release_id, row) != row["record_id"]:
             raise ValueError("record occurrence identity differs from source membership")
         # Several coherent alternatives may share an occurrence; exact duplicates may not.
@@ -346,13 +398,26 @@ def bind_record_candidates(
                             for anchor in evidence["anchors"]:
                                 piece = anchors[anchor]
                                 coordinate = _text_key(
-                                    piece["pin"], piece["space"], piece["pointer"]
+                                    piece["pin"],
+                                    piece["space"],
+                                    piece["pointer"],
+                                    piece.get("recognition"),
                                 )
                                 if piece["start"] < previous_ends.get(coordinate, 0):
                                     raise ValueError(
                                         "literal evidence intervals overlap or reverse source order"
                                     )
                                 previous_ends[coordinate] = piece["end"]
+                            if (
+                                originals is None
+                                and len(evidence["anchors"]) > 1
+                                and any(
+                                    "binding" in anchors[anchor] for anchor in evidence["anchors"]
+                                )
+                            ):
+                                raise ValueError(
+                                    "attributed multi-piece literals require original pieces"
+                                )
                             reconstructed = tuple(
                                 anchors[anchor]["source_piece"] for anchor in evidence["anchors"]
                             )

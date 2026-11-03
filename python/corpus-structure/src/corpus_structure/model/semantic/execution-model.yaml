@@ -5,6 +5,26 @@ required_capabilities:
 - execution.reference_evaluation.v1
 - execution.selected_result.v1
 concepts:
+- id: SourceRecordInterpretation
+  family: source
+  scope: realization
+  meaning: Released source record occurrence and immutable interpretation, projected as finite relations without graph product membership
+  identity: Original record_id and interpretation_id; private assertion strings never become canonical fact ids
+  attributes:
+  - {name: record_id, range: text, required: true, multivalued: false}
+  - {name: interpretation_id, range: text, required: true, multivalued: false}
+  relationships: [record_source_membership, record_candidate_admission]
+- id: SourceRecordAdmission
+  family: source
+  scope: realization
+  meaning: Candidate-only m1-candidate-only version 1 retention with not_calibrated standing; accepted decisions and public assertion links refuse
+  identity: Released record occurrence and interpretation in the same publication receipt
+  attributes:
+  - {name: decision, range: text, required: true, multivalued: false}
+  - {name: policy_id, range: text, required: true, multivalued: false}
+  - {name: policy_version, range: text, required: true, multivalued: false}
+  - {name: calibration, range: text, required: true, multivalued: false}
+  relationships: [record_candidate_admission]
 - id: IdentityExclusion
   family: knowledge
   scope: realization
@@ -2175,6 +2195,7 @@ concepts:
     multivalued: false
   relationships:
   - reference_source_result
+  - reference_record_source_cut
   - reference_set_unit
   - reference_grade_set
 - id: ReferencePass
@@ -2646,7 +2667,110 @@ concepts:
     required: true
     multivalued: false
   relationships: []
+- id: ReferenceOriginGroup
+  family: decision
+  scope: unit
+  meaning: Immutable credible source-origin partition declaration; copies, editions and overlapping windows share their origin
+  identity: Project and explicit source origin or URI; never a chapter-independence claim
+  attributes:
+  - name: project_id
+    range: text
+    required: true
+    multivalued: false
+  - name: origin_group
+    range: text
+    required: true
+    multivalued: false
+  - name: partition
+    range: text
+    required: true
+    multivalued: false
+  - name: provenance_json
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - reference_origin_membership
+- id: ReferenceOriginSource
+  family: decision
+  scope: unit
+  meaning: Immutable credible source-origin partition declaration; copies, editions and overlapping windows share their origin
+  identity: Project and explicit source origin or URI; never a chapter-independence claim
+  attributes:
+  - name: project_id
+    range: text
+    required: true
+    multivalued: false
+  - name: source_uri
+    range: text
+    required: true
+    multivalued: false
+  - name: origin_group
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - reference_origin_membership
+- id: SourceRecordProjection
+  family: read
+  scope: snapshot
+  meaning: Detached finite record relations and report-to-source membership from one immutable completed result
+  identity: Archived release, completed run, cut, output realization revision and record projection digest
+  attributes:
+  - name: run_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: release_id
+    range: text
+    required: true
+    multivalued: false
+  - name: realization_id
+    range: text
+    required: true
+    multivalued: false
+  - name: data_revision
+    range: integer
+    required: true
+    multivalued: false
+  - name: cut_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: projection_digest
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
 relationships:
+- id: record_source_membership
+  kind: association
+  direction: directed
+  endpoints:
+  - {role: interpretation, concept: SourceRecordInterpretation, minimum: 1, maximum: 1, ordered: false, unresolved: false}
+  - {role: cut, concept: InputCut, minimum: 1, maximum: 1, ordered: false, unresolved: false}
+  cardinality_scope: Per interpretation in the selected sealed cut and publication receipt
+  identity_kind: ordered_roles
+  identity_roles: [interpretation, cut]
+  identity_context: [release, realization]
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants: [qualified_reference]
+- id: record_candidate_admission
+  kind: association
+  direction: directed
+  endpoints:
+  - {role: interpretation, concept: SourceRecordInterpretation, minimum: 1, maximum: 1, ordered: false, unresolved: false}
+  - {role: admission, concept: SourceRecordAdmission, minimum: 1, maximum: 1, ordered: false, unresolved: false}
+  cardinality_scope: Per interpretation in the selected sealed cut and publication receipt
+  identity_kind: ordered_roles
+  identity_roles: [interpretation, admission]
+  identity_context: [release, realization]
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants: [qualified_reference]
 - id: bundle_contains
   kind: ownership
   direction: directed
@@ -4563,6 +4687,64 @@ relationships:
   reference_scope: execution
   invariants:
   - selected_result_binding
+- id: reference_origin_membership
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: ReferenceOriginSource
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: ReferenceOriginGroup
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per project and immutable source URI
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - project
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
+- id: reference_record_source_cut
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: ReferenceSet
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: InputCut
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Record references freeze a named sealed source cut plus explicit membership at reference-set creation; legacy references retain completed-result binding
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - project
+  - release
+  - source_run
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
 invariants:
 - id: identity_exclusions
   meaning: Eligible source exclusions retain exact evidence and endpoints; no admitted
@@ -6192,6 +6374,7 @@ operations:
   projections:
   - candidate
   - accepted
+  - source_record_candidate
   calls:
   - id: begin_evaluation
     symbol: data.begin_evaluation
@@ -9609,6 +9792,147 @@ operations:
     cardinality: one
     ordered: false
     order_by: []
+- id: reference_record_set
+  inputs:
+  - ReferenceSet
+  - InputCut
+  - ReferenceOriginGroup
+  - ReferenceOriginSource
+  results:
+  - ReferenceSet
+  applicability:
+  - reference_binding
+  universe: Frozen independent source-origin partition, completed cut, guideline, primary and related frames; no production acceptance authority
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  implementation: reference_record_set
+  transitions: []
+  projections: []
+- id: reference_record_pass
+  inputs:
+  - ReferenceUnit
+  - SourceFrame
+  results:
+  - ReferencePass
+  - ReferenceCitationFrame
+  applicability:
+  - reference_binding
+  universe: Frozen independent source-origin partition, completed cut, guideline, primary and related frames; no production acceptance authority
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  implementation: reference_record_pass
+  transitions: []
+  projections: []
+- id: reference_record_grade
+  inputs:
+  - EvaluationResult
+  - ReferenceSet
+  results:
+  - ReferenceEvaluation
+  applicability:
+  - reference_binding
+  universe: Frozen independent source-origin partition, completed cut, guideline, primary and related frames; no production acceptance authority
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  implementation: reference_record_grade
+  transitions: []
+  projections: []
+- id: reference_record_partition
+  inputs:
+  - ReferenceOriginGroup
+  - ReferenceOriginSource
+  results:
+  - ReferenceOriginGroup
+  - ReferenceOriginSource
+  applicability:
+  - reference_binding
+  universe: Frozen independent source-origin partition, completed cut, guideline, primary and related frames; no production acceptance authority
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  implementation: reference_record_partition
+  transitions: []
+  projections: []
+- id: reference_record_fit
+  inputs:
+  - ReferenceSet
+  results:
+  - ReferencePass
+  - ReferenceCitationFrame
+  applicability:
+  - reference_binding
+  universe: Frozen independent source-origin partition, completed cut, guideline, primary and related frames; no production acceptance authority
+  effects: []
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored record readings, occurrence and attributed coordinates; final quality remains unestablished
+  implementation: reference_record_fit
+  transitions: []
+  projections: []
+- id: read_source_records
+  inputs: [EvaluationResult, SourceRecordInterpretation, SourceRecordAdmission]
+  results: [SourceRecordProjection]
+  applicability: [immutable_binding, same_snapshot]
+  universe: One immutable completed publication and its archived finite record projection; never a moving selected default
+  effects: []
+  outcomes: [applied, conflict]
+  outcome_domain: transaction
+  dependencies: [semantic_release, execution_model, input_binding, implementation_version]
+  precision: Exact released field states, lexical values, ordered evidence, alternatives and admission standing; no new acceptance decision
+  implementation: read_source_records
+  transitions: []
+  projections: []
 implementations:
 - id: convert_pdf
   owner: ingest.pdf
@@ -10842,7 +11166,116 @@ implementations:
   - atomic_protected_insert
   required_capabilities:
   - execution.lifecycle.v1
+- id: reference_record_set
+  owner: evaluate.record_references
+  symbol: create_reference_set
+  version: '1'
+  placement: python
+  input_concepts:
+  - ReferenceSet
+  - InputCut
+  - ReferenceOriginGroup
+  - ReferenceOriginSource
+  result_concepts:
+  - ReferenceSet
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: reference_record_pass
+  owner: evaluate.record_references
+  symbol: record_pass
+  version: '1'
+  placement: python
+  input_concepts:
+  - ReferenceUnit
+  - SourceFrame
+  result_concepts:
+  - ReferencePass
+  - ReferenceCitationFrame
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: reference_record_grade
+  owner: evaluate.record_references
+  symbol: reference_evaluate
+  version: '1'
+  placement: python
+  input_concepts:
+  - EvaluationResult
+  - ReferenceSet
+  result_concepts:
+  - ReferenceEvaluation
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: reference_record_partition
+  owner: evaluate.record_references
+  symbol: assign_origin
+  version: '1'
+  placement: python
+  input_concepts:
+  - ReferenceOriginGroup
+  - ReferenceOriginSource
+  result_concepts:
+  - ReferenceOriginGroup
+  - ReferenceOriginSource
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: reference_record_fit
+  owner: evaluate.record_references
+  symbol: read_fitting_references
+  version: '1'
+  placement: python
+  input_concepts:
+  - ReferenceSet
+  result_concepts:
+  - ReferencePass
+  - ReferenceCitationFrame
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: []
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: read_source_records
+  owner: semantic.record_queries
+  symbol: read_completed_record_projection
+  version: '1'
+  placement: core
+  input_concepts: [EvaluationResult, SourceRecordInterpretation, SourceRecordAdmission]
+  result_concepts: [SourceRecordProjection]
+  features: [typed_bound_inputs, explicit_outcomes]
+  effects: []
+  required_capabilities: []
 projections:
+- id: source_record_candidate
+  sources: [SourceRecordInterpretation, SourceRecordAdmission, InputCut]
+  relationships: [record_source_membership, record_candidate_admission]
+  universe: Every completed selected task report in the sealed cut, including absent records and explicitly empty record collections
+  preserves: [source_record_identity, interpretation_identity, released_family_roles, field_states, evidence_status, exact_numeric_spelling, original_pieces, ordered_evidence, field_alternatives, computation_dependencies, selected_origin_task_provenance, private_assertion_strings]
+  omissions: [accepted_record_decisions, public_assertion_bindings]
+  precision: Genuine native and attributed source coordinates retain their actual precision; no synthetic locator
+  collections: Finite positioned field, alternative, anchor, set, membership, premise and dependency relations
+  completeness: Exact comparison with immutable selected cut task-result envelopes
+  lifetime: transaction
+  implementation: evaluate
 - id: occurrence
   sources:
   - AssertionOccurrence

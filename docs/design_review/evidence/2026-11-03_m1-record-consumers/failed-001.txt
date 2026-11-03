@@ -1,0 +1,4 @@
+Command: PYTHONPATH=/home/paul/.cache/corpus-structure-m1-record-consumers/python/corpus-structure/src uv run pytest /home/paul/.cache/corpus-structure-m1-record-consumers/python/corpus-structure/tests/semantic/test_record_consumers.py
+Outcome: failed; 4 passed, 12 setup errors.
+Primary error: ExecutionCatalog concepts.141.attributes Tuple should have at least 1 item after validation, not 0 (input_value=[]).
+Root-owned read_source_records declaration changed during initial dependency copy. Root supplied complete SourceRecordProjection attributes and requested dependency refresh. No adapter acceptance weakened.

@@ -87,6 +87,8 @@ def start_bound_run(
     graph: Any = None,
     native_product: ProductReference | None = None,
     integrated_product: ProductReference | None = None,
+    extraction_policy: str = "phase0",
+    m1_configuration: str = "default",
 ):
     """Explicit semantic source execution through the current command entry point."""
     from sqlalchemy import select
@@ -98,6 +100,23 @@ def start_bound_run(
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.operations import OperationBinding
     from corpus_structure.semantic.releases import load_release
+
+    if extraction_policy not in {"phase0", "m1-candidate"}:
+        raise CommandError("unknown extraction policy")
+    if extraction_policy == "phase0" and m1_configuration != "default":
+        raise CommandError("nondefault M1 configuration requires the m1-candidate policy")
+    if extraction_policy == "m1-candidate":
+        if native_product is not None or not isinstance(integrated_product, ProductReference):
+            raise CommandError(
+                "M1 requires one exact retained integrated PDF product; "
+                "conversion and fallback are disabled"
+            )
+        if graph is not None or registry_for is not None:
+            raise CommandError("M1 uses its explicit candidate graph and registry")
+        from corpus_structure.orchestrate.m1 import registry as m1_registry
+        from corpus_structure.orchestrate.m1 import source_graph
+
+        graph, registry_for = source_graph(m1_configuration), m1_registry
 
     with engine.connect() as conn:
         prepared = load_release(conn, release_id)
@@ -145,8 +164,32 @@ def start_bound_run(
         corpus_record, scope_record = records(
             docs, data.get("slices", data), slice=slice, scope=scope, corpus=corpus
         )
+        retained_input_document = None
+        if extraction_policy == "m1-candidate":
+            from corpus_structure.orchestrate.m1 import retained_document
+
+            if integrated_product is None:
+                raise CommandError("M1 retained integrated product is missing")
+            selected_keys = set(corpus_record["documents"])
+            retained_input_document = retained_document(
+                conn,
+                integrated_product,
+                prepared=prepared,
+                project_id=project_id,
+                documents=[document for document in docs if document["key"] in selected_keys],
+            )
+            # An exact product consumes its one registered original, not every PDF
+            # in the project or a pack's incidental acquisition default.
+            selected_docs = [
+                document for document in docs if document["id"] == retained_input_document.id
+            ]
+            corpus_record, scope_record = records(
+                selected_docs, data.get("slices", data), slice=slice, scope=scope, corpus=corpus
+            )
         policy_source = (
-            (pack / "policies.yaml").read_text() if (pack / "policies.yaml").exists() else None
+            (pack / "policies.yaml").read_text()
+            if extraction_policy == "phase0" and (pack / "policies.yaml").exists()
+            else None
         )
         if (
             phase == 0
@@ -183,6 +226,11 @@ def start_bound_run(
             method_name=method_name,
             input_role="native" if native_product is not None else "integrated",
         )
+    if retained_input_document is not None:
+        from corpus_structure.orchestrate.m1 import bind_retained_document
+
+        selected_registry = bind_retained_document(selected_registry, retained_input_document)
+        selected_registry.resolve("extract.m1_candidates", m1_configuration)
     return run_source_methods(
         engine,
         project_id=project_id,
@@ -193,7 +241,11 @@ def start_bound_run(
         graph=selected_graph,
         method_settings=method_settings,
         phase=phase,
-        guideline=((domains or DOMAINS) / domain / "guideline.md").read_text(),
+        guideline=(
+            (domains or DOMAINS)
+            / domain
+            / ("m1-guideline.md" if extraction_policy == "m1-candidate" else "guideline.md")
+        ).read_text(),
         fresh=fresh,
         corpus_record=corpus_record,
         scope_record=scope_record,
@@ -201,6 +253,13 @@ def start_bound_run(
         agent_mode=agent_mode,
         agent_reuse=agent_reuse,
         kind="slice" if slice else "full",
+        extraction_policy=extraction_policy,
+        extraction_policy_config=(pack / "m1-methods.yaml").read_text()
+        if extraction_policy == "m1-candidate"
+        else None,
+        configurations={"extract.m1_candidates": m1_configuration}
+        if extraction_policy == "m1-candidate" and m1_configuration != "default"
+        else None,
     )
 
 

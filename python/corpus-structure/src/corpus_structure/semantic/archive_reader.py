@@ -116,7 +116,9 @@ def reconstruct_release(
         if "conditional_rules.json" in artifact_map
         else {}
     )
-    if profile.compiler_version != "14":
+    from .types import READABLE_COMPILER_VERSIONS
+
+    if profile.compiler_version not in READABLE_COMPILER_VERSIONS:
         raise ValueError(f"unsupported archived compiler {profile.compiler_version}")
     recipe = json.loads(artifact_map["boundary_recipe.json"].content)
     if (

@@ -80,6 +80,8 @@ def acquire_pack(pack: Path) -> PackInputs:
         "agent-root",
         "observations",
         "observation-root",
+        "record_references",
+        "record-reference-root",
         "analytics",
         "analytical-root",
     }:
@@ -146,6 +148,7 @@ def acquire_pack(pack: Path) -> PackInputs:
         for name in (
             "agent.yaml",
             "observations.yaml",
+            "record-references.yaml",
             "analytics.yaml",
             "metrics.yaml",
             "analytical-profile.json",
@@ -295,6 +298,9 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
         model_content=content["agent.yaml"],
         observation_content=content["observations.yaml"],
     )
+    from corpus_structure.evaluate.record_references import reference_inputs
+
+    bundle = reference_inputs(bundle, model_content=content["record-references.yaml"])
     bundle, deps = prepare_source_inputs(
         bundle,
         deps,

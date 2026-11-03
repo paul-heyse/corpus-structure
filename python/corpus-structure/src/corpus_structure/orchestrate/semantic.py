@@ -58,6 +58,8 @@ def run_source_methods(
     agent_mode: str = "complete",
     agent_reuse: str = "full",
     kind: str = "full",
+    extraction_policy: str = "phase0",
+    extraction_policy_config: str | None = None,
 ) -> BoundRunReport:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
 
@@ -97,7 +99,19 @@ def run_source_methods(
                 "realization": binding.input_realization_id,
                 "revision": binding.input_revision,
             },
-            configuration={"methods": configurations or {}, "phase": phase, "domain": domain},
+            configuration={
+                "methods": configurations or {},
+                "phase": phase,
+                "domain": domain,
+                **(
+                    {
+                        "extraction_policy": extraction_policy,
+                        "extraction_policy_config": extraction_policy_config,
+                    }
+                    if extraction_policy != "phase0"
+                    else {}
+                ),
+            },
             policy={"source": policy_source, "agent_mode": agent_mode, "reuse": agent_reuse},
         )
         if invocation_input.release_id != prepared.release_id:
@@ -198,9 +212,30 @@ def run_source_methods(
             library_names.add("lark")
         if "resolve.symbol_scope" in configs:
             library_names.update(("spacy", "en-core-web-sm"))
+        if "extract.m1_candidates" in configs:
+            library_names.update(
+                (
+                    "gliner2",
+                    "torch",
+                    "transformers",
+                    "tokenizers",
+                    "safetensors",
+                    "threadpoolctl",
+                    "spacy",
+                    "en-core-web-sm",
+                )
+            )
         if graph.policy_propose:
             library_names.update(("rapidfuzz", "regex", "rule-engine"))
         dependency_manifest = {
+            **(
+                {
+                    "extraction_policy": extraction_policy,
+                    "extraction_policy_config": extraction_policy_config,
+                }
+                if extraction_policy != "phase0"
+                else {}
+            ),
             "parent": json.loads(binding.dependencies),
             "libraries": {
                 **{name: version(name) for name in sorted(library_names)},
@@ -242,6 +277,7 @@ def run_source_methods(
             canonical_bytes(dependency_manifest),
         )
         options = {
+            **({"extraction_policy": extraction_policy} if extraction_policy != "phase0" else {}),
             "domain": domain,
             "corpus": dict(corpus_record)
             if corpus_record is not None
@@ -682,6 +718,7 @@ def run_source_methods(
                                         method=method,
                                         configuration_hash=config.config_hash,
                                         source=result.ref.unit_key or "run",
+                                        records=result.records,
                                     )
                                 if result.error is not None:
                                     raise OperationConflict(result.error)

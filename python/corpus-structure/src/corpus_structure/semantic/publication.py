@@ -34,6 +34,27 @@ from corpus_structure.core.db.store import (
 from .identity import canonical_bytes
 from .metadata import table
 from .outcomes import ScientificOutcome, SemanticCoverageOutcome
+from .record_projection import (
+    RECORD_ROW_TYPES,
+    RecordAdmissionRow,
+    RecordAlternativeEvidenceRow,
+    RecordAlternativePieceRow,
+    RecordAlternativeRow,
+    RecordAnchorRow,
+    RecordAssertionRow,
+    RecordDependencyRow,
+    RecordEvidenceMemberRow,
+    RecordEvidenceSetRow,
+    RecordFieldEvidenceRow,
+    RecordFieldPieceRow,
+    RecordFieldRow,
+    RecordOccurrenceAnchorRow,
+    RecordPremiseRow,
+    RecordPrivateAssertionRow,
+    RecordReportMemberRow,
+    RecordReportRow,
+    SourceRecordRow,
+)
 from .types import PreparedRelease
 
 
@@ -261,6 +282,7 @@ class CoverageRow:
 
 # The fixed transport schema is shared with the narrow native DDL companion.
 _ROW_TYPES = {
+    **RECORD_ROW_TYPES,
     "entity": EntityRow,
     "entity_source": EntitySourceRow,
     "identity_exclusion": IdentityExclusionRow,
@@ -334,6 +356,25 @@ class PublicationBatch:
     alternative_member: tuple[AlternativeMemberRow, ...] = ()
     entity_input: tuple[EntityInputRow, ...] = ()
     fact_input: tuple[FactInputRow, ...] = ()
+
+    record_report: tuple[RecordReportRow, ...] = ()
+    source_record: tuple[SourceRecordRow, ...] = ()
+    record_report_member: tuple[RecordReportMemberRow, ...] = ()
+    record_field: tuple[RecordFieldRow, ...] = ()
+    record_field_piece: tuple[RecordFieldPieceRow, ...] = ()
+    record_alternative: tuple[RecordAlternativeRow, ...] = ()
+    record_alternative_piece: tuple[RecordAlternativePieceRow, ...] = ()
+    record_anchor: tuple[RecordAnchorRow, ...] = ()
+    record_occurrence_anchor: tuple[RecordOccurrenceAnchorRow, ...] = ()
+    record_evidence_set: tuple[RecordEvidenceSetRow, ...] = ()
+    record_evidence_member: tuple[RecordEvidenceMemberRow, ...] = ()
+    record_field_evidence: tuple[RecordFieldEvidenceRow, ...] = ()
+    record_alternative_evidence: tuple[RecordAlternativeEvidenceRow, ...] = ()
+    record_premise: tuple[RecordPremiseRow, ...] = ()
+    record_dependency: tuple[RecordDependencyRow, ...] = ()
+    record_private_assertion: tuple[RecordPrivateAssertionRow, ...] = ()
+    record_admission: tuple[RecordAdmissionRow, ...] = ()
+    record_assertion: tuple[RecordAssertionRow, ...] = ()
 
     _analysis_input: Any = field(default=None, repr=False, compare=False)
 

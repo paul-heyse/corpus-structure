@@ -1,0 +1,202 @@
+[
+  {
+    "path": "domains/statistics/m1-guideline.md",
+    "sha256": "8cf2df97e30094a2145a50827a8a977497105bc6a74651f7de033c056110c5d9"
+  },
+  {
+    "path": "domains/statistics/m1-methods.yaml",
+    "sha256": "29f045f83c3e2497785a62e4879bacfd92b0362c4ac09a02816655208aa5ea1b"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/cli/orchestrate.py",
+    "sha256": "6d5e58aaf1f8c612b602179ff4e8ecab00cf8048f10a46c547f70976f3aa3e25"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/core/method.py",
+    "sha256": "2e35ce943d06c00d5b4245d02b8d88bfb46fb93cd5f40827c798d24084034e00"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/evaluate/record_alignment.py",
+    "sha256": "103995e82522961778b73e30f9e4ba47f7b76356a937eb4c976c4b594bec5065"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/evaluate/record_references.py",
+    "sha256": "d8d0e66ab8b32d485adae4aad8ca63ae3d214392e078160ac91e2dd5880e4a23"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/evaluate/semantic.py",
+    "sha256": "f4381c8fcfff2e418f1f11749fa598ccbf25000e308ce900bc443a83aa0efe9a"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/methods/gliner.py",
+    "sha256": "12d945fe3277f78a879ff55e94b362bcd1502455f0522bf3cc1e94659f139322"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/methods/m1_source.py",
+    "sha256": "e2e2c51d76012bb40142aa3c0591234f4242711e0d5328e82e660bec955c55a1"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/methods/record_assembly.py",
+    "sha256": "b0255687cf0b34360f7ff86cbf454acbf784c14fda6183466ed028fd58f7cb9f"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/methods/source_preparation.py",
+    "sha256": "925f3b481ce4758508bd02ed264d997400ac07def2f8ab3dd4c439652a54d9de"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/model/semantic/execution-model.yaml",
+    "sha256": "5c1c5d3de765403bc2f825cb1659402febd8e77f5ae139b43673b63237746d5c"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml",
+    "sha256": "41aae7bf670c0c1a2f83cdfd95d34e283b1efddd63a8fb1b87247ccd188a9412"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/model/semantic/operation-report-schemas.json",
+    "sha256": "27a3234bdc3435f51783ad60cbad893d4c0a8289cc1436130645ccf49d9ddcdf"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/model/semantic/physical.yaml",
+    "sha256": "f5017e9fafdf7472d61ee09f586c4ebb2c28140393be31564940232ff3013bce"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/model/semantic/record-references.yaml",
+    "sha256": "730381b49ba71d46b713c975cbdf75063e476b728acf2f68e5f5076b53b85ddd"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/model/semantic/reference.yaml",
+    "sha256": "a12e09a4f608986f7ea0202b642a8c44a5625d72dad6569cc267eff43313c28c"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/orchestrate/commands.py",
+    "sha256": "e19fb629794124e2c9453dc0cd091472f303d2d5fb5ac65e4d17c1f751853616"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/orchestrate/m1.py",
+    "sha256": "3ab1430ec512e8264ca16fbedbecc76f83afbfa529eea6ecd0b5376e446d0bad"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/orchestrate/semantic.py",
+    "sha256": "be22cb901d375f02dac71c000a45fbdfe6817afcafa830b7ba1cc239d9cfc224"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/archive_reader.py",
+    "sha256": "d93e9f09576fe997ba1701465cde52f5b932ce7a61d2a3444540a4871089cbc2"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/comparison_projection.py",
+    "sha256": "5674339ef282474524e3293b1605c47e2c37b88b40c28bd475d3b86e757afe50"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/contracts.py",
+    "sha256": "5804d0a5af2457484d1cbf865fa756c8ed646cd784fceabdd200ee03e23ebcba"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/determinants.py",
+    "sha256": "1b69c5a65bffa6ef6ff7b9fcc3e013d7f7ac075681c390b5f0a1fc377ba449cd"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/domain_operations.py",
+    "sha256": "2382b3f76b2bd0986ab5a85fc720c7d8c5aa58141f0f687fda216c707c2a3032"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/effect_support.py",
+    "sha256": "26d9d300a2ad6e7e4115a15d7a98b6388dc5557c86b8d7e09489e1b4864c437a"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/execution_admission.py",
+    "sha256": "ef810ecbef982cdda3acdd45679c3f5ea3ada14dc37e046ab5016a6c297b35a7"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/native_candidate.py",
+    "sha256": "dcc75d3d0b1231d28d45f9fc0a86eae8fbfaae2d891faa08fb9d1858c6f8d0ae"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/native_consumer_native.py",
+    "sha256": "027f693dc4e35b78b1f4e094e7b234686555608cc97f2dcd9719c3efa8ee1baa"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/prepare.py",
+    "sha256": "61104fd52aafa53f7b58807ac756b13c1e42cc7367973e9ec92e1aa4f4799bc9"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/publication.py",
+    "sha256": "c6a673f881501c1f0776cdbe88343c320fbd00472ecbfabdb5d4273e9e3e7f07"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/record_contracts.py",
+    "sha256": "ac878d55fa8ed17ac8c12ba909914024dfb21331e67c720334cd968ade11d071"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/record_projection.py",
+    "sha256": "10e14325600596c7f6471670258a070f9d8e59f2ef6c0867afe4c0abbc01fd71"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/record_queries.py",
+    "sha256": "606d6b2008be33efedbdebbfa40976e86b987c9d7090cfec819e07a226b72a21"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/records.py",
+    "sha256": "e6c62e0c76a89c47ebc89562348dcf8c31e9927974a94266faf7ea5833bbb95e"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/regeneration.py",
+    "sha256": "430ea273154a16ffd7b75697c74d572bb7d4cbbefc155a2de306633aaaf8b18c"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/runtime.py",
+    "sha256": "3158f1e311ff06e0c5e7eb73c7e98107453e7ea3f73181b54bb8674fc2ff7caa"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/source_contexts.py",
+    "sha256": "3bd0b873321d39aa0098776fa75f0927599a939288c9f9e1f873582fa45a85ec"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/sql/derived_publication.sql",
+    "sha256": "729a211637154daa30cb269c2fcc4466a9d3c55876116ea4fbed9d4c81ba5532"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/sql/execution_projection.sql",
+    "sha256": "4e3327beac4a869152231aa20007239968e54655e7025b899b9a261be067f40f"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/sql/execution_projection_check.sql",
+    "sha256": "b3f9a45a3233ce294764ec67b9eefc307df5f257cb5e37f970e09b625ef0af16"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/sql/record_publication.sql",
+    "sha256": "557e5b538c403634462472b80e3386b65c59bf9fe3b1bc45a7a84fc8e110b4ea"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/sql/record_references.sql",
+    "sha256": "e5b23566c22a64bb9d3bdf5ed6b7418ff6afaea2d8e02b5edabefa6ebb0c0840"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/sql/source_record_completion.sql",
+    "sha256": "8a2e7a720b7a5e2cfc8675ee1322dcd10d3162b7949f45acc0907b2649623a7b"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/sql/source_record_coordinates.sql",
+    "sha256": "aed3042957d1f373c4d857f84d48d02da97714c634222d94bedf287342ee0bfd"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/sql/source_record_graph.sql",
+    "sha256": "5275aecbb8c345179783b781df5e5eecbcf1090f4dae24ce3eca17771481ecea"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/sql/source_record_recognition.sql",
+    "sha256": "99fb65c5829b3333bb3de529e912a99cc0e7ee45862ffb5c2fdb343aa2cdf2d7"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/sql/source_record_report.sql",
+    "sha256": "6dad901e1ad91340cc971b52f5dd509f19bfe635ce16310be41e1aecaa37c85e"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/semantic/types.py",
+    "sha256": "e81824e772791b43305349890f7ab73b38f39d9f75cb6a059058196d38bba40c"
+  },
+  {
+    "path": "python/corpus-structure/src/corpus_structure/settings.py",
+    "sha256": "2860c8480d2219cc18305171eacf184716e4646c7cffe1ebecdf876822329368"
+  }
+]

@@ -1,6 +1,6 @@
 # First production milestone: qualified CPU semantic assembly
 
-**Status:** Active implementation series — initial authority, development population and private record-contract slice underway; no qualified M1 release.
+**Status:** Active implementation series — source/runtime, candidate publication and protected-reference integration underway; no qualified M1 release.
 **Created:** 2026-11-03. **Target claims:** Proposed. This coordinator owns package state,
 shared decisions, execution order and scheduled opportunity/investigation disposition. Companions
 own detailed designs and completion criteria, not competing progress tables.
@@ -137,7 +137,7 @@ experiments. The result constrains dependent work even when it selects an existi
 
 ## Execution queue and readiness
 
-M1-00/01/02/03/04/05/06/07/13 are **In progress** at the bounded scope below; other packages remain **Planned**.
+M1-00/01/02/03/04/05/06/07/08/09/11/12/13 are **In progress** at the bounded scope below; other packages remain **Planned**.
 Dependencies below mean working capability/evidence unless explicitly
 identified as an early settled contract. Design of consumers may proceed from settled contracts
 while implementation of their required producers is underway. Document order is not a global barrier.
@@ -200,6 +200,10 @@ opportunities retain reasoning at their source, referenced below; there is no se
 | O05 | Coverage/gap owners | Open: M1-05/07/15 separate proposal/retention/grouping/acceptance/publication losses; source-region denominator. |
 | O06 | Runtime/analytical owners | Open: M1-06/07 coordinated CPU residency/admission plus owned bulk Arrow/DuckDB work. |
 | O07 | Consumer/evaluator owners | Open: M1-01/12/13/14 independent references, five-family scoring and actual public journeys. |
+| Public/reference review F01 | Protected evaluation population | Source correction integrated: exact unique frozen unit/origin/version correspondence. Native enforcement controls remain M1-13/14. |
+| Public/reference review F02 | Reconstruction and evaluator | Shared invocation index plus task/view/population maps integrated; focused reconstruction controls passed. Actual assembled performance remains M1-12/14. |
+| Public/reference review F03 | Completed-result reader/serving | Root filters/keyset precede hydration, matching/report scopes remain distinct, full cursor identity precedes position use. Native paging/refusal controls remain M1-12/14. |
+| Public/reference review F04 | Native source handles | Shared finite cell parser supplies parent pointer/cell index while preserving full anchors; focused adapter controls passed. Actual native table/header/note journey remains M1-12/14. |
 | WP0 / WP1 | Evaluation / source preparation | M1-01/13 and M1-04/05 respectively; closure requires independent population/reference evidence and alignment/replay. |
 | WP2 / WP3 | Extraction / all five assemblers | M1-06/07 and M1-08 respectively; declared API support alone is insufficient. |
 | WP4 / WP5 | Interpretation / release | M1-09/10 and M1-11/12/14 respectively; finite closure is not uncertain inference, functional pass is not a statistical release gate. |
@@ -277,9 +281,16 @@ its own owner.
   graph membership/datatype/range refusal; no ordinary graph regex waiver. This is neither assembled implementation
   acceptance nor final CPU/publication/consumer qualification. Remaining architectural consumers
   and concrete operation/native decisions stay open as their boundaries are implemented.
+  [Source-evidence target review](../design_review/reviews/design_review_m1-source-evidence_2026-11-03.md)
+  consumes scoped audit M1-20261103-r2. ADR-0051 accepts independently pinned related selected
+  context, captured recognition text with separate provider precision, and versioned whitespace
+  readings/prepared source reuse at Proposed strength. OCR decoded-address native admission
+  stays excluded. Implementation/native proof is still in progress.
 - **M1-01 In progress:** [m1.development-population](../design_review/evidence/2026-11-03_m1-population/records/m1.development-population.json)
   freezes five views/7310 pieces from one original PDF through read-only existing readers.
-  Entire origin is development-only. Five-family guidance is Proposed. Independent reference
+  Entire origin is development-only. `available-originals.json` inventories three additional local
+  book leads; none is admitted, partitioned or established independent/sufficient. Five-family
+  guidance is Proposed. Independent reference
   acquisition, eligible release/audit populations, adequate isolated source groups and a frozen
   defensible interval remain open; no family quality gate is established.
 - **M1-02/03 In progress:** logical release declarations, private typed record binding and field
@@ -323,9 +334,68 @@ its own owner.
   establishes actual retained-source mapping and cold/warm CPU operation;68 focused runtime/context
   checks pass. Released packs, producer/policy registration and aggregate admission remain open;
   no whole-runtime qualification follows from these probe calls.
-- **M1-08–12/14/15 Planned:** no completion or whole-release qualification claim.
+- **M1-08 In progress:** shared released-family pack/assembly operations are integrated;
+  [m1.private-family-assembly](../design_review/evidence/2026-11-03_m1-family-assembly/records/m1.private-family-assembly.json)
+  records80 focused tests, scoped Ruff/Pyrefly and an actual CPU shape/location check. Actual
+  definition associations were wrong/unqualified: located strings do not establish a faithful
+  reading. The candidate pipeline integrates all five routes in a working increment; independent
+  review identified crossing-header path and nondefault-original selection defects. Both repairs
+  passed focused controls and independent reinspection. Native/public integration and all-family
+  quality remain open. The described-pack experiment produced a false definition association;
+  the default remains undescribed and no improvement is claimed.
+- **M1-09 In progress:**
+  [m1.private-bounded-interpretation](../design_review/evidence/2026-11-03_m1-interpretation/records/m1.private-bounded-interpretation.json)
+  establishes the integrated three-template pure numerical operation,54 focused tests and scoped
+  Ruff/Pyrefly. Independent review closed the reproduced malformed limit/nonnumeric input P2
+  after repair. Joint qualified events normalize over complete retained support; scores remain
+  provisional. Numerical workspace, cooperative time/cancellation and conservative total-joint
+  guards do not establish process RSS or ordinary workload fit. Released operation, producer
+  coupling, fitted factors, admission, invalidation/replay and actual gain remain open.
+- **M1-13 additional bounded scope:**
+  [m1.grouped-record-ratios](../design_review/evidence/2026-11-03_m1-record-statistics/records/m1.grouped-record-ratios.json)
+  records52 focused statistic/alignment tests and scoped Ruff/Pyrefly. Origin groups are actually
+  resampled together, ratios recomputed from counts, and empty/undefined/degenerate/few-group
+  intervals remain unestablished. Descriptive two-sided percentile machinery does not establish
+  the one-sided release bound, source independence or population sufficiency.
+- **M1-11 In progress:** 18 finite public record relations and their derived publication transport
+  are integrated with released family meaning. Candidate standing, report absence/empty, exact
+  lexical values, evidence membership and alternatives survive lowering. Protected publication
+  checks exact sealed-report projection and retains graph-product fences. A forward candidate
+  with 18 ordinary/17 native operations authored successfully on a disposable native100 database;
+  it is not deployed. Actual public native controls, accepted assertion lowering and final policy
+  remain open. Compiler15 gives changed preparation its own identity; a genuine compiler14 archive
+  remains readable without recompilation. Four preservation controls and 11 pack/composition/compiler
+  controls passed at their recorded source states.
+- **M1-12 In progress:** a bounded completed-result reader returns all 18 archived relations with
+  report-to-source membership, count/row/canonical JSON budgets and pinned cut/revision. Six
+  additional actual-native reader controls are authored, not run. CLI/MCP/export adoption is
+  being integrated; no assembled consumer or selected-result-switch claim follows.
+- **M1-13 protected-reference scope In progress:** distinct source-record schemas/operations reuse
+  existing protected set/unit/pass/frame/evaluation storage. Source-ready membership, retained
+  guideline text and immutable origin partitions are independent of prediction presence. Fitting
+  has a dedicated restricted-principal capability for feature-fit references only. ADR-0052 records
+  this target. Independent review found missing-producer alias and unused captured-pointer closure
+  defects; repairs are integrated and native controls remain unrun. Host fitting-role/peer-auth
+  provisioning awaits explicit operator approval. No actual fitting, authoring, calibration or
+  protected grading journey is claimed.
+- **Combined focused check passed, 2026-11-03:** 320 tests across source contracts/contexts,
+  public row shapes, pure numerical/comparison/statistical/reference operations and candidate
+  routing/runtime mechanics; raw receipt is
+  `2026-11-03_m1-public-record-projection/raw/root-combined-pure-attempt-001.log`.
+  The subsequent reference SQL repair requires native controls and determinant-sensitive
+  preparation reassessment; this pass is not final-source M1 qualification.
+- **Final focused integration passed, 2026-11-03:**
+  [m1.integrated-candidate-public-read](../design_review/evidence/2026-11-03_m1-public-record-projection/records/m1.integrated-candidate-public-read.json)
+  retains351 final-source tests,54-path Ruff/Pyrefly (zero errors, one warning), ready/turn-end/ADR
+  lint and exact source/input hashes. It includes F01–F04 corrections, compiler14 preservation,
+  shared indexing/root paging and typed canonical evidence refusal. The earlier118-diagnostic
+  producer/test sweep and fixture failures are retained. This is partial M1 evidence; no native,
+  actual fitting/provider/consumer journey or release qualification follows.
+- **M1-10/14/15 Planned:** no completion or whole-release qualification claim.
 
-Next: finish and review the private shared contract slice, then extend native/source-context
-custody and dependent operation/runtime consumers. M1-13 reference/scorer work proceeds from
-settled family meanings; M1-14 remains blocked on its required independent evidence even while
-implementation continues. Production defaults, run6/tasks27–31 and existing databases are unchanged.
+Next: finish the scoped publication/reference target assessment and consumer integration, then
+freeze and qualify the coherent forward native boundary. Fitting-role/peer authentication is a
+pending explicit host approval. Actual accepted policy, numerical producer coupling, cross-context
+producer adoption, replay/recovery, independent references and family release evidence remain open.
+M1-14 cannot close from the development canaries or pure tests. Production defaults,
+run6/tasks27–31 and existing application databases remain unchanged.

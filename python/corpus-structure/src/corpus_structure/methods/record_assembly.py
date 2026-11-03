@@ -26,6 +26,7 @@ from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     NativeSourceContext,
     NativeSourcePin,
+    NativeSpanEvidence,
     SourceInterval,
 )
 from corpus_structure.semantic.types import PreparedRelease
@@ -109,6 +110,13 @@ def _pin(context: NativeSourceContext) -> dict[str, Any]:
     )
 
 
+def _require_canonical_context(context: NativeSourceContext) -> None:
+    try:
+        context.require_native_projection()
+    except ContextRefused as error:
+        raise GlinerRefused(str(error)) from error
+
+
 def _native_pointers(context: NativeSourceContext) -> set[str]:
     native = json.loads(context.primary.native_context)
     pointers = set()
@@ -135,6 +143,7 @@ def _assemble(
     pack: GlinerPack | None,
     report: GlinerReport | None,
 ) -> AssemblyResult:
+    _require_canonical_context(context)
     definition, roles = family_roles(prepared, contract)
     role_names = {role.name for role in roles}
     if not policy_version or not occurrence_roles or not set(occurrence_roles) <= role_names:
@@ -207,6 +216,11 @@ def _assemble(
                         span.start, span.end, literal=span.text, allow_multiple=True
                     )
                 for piece in pieces:
+                    if not isinstance(piece, NativeSpanEvidence):
+                        raise GlinerRefused(
+                            "captured recognition evidence is unsupported by this "
+                            "canonical assembler"
+                        )
                     if piece.source != primary_pin:
                         raise GlinerRefused(
                             "related/cross-view evidence is unsupported by private record custody"
@@ -466,6 +480,7 @@ def assemble_records(
     if not report.computation or not report.profile:
         raise GlinerRefused("report requires its computation and execution profile dependencies")
     pack.compile()
+    _require_canonical_context(context)
     definition, roles = family_roles(prepared, contract)
     family = next(prop.equals_string for prop in definition.properties if prop.name == "family")
     if not family:
@@ -542,6 +557,7 @@ def _item_spans(
     context: NativeSourceContext, pointer: str, *, cell_index: int | None = None
 ) -> tuple[LiteralSpan, ...]:
     """Lift retained native piece positions, never search equal source strings."""
+    _require_canonical_context(context)
     primary_pin = NativeSourcePin.from_source(context.primary)
     return tuple(
         LiteralSpan(row.model_start, row.model_end, context.text[row.model_start : row.model_end])
@@ -568,6 +584,7 @@ def native_table_groups(
     proximity. This adapter reads actual native cell text and source-piece positions;
     incomplete paths remain unresolved. It does not retrieve headers or select tables.
     """
+    _require_canonical_context(context)
     native = json.loads(context.primary.native_context)
     table = next(
         (

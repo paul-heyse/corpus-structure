@@ -1,0 +1,283 @@
+id: https://corpus-structure.dev/semantic/record-references
+name: record_references
+imports:
+- observations
+prefixes:
+  rr: https://corpus-structure.dev/semantic/record-references/
+default_prefix: rr
+default_range: string
+classes:
+  RecordReferenceAnchorScope:
+    is_a: SourceRecordProduct
+    attributes:
+      pin: {range: RecordSourcePin, inlined: true, required: true}
+      space: {range: RecordCoordinateSpace, required: true}
+      pointer: {required: true}
+      precision: {range: RecordMappingPrecision, required: true}
+      start: {range: integer, minimum_value: 0}
+      end: {range: integer, minimum_value: 0}
+      recognition: {range: RecordCapturedRecognition, inlined: true}
+  ReferenceRecordBatch:
+    is_a: SourceRecordProduct
+    description: Evaluator-only independent source readings. Accepted expected readings carry no production
+      admission authority.
+    attributes:
+      protocol:
+        required: true
+        equals_string: source-record-reference-1
+      release_id:
+        required: true
+      unit_ref:
+        required: true
+      guideline:
+        required: true
+      reference_policy_version:
+        required: true
+      prediction_policy_version:
+        required: true
+      reason:
+        required: true
+      adjudication_passes:
+        range: integer
+        multivalued: true
+        minimum_cardinality: 0
+      records:
+        range: SourceRecord
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+  ReferenceRecordTierCounts:
+    is_a: SourceRecordProduct
+    attributes:
+      reference:
+        range: integer
+        minimum_value: 0
+        required: true
+      prediction:
+        range: integer
+        minimum_value: 0
+        required: true
+      matched:
+        range: integer
+        minimum_value: 0
+        required: true
+      precision:
+        range: float
+        minimum_value: 0
+        maximum_value: 1
+      recall:
+        range: float
+        minimum_value: 0
+        maximum_value: 1
+      f1:
+        range: float
+        minimum_value: 0
+        maximum_value: 1
+  ReferenceRecordTiers:
+    is_a: SourceRecordProduct
+    attributes:
+      core:
+        range: ReferenceRecordTierCounts
+        inlined: true
+        required: true
+      full:
+        range: ReferenceRecordTierCounts
+        inlined: true
+        required: true
+      evidence:
+        range: ReferenceRecordTierCounts
+        inlined: true
+        required: true
+  ReferenceRecordFamilies:
+    is_a: SourceRecordProduct
+    attributes:
+      definition:
+        range: ReferenceRecordTiers
+        inlined: true
+        required: true
+      assertion:
+        range: ReferenceRecordTiers
+        inlined: true
+        required: true
+      measurement:
+        range: ReferenceRecordTiers
+        inlined: true
+        required: true
+      table:
+        range: ReferenceRecordTiers
+        inlined: true
+        required: true
+      formula_context:
+        range: ReferenceRecordTiers
+        inlined: true
+        required: true
+  ReferenceRecordMatches:
+    is_a: SourceRecordProduct
+    attributes:
+      core:
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      full:
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      evidence:
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+  ReferenceRecordFieldFailure:
+    is_a: SourceRecordProduct
+    attributes:
+      record_id:
+        required: true
+      family:
+        required: true
+      reading_roles:
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      evidence_roles:
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+  ReferenceRecordStandings:
+    is_a: SourceRecordProduct
+    attributes:
+      candidate:
+        range: integer
+        minimum_value: 0
+      accepted:
+        range: integer
+        minimum_value: 0
+      unresolved:
+        range: integer
+        minimum_value: 0
+      rejected:
+        range: integer
+        minimum_value: 0
+  ReferenceRecordProducerReport:
+    is_a: SourceRecordProduct
+    attributes:
+      selected_task_id:
+        range: integer
+        required: true
+      origin_task_id:
+        range: integer
+        required: true
+      cut_id:
+        range: integer
+        required: true
+      source:
+        required: true
+      outcome:
+        required: true
+      records_present:
+        range: boolean
+        required: true
+  ReferenceRecordUnitEvaluation:
+    is_a: SourceRecordProduct
+    attributes:
+      scope:
+        required: true
+        equals_string: private_validated_records
+      comparison_policy:
+        required: true
+        equals_string: strict-source-occurrence-1
+      grain:
+        required: true
+        equals_string: accepted_source_record_occurrence
+      unit:
+        required: true
+      release_id:
+        required: true
+      guideline_version:
+        required: true
+      reference_policy_version:
+        required: true
+      prediction_policy_version:
+        required: true
+      tiers:
+        range: ReferenceRecordTiers
+        inlined: true
+        required: true
+      families:
+        range: ReferenceRecordFamilies
+        inlined: true
+        required: true
+      matches:
+        range: ReferenceRecordMatches
+        inlined: true
+        required: true
+      field_failures:
+        range: ReferenceRecordFieldFailure
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      prediction_standings:
+        range: ReferenceRecordStandings
+        inlined: true
+        required: true
+      producer_reports:
+        range: ReferenceRecordProducerReport
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      origin_group:
+        required: true
+  ReferenceRecordEvaluationReport:
+    is_a: SourceRecordProduct
+    attributes:
+      protocol:
+        required: true
+        equals_string: source-record-evaluation-1
+      release_id:
+        required: true
+      output_realization_id:
+        required: true
+      family:
+        required: true
+        equals_string: source_records
+      comparison_policy:
+        required: true
+        equals_string: strict-source-occurrence-1
+      grain:
+        required: true
+        equals_string: accepted_source_record_occurrence
+      tiers:
+        range: ReferenceRecordTiers
+        inlined: true
+        required: true
+      families:
+        range: ReferenceRecordFamilies
+        inlined: true
+        required: true
+      units:
+        range: ReferenceRecordUnitEvaluation
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+      reference_units_scored:
+        range: integer
+        minimum_value: 1
+        required: true
+      partition:
+        required: true
+        range: RecordReferencePartition
+      sampling_digest:
+        required: true
+        pattern: ^[a-f0-9]{64}$
+      quality_claim:
+        required: true
+        equals_string: not_established
+enums:
+  RecordReferencePartition:
+    permissible_values:
+      development: {}
+      feature_fit: {}
+      final_event_calibration: {}
+      final_assessment: {}

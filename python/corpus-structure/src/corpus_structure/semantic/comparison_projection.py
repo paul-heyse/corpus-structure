@@ -11,7 +11,14 @@ from pydantic import ConfigDict, TypeAdapter
 from pydantic.dataclasses import dataclass
 
 from .identity import canonical_bytes
-from .types import ClassDefinition, Diagnostic, PreparationError, PreparedRelease
+from .types import (
+    READABLE_COMPILER_VERSIONS,
+    SEMANTIC_COMPILER_VERSION,
+    ClassDefinition,
+    Diagnostic,
+    PreparationError,
+    PreparedRelease,
+)
 
 ARTIFACT = "comparison_projection.json"
 ABI = "comparison-projection-1"
@@ -43,7 +50,7 @@ class PredicateProjection:
 @dataclass(frozen=True, config=ConfigDict(extra="forbid"))
 class ComparisonProjection:
     abi: Literal["comparison-projection-1"]
-    compiler_version: Literal["14"]
+    compiler_version: Literal["14", "15"]
     operation: Literal["scientific_policy"]
     default: Literal["non-provenance-qualification-is-context-v1"]
     qualifications: tuple[QualificationProjection, ...]
@@ -155,7 +162,7 @@ def compile_comparison_projection(
             )
     return ComparisonProjection(
         ABI,
-        "14",
+        SEMANTIC_COMPILER_VERSION,
         "scientific_policy",
         "non-provenance-qualification-is-context-v1",
         qualifications,
@@ -224,8 +231,13 @@ def _read_projection(
 def comparison_projection(prepared: PreparedRelease):
     compiler = json.loads(prepared.manifest)["profile"]["compiler_version"]
     artifacts = [a for a in prepared.artifacts if a.kind == ARTIFACT]
-    if compiler == "14":
+    if compiler in READABLE_COMPILER_VERSIONS:
         if len(artifacts) != 1:
-            raise ValueError("compiler-14 comparison requires its exact resolved projection")
-        return _read_projection(artifacts[0].content, prepared.definitions)
+            raise ValueError(
+                f"compiler-{compiler} comparison requires its exact resolved projection"
+            )
+        projection = _read_projection(artifacts[0].content, prepared.definitions)
+        if projection.compiler_version != compiler:
+            raise ValueError("comparison artifact compiler differs from its release")
+        return projection
     raise ValueError(f"unsupported comparison projection compiler {compiler}")

@@ -10,6 +10,7 @@ from pathlib import Path
 from alembic.autogenerate import produce_migrations
 from alembic.migration import MigrationContext
 from pglast import ast
+from sqlalchemy import text
 
 from .alembic_defaults import compare_default
 from .alembic_defaults import plugin as defaults_plugin
@@ -197,20 +198,28 @@ def _execution_task_definitions(connection, function_sql, trigger_sql, *, source
     return tuple(definitions)
 
 
-def _task_call_definition(connection, sql, *, name, source):
+def _task_call_definition(
+    connection,
+    sql,
+    *,
+    name,
+    source,
+    grants=(("corpus_sem_writer", "EXECUTE", False),),
+    schema="ops",
+):
     """Bind the existing generated-call ABI to normalized argument/result/ACL facts."""
     prepared = prepare_sql(sql, source=source)
     for index, raw in enumerate(prepared.statements):
         statement = raw.stmt
         if isinstance(statement, ast.CreateFunctionStmt) and tuple(
             part.sval for part in statement.funcname or ()
-        ) == ("ops", name):
+        ) == (schema, name):
             return definition_from_sql(
                 connection,
                 prepared.excerpt(index),
                 source=source,
                 owner="corpus_sem_publisher",
-                grants=(("corpus_sem_writer", "EXECUTE", False),),
+                grants=grants,
             )
     raise NativeAuthoringError(f"native task-call ABI declaration is absent: {name}")
 
@@ -275,6 +284,7 @@ _RETIRED_SOURCE_FUNCTIONS = frozenset(
 )
 _CURRENT_SOURCE_GUARDS = {
     ("data", "validate_state"): "source_record_graph.sql",
+    ("data", "publish_batch"): "record_publication.sql",
     ("eval", "guard_scientific_decisions"): "execution_projection.sql",
     ("sem", "require_execution_operation"): "execution_projection.sql",
     ("ops", "guard_task_method_contract"): "current_operation_guards.sql",
@@ -511,6 +521,80 @@ def series_native_definitions(connection, *, include_selected=True):
     )
     from .native_consumer_native import native_task_completion_sql
 
+    record_publication = (
+        Path(__file__).with_name("sql").joinpath("record_publication.sql").read_text()
+    )
+    reference_sql = Path(__file__).with_name("sql").joinpath("record_references.sql").read_text()
+    reference_roles = {
+        "assign_record_reference_origin": ("corpus_sem_evaluator",),
+        "record_reference_source_binding": ("corpus_sem_evaluator",),
+        "create_source_record_reference_set": ("corpus_sem_evaluator",),
+        "validate_source_record_reference_frame": (),
+        "record_source_record_reference_pass": ("corpus_sem_evaluator",),
+        "validate_source_record_reference_evaluation": (),
+        "record_source_record_reference_evaluation": ("corpus_sem_evaluator",),
+        "require_record_fitting_principal": ("corpus_sem_fitter",),
+        "read_record_fitting_references": ("corpus_sem_fitter",),
+        "source_record_author_packet": ("corpus_sem_evaluator",),
+    }
+    for name, roles in reference_roles.items():
+        definitions.append(
+            _task_call_definition(
+                connection,
+                reference_sql,
+                name=name,
+                source="source record references:forward",
+                grants=tuple((role, "EXECUTE", False) for role in roles),
+                schema="eval",
+            )
+        )
+    for name in (
+        "validate_source_record_structure",
+        "validate_record_relationships",
+        "validate_record_projection",
+        "validate_record_projection_cut",
+    ):
+        definitions.append(
+            _task_call_definition(
+                connection,
+                record_publication,
+                name=name,
+                source="record publication:forward",
+                grants=(),
+                schema="data",
+            )
+        )
+
+    definitions.append(
+        _task_call_definition(
+            connection,
+            native_task_completion_sql(),
+            name="validate_source_record_coordinates",
+            source="source record coordinates:forward",
+            grants=(),
+        )
+    )
+    definitions.append(
+        _task_call_definition(
+            connection,
+            native_task_completion_sql(),
+            name="validate_source_record_report",
+            source="source record custody:forward",
+            grants=(),
+        )
+    )
+    definitions.append(
+        _task_call_definition(
+            connection,
+            native_task_completion_sql(),
+            name="record_captured_recognition_text",
+            source="captured recognition:forward",
+            grants=tuple(
+                (role, "EXECUTE", False)
+                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+            ),
+        )
+    )
     definitions.append(
         _task_call_definition(
             connection,
@@ -995,6 +1079,17 @@ def prepare_series_candidate(
     )
     candidate = produce_migrations(context, target_metadata)
     if candidate.upgrade_ops is not None:
+        from alembic.operations.ops import ExecuteSQLOp
+
+        # A fitting login may enter only its protected evaluator-schema capability.
+        # Schema ACL is an ordinary migration effect, separate from native function ACLs.
+        fitting_usage = connection.scalar(
+            text("SELECT has_schema_privilege('corpus_sem_fitter','eval','USAGE')")
+        )
+        if fitting_usage is not True:
+            candidate.upgrade_ops.ops.append(
+                ExecuteSQLOp("GRANT USAGE ON SCHEMA eval TO corpus_sem_fitter")
+            )
         _order_physical_retirement(candidate.upgrade_ops)
     return candidate, authoring
 
