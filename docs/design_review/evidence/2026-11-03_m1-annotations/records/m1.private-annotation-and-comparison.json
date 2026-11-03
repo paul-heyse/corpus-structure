@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "id": "m1.private-annotation-and-comparison",
+  "title": "Private linguistic and record comparison checks",
+  "group": "M1",
+  "package": "M1-13",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the private annotation and strict record comparison boundaries preserve declared reading, source coordinates and empty/invalid accounting?",
+  "answers": [],
+  "method": "Run independently authored positive/negative fixtures for annotations, sentence preservation, strict five-family records and prior semantic alignment; inspect with scoped Ruff/Pyrefly and independent review.",
+  "commands": [
+    "uv run pytest python/corpus-structure/tests/ingest/test_annotations.py python/corpus-structure/tests/ingest/test_sentences.py python/corpus-structure/tests/evaluate/test_record_alignment.py python/corpus-structure/tests/evaluate/test_semantic_alignment.py -q"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "private-checks.json",
+      "role": null,
+      "sha256": "06d20669cb9cde193d0d99311240db31ab63b54bdbb191648894e01c129af1cf"
+    },
+    {
+      "path": "combined-private-tests.log",
+      "role": null,
+      "sha256": "17573d46459cda5fda981a0aad0667a9442ffacdeefe0f527852e972578d5711"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "75 focused tests and scoped Ruff/Pyrefly passed. Independent reviewer closed display metadata loss and found no material private scorer issue. No protected reference isolation, admitted prediction binding, actual accuracy or full M1-13 qualification.",
+  "consumed_by": [
+    "M1-13"
+  ]
+}

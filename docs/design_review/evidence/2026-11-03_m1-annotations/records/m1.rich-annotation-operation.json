@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "id": "m1.rich-annotation-operation",
+  "title": "Actual richer CPU annotation availability",
+  "group": "M1",
+  "package": "M1-04",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the pinned richer profile produce complete detached linguistic columns while preserving the retained source layout?",
+  "answers": [],
+  "method": "Run existing resident spaCy pipeline on repeated preconstructed Docs of the frozen development paragraph and compare detached products/offsets; independently test display-role preservation.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-03_m1-annotations/check_annotations.py --attempt 2"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "check_annotations.py",
+      "role": null,
+      "sha256": "50809dfd84bcb228a045c264a368dc6aba97f47321faf182d30b527eaa3f1996"
+    },
+    {
+      "path": "source-paragraph.json",
+      "role": null,
+      "sha256": "9bfe3af34539e94cd7e80bd65e9ceeb9446c155a29f0d427f8ae897c3964c514"
+    },
+    {
+      "path": "attempt-00002.json",
+      "role": null,
+      "sha256": "5774af080d3dbaf66470d058dc35849dbe50b5346c5b4fb836595097f6e82428"
+    },
+    {
+      "path": "products-00002.json",
+      "role": null,
+      "sha256": "f092da2551ce9b9cd40b8f515ab29971349ecc614db3cd7c60b77bebf160819a"
+    },
+    {
+      "path": "attempt-00002.log",
+      "role": null,
+      "sha256": "b5d5703fe9707f4bffee9509486da2bad9d71187d5bb3245d40142b11813b5c4"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Actual pinned CPU annotation operation passed on final integrated producer;77tokens/3sentences and all6 required columns complete. No linguistic accuracy, native persistence, resource fit or full M1-04 qualification.",
+  "consumed_by": [
+    "M1-04"
+  ]
+}

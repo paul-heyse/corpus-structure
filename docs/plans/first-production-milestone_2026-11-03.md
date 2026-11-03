@@ -300,11 +300,16 @@ its own owner.
 - **M1-04/05 In progress:** [m1.private-source-contexts](../design_review/evidence/2026-11-03_m1-source-contexts/records/m1.private-source-contexts.json)
   establishes bounded private context serialization/mapping (37 focused tests, scoped Ruff/Pyrefly,
   independent review), separate from live selection/routing, annotation or native authentication.
-  Rich linguistic preparation is in progress. A failed adjacent check against actively edited
+  [m1.rich-annotation-operation](../design_review/evidence/2026-11-03_m1-annotations/records/m1.rich-annotation-operation.json)
+  establishes richer detached columns on the retained paragraph; display math metadata remains
+  explicit. Method/operation admission, persistence and downstream consumers stay open. A failed
+  adjacent check against actively edited
   native determinants is retained; repeat that scope at the coherent native endpoint.
-- **M1-13 In progress:** early private five-family comparison is being implemented from settled
-  field contracts; protected reference passes, published prediction binding and sufficient release
-  references are open.
+- **M1-13 In progress:** early private strict five-family comparison is implemented from released
+  required/meaning-changing roles, source-region/guideline/release binding and independent policy
+  versions. [m1.private-annotation-and-comparison](../design_review/evidence/2026-11-03_m1-annotations/records/m1.private-annotation-and-comparison.json)
+  records75 combined focused tests and scoped Ruff/Pyrefly. Protected reference passes, published
+  prediction binding, clustered intervals and sufficient release references remain open.
 - **M1-06/08–12/14/15 Planned:** no completion or whole-release qualification claim.
 
 Next: finish and review the private shared contract slice, then extend native/source-context

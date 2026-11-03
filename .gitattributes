@@ -37,3 +37,6 @@ docs/design_review/evidence/2026-11-03_m1-gliner-cpu/attempt-*.json filter=lfs d
 docs/design_review/evidence/2026-11-03_m1-gliner-cpu/attempt-*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-gliner-adapter/installed-source-sha256.json filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_m1-gliner-cpu/ready-after-dependency.log filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-03_m1-annotations/attempt-*.json filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-03_m1-annotations/products-*.json filter=lfs diff=lfs merge=lfs -text
+docs/design_review/evidence/2026-11-03_m1-annotations/*.log filter=lfs diff=lfs merge=lfs -text

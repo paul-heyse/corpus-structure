@@ -1,0 +1,46 @@
+{
+  "purpose": "development-only actual retained source paragraph for CPU operation checks; no reference answer",
+  "pin": {
+    "analysis_eligible": true,
+    "document_id": 4,
+    "id": 5,
+    "key": "source-view:8fee5696fbb47875b0d5d7b0e6d7143d95734045b2084d835e58d00508724b27",
+    "membership": "descendants",
+    "native_product": {
+      "content_digest": "1882a372985949584bc3c15a3df8b2c6a9f21a1b610dd2b583cea70dc44975ac",
+      "product_key": "integrated",
+      "task_id": 6
+    },
+    "projection_digest": "d10363d0150aed9405635ad081f7eb4c0e4171647dfdc32debc52ac5145a8bd1",
+    "recipe_digest": "72dec4c0dca383d153e7ab7811675a9c416325416ae1925c86aabc3af6c589c1",
+    "section_pointer": "#/groups/4265"
+  },
+  "source_snapshot_sha256": "94989386a0339de5cc0ed1769e7ac11b185f4fdd1d30894ead708a0d1391af02",
+  "coordinate_space": "selected-view projection text",
+  "start": 29,
+  "end": 468,
+  "text": "The normal distribution holds an honored role in probability and statistics, mostly because of the central limit theorem, one of the fundamental theorems that forms a bridge between the two subjects. In addition, as we will see, the normal distribution has many nice mathematical properties. The normal distribution is also called theGaussian distribution, in honor of Carl Friedrich Gauss, who was among the first to use the distribution.",
+  "pieces": [
+    {
+      "end": 363,
+      "item_ref": "#/texts/170100",
+      "kind": "native_text",
+      "source_field": "text",
+      "start": 29
+    },
+    {
+      "end": 384,
+      "item_ref": "#/texts/170101",
+      "kind": "native_text",
+      "source_field": "text",
+      "start": 363
+    },
+    {
+      "end": 468,
+      "item_ref": "#/texts/170102",
+      "kind": "native_text",
+      "source_field": "text",
+      "start": 384
+    }
+  ]
+}

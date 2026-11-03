@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-03",
+  "scope": "private richer annotations and strict five-family comparison, not protected publication/evaluation",
+  "source_sha256": {
+    "python/corpus-structure/src/corpus_structure/ingest/annotations.py": "43d519dbaef24051ec65706ce5e3076341043869b8fe0bb5d83686c8fa3292aa",
+    "python/corpus-structure/tests/ingest/test_annotations.py": "443230bf43b78408d9824aefa3c4c585b175989197fce7a4c880105c81b4a3be",
+    "python/corpus-structure/src/corpus_structure/evaluate/record_alignment.py": "a456b2cbf43312bd97684549681733e430f6ee47504f38116c8c30811109b82e",
+    "python/corpus-structure/tests/evaluate/test_record_alignment.py": "a754f4e88d72af8b5f939fc70787b0b0c2d26da93cbda95f4cc2dea4fe220c44"
+  },
+  "checks": [
+    {
+      "command": "uv run pytest python/corpus-structure/tests/ingest/test_annotations.py python/corpus-structure/tests/ingest/test_sentences.py python/corpus-structure/tests/evaluate/test_record_alignment.py python/corpus-structure/tests/evaluate/test_semantic_alignment.py -q",
+      "outcome": "passed",
+      "cases": 75
+    },
+    {
+      "command": "uv run ruff check python/corpus-structure/src/corpus_structure/ingest/annotations.py python/corpus-structure/tests/ingest/test_annotations.py python/corpus-structure/src/corpus_structure/evaluate/record_alignment.py python/corpus-structure/tests/evaluate/test_record_alignment.py",
+      "outcome": "passed"
+    },
+    {
+      "command": "uv run pyrefly check python/corpus-structure/src/corpus_structure/ingest/annotations.py python/corpus-structure/src/corpus_structure/evaluate/record_alignment.py",
+      "outcome": "passed",
+      "errors": 0
+    }
+  ],
+  "review": "Independent private comparison review had no material finding; display-math annotation omission fixed and reviewer closed it."
+}

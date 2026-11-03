@@ -29,8 +29,10 @@ _Updated 2026-11-03; M1 implementation active. UM functionality/validation is co
 
 ## Verification
 
-- **M1 passed, bounded, 2026-11-03:**74 preparation/record/observation tests; scoped Ruff/Pyrefly;
-  `just ready` after exact GLiNER addition; detached population verification; actual offline CPU calls.
+- **M1 passed, bounded, 2026-11-03:**74 preparation/record/observation tests;37 mapped-context tests;
+  75 annotation/sentence/private-comparison tests; scoped Ruff/Pyrefly;
+  `just ready` after exact GLiNER addition; detached population verification; actual offline GLiNER
+  and richer spaCy CPU calls. Annotation/native display identity is preserved independently of POS.
   [Contract evidence](docs/design_review/evidence/2026-11-03_m1-record-contracts/README.md).
   `just evidence` passed (0errors/39 retained warnings). Full M1 qualification **not_run**:
   selected functional scope and required independent references remain incomplete.
