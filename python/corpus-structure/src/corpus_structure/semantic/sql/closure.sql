@@ -644,3 +644,17 @@ BEGIN
        WHERE member.release_id=r AND member.realization_id=z AND member.component_id=rep.component_id))) THEN
   RAISE EXCEPTION 'scientific representative differs from accepted component minimum' USING ERRCODE='23514'; END IF;
 END $fn$;
+
+CREATE OR REPLACE FUNCTION eval.create_reference_set(p_project text,p_release text,p_run bigint,p_label text,p_split text,p_guideline text,p_sampling jsonb) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $body$
+DECLARE result bigint;
+BEGIN
+ IF NOT EXISTS(SELECT FROM ops.completed_result c JOIN ops.run r ON r.id=c.run_id WHERE c.run_id=p_run AND r.project_id=p_project AND c.release_id=p_release) THEN RAISE EXCEPTION 'reference source result binding differs' USING ERRCODE='23514'; END IF;
+ PERFORM data.require_execution_release(p_release);
+ IF NOT EXISTS(SELECT FROM sem.registry_row contract WHERE contract.release_id=p_release
+ AND contract.kind='semantic_contract' AND contract.name='released-semantics-1'
+ AND (convert_from(contract.body,'UTF8')::jsonb->'executable_reference_splits') ? p_split) THEN
+ RAISE EXCEPTION 'reference split unavailable for executable reference sets' USING ERRCODE='23514'; END IF;
+ IF p_label='' OR p_guideline='' OR jsonb_typeof(p_sampling)<>'object' THEN RAISE EXCEPTION 'incomplete reference definition' USING ERRCODE='23514'; END IF;
+ INSERT INTO eval.reference_set(project_id,release_id,source_run_id,label,split,guideline,sampling) VALUES(p_project,p_release,p_run,p_label,p_split,p_guideline,p_sampling) RETURNING id INTO result;
+ RETURN result;
+END $body$;

@@ -284,6 +284,7 @@ _RETIRED_SOURCE_FUNCTIONS = frozenset(
     }
 )
 _CURRENT_SOURCE_GUARDS = {
+    ("eval", "create_reference_set"): "closure.sql",
     ("data", "begin_stage"): "transport.sql",
     ("data", "publish_contract_batch"): "transport.sql",
     ("data", "end_stage"): "closure.sql",
