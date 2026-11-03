@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "id": "m1.native-record-reference-qualification",
+  "title": "Native101 candidate publication and protected reference qualification",
+  "group": "M1",
+  "package": "M1-11",
+  "finalized": "2026-11-03",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the coherent forward native boundary publish/read candidate records and enforce protected source-reference/fitting custody, transport lifecycle and actual refusal controls under the declared current implementation context?",
+  "answers": [],
+  "method": "Author native101 from frozen100 using current declared physical/native owners; preserve every failed attempt. Qualify controlled native publication/reference/fitting and shared transport under restricted principals, record complete implementation/context fingerprints and owned-database cleanup, then run scoped non-DB functional and static checks.",
+  "commands": [
+    "uv run pytest -q python/corpus-structure/tests/semantic/test_native_attributed_evidence.py python/corpus-structure/tests/semantic/test_record_publication_native.py python/corpus-structure/tests/evaluate/test_record_references_native.py python/corpus-structure/tests/semantic/test_record_migration_native.py python/corpus-structure/tests/semantic/test_private_record_report_absence_native.py python/corpus-structure/tests/semantic/test_publication.py::test_native_copy_atomic_idempotent_distinct_occurrences python/corpus-structure/tests/semantic/test_publication.py::test_restricted_role_cannot_bypass_or_replace_stage python/corpus-structure/tests/semantic/test_arrow_publication.py::test_native_arrow_copy_receipt_and_fence --junitxml=docs/design_review/evidence/2026-11-03_m1-qualification/raw/native-controls-004-junit.xml --tb=short",
+    "uv run pytest python/corpus-structure/tests/evaluate/test_record_reference_cli.py python/corpus-structure/tests/test_cli.py python/corpus-structure/tests/semantic/test_cli_failures.py python/corpus-structure/tests/evaluate/test_record_statistics.py python/corpus-structure/tests/semantic/test_record_compiler15.py python/corpus-structure/tests/semantic/test_archive_reader.py python/corpus-structure/tests/semantic/test_query_compatibility.py python/corpus-structure/tests/semantic/test_scientific_rule_views.py python/corpus-structure/tests/semantic/test_native_inventory.py python/corpus-structure/tests/semantic/test_native_candidate_cli.py python/corpus-structure/tests/semantic/test_native_sql_body.py python/corpus-structure/tests/semantic/test_publication.py::test_native_constraints_prepares_datatype_aliases_and_scientific_bounds -m 'not db' --tb=short",
+    "uv run ruff check python/corpus-structure/semantic_alembic/versions/0101_m1_records.py python/corpus-structure/src/corpus_structure/_query_custody.py python/corpus-structure/src/corpus_structure/cli/eval.py python/corpus-structure/src/corpus_structure/cli/golden.py python/corpus-structure/src/corpus_structure/cli/schema.py python/corpus-structure/src/corpus_structure/evaluate/record_statistics.py python/corpus-structure/src/corpus_structure/ingest/pdf_recognition_methods.py python/corpus-structure/src/corpus_structure/semantic/execution_admission.py python/corpus-structure/src/corpus_structure/semantic/native_candidate.py python/corpus-structure/src/corpus_structure/semantic/native_inventory.py python/corpus-structure/src/corpus_structure/semantic/native_sql_body.py python/corpus-structure/src/corpus_structure/semantic/publication.py python/corpus-structure/src/corpus_structure/semantic/query.py python/corpus-structure/src/corpus_structure/semantic/records.py python/corpus-structure/src/corpus_structure/semantic/routines.py python/corpus-structure/src/corpus_structure/semantic/scientific_evidence.py python/corpus-structure/src/corpus_structure/semantic/scientific_evidence_schema.py python/corpus-structure/src/corpus_structure/semantic/source_view_native.py python/corpus-structure/tests/evaluate/test_record_reference_cli.py python/corpus-structure/tests/evaluate/test_record_statistics.py python/corpus-structure/tests/semantic/test_native_candidate_cli.py python/corpus-structure/tests/semantic/test_native_inventory.py python/corpus-structure/tests/semantic/test_native_sql_body.py python/corpus-structure/tests/semantic/test_private_record_report_absence_native.py python/corpus-structure/tests/semantic/test_record_migration_native.py python/corpus-structure/tests/semantic/test_record_publication_native.py",
+    "uv run pyrefly check python/corpus-structure/semantic_alembic/versions/0101_m1_records.py python/corpus-structure/src/corpus_structure/_query_custody.py python/corpus-structure/src/corpus_structure/cli/eval.py python/corpus-structure/src/corpus_structure/cli/golden.py python/corpus-structure/src/corpus_structure/cli/schema.py python/corpus-structure/src/corpus_structure/evaluate/record_statistics.py python/corpus-structure/src/corpus_structure/ingest/pdf_recognition_methods.py python/corpus-structure/src/corpus_structure/semantic/execution_admission.py python/corpus-structure/src/corpus_structure/semantic/native_candidate.py python/corpus-structure/src/corpus_structure/semantic/native_inventory.py python/corpus-structure/src/corpus_structure/semantic/native_sql_body.py python/corpus-structure/src/corpus_structure/semantic/publication.py python/corpus-structure/src/corpus_structure/semantic/query.py python/corpus-structure/src/corpus_structure/semantic/records.py python/corpus-structure/src/corpus_structure/semantic/routines.py python/corpus-structure/src/corpus_structure/semantic/scientific_evidence.py python/corpus-structure/src/corpus_structure/semantic/scientific_evidence_schema.py python/corpus-structure/src/corpus_structure/semantic/source_view_native.py python/corpus-structure/tests/evaluate/test_record_reference_cli.py python/corpus-structure/tests/evaluate/test_record_statistics.py python/corpus-structure/tests/semantic/test_native_candidate_cli.py python/corpus-structure/tests/semantic/test_native_inventory.py python/corpus-structure/tests/semantic/test_native_sql_body.py python/corpus-structure/tests/semantic/test_private_record_report_absence_native.py python/corpus-structure/tests/semantic/test_record_migration_native.py python/corpus-structure/tests/semantic/test_record_publication_native.py",
+    "just turn-end",
+    "just adr-lint"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/native-controls-004-context.json",
+      "role": null,
+      "sha256": "9f70da4a780ad00568f6a7f3d6ce25c6598b40dc2d6ce4f8d2348e781e3b87f5"
+    },
+    {
+      "path": "raw/native-controls-004.log",
+      "role": null,
+      "sha256": "3d2c33df8464d839d141cf2902a0d95e693ee475e6edca743ecb6fd71b65ea20"
+    },
+    {
+      "path": "raw/native-controls-004-junit.xml",
+      "role": null,
+      "sha256": "b746727d79452e78dcda52d6e6603ebe1ef1bf7f0846c19f3c4abb63e1e31514"
+    },
+    {
+      "path": "raw/closeout-source-sha256.json",
+      "role": null,
+      "sha256": "fa3bb21456ba37fbf81c5c5e4c8ccf080c44e89c8ac0292c68ffcbe2281aa870"
+    },
+    {
+      "path": "raw/closeout-functional-fixed.log",
+      "role": null,
+      "sha256": "ff472b811b95456922ce0fe7e4722f8a50adc35ddb1c460ed2948aae8dbb3cb3"
+    },
+    {
+      "path": "raw/closeout-ruff-final.log",
+      "role": null,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "raw/closeout-types-final.log",
+      "role": null,
+      "sha256": "7f5e59adbab3afa8c93f23d4297e1c003ec37056a7862a8dc0354c5fe6f42634"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Native10153 managed transitions/70 ordinary operations and43 actual native controls passed, with141 ordered implementation inputs and24 watched files unchanged and no retained disposable databases.207 non-DB controls and26-path Ruff/Pyrefly passed. Source/reference/transport guards remain exact; current tasks are closed. This establishes controlled candidate-publication/reference/fitting machinery, not actual Sol/corpus grades, calibrated acceptance, full M1 release qualification, provider/resource evidence or default adoption. Source-copy/Sol sessions were not run; live99 and frozen predecessors are unchanged.",
+  "consumed_by": [
+    "ADR-0053",
+    "M1-03",
+    "M1-11",
+    "M1-12",
+    "M1-13",
+    "M1-14"
+  ]
+}

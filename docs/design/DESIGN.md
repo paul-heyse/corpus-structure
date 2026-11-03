@@ -572,6 +572,14 @@ Agent reference operations retain their completed-result contract and historical
 
 > Decision: [ADR-0052](../adr/0052-m1-independent-record-references.md)
 
+**Accepted target, Proposed until exercised (2026-11-03).** M1 source-record reference authoring
+and adjudication use GPT-6.1 Sol with existing pass/grade authorities; no new independence
+infrastructure is required. Legacy grades and non-M1 profiles retain their meanings. Quality
+qualification concerns a frozen held-out source cut, using exhaustive source references and
+census or exact finite-population sampling bounds; unseen-origin performance is unestablished.
+
+> Decision: [ADR-0053](../adr/0053-m1-sol-reference-assessment.md)
+
 ### §B6 Escalation is routed by versioned policies over measurements
 
 **Accepted target, Proposed until implemented (2026-11-03).** M1 selects a separate CPU extraction allowlist and run-owned resident admission policy,

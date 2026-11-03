@@ -37,3 +37,31 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA eval TO corpus_sem_evaluator;
     )
     assert functions["eval.a()"]["execute_roles"] == ["corpus_sem_evaluator"]
     assert functions["ops.b()"]["execute_roles"] == ["PUBLIC"]
+
+
+def test_function_rename_preserves_owner_acl_and_unrelated_overload_across_replacement():
+    functions = {}
+    update_function_inventory(
+        functions,
+        """SET LOCAL ROLE "owner X";
+CREATE FUNCTION "odd S".before_name(a integer) RETURNS integer LANGUAGE sql AS $$SELECT a$$;
+CREATE FUNCTION "odd S".before_name(a integer,b text) RETURNS integer LANGUAGE sql AS $$SELECT a$$;
+REVOKE ALL ON FUNCTION "odd S".before_name(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION "odd S".before_name(integer) TO "reader X";
+""",
+    )
+    overload = dict(functions['"odd S".before_name(integer,text)'])
+    update_function_inventory(
+        functions,
+        """SET LOCAL ROLE "migration X";
+ALTER FUNCTION "odd S".before_name(int) RENAME TO "after :%";
+CREATE OR REPLACE FUNCTION "odd S"."after :%"(a integer) RETURNS integer
+LANGUAGE sql AS $$SELECT a+1$$;
+""",
+    )
+    assert '"odd S".before_name(integer)' not in functions
+    renamed = functions['"odd S"."after :%"(integer)']
+    assert renamed["signature"] == '"odd S"."after :%"(integer)'
+    assert renamed["owner"] == "owner X"
+    assert renamed["execute_roles"] == ["reader X"]
+    assert functions['"odd S".before_name(integer,text)'] == overload

@@ -2,7 +2,7 @@
 -- These functions never grant production acceptance or receive producer candidates.
 CREATE OR REPLACE FUNCTION eval.assign_record_reference_origin(p_project text,p_group text,p_partition text,p_uris jsonb,p_provenance jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE existing eval.reference_origin_group; uri text;
+DECLARE existing record; uri text;
 BEGIN
  IF p_group IS NULL OR btrim(p_group)='' OR p_partition NOT IN
   ('development','feature_fit','final_event_calibration','final_assessment') OR p_partition IS NULL
@@ -274,11 +274,11 @@ BEGIN
    OR source_record->>'policy_version' IS DISTINCT FROM bound->>'reference_policy_version'
    OR EXISTS(SELECT FROM jsonb_array_elements(source_record->'anchors') a
     WHERE (NOT(bound->'anchor_ids' ? (a->>'anchor_id')) AND NOT EXISTS(
-      SELECT FROM jsonb_array_elements(bound->'anchor_scopes') scope WHERE scope->'pin'=a->'pin'
-       AND scope->>'space'=a->>'space' AND scope->>'pointer'=a->>'pointer' AND scope->>'precision'=a->>'precision'
-       AND scope->'recognition' IS NOT DISTINCT FROM a->'recognition'
-       AND (scope->>'precision'<>'exact' OR (
-        (scope->>'start')::bigint<=(a->>'start')::bigint AND (a->>'end')::bigint<=(scope->>'end')::bigint))))
+      SELECT FROM jsonb_array_elements(bound->'anchor_scopes') bounded_scope(value) WHERE bounded_scope.value->'pin'=a->'pin'
+       AND bounded_scope.value->>'space'=a->>'space' AND bounded_scope.value->>'pointer'=a->>'pointer' AND bounded_scope.value->>'precision'=a->>'precision'
+       AND bounded_scope.value->'recognition' IS NOT DISTINCT FROM a->'recognition'
+       AND (bounded_scope.value->>'precision'<>'exact' OR (
+        (bounded_scope.value->>'start')::bigint<=(a->>'start')::bigint AND (a->>'end')::bigint<=(bounded_scope.value->>'end')::bigint))))
      OR (a->>'space'='captured_recognition' AND NOT EXISTS(SELECT FROM jsonb_array_elements(p_frame->'captured_coordinates') c
       WHERE c->'pin'=a->'pin' AND c->>'pointer'=a->>'pointer' AND c->'recognition'=a->'recognition'))
      OR (a->'pin' IS DISTINCT FROM expected

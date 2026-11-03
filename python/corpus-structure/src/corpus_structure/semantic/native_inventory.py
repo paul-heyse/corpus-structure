@@ -99,6 +99,25 @@ def update_function_inventory(
                 stmt, functions.get(signature, {}), owner=owner
             )
         elif (
+            isinstance(stmt, ast.RenameStmt) and stmt.renameType == enums.ObjectType.OBJECT_FUNCTION
+        ):
+            signature = _object_signature(stmt.object)
+            if signature in functions:
+                if (
+                    not stmt.newname
+                    or not isinstance(stmt.object, ast.ObjectWithArgs)
+                    or not stmt.object.objname
+                ):
+                    raise ValueError("native function rename requires an explicit identity")
+                renamed = copy(stmt.object)
+                renamed.objname = (*stmt.object.objname[:-1], ast.String(sval=stmt.newname))
+                replacement = _object_signature(renamed)
+                if replacement in functions:
+                    raise ValueError("native function rename conflicts with an existing overload")
+                facts = functions.pop(signature)
+                facts["signature"] = replacement
+                functions[replacement] = facts
+        elif (
             isinstance(stmt, ast.AlterOwnerStmt)
             and stmt.objectType == enums.ObjectType.OBJECT_FUNCTION
         ):

@@ -169,8 +169,8 @@ is established by this plan.
 | Source custody | Every required field resolves under the right source/release; zero accepted records with known broken mappings. |
 | Coverage | Every selected target has a disposition, including unsupported, partial, failed and skipped. |
 | Candidate capture | Working target at least 90% for each core family in its supported subset. |
-| Accepted precision | Working target at least 97% complete-record precision and a one-sided 95% lower bound at least 95%, using a procedure suitable for source clustering. |
-| Useful recall | Predeclare a family floor; planning starts around 70% accepted complete-record recall on supported subsets. |
+| Accepted precision | Working target at least 97% complete-record precision and a one-sided 95% lower bound at least 95%, using a predeclared procedure appropriate to the frozen finite population; no record-independence assumption is inferred from source clustering. |
+| Useful recall | Predeclare a family floor; the operator-selected floor is 70% accepted complete-record recall per supported family subset. |
 | Subgroups | Restrict the release manifest when a language, layout or source stratum fails; do not silently average away failure. |
 | Calibration | Held-out final-event evidence before a calibrated label; otherwise expose score/decision standing and evaluated policy. |
 | Operations | Demonstrate CPU fit, replay, interruption/resume, invalidation and policy-controlled atomic publication. |
@@ -278,7 +278,59 @@ the proposed final gates and adoption; M1-15 captures gaps and concludes only th
 whose triggers occurred. A deferred optional mechanism does not prevent a conforming M1 release.
 Missing core-family evidence or a broken required field anchor does.
 
-This authoring inspected current source and proposed design only. Model extraction, reference
+**Plan-creation baseline, before the subsequent execution increment:** this authoring inspected current source and proposed design only. Model extraction, reference
 authoring/grading, fitting/calibration, numerical execution, performance profiling, product tests,
 database publication and actual CLI/MCP/export journeys are **not_run**. No release target,
 calibration standing, quantitative improvement or complete qualification is claimed.
+
+## Approved qualification execution profile — 2026-11-03
+
+Use `gpt-6.1-sol` high for fresh reference sessions A/B/C under ADR-0053, replacing Claude for M1.
+Trust session independence; add no bespoke isolation or independence-testing machinery.
+A/B author source readings; C adjudicates; the existing deterministic evaluator computes grades.
+The coordinator owns registration and actual native/reference qualification.
+
+The selected endpoint is a full five-family NONDEFAULT release and adoption/rollback procedure.
+Use 70% accepted full-record recall per family, unchanged 90% candidate capture / 97% precision/
+one-sided 95% lower bound at least 95%. Acquire additional suitable English statistics sources if
+local credible origins are insufficient. Freeze sampling/interval design before final assessment.
+
+Sequence: fitting-only provisioning (operator approved) → coherent forward native candidate and
+targeted native custody/publication controls → Sol reference/prediction CLI route → source-ready reference sets,
+A/B/C development passes and actual grades. Complete acceptance, interpretation/attributed producer
+and recovery prerequisites before final functional/provider/consumer/resource qualification.
+Source/reference acquisition may proceed alongside implementation; successful extraction is not
+required to begin reference authoring. `just test-all` and applicable hygiene wait for complete
+selected functional scope. The coordinator retains current execution state.
+
+### Frozen held-out cut qualification
+
+**Operator-selected, 2026-11-03.** Qualification claims concern the frozen held-out source cut.
+Freeze eligible source units and all five supported family subsets before final labels. Origin
+separation between development, fitting, calibration and assessment remains; a book's repeated
+passages do not become independent origins. Performance on unseen origins remains unestablished.
+The90% candidate capture,97% accepted precision, one-sided95% lower bound 95% and70% recall gates
+are unchanged.
+
+Prefer exhaustive source-only reference assessment of a manageable cut, including no-output and
+unsupported regions, so capture and recall have complete source-side denominators. For precision,
+a complete accepted-record census supplies exact cut precision. If sampling is needed, freeze the
+full accepted-record frame and uniformly sample without replacement using a predeclared seed and
+sample size, then invert exact hypergeometric tests for a one-sided lower precision bound. Fixed
+finite-population error labels may cluster by source; the stated SRS design, rather than an
+assumption of independent record errors, supplies that sampling distribution. A convenience sample
+or accepted-record-only reference set cannot supply source recall. Reference-reading error remains
+outside the sampling interval, and a zero-denominator family remains undefined.
+
+Keep the existing origin-group resampling as descriptive comparison evidence. No computed interval,
+reference census or pure helper alone establishes extraction quality or release. Freeze the actual
+sampling/assessment procedure and population identities before the final assessment. Root owns
+its integrated disposition in the coordinator. Primary basis: [Statistics Canada probability
+sampling](https://www150.statcan.gc.ca/n1/edu/power-pouvoir/ch13/prob/5214899-eng.htm),
+[finite-population exact interval inversion](https://ucb-stat-159-s21.github.io/site/Notes/binom.html),
+and [census sampling uncertainty](https://www150.statcan.gc.ca/n1/edu/power-pouvoir/ch6/sampling-echantillonage/5214807-eng.htm).
+
+Current execution disposition and the 2026-11-03 bounded closeout are in the coordinator. Native
+machinery, CLI and finite-population calculations have scoped passing receipts; actual Sol/corpus
+assessment and the enclosing M1 release remain open. The prepared development helper was not run
+against a database during closeout.

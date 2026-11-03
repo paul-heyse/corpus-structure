@@ -201,7 +201,7 @@ def catalog_path(connection):
 def admission_body_comparison() -> str:
     """Compare v1 AS bodies and v2 bound SQL bodies without a permissive fallback."""
     dependencies = dependency_query("p.oid")
-    return f"""CASE WHEN item.value ? 'body_profile' THEN
+    comparison = f"""CASE WHEN item.value ? 'body_profile' THEN
  item.value->>'body_profile' IS DISTINCT FROM '{SQL_STANDARD_PROFILE}'
  OR item.value->>'body_kind' IS DISTINCT FROM 'sql_standard'
  OR item.value->>'server_major' IS DISTINCT FROM '{SQL_STANDARD_MAJOR}'
@@ -213,3 +213,6 @@ def admission_body_comparison() -> str:
  ELSE p.prosqlbody IS NOT NULL OR
  encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')
  IS DISTINCT FROM item.value->>'body_sha256' END"""
+
+    # Canonicalize current deparser whitespace before authoring a new guarded body.
+    return "\n".join(line.rstrip() for line in comparison.splitlines())

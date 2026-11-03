@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import bindparam, select, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.core.method import UnitRef, UnitResult
+from corpus_structure.core.method import CoverageDraft, UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.semantic.analytics import compile_projection
 from corpus_structure.semantic.arrow_publication import AppendPublication, stage_arrow
@@ -39,6 +39,14 @@ def record_cut(case, *, empty=False):
                 result=UnitResult(
                     ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
                     outcome=ObservationOutcome.EMPTY,
+                    coverage=(
+                        CoverageDraft(
+                            family="table",
+                            scope="private-unit",
+                            outcome="complete",
+                            reason="controlled inspection completed with empty record output",
+                        ),
+                    ),
                 ),
                 records=(),
             )
@@ -114,11 +122,20 @@ def test_completed_empty_cut_keeps_report_and_routing_coverage(private_source):
                 table("data.source_record").c.realization_id == result.realization_id
             )
         ).all()
-        assert conn.execute(
-            select(table("data.coverage")).where(
-                table("data.coverage").c.realization_id == result.realization_id
+        coverage = (
+            conn.execute(
+                select(table("data.coverage")).where(
+                    table("data.coverage").c.realization_id == result.realization_id
+                )
             )
-        ).all()
+            .mappings()
+            .all()
+        )
+        assert any(
+            (row["family"], row["scope"], row["outcome"], row["source_outcome"])
+            == ("table", "private-unit", "complete", "complete")
+            for row in coverage
+        )
 
 
 def test_native_tampering_accepted_standing_and_append_refuse_atomically(private_source):
@@ -126,7 +143,9 @@ def test_native_tampering_accepted_standing_and_append_refuse_atomically(private
     cut = record_cut(case)
     inputs = _cut_input(case.writer, cut, "public-record-forgery")
     compiled = compile_projection(case.prepared, inputs.source_binding, kind="candidate")
-    clean = inputs.batch
+    # Probe native enforcement using the supported explicit-row transport. A forged
+    # row cannot retain the analytical preparation witness for the original rows.
+    clean = replace(inputs.batch, _analysis_input=None)
     from corpus_structure.semantic.record_projection import project_record_reports
 
     all_empty = project_record_reports(case.prepared, ())
@@ -540,6 +559,8 @@ def test_completed_public_reader_record_row_and_exact_serialized_byte_budgets(
 def test_completed_public_reader_refuses_archive_without_record_projection(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine
 ):
+    from importlib.resources import files
+
     from sqlalchemy import insert
 
     from corpus_structure.semantic import (
@@ -567,15 +588,18 @@ def test_completed_public_reader_refuses_archive_without_record_projection(
                 "unprojected",
                 b"""id: https://example/unprojected
 name: unprojected
+imports: [semantic_core]
 prefixes: {ex: "https://example/"}
 default_prefix: ex
-types:
-  string: {base: str, uri: "http://www.w3.org/2001/XMLSchema#string"}
 classes:
   Thing:
     attributes:
       name: {range: string}
 """,
+            ),
+            SourceArtifact(
+                "semantic_core",
+                files("corpus_structure").joinpath("model/semantic/core.yaml").read_bytes(),
             ),
         ),
     )

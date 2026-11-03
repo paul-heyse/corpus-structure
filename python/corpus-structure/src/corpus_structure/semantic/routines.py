@@ -123,6 +123,15 @@ def _transport_sql(
     return "\n".join(create), "\n".join(verify), ",\n".join(content), "\n".join(insert)
 
 
+def transport_sql(writer: str, *, relation_order: tuple[str, ...] | None = None) -> str:
+    """Compose the protected transport kernel from its declared fixed row contract."""
+    source = (_SQL / "transport.sql").read_text()
+    parts = _transport_sql(writer, relation_order=relation_order)
+    for name, value in zip(("create", "verify", "content", "insert"), parts, strict=True):
+        source = source.replace("{" + name + "}", value)
+    return source
+
+
 def stage_disposal_sql(
     *, optional: frozenset[str] = frozenset({"identity_exclusion", "identity_exclusion_evidence"})
 ) -> str:

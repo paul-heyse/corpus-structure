@@ -352,7 +352,10 @@ class PrivateRecordReport:
 
 
 def read_private_record_reports(reader, task_ids: Sequence[int]) -> tuple[PrivateRecordReport, ...]:
-    """Read an exact ordered task set with one query and invocation-owned source hydration."""
+    """Read an exact ordered task set with one query and invocation-owned source hydration.
+
+    A selected terminal task without an envelope retains report absence as ``records=None``.
+    """
     from .contracts import require_bound_operation
 
     require_bound_operation(reader.prepared, "read_source_view")
@@ -366,10 +369,15 @@ def read_private_record_reports(reader, task_ids: Sequence[int]) -> tuple[Privat
         table("ops.task_result"),
     )
     statement = (
-        select(selected.c.id.label("selected_task_id"), origin, results.c.body)
+        select(
+            selected.c.id.label("selected_task_id"),
+            origin,
+            results.c.task_id.label("report_task_id"),
+            results.c.body,
+        )
         .select_from(selected)
         .join(origin, origin.c.id == func.coalesce(selected.c.reused_task_id, selected.c.id))
-        .join(results, results.c.task_id == origin.c.id)
+        .outerjoin(results, results.c.task_id == origin.c.id)
         .where(
             selected.c.id.in_(task_ids),
             selected.c.run_id == reader.run_id,
@@ -395,9 +403,11 @@ def read_private_record_reports(reader, task_ids: Sequence[int]) -> tuple[Privat
         if task["id"] in decoded:
             continue
         envelope = task["body"]
+        if task["report_task_id"] is not None and not isinstance(envelope, dict):
+            raise ValueError("private report envelope is not an object")
         decoded[task["id"]] = (
             None
-            if "records" not in envelope
+            if envelope is None or "records" not in envelope
             else tuple(
                 reader.prepared.validate_json("SourceRecord", json.dumps(record)).model_dump(
                     mode="python"
@@ -439,8 +449,8 @@ def read_private_record_reports(reader, task_ids: Sequence[int]) -> tuple[Privat
                 task["id"],
                 reader.prepared.release_id,
                 bound[task["id"]],
-                envelope.get("source"),
-                envelope.get("outcome"),
+                envelope.get("source") if envelope is not None else None,
+                envelope.get("outcome") if envelope is not None else None,
                 reader.cut_id,
             )
         )

@@ -259,9 +259,7 @@ class IngestPdfIntegrated:
                 if not standard.source_views:
                     raise RuntimeError("Standard PDF phase returned no organized source")
                 native_reference = standard.source_views[0].native_product
-                native = ctx.reader.native_document(
-                    native_reference, include_candidate_pages=False
-                )
+                native = ctx.reader.native_document(native_reference, include_candidate_pages=False)
                 values = native.values()
                 if (
                     values.get("source_scope") != "whole_document"

@@ -283,6 +283,9 @@ _RETIRED_SOURCE_FUNCTIONS = frozenset(
     }
 )
 _CURRENT_SOURCE_GUARDS = {
+    ("data", "begin_stage"): "transport.sql",
+    ("data", "publish_contract_batch"): "transport.sql",
+    ("data", "end_stage"): "closure.sql",
     ("data", "validate_state"): "source_record_graph.sql",
     ("data", "publish_batch"): "record_publication.sql",
     ("eval", "guard_scientific_decisions"): "execution_projection.sql",
@@ -398,7 +401,15 @@ def _current_source_guard_definitions(connection):
         if item.identity.kind != "function" or key not in _CURRENT_SOURCE_GUARDS:
             continue
         path = Path(__file__).with_name("sql").joinpath(_CURRENT_SOURCE_GUARDS[key])
-        if path.name == "derived_publication.sql":
+        if path.name == "transport.sql":
+            from .routines import transport_sql
+
+            sql = transport_sql("corpus_sem_writer")
+        elif key == ("data", "end_stage"):
+            from .routines import stage_disposal_sql
+
+            sql = path.read_text().replace("{transport_disposal}", stage_disposal_sql())
+        elif path.name == "derived_publication.sql":
             from .native_products import derived_publication_sql
 
             sql = derived_publication_sql()
@@ -657,6 +668,25 @@ def series_native_definitions(connection, *, include_selected=True):
                     )
                 )
     definitions.extend(_current_source_guard_definitions(connection))
+    from .record_projection import RECORD_ROW_TYPES
+
+    # Accepted record rows and origin assignments are append-only, like existing
+    # public semantic content. The guard joins the same managed native lifecycle.
+    for relation in (
+        *("data." + name for name in RECORD_ROW_TYPES),
+        "eval.reference_origin_group",
+        "eval.reference_origin_source",
+    ):
+        definitions.append(
+            definition_from_sql(
+                connection,
+                "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON "
+                + relation
+                + " FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation()",
+                source="record immutability:forward",
+                owner="corpus_sem_publisher",
+            )
+        )
     return tuple(definitions)
 
 
@@ -923,7 +953,7 @@ def _order_physical_retirement(upgrade_ops):
     upgrade_ops.ops[:] = [*ordinary, *constraints, *native, *drops]
 
 
-def prepare_series_candidate(
+def _prepare_series_authoring(
     connection,
     *,
     predecessor=None,
@@ -934,7 +964,7 @@ def prepare_series_candidate(
     target_metadata=metadata,
     owned_authoring=False,
 ):
-    """Produce ordinary and selected native operations together; no revision/file is written."""
+    """Normalize native definitions against the authoring transaction row types."""
     products = series_native_definitions(connection, include_selected=include_selected)
     source = _predecessor_source(
         connection, predecessor=predecessor, predecessor_state=predecessor_state
@@ -1060,6 +1090,134 @@ def prepare_series_candidate(
         recreate=recreate,
         owned_authoring=owned_authoring,
     )
+    return authoring
+
+
+def _physical_check_contract(connection, target_metadata, authoring):
+    """Normalize declared CHECKs through PostgreSQL, never enroll live table drift."""
+    from sqlalchemy import CheckConstraint
+
+    from .source_view_native import _admission_descriptor
+
+    descriptor = next(
+        item for item in authoring.desired if item.identity.name == "execution_contract_descriptor"
+    )
+    expected = _admission_descriptor(
+        "\n".join(statement.rstrip(";\n") + ";" for statement in descriptor.statements)
+    )
+    present = connection.scalar(
+        text("SELECT source_digest FROM sem.physical_contract WHERE physical_id=:physical"),
+        {"physical": expected["physical_id"]},
+    )
+    if present is not None:
+        if present != expected["physical_checks_source_digest"]:
+            raise NativeAuthoringError(
+                "physical CHECK identity already has another source contract"
+            )
+        return None
+    preparer = connection.dialect.identifier_preparer
+    checks = []
+    for relation in sorted(target_metadata.tables.values(), key=lambda item: item.fullname):
+        constraints = sorted(
+            (item for item in relation.constraints if isinstance(item, CheckConstraint)),
+            key=lambda item: str(item.name),
+        )
+        if not constraints:
+            continue
+        columns = [
+            preparer.quote(item.name) + " " + item.type.compile(dialect=connection.dialect)
+            for item in relation.columns
+        ]
+        columns.extend(
+            "CONSTRAINT " + preparer.format_constraint(item) + " CHECK (" + str(item.sqltext) + ")"
+            for item in constraints
+        )
+        connection.exec_driver_sql(
+            "CREATE TEMP TABLE semantic_candidate_check (" + ",".join(columns) + ") ON COMMIT DROP",
+            execution_options={"no_parameters": True},
+        )
+        for name, expression in connection.exec_driver_sql(
+            "SELECT conname,pg_get_expr(conbin,conrelid) FROM pg_constraint "
+            "WHERE conrelid='pg_temp.semantic_candidate_check'::regclass AND co"
+            "ntype='c' ORDER BY conname"
+        ):
+            checks.append(dict(relation=relation.fullname, name=name, expression=expression))
+        connection.exec_driver_sql("DROP TABLE pg_temp.semantic_candidate_check")
+
+    def literal(value):
+        return "'" + value.replace("'", "''") + "'"
+
+    return (
+        "INSERT INTO sem.physical_contract(physical_id,checks,source_digest) VALUES ("
+        + literal(expected["physical_id"])
+        + ","
+        + literal(json.dumps(checks, sort_keys=True))
+        + "::jsonb,"
+        + literal(expected["physical_checks_source_digest"])
+        + ")"
+    )
+
+
+def prepare_series_candidate(
+    connection,
+    *,
+    predecessor=None,
+    predecessor_state: Path | None = None,
+    retire=frozenset(),
+    recreate=frozenset(),
+    include_selected=True,
+    target_metadata=metadata,
+    owned_authoring=False,
+):
+    """Produce ordinary and selected native operations together; no revision/file is written."""
+    if not owned_authoring:
+        raise NativeAuthoringError(
+            "native preparation requires an explicitly owned authoring database"
+        )
+    # Native triggers require their real parent row types during PostgreSQL
+    # normalization. These new-table prerequisites exist only inside a savepoint;
+    # rollback precedes normal Alembic comparison, so CREATEs remain explicit.
+    existing = set(
+        connection.scalars(
+            text(
+                "SELECT n.nspname || '.' || c.relname FROM pg_class c "
+                "JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p')"
+            )
+        )
+    )
+    new_tables = [item for item in target_metadata.sorted_tables if item.fullname not in existing]
+    scaffolding = connection.begin_nested()
+    try:
+        previous = connection.exec_driver_sql("SELECT current_user").scalar_one()
+        previous_sql = "SET LOCAL ROLE " + connection.dialect.identifier_preparer.quote(previous)
+        for relation in new_tables:
+            # Existing public data FKs belong to the migration principal; eval's
+            # schema and existing table authority belong to the publisher.
+            connection.exec_driver_sql(
+                "SET LOCAL ROLE corpus_sem_publisher" if relation.schema == "eval" else previous_sql
+            )
+            target_metadata.create_all(connection, tables=[relation], checkfirst=False)
+        connection.exec_driver_sql(previous_sql)
+        for relation in new_tables:
+            if relation.schema != "eval":
+                connection.exec_driver_sql(
+                    "ALTER TABLE "
+                    + connection.dialect.identifier_preparer.format_table(relation)
+                    + " OWNER TO corpus_sem_publisher"
+                )
+        authoring = _prepare_series_authoring(
+            connection,
+            predecessor=predecessor,
+            predecessor_state=predecessor_state,
+            retire=retire,
+            recreate=recreate,
+            include_selected=include_selected,
+            target_metadata=target_metadata,
+            owned_authoring=owned_authoring,
+        )
+        physical_contract = _physical_check_contract(connection, target_metadata, authoring)
+    finally:
+        scaffolding.rollback()
     context = MigrationContext.configure(
         connection,
         opts={
@@ -1079,17 +1237,108 @@ def prepare_series_candidate(
     )
     candidate = produce_migrations(context, target_metadata)
     if candidate.upgrade_ops is not None:
-        from alembic.operations.ops import ExecuteSQLOp
-
-        # A fitting login may enter only its protected evaluator-schema capability.
-        # Schema ACL is an ordinary migration effect, separate from native function ACLs.
-        fitting_usage = connection.scalar(
-            text("SELECT has_schema_privilege('corpus_sem_fitter','eval','USAGE')")
+        from alembic.operations.ops import (
+            CreateForeignKeyOp,
+            CreateTableOp,
+            ExecuteSQLOp,
+            MigrateOperation,
+            ModifyTableOps,
         )
-        if fitting_usage is not True:
-            candidate.upgrade_ops.ops.append(
-                ExecuteSQLOp("GRANT USAGE ON SCHEMA eval TO corpus_sem_fitter")
+        from sqlalchemy.schema import AddConstraint
+
+        previous = connection.exec_driver_sql("SELECT current_user").scalar_one()
+        restore = "SET LOCAL ROLE " + connection.dialect.identifier_preparer.quote(previous)
+        publisher = "SET LOCAL ROLE corpus_sem_publisher"
+        ordered: list[MigrateOperation] = []
+        created = []
+        for item in candidate.upgrade_ops.ops:
+            if isinstance(item, CreateTableOp):
+                created.append(item)
+            if isinstance(item, ModifyTableOps) and item.schema == "eval":
+                for change in item.ops:
+                    if (
+                        isinstance(change, CreateForeignKeyOp)
+                        and change.source_table == "reference_set"
+                        and change.referent_table == "run"
+                        and change.kw.get("referent_schema") == "ops"
+                        and change.local_cols == ["source_run_id"]
+                        and change.remote_cols == ["id"]
+                    ):
+                        # This source-only FK crosses existing owner boundaries.
+                        # Preserve a pre-existing capability; remove only the
+                        # column privilege introduced for this one DDL statement.
+                        foreign_key = str(
+                            AddConstraint(change.to_constraint()).compile(
+                                dialect=connection.dialect
+                            )
+                        ).replace("'", "''")
+                        ordered.append(
+                            ExecuteSQLOp(
+                                "DO $reference_fk$ DECLARE previous_name text:=current_user; "
+                                "introduced boolean:=NOT has_column_privilege("
+                                "'corpus_sem_publisher','ops.run','id','REFERENCES'); BEGIN "
+                                "IF introduced THEN GRANT REFERENCES(id) ON ops.run TO corpus_s"
+                                "em_publisher; END IF; "
+                                "SET LOCAL ROLE corpus_sem_publisher; EXECUTE '"
+                                + foreign_key
+                                + "'; "
+                                "EXECUTE format('SET LOCAL ROLE %I',previous_name); "
+                                "IF introduced THEN REVOKE REFERENCES(id) ON ops.run FROM corpu"
+                                "s_sem_publisher; END IF; "
+                                "END $reference_fk$"
+                            )
+                        )
+                    else:
+                        group = ModifyTableOps(item.table_name, [change], schema=item.schema)
+                        ordered.extend((ExecuteSQLOp(publisher), group, ExecuteSQLOp(restore)))
+            elif isinstance(item, CreateTableOp) and item.schema == "eval":
+                ordered.extend((ExecuteSQLOp(publisher), item, ExecuteSQLOp(restore)))
+            else:
+                ordered.append(item)
+        # Keep migration-owned FK creation intact before transferring new data
+        # tables. No runtime principal receives direct mutation or reference ACLs.
+        for item in created:
+            relation = item.to_table()
+            if relation.schema != "eval":
+                name = connection.dialect.identifier_preparer.format_table(relation)
+                ordered.append(
+                    ExecuteSQLOp("ALTER TABLE " + name + " OWNER TO corpus_sem_publisher")
+                )
+        ordered.append(ExecuteSQLOp(publisher))
+        if physical_contract is not None:
+            ordered.append(ExecuteSQLOp(physical_contract))
+        for item in created:
+            relation = item.to_table()
+            name = connection.dialect.identifier_preparer.format_table(relation)
+            roles = target_metadata.tables[relation.fullname].info.get(
+                "read_roles",
+                [
+                    "corpus_sem_writer",
+                    "corpus_sem_reader",
+                    "corpus_sem_admitter",
+                    "corpus_sem_evaluator",
+                ],
             )
+            if roles:
+                ordered.append(
+                    ExecuteSQLOp(
+                        "GRANT SELECT ON "
+                        + name
+                        + " TO "
+                        + ",".join(
+                            connection.dialect.identifier_preparer.quote(role) for role in roles
+                        )
+                    )
+                )
+        if (
+            connection.scalar(
+                text("SELECT has_schema_privilege('corpus_sem_fitter','eval','USAGE')")
+            )
+            is not True
+        ):
+            ordered.append(ExecuteSQLOp("GRANT USAGE ON SCHEMA eval TO corpus_sem_fitter"))
+        ordered.append(ExecuteSQLOp(restore))
+        candidate.upgrade_ops.ops[:] = ordered
         _order_physical_retirement(candidate.upgrade_ops)
     return candidate, authoring
 

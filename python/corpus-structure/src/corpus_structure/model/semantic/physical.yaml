@@ -3806,6 +3806,7 @@ classes:
         - origin_group
     annotations:
       ph:immutability: intrinsic
+      ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns":["project_id"],"target":"data.project.project_id"}]'
       ph:checks: '["partition IN (''development'',''feature_fit'',''final_event_calibration'',''final_assessment'')", "origin_group <> ''''", "jsonb_typeof(provenance)=''object'' AND provenance<>''{}''::jsonb"]'
   reference_origin_source:
@@ -3828,4 +3829,5 @@ classes:
         - source_uri
     annotations:
       ph:immutability: intrinsic
+      ph:read_roles: '["corpus_sem_evaluator"]'
       ph:foreign_keys: '[{"columns":["project_id","origin_group"],"target":"eval.reference_origin_group.project_id,origin_group"}]'

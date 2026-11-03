@@ -187,7 +187,7 @@ LANGUAGE sql BEGIN ATOMIC SELECT 1; END;"""
         native_admission_sql(source, base_admission=frozen)
 
 
-def test_current_release_guards_refuse_historical_archive_and_projection_compilers():
+def test_current_release_guards_separate_readable_archives_from_current_projection_compiler():
     from pathlib import Path
 
     from corpus_structure.semantic.native_products import function_bodies
@@ -198,8 +198,8 @@ def test_current_release_guards_refuse_historical_archive_and_projection_compile
         "sem.require_execution_projection"
     ]
     assert "document->>'format' IS DISTINCT FROM 'semantic-release-archive-3'" in archive
-    assert "manifest->'profile'->>'compiler_version' IS DISTINCT FROM '14'" in archive
-    assert "IS DISTINCT FROM '14' THEN RAISE EXCEPTION" in projection
+    assert "COALESCE(manifest->'profile'->>'compiler_version','') NOT IN ('14','15')" in archive
+    assert "IS DISTINCT FROM '15' THEN RAISE EXCEPTION" in projection
     assert "THEN RETURN;" not in projection
 
 

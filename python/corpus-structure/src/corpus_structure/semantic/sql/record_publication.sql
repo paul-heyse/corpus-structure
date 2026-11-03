@@ -35,7 +35,7 @@ BEGIN
   EXISTS(SELECT FROM jsonb_array_elements(COALESCE(source_record->'evidence_sets','[]')) e GROUP BY e->>'set_id' HAVING count(*)<>1) THEN
   RAISE EXCEPTION 'record family roles or collection identities differ' USING ERRCODE='23514'; END IF;
  FOR anchor IN SELECT value FROM jsonb_array_elements(source_record->'anchors') LOOP
-  pin:=anchor->'pin'-'source_view_id';
+  pin:=(anchor->'pin')-'source_view_id';
   expected:='record-anchor:'||encode(sha256(convert_to(data.canonical_json(
    (anchor-'anchor_id')||jsonb_build_object('pin',pin)),'UTF8')),'hex');
   IF anchor->>'anchor_id' IS DISTINCT FROM expected THEN
@@ -85,7 +85,7 @@ BEGIN
     COALESCE(actual->'binding'->>'relationship','primary')<>'primary')) THEN
   RAISE EXCEPTION 'invalid record occurrence anchor membership' USING ERRCODE='23514'; END IF;
  expected:='record:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(
-  r,source_record->'family',source_record->'occurrence_recipe',source_record->'pin'-'source_view_id',
+  r,source_record->'family',source_record->'occurrence_recipe',(source_record->'pin')-'source_view_id',
   (SELECT jsonb_agg(a ORDER BY a COLLATE "C") FROM jsonb_array_elements_text(source_record->'occurrence_anchors') a))),'UTF8')),'hex');
  IF source_record->>'record_id' IS DISTINCT FROM expected THEN
   RAISE EXCEPTION 'record occurrence identity differs from released source membership' USING ERRCODE='23514'; END IF;
@@ -157,7 +157,7 @@ BEGIN
      IF EXISTS(WITH ordered AS (
       SELECT piece,(piece->>'start')::bigint AS source_start,
        lag((piece->>'end')::bigint,1,0::bigint) OVER (
-        PARTITION BY piece->'pin'-'source_view_id',piece->>'space',piece->>'pointer',piece->'recognition'
+        PARTITION BY (piece->'pin')-'source_view_id',piece->>'space',piece->>'pointer',piece->'recognition'
         ORDER BY member.ordinality) AS previous_end
       FROM jsonb_array_elements_text(evidence->'anchors') WITH ORDINALITY member(anchor_id,ordinality)
        JOIN jsonb_array_elements(source_record->'anchors') piece ON piece->>'anchor_id'=member.anchor_id)
@@ -267,7 +267,7 @@ REVOKE ALL ON FUNCTION data.validate_record_projection(text,text) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION data.validate_record_projection_cut(r text,z text,p_cut bigint)
 RETURNS void LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
-DECLARE report record; rec jsonb; mismatch text; job ops.run; cut ops.input_cut; model jsonb; contract jsonb; operation jsonb;
+DECLARE report record; record_value jsonb; mismatch text; job ops.run; cut ops.input_cut; model jsonb; contract jsonb; operation jsonb;
 BEGIN
  SELECT * INTO STRICT cut FROM ops.input_cut WHERE id=p_cut;
  SELECT * INTO STRICT job FROM ops.run WHERE id=cut.run_id;
@@ -292,17 +292,19 @@ BEGIN
  FOR report IN SELECT DISTINCT t.id,res.body FROM ops.cut_task c
   JOIN ops.task selected ON selected.id=c.task_id JOIN ops.task t ON t.id=c.origin_task_id
   JOIN ops.task_result res ON res.task_id=t.id WHERE c.cut_id=p_cut AND selected.status IN ('done','empty','reused') LOOP
+  IF jsonb_typeof(report.body) IS DISTINCT FROM 'object' THEN
+   RAISE EXCEPTION 'record source report envelope is not an object' USING ERRCODE='23514'; END IF;
   IF report.body ? 'records' THEN
    PERFORM ops.validate_source_record_report(report.id,report.body);
-   FOR rec IN SELECT value FROM jsonb_array_elements(report.body->'records') LOOP
-    PERFORM data.validate_record_relationships(r,rec);
+   FOR record_value IN SELECT value FROM jsonb_array_elements(report.body->'records') LOOP
+    PERFORM data.validate_record_relationships(r,record_value);
    END LOOP;
   END IF;
  END LOOP;
  WITH reports AS MATERIALIZED (
   SELECT c.task_id AS selected_task_id,c.origin_task_id,res.body,selected.unit_key,t.status
   FROM ops.cut_task c JOIN ops.task selected ON selected.id=c.task_id
-  JOIN ops.task t ON t.id=c.origin_task_id JOIN ops.task_result res ON res.task_id=t.id
+  JOIN ops.task t ON t.id=c.origin_task_id LEFT JOIN ops.task_result res ON res.task_id=t.id
   WHERE c.cut_id=p_cut AND selected.run_id=job.id AND selected.release_id=r AND t.release_id=r
    AND selected.status IN ('done','empty','reused') AND
    c.origin_task_id=COALESCE(selected.reused_task_id,selected.id)),
@@ -314,7 +316,7 @@ BEGIN
  evidence_sets AS MATERIALIZED(SELECT rec,evidence FROM records CROSS JOIN LATERAL
   jsonb_array_elements(COALESCE(rec->'evidence_sets','[]')) evidence),
  expected AS (
-SELECT 'record_report' AS relation,jsonb_build_object('selected_task_id',selected_task_id,'origin_task_id',origin_task_id,'cut_id',p_cut,'source',COALESCE(body->>'source',unit_key),'outcome',COALESCE(body->>'outcome','unknown'),'records_present',body ? 'records') AS row_data FROM reports
+SELECT 'record_report' AS relation,jsonb_build_object('selected_task_id',selected_task_id,'origin_task_id',origin_task_id,'cut_id',p_cut,'source',COALESCE(body->>'source',unit_key),'outcome',COALESCE(body->>'outcome','unknown'),'records_present',COALESCE(body ? 'records',false)) AS row_data FROM reports
  UNION ALL
  SELECT 'record_report_member' AS relation,jsonb_build_object('selected_task_id',selected_task_id,'position',ordinality-1,'record_id',rec->'record_id','interpretation_id',rec->'interpretation_id') AS row_data FROM reports CROSS JOIN LATERAL jsonb_array_elements(COALESCE(body->'records','[]')) WITH ORDINALITY x(rec,ordinality)
  UNION ALL

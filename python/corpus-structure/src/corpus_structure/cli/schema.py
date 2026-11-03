@@ -186,6 +186,49 @@ def _render_native_candidate(result):
     return table
 
 
+def _native_candidate_python(upgrade_ops, restore_sql: str) -> str:
+    """Render role restoration against the upgrade caller, never the authoring login."""
+    import ast
+
+    from alembic.autogenerate import render_python_code
+
+    source = (
+        "from alembic import op\nimport sqlalchemy as sa\n"
+        "from sqlalchemy import Text\nfrom sqlalchemy.dialects import postgresql\n"
+        "from corpus_structure.semantic import alembic_native\n\n"
+        "def upgrade():\n" + render_python_code(upgrade_ops) + "\n"
+    )
+    module = ast.parse(source)
+    function = next(item for item in module.body if isinstance(item, ast.FunctionDef))
+
+    class RestoreRole(ast.NodeTransformer):
+        def visit_Call(self, node: ast.Call) -> ast.AST:
+            if (
+                isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "op"
+                and node.func.attr == "execute"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and node.args[0].value == restore_sql
+            ):
+                return ast.parse(
+                    'op.execute("SET LOCAL ROLE " + '
+                    "op.get_bind().dialect.identifier_preparer.quote(_migration_role))",
+                    mode="eval",
+                ).body
+            return self.generic_visit(node)
+
+    RestoreRole().visit(function)
+    function.body.insert(
+        0,
+        ast.parse(
+            '_migration_role = op.get_bind().exec_driver_sql("SELECT current_user").scalar_one()'
+        ).body[0],
+    )
+    return ast.unparse(ast.fix_missing_locations(module)) + "\n"
+
+
 @schema_app.command("native-candidate")
 def native_candidate_(
     ctx: typer.Context,
@@ -204,7 +247,6 @@ def native_candidate_(
     from hashlib import sha256
     from tempfile import TemporaryDirectory
 
-    from alembic.autogenerate import render_python_code
     from sqlalchemy.engine import make_url
 
     from corpus_structure.cli.output import state
@@ -267,11 +309,10 @@ def native_candidate_(
                         "single-connection candidate has no upgrade operations"
                     )
                 native = [item for item in upgrade_ops.ops if isinstance(item, NativeTransitionOp)]
-                rendered = render_python_code(upgrade_ops)
-                python_source = (
-                    "from alembic import op\nimport sqlalchemy as sa\n"
-                    "from corpus_structure.semantic import alembic_native\n\n"
-                    "def upgrade():\n" + rendered + "\n"
+                migration_role = conn.exec_driver_sql("SELECT current_user").scalar_one()
+                python_source = _native_candidate_python(
+                    upgrade_ops,
+                    "SET LOCAL ROLE " + conn.dialect.identifier_preparer.quote(migration_role),
                 )
                 compile(python_source, "native_candidate.py", "exec")
                 admission = candidate_admission_sql(

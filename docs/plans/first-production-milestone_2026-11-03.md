@@ -249,7 +249,7 @@ interrupted receipts. M1-14 owns actual CPU/publication/CLI/MCP/export, resource
 assessment beyond the functional union. Follow existing evidence record/finalization conventions.
 
 The proposed family gates retain ≥90% candidate recall, ≥97% full-record precision with a one-sided
-95% lower bound ≥95%, and a predeclared useful-recall floor (planning starts around70%). Zero known
+95% lower bound ≥95%, and the operator-selected70% accepted full-record recall floor for each family. Zero known
 broken required anchors and complete routing/coverage accounting are separate obligations. Freeze
 final policy, sampling and appropriate source-group interval before final assessment; too few groups
 or degenerate zero-error resampling leaves the gate unestablished. A whole-record error includes
@@ -340,7 +340,7 @@ These are existing open work, not newly discovered omissions in the completed sl
 | Owner | Remaining settling evidence/work |
 | --- | --- |
 | M1-03/05/07/11/13 | Coherent forward native preparation/migration and actual custody/publication/reference integration; preserve exact implementation fences and predecessor meanings. |
-| M1-12/13/14; existing F01–F04 | Execute the applicable native and real consumer journeys on that coherent source/context, including source evidence, empty/missing predictions, cursor/refusal and atomicity controls. Fitting authentication remains a separately pending host authorization. |
+| M1-12/13/14; existing F01–F04 | Execute the applicable native and real consumer journeys on that coherent source/context, including source evidence, empty/missing predictions, cursor/refusal and atomicity controls. Fitting-only authentication has since been explicitly approved and provisioned; native fitting access qualification remains open. |
 | M1-06/09/14 | Ordinary/dense workload and aggregate CPU/RSS/recovery evidence beyond bounded safe refusals and detached operations. |
 | M1-01/08/10/13/14 | Independent references, accepted family subsets, evaluated policy/assertion lowering, calibration and defensible statistical release evidence. Existing open packages retain these obligations. |
 
@@ -456,29 +456,20 @@ its own owner.
   resampled together, ratios recomputed from counts, and empty/undefined/degenerate/few-group
   intervals remain unestablished. Descriptive two-sided percentile machinery does not establish
   the one-sided release bound, source independence or population sufficiency.
-- **M1-11 In progress:** 18 finite public record relations and their derived publication transport
-  are integrated with released family meaning. Candidate standing, report absence/empty, exact
-  lexical values, evidence membership and alternatives survive lowering. Protected publication
-  checks exact sealed-report projection and retains graph-product fences. A forward candidate
-  with 18 ordinary/17 native operations authored successfully on a disposable native100 database;
-  it is not deployed. Actual public native controls, accepted assertion lowering and final policy
-  remain open. Compiler15 gives changed preparation its own identity; a genuine compiler14 archive
-  remains readable without recompilation. Four preservation controls and 11 pack/composition/compiler
-  controls passed at their recorded source states.
-- **M1-12 In progress:** a bounded completed-result reader returns all 18 archived relations with
-  report-to-source membership, count/row/canonical JSON budgets and pinned cut/revision. Six
-  additional actual-native reader controls are authored, not run. CLI/MCP/export adapters are
-  integrated in source, including common record presentation and atomic JSONL/Parquet companions;
-  focused detached controls cover their mechanics. Actual assembled native consumer and
-  selected-result-switch journeys remain not_run.
-- **M1-13 protected-reference scope In progress:** distinct source-record schemas/operations reuse
-  existing protected set/unit/pass/frame/evaluation storage. Source-ready membership, retained
-  guideline text and immutable origin partitions are independent of prediction presence. Fitting
-  has a dedicated restricted-principal capability for feature-fit references only. ADR-0052 records
-  this target. Independent review found missing-producer alias and unused captured-pointer closure
-  defects; repairs are integrated and native controls remain unrun. Host fitting-role/peer-auth
-  provisioning awaits explicit operator approval. No actual fitting, authoring, calibration or
-  protected grading journey is claimed.
+- **M1-11 In progress:**18 public record relations, candidate-only publication and compiler15
+  preservation are integrated. Native101 now includes53 managed transitions/70 ordinary operations
+  for current source/reference/publication custody, table posture and begin/publish/end transport.
+  The43 final native controls pass at controlled fixture scope; accepted assertion lowering,
+  evaluated acceptance policy and actual corpus publication remain open.
+- **M1-12 In progress:** bounded root selection, reconstruction, cursor/budget/refusal and source
+  handle controls now pass through actual native publication/read paths. CLI/MCP/export adapters
+  retain their detached mechanics coverage. Actual assembled corpus CLI/MCP/export,
+  selected-result changes and operational journeys remain open.
+- **M1-13 In progress:** protected source-ready references, native grading and restricted fitting
+  access pass controlled native cases, including missing/empty reports and partition refusals.
+  Fitting-only role/peer provisioning was explicitly approved and completed. Reference CLI routing
+  and finite-cut one-sided precision machinery are implemented/tested. Actual Sol references,
+  corpus grades, feature fitting/calibration and final family evidence remain open.
 - **Combined focused check passed, 2026-11-03:** 320 tests across source contracts/contexts,
   public row shapes, pure numerical/comparison/statistical/reference operations and candidate
   routing/runtime mechanics; raw receipt is
@@ -494,9 +485,76 @@ its own owner.
   actual fitting/provider/consumer journey or release qualification follows.
 - **M1-10/14/15 Planned:** no completion or whole-release qualification claim.
 
-Next: qualify the source-integrated publication/reference/consumer machinery against a coherent
-forward native boundary; the scoped target assessment and detached adapter integration are done. Fitting-role/peer authentication is a
-pending explicit host approval. Actual accepted policy, numerical producer coupling, cross-context
-producer adoption, replay/recovery, independent references and family release evidence remain open.
-M1-14 cannot close from the development canaries or pure tests. Production defaults,
-run6/tasks27–31 and existing application databases remain unchanged.
+The operator requested closeout of the active increment. Its scoped source/native/CLI/statistical
+work and targeted checks are complete. Further M1 work remains under this coordinator; no source
+copy, new Sol session or corpus extraction was started during closeout. No package is marked
+complete and no qualified M1 release or default adoption follows.
+
+## Qualification increment closeout — 2026-11-03
+
+**Closed at bounded scope.** [Qualification evidence](../design_review/evidence/2026-11-03_m1-qualification/README.md)
+and its finalized record retain commands, source hashes, failures and applicability. The active
+milestone and M1-10/14/15 remain open.
+
+### Approved scope and decisions
+
+ADR-0053 selects fresh `gpt-6.1-sol` high sessions for source-reference A/B/C, with existing protected
+pass storage and deterministic numerical grading. The operator trusts independence; add no special
+isolation or independence-testing infrastructure. Qualification concerns a frozen held-out source
+cut, with unchanged per-family targets:90% capture,97% accepted full-record precision, a one-sided
+95% lower precision bound of95%, and70% accepted full-record recall. Exhaustive source references
+retain no-output regions. Precision may use a census or predeclared SRS without replacement from a
+complete accepted-record frame with exact hypergeometric bounds. Unseen-origin performance remains
+unestablished. Origin partitions still separate development, fitting, calibration and assessment.
+The [evaluation companion](first-production-milestone/evaluation-qualification-and-gap-driven-expansion.md#frozen-held-out-cut-qualification)
+owns method detail. Additional suitable English statistics sources are authorized when needed.
+
+### Delivered and tested increment
+
+- Restricted fitting login/peer mapping on 18/corpus5434 was provisioned under explicit approval;
+  actual native fitting-isolation controls pass. This establishes neither actual model fitting
+  nor corpus-label quality.
+- Native101 evolves frozen100 without modifying it. The53 native/70 ordinary operations include
+  source-product/table protections, evaluator-only origin reads, current readable 14/15 archive
+  bytes, current execution projection 15, exact source-record validation and complete 44-relation
+  begin/publish/end transport. Source-derived function rename tracking preserves owner/ACL across
+  frozen history. Current guard whitespace is normalized through a legitimate forward transition;
+  exact descriptor/require-body hashes remain enforced.
+- Private report reading preserves genuine absence, explicit empty records and present malformed
+  JSON as different cases. Native publication validates the same distinction. Reference and public
+  validators retain the corrected JSON precedence and PL/pgSQL bindings. Adversarial controls use
+  explicit-row transport so native refusal is reached without weakening client preparation.
+- Reference CLI origin/set/packet operations and stored-protocol submit/eval routing are integrated.
+  Malformed inputs receive structured refusals. Cold tool registration uses a lightweight persisted
+  scientific schema with original exports and query source custody preserved. Graph-only constraints
+  exclude private source products using the existing placement authority.
+- Exact finite-population precision bounds are implemented beside descriptive group resampling;
+  empty/degenerate/unestablished cases retain their limits. A development-reference helper and
+  guideline are prepared and statically checked; snapshot/restore and Sol execution are not_run.
+
+### Final verification and preservation
+
+**passed:**43 actual native tests,207 non-DB focused tests (12 deselected), scoped Ruff and Pyrefly
+on 26 paths (0 errors), source inventory/renderer controls, root maintenance and ADR lint. The final
+native command retained unchanged ordered 141 implementation fingerprints and 24 explicit source/
+artifact watches; no newly retained disposable test databases remained. The 32-path final source
+manifest also matches. `just evidence` passed with 0 errors/39 retained warnings; ADR lint passed.
+`just docs-check` still fails on existing library-link targets outside edited pages; its failure
+receipt is retained. These are selected component/control results, not full M1 qualification.
+
+Earlier authoring, fixture and context-invalid runs remain. A concurrent formatter changed one
+implementation file during an earlier run; the runtime refusal was retained and no binding guard
+was relaxed. Final canonical formatting and complete context checks resolve that limitation.
+Concurrent audit/review commits and their distinct finding owners are preserved. Work is integrated
+on main; only the main worktree remains. Live native99, run6/tasks27–31, application data/defaults
+and other PostgreSQL clusters remain unchanged. No push occurred.
+
+### Remaining authorized milestone work
+
+Freeze the held-out release/audit populations and supported family guideline; prepare actual
+source-ready references and fresh Sol A/B/C passes; qualify source/prediction population scope and
+corpus grades. Complete evaluated acceptance/assertion lowering, numerical and attributed producer
+integration, replay/recovery, real CLI/MCP/export/source journeys and measured resources. Final
+functional/provider/nonfunctional qualification and adoption/rollback follow complete selected
+functional scope. `just test-all`/applicable hygiene have not been run for an incomplete milestone.
+The separate UM agent assessment/follow-up remains with its existing owner.

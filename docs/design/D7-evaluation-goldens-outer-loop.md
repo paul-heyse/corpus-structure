@@ -19,6 +19,25 @@ versioned guideline, blind two-pass golden authoring by Sonnet with adjudication
 leakage rules, alignment and scoring, witnesses that do not depend on the golden author, experiments and
 promotion, and the operator's outer loop of direction. Tables: [D3 §7](D3-database.md#7-eval-goldens-and-results).
 
+## M1 Sol assessment profile
+
+**Accepted target, Proposed until exercised (2026-11-03).** M1 source-record reference authors
+A/B and adjudicator C use fresh `gpt-6.1-sol` high-reasoning sessions. Reuse source packets,
+released reference contracts and pass registration; the deterministic evaluator computes grades.
+No special session isolation infrastructure or independence checks are required. Historical and
+legacy author profiles retain their original meanings. M1 release recall is at least 70% per
+family, alongside the existing candidate-capture and precision gates.
+
+M1 qualification uses a frozen held-out finite source cut (operator selection, 2026-11-03).
+Source-side reference coverage includes no-output regions. Precision may be exhaustively measured
+or use predeclared SRS without replacement over a complete accepted-record frame, with an exact
+hypergeometric one-sided bound. Claims remain conditional on that cut; source-cluster bootstrap
+is descriptive, and no unseen-origin accuracy claim follows. Targets and isolated origin
+partitions remain under the M1 coordinator and ADR-0053. **Proposed:** actual final-cut evidence
+has not yet been acquired.
+
+> Decision: [ADR-0053](../adr/0053-m1-sol-reference-assessment.md)
+
 ## Current automated reference boundary
 
 **Implemented, 2026-10-30; actual regeneration/qualification remains in SP-09/SP-10.**

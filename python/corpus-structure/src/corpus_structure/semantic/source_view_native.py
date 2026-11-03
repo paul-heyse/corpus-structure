@@ -178,6 +178,49 @@ def native_admission_sql(
                     deferred=False,
                 )
             )
+    # New append-only guards are declared managed objects, rather than inherited
+    # accidentally from a live authoring catalog. Protect them at execution too.
+    from pglast import ast, parse_sql
+
+    for native in native_objects:
+        if native.identity.kind != "trigger" or native.identity.name != "semantic_immutable":
+            continue
+        statement = parse_sql(native.catalog["definition"])[0].stmt
+        if (
+            not isinstance(statement, ast.CreateTrigStmt)
+            or statement.row
+            or statement.timing != 2
+            or statement.events != 56
+            or statement.args
+            or statement.columns
+            or statement.whenClause is not None
+            or tuple(part.sval for part in statement.funcname or ())
+            != ("sem", "refuse_immutable_mutation")
+        ):
+            raise ValueError("unsupported managed immutable guard shape")
+        relation = native.identity.schema + "." + native.identity.relation
+        tables[relation] = relation_descriptor(metadata.tables[relation])
+        descriptor["triggers"] = [
+            item
+            for item in descriptor["triggers"]
+            if (item["relation"], item["name"]) != (relation, native.identity.name)
+        ]
+        descriptor["triggers"].append(
+            dict(
+                relation=relation,
+                name=native.identity.name,
+                function="sem.refuse_immutable_mutation()",
+                type=58,
+                columns=[],
+                when=None,
+                args="",
+                deferrable=False,
+                deferred=False,
+            )
+        )
+    descriptor["triggers"] = sorted(
+        descriptor["triggers"], key=lambda item: (item["relation"], item["name"])
+    )
     descriptor["tables"] = sorted(tables.values(), key=lambda item: item["relation"])
     required = admission_kernel()
     from .native_sql_body import admission_body_comparison

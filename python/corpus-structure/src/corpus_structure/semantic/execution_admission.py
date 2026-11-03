@@ -199,7 +199,7 @@ def require_archive_fence(connection: Connection) -> None:
 
 # Frozen from reviewed migration ASTs through semantic_m1_private_20261103.
 # Schema derive emits the corresponding SQL.
-_DESCRIPTOR_SHA256 = "3ca53097baa97530f6753c032229b5b88fd3c4ddd552d06a7b25454e0cf8fe04"
-_REQUIRE_SHA256 = "f3d9464d0d4eb62fcec58a74aa9991c9c03a041bf3c9e8cb81809a7716257434"
+_DESCRIPTOR_SHA256 = "d9ead230faea834f97ab4f3f14604a1987576e3155963bc119958b64befbb017"
+_REQUIRE_SHA256 = "3873fbe400682b2f384a67b50ba603828d5e10420c30376404e0bd5b1726ce64"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"
