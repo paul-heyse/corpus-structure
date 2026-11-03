@@ -39,3 +39,8 @@ again. The minimum inline budget1024 permits a reference-only refusal, default1M
 control confirms oversized delivery performs no artifact-content SELECT. The original source-schema
 fixture failure and typing failures remain in `raw/`; scoped production Ruff and Pyrefly0errors
 passed after correction. Source creation and passive read budgets remain separate owners.
+
+The explicit-checkout replay guard was exercised with the source worktree's environment and
+`--checkout /home/paul/corpus-structure`: it refused before authentication, database acquisition
+or provider invocation because the imported operation owner belonged to the source worktree.
+`raw/wrong-checkout-refusal.log` retains that expected exit1; `--help` passed.
