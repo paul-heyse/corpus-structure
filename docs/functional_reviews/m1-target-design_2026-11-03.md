@@ -2,7 +2,10 @@
 
 **Proposed recommendations · 2026-11-03.** Functional, capability-led review under
 `functional-extension-review`; no diagnostic audit prerequisite or diagnostic acceptance claim.
-Source baseline: `b8e1a020`, clean at initial inspection. The operator selected statistics first,
+Original source baseline: `b8e1a020`, clean at initial inspection. Supplemental reassessment
+(2026-11-03): `a99e15ab` plus the operator's uncommitted GLiNER reference, Git blob
+`3daefdd5af8a3118f4767d9a558da4bc712cbacd`. Both its original reference and supplemental §§1–8
+were considered together. The operator-owned reference is not edited or staged by this revision. The operator selected statistics first,
 engineering/other transfer scenarios, five core families, downstream CPU-first execution without
 general LLM extraction, and broader improvements staged separately. This review owns opportunity
 reasoning and alternatives. The [M1 design](../target-pipeline-design/first-production-milestone.md)
@@ -65,10 +68,14 @@ Sources: [spaCy §§2–4, 9](../libraries/parsing/spacy.md),
 
 **Recommend for M1.** Use one versioned adapter/schema family rather than one model pipeline per
 record family. `AutoExtractor.from_pretrained` selects boundary architecture. Native
-`structure(..., mode="natural", anchor=...)` proposes repeated grouped records; combined
+`structure(..., mode="natural", anchor=...)` proposes repeated grouped records, with supported
+field cardinality and within-group same-field exclusivity; combined
 `extract` shares compatible work, and `AttributeGroup` supplies mention-specific role observations.
 Use the seven existing packs with domain-specific descriptions, boundary conventions and examples.
-Changing descriptions changes effective model input and therefore the reuse key.
+Changing descriptions, prompts or development-only examples changes effective model input and
+therefore the reuse key. The native shared proposal pool makes schema competition material to
+candidate recall. A cheap routing pass cannot promise reuse of its encoding under a different
+focused schema.
 
 Compare native grouped output with deterministic span assembly. A grouped record can associate
 mean, standard deviation and sample size; it cannot establish that every required role is stated.
@@ -87,9 +94,29 @@ Sources: [GLiNER §§2–7](../libraries/parsing/gliner2.md), tagged v2.1.0
 [attributes](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/tutorial/13-span_attributes.md),
 [classification](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/tutorial/14-constrained_classification.md),
 [joint extraction](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/tutorial/15-joint_ie.md).
-Detailed cardinality/ambiguity keyword compatibility remains a pinned-source implementation
-prerequisite; a linked architecture document was unavailable during research. No local API or
-model-quality qualification is claimed.
+Supplemental tagged-source inspection resolves the earlier cardinality/ambiguity API uncertainty.
+Use explicit record mode/anchor and native assignment before writing another within-group matcher.
+Prefer `optional_one` for extracted scalars so model absence can survive even when the domain
+requires that field for final acceptance. `required_one` can force a low-score candidate past the
+field threshold; `one_or_more` can still return empty. Exclusive scalar assignment is joint within
+one record group's same field; exclusive lists choose the strongest instance. Shared conditions,
+headers and units must remain reusable where meaning requires it. Native `ABSENT` does not mean
+source-unstated, and training `occurrence_policy` does not resolve runtime identities.
+
+Latent and anchorless formation are useful pack-specific challengers for unstable/missed anchors,
+not mandatory replacements. Their learned seeds/slots still depend on field candidates; fixed
+instance-query capacity and slot order cannot define durable source identity. Evaluate complete
+records against natural grouping and deterministic assembly. Native enum fields can return record
+anchor offsets or `(0,0)` for schema-prefix choices: retain classified value and association, and
+obtain literal cue evidence independently. Never relabel those offsets as extraction evidence.
+
+Use strict `Schema.from_dict` admission for registry input, not permissive builder kwargs. Round-trip
+the supported declarative subset; callable validators need a separate versioned binding under the
+same owner. No local API, inference or model-quality qualification is claimed.
+Sources: tagged [schema/serialization](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/gliner2/inference/schema.py),
+[record assignment](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/gliner2/models/boundary/records.py),
+[formatter](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/gliner2/models/boundary/engine.py),
+[supplemental integration](../target-pipeline-design/gliner-deployment.md#supplemental-capability-integration).
 
 <a id="O03"></a>
 ### O03 · Field-addressable evidence and complete-record interpretation
@@ -152,7 +179,13 @@ Use native long/batch APIs only under their actual window semantics. Preserve wi
 before highest-score duplicate merging; nested spans and sparse boundary budgets matter. JointIE
 long extraction creates no cross-chunk edges. Repair schema descriptions, overlap, candidate
 budgets and context before adding models. Lower-level explicit-span scoring is a conditional
-bridge requiring pinned token/query contracts, not a guaranteed drop-in rescue.
+bridge with source-confirmed API but still requiring executed token/query/mask and capacity
+qualification. Shared-pool injection can overflow and raise; it does not bypass every budget.
+Learned no-match suppression and Poisson count-guided retention apply to particular entity/
+grouped candidate paths, not a record-completeness certificate. Keep adaptive retention off in the
+initial checkpoint profile and compare it only on supported tasks with dense-span losses. Retain
+raw signals where exposed without inventing a general public diagnostics API or treating related
+heads as independent evidence.
 
 Sources: [GLiNER §§2.3, 5, 6.3](../libraries/parsing/gliner2.md),
 [tagged long-context tutorial](https://github.com/fastino-ai/GLiNER2/blob/v2.1.0/tutorial/12-long_context.md).
@@ -266,13 +299,68 @@ Preserve the existing exact/scientific numeric policy; a generic solver must not
 <a id="O11"></a>
 ### O11 · Routed specialists and richer record families
 
-**Follow-on.** Explicit ordered procedures, multilingual packs, LoRA specialization, distant
+**Follow-on.** Explicit ordered procedures, multilingual packs, supervised/LoRA specialization
+(with DoRA as an evaluated alternative), distant
 coreference/discourse and corpus support models can extend useful coverage. First demonstrate
 persistent source-grounded gaps after schema/context repair; use the same whole-record/evidence
 gates and regression population. Procedures remain shadow output until the five core families
 ship. Keep support/opposition and known citation origins in M1; latent truth estimation, exhaustive
 stream attribution and learned value-of-information routing require separate assumptions and
 outcome evidence. Generative assistance would require an explicit revision of release scope.
+
+## Combined capabilities and supplemental dispositions
+
+**Proposed reassessment · 2026-11-03.** The original reference's combined APIs, attributes,
+constrained decoders, source spans and specialization facilities make the supplemental mechanisms
+more useful in composition. The integrated design selects the following workflows, without
+assuming that the native decoders already share one globally coherent interpretation.
+
+| Combination and consumer benefit | Selected design and alternative/limit |
+| --- | --- |
+| Compact combined schema + shared candidate pool + multi-label role conditioning | Co-produce compatible mentions/roles/records on one coherent context, then route missing roles. Compare focused schemas when competition hides candidates. Version prompts/examples and never assume changed schemas reuse earlier encodings. |
+| Mention attributes + anchored records + native assignment | Candidate value-role observations join grouped quantities by exact source occurrence. Native exclusivity prevents duplicate same-field use; outer interpretation checks role/qualifier attachment and shared conditions. Independently extracted flat lists remain the comparator, not the default reconciliation framework. |
+| Rule/grammar spans + original text maps + explicit-span scoring | A numeric parser or overlapping spaCy rule identifies a span missed by proposals; the qualified low-level bridge scores aligned model-word spans and the same outer assembler consumes them. Pool overflow and missing alignment have explicit dispositions; this does not force the span into a record or certify it. |
+| Score/decode separation + alternative constraints + complete-record evaluation | Re-decode Classifier scores only under a matching compiled-schema fingerprint and supported decode settings; changed schema constraints require re-scoring too. Qualify JointIE lattice reuse separately. This fixed-evidence comparison supplies no additional independent observation. |
+| Shared preparation + native batching + source-aware windows | Prepare and map once, batch compatible schemas/lengths, retain per-window alternatives before native merging. Reuse compatible encoder state only when the actual encoded batch, queries/masks and model profile match. Prefer combined APIs over a new general tensor cache. Classifier(model)/JointIE(model) can share resident weights, but shape-valid hidden states do not prove schema/token compatibility. |
+| Native dataset alignment + injection-free diagnostics + targeted adaptation | Attribute proposal, scoring and grouping loss separately before selecting a repair. Explicit occurrence labels and capacity/error accounting prevent injected gold or skipped dense examples from creating spurious improvement claims. |
+
+A worked statistics case is “Group A: mean 12, SD 3; Group B: mean 10, SD 2.” Rule spans and GLiNER
+candidates are anchored by original occurrence, role attributes distinguish mean/dispersion, and
+native grouped assignment associates values with groups. A shared population or confidence note
+remains nonexclusive. Outer interpretation preserves the complete cohort/condition and missing
+sample-size state. If natural anchor detection fails, latent grouping is a controlled challenger;
+if a number is never proposed, explicit-span recovery is a different controlled action. No change
+in model grouping turns a source statement into scientific truth or a calibrated decision.
+
+The remaining supplemental mechanisms have these dispositions:
+
+- **Integrate now into contracts:** explicit splitter restoration, preprocessing synthetic punctuation,
+  strict schema admission and validator binding, checkpoint-active head/pool provenance, classified
+  enum evidence, task-specific null/count semantics and local dependency-profile qualification.
+- **Conditional M1 routes:** latent/anchorless grouping, count-guided retention and bounded supplied-span
+  scoring. Require a source-grounded gap, selected operation signature, complete-record comparison
+  and actual CPU/coordinate qualification before enabling a route.
+- **Conditional specialization:** native dataset statistics/validation and literal-entity alignment diagnostics; explicit negative/nested supervision; injection-off recall diagnostics;
+  gold-capacity failure and strict data/numerical handling; supervised/LoRA/DoRA comparison. Native
+  dry-run diagnostics do not update parameters or replace held-out family assessment. Default
+  capacity failure retains the population; explicit skips/truncation must retain their denominators.
+- **Defer runtime alternatives:** BF16/FP16, compile/attention/packing strategies and alternate internal
+  streaming/vectorized execution until an actual CPU problem warrants comparison with FP32. Do not
+  import GPU-derived packing cutoffs as CPU performance facts or change trained representation
+  modules as casual tuning. `export_mode` is not an ONNX export capability.
+- **Scoped follow-ons:** Decide-340M/Decide-1B/multilingual Decide have distinct architecture/heads;
+  safety/PII/combined checkpoints require a sensitive-source or agent workflow with explicit demand.
+  They add no default statistics-release requirement. Detection is not redaction or a security proof.
+- **Alternative interface only:** hosted batching/partial results/retries and native Transformers
+  integration are not local-feature parity or an automatic fallback. Hosted record builders omit
+  local features. Saved weights/tokenizer do not replace the runtime deployment manifest; the local
+  extra includes PEFT even though adapter imports can be lazy. NCCL/DDP does not imply CPU training.
+
+The exact detailed source contracts and qualification scenarios live in the
+[deployment](../target-pipeline-design/gliner-deployment.md#supplemental-capability-integration) and
+[evaluation](../target-pipeline-design/rollout-and-evaluation.md#supplemental-gliner-capability-comparisons)
+pages. Original opportunity IDs remain stable; these mechanisms deepen O01/O02/O05/O06/O11 rather
+than create another opportunity register or a recommendation-audit publication.
 
 ## Interactions, decisions and architectural assessment
 
@@ -311,7 +399,13 @@ that scoped inspection; this is not whole-system acceptance. The coordinator ins
 integrated the judgments. Context7
 lookups led to upstream/tagged documentation for consequential GLiNER, numerical and analytical
 contracts. Local overviews supplied broader discovery leads; their research versions are not
-assumed equal to current dependency pins. No library overviews were rewritten.
+assumed equal to current dependency pins. No library overviews were rewritten. The supplemental reassessment additionally inspected tagged
+record/schema/engine/processor/trainer implementations and immutable base/multi configurations.
+It corrects the former source-uncertain cardinality/explicit-span statements while leaving local
+runtime and quality evidence unestablished. The source document remains operator-owned dirty work. Optional native formation, structured
+assignment, original attribute/combined APIs and supplied-span recovery were assessed in composition;
+shared model residency and exact schema fingerprints constrain reuse. The original base-install
+claim is qualified by the supplemental reported import issue, not repeated as an import guarantee.
 
 **Completed:** detailed proposed target, grounded opportunities O01–O11, comparative dispositions,
 worked contract challenges, consumer/compatibility impacts and staged uncertainty routes.

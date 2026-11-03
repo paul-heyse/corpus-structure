@@ -25,6 +25,8 @@ _Updated 2026-11-03; native99 implementation and non-Claude source qualification
 - **Proposed design, 2026-11-03:** [M1 target](docs/target-pipeline-design/first-production-milestone.md)
   now integrates the [functional review](docs/functional_reviews/m1-target-design_2026-11-03.md):
   five statistics-first CPU record families, concrete library mechanisms and staged extensions.
+  Supplemental GLiNER review integrates native assignment/schema controls and composed recovery;
+  latent/anchorless/count-guided routes remain conditional. Operator library edits stay uncommitted.
   Implementation selection and M1 runtime/release qualification remain separate.
 
 ## Verification
@@ -46,7 +48,7 @@ _Updated 2026-11-03; native99 implementation and non-Claude source qualification
 - **failed, deferred:** docs-check has existing library-reorganization publication links.
   Final just turn-end passed; current docs-check reports no owned UM/consumer link error.
 
-- **M1 docs, 2026-11-03:** `git diff --check` passed; `just docs-check` failed on existing
+- **M1 docs, 2026-11-03:** `git diff --check` and `just turn-end` passed; `just docs-check` failed on existing
   publication links, with no M1 target/review target error. Product checks `not_run` (design only).
 
 ## Next

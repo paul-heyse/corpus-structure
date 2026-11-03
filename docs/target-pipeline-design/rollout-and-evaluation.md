@@ -140,3 +140,25 @@ Profile dense/long contexts and actual whole-record output before claiming the i
 Maintain the original failed/interrupted results and the prior accepted cut for rollback.
 Broader O08–O11 opportunities stay in the review with promotion conditions; no all-stream ablation,
 new specialist, runtime probe or benchmark campaign is required merely to finish this design.
+
+
+### Supplemental GLiNER capability comparisons
+
+**Proposed · 2026-11-03.** Add these cases to qualification of the selected operation profiles;
+conditional challengers do not become mandatory production routes merely because the API exists.
+
+| Case or comparison | Required distinction |
+| --- | --- |
+| Natural explicit anchor versus latent/anchorless on a missed-anchor cohort | Candidate capture versus grouping; full-record precision/coverage; learned slot identity versus source occurrence; fixed query capacity. |
+| Exclusive scalar/list assignment across repeated records | One candidate cannot fill an exclusive same-field slot twice within the native group; shared headers/conditions remain reusable; equal strings at distinct offsets remain distinct. |
+| Missing required scalar/list; enum output | No forced low-score scalar or empty required list bypasses outer acceptance; enum-anchor/zero offsets are not reported as literal evidence. |
+| Shared pool and optional count-guided entity retention | Proposal pool loss versus final retention; threshold union behavior, task-specific support and common evidence lineage; neither predicted span count nor abstention proves record completeness. |
+| Explicit-span pool overflow or unalignable deterministic candidate | No silent omission, fabricated negative score or rounded source coordinate; bounded retry has a new input identity. |
+| Strict schema round-trip and conditioned examples | Unknown keys fail; separately bound validators survive registry reload; fitting/final references never enter few-shot examples. |
+| Same-schema decode changes versus changed constraints; shared resident model | Same-fingerprint scores can support qualified decode variants; changed schema constraints re-score; equal hidden-state shape does not prove compatible token/schema/adapter provenance. |
+| Save/reload with splitter; punctuation and Unicode edge cases | Identical effective word boundaries and original offsets, explicit synthetic suffix, no reuse under changed splitter/schema/precision. |
+
+If specialization is selected, native injection-free proposal diagnostics and capacity/data checks
+inform diagnosis alongside held-out full-record assessment. Do not reuse built-in training recall
+thresholds as family release gates or report injected-gold success as independent candidate recall.
+No new model inference or training result is established by this supplemental design revision.

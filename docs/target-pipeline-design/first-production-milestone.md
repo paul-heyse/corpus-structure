@@ -144,6 +144,35 @@ as dependencies where they influence acceptance. Repeated text at different posi
 distinct. Structural table/formula cues can activate a pack despite uncertain role classification.
 Unknown/mixed roles get a bounded broad pass or pending disposition; no silent routing loss.
 
+### Native grouping, schema admission and source coordinates
+
+**Proposed supplemental integration · 2026-11-03.** [Deployment details](gliner-deployment.md#supplemental-capability-integration)
+incorporate the supplemental GLiNER reference and govern the following choices across families:
+
+- Select natural grouping with an explicit anchor initially; delegate supported within-group,
+  same-field exclusive assignment to the native record head. Preserve legitimately shared unit,
+  header and condition evidence. Required cardinality does not guarantee evidence or confidence:
+  required scalar selection can force low scores, and a required list can still be empty.
+- Register latent/anchorless grouping as pack-specific challengers for missing/unstable anchors.
+  They still require source-grounded fields. Learned slots never become occurrence identity;
+  their trained capacity is not resized as an inference-only setting. Promote only on complete
+  record comparisons and actual checkpoint/CPU qualification.
+- Preserve native absent/abstention/count score semantics without mapping them automatically to
+  source absence, record completeness or outer unresolved probability. Track shared pool loss and
+  effective schema competition independently of final decoding. Count-guided retention stays off
+  in the initial profile; explicit-span rescoring is a capacity-checked targeted recovery route.
+- Admit versioned descriptions, prompts and development examples through strict native schema
+  validation. Serialize only the supported declarative subset and bind separately versioned
+  callable validators under the same owner. Schema-conditioned encodings cannot survive changed
+  labels/examples by assumption.
+- Treat enum field outputs as classifications. Native record-anchor or zero-length offsets on an
+  enum do not locate that enum's literal text. Keep association and source cue anchors separately;
+  do not present a classified `rated` label as an extracted substring without located evidence.
+- Pin/restore GLiNER word-splitter state independently of spaCy and tokenizer configuration. Its
+  half-open offsets refer to original text. Public preprocessing may append punctuation; map it
+  as synthetic input and refuse invented source anchors. Saved weights/tokenizer alone do not
+  capture that runtime policy.
+
 ### Five family assemblers
 
 | Family | Assembly and acceptance rule |
